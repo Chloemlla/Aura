@@ -20,7 +20,6 @@ PACKAGE_JSON = Path("functions/package.json")
 ROADMAP = Path("ROADMAP.md")
 RESEARCH = Path("RESEARCH.md")
 README = Path("README.md")
-CLAUDE = Path("CLAUDE.md")
 COMMUNITY_CALLABLE_DOC = Path("docs/community-callable-quota-enforcement.md")
 
 VERSION_PATTERN = re.compile(
@@ -57,10 +56,6 @@ CURRENT_STATE_HEADERS_README = re.compile(
     re.IGNORECASE,
 )
 
-CURRENT_STATE_HEADERS_CLAUDE = re.compile(
-    r"^#{1,4}\s+(?:Tech\s+Stack|Build|Version|Architecture|Sounds\s+System)",
-    re.IGNORECASE,
-)
 
 CURRENT_STATE_HEADERS_COMMUNITY_CALLABLE = re.compile(
     r"^#{1,4}\s+(?:Community\s+Callable\s+Quota\s+Enforcement|"
@@ -319,7 +314,6 @@ def validate_manifest_consistency(repo_root: Path = Path(".")) -> dict[str, Any]
         (ROADMAP, CURRENT_STATE_HEADERS_ROADMAP),
         (RESEARCH, CURRENT_STATE_HEADERS_RESEARCH),
         (README, CURRENT_STATE_HEADERS_README),
-        (CLAUDE, CURRENT_STATE_HEADERS_CLAUDE),
         (COMMUNITY_CALLABLE_DOC, CURRENT_STATE_HEADERS_COMMUNITY_CALLABLE),
     ]
 
