@@ -61,6 +61,9 @@ fun WallpaperPreviewScreen(
     }
 
     var mode by remember { mutableStateOf(PreviewMode.LOCK) }
+    val wallpaperPreviewContentDescription = wallpaper.category.ifBlank {
+        stringResource(R.string.preview_wallpaper_cd)
+    }
 
     // Tint for mock overlay text — prefer a light tint on dark wallpapers and dark-on-light
     // when the wallpaper is bright. The ColorExtractor dominant color gives us that signal.
@@ -85,8 +88,8 @@ fun WallpaperPreviewScreen(
                             .background(MaterialTheme.colorScheme.surfaceVariant)
                             .padding(2.dp),
                     ) {
-                        PreviewModeChip(label = "Lock", active = mode == PreviewMode.LOCK) { mode = PreviewMode.LOCK }
-                        PreviewModeChip(label = "Home", active = mode == PreviewMode.HOME) { mode = PreviewMode.HOME }
+                        PreviewModeChip(label = stringResource(R.string.common_lock), active = mode == PreviewMode.LOCK) { mode = PreviewMode.LOCK }
+                        PreviewModeChip(label = stringResource(R.string.common_home), active = mode == PreviewMode.HOME) { mode = PreviewMode.HOME }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -108,7 +111,7 @@ fun WallpaperPreviewScreen(
             // behind the translucent top/bottom bars.
             AsyncImage(
                 model = wallpaper.fullUrl,
-                contentDescription = wallpaper.category.ifBlank { "Wallpaper preview" },
+                contentDescription = wallpaperPreviewContentDescription,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -161,6 +164,7 @@ private fun PreviewModeChip(label: String, active: Boolean, onClick: () -> Unit)
 @Composable
 private fun LockMock(overlayTint: Color) {
     val now = remember { Date() }
+    val statusText = stringResource(R.string.preview_mock_status_100)
     val timeFormat = remember { SimpleDateFormat("H:mm", Locale.getDefault()) }
     val dateFormat = remember {
         SimpleDateFormat("EEEE, MMM d", Locale.getDefault())
@@ -180,7 +184,7 @@ private fun LockMock(overlayTint: Color) {
                 color = overlayTint,
             )
             Text(
-                text = "●●●●  100%",
+                text = statusText,
                 style = MaterialTheme.typography.labelSmall,
                 color = overlayTint,
                 fontSize = 10.sp,
@@ -207,6 +211,7 @@ private fun LockMock(overlayTint: Color) {
 
 @Composable
 private fun HomeMock(overlayTint: Color) {
+    val statusText = stringResource(R.string.preview_mock_status_100)
     Column(
         modifier = Modifier.fillMaxSize(),
     ) {
@@ -225,7 +230,7 @@ private fun HomeMock(overlayTint: Color) {
                 color = overlayTint,
             )
             Text(
-                text = "●●●●  100%",
+                text = statusText,
                 style = MaterialTheme.typography.labelSmall,
                 color = overlayTint,
                 fontSize = 10.sp,
@@ -346,21 +351,21 @@ private fun PreviewApplyBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             ApplyActionButton(
-                label = "Lock",
+                label = stringResource(R.string.common_lock),
                 onClick = { onApply(WallpaperTarget.LOCK) },
                 enabled = !isApplying,
                 tonal = true,
                 modifier = Modifier.weight(1f),
             )
             ApplyActionButton(
-                label = "Home",
+                label = stringResource(R.string.common_home),
                 onClick = { onApply(WallpaperTarget.HOME) },
                 enabled = !isApplying,
                 tonal = true,
                 modifier = Modifier.weight(1f),
             )
             ApplyActionButton(
-                label = "Both",
+                label = stringResource(R.string.common_both),
                 onClick = { onApply(WallpaperTarget.BOTH) },
                 enabled = !isApplying,
                 tonal = false,

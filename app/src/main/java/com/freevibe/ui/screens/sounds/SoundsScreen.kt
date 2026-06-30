@@ -1080,7 +1080,7 @@ private fun SoundCollectionCarousel(
             Text(stringResource(R.string.sounds_collections_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(collections, key = { it.title }) { collection ->
+            items(collections, key = { it.title.ifBlank { it.titleRes.toString() } }) { collection ->
                 SoundCollectionCard(
                     collection = collection,
                     onClick = { onCollectionClick(collection) },
@@ -1096,6 +1096,8 @@ private fun SoundCollectionCard(
     onClick: () -> Unit,
 ) {
     val accent = collectionToneColor(collection.tone)
+    val title = if (collection.titleRes != 0) stringResource(collection.titleRes) else collection.title
+    val subtitle = if (collection.subtitleRes != 0) stringResource(collection.subtitleRes) else collection.subtitle
     Surface(
         onClick = onClick,
         modifier = Modifier
@@ -1128,14 +1130,14 @@ private fun SoundCollectionCard(
             }
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    collection.title,
+                    title,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    collection.subtitle,
+                    subtitle,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
@@ -1604,7 +1606,11 @@ private fun QuickApplySheet(
         ) {
             Text(sound.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
-                "${formatDuration(sound.duration)}${if (sound.uploaderName.isNotEmpty() && sound.uploaderName != "Unknown") " - ${sound.uploaderName}" else ""}",
+                if (sound.uploaderName.isNotEmpty() && sound.uploaderName != "Unknown") {
+                    stringResource(R.string.sounds_duration_by_uploader, formatDuration(sound.duration), sound.uploaderName)
+                } else {
+                    formatDuration(sound.duration)
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

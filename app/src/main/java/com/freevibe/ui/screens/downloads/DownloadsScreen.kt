@@ -47,8 +47,15 @@ fun DownloadsScreen(
     val allDownloads by viewModel.allDownloads.collectAsStateWithLifecycle()
     val activeDownloads by viewModel.activeDownloads.collectAsStateWithLifecycle()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-    val tabs = listOf("All", "Wallpapers", "Sounds")
+    val tabs = listOf(
+        stringResource(R.string.downloads_tab_all),
+        stringResource(R.string.nav_wallpapers),
+        stringResource(R.string.nav_sounds),
+    )
     val context = LocalContext.current
+    val missingPathMessage = stringResource(R.string.downloads_file_path_missing)
+    val missingFileMessage = stringResource(R.string.downloads_file_no_longer_exists)
+    val cannotOpenMessage = stringResource(R.string.downloads_cannot_open_file)
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -78,7 +85,9 @@ fun DownloadsScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.downloads_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.common_back))
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
@@ -108,8 +117,8 @@ fun DownloadsScreen(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     AuraStateCard(
                         icon = Icons.Default.Download,
-                        title = "No downloads yet",
-                        description = "Saved wallpapers, sounds, and active transfers will appear here with file health and quick-open status.",
+                        title = stringResource(R.string.downloads_empty_title),
+                        description = stringResource(R.string.downloads_empty_body),
                         modifier = Modifier.padding(24.dp),
                     )
                 }
@@ -127,14 +136,14 @@ fun DownloadsScreen(
                                 try {
                                     val path = download.localPath
                                     if (path.isBlank()) {
-                                        scope.launch { snackbarHostState.showSnackbar("File path is missing") }
+                                        scope.launch { snackbarHostState.showSnackbar(missingPathMessage) }
                                         return@DownloadHistoryCard
                                     }
                                     val uri = Uri.parse(path)
                                     if (uri.scheme == "file") {
                                         val file = java.io.File(uri.path ?: "")
                                         if (!file.exists()) {
-                                            scope.launch { snackbarHostState.showSnackbar("File no longer exists") }
+                                            scope.launch { snackbarHostState.showSnackbar(missingFileMessage) }
                                             return@DownloadHistoryCard
                                         }
                                     }
@@ -144,7 +153,7 @@ fun DownloadsScreen(
                                     }
                                     context.startActivity(intent)
                                 } catch (_: Exception) {
-                                    scope.launch { snackbarHostState.showSnackbar("Cannot open file") }
+                                    scope.launch { snackbarHostState.showSnackbar(cannotOpenMessage) }
                                 }
                             },
                             onDelete = { viewModel.deleteDownload(download.id) },
@@ -159,10 +168,11 @@ fun DownloadsScreen(
 @Composable
 private fun ActiveDownloadCard(dl: DownloadProgress, onDismiss: () -> Unit) {
     val statusLabel = downloadProgressStatusLabel(dl)
-    val dismissLabel = "Dismiss ${dl.fileName}"
+    val dismissLabel = stringResource(R.string.downloads_dismiss_file, dl.fileName)
+    val summary = stringResource(R.string.downloads_active_summary, dl.fileName, statusLabel)
     Surface(
         modifier = Modifier.semantics(mergeDescendants = true) {
-            contentDescription = "${dl.fileName}. $statusLabel"
+            contentDescription = summary
             stateDescription = statusLabel
         },
         color = MaterialTheme.colorScheme.surfaceContainer,
@@ -226,7 +236,7 @@ private fun DownloadHistoryCard(
     val healthLabel = downloadHealthLabel(download, broken, sourceUnavailable)
     val itemSummary = downloadHistorySummary(download, broken, sourceUnavailable, dateLabel)
     val openLabel = downloadOpenActionLabel(download, broken)
-    val deleteLabel = "Delete ${download.name.ifEmpty { download.id }}"
+    val deleteLabel = stringResource(R.string.downloads_delete_file, download.name.ifEmpty { download.id })
 
     Surface(
         onClick = onOpen,
@@ -268,7 +278,11 @@ private fun DownloadHistoryCard(
                         Text(stringResource(R.string.downloads_source_unavailable), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f))
                     } else {
                         Text(
-                            if (download.type == "WALLPAPER") "Wallpaper" else "Sound",
+                            if (download.type == "WALLPAPER") {
+                                stringResource(R.string.downloads_type_wallpaper)
+                            } else {
+                                stringResource(R.string.downloads_type_sound)
+                            },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                         )

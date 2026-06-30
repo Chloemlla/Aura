@@ -23,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -30,6 +31,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.freevibe.R
 import com.freevibe.data.model.ContentType
 import com.freevibe.data.model.Sound
 import com.freevibe.data.remote.toSound
@@ -196,6 +198,8 @@ fun ContactPickerScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val errorMessage = state.error?.let { stringResource(R.string.common_error_format, it) }
+    val noContactPickerMessage = stringResource(R.string.contact_picker_unavailable_message)
     var permissionPermanentlyDenied by remember { mutableStateOf(false) }
     val soundIdentityKey = remember(soundId, fallbackSound?.source, fallbackSound?.previewUrl, fallbackSound?.downloadUrl) {
         listOf(
@@ -250,8 +254,8 @@ fun ContactPickerScreen(
     LaunchedEffect(state.success) {
         state.success?.let { snackbarHostState.showSnackbar(it); viewModel.clearMessages() }
     }
-    LaunchedEffect(state.error) {
-        state.error?.let { snackbarHostState.showSnackbar("Error: $it"); viewModel.clearMessages() }
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let { snackbarHostState.showSnackbar(it); viewModel.clearMessages() }
     }
 
     fun launchSystemContactPicker() {
@@ -259,7 +263,7 @@ fun ContactPickerScreen(
         try {
             contactPickerLauncher.launch(intent)
         } catch (_: Exception) {
-            scope.launch { snackbarHostState.showSnackbar("No contact picker is available on this device.") }
+            scope.launch { snackbarHostState.showSnackbar(noContactPickerMessage) }
         }
     }
 
@@ -292,7 +296,7 @@ fun ContactPickerScreen(
     pendingContactAction?.let { pending ->
         AlertDialog(
             onDismissRequest = { pendingContactAction = null },
-            title = { Text("Apply sound") },
+            title = { Text(stringResource(R.string.contact_picker_apply_sound_title)) },
             text = { Text(pending.message) },
             confirmButton = {
                 TextButton(
@@ -301,12 +305,12 @@ fun ContactPickerScreen(
                         requestWriteOrAssign(pending.contactId)
                     },
                 ) {
-                    Text("Continue")
+                    Text(stringResource(R.string.common_continue))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { pendingContactAction = null }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             },
         )
@@ -316,9 +320,11 @@ fun ContactPickerScreen(
         snackbarHost = { AuraSnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Assign to Contact") },
+                title = { Text(stringResource(R.string.contact_picker_assign_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.common_back))
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
@@ -335,7 +341,7 @@ fun ContactPickerScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(strokeWidth = 2.dp)
                             Spacer(Modifier.height(12.dp))
-                            Text("Opening contact picker...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.contact_picker_opening), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     return@Scaffold
@@ -344,10 +350,10 @@ fun ContactPickerScreen(
                     Box(Modifier.weight(1f).fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
                         AuraStateCard(
                             icon = Icons.Default.MusicOff,
-                            title = "Sound unavailable",
-                            description = "The selected sound could not be restored. Return to Sounds and choose another item.",
+                            title = stringResource(R.string.contact_picker_sound_unavailable_title),
+                            description = stringResource(R.string.contact_picker_sound_unavailable_body),
                             tone = MaterialTheme.colorScheme.tertiary,
-                            primaryAction = AuraStateAction("Back to sounds", Icons.AutoMirrored.Filled.ArrowBack, onBack),
+                            primaryAction = AuraStateAction(stringResource(R.string.contact_picker_back_to_sounds), Icons.AutoMirrored.Filled.ArrowBack, onBack),
                         )
                     }
                     return@Scaffold
@@ -385,7 +391,7 @@ fun ContactPickerScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(sound.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(
-                                "Ready to apply to the selected contact",
+                                stringResource(R.string.contact_picker_ready_to_apply),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -399,18 +405,18 @@ fun ContactPickerScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(strokeWidth = 2.dp)
                         Spacer(Modifier.height(12.dp))
-                        Text("Reading selected contact...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.contact_picker_reading_contact), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             } else if (state.selectedContact == null) {
                 Box(Modifier.weight(1f).fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
                     AuraStateCard(
                         icon = Icons.Default.Contacts,
-                        title = "Pick a contact",
-                        description = "Use Android's contact picker so Aura only receives the person you choose. Contact updates are requested later if you apply the ringtone.",
+                        title = stringResource(R.string.contact_picker_pick_title),
+                        description = stringResource(R.string.contact_picker_pick_body),
                         tone = MaterialTheme.colorScheme.primary,
-                        primaryAction = AuraStateAction("Pick contact", Icons.Default.PersonSearch, ::launchSystemContactPicker),
-                        secondaryAction = AuraStateAction("Back", Icons.AutoMirrored.Filled.ArrowBack, onBack),
+                        primaryAction = AuraStateAction(stringResource(R.string.contact_picker_pick_action), Icons.Default.PersonSearch, ::launchSystemContactPicker),
+                        secondaryAction = AuraStateAction(stringResource(R.string.common_back), Icons.AutoMirrored.Filled.ArrowBack, onBack),
                     )
                 }
             } else {
@@ -499,7 +505,11 @@ private fun ContactAssignmentCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        if (contact.currentRingtoneUri != null) "Custom ringtone set" else "Selected from Android contact picker",
+                        if (contact.currentRingtoneUri != null) {
+                            stringResource(R.string.contact_picker_custom_ringtone_set)
+                        } else {
+                            stringResource(R.string.contact_picker_selected_from_picker)
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -509,9 +519,9 @@ private fun ContactAssignmentCard(
             if (!writePermissionGranted) {
                 Text(
                     text = if (permissionPermanentlyDenied) {
-                        "Contact update permission is off. Open Android settings to let Aura write the ringtone to this contact."
+                        stringResource(R.string.contact_picker_permission_off)
                     } else {
-                        "Aura asks for contact update permission only when you apply the ringtone."
+                        stringResource(R.string.contact_picker_permission_prompt)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -531,7 +541,7 @@ private fun ContactAssignmentCard(
                 ) {
                     Icon(Icons.Default.PersonSearch, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Change")
+                    Text(stringResource(R.string.common_change))
                 }
                 if (permissionPermanentlyDenied && !writePermissionGranted) {
                     Button(
@@ -542,7 +552,7 @@ private fun ContactAssignmentCard(
                     ) {
                         Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Settings")
+                        Text(stringResource(R.string.common_settings))
                     }
                 } else {
                     Button(
@@ -561,7 +571,13 @@ private fun ContactAssignmentCard(
                             Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                         }
                         Spacer(Modifier.width(6.dp))
-                        Text(if (isApplying) "Applying" else "Apply")
+                        Text(
+                            if (isApplying) {
+                                stringResource(R.string.common_applying)
+                            } else {
+                                stringResource(R.string.common_apply)
+                            }
+                        )
                     }
                 }
             }

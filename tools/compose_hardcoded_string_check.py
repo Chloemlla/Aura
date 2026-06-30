@@ -49,6 +49,7 @@ DEFAULT_IGNORED_PATH_FRAGMENTS = [
     "/test/",
     "/androidTest/",
     "/debug/",
+    "/ui/preview/",
 ]
 DEFAULT_MIGRATION_PLAN = {
     "targetResourceFile": "app/src/main/res/values/strings.xml",
@@ -111,6 +112,21 @@ def is_visible_literal(value: str) -> bool:
     return True
 
 
+def is_compose_animation_label(source: str, offset: int) -> bool:
+    context = source[max(0, offset - 500) : offset]
+    return any(
+        token in context
+        for token in (
+            "rememberInfiniteTransition(",
+            "animateFloat(",
+            "animateFloatAsState(",
+            "animateDpAsState(",
+            "animateColorAsState(",
+            "updateTransition(",
+        )
+    )
+
+
 def iter_source_files(repo_root: Path, scan_roots: Iterable[str], ignored_path_fragments: Iterable[str]) -> list[Path]:
     files: list[Path] = []
     ignored = tuple(fragment.replace("\\", "/") for fragment in ignored_path_fragments)
@@ -151,11 +167,14 @@ def iter_file_findings(path: Path, repo_root: Path) -> list[Finding]:
 
     for match in LABELLED_ARG_RE.finditer(text):
         value = decode_kotlin_string(match.group("literal"))
+        sink = match.group("sink")
+        if sink == "label" and is_compose_animation_label(text, match.start()):
+            continue
         if is_visible_literal(value):
             findings.append(
                 Finding(
                     path=relative_path,
-                    sink=match.group("sink"),
+                    sink=sink,
                     text=value,
                     line=line_number_for_offset(text, match.start("literal")),
                 )

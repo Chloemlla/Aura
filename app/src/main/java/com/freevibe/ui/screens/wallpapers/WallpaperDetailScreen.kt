@@ -244,6 +244,10 @@ fun WallpaperDetailScreen(
     }
 
     val context = LocalContext.current
+    val parallaxDirectMessage = stringResource(R.string.settings_feedback_parallax_direct)
+    val parallaxChooserMessage = stringResource(R.string.settings_feedback_parallax_chooser)
+    val parallaxManualMessage = stringResource(R.string.settings_feedback_parallax_manual)
+    val shareWallpaperTitle = stringResource(R.string.detail_share_wallpaper_title)
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(state.pendingLiveWallpaperLaunch) {
         if (state.pendingLiveWallpaperLaunch) {
@@ -254,9 +258,9 @@ fun WallpaperDetailScreen(
                     tag = "ParallaxWallpaper",
                 )
             ) {
-                LiveWallpaperLaunchMode.DIRECT -> "Aura Parallax opened. Set wallpaper to finish."
-                LiveWallpaperLaunchMode.CHOOSER -> "Choose 'Aura Parallax' in the picker, then tap Set wallpaper."
-                null -> "Parallax wallpaper is ready. Open Settings > Wallpaper > Live Wallpapers to finish setup."
+                LiveWallpaperLaunchMode.DIRECT -> parallaxDirectMessage
+                LiveWallpaperLaunchMode.CHOOSER -> parallaxChooserMessage
+                null -> parallaxManualMessage
             }
             snackbarHostState.showSnackbar(message)
             viewModel.clearPendingLaunch()
@@ -327,7 +331,7 @@ fun WallpaperDetailScreen(
                 ) {
                     DetailTopIconButton(
                         icon = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
+                        contentDescription = stringResource(R.string.common_back),
                         onClick = onBack,
                     )
                     Row(
@@ -336,12 +340,12 @@ fun WallpaperDetailScreen(
                     ) {
                         if (wallpapers.size > 1) {
                             DetailOverlayPill(
-                                label = "${pagerState.currentPage + 1} of ${wallpapers.size}",
+                                label = stringResource(R.string.detail_pager_position, pagerState.currentPage + 1, wallpapers.size),
                                 icon = Icons.Default.Collections,
                             )
                         }
                         if (wp.width > 0) {
-                            DetailOverlayPill(label = "${wp.width} x ${wp.height}")
+                            DetailOverlayPill(label = stringResource(R.string.detail_resolution, wp.width, wp.height))
                         }
                     }
                 }
@@ -378,14 +382,14 @@ fun WallpaperDetailScreen(
                                 SourceBadge(wp.source.name)
                                 if (sourceUnavailable) {
                                     HighlightPill(
-                                        label = "Source unavailable",
+                                        label = stringResource(R.string.detail_source_unavailable),
                                         icon = Icons.Default.Warning,
                                         tint = MaterialTheme.colorScheme.error,
                                     )
                                 }
                                 if (voteCount > 0) {
                                     HighlightPill(
-                                        label = "${formatCompactCount(voteCount)} likes",
+                                        label = stringResource(R.string.detail_like_count, formatCompactCount(voteCount)),
                                         icon = Icons.Default.ThumbUp,
                                         tint = MaterialTheme.colorScheme.secondary,
                                     )
@@ -417,10 +421,10 @@ fun WallpaperDetailScreen(
                             DetailInfoChip(hints.resolutionLabel)
                             DetailInfoChip(hints.orientationLabel)
                             if (wp.license.isNotBlank()) DetailInfoChip(wp.license)
-                            if (hints.isAmoled) DetailInfoChip("AMOLED-friendly")
-                            if (hints.isIconSafe) DetailInfoChip("Icon-safe")
-                            if (wp.views > 0) DetailInfoChip("${formatCompactCount(wp.views)} views")
-                            if (wp.favorites > 0) DetailInfoChip("${formatCompactCount(wp.favorites)} saves")
+                            if (hints.isAmoled) DetailInfoChip(stringResource(R.string.detail_chip_amoled_friendly))
+                            if (hints.isIconSafe) DetailInfoChip(stringResource(R.string.detail_chip_icon_safe))
+                            if (wp.views > 0) DetailInfoChip(stringResource(R.string.detail_view_count, formatCompactCount(wp.views)))
+                            if (wp.favorites > 0) DetailInfoChip(stringResource(R.string.detail_save_count, formatCompactCount(wp.favorites)))
                             formatFileTypeLabel(wp.fileType)?.let { DetailInfoChip(it) }
                             formatFileSizeLabel(wp.fileSize)?.let { DetailInfoChip(it) }
                         }
@@ -464,10 +468,11 @@ fun WallpaperDetailScreen(
 
                         if (wp.colors.isNotEmpty()) {
                             Spacer(Modifier.height(16.dp))
-                            DetailSectionTitle("Palette")
+                            DetailSectionTitle(stringResource(R.string.detail_palette_title))
                             Spacer(Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 wp.colors.take(5).forEach { hex ->
+                                    val colorContentDescription = stringResource(R.string.detail_search_color, hex)
                                     val colorInt = runCatching {
                                         android.graphics.Color.parseColor(if (hex.startsWith("#")) hex else "#$hex")
                                     }.getOrDefault(0)
@@ -477,7 +482,7 @@ fun WallpaperDetailScreen(
                                         shape = RoundedCornerShape(6.dp),
                                         modifier = Modifier
                                             .size(24.dp)
-                                            .semantics { contentDescription = "Search color $hex" },
+                                            .semantics { contentDescription = colorContentDescription },
                                         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.22f)),
                                         content = {},
                                     )
@@ -489,7 +494,7 @@ fun WallpaperDetailScreen(
                         val palette = colorPalette
                         if (palette != null) {
                             Spacer(Modifier.height(16.dp))
-                            DetailSectionTitle("Your theme colors")
+                            DetailSectionTitle(stringResource(R.string.detail_theme_colors_title))
                             Spacer(Modifier.height(8.dp))
                             val scrollState = rememberScrollState()
                             Row(
@@ -499,11 +504,11 @@ fun WallpaperDetailScreen(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
                                 listOf(
-                                    "Dominant" to palette.dominantColor,
-                                    "Vibrant" to palette.vibrantColor,
-                                    "Muted" to palette.mutedColor,
-                                    "Accent" to palette.bestAccentColor,
-                                    "Light" to palette.vibrantLight,
+                                    stringResource(R.string.detail_color_dominant) to palette.dominantColor,
+                                    stringResource(R.string.detail_color_vibrant) to palette.vibrantColor,
+                                    stringResource(R.string.detail_color_muted) to palette.mutedColor,
+                                    stringResource(R.string.detail_color_accent) to palette.bestAccentColor,
+                                    stringResource(R.string.detail_color_light) to palette.vibrantLight,
                                 ).forEach { (label, colorInt) ->
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         Surface(
@@ -542,7 +547,7 @@ fun WallpaperDetailScreen(
 
                         if (wp.tags.isNotEmpty()) {
                             Spacer(Modifier.height(16.dp))
-                            DetailSectionTitle("Explore related looks")
+                            DetailSectionTitle(stringResource(R.string.detail_related_looks_title))
                             Spacer(Modifier.height(8.dp))
                             FlowRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -569,27 +574,27 @@ fun WallpaperDetailScreen(
                         ) {
                             DetailActionPill(
                                 icon = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                label = if (isFavorite) "Saved" else "Save",
+                                label = if (isFavorite) stringResource(R.string.detail_saved) else stringResource(R.string.common_save),
                                 tint = if (isFavorite) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondary,
                                 onClick = { viewModel.toggleFavorite(wp) },
                             )
                             DetailActionPill(
                                 icon = Icons.Default.Download,
-                                label = "Download",
+                                label = stringResource(R.string.detail_download),
                                 tint = MaterialTheme.colorScheme.primary,
                                 onClick = { viewModel.downloadWallpaper(wp) },
                             )
                             if (!sourceUnavailable) {
                                 DetailActionPill(
                                     icon = Icons.Default.ImageSearch,
-                                    label = "Similar",
+                                    label = stringResource(R.string.detail_similar),
                                     tint = MaterialTheme.colorScheme.secondary,
                                     onClick = { onFindSimilar(wp) },
                                 )
                             }
                             DetailActionPill(
                                 icon = Icons.Default.Share,
-                                label = "Share",
+                                label = stringResource(R.string.common_share),
                                 tint = MaterialTheme.colorScheme.primary,
                                 onClick = {
                                     val shareUrl = if (sourceUnavailable) wp.fullUrl else wp.sourcePageUrl.ifEmpty { wp.fullUrl }
@@ -599,14 +604,14 @@ fun WallpaperDetailScreen(
                                         putExtra(Intent.EXTRA_TEXT, shareUrl)
                                     }
                                     try {
-                                        context.startActivity(Intent.createChooser(intent, "Share wallpaper"))
+                                        context.startActivity(Intent.createChooser(intent, shareWallpaperTitle))
                                     } catch (_: Exception) {}
                                 },
                             )
                             if (wp.sourcePageUrl.isNotBlank() && !sourceUnavailable) {
                                 DetailActionPill(
                                     icon = Icons.Default.Link,
-                                    label = "Source",
+                                    label = stringResource(R.string.detail_source),
                                     tint = MaterialTheme.colorScheme.secondary,
                                     onClick = { openExternalUrl(context, wp.sourcePageUrl) },
                                 )
@@ -614,13 +619,13 @@ fun WallpaperDetailScreen(
                             if (communityProviderEnabled) {
                                 DetailActionPill(
                                     icon = Icons.Default.ThumbUp,
-                                    label = "Like",
+                                    label = stringResource(R.string.detail_like),
                                     tint = MaterialTheme.colorScheme.secondary,
                                     onClick = { viewModel.upvote(wp.stableKey()) },
                                 )
                                 DetailActionPill(
                                     icon = Icons.Default.ThumbDown,
-                                    label = "Hide",
+                                    label = stringResource(R.string.detail_hide),
                                     tint = MaterialTheme.colorScheme.error,
                                     onClick = { viewModel.downvote(wp.stableKey()) },
                                 )
@@ -628,7 +633,7 @@ fun WallpaperDetailScreen(
                             if (canReportWallpaper) {
                                 DetailActionPill(
                                     icon = Icons.Default.Report,
-                                    label = "Report",
+                                    label = stringResource(R.string.detail_report),
                                     tint = MaterialTheme.colorScheme.error,
                                     onClick = { showReportDialog = true },
                                 )
@@ -636,14 +641,14 @@ fun WallpaperDetailScreen(
                             if (canBlockCreator) {
                                 DetailActionPill(
                                     icon = Icons.Default.Block,
-                                    label = "Block",
+                                    label = stringResource(R.string.common_block),
                                     tint = MaterialTheme.colorScheme.error,
                                     onClick = { showBlockCreatorDialog = true },
                                 )
                             }
                             DetailActionPill(
                                 icon = Icons.Default.MoreHoriz,
-                                label = "More",
+                                label = stringResource(R.string.detail_more),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 onClick = { showMoreMenu = true },
                             )
@@ -669,7 +674,7 @@ fun WallpaperDetailScreen(
                                     putExtra(Intent.EXTRA_TEXT, shareUrl)
                                 }
                                 try {
-                                    context.startActivity(Intent.createChooser(intent, "Share wallpaper"))
+                                    context.startActivity(Intent.createChooser(intent, shareWallpaperTitle))
                                 } catch (_: Exception) {}
                             },
                             onHide = if (communityProviderEnabled) ({ viewModel.downvote(wp.stableKey()) }) else null,
@@ -729,12 +734,16 @@ fun WallpaperDetailScreen(
 
             if (showReportDialog) {
                 CommunityReportDialog(
-                    title = if (isGeneratedWallpaper) "Report generated wallpaper" else "Report wallpaper",
+                    title = if (isGeneratedWallpaper) {
+                        stringResource(R.string.detail_report_generated_wallpaper)
+                    } else {
+                        stringResource(R.string.detail_report_wallpaper)
+                    },
                     onDismiss = { showReportDialog = false },
                     onSubmit = { reason, note -> viewModel.reportWallpaper(wp, reason, note) },
                     reasons = if (isGeneratedWallpaper) GENERATED_CONTENT_REPORT_REASONS else COMMUNITY_REPORT_REASONS,
                     body = if (isGeneratedWallpaper) {
-                        "Reports are sent for generated-content review. Provider keys and local file paths are not included."
+                        stringResource(R.string.detail_report_generated_body)
                     } else {
                         COMMUNITY_REPORT_TAKEDOWN_COPY
                     },
@@ -813,7 +822,7 @@ fun WallpaperDetailScreen(
 private fun WallpaperImage(url: String, modifier: Modifier = Modifier) {
     SubcomposeAsyncImage(
         model = url,
-        contentDescription = "Wallpaper",
+        contentDescription = stringResource(R.string.detail_image_cd),
         contentScale = ContentScale.Crop,
         modifier = modifier,
     ) {
@@ -875,7 +884,7 @@ private fun CompactWallpaperOverlayCard(
                 ) {
                     SourceBadge(wallpaper.source.name)
                     if (voteCount > 0) {
-                        DetailInfoChip("${formatCompactCount(voteCount)} likes")
+                        DetailInfoChip(stringResource(R.string.detail_like_count, formatCompactCount(voteCount)))
                     }
                 }
                 Text(
@@ -894,7 +903,7 @@ private fun CompactWallpaperOverlayCard(
             }
             DetailTopIconButton(
                 icon = Icons.Default.MoreHoriz,
-                contentDescription = "More wallpaper actions",
+                contentDescription = stringResource(R.string.detail_more_wallpaper_actions_cd),
                 onClick = onMore,
             )
         }
@@ -947,40 +956,40 @@ private fun CompactWallpaperOverlayCard(
         ) {
             DetailActionPill(
                 icon = Icons.Default.Info,
-                label = "Details",
+                label = stringResource(R.string.detail_details),
                 tint = MaterialTheme.colorScheme.secondary,
                 onClick = onShowDetails,
             )
             DetailActionPill(
                 icon = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                label = if (isFavorite) "Saved" else "Save",
+                label = if (isFavorite) stringResource(R.string.detail_saved) else stringResource(R.string.common_save),
                 tint = if (isFavorite) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondary,
                 onClick = onToggleFavorite,
             )
             DetailActionPill(
                 icon = Icons.Default.Download,
-                label = "Download",
+                label = stringResource(R.string.detail_download),
                 tint = MaterialTheme.colorScheme.primary,
                 onClick = onDownload,
             )
             if (!wallpaper.isSourceUnavailable()) {
                 DetailActionPill(
                     icon = Icons.Default.ImageSearch,
-                    label = "Similar",
+                    label = stringResource(R.string.detail_similar),
                     tint = MaterialTheme.colorScheme.secondary,
                     onClick = onFindSimilar,
                 )
             }
             DetailActionPill(
                 icon = Icons.Default.Share,
-                label = "Share",
+                label = stringResource(R.string.common_share),
                 tint = MaterialTheme.colorScheme.primary,
                 onClick = onShare,
             )
             if (onHide != null) {
                 DetailActionPill(
                     icon = Icons.Default.ThumbDown,
-                    label = "Hide",
+                    label = stringResource(R.string.detail_hide),
                     tint = MaterialTheme.colorScheme.error,
                     onClick = onHide,
                 )
@@ -1107,17 +1116,17 @@ private fun ApplyOptionsSheet(
         ) {
             Text(stringResource(R.string.detail_set_wallpaper_title), style = MaterialTheme.typography.titleLarge)
             Text(
-                "Choose how Aura should apply this wallpaper across your device.",
+                stringResource(R.string.detail_apply_options_body),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(4.dp))
-            SheetOption(Icons.Default.Home, "Home screen", "Apply it to the launcher only") { onApply(WallpaperTarget.HOME) }
-            SheetOption(Icons.Default.Lock, "Lock screen", "Keep your launcher as-is and update the lock view") { onApply(WallpaperTarget.LOCK) }
-            SheetOption(Icons.Default.Smartphone, "Home and lock", "Use the same wallpaper on both surfaces") { onApply(WallpaperTarget.BOTH) }
+            SheetOption(Icons.Default.Home, stringResource(R.string.detail_home_screen), stringResource(R.string.detail_home_screen_body)) { onApply(WallpaperTarget.HOME) }
+            SheetOption(Icons.Default.Lock, stringResource(R.string.detail_lock_screen), stringResource(R.string.detail_lock_screen_body)) { onApply(WallpaperTarget.LOCK) }
+            SheetOption(Icons.Default.Smartphone, stringResource(R.string.detail_home_lock), stringResource(R.string.detail_home_lock_body)) { onApply(WallpaperTarget.BOTH) }
             HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-            SheetOption(Icons.Default.Splitscreen, "Split crop", "Create separate home and lock crops from the same image") { onSplitCrop() }
-            SheetOption(Icons.Default.Layers, "Parallax depth", "Turn this wallpaper into a subtle 3D tilt effect") { onParallax() }
+            SheetOption(Icons.Default.Splitscreen, stringResource(R.string.detail_split_crop), stringResource(R.string.detail_split_crop_body)) { onSplitCrop() }
+            SheetOption(Icons.Default.Layers, stringResource(R.string.detail_parallax_depth), stringResource(R.string.detail_parallax_depth_body)) { onParallax() }
         }
     }
 }
@@ -1153,7 +1162,7 @@ private fun MoreActionsSheet(
             Text(stringResource(R.string.detail_more_actions), style = MaterialTheme.typography.titleLarge)
             if (uploaderName.isNotEmpty()) {
                 Text(
-                    "Uploaded by $uploaderName",
+                    stringResource(R.string.detail_uploaded_by, uploaderName),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1168,29 +1177,29 @@ private fun MoreActionsSheet(
                 )
             }
             Spacer(Modifier.height(4.dp))
-            SheetOption(Icons.Default.Visibility, "Preview on mock lock / home", "See how this wallpaper frames before you apply it") { onPreview() }
-            SheetOption(Icons.Default.Edit, "Edit", "Open Aura's wallpaper editor for tone and effect adjustments") { onEdit() }
-            SheetOption(Icons.Default.Crop, "Crop & position", "Fine-tune framing for your device before applying") { onCrop() }
-            SheetOption(Icons.Default.CreateNewFolder, "Save to collection", "Keep this wallpaper in one of your curated sets") { onCollection() }
+            SheetOption(Icons.Default.Visibility, stringResource(R.string.detail_preview_mock_title), stringResource(R.string.detail_preview_mock_body)) { onPreview() }
+            SheetOption(Icons.Default.Edit, stringResource(R.string.detail_edit), stringResource(R.string.detail_edit_body)) { onEdit() }
+            SheetOption(Icons.Default.Crop, stringResource(R.string.detail_crop_position), stringResource(R.string.detail_crop_position_body)) { onCrop() }
+            SheetOption(Icons.Default.CreateNewFolder, stringResource(R.string.detail_save_to_collection), stringResource(R.string.detail_save_to_collection_body)) { onCollection() }
             if (onFindSimilar != null) {
-                SheetOption(Icons.Default.ColorLens, "Find similar wallpapers", "Search for wallpapers with a related mood or composition") { onFindSimilar() }
+                SheetOption(Icons.Default.ColorLens, stringResource(R.string.detail_find_similar_wallpapers), stringResource(R.string.detail_find_similar_wallpapers_body)) { onFindSimilar() }
             }
             if (onReport != null) {
-                SheetOption(Icons.Default.Report, "Report content", "Send this source and license context for review") { onReport() }
+                SheetOption(Icons.Default.Report, stringResource(R.string.detail_report_content), stringResource(R.string.detail_report_content_body)) { onReport() }
             }
             if (onBlockCreator != null) {
                 SheetOption(
                     Icons.Default.Block,
-                    "Block creator",
-                    "Hide community wallpapers from this uploader",
+                    stringResource(R.string.detail_block_creator),
+                    stringResource(R.string.detail_block_creator_body),
                     tint = MaterialTheme.colorScheme.error,
                 ) { onBlockCreator() }
             }
             if (onDeleteUpload != null) {
                 SheetOption(
                     Icons.Default.Delete,
-                    "Delete upload",
-                    "Remove your community wallpaper and its uploaded file",
+                    stringResource(R.string.detail_delete_upload),
+                    stringResource(R.string.detail_delete_upload_body),
                     tint = MaterialTheme.colorScheme.error,
                 ) { onDeleteUpload() }
             }
@@ -1272,13 +1281,13 @@ private fun CollectionPickerSheet(
         ) {
             Text(stringResource(R.string.detail_save_to_collection), style = MaterialTheme.typography.titleLarge)
             Text(
-                "Keep standout wallpapers grouped so rotation and revisit flows stay tidy.",
+                stringResource(R.string.detail_save_to_collection_sheet_body),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(4.dp))
             collections.forEach { collection ->
-                SheetOption(Icons.Default.Folder, collection.name, "Add this wallpaper to the collection") {
+                SheetOption(Icons.Default.Folder, collection.name, stringResource(R.string.detail_add_to_collection_body)) {
                     onSelectCollection(collection.collectionId)
                 }
             }
@@ -1304,7 +1313,7 @@ private fun CollectionPickerSheet(
                     ) { Text(stringResource(R.string.detail_create)) }
                 }
             } else {
-                SheetOption(Icons.Default.Add, "New collection", "Create a new place to save wallpapers like this") {
+                SheetOption(Icons.Default.Add, stringResource(R.string.detail_new_collection), stringResource(R.string.detail_new_collection_body)) {
                     showCreateField = true
                 }
             }

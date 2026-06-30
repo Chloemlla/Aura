@@ -47,6 +47,7 @@ fun WallpaperCropScreen(
     viewModel: WallpaperCropViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var viewportSize by remember { mutableStateOf(IntSize.Zero) }
@@ -68,7 +69,10 @@ fun WallpaperCropScreen(
         state.success?.let { snackbarHostState.showSnackbar(it); viewModel.clearMessages() }
     }
     LaunchedEffect(state.error) {
-        state.error?.let { snackbarHostState.showSnackbar("Error: $it"); viewModel.clearMessages() }
+        state.error?.let {
+            snackbarHostState.showSnackbar(context.getString(R.string.common_error_format, it))
+            viewModel.clearMessages()
+        }
     }
     LaunchedEffect(wallpaperId, fallbackWallpaper?.source, fallbackWallpaper?.fullUrl) {
         scale = 1f

@@ -14,6 +14,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -35,6 +36,7 @@ fun WallpaperEditorScreen(
     viewModel: WallpaperEditorViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val editorIdentityKey = remember(wallpaperId, fallbackWallpaper?.source, fallbackWallpaper?.fullUrl) {
         listOf(
             wallpaperId,
@@ -61,7 +63,10 @@ fun WallpaperEditorScreen(
         state.success?.let { snackbarHostState.showSnackbar(it); viewModel.clearSuccess() }
     }
     LaunchedEffect(state.error) {
-        state.error?.let { snackbarHostState.showSnackbar("Error: $it"); viewModel.clearError() }
+        state.error?.let {
+            snackbarHostState.showSnackbar(context.getString(R.string.common_error_format, it))
+            viewModel.clearError()
+        }
     }
 
     data class EditorPreset(val name: String, val b: Float, val c: Float, val s: Float, val bl: Float,

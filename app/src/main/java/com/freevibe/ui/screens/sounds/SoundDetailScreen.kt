@@ -121,7 +121,7 @@ fun SoundDetailScreen(
                     CircularProgressIndicator(strokeWidth = 2.dp)
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        "Opening sound...",
+                        stringResource(R.string.sound_detail_opening),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -129,10 +129,10 @@ fun SoundDetailScreen(
             } else {
                 AuraStateCard(
                     icon = Icons.Default.MusicOff,
-                    title = "Sound unavailable",
-                    description = "This sound could not be restored from its source. Return to Sounds and choose another result.",
+                    title = stringResource(R.string.sound_detail_unavailable_title),
+                    description = stringResource(R.string.sound_detail_unavailable_body),
                     tone = MaterialTheme.colorScheme.tertiary,
-                    primaryAction = AuraStateAction("Back to sounds", Icons.AutoMirrored.Filled.ArrowBack, onBack),
+                    primaryAction = AuraStateAction(stringResource(R.string.contact_picker_back_to_sounds), Icons.AutoMirrored.Filled.ArrowBack, onBack),
                 )
             }
         }
@@ -179,6 +179,12 @@ fun SoundDetailScreen(
     val writeSettingsBody = stringResource(R.string.write_settings_body)
     val openSettingsLabel = stringResource(R.string.write_settings_open)
     val writeSettingsUnavailable = stringResource(R.string.write_settings_unavailable)
+    val errorMessage = state.error?.let { stringResource(R.string.common_error_format, it) }
+    val applySoundTitle = stringResource(R.string.sounds_quick_apply_title)
+    val editSoundTitle = stringResource(R.string.sound_detail_edit_sound_title)
+    val saveSoundTitle = stringResource(R.string.sounds_quick_apply_save_title)
+    val shareSoundTitle = stringResource(R.string.sound_detail_share_sound_title)
+    val shareSoundChooserTitle = stringResource(R.string.sound_detail_share_sound_chooser)
     var showReportDialog by remember(s.stableKey()) { mutableStateOf(false) }
     var showBlockCreatorDialog by remember(s.stableKey()) { mutableStateOf(false) }
     var showDeleteUploadDialog by remember(s.stableKey()) { mutableStateOf(false) }
@@ -218,7 +224,7 @@ fun SoundDetailScreen(
             .onFailure { scope.launch { snackbarHostState.showSnackbar(writeSettingsUnavailable) } }
     }
     LaunchedEffect(state.applySuccess) { state.applySuccess?.let { snackbarHostState.showSnackbar(it); viewModel.clearSuccess() } }
-    LaunchedEffect(state.error) { state.error?.let { snackbarHostState.showSnackbar("Error: $it"); viewModel.clearError() } }
+    LaunchedEffect(errorMessage) { errorMessage?.let { snackbarHostState.showSnackbar(it); viewModel.clearError() } }
 
     pendingSoundAction?.let { pending ->
         AlertDialog(
@@ -232,12 +238,12 @@ fun SoundDetailScreen(
                         pending.onConfirm()
                     },
                 ) {
-                    Text("Continue")
+                    Text(stringResource(R.string.common_continue))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { pendingSoundAction = null }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             },
         )
@@ -245,7 +251,7 @@ fun SoundDetailScreen(
 
     if (showReportDialog) {
         CommunityReportDialog(
-            title = "Report sound",
+            title = stringResource(R.string.sound_detail_report_title),
             onDismiss = { showReportDialog = false },
             onSubmit = { reason, note -> viewModel.reportSound(s, reason, note) },
         )
@@ -254,7 +260,7 @@ fun SoundDetailScreen(
     if (showDeleteUploadDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteUploadDialog = false },
-            title = { Text("Delete upload?") },
+            title = { Text(stringResource(R.string.sound_detail_delete_upload_title)) },
             text = { Text(communityOwnerDeleteConfirmationCopy(CommunityUploadPolicyKind.SOUND)) },
             confirmButton = {
                 TextButton(
@@ -265,12 +271,12 @@ fun SoundDetailScreen(
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) {
-                    Text("Delete")
+                    Text(stringResource(R.string.common_delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteUploadDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             },
         )
@@ -279,7 +285,7 @@ fun SoundDetailScreen(
     if (showBlockCreatorDialog) {
         AlertDialog(
             onDismissRequest = { showBlockCreatorDialog = false },
-            title = { Text("Block creator?") },
+            title = { Text(stringResource(R.string.sound_detail_block_creator_title)) },
             text = { Text(communityBlockConfirmationCopy(CommunityUploadPolicyKind.SOUND)) },
             confirmButton = {
                 TextButton(
@@ -289,12 +295,12 @@ fun SoundDetailScreen(
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) {
-                    Text("Block")
+                    Text(stringResource(R.string.common_block))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showBlockCreatorDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             },
         )
@@ -316,7 +322,11 @@ fun SoundDetailScreen(
         topBar = {
             TopAppBar(
                 title = {},
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.common_back))
+                    }
+                },
                 actions = {
                     IconButton(
                         onClick = { viewModel.toggleFavorite(s) },
@@ -391,7 +401,7 @@ fun SoundDetailScreen(
                 }
                 Text(formatDuration(s.duration), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (showUploader) {
-                    Text("by ${s.uploaderName}", modifier = Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(stringResource(R.string.sound_detail_by_creator, s.uploaderName), modifier = Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 val detailCodecBadge = remember(s) { formatSoundCodecBadge(s) }
                 if (detailCodecBadge != null) {
@@ -404,7 +414,7 @@ fun SoundDetailScreen(
                     Text(fileSizeLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (s.sampleRate > 0) {
-                    Text("${s.sampleRate / 1000}kHz", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.sound_detail_sample_rate_khz, s.sampleRate / 1000), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (s.license.isNotEmpty()) {
                     Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(4.dp)) {
@@ -445,9 +455,9 @@ fun SoundDetailScreen(
                     ) {
                         Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                         Column(Modifier.weight(1f)) {
-                            Text("Source unavailable", style = MaterialTheme.typography.labelLarge)
+                            Text(stringResource(R.string.downloads_source_unavailable), style = MaterialTheme.typography.labelLarge)
                             Text(
-                                s.sourceAvailabilityReason.ifBlank { "This saved sound is no longer represented as live provider content." },
+                                s.sourceAvailabilityReason.ifBlank { stringResource(R.string.sound_detail_source_unavailable_body) },
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
@@ -469,7 +479,7 @@ fun SoundDetailScreen(
                     ) {
                         Icon(Icons.Default.Policy, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
                         Column(Modifier.weight(1f)) {
-                            Text("Source policy", style = MaterialTheme.typography.labelLarge)
+                            Text(stringResource(R.string.sound_detail_source_policy), style = MaterialTheme.typography.labelLarge)
                             Text(
                                 policyMessages.joinToString(" "),
                                 style = MaterialTheme.typography.bodySmall,
@@ -487,7 +497,7 @@ fun SoundDetailScreen(
                             onClick = { onSearchTag(tag) },
                             color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(8.dp),
                         ) {
-                            Text("#$tag", Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.sound_detail_tag, tag), Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -529,26 +539,26 @@ fun SoundDetailScreen(
 
             if (useStackedActions) {
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ApplyButton("Ringtone", Icons.Default.Call, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.fillMaxWidth()) {
-                        runSoundAction(SoundAction.APPLY, "Apply sound") { viewModel.applySound(s, ContentType.RINGTONE, confirmed = true) }
+                    ApplyButton(stringResource(R.string.editor_sound_apply_ringtone), Icons.Default.Call, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.fillMaxWidth()) {
+                        runSoundAction(SoundAction.APPLY, applySoundTitle) { viewModel.applySound(s, ContentType.RINGTONE, confirmed = true) }
                     }
-                    ApplyButton("Notification", Icons.Default.Notifications, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.fillMaxWidth()) {
-                        runSoundAction(SoundAction.APPLY, "Apply sound") { viewModel.applySound(s, ContentType.NOTIFICATION, confirmed = true) }
+                    ApplyButton(stringResource(R.string.editor_sound_apply_notification), Icons.Default.Notifications, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.fillMaxWidth()) {
+                        runSoundAction(SoundAction.APPLY, applySoundTitle) { viewModel.applySound(s, ContentType.NOTIFICATION, confirmed = true) }
                     }
-                    ApplyButton("Alarm", Icons.Default.Alarm, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.fillMaxWidth()) {
-                        runSoundAction(SoundAction.APPLY, "Apply sound") { viewModel.applySound(s, ContentType.ALARM, confirmed = true) }
+                    ApplyButton(stringResource(R.string.editor_sound_apply_alarm), Icons.Default.Alarm, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.fillMaxWidth()) {
+                        runSoundAction(SoundAction.APPLY, applySoundTitle) { viewModel.applySound(s, ContentType.ALARM, confirmed = true) }
                     }
                 }
             } else {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ApplyButton("Ringtone", Icons.Default.Call, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.weight(1f)) {
-                        runSoundAction(SoundAction.APPLY, "Apply sound") { viewModel.applySound(s, ContentType.RINGTONE, confirmed = true) }
+                    ApplyButton(stringResource(R.string.editor_sound_apply_ringtone), Icons.Default.Call, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.weight(1f)) {
+                        runSoundAction(SoundAction.APPLY, applySoundTitle) { viewModel.applySound(s, ContentType.RINGTONE, confirmed = true) }
                     }
-                    ApplyButton("Notification", Icons.Default.Notifications, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.weight(1f)) {
-                        runSoundAction(SoundAction.APPLY, "Apply sound") { viewModel.applySound(s, ContentType.NOTIFICATION, confirmed = true) }
+                    ApplyButton(stringResource(R.string.editor_sound_apply_notification), Icons.Default.Notifications, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.weight(1f)) {
+                        runSoundAction(SoundAction.APPLY, applySoundTitle) { viewModel.applySound(s, ContentType.NOTIFICATION, confirmed = true) }
                     }
-                    ApplyButton("Alarm", Icons.Default.Alarm, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.weight(1f)) {
-                        runSoundAction(SoundAction.APPLY, "Apply sound") { viewModel.applySound(s, ContentType.ALARM, confirmed = true) }
+                    ApplyButton(stringResource(R.string.editor_sound_apply_alarm), Icons.Default.Alarm, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.weight(1f)) {
+                        runSoundAction(SoundAction.APPLY, applySoundTitle) { viewModel.applySound(s, ContentType.ALARM, confirmed = true) }
                     }
                 }
             }
@@ -560,37 +570,37 @@ fun SoundDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     maxItemsInEachRow = 2,
                 ) {
-                    SecondarySoundAction("Trim", Icons.Default.ContentCut, Modifier.weight(1f).widthIn(min = 136.dp), enabled = canEditSound) {
-                        runSoundAction(SoundAction.EDIT, "Edit sound") { onEdit(s) }
+                    SecondarySoundAction(stringResource(R.string.sound_detail_trim), Icons.Default.ContentCut, Modifier.weight(1f).widthIn(min = 136.dp), enabled = canEditSound) {
+                        runSoundAction(SoundAction.EDIT, editSoundTitle) { onEdit(s) }
                     }
-                    SecondarySoundAction("Contact", Icons.Default.Contacts, Modifier.weight(1f).widthIn(min = 136.dp), enabled = canApplySound) {
-                        runSoundAction(SoundAction.APPLY, "Apply sound") { onContactPicker(s) }
+                    SecondarySoundAction(stringResource(R.string.sound_detail_contact), Icons.Default.Contacts, Modifier.weight(1f).widthIn(min = 136.dp), enabled = canApplySound) {
+                        runSoundAction(SoundAction.APPLY, applySoundTitle) { onContactPicker(s) }
                     }
-                    SecondarySoundAction("Save", Icons.Default.Download, Modifier.weight(1f).widthIn(min = 136.dp), enabled = canDownloadSound) {
-                        runSoundAction(SoundAction.DOWNLOAD, "Save sound") { viewModel.downloadSound(s, confirmed = true) }
+                    SecondarySoundAction(stringResource(R.string.sound_detail_save), Icons.Default.Download, Modifier.weight(1f).widthIn(min = 136.dp), enabled = canDownloadSound) {
+                        runSoundAction(SoundAction.DOWNLOAD, saveSoundTitle) { viewModel.downloadSound(s, confirmed = true) }
                     }
-                    SecondarySoundAction("Share", Icons.Default.Share, Modifier.weight(1f).widthIn(min = 136.dp), enabled = canShareSound) {
-                        runSoundAction(SoundAction.SHARE, "Share sound") {
+                    SecondarySoundAction(stringResource(R.string.common_share), Icons.Default.Share, Modifier.weight(1f).widthIn(min = 136.dp), enabled = canShareSound) {
+                        runSoundAction(SoundAction.SHARE, shareSoundTitle) {
                             val intent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, shareBody); putExtra(Intent.EXTRA_SUBJECT, s.name) }
-                            try { context.startActivity(Intent.createChooser(intent, "Share sound")) } catch (_: Exception) {}
+                            try { context.startActivity(Intent.createChooser(intent, shareSoundChooserTitle)) } catch (_: Exception) {}
                         }
                     }
                 }
             } else {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SecondarySoundAction("Trim", Icons.Default.ContentCut, Modifier.weight(1f), enabled = canEditSound) {
-                        runSoundAction(SoundAction.EDIT, "Edit sound") { onEdit(s) }
+                    SecondarySoundAction(stringResource(R.string.sound_detail_trim), Icons.Default.ContentCut, Modifier.weight(1f), enabled = canEditSound) {
+                        runSoundAction(SoundAction.EDIT, editSoundTitle) { onEdit(s) }
                     }
-                    SecondarySoundAction("Contact", Icons.Default.Contacts, Modifier.weight(1f), enabled = canApplySound) {
-                        runSoundAction(SoundAction.APPLY, "Apply sound") { onContactPicker(s) }
+                    SecondarySoundAction(stringResource(R.string.sound_detail_contact), Icons.Default.Contacts, Modifier.weight(1f), enabled = canApplySound) {
+                        runSoundAction(SoundAction.APPLY, applySoundTitle) { onContactPicker(s) }
                     }
-                    SecondarySoundAction("Save", Icons.Default.Download, Modifier.weight(1f), enabled = canDownloadSound) {
-                        runSoundAction(SoundAction.DOWNLOAD, "Save sound") { viewModel.downloadSound(s, confirmed = true) }
+                    SecondarySoundAction(stringResource(R.string.sound_detail_save), Icons.Default.Download, Modifier.weight(1f), enabled = canDownloadSound) {
+                        runSoundAction(SoundAction.DOWNLOAD, saveSoundTitle) { viewModel.downloadSound(s, confirmed = true) }
                     }
-                    SecondarySoundAction("Share", Icons.Default.Share, Modifier.weight(1f), enabled = canShareSound) {
-                        runSoundAction(SoundAction.SHARE, "Share sound") {
+                    SecondarySoundAction(stringResource(R.string.common_share), Icons.Default.Share, Modifier.weight(1f), enabled = canShareSound) {
+                        runSoundAction(SoundAction.SHARE, shareSoundTitle) {
                             val intent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, shareBody); putExtra(Intent.EXTRA_SUBJECT, s.name) }
-                            try { context.startActivity(Intent.createChooser(intent, "Share sound")) } catch (_: Exception) {}
+                            try { context.startActivity(Intent.createChooser(intent, shareSoundChooserTitle)) } catch (_: Exception) {}
                         }
                     }
                 }
@@ -603,7 +613,7 @@ fun SoundDetailScreen(
                 ) {
                     Icon(Icons.Default.Report, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Report content")
+                    Text(stringResource(R.string.sound_detail_report_content))
                 }
             }
             if (canBlockCreator) {
@@ -615,7 +625,7 @@ fun SoundDetailScreen(
                 ) {
                     Icon(Icons.Default.Block, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Block creator")
+                    Text(stringResource(R.string.sound_detail_block_creator))
                 }
             }
             if (canDeleteUpload) {
@@ -627,7 +637,7 @@ fun SoundDetailScreen(
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Delete upload")
+                    Text(stringResource(R.string.sound_detail_delete_upload))
                 }
             }
 
@@ -753,7 +763,7 @@ private fun SimilarSoundsSection(
         }
     }
     Column(Modifier.fillMaxWidth()) {
-        Text("More Like This", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.sound_detail_more_like_this), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         if (isLoading.value) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -830,7 +840,7 @@ private fun SimilarSoundsSection(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(Icons.Default.TravelExplore, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("No close matches yet", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.sound_detail_no_close_matches), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

@@ -232,8 +232,8 @@ fun CreatorProfileScreen(
                 state.isLoading && dashboard == null -> {
                     AuraStateCard(
                         icon = Icons.Default.Person,
-                        title = "Loading creator profile",
-                        description = "Aura is gathering your uploads, votes, follows, and community leaderboard.",
+                        title = stringResource(R.string.profile_loading_title),
+                        description = stringResource(R.string.profile_loading_body),
                         modifier = Modifier
                             .align(Alignment.Center)
                             .padding(24.dp),
@@ -242,9 +242,9 @@ fun CreatorProfileScreen(
                 state.error != null && dashboard == null -> {
                     AuraStateCard(
                         icon = Icons.Default.Groups,
-                        title = "Creator profile unavailable",
-                        description = state.error ?: "Try again in a moment.",
-                        primaryAction = AuraStateAction("Retry", Icons.Default.Refresh, viewModel::refresh),
+                        title = stringResource(R.string.profile_unavailable_title),
+                        description = state.error ?: stringResource(R.string.common_retry_later),
+                        primaryAction = AuraStateAction(stringResource(R.string.common_retry), Icons.Default.Refresh, viewModel::refresh),
                         modifier = Modifier
                             .align(Alignment.Center)
                             .padding(24.dp),
@@ -281,11 +281,11 @@ fun CreatorProfileScreen(
                             }
                         }
                         item {
-                            SectionHeader("Top creators", Icons.Default.Leaderboard)
+                            SectionHeader(stringResource(R.string.profile_top_creators), Icons.Default.Leaderboard)
                         }
                         if (dashboard.topCreators.isEmpty()) {
                             item {
-                                EmptyCreatorSection("No creator uploads yet")
+                                EmptyCreatorSection(stringResource(R.string.profile_top_creators_empty))
                             }
                         } else {
                             items(dashboard.topCreators, key = { "top_${it.creatorId}" }) { creator ->
@@ -304,11 +304,11 @@ fun CreatorProfileScreen(
                             }
                         }
                         item {
-                            SectionHeader("Following", Icons.Default.Favorite)
+                            SectionHeader(stringResource(R.string.profile_following), Icons.Default.Favorite)
                         }
                         if (dashboard.followedCreators.isEmpty()) {
                             item {
-                                EmptyCreatorSection("Follow creators from the leaderboard to track their new uploads.")
+                                EmptyCreatorSection(stringResource(R.string.profile_following_empty))
                             }
                         } else {
                             items(dashboard.followedCreators, key = { "followed_${it.creatorId}" }) { creator ->
@@ -323,11 +323,11 @@ fun CreatorProfileScreen(
                             }
                         }
                         item {
-                            SectionHeader("New from follows", Icons.Default.Upload)
+                            SectionHeader(stringResource(R.string.profile_new_from_follows), Icons.Default.Upload)
                         }
                         if (dashboard.followedUploads.isEmpty()) {
                             item {
-                                EmptyCreatorSection("Followed creator uploads will appear here.")
+                                EmptyCreatorSection(stringResource(R.string.profile_followed_uploads_empty))
                             }
                         } else {
                             items(dashboard.followedUploads, key = { it.stableKey }) { upload ->
@@ -407,20 +407,20 @@ private fun CreatorSummaryCard(
                 }
             }
             IconButton(onClick = { showEditProfile = true }, enabled = !isSaving) {
-                Icon(Icons.Default.Edit, contentDescription = "Edit creator profile")
+                Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.profile_edit_title))
             }
             Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
         }
         Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            CreatorMetric("Uploads", creator.uploadCount.toString(), Modifier.weight(1f))
-            CreatorMetric("Votes", creator.totalVotes.toString(), Modifier.weight(1f))
-            CreatorMetric("Saved", creator.favoritesCount.toString(), Modifier.weight(1f))
+            CreatorMetric(stringResource(R.string.profile_metric_uploads), creator.uploadCount.toString(), Modifier.weight(1f))
+            CreatorMetric(stringResource(R.string.profile_metric_votes), creator.totalVotes.toString(), Modifier.weight(1f))
+            CreatorMetric(stringResource(R.string.profile_metric_saved), creator.favoritesCount.toString(), Modifier.weight(1f))
         }
         if (!dashboard.googleSignInAvailable) {
             Spacer(Modifier.height(12.dp))
             Text(
-                "Google sign-in needs a Firebase OAuth client before it can be enabled.",
+                stringResource(R.string.profile_google_sign_in_unavailable),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -597,7 +597,7 @@ private fun CreatorRow(
             Column(Modifier.weight(1f)) {
                 Text(creator.label, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    "${creator.uploadCount} uploads - ${creator.totalVotes} votes",
+                    stringResource(R.string.profile_creator_stats, creator.uploadCount, creator.totalVotes),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -613,7 +613,7 @@ private fun CreatorRow(
                         if (actionInFlight) {
                             CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
                         } else {
-                            Text(if (creator.isFollowed) "Following" else "Follow")
+                            Text(if (creator.isFollowed) stringResource(R.string.profile_following) else stringResource(R.string.profile_follow))
                         }
                     }
                     if (onBlock != null) {
@@ -621,7 +621,7 @@ private fun CreatorRow(
                             onClick = { showBlockConfirm = true },
                             enabled = !actionInFlight,
                         ) {
-                            Icon(Icons.Default.Block, contentDescription = "Block creator")
+                            Icon(Icons.Default.Block, contentDescription = stringResource(R.string.detail_block_creator))
                         }
                     }
                 }
@@ -656,7 +656,7 @@ private fun UploadRow(upload: CreatorUploadRef) {
             Column(Modifier.weight(1f)) {
                 Text(upload.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    "${upload.creatorLabel} - ${upload.votes} votes",
+                    stringResource(R.string.profile_upload_stats, upload.creatorLabel, upload.votes),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

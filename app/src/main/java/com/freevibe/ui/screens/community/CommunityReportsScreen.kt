@@ -443,7 +443,7 @@ private fun ReportCard(
                 Column(Modifier.weight(1f)) {
                     Text(report.reason.label, style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "${report.contentType} - ${report.contentSource}",
+                        stringResource(R.string.reports_content_source_summary, report.contentType, report.contentSource),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -505,7 +505,7 @@ private fun ReportCard(
 private fun ReportFact(label: String, value: String) {
     if (value.isBlank()) return
     Text(
-        "$label: $value",
+        stringResource(R.string.reports_fact_label_value, label, value),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1,

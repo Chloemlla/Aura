@@ -89,8 +89,8 @@ fun VideoWallpaperPreviewScreen(
                             .background(MaterialTheme.colorScheme.surfaceVariant)
                             .padding(2.dp),
                     ) {
-                        ModeChip("Lock", mode == VideoPreviewMode.LOCK) { mode = VideoPreviewMode.LOCK }
-                        ModeChip("Home", mode == VideoPreviewMode.HOME) { mode = VideoPreviewMode.HOME }
+                        ModeChip(stringResource(R.string.common_lock), mode == VideoPreviewMode.LOCK) { mode = VideoPreviewMode.LOCK }
+                        ModeChip(stringResource(R.string.common_home), mode == VideoPreviewMode.HOME) { mode = VideoPreviewMode.HOME }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -115,7 +115,7 @@ fun VideoWallpaperPreviewScreen(
                         modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                         shape = RoundedCornerShape(8.dp),
                     ) {
-                        Text("Crop", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.video_crop), style = MaterialTheme.typography.labelLarge)
                     }
                     Button(
                         onClick = onApply,
@@ -124,7 +124,7 @@ fun VideoWallpaperPreviewScreen(
                     ) {
                         Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Apply", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.common_apply), style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
@@ -213,6 +213,7 @@ private fun ModeChip(label: String, active: Boolean, onClick: () -> Unit) {
 @Composable
 private fun LockOverlay() {
     val now = remember { Date() }
+    val statusText = stringResource(R.string.preview_mock_status_100)
     val timeFormat = remember { SimpleDateFormat("H:mm", Locale.getDefault()) }
     val dateFormat = remember { SimpleDateFormat("EEEE, MMM d", Locale.getDefault()) }
     Column(
@@ -224,7 +225,7 @@ private fun LockOverlay() {
         Spacer(Modifier.height(56.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(text = timeFormat.format(now), color = Color.White, fontSize = 12.sp)
-            Text(text = "●●●●  100%", color = Color.White, fontSize = 10.sp)
+            Text(text = statusText, color = Color.White, fontSize = 10.sp)
         }
         Spacer(Modifier.height(80.dp))
         Text(
@@ -241,6 +242,7 @@ private fun LockOverlay() {
 
 @Composable
 private fun HomeOverlay() {
+    val statusText = stringResource(R.string.preview_mock_status_100)
     Column(Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
@@ -249,7 +251,7 @@ private fun HomeOverlay() {
             val now = remember { Date() }
             val timeFormat = remember { SimpleDateFormat("H:mm", Locale.getDefault()) }
             Text(text = timeFormat.format(now), color = Color.White, fontSize = 12.sp)
-            Text(text = "●●●●  100%", color = Color.White, fontSize = 10.sp)
+            Text(text = statusText, color = Color.White, fontSize = 10.sp)
         }
         Spacer(Modifier.weight(0.3f))
         Row(

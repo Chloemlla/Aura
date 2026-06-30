@@ -2,6 +2,30 @@
 
 All notable changes to Aura will be documented in this file.
 
+## v6.34.4 (2026-06-28)
+- **Compose localization extraction**: moved the remaining scanned Compose UI
+  strings for onboarding, downloads, collections, detail, preview, diagnostics,
+  licenses, community, editor, and video wallpaper flows into resources, reduced
+  the hardcoded-string baseline to zero entries, and taught the checker to ignore
+  preview fixtures and Compose animation tooling labels.
+- **Local release policy gates**: converted release validation to the
+  local-only distribution model, removed workflow requirements from release
+  policy checks, refreshed release dry-run/supply-chain/SBOM metadata, and
+  kept signed APK/AAB, checksum, notice, native-compliance, and GitHub Release
+  upload evidence documented together.
+
+## v6.34.3 (2026-06-27)
+- **Settings decomposition**: split the 2,628-line Settings screen into
+  feature-owned Compose section files for wallpaper rotation, scheduler,
+  backup, smart/live wallpaper, sounds, video, services/community, storage,
+  diagnostics, permissions, and about. Added a package-level state holder and
+  focused contracts that keep the root Settings screen below 500 lines.
+
+## v6.34.2 (2026-06-27)
+- **Roadmap hygiene**: replaced stale shipped implementation history in
+  `ROADMAP.md` with the current actionable backlog, normalized blocked work into
+  `Roadmap_Blocked.md`, and removed the duplicate `Roadmap_Blocks.md` variant.
+
 ## v6.33.0 (2026-06-19)
 - **Android 17 audio hardening compliance**: video wallpaper MediaPlayer now
   sets non-media AudioAttributes and deselects audio tracks after prepare so

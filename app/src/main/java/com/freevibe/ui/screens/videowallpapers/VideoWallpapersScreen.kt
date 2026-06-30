@@ -180,22 +180,25 @@ internal suspend fun launchOrExportVideoWallpaper(
     ) {
         LiveWallpaperLaunchMode.DIRECT -> {
             withContext(Dispatchers.Main) {
-                Toast.makeText(context, "Aura Video Wallpaper opened. Set wallpaper to finish.", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, context.getString(R.string.settings_feedback_video_direct), Toast.LENGTH_LONG).show()
             }
         }
         LiveWallpaperLaunchMode.CHOOSER -> {
             withContext(Dispatchers.Main) {
-                Toast.makeText(context, "Choose 'Aura Video Wallpaper' in the picker, then tap Set wallpaper.", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, context.getString(R.string.settings_feedback_video_chooser), Toast.LENGTH_LONG).show()
             }
         }
         null -> {
             val savedUri = exportVideoToGallery(context, file)
             withContext(Dispatchers.Main) {
-                val prefix = if (isCropped) "Cropped video" else "Video"
                 val message = if (savedUri != null) {
-                    "$prefix saved to Movies/Aura for manual setup."
+                    context.getString(
+                        if (isCropped) R.string.video_wp_cropped_saved_manual else R.string.video_wp_saved_manual,
+                    )
                 } else {
-                    "$prefix ready. Open Settings > Wallpaper > Live Wallpapers to finish setup."
+                    context.getString(
+                        if (isCropped) R.string.video_wp_cropped_ready_manual else R.string.settings_feedback_video_manual,
+                    )
                 }
                 Toast.makeText(context, message, Toast.LENGTH_LONG).show()
             }
@@ -582,7 +585,16 @@ fun VideoWallpapersScreen(
                     Spacer(Modifier.height(2.dp))
                     Text(item.videoTechnicalSummary(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(4.dp))
-                    Text("${item.loopBadge()} · ${item.batteryBadge()} · ${item.fitBadge(state.orientation)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    Text(
+                        stringResource(
+                            R.string.video_wp_badge_summary,
+                            item.loopBadge(),
+                            item.batteryBadge(),
+                            item.fitBadge(state.orientation),
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                     Spacer(Modifier.height(12.dp))
                     VideoProvenanceBlock(
                         item = item,
@@ -899,7 +911,7 @@ private fun VideoCard(
                         modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.primary,
                     )
-                    if (voteCount > 0) Text("$voteCount", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 2.dp))
+                    if (voteCount > 0) Text(voteCount.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 2.dp))
                 }
             }
             IconButton(
@@ -959,6 +971,7 @@ private fun VideoCard(
 }
 
 @Composable
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 private fun VideoProvenanceBlock(
     item: VideoWallpaperItem,
     normalizedLicense: String,

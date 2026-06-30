@@ -448,7 +448,7 @@ class VideoWallpapersViewModel @Inject constructor(
                 if (item.source == "YouTube" && !prefs.youtubeProviderEnabled.first()) {
                     sourceMetrics.recordDisabled("youtube")
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "YouTube features are disabled in Settings", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(com.freevibe.R.string.video_wp_youtube_disabled), Toast.LENGTH_SHORT).show()
                     }
                     _state.update { it.copy(isApplying = null) }
                     return@launch
@@ -524,7 +524,14 @@ class VideoWallpapersViewModel @Inject constructor(
                 if (e is CancellationException) throw e
                 if (com.freevibe.BuildConfig.DEBUG) Log.e("VideoWP", "Apply failed", e)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        context.getString(
+                            com.freevibe.R.string.video_wp_apply_failed,
+                            e.message ?: context.getString(com.freevibe.R.string.settings_ytdlp_update_unknown_error),
+                        ),
+                        Toast.LENGTH_SHORT,
+                    ).show()
                 }
                 _state.update { it.copy(isApplying = null) }
             }
@@ -587,7 +594,7 @@ class VideoWallpapersViewModel @Inject constructor(
                                 .firstOrNull { (it.height ?: 0) <= 1920 }
                                 ?: video.videoFiles.firstOrNull { it.link.endsWith(".mp4") }
                             file?.let {
-                                val item = VideoWallpaperItem(id = "px_${video.id}", title = "by ${video.user.name}", thumbnailUrl = video.image, source = "Pexels", duration = video.duration.toLong(), uploaderName = video.user.name, videoWidth = video.width, videoHeight = video.height, contentSource = com.freevibe.data.model.ContentSource.PEXELS, license = "Pexels License", sourcePageUrl = video.url)
+                                val item = VideoWallpaperItem(id = "px_${video.id}", title = context.getString(com.freevibe.R.string.video_wp_by_creator, video.user.name), thumbnailUrl = video.image, source = "Pexels", duration = video.duration.toLong(), uploaderName = video.user.name, videoWidth = video.width, videoHeight = video.height, contentSource = com.freevibe.data.model.ContentSource.PEXELS, license = "Pexels License", sourcePageUrl = video.url)
                                 streamUrls[item.id] = it.link
                                 _resolvedIds.update { it + item.id }
                                 item

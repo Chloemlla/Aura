@@ -235,7 +235,7 @@ fun AiWallpaperScreen(
                     Spacer(Modifier.width(4.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         HighlightPill(
-                            label = "Stability AI",
+                            label = stringResource(R.string.ai_provider_stability),
                             icon = Icons.Default.AutoAwesome,
                             tint = MaterialTheme.colorScheme.primary,
                         )

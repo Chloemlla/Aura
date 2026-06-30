@@ -241,10 +241,10 @@ fun CollectionsScreen(
             is ShareCollectionEvent.Ready -> {
                 val intent = android.content.Intent.createChooser(
                     event.intent,
-                    "Share \"${event.collectionName}\"",
+                    context.getString(R.string.collections_share_chooser, event.collectionName),
                 ).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
                 try { context.startActivity(intent) } catch (_: Exception) {
-                    scope.launch { snackbarHostState.showSnackbar("No app to share to") }
+                    scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.collections_no_share_target)) }
                 }
                 viewModel.consumeShareEvent()
             }
@@ -655,7 +655,7 @@ private fun CollectionCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    "$count wallpapers",
+                    stringResource(R.string.collections_wallpaper_count, count),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

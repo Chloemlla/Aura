@@ -6,7 +6,7 @@ physical-device validation, or toolchain gates belongs in `Roadmap_Blocked.md`.
 
 ## Current State
 
-- Version: v6.34.3 / versionCode 130.
+- Version: v6.34.4 / versionCode 131.
 - Stack: Kotlin 2.1.0, AGP 8.7.3, Gradle 8.12, Compose Material 3, Hilt, Room,
   WorkManager, Media3, Coil 2.7.0, Firebase, NewPipe Extractor, yt-dlp.
 - Distribution: local builds only. GitHub Actions workflows have been removed.
@@ -19,19 +19,6 @@ physical-device validation, or toolchain gates belongs in `Roadmap_Blocked.md`.
   evidence tooling, and Settings feature-owned decomposition.
 
 ## P1
-
-### Finish Compose string resource extraction
-
-Most Settings/Wallpapers/Sounds/Favorites strings are now in resources, but
-`docs/localization/hardcoded-string-baseline.json` still tracks remaining UI
-hardcoded strings and exceptions.
-
-Acceptance:
-- Remaining user-visible Compose UI strings move to `values/strings.xml`.
-- Baseline entries are regenerated or reduced to intentional non-user-visible
-  exceptions.
-- No screen copy regresses in Settings, Wallpapers, Videos, Sounds, Favorites,
-  onboarding, editor, or community flows.
 
 ### Replace synthetic accessibility gate with real Aura screen checks
 
@@ -197,15 +184,6 @@ Acceptance:
 - Users can reset learned preferences in Settings.
 
 ## Research-Driven Additions
-
-### P0
-
-- [ ] P0 - Repair local-only release policy gates
-  Why: GitHub Actions workflows were removed, but release/docs/tooling still require `.github/workflows/*.yml`, so local verification and release instructions can fail or mislead.
-  Evidence: `README.md`, `docs/distribution/release-dry-run.md`, `docs/distribution/supply-chain.md`, `tools/accessibility_release_gate_check.py`, `tools/background_work_*_check.py`, `ROADMAP.md`.
-  Touches: `README.md`, `docs/distribution/*`, `docs/privacy/privacy-policy-link.json`, `docs/distribution/github-*.json`, `tools/*workflow*_check.py`, `tools/accessibility_release_gate_check.py`, `tools/release_artifact_bundle_check.py`.
-  Acceptance: No validator requires `.github/workflows`; release dry-run docs describe local signed APK/AAB, checksums, notices, native compliance, and `gh release` upload; current local verification commands pass without workflow files.
-  Complexity: M
 
 ### P1
 

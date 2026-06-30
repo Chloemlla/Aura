@@ -584,11 +584,12 @@ fun AuraStatusBanner(
     primaryAction: AuraStatusAction? = null,
     secondaryAction: AuraStatusAction? = null,
 ) {
+    val bannerContentDescription = stringResource(R.string.aura_status_banner_cd, title, message)
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .semantics {
-                contentDescription = "$title. $message"
+                contentDescription = bannerContentDescription
                 liveRegion = LiveRegionMode.Polite
             },
         shape = AuraCardShape,

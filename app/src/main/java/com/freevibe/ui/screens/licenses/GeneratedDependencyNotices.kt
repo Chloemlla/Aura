@@ -1,6 +1,7 @@
 package com.freevibe.ui.screens.licenses
 
 import android.content.res.Resources
+import androidx.annotation.StringRes
 import com.freevibe.R
 import java.util.Locale
 
@@ -8,7 +9,7 @@ data class GeneratedDependencyNotice(
     val name: String,
     val licenseLabel: String,
     val licenseText: String,
-    val reviewLabel: String? = null,
+    @StringRes val reviewLabelRes: Int? = null,
 )
 
 internal object GoogleOssNoticeReader {
@@ -39,7 +40,7 @@ internal object GoogleOssNoticeReader {
                         name = entry.name,
                         licenseLabel = summarizeLicense(licenseText),
                         licenseText = licenseText,
-                        reviewLabel = reviewLabelFor(entry.name),
+                        reviewLabelRes = reviewLabelResFor(entry.name),
                     )
                 }
             }
@@ -57,7 +58,7 @@ internal object GoogleOssNoticeReader {
             .filter { it.isNotEmpty() }
             .toList()
         return notices.filter { notice ->
-            (!reviewOnly || notice.reviewLabel != null) &&
+            (!reviewOnly || notice.reviewLabelRes != null) &&
                 terms.all { term -> term in notice.searchText }
         }
     }
@@ -103,15 +104,15 @@ internal object GoogleOssNoticeReader {
         }
     }
 
-    private fun reviewLabelFor(name: String): String? {
+    private fun reviewLabelResFor(name: String): Int? {
         val normalized = name.lowercase(Locale.ROOT)
         return reviewRules.firstOrNull { rule ->
             rule.matchers.any { matcher -> matcher in normalized }
-        }?.label
+        }?.labelRes
     }
 
     private val GeneratedDependencyNotice.searchText: String
-        get() = listOfNotNull(name, licenseLabel, reviewLabel)
+        get() = listOf(name, licenseLabel)
             .joinToString(separator = " ")
             .lowercase(Locale.ROOT)
 }
@@ -123,37 +124,37 @@ private data class MetadataEntry(
 )
 
 private data class ReviewRule(
-    val label: String,
+    @StringRes val labelRes: Int,
     val matchers: List<String>,
 )
 
 private val reviewRules = listOf(
     ReviewRule(
-        label = "Review: Firebase",
+        labelRes = R.string.licenses_review_firebase,
         matchers = listOf("firebase"),
     ),
     ReviewRule(
-        label = "Review: Play services",
+        labelRes = R.string.licenses_review_play_services,
         matchers = listOf("play services", "play-services", "com.google.android.gms"),
     ),
     ReviewRule(
-        label = "Review: ML Kit",
+        labelRes = R.string.licenses_review_ml_kit,
         matchers = listOf("ml kit", "mlkit", "subject segmentation"),
     ),
     ReviewRule(
-        label = "Review: NewPipeExtractor",
+        labelRes = R.string.licenses_review_newpipe,
         matchers = listOf("newpipe"),
     ),
     ReviewRule(
-        label = "Review: youtubedl-android",
+        labelRes = R.string.licenses_review_youtubedl,
         matchers = listOf("youtubedl"),
     ),
     ReviewRule(
-        label = "Review: ProfileInstaller",
+        labelRes = R.string.licenses_review_profileinstaller,
         matchers = listOf("profileinstaller", "profile installer"),
     ),
     ReviewRule(
-        label = "Review: ZXing",
+        labelRes = R.string.licenses_review_zxing,
         matchers = listOf("zxing"),
     ),
 )

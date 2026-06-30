@@ -1,5 +1,6 @@
 package com.freevibe.ui.screens.licenses
 
+import com.freevibe.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -69,9 +70,9 @@ class LicensesScreenTest {
             licenseBytes = bytes,
         )
 
-        assertEquals("Review: Firebase", notices[0].reviewLabel)
-        assertEquals("Review: NewPipeExtractor", notices[1].reviewLabel)
-        assertEquals(null, notices[2].reviewLabel)
+        assertEquals(R.string.licenses_review_firebase, notices[0].reviewLabelRes)
+        assertEquals(R.string.licenses_review_newpipe, notices[1].reviewLabelRes)
+        assertEquals(null, notices[2].reviewLabelRes)
         assertEquals(
             listOf("firebase-auth"),
             GoogleOssNoticeReader.filter(notices, "firebase").map { it.name },

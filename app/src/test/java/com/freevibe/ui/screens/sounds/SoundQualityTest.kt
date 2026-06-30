@@ -72,9 +72,10 @@ class SoundQualityTest {
     fun `sound collections expose distinct nonblank discovery queries`() {
         SoundTab.entries.forEach { tab ->
             val collections = soundCollectionsFor(tab)
-            assertEquals(collections.map { it.title }.distinct(), collections.map { it.title })
+            val titleKeys = collections.map { it.title.ifBlank { it.titleRes.toString() } }
+            assertEquals(titleKeys.distinct(), titleKeys)
             assertTrue(collections.all { it.query.isNotBlank() })
-            assertTrue(collections.all { it.subtitle.isNotBlank() })
+            assertTrue(collections.all { it.subtitle.isNotBlank() || it.subtitleRes != 0 })
         }
     }
 

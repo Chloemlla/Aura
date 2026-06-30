@@ -124,7 +124,10 @@ fun SoundEditorScreen(
         state.success?.let { snackbarHostState.showSnackbar(it); viewModel.clearMessages() }
     }
     LaunchedEffect(state.error) {
-        state.error?.let { snackbarHostState.showSnackbar("Error: $it"); viewModel.clearMessages() }
+        state.error?.let {
+            snackbarHostState.showSnackbar(context.getString(R.string.common_error_format, it))
+            viewModel.clearMessages()
+        }
     }
     LaunchedEffect(soundId, fallbackSound?.source, fallbackSound?.previewUrl, fallbackSound?.downloadUrl, editConfirmed) {
         if (soundId == null) {
@@ -418,7 +421,7 @@ fun SoundEditorScreen(
                 }
 
                 // Format convert
-                Text("Convert Format", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.editor_sound_convert_format), style = MaterialTheme.typography.labelLarge)
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),

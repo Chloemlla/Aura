@@ -142,7 +142,7 @@ fun LicensesScreen(onBack: () -> Unit) {
         ) {
             item {
                 Text(
-                    "Release Notices",
+                    stringResource(R.string.licenses_release_notices),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(vertical = 8.dp),
@@ -155,15 +155,19 @@ fun LicensesScreen(onBack: () -> Unit) {
                 item {
                     Spacer(Modifier.height(8.dp))
                     SectionHeader(
-                        title = "Generated Dependencies",
-                        detail = "${visibleGeneratedNotices.size} of ${generatedNotices.size}",
+                        title = stringResource(R.string.licenses_generated_dependencies),
+                        detail = stringResource(
+                            R.string.licenses_generated_notice_count,
+                            visibleGeneratedNotices.size,
+                            generatedNotices.size,
+                        ),
                     )
                 }
                 item {
                     CompactSearchField(
                         value = generatedNoticeQuery,
                         onValueChange = { generatedNoticeQuery = it },
-                        placeholder = "Filter generated notices",
+                        placeholder = stringResource(R.string.licenses_filter_generated_notices),
                         modifier = Modifier.fillMaxWidth(),
                         leadingIcon = Icons.Default.Search,
                         onClear = { generatedNoticeQuery = "" },
@@ -172,7 +176,7 @@ fun LicensesScreen(onBack: () -> Unit) {
                 if (reviewNotices.isNotEmpty()) {
                     item {
                         SectionHeader(
-                            title = "Review Watchlist",
+                            title = stringResource(R.string.licenses_review_watchlist),
                             detail = "${reviewNotices.size}",
                         )
                     }
@@ -184,12 +188,12 @@ fun LicensesScreen(onBack: () -> Unit) {
                     }
                 }
                 item {
-                    SectionHeader(title = "All Generated Notices")
+                    SectionHeader(title = stringResource(R.string.licenses_all_generated_notices))
                 }
                 if (visibleGeneratedNotices.isEmpty()) {
                     item {
                         Text(
-                            "No generated notices match",
+                            stringResource(R.string.licenses_no_generated_notices_match),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
@@ -206,14 +210,14 @@ fun LicensesScreen(onBack: () -> Unit) {
             }
             item {
                 Spacer(Modifier.height(8.dp))
-                SectionHeader(title = "Libraries")
+                SectionHeader(title = stringResource(R.string.licenses_libraries))
             }
             items(licenses) { lic ->
                 LicenseCard(lic)
             }
             item {
                 Spacer(Modifier.height(8.dp))
-                SectionHeader(title = "Content Sources")
+                SectionHeader(title = stringResource(R.string.licenses_content_sources))
             }
             items(contentSources) { lic ->
                 LicenseCard(lic)
@@ -285,8 +289,8 @@ private fun GeneratedNoticeCard(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary,
             )
-            notice.reviewLabel?.let { label ->
-                ReviewLabel(label)
+            notice.reviewLabelRes?.let { labelRes ->
+                ReviewLabel(stringResource(labelRes))
             }
         }
     }

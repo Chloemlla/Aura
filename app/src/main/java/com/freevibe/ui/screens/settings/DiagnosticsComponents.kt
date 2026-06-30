@@ -239,22 +239,22 @@ internal fun ExternalAutomationDiagnosticsSummary(status: ExternalAutomationDiag
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         DiagnosticMetricPill(
-            "State",
-            if (status.enabled) "Enabled" else "Off",
+            stringResource(R.string.settings_diag_metric_state),
+            if (status.enabled) stringResource(R.string.settings_diag_state_enabled) else stringResource(R.string.settings_diag_state_off),
             if (status.enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
         )
         DiagnosticMetricPill(
-            "Rate limit",
+            stringResource(R.string.settings_diag_metric_rate_limit),
             externalAutomationRateLimitLabel(status.minIntervalMs),
             MaterialTheme.colorScheme.secondary,
         )
         DiagnosticMetricPill(
-            "Last action",
+            stringResource(R.string.settings_diag_metric_last_action),
             externalAutomationActionLabel(status.lastAction),
             MaterialTheme.colorScheme.tertiary,
         )
         DiagnosticMetricPill(
-            "Caller",
+            stringResource(R.string.settings_diag_metric_caller),
             externalAutomationCallerLabel(status.lastCallerPackage),
             MaterialTheme.colorScheme.tertiary,
         )
@@ -290,19 +290,19 @@ internal fun BackgroundWorkDiagnosticsSummary(status: BackgroundWorkDiagnostics)
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        DiagnosticMetricPill("Rows", status.rows.size.toString(), MaterialTheme.colorScheme.primary)
+        DiagnosticMetricPill(stringResource(R.string.settings_diag_metric_rows), status.rows.size.toString(), MaterialTheme.colorScheme.primary)
         DiagnosticMetricPill(
-            "Receipts",
+            stringResource(R.string.settings_diag_metric_receipts),
             status.rows.count { it.workInfoCount > 0 && it.readError == null }.toString(),
             MaterialTheme.colorScheme.secondary,
         )
         DiagnosticMetricPill(
-            "Network",
+            stringResource(R.string.settings_diag_metric_network),
             meteredNetworkLabel(network.activeNetworkMetered),
             MaterialTheme.colorScheme.tertiary,
         )
         DiagnosticMetricPill(
-            "Data Saver",
+            stringResource(R.string.settings_diag_metric_data_saver),
             network.restrictBackgroundStatus,
             if (network.restrictBackgroundStatus == "enabled") {
                 MaterialTheme.colorScheme.error
@@ -313,7 +313,7 @@ internal fun BackgroundWorkDiagnosticsSummary(status: BackgroundWorkDiagnostics)
     }
     network.readError?.let { error ->
         Text(
-            "Network diagnostics read failed: $error",
+            stringResource(R.string.settings_diag_network_read_failed, error),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
         )
@@ -353,9 +353,9 @@ internal fun BackgroundWorkDiagnosticRow(row: BackgroundWorkStatusRow) {
                 }
                 HighlightPill(
                     label = when {
-                        hasError -> "Read failed"
-                        hasReceipt -> "Receipt found"
-                        else -> "No receipt"
+                        hasError -> stringResource(R.string.settings_diag_receipt_read_failed)
+                        hasReceipt -> stringResource(R.string.settings_diag_receipt_found)
+                        else -> stringResource(R.string.settings_diag_receipt_missing)
                     },
                     icon = when {
                         hasError -> Icons.Default.Error
@@ -371,41 +371,42 @@ internal fun BackgroundWorkDiagnosticRow(row: BackgroundWorkStatusRow) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                "${row.workInfoCount} records • max attempts ${row.maxRunAttemptCount ?: 0}",
+                stringResource(R.string.settings_diag_background_record_summary, row.workInfoCount, row.maxRunAttemptCount ?: 0),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             row.lastResult?.let { result ->
                 Text(
-                    "Last result: $result",
+                    stringResource(R.string.settings_diag_last_result, result),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             if (row.lastSuccessUtc != null || row.lastFailureUtc != null) {
+                val noneLabel = stringResource(R.string.settings_diag_none)
                 Text(
-                    "Last success ${row.lastSuccessUtc ?: "none"} • last failure ${row.lastFailureUtc ?: "none"}",
+                    stringResource(R.string.settings_diag_last_success_failure, row.lastSuccessUtc ?: noneLabel, row.lastFailureUtc ?: noneLabel),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             row.lastErrorClass?.let { error ->
                 Text(
-                    "Last error: $error",
+                    stringResource(R.string.settings_diag_last_error, error),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
             }
             row.lastDeferralReason?.let { reason ->
                 Text(
-                    "Deferral: $reason",
+                    stringResource(R.string.settings_diag_deferral, reason),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             row.actionHint?.let { hint ->
                 Text(
-                    "Action: $hint",
+                    stringResource(R.string.settings_diag_action, hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = if (row.lastResult == "success") {
                         MaterialTheme.colorScheme.onSurfaceVariant
@@ -416,7 +417,7 @@ internal fun BackgroundWorkDiagnosticRow(row: BackgroundWorkStatusRow) {
             }
             row.readError?.let { error ->
                 Text(
-                    "Read error: $error",
+                    stringResource(R.string.settings_diag_read_error, error),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
@@ -449,9 +450,9 @@ internal fun SourceDiagnosticsEmptyState() {
                 modifier = Modifier.size(22.dp),
             )
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("No activity yet", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.settings_diag_source_no_activity_title), style = MaterialTheme.typography.titleSmall)
                 Text(
-                    "Open Wallpapers, Videos, or Sounds to record provider health for this app session.",
+                    stringResource(R.string.settings_diag_source_no_activity_body),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -473,11 +474,15 @@ internal fun SourceDiagnosticsSummary(snapshots: List<SourceMetrics.SourceStats>
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        DiagnosticMetricPill("Sources", activeSources.toString(), MaterialTheme.colorScheme.primary)
-        DiagnosticMetricPill("Requests", totalRequests.toString(), MaterialTheme.colorScheme.secondary)
-        DiagnosticMetricPill("Failures", failures.toString(), if (failures > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary)
-        DiagnosticMetricPill("Disabled", disabled.toString(), MaterialTheme.colorScheme.tertiary)
-        DiagnosticMetricPill("Worst p95", p95Worst?.let { "${it}ms" } ?: "n/a", MaterialTheme.colorScheme.tertiary)
+        DiagnosticMetricPill(stringResource(R.string.settings_diag_metric_sources), activeSources.toString(), MaterialTheme.colorScheme.primary)
+        DiagnosticMetricPill(stringResource(R.string.settings_diag_metric_requests), totalRequests.toString(), MaterialTheme.colorScheme.secondary)
+        DiagnosticMetricPill(stringResource(R.string.settings_diag_metric_failures), failures.toString(), if (failures > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary)
+        DiagnosticMetricPill(stringResource(R.string.settings_diag_metric_disabled), disabled.toString(), MaterialTheme.colorScheme.tertiary)
+        DiagnosticMetricPill(
+            stringResource(R.string.settings_diag_metric_worst_p95),
+            p95Worst?.let { stringResource(R.string.settings_diag_latency_ms, it) } ?: stringResource(R.string.settings_diag_not_available),
+            MaterialTheme.colorScheme.tertiary,
+        )
     }
 }
 
@@ -515,9 +520,9 @@ internal fun SourceDiagnosticRow(stat: SourceMetrics.SourceStats) {
         else -> MaterialTheme.colorScheme.primary
     }
     val latency = if (stat.p50Ms != null) {
-        "p50 ${stat.p50Ms}ms / p95 ${stat.p95Ms}ms"
+        stringResource(R.string.settings_diag_source_latency, stat.p50Ms, stat.p95Ms ?: 0L)
     } else {
-        "No latency yet"
+        stringResource(R.string.settings_diag_source_no_latency)
     }
 
     Surface(
@@ -537,10 +542,10 @@ internal fun SourceDiagnosticRow(stat: SourceMetrics.SourceStats) {
                 Text(sourceDisplayName(stat.source), style = MaterialTheme.typography.titleSmall)
                 HighlightPill(
                     label = when {
-                        persistentFailure -> "Persistent failure"
-                        hasFailure -> "Needs attention"
-                        hasDisabled -> "Disabled"
-                        else -> "Healthy"
+                        persistentFailure -> stringResource(R.string.settings_diag_source_persistent_failure)
+                        hasFailure -> stringResource(R.string.settings_diag_source_needs_attention)
+                        hasDisabled -> stringResource(R.string.settings_diag_source_disabled)
+                        else -> stringResource(R.string.settings_diag_source_healthy)
                     },
                     icon = when {
                         persistentFailure -> Icons.Default.ReportProblem
@@ -561,7 +566,14 @@ internal fun SourceDiagnosticRow(stat: SourceMetrics.SourceStats) {
                 trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             )
             Text(
-                "${stat.totalRequests} requests • $successPercent% success • ${stat.consecutiveFailureCount} consecutive failures • ${stat.disabledCount} disabled • $latency",
+                stringResource(
+                    R.string.settings_diag_source_request_summary,
+                    stat.totalRequests,
+                    successPercent,
+                    stat.consecutiveFailureCount,
+                    stat.disabledCount,
+                    latency,
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -579,14 +591,18 @@ internal fun SourceDiagnosticRow(stat: SourceMetrics.SourceStats) {
             }
             if (persistentFailure) {
                 Text(
-                    "This source has failed repeatedly without a successful response. Try another source or check provider status before retrying.",
+                    stringResource(R.string.settings_diag_source_persistent_failure_body),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
             }
             if (stat.lastErrorClass != null) {
                 Text(
-                    "Last error: ${stat.lastErrorClass} — ${stat.lastErrorMessage ?: "no detail"}",
+                    stringResource(
+                        R.string.settings_diag_last_error_with_detail,
+                        stat.lastErrorClass,
+                        stat.lastErrorMessage ?: stringResource(R.string.settings_diag_no_detail),
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )

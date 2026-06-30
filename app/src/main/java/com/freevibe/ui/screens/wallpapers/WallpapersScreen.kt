@@ -1313,7 +1313,7 @@ private fun WallpaperCard(
                                         horizontalArrangement = Arrangement.spacedBy(2.dp),
                                     ) {
                                         Icon(Icons.Default.ThumbUp, contentDescription = stringResource(R.string.wallpapers_card_upvotes_cd), Modifier.size(11.dp), tint = Color.White.copy(alpha = 0.9f))
-                                        Text("$voteCount", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.9f))
+                                        Text(voteCount.toString(), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.9f))
                                     }
                                 }
                             }
@@ -1729,7 +1729,7 @@ private fun WallpaperUploadDialog(
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
-                        "${(uploadProgress * 100).toInt()}%",
+                        stringResource(R.string.wallpapers_upload_progress_percent, (uploadProgress * 100).toInt()),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

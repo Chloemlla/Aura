@@ -162,6 +162,11 @@ fun VideoCropScreen(
     // SmartCropDetector has @Inject constructor() with no deps, so it's safe to
     // instantiate directly here without a ViewModel/Hilt EntryPoint.
     val smartCropDetector = remember { com.freevibe.service.SmartCropDetector() }
+    val croppingInProgressMessage = stringResource(R.string.video_crop_in_progress_wait)
+    val frameReadFailedMessage = stringResource(R.string.video_crop_frame_read_failed)
+    val subjectNotFoundMessage = stringResource(R.string.video_crop_subject_not_found)
+    val smartCropAppliedMessage = stringResource(R.string.video_crop_smart_applied)
+    val cropFailedMessage = stringResource(R.string.video_crop_failed)
 
     // NX-13: while an FFmpeg crop is in flight, intercept back so the user
     // doesn't accidentally lose the trim selection mid-export. We don't try
@@ -169,7 +174,7 @@ fun VideoCropScreen(
     // outer process exits or the file write completes); we just toast and
     // hold the screen so the result has somewhere to land.
     androidx.activity.compose.BackHandler(enabled = isCropping) {
-        Toast.makeText(context, "Cropping in progress — please wait", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, croppingInProgressMessage, Toast.LENGTH_SHORT).show()
     }
 
     // Detect actual video dimensions via ExoPlayer format or MediaMetadataRetriever fallback
@@ -320,7 +325,7 @@ fun VideoCropScreen(
                                         }
                                     }
                                     if (frame == null) {
-                                        Toast.makeText(context, "Couldn't read a frame", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, frameReadFailedMessage, Toast.LENGTH_SHORT).show()
                                         return@launch
                                     }
                                     val subject = smartCropDetector.detectSubject(frame)
@@ -328,7 +333,7 @@ fun VideoCropScreen(
                                     if (subject == null) {
                                         Toast.makeText(
                                             context,
-                                            "Couldn't find a subject — drag to position",
+                                            subjectNotFoundMessage,
                                             Toast.LENGTH_SHORT,
                                         ).show()
                                         return@launch
@@ -347,7 +352,7 @@ fun VideoCropScreen(
                                     val targetPanY = effective * (videoHeight / 2f - cy)
                                     val (s, ox, oy) = clampTransform(scale, targetPanX, targetPanY)
                                     scale = s; offsetX = ox; offsetY = oy
-                                    Toast.makeText(context, "Smart crop applied", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, smartCropAppliedMessage, Toast.LENGTH_SHORT).show()
                                 } catch (e: Exception) {
                                     if (e is kotlinx.coroutines.CancellationException) throw e
                                     if (com.freevibe.BuildConfig.DEBUG) Log.e("VideoCrop", "Smart crop failed: ${e.message}")
@@ -384,7 +389,7 @@ fun VideoCropScreen(
                 .padding(padding),
         ) {
             Text(
-                "Choose the loop segment, then pinch to crop and position the frame.",
+                stringResource(R.string.video_crop_guidance),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -440,7 +445,7 @@ fun VideoCropScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text(if (dimensionsReady) "${videoWidth}x${videoHeight}" else "Detecting...", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(if (dimensionsReady) "${videoWidth}x${videoHeight}" else stringResource(R.string.editor_crop_detecting), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(String.format(java.util.Locale.ROOT, "%.0f%%", scale * 100), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             }
 
@@ -473,7 +478,7 @@ fun VideoCropScreen(
                         )
                         isCropping = false
                         if (result != null) onCropped(result)
-                        else Toast.makeText(context, "Crop failed", Toast.LENGTH_SHORT).show()
+                        else Toast.makeText(context, cropFailedMessage, Toast.LENGTH_SHORT).show()
                     }
                 },
                 modifier = Modifier.fillMaxWidth().padding(16.dp).height(52.dp),
@@ -512,15 +517,15 @@ private fun LoopTrimControls(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                "Loop",
+                stringResource(R.string.video_crop_loop_title),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 if (enabled) {
-                    "${formatVideoLoopTime(loopRange.durationMs)} selected"
+                    stringResource(R.string.video_crop_loop_selected, formatVideoLoopTime(loopRange.durationMs))
                 } else {
-                    "Full clip"
+                    stringResource(R.string.video_crop_full_clip)
                 },
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,

@@ -66,8 +66,8 @@ fun WallpaperHistoryScreen(
             ) {
                 AuraStateCard(
                     icon = Icons.Default.History,
-                    title = "No wallpaper history yet",
-                    description = "Applied wallpapers will appear here so you can revisit, compare, and restore prior looks.",
+                    title = stringResource(R.string.history_empty_title),
+                    description = stringResource(R.string.history_empty_body),
                     modifier = Modifier.padding(24.dp),
                 )
             }
@@ -132,7 +132,7 @@ private fun HistoryCard(
         Box {
             AsyncImage(
                 model = entry.thumbnailUrl,
-                contentDescription = "Applied wallpaper",
+                contentDescription = stringResource(R.string.history_applied_wallpaper_cd),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -183,7 +183,7 @@ private fun HistoryCard(
                     )
                     if (entry.width > 0) {
                         Text(
-                            "${entry.width}x${entry.height}",
+                            stringResource(R.string.detail_resolution, entry.width, entry.height),
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White.copy(alpha = 0.6f),
                         )

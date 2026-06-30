@@ -25,12 +25,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.freevibe.R
 import com.freevibe.data.local.PreferencesManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.freevibe.ui.components.GlassCard
@@ -160,7 +162,7 @@ fun OnboardingScreen(
                             .weight(1f)
                             .height(54.dp),
                         shape = RoundedCornerShape(8.dp),
-                    ) { Text("Back") }
+                    ) { Text(stringResource(R.string.common_back)) }
                 }
 
                 Button(
@@ -176,7 +178,13 @@ fun OnboardingScreen(
                         .height(54.dp),
                     shape = RoundedCornerShape(8.dp),
                 ) {
-                    Text(if (pagerState.currentPage == 3) "Get started" else "Next")
+                    Text(
+                        if (pagerState.currentPage == 3) {
+                            stringResource(R.string.onboarding_get_started)
+                        } else {
+                            stringResource(R.string.common_next)
+                        }
+                    )
                 }
             }
         }
@@ -198,13 +206,13 @@ private fun OnboardingTopBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         OnboardingLabel(
-            label = "Step ${currentPage + 1} of $totalPages",
+            label = stringResource(R.string.onboarding_step_label, currentPage + 1, totalPages),
             icon = Icons.Default.AutoAwesome,
             tint = MaterialTheme.colorScheme.secondary,
         )
         if (currentPage < totalPages - 1) {
             TextButton(onClick = onSkip) {
-                Text("Skip setup", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.onboarding_skip_setup), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -237,15 +245,15 @@ private fun OnboardingLabel(
 @Composable
 private fun WelcomePage() {
     PageLayout(
-        eyebrow = "Personalization, without the clutter",
+        eyebrow = stringResource(R.string.onboarding_welcome_eyebrow),
         icon = Icons.Default.Wallpaper,
         iconColor = MaterialTheme.colorScheme.primary,
-        title = "Welcome to Aura",
-        description = "A calm, open-source toolkit for wallpapers, video wallpapers, ringtones, and sounds. No ads, no required account, no noisy setup.",
+        title = stringResource(R.string.onboarding_welcome_title),
+        description = stringResource(R.string.onboarding_welcome_body),
         badges = listOf(
-            Icons.Default.LockOpen to "No account",
-            Icons.Default.Block to "No ads",
-            Icons.Default.Verified to "Open source",
+            Icons.Default.LockOpen to stringResource(R.string.onboarding_badge_no_account),
+            Icons.Default.Block to stringResource(R.string.onboarding_badge_no_ads),
+            Icons.Default.Verified to stringResource(R.string.onboarding_badge_open_source),
         ),
     )
 }
@@ -253,24 +261,24 @@ private fun WelcomePage() {
 @Composable
 private fun FeaturesPage() {
     val features = listOf(
-        Triple(Icons.Default.Wallpaper, "HD and 4K wallpapers", "Curated sources with phone-friendly quality filters"),
-        Triple(Icons.Default.VideoLibrary, "Video wallpapers", "Loops, cinemagraphs, and motion-ready previews"),
-        Triple(Icons.Default.MusicNote, "Ringtones and sounds", "Short-clip filters plus trim and fade tools"),
-        Triple(Icons.Default.Schedule, "Smart rotation", "Rotate by interval, source, or time of day"),
-        Triple(Icons.Default.Cloud, "Weather effects", "Optional rain, snow, and fog overlays"),
-        Triple(Icons.Default.DarkMode, "AMOLED editor", "Tone, vignette, grain, warmth, and presets"),
+        Triple(Icons.Default.Wallpaper, stringResource(R.string.onboarding_feature_wallpapers_title), stringResource(R.string.onboarding_feature_wallpapers_body)),
+        Triple(Icons.Default.VideoLibrary, stringResource(R.string.onboarding_feature_video_title), stringResource(R.string.onboarding_feature_video_body)),
+        Triple(Icons.Default.MusicNote, stringResource(R.string.onboarding_feature_sounds_title), stringResource(R.string.onboarding_feature_sounds_body)),
+        Triple(Icons.Default.Schedule, stringResource(R.string.onboarding_feature_rotation_title), stringResource(R.string.onboarding_feature_rotation_body)),
+        Triple(Icons.Default.Cloud, stringResource(R.string.onboarding_feature_weather_title), stringResource(R.string.onboarding_feature_weather_body)),
+        Triple(Icons.Default.DarkMode, stringResource(R.string.onboarding_feature_amoled_title), stringResource(R.string.onboarding_feature_amoled_body)),
     )
 
     PageLayout(
-        eyebrow = "What you get",
+        eyebrow = stringResource(R.string.onboarding_features_eyebrow),
         icon = Icons.Default.AutoAwesome,
         iconColor = MaterialTheme.colorScheme.secondary,
-        title = "One cohesive personalization toolkit",
-        description = "Discovery, motion, sound, editing, and automation live together so your device feels intentional.",
+        title = stringResource(R.string.onboarding_features_title),
+        description = stringResource(R.string.onboarding_features_body),
         badges = listOf(
-            Icons.Default.Wallpaper to "Wallpapers",
-            Icons.Default.VideoLibrary to "Video loops",
-            Icons.Default.NotificationsActive to "Sound tools",
+            Icons.Default.Wallpaper to stringResource(R.string.nav_wallpapers),
+            Icons.Default.VideoLibrary to stringResource(R.string.onboarding_badge_video_loops),
+            Icons.Default.NotificationsActive to stringResource(R.string.onboarding_badge_sound_tools),
         ),
         content = {
             features.forEachIndexed { index, (icon, title, subtitle) ->
@@ -328,24 +336,24 @@ private fun FeatureRow(icon: ImageVector, title: String, subtitle: String) {
 @Composable
 private fun StylePickerPage(selectedStyles: Set<String>, onToggle: (String) -> Unit) {
     val styles = listOf(
-        OnboardingStyleOption("minimal", "Minimal", "Clean layouts with breathing room", Icons.Default.CropSquare, MaterialTheme.colorScheme.secondary),
-        OnboardingStyleOption("amoled", "AMOLED", "Deep blacks for dim, high-contrast screens", Icons.Default.DarkMode, MaterialTheme.colorScheme.primary),
-        OnboardingStyleOption("nature", "Nature", "Landscapes, foliage, and organic textures", Icons.Default.Landscape, MaterialTheme.colorScheme.secondary),
-        OnboardingStyleOption("space", "Space", "Celestial scenes, stars, and nebula energy", Icons.Default.Public, MaterialTheme.colorScheme.tertiary),
-        OnboardingStyleOption("anime", "Anime", "Illustrated scenes and stylized characters", Icons.Default.Movie, MaterialTheme.colorScheme.primary),
-        OnboardingStyleOption("abstract", "Abstract", "Shape-driven art, gradients, and light play", Icons.Default.AutoAwesome, MaterialTheme.colorScheme.secondary),
-        OnboardingStyleOption("neon", "Neon", "Bold glow, nightlife, and cyber accents", Icons.Default.Bolt, MaterialTheme.colorScheme.tertiary),
-        OnboardingStyleOption("city", "City", "Architecture, streets, and urban atmosphere", Icons.Default.LocationCity, MaterialTheme.colorScheme.primary),
-        OnboardingStyleOption("gradient", "Gradient", "Soft tonal blends and color-field backgrounds", Icons.Default.BlurOn, MaterialTheme.colorScheme.secondary),
-        OnboardingStyleOption("dark", "Dark", "Moody, low-light, and cinematic compositions", Icons.Default.Brightness3, MaterialTheme.colorScheme.tertiary),
+        OnboardingStyleOption("minimal", stringResource(R.string.onboarding_style_minimal), stringResource(R.string.onboarding_style_minimal_body), Icons.Default.CropSquare, MaterialTheme.colorScheme.secondary),
+        OnboardingStyleOption("amoled", stringResource(R.string.onboarding_style_amoled), stringResource(R.string.onboarding_style_amoled_body), Icons.Default.DarkMode, MaterialTheme.colorScheme.primary),
+        OnboardingStyleOption("nature", stringResource(R.string.onboarding_style_nature), stringResource(R.string.onboarding_style_nature_body), Icons.Default.Landscape, MaterialTheme.colorScheme.secondary),
+        OnboardingStyleOption("space", stringResource(R.string.onboarding_style_space), stringResource(R.string.onboarding_style_space_body), Icons.Default.Public, MaterialTheme.colorScheme.tertiary),
+        OnboardingStyleOption("anime", stringResource(R.string.onboarding_style_anime), stringResource(R.string.onboarding_style_anime_body), Icons.Default.Movie, MaterialTheme.colorScheme.primary),
+        OnboardingStyleOption("abstract", stringResource(R.string.onboarding_style_abstract), stringResource(R.string.onboarding_style_abstract_body), Icons.Default.AutoAwesome, MaterialTheme.colorScheme.secondary),
+        OnboardingStyleOption("neon", stringResource(R.string.onboarding_style_neon), stringResource(R.string.onboarding_style_neon_body), Icons.Default.Bolt, MaterialTheme.colorScheme.tertiary),
+        OnboardingStyleOption("city", stringResource(R.string.onboarding_style_city), stringResource(R.string.onboarding_style_city_body), Icons.Default.LocationCity, MaterialTheme.colorScheme.primary),
+        OnboardingStyleOption("gradient", stringResource(R.string.onboarding_style_gradient), stringResource(R.string.onboarding_style_gradient_body), Icons.Default.BlurOn, MaterialTheme.colorScheme.secondary),
+        OnboardingStyleOption("dark", stringResource(R.string.onboarding_style_dark), stringResource(R.string.onboarding_style_dark_body), Icons.Default.Brightness3, MaterialTheme.colorScheme.tertiary),
     )
 
     PageLayout(
-        eyebrow = "Tailor the feed",
+        eyebrow = stringResource(R.string.onboarding_style_eyebrow),
         icon = Icons.Default.Tune,
         iconColor = MaterialTheme.colorScheme.primary,
-        title = "What should Aura lean toward?",
-        description = "Choose a few looks to bias Discover toward. You can adjust this anytime in Settings.",
+        title = stringResource(R.string.onboarding_style_title),
+        description = stringResource(R.string.onboarding_style_body),
         badges = emptyList(),
         content = {
             Row(
@@ -354,11 +362,15 @@ private fun StylePickerPage(selectedStyles: Set<String>, onToggle: (String) -> U
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "Style profile",
+                    stringResource(R.string.onboarding_style_profile),
                     style = MaterialTheme.typography.titleMedium,
                 )
                 OnboardingLabel(
-                    label = if (selectedStyles.isEmpty()) "Optional" else "${selectedStyles.size} selected",
+                    label = if (selectedStyles.isEmpty()) {
+                        stringResource(R.string.onboarding_optional)
+                    } else {
+                        stringResource(R.string.onboarding_selected_count, selectedStyles.size)
+                    },
                     icon = Icons.Default.CheckCircle,
                     tint = MaterialTheme.colorScheme.secondary,
                 )
@@ -444,31 +456,31 @@ private fun StylePickerPage(selectedStyles: Set<String>, onToggle: (String) -> U
 @Composable
 private fun ReadyPage() {
     PageLayout(
-        eyebrow = "Ready to explore",
+        eyebrow = stringResource(R.string.onboarding_ready_eyebrow),
         icon = Icons.Default.Celebration,
         iconColor = MaterialTheme.colorScheme.secondary,
-        title = "You're all set",
-        description = "Everything works out of the box. Start with Discover, tune sources later, or add the widget for quick access.",
+        title = stringResource(R.string.onboarding_ready_title),
+        description = stringResource(R.string.onboarding_ready_body),
         badges = listOf(
-            Icons.Default.Wallpaper to "Discover",
-            Icons.Default.MusicNote to "Sounds",
-            Icons.Default.Widgets to "Widget",
+            Icons.Default.Wallpaper to stringResource(R.string.onboarding_badge_discover),
+            Icons.Default.MusicNote to stringResource(R.string.nav_sounds),
+            Icons.Default.Widgets to stringResource(R.string.onboarding_badge_widget),
         ),
         content = {
             FeatureRow(
                 icon = Icons.Default.Explore,
-                title = "Start with Discover",
-                subtitle = "Aura will already bias results toward higher-quality, phone-friendly picks.",
+                title = stringResource(R.string.onboarding_ready_discover_title),
+                subtitle = stringResource(R.string.onboarding_ready_discover_body),
             )
             FeatureRow(
                 icon = Icons.Default.Settings,
-                title = "Refine the details later",
-                subtitle = "Rotation, weather effects, previews, sources, and battery tradeoffs stay easy to tweak.",
+                title = stringResource(R.string.onboarding_ready_refine_title),
+                subtitle = stringResource(R.string.onboarding_ready_refine_body),
             )
             FeatureRow(
                 icon = Icons.Default.Widgets,
-                title = "Add quick access",
-                subtitle = "The home screen widget gives you instant shuffle and wallpaper actions without opening the app.",
+                title = stringResource(R.string.onboarding_ready_widget_title),
+                subtitle = stringResource(R.string.onboarding_ready_widget_body),
             )
         },
     )
