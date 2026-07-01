@@ -12,7 +12,7 @@ from typing import Any
 
 
 ANDROID_NS = "{http://schemas.android.com/apk/res/android}"
-EXPECTED_STATUS = "permissionRemoved"
+EXPECTED_STATUS = "rotationTriggersDoNotBootStart"
 REQUIRED_DOC_TERMS = {
     "Rotation trigger boot behavior",
     "Current decision",
@@ -83,6 +83,22 @@ def manifest_permissions(repo_root: Path, relative_path: str) -> set[str]:
     return names
 
 
+def manifest_boot_receivers(repo_root: Path, relative_path: str) -> set[str]:
+    root = ET.fromstring(read_text(repo_root, relative_path, "Android manifest"))
+    receivers: set[str] = set()
+    for receiver in root.findall(".//receiver"):
+        receiver_name = receiver.attrib.get(f"{ANDROID_NS}name")
+        if not receiver_name:
+            continue
+        for action in receiver.findall(".//action"):
+            if action.attrib.get(f"{ANDROID_NS}name") in {
+                "android.intent.action.BOOT_COMPLETED",
+                "android.intent.action.LOCKED_BOOT_COMPLETED",
+            }:
+                receivers.add(receiver_name)
+    return receivers
+
+
 def source_files(repo_root: Path, source_roots: list[str]) -> list[Path]:
     files: list[Path] = []
     for relative_root in source_roots:
@@ -98,6 +114,19 @@ def source_files(repo_root: Path, source_roots: list[str]) -> list[Path]:
     if not files:
         raise RotationBootPermissionError("sourceRoots did not match any source files")
     return files
+
+
+def allowed_receiver_source_paths(repo_root: Path, allowed_boot_receivers: set[str]) -> set[Path]:
+    source_root = repo_root / "app/src/main/java"
+    paths: set[Path] = set()
+    for receiver in allowed_boot_receivers:
+        qualified_name = receiver
+        if receiver.startswith("."):
+            qualified_name = f"com.freevibe{receiver}"
+        receiver_path = source_root / Path(*qualified_name.split("."))
+        paths.add(receiver_path.with_suffix(".kt"))
+        paths.add(receiver_path.with_suffix(".java"))
+    return paths
 
 
 def validate_docs(repo_root: Path, policy: dict[str, Any], removed_permission: str) -> None:
@@ -117,8 +146,6 @@ def validate_docs(repo_root: Path, policy: dict[str, Any], removed_permission: s
         text = read_text(repo_root, relative_path, f"required doc {relative_path}")
         if relative_path == docs_path:
             continue
-        if removed_permission in text:
-            raise RotationBootPermissionError(f"{relative_path} still mentions {removed_permission}")
         if "boot scheduling" in text.lower():
             raise RotationBootPermissionError(f"{relative_path} still claims boot scheduling")
 
@@ -134,10 +161,13 @@ def validate_source_urls(policy: dict[str, Any]) -> int:
     return len(urls)
 
 
-def validate_source_terms(repo_root: Path, policy: dict[str, Any]) -> None:
+def validate_source_terms(repo_root: Path, policy: dict[str, Any], allowed_boot_receivers: set[str]) -> None:
     forbidden_terms = require_string_list(policy.get("forbiddenSourceTerms"), "forbiddenSourceTerms")
     files = source_files(repo_root, require_string_list(policy.get("sourceRoots"), "sourceRoots"))
+    allowed_receiver_paths = allowed_receiver_source_paths(repo_root, allowed_boot_receivers)
     for path in files:
+        if path in allowed_receiver_paths:
+            continue
         text = path.read_text(encoding="utf-8")
         for term in forbidden_terms:
             if term in text:
@@ -146,11 +176,9 @@ def validate_source_terms(repo_root: Path, policy: dict[str, Any]) -> None:
                 )
 
 
-def validate_workflow_wiring(repo_root: Path) -> None:
+def validate_local_release_wiring(repo_root: Path) -> None:
     command = "tools/rotation_boot_permission_check.py"
     for label, relative_path in (
-        ("verify workflow", ".github/workflows/verify.yml"),
-        ("release workflow", ".github/workflows/release.yml"),
         ("release dry-run docs", "docs/distribution/release-dry-run.md"),
         ("release signing docs", "docs/distribution/release-signing.md"),
         ("release metadata docs", "docs/distribution/release-metadata-consistency.md"),
@@ -169,17 +197,25 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, object
         raise RotationBootPermissionError(f"status must be {EXPECTED_STATUS}")
     manifest_path = require_string(policy.get("manifestPath"), "manifestPath")
     removed_permission = require_string(policy.get("removedPermission"), "removedPermission")
-    if removed_permission in manifest_permissions(repo_root, manifest_path):
-        raise RotationBootPermissionError(f"{removed_permission} must not be declared")
+    allowed_boot_receivers = set(require_string_list(policy.get("allowedBootReceivers"), "allowedBootReceivers"))
+    boot_receivers = manifest_boot_receivers(repo_root, manifest_path)
+    unexpected_boot_receivers = sorted(boot_receivers - allowed_boot_receivers)
+    if unexpected_boot_receivers:
+        raise RotationBootPermissionError(
+            "unexpected boot-completed receiver declared: " + ", ".join(unexpected_boot_receivers)
+        )
+    if boot_receivers and removed_permission not in manifest_permissions(repo_root, manifest_path):
+        raise RotationBootPermissionError(f"{removed_permission} must be declared for reviewed boot receivers")
     validate_docs(repo_root, policy, removed_permission)
     source_url_count = validate_source_urls(policy)
-    validate_source_terms(repo_root, policy)
-    validate_workflow_wiring(repo_root)
+    validate_source_terms(repo_root, policy, allowed_boot_receivers)
+    validate_local_release_wiring(repo_root)
     return {
         "status": "ok",
         "policyKind": "rotationTriggerBootBehavior",
         "decision": EXPECTED_STATUS,
-        "removedPermission": removed_permission,
+        "bootPermission": removed_permission,
+        "allowedBootReceivers": sorted(allowed_boot_receivers),
         "sourceUrlCount": source_url_count,
     }
 

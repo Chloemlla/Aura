@@ -25,8 +25,6 @@ def copy_required_tree(destination: Path) -> None:
         "docs/distribution/release-signing.md",
         "docs/distribution/release-metadata-consistency.md",
         "tools/store_metadata_preflight.py",
-        ".github/workflows/verify.yml",
-        ".github/workflows/release.yml",
     }
     for relative_path in paths:
         source = REPO_ROOT / relative_path
@@ -67,13 +65,13 @@ class StoreAssetPipelineCheckTest(unittest.TestCase):
         with self.assertRaises(StoreAssetPipelineError):
             validate_policy(REPO_ROOT, policy)
 
-    def test_rejects_missing_workflow_command(self) -> None:
+    def test_rejects_missing_release_doc_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             copy_required_tree(repo)
-            workflow = repo / ".github/workflows/release.yml"
-            workflow.write_text(
-                workflow.read_text(encoding="utf-8").replace("tools/store_asset_pipeline_check.py", ""),
+            release_docs = repo / "docs/distribution/release-metadata-consistency.md"
+            release_docs.write_text(
+                release_docs.read_text(encoding="utf-8").replace("tools/store_asset_pipeline_check.py", ""),
                 encoding="utf-8",
             )
 

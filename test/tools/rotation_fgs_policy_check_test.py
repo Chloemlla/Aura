@@ -19,8 +19,6 @@ def copy_required_tree(destination: Path) -> None:
     policy = live_policy()
     paths = {
         "app/src/main/AndroidManifest.xml",
-        ".github/workflows/verify.yml",
-        ".github/workflows/release.yml",
         "docs/distribution/release-dry-run.md",
         "docs/distribution/release-signing.md",
         "docs/distribution/release-metadata-consistency.md",
@@ -116,13 +114,13 @@ class RotationFgsPolicyCheckTest(unittest.TestCase):
             with self.assertRaises(RotationFgsPolicyError):
                 validate_policy(repo, live_policy())
 
-    def test_rejects_missing_workflow_command(self) -> None:
+    def test_rejects_missing_release_doc_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             copy_required_tree(repo)
-            workflow = repo / ".github/workflows/verify.yml"
-            workflow.write_text(
-                workflow.read_text(encoding="utf-8").replace("tools/rotation_fgs_policy_check.py", ""),
+            release_docs = repo / "docs/distribution/release-signing.md"
+            release_docs.write_text(
+                release_docs.read_text(encoding="utf-8").replace("tools/rotation_fgs_policy_check.py", ""),
                 encoding="utf-8",
             )
 

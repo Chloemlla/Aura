@@ -163,7 +163,7 @@ def validate_bundle(
             "NATIVE-COMPLIANCE.md",
             "NATIVE-ALIGNMENT.json",
             "Signing certificate SHA-256:",
-            "GitHub artifact attestation:",
+            "Local build receipt:",
             "Build type: release, android:debuggable=false",
             "Package: com.freevibe",
         ]
@@ -173,7 +173,7 @@ def validate_bundle(
         valued_note_labels = [
             "APK SHA-256",
             "Signing certificate SHA-256",
-            "GitHub artifact attestation",
+            "Local build receipt",
         ]
         for label in valued_note_labels:
             if not re.search(rf"^- {re.escape(label)}:\s+\S+", release_notes, re.MULTILINE):

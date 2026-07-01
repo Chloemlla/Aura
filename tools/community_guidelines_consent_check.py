@@ -86,6 +86,23 @@ def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def read_surface_text(repo_root: Path, relative_path: str) -> str:
+    path = repo_root / relative_path
+    text = read_text(path)
+    if path.name == "SettingsScreen.kt":
+        settings_dir = path.parent
+        text = "\n".join(
+            [text]
+            + [
+                section.read_text(encoding="utf-8")
+                for section in sorted(settings_dir.glob("*.kt"))
+                if section.is_file() and section != path
+            ]
+            + [read_text(repo_root / "app/src/main/res/values/strings.xml")]
+        )
+    return text
+
+
 def validate_docs(repo_root: Path, docs_path: str) -> None:
     docs_text = read_text(repo_root / docs_path)
     missing = sorted(term for term in REQUIRED_DOC_TERMS if term not in docs_text)
@@ -95,7 +112,7 @@ def validate_docs(repo_root: Path, docs_path: str) -> None:
 
 def validate_code_markers(repo_root: Path) -> None:
     for relative_path, markers in REQUIRED_CODE_MARKERS.items():
-        text = read_text(repo_root / relative_path)
+        text = read_surface_text(repo_root, relative_path)
         missing = [marker for marker in markers if marker not in text]
         if missing:
             raise CommunityGuidelinesConsentError(

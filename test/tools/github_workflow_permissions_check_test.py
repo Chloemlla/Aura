@@ -76,8 +76,8 @@ class GitHubWorkflowPermissionsCheckTest(unittest.TestCase):
 
         self.assertEqual("ok", result["status"])
         self.assertEqual("githubWorkflowPermissionsPolicy", result["policyKind"])
-        self.assertEqual(5, result["workflowCount"])
-        self.assertEqual(6, result["jobCount"])
+        self.assertEqual(0, result["workflowCount"])
+        self.assertEqual(0, result["jobCount"])
 
     def test_rejects_unreviewed_event(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

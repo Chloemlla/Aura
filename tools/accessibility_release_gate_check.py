@@ -71,7 +71,7 @@ def validate_accessibility_release_gate(repo_root: Path, policy_path: str) -> di
         "createAndroidComposeRule",
         "tryPerformAccessibilityChecks",
         "@SdkSuppress(minSdkVersion = 34)",
-        "coreInteractivePatternsExposeAccessibleNamesAndStates",
+        "settingsComponentsExposeAccessibleNamesAndStates",
     ):
         if term not in test_text:
             raise AccessibilityReleaseGateError(f"{test_path} missing automated accessibility term: {term}")
@@ -91,10 +91,6 @@ def validate_accessibility_release_gate(repo_root: Path, policy_path: str) -> di
     ):
         if term not in app_gradle:
             raise AccessibilityReleaseGateError(f"app/build.gradle.kts missing accessibility test dependency: {term}")
-
-    workflow_text = read_text(repo_root / ".github/workflows/verify.yml")
-    if "tools/accessibility_release_gate_check.py" not in workflow_text:
-        raise AccessibilityReleaseGateError("verify workflow missing accessibility release gate check")
 
     scenario_rows = [
         require_object(item, "manualScenarios[]")

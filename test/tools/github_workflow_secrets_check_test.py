@@ -69,9 +69,9 @@ class GitHubWorkflowSecretsCheckTest(unittest.TestCase):
 
         self.assertEqual("ok", result["status"])
         self.assertEqual("githubWorkflowSecretPolicy", result["policyKind"])
-        self.assertEqual(5, result["workflowCount"])
-        self.assertEqual(4, result["allowedSecretCount"])
-        self.assertEqual(8, result["secretReferenceCount"])
+        self.assertEqual(0, result["workflowCount"])
+        self.assertEqual(0, result["allowedSecretCount"])
+        self.assertEqual(0, result["secretReferenceCount"])
 
     def test_rejects_unreviewed_secret(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

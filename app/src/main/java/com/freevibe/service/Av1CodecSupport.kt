@@ -3,6 +3,8 @@ package com.freevibe.service
 import android.media.MediaCodecInfo
 import android.media.MediaCodecList
 import android.media.MediaFormat
+import android.os.Build
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -24,14 +26,22 @@ class Av1CodecSupport @Inject constructor() {
 
     private val MediaCodecInfo.isHardwareAccelerated: Boolean
         get() = try {
-            if (android.os.Build.VERSION.SDK_INT >= 29) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 isHardwareAccelerated
             } else {
-                !isSoftwareOnly
+                !isKnownSoftwareCodec(name)
             }
         } catch (_: Exception) {
             false
         }
+
+    internal fun isKnownSoftwareCodec(codecName: String): Boolean {
+        val normalizedName = codecName.lowercase(Locale.ROOT)
+        return normalizedName.startsWith("omx.google.") ||
+            normalizedName.startsWith("c2.android.") ||
+            normalizedName.contains(".sw.") ||
+            normalizedName.contains("software")
+    }
 
     fun preferredVideoMimeTypes(): List<String> = if (hasHardwareAv1Decode) {
         listOf(

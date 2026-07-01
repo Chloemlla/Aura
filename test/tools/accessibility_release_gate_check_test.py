@@ -48,7 +48,6 @@ class AccessibilityReleaseGateCheckTest(unittest.TestCase):
 
 def copy_required_tree(destination: Path) -> Path:
     paths = [
-        ".github/workflows/verify.yml",
         "app/build.gradle.kts",
         "gradle/libs.versions.toml",
         "docs/qa/accessibility-release-gate.json",

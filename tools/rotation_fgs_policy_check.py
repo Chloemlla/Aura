@@ -225,11 +225,9 @@ def validate_source_urls(policy: dict[str, Any]) -> int:
     return len(urls)
 
 
-def validate_workflow_wiring(repo_root: Path) -> None:
+def validate_local_release_wiring(repo_root: Path) -> None:
     command = "tools/rotation_fgs_policy_check.py"
     for label, relative_path in (
-        ("verify workflow", ".github/workflows/verify.yml"),
-        ("release workflow", ".github/workflows/release.yml"),
         ("release dry-run docs", "docs/distribution/release-dry-run.md"),
         ("release signing docs", "docs/distribution/release-signing.md"),
         ("release metadata docs", "docs/distribution/release-metadata-consistency.md"),
@@ -251,7 +249,7 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, object
     validate_docs(repo_root, policy)
     validate_play_packet(repo_root, policy)
     source_url_count = validate_source_urls(policy)
-    validate_workflow_wiring(repo_root)
+    validate_local_release_wiring(repo_root)
     return {
         "status": "ok",
         "policyKind": EXPECTED_POLICY_KIND,

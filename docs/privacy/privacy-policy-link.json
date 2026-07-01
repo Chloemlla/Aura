@@ -6,8 +6,6 @@
   "settingsScreen": "app/src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt",
   "fastlaneFullDescription": "fastlane/metadata/android/en-US/full_description.txt",
   "readme": "README.md",
-  "verifyWorkflow": ".github/workflows/verify.yml",
-  "releaseWorkflow": ".github/workflows/release.yml",
   "releaseDryRunDoc": "docs/distribution/release-dry-run.md",
   "requiredPolicyHeadings": [
     "## Account Model",

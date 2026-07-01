@@ -37,6 +37,19 @@
       "playDeclaration": "Sensitive special access; reviewed because it is required for ringtone/notification/alarm apply flows."
     },
     {
+      "name": "android.permission.RECEIVE_BOOT_COMPLETED",
+      "category": "ringtones",
+      "purpose": "Restore previously applied ringtone, notification, and alarm sound assignments after device boot.",
+      "userAction": "User previously applied a sound and reboots the device.",
+      "dataTypes": ["Audio files", "App interactions"],
+      "collectionStatus": "localOnly",
+      "sharingStatus": "notShared",
+      "retention": "Last-applied sound URIs remain in local preferences until replaced, cleared, or app data is removed.",
+      "deletionPath": "Change or clear the applied system sound, remove local downloads, or clear Aura app data.",
+      "denialBehavior": "Aura cannot restore previously applied sound assignments after reboot.",
+      "playDeclaration": "Boot receiver is limited to user-selected ringtone restoration; wallpaper rotation triggers do not start at boot."
+    },
+    {
       "name": "android.permission.RECORD_AUDIO",
       "category": "communityUploads",
       "purpose": "Record a community sound when the user explicitly starts recording.",
@@ -213,6 +226,33 @@
       "userControl": "Reddit source switch and subreddit settings.",
       "retention": "Returned image URLs can be cached in feed and offline media paths.",
       "deletionPath": "Clear caches, remove downloads, disable the provider, or clear app data."
+    },
+    {
+      "endpointId": "nasa-apod",
+      "dataTypes": ["Date parameters", "Provider response metadata", "Provider API key"],
+      "collectionStatus": "featureDependentCollection",
+      "sharingStatus": "sharedWithSelectedProviders",
+      "userControl": "Wallpaper source/provider controls and local cache cleanup.",
+      "retention": "Returned APOD metadata and source URLs can be cached as wallpaper metadata.",
+      "deletionPath": "Clear caches, remove downloads/favorites, disable the provider path, or clear app data."
+    },
+    {
+      "endpointId": "wikimedia-potd",
+      "dataTypes": ["Date parameters", "Provider response metadata"],
+      "collectionStatus": "featureDependentCollection",
+      "sharingStatus": "sharedWithSelectedProviders",
+      "userControl": "Wallpaper source/provider controls and local cache cleanup.",
+      "retention": "Returned Wikimedia metadata and media URLs can be cached as wallpaper metadata.",
+      "deletionPath": "Clear caches, remove downloads/favorites, disable the provider path, or clear app data."
+    },
+    {
+      "endpointId": "lemmy-wallpapers",
+      "dataTypes": ["Community names", "Provider response metadata", "Post source URLs"],
+      "collectionStatus": "featureDependentCollection",
+      "sharingStatus": "sharedWithSelectedProviders",
+      "userControl": "Wallpaper source/provider controls and local cache cleanup.",
+      "retention": "Returned Lemmy post metadata and linked media URLs can be cached as wallpaper metadata.",
+      "deletionPath": "Clear caches, remove downloads/favorites, disable the provider path, or clear app data."
     },
     {
       "endpointId": "openverse-audio",

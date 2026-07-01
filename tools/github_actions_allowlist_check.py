@@ -42,9 +42,10 @@ def require_string(value: Any, label: str) -> str:
     return value.strip()
 
 
-def require_string_list(value: Any, label: str) -> list[str]:
-    if not isinstance(value, list) or not value:
-        raise GitHubActionsAllowlistError(f"{label} must be a non-empty list")
+def require_string_list(value: Any, label: str, *, allow_empty: bool = False) -> list[str]:
+    if not isinstance(value, list) or (not value and not allow_empty):
+        kind = "a list" if allow_empty else "a non-empty list"
+        raise GitHubActionsAllowlistError(f"{label} must be {kind}")
     values: list[str] = []
     for index, item in enumerate(value):
         values.append(require_string(item, f"{label}[{index}]"))
@@ -61,8 +62,12 @@ def validate_policy(policy: dict[str, Any]) -> dict[str, Any]:
     workflow_directory = require_string(policy.get("workflowDirectory"), "workflowDirectory")
     if Path(workflow_directory).is_absolute() or ".." in Path(workflow_directory).parts:
         raise GitHubActionsAllowlistError("workflowDirectory must stay inside the repository")
-    required_workflows = require_string_list(policy.get("requiredWorkflowPaths"), "requiredWorkflowPaths")
-    allowed_actions = require_string_list(policy.get("allowedActions"), "allowedActions")
+    required_workflows = require_string_list(
+        policy.get("requiredWorkflowPaths"),
+        "requiredWorkflowPaths",
+        allow_empty=True,
+    )
+    allowed_actions = require_string_list(policy.get("allowedActions"), "allowedActions", allow_empty=True)
     forbidden_refs = require_string_list(policy.get("forbiddenRefs"), "forbiddenRefs")
     for action in allowed_actions:
         validate_action_reference(action, forbidden_refs, f"allowed action {action}")
@@ -91,7 +96,7 @@ def validate_action_reference(reference: str, forbidden_refs: list[str], label: 
 def workflow_paths(repo_root: Path, workflow_directory: str) -> list[Path]:
     directory = repo_root / workflow_directory
     if not directory.is_dir():
-        raise GitHubActionsAllowlistError(f"Workflow directory is missing: {workflow_directory}")
+        return []
     return sorted(
         path
         for path in directory.iterdir()

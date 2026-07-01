@@ -1,0 +1,7 @@
+Aura 6.34.4
+
+Recent highlights:
+- Local release checks now match the local-only distribution policy.
+- Release dry runs document signed APK/AAB output, checksums, notices, native compliance, and GitHub Release upload.
+- Workflow policy validators now pass when no GitHub workflow files are present.
+- Supply-chain and SBOM readiness docs describe the current local release evidence floor.

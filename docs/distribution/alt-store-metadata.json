@@ -20,8 +20,8 @@
       "id": "github-releases",
       "name": "GitHub Releases",
       "status": "supported",
-      "artifact": "Signed universal APK from release workflow",
-      "disclosure": "Primary public install/update path with checksums, release notes, and artifact attestation."
+      "artifact": "Signed universal APK from the local release lane",
+      "disclosure": "Primary public install/update path with checksums, release notes, and local build receipt."
     },
     {
       "id": "obtainium",
@@ -165,6 +165,11 @@
       "disclosure": "Protected system setting used only after explicit user action."
     },
     {
+      "name": "android.permission.RECEIVE_BOOT_COMPLETED",
+      "purpose": "Restore previously applied ringtone, notification, and alarm choices after device boot.",
+      "disclosure": "Reviewed boot receiver only restores user-selected sound assignments; wallpaper rotation triggers do not start at boot."
+    },
+    {
       "name": "android.permission.RECORD_AUDIO",
       "purpose": "Record a local sound clip for optional community sound upload.",
       "disclosure": "Requested only when the user starts recording."
@@ -235,6 +240,18 @@
     {
       "id": "reddit-json",
       "disclosure": "Wallpaper/video discovery provider using public JSON endpoints and configured subreddits."
+    },
+    {
+      "id": "nasa-apod",
+      "disclosure": "NASA Astronomy Picture of the Day discovery provider using api.nasa.gov metadata and NASA source pages."
+    },
+    {
+      "id": "wikimedia-potd",
+      "disclosure": "Wikimedia Picture of the Day discovery provider using public Wikimedia metadata."
+    },
+    {
+      "id": "lemmy-wallpapers",
+      "disclosure": "Lemmy wallpaper community discovery provider using public lemmy.world posts."
     },
     {
       "id": "openverse-audio",

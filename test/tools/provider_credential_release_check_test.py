@@ -22,13 +22,14 @@ class ProviderCredentialReleaseCheckTest(unittest.TestCase):
     def test_live_release_provider_credential_policy_passes_without_local_properties(self) -> None:
         result = validate_provider_credentials(
             REPO_ROOT / "app" / "build.gradle.kts",
-            REPO_ROOT / ".github" / "workflows" / "release.yml",
+            None,
             None,
         )
 
         self.assertEqual("ok", result["status"])
         self.assertEqual(5, len(result["buildConfigProviderKeys"]))
-        self.assertEqual(5, len(result["releaseWorkflowBlankProviderKeys"]))
+        self.assertEqual([], result["releaseWorkflowBlankProviderKeys"])
+        self.assertEqual("local-only release; no workflow", result["releaseWorkflow"])
 
     def test_rejects_nonblank_local_provider_keys(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -38,7 +39,7 @@ class ProviderCredentialReleaseCheckTest(unittest.TestCase):
             with self.assertRaises(ProviderCredentialReleaseError):
                 validate_provider_credentials(
                     REPO_ROOT / "app" / "build.gradle.kts",
-                    REPO_ROOT / ".github" / "workflows" / "release.yml",
+                    None,
                     local_properties,
                 )
 
@@ -49,7 +50,7 @@ class ProviderCredentialReleaseCheckTest(unittest.TestCase):
 
             result = validate_provider_credentials(
                 REPO_ROOT / "app" / "build.gradle.kts",
-                REPO_ROOT / ".github" / "workflows" / "release.yml",
+                None,
                 local_properties,
                 allow_nonblank=True,
             )
@@ -63,8 +64,16 @@ class ProviderCredentialReleaseCheckTest(unittest.TestCase):
             app_gradle = repo / "app" / "build.gradle.kts"
             release_workflow = repo / ".github" / "workflows" / "release.yml"
             write(app_gradle, (REPO_ROOT / "app" / "build.gradle.kts").read_text(encoding="utf-8"))
-            workflow_text = (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
-            write(release_workflow, workflow_text.replace("            printf 'pexels.api.key=\\n'\n", ""))
+            workflow_text = "\n".join(
+                f"            printf '{key}=\\n'"
+                for key in (
+                    "pixabay.api.key",
+                    "freesound.api.key",
+                    "soundcloud.client.id",
+                    "stability.ai.key",
+                )
+            )
+            write(release_workflow, workflow_text)
 
             with self.assertRaises(ProviderCredentialReleaseError):
                 validate_provider_credentials(app_gradle, release_workflow, None)
@@ -82,10 +91,8 @@ class ProviderCredentialReleaseCheckTest(unittest.TestCase):
                     'localProps.getProperty("pexels.api.key", "sentinel")',
                 ),
             )
-            write(release_workflow, (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8"))
-
             with self.assertRaises(ProviderCredentialReleaseError):
-                validate_provider_credentials(app_gradle, release_workflow, None)
+                validate_provider_credentials(app_gradle, None, None)
 
 
 if __name__ == "__main__":

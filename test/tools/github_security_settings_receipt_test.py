@@ -25,7 +25,14 @@ def live_workflow_policy() -> dict[str, object]:
 
 
 def live_dependabot_config_text() -> str:
-    return (REPO_ROOT / ".github" / "dependabot.yml").read_text(encoding="utf-8")
+    return """
+version: 2
+updates:
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+""".strip()
 
 
 def settings_evidence(

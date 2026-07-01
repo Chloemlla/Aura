@@ -87,6 +87,21 @@ def read_text(repo_root: Path, relative_path: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def read_settings_surface_text(repo_root: Path, relative_path: str) -> str:
+    path = repo_root / relative_path
+    text = read_text(repo_root, relative_path)
+    if path.name != "SettingsScreen.kt":
+        return text
+    settings_dir = path.parent
+    section_text = "\n".join(
+        section.read_text(encoding="utf-8")
+        for section in sorted(settings_dir.glob("*.kt"))
+        if section.is_file() and section != path
+    )
+    strings_text = read_text(repo_root, "app/src/main/res/values/strings.xml")
+    return "\n".join([text, section_text, strings_text])
+
+
 def validate_backup_exclusion(xml_text: str, data_store_path: str, label: str) -> None:
     compact = re.sub(r"\s+", " ", xml_text)
     required = f'domain="file" path="{data_store_path}"'
@@ -131,7 +146,7 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
 
     docs_text = read_text(repo_root, docs_path)
     preferences_manager_text = read_text(repo_root, preferences_manager_path)
-    settings_screen_text = read_text(repo_root, settings_screen_path)
+    settings_screen_text = read_settings_surface_text(repo_root, settings_screen_path)
     app_gradle_text = read_text(repo_root, app_gradle_path)
     backup_rules_text = read_text(repo_root, backup_rules_path)
     data_extraction_rules_text = read_text(repo_root, data_extraction_rules_path)
@@ -144,7 +159,11 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
         raise ProviderCredentialStorageError(f"{data_extraction_rules_path} must cover cloud backup and device transfer")
     if "api keys entered by the user" not in privacy_policy_text:
         raise ProviderCredentialStorageError("privacy policy must disclose user-entered API key storage")
-    if "ProviderApiKeyDialog(" not in settings_screen_text or 'Text("Clear")' not in settings_screen_text:
+    if (
+        "ProviderApiKeyDialog(" not in settings_screen_text
+        or "settings_apikey_clear" not in settings_screen_text
+        or ">Clear<" not in settings_screen_text
+    ):
         raise ProviderCredentialStorageError("Settings screen must expose an explicit provider key Clear action")
 
     credentials_raw = policy.get("credentials")

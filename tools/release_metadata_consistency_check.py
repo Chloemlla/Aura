@@ -30,7 +30,6 @@ REQUIRED_SOURCE_URLS = {
     "https://support.google.com/googleplay/android-developer/answer/9859152",
     "https://support.google.com/googleplay/android-developer/answer/13393723",
     "https://docs.fastlane.tools/actions/supply/",
-    "https://docs.github.com/en/actions/using-workflows/storing-workflow-data-as-artifacts",
     "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases",
     "https://f-droid.org/en/docs/All_About_Descriptions_Graphics_and_Screenshots/",
 }
@@ -193,25 +192,17 @@ def validate_release_docs(repo_root: Path, policy: dict[str, Any]) -> None:
         "release dry-run docs": read_text(repo_root, "docs/distribution/release-dry-run.md", "release dry-run docs"),
         "release signing docs": read_text(repo_root, "docs/distribution/release-signing.md", "release signing docs"),
         "supply-chain docs": read_text(repo_root, "docs/distribution/supply-chain.md", "supply-chain docs"),
-        "verify workflow": read_text(repo_root, ".github/workflows/verify.yml", "verify workflow"),
-        "release workflow": read_text(repo_root, ".github/workflows/release.yml", "release workflow"),
     }
     for command in commands:
         if not any(command in text for text in docs.values()):
             raise ReleaseMetadataConsistencyError(f"required preflight command is missing everywhere: {command}")
-        if command != "tools/release_artifact_bundle_check.py":
-            for label in ("verify workflow", "release workflow"):
-                if command not in docs[label]:
-                    raise ReleaseMetadataConsistencyError(f"{label} missing preflight command: {command}")
     for artifact in artifacts:
         if not any(artifact in text for text in docs.values()):
             raise ReleaseMetadataConsistencyError(f"required release artifact is missing from docs: {artifact}")
-    release_workflow = docs["release workflow"]
+    release_docs = "\n".join(docs.values())
     for snippet in ("RELEASE_NOTES.md", "SHA256SUMS.txt"):
-        if snippet not in release_workflow:
-            raise ReleaseMetadataConsistencyError(f"release workflow missing snippet: {snippet}")
-    if "actions/attest@" not in release_workflow or "# v4" not in release_workflow:
-        raise ReleaseMetadataConsistencyError("release workflow missing pinned actions/attest v4 step")
+        if snippet not in release_docs:
+            raise ReleaseMetadataConsistencyError(f"release docs missing snippet: {snippet}")
 
 
 def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, object]:

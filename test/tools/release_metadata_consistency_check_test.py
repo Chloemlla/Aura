@@ -37,8 +37,8 @@ class ReleaseMetadataConsistencyCheckTest(unittest.TestCase):
 
         self.assertEqual("ok", result["status"])
         self.assertEqual("com.freevibe", result["packageName"])
-        self.assertEqual("6.31.2", result["versionName"])
-        self.assertEqual(113, result["versionCode"])
+        self.assertEqual("6.34.4", result["versionName"])
+        self.assertEqual(131, result["versionCode"])
 
     def test_rejects_version_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -67,11 +67,16 @@ class ReleaseMetadataConsistencyCheckTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             copy_required_tree(repo)
-            release_workflow = repo / ".github/workflows/release.yml"
-            release_workflow.write_text(
-                release_workflow.read_text(encoding="utf-8").replace("tools/alt_store_metadata_check.py", ""),
-                encoding="utf-8",
-            )
+            for relative_path in (
+                "docs/distribution/release-dry-run.md",
+                "docs/distribution/release-signing.md",
+                "docs/distribution/supply-chain.md",
+            ):
+                release_docs = repo / relative_path
+                release_docs.write_text(
+                    release_docs.read_text(encoding="utf-8").replace("tools/alt_store_metadata_check.py", ""),
+                    encoding="utf-8",
+                )
 
             with self.assertRaises(ReleaseMetadataConsistencyError):
                 validate_policy(repo, live_policy())

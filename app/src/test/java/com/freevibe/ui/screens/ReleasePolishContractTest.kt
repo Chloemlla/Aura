@@ -6,6 +6,36 @@ import org.junit.Test
 
 class ReleasePolishContractTest {
 
+    private fun settingsSource(): String =
+        File("src/main/java/com/freevibe/ui/screens/settings")
+            .walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .sortedBy { it.name }
+            .joinToString("\n") { it.readText() }
+
+    @Test
+    fun `settings screen root is feature decomposed`() {
+        val settingsDir = File("src/main/java/com/freevibe/ui/screens/settings")
+        val rootLineCount = settingsDir.resolve("SettingsScreen.kt").readLines().size
+        val featureFiles = listOf(
+            "SettingsWallpaperSection.kt",
+            "SettingsSchedulerSection.kt",
+            "SettingsBackupSection.kt",
+            "SettingsSmartLiveSection.kt",
+            "SettingsSoundSection.kt",
+            "SettingsVideoSection.kt",
+            "SettingsServicesSection.kt",
+            "SettingsStorageSection.kt",
+            "SettingsDiagnosticsSection.kt",
+            "SettingsPermissionsAboutSection.kt",
+        )
+
+        assertTrue("SettingsScreen.kt should stay below 500 lines", rootLineCount < 500)
+        featureFiles.forEach { fileName ->
+            assertTrue("$fileName should own a Settings feature slice", settingsDir.resolve(fileName).isFile)
+        }
+    }
+
     @Test
     fun `compact search field does not consume unconstrained vertical space`() {
         val source = File("src/main/java/com/freevibe/ui/components/SharedComponents.kt").readText()
@@ -96,9 +126,9 @@ class ReleasePolishContractTest {
     fun `settings radio dialogs expose full row touch targets`() {
         val components = File("src/main/java/com/freevibe/ui/screens/settings/SettingsComponents.kt").readText()
         val radioRow = components.substringAfter("internal fun SettingsRadioOptionRow(").substringBefore("internal fun SettingsMetric(")
-        val source = File("src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt").readText()
-        val intervalDialog = source.substringAfter("private fun IntervalPickerDialog(").substringBefore("private data class SettingsBatterySnapshot(")
-        val sourceDialog = source.substringAfter("private fun SourcePickerDialog(")
+        val source = File("src/main/java/com/freevibe/ui/screens/settings/SettingsDialogs.kt").readText()
+        val intervalDialog = source.substringAfter("internal fun IntervalPickerDialog(").substringBefore("internal fun WallpaperSlotPickerDialog(")
+        val sourceDialog = source.substringAfter("internal fun SourcePickerDialog(")
 
         assertTrue(radioRow.contains(".heightIn(min = 48.dp)"))
         assertTrue(radioRow.contains("role = Role.RadioButton"))
@@ -109,7 +139,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `settings feedback uses aura snackbar chrome instead of raw toasts`() {
-        val screen = File("src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt").readText()
+        val screen = settingsSource()
         val diagnostics = File("src/main/java/com/freevibe/ui/screens/settings/DiagnosticsComponents.kt").readText()
 
         assertTrue(screen.contains("snackbarHost = { AuraSnackbarHost(snackbarHostState) }"))
@@ -121,8 +151,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `settings inline picker dialogs use shared full row radio targets`() {
-        val source = File("src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt").readText()
-        val screen = source.substringAfter("fun SettingsScreen(").substringBefore("@Composable\n@OptIn(ExperimentalLayoutApi::class)\nprivate fun CommunityIdentityDialog(")
+        val screen = settingsSource()
 
         assertTrue(screen.contains("showSchedulerInterval"))
         assertTrue(screen.contains("showSchedulerSource"))
@@ -149,7 +178,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `settings exposes backup and rotation legibility controls`() {
-        val source = File("src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt").readText()
+        val source = settingsSource()
 
         assertTrue(source.contains("val autoWallpaperDarkenPercent by viewModel.autoWallpaperDarkenPercent.collectAsStateWithLifecycle()"))
         assertTrue(source.contains("val autoBackupEnabled by viewModel.autoBackupEnabled.collectAsStateWithLifecycle()"))
@@ -159,7 +188,7 @@ class ReleasePolishContractTest {
         assertTrue(source.contains("Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION"))
         assertTrue(source.contains("hasPersistedWritePermission(context, autoBackupFolderUri)"))
         assertTrue(source.contains("enableAutoBackupAfterFolder"))
-        assertTrue(source.contains("chooseAutoBackupFolder(enableAfterSelection = true)"))
+        assertTrue(source.contains("onChooseAutoBackupFolder(true)"))
         assertTrue(source.contains("showAutoBackupIntervalPicker"))
         assertTrue(source.contains("showAutoBackupKeepPicker"))
     }
@@ -194,7 +223,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `settings permission recovery reports dead settings intents`() {
-        val source = File("src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt").readText()
+        val source = settingsSource()
 
         assertTrue(source.contains("fun openNotificationSettings(): Boolean"))
         assertTrue(source.contains("fun openAppSettings(): Boolean"))
@@ -214,10 +243,11 @@ class ReleasePolishContractTest {
 
     @Test
     fun `settings credential and youtube edit dialogs avoid ime occlusion`() {
-        val source = File("src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt").readText()
-        val apiDialog = source.substringAfter("private fun ProviderApiKeyDialog(").substringBefore("@OptIn(")
-        val ytQueriesDialog = source.substringAfter("// YouTube sound search queries editor").substringBefore("// YouTube blocked words editor")
-        val blockedWordsDialog = source.substringAfter("// YouTube blocked words editor").substringBefore("// Confirm clear cache")
+        val servicesSource = File("src/main/java/com/freevibe/ui/screens/settings/SettingsServicesSection.kt").readText()
+        val soundSource = File("src/main/java/com/freevibe/ui/screens/settings/SettingsSoundSection.kt").readText()
+        val apiDialog = servicesSource.substringAfter("private fun ProviderApiKeyDialog(")
+        val ytQueriesDialog = soundSource.substringAfter("private fun YouTubeSoundQueriesDialog(").substringBefore("private fun YouTubeBlockedWordsDialog(")
+        val blockedWordsDialog = soundSource.substringAfter("private fun YouTubeBlockedWordsDialog(")
 
         assertTrue(apiDialog.contains(".verticalScroll(rememberScrollState())"))
         assertTrue(apiDialog.contains(".imePadding()"))

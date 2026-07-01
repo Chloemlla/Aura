@@ -218,8 +218,6 @@ def validate_workflow_and_docs(repo_root: Path, policy: dict[str, Any]) -> None:
     command = "tools/store_asset_pipeline_check.py"
     asset_mode_command = require_string(policy.get("assetModeCommand"), "assetModeCommand")
     store_preflight = read_text(repo_root, "tools/store_metadata_preflight.py", "store metadata preflight")
-    verify_workflow = read_text(repo_root, ".github/workflows/verify.yml", "verify workflow")
-    release_workflow = read_text(repo_root, ".github/workflows/release.yml", "release workflow")
     release_dry_run = read_text(repo_root, "docs/distribution/release-dry-run.md", "release dry-run docs")
     release_signing = read_text(repo_root, "docs/distribution/release-signing.md", "release signing docs")
     release_metadata = read_text(
@@ -230,8 +228,6 @@ def validate_workflow_and_docs(repo_root: Path, policy: dict[str, Any]) -> None:
     if "--require-assets" not in store_preflight or "--min-phone-screenshots" not in store_preflight:
         raise StoreAssetPipelineError("store metadata preflight is missing asset mode flags")
     for label, text in (
-        ("verify workflow", verify_workflow),
-        ("release workflow", release_workflow),
         ("release dry-run docs", release_dry_run),
         ("release signing docs", release_signing),
         ("release metadata docs", release_metadata),

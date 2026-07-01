@@ -37,6 +37,19 @@ def read_text(repo_root: Path, relative_path: str, label: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def read_settings_privacy_surface(repo_root: Path, relative_path: str) -> str:
+    path = repo_root / relative_path
+    text = read_text(repo_root, relative_path, "Settings screen")
+    if path.name != "SettingsScreen.kt" or path.parent == repo_root:
+        return text
+    settings_sections = sorted(
+        section
+        for section in path.parent.glob("*.kt")
+        if section.is_file() and section != path
+    )
+    return "\n".join([text, *(section.read_text(encoding="utf-8") for section in settings_sections)])
+
+
 def require_object(value: Any, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise PrivacyPolicyLinkError(f"{label} must be a JSON object")
@@ -63,6 +76,14 @@ def require_contains(text: str, needle: str, label: str) -> None:
         raise PrivacyPolicyLinkError(f"{label} is missing required text: {needle}")
 
 
+def require_settings_privacy_title(repo_root: Path, settings_text: str, label: str) -> None:
+    if "Privacy policy" in settings_text:
+        return
+    require_contains(settings_text, "settings_about_privacy_title", label)
+    strings_text = read_text(repo_root, "app/src/main/res/values/strings.xml", "Android strings")
+    require_contains(strings_text, ">Privacy policy<", "app/src/main/res/values/strings.xml")
+
+
 def normalize_words(text: str) -> str:
     return " ".join(text.lower().split())
 
@@ -83,24 +104,18 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
     settings_screen_path = require_string(policy.get("settingsScreen"), "settingsScreen")
     fastlane_path = require_string(policy.get("fastlaneFullDescription"), "fastlaneFullDescription")
     readme_path = require_string(policy.get("readme"), "readme")
-    verify_workflow_path = require_string(policy.get("verifyWorkflow"), "verifyWorkflow")
-    release_workflow_path = require_string(policy.get("releaseWorkflow"), "releaseWorkflow")
     release_dry_run_path = require_string(policy.get("releaseDryRunDoc"), "releaseDryRunDoc")
 
     policy_text = read_text(repo_root, policy_doc_path, "privacy policy")
-    settings_text = read_text(repo_root, settings_screen_path, "Settings screen")
+    settings_text = read_settings_privacy_surface(repo_root, settings_screen_path)
     fastlane_text = read_text(repo_root, fastlane_path, "Fastlane full description")
     readme_text = read_text(repo_root, readme_path, "README")
-    verify_workflow_text = read_text(repo_root, verify_workflow_path, "verify workflow")
-    release_workflow_text = read_text(repo_root, release_workflow_path, "release workflow")
     release_dry_run_text = read_text(repo_root, release_dry_run_path, "release dry-run doc")
 
-    require_contains(settings_text, "Privacy policy", settings_screen_path)
+    require_settings_privacy_title(repo_root, settings_text, settings_screen_path)
     require_contains(settings_text, public_url, settings_screen_path)
     require_contains(fastlane_text, public_url, fastlane_path)
     require_contains(readme_text, public_url, readme_path)
-    require_contains(verify_workflow_text, CHECK_COMMAND, verify_workflow_path)
-    require_contains(release_workflow_text, CHECK_COMMAND, release_workflow_path)
     require_contains(release_dry_run_text, CHECK_COMMAND, release_dry_run_path)
 
     headings = require_string_list(policy.get("requiredPolicyHeadings"), "requiredPolicyHeadings")

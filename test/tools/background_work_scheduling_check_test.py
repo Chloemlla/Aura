@@ -18,8 +18,6 @@ def live_policy() -> dict[str, object]:
 def copy_required_tree(destination: Path) -> None:
     policy = live_policy()
     paths = {
-        ".github/workflows/verify.yml",
-        ".github/workflows/release.yml",
         "docs/background-work-scheduling-ledger.md",
         "docs/background-work-scheduling-ledger.json",
         "docs/distribution/release-dry-run.md",
@@ -96,13 +94,13 @@ class BackgroundWorkSchedulingCheckTest(unittest.TestCase):
             with self.assertRaises(BackgroundWorkSchedulingError):
                 validate_policy(repo, live_policy())
 
-    def test_rejects_missing_workflow_command(self) -> None:
+    def test_rejects_missing_release_doc_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             copy_required_tree(repo)
-            workflow = repo / ".github/workflows/verify.yml"
-            workflow.write_text(
-                workflow.read_text(encoding="utf-8").replace("tools/background_work_scheduling_check.py", ""),
+            release_docs = repo / "docs/distribution/release-dry-run.md"
+            release_docs.write_text(
+                release_docs.read_text(encoding="utf-8").replace("tools/background_work_scheduling_check.py", ""),
                 encoding="utf-8",
             )
 

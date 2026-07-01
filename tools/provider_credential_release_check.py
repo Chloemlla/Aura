@@ -27,7 +27,7 @@ class ProviderCredentialReleaseError(ValueError):
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate Aura release provider credential policy.")
     parser.add_argument("--app-gradle", default="app/build.gradle.kts")
-    parser.add_argument("--release-workflow", default=".github/workflows/release.yml")
+    parser.add_argument("--release-workflow")
     parser.add_argument("--local-properties")
     parser.add_argument(
         "--allow-nonblank-local-provider-keys",
@@ -113,18 +113,18 @@ def validate_local_properties(path: Path | None, allow_nonblank: bool) -> dict[s
 
 def validate_provider_credentials(
     app_gradle: Path,
-    release_workflow: Path,
+    release_workflow: Path | None,
     local_properties: Path | None,
     allow_nonblank: bool = False,
 ) -> dict[str, Any]:
     gradle_keys = validate_app_gradle(app_gradle)
-    workflow_keys = validate_release_workflow(release_workflow)
+    workflow_keys = validate_release_workflow(release_workflow) if release_workflow else []
     local_result = validate_local_properties(local_properties, allow_nonblank)
     return {
         "appGradle": str(app_gradle),
         "buildConfigProviderKeys": gradle_keys,
         "localProperties": local_result,
-        "releaseWorkflow": str(release_workflow),
+        "releaseWorkflow": str(release_workflow) if release_workflow else "local-only release; no workflow",
         "releaseWorkflowBlankProviderKeys": workflow_keys,
         "status": "warning" if local_result.get("status") == "nonblankAllowed" else "ok",
     }
@@ -135,7 +135,7 @@ def main() -> int:
     try:
         result = validate_provider_credentials(
             Path(args.app_gradle),
-            Path(args.release_workflow),
+            Path(args.release_workflow) if args.release_workflow else None,
             Path(args.local_properties) if args.local_properties else None,
             args.allow_nonblank_local_provider_keys,
         )

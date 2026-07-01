@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "policyKind": "releaseMetadataConsistency",
   "packageName": "com.freevibe",
-  "versionName": "6.32.9",
-  "versionCode": 125,
+  "versionName": "6.34.4",
+  "versionCode": 131,
   "docsPath": "docs/distribution/release-metadata-consistency.md",
   "metadataRoot": "fastlane/metadata/android/en-US",
   "privacyPolicyUrl": "https://github.com/SysAdminDoc/Aura/blob/main/docs/privacy/privacy-policy.md",
@@ -15,7 +15,7 @@
     "fastlane/metadata/android/en-US/title.txt",
     "fastlane/metadata/android/en-US/short_description.txt",
     "fastlane/metadata/android/en-US/full_description.txt",
-    "fastlane/metadata/android/en-US/changelogs/125.txt",
+    "fastlane/metadata/android/en-US/changelogs/131.txt",
     "docs/privacy/privacy-policy-link.json",
     "docs/privacy/data-safety.json",
     "docs/rotation-trigger-boot-behavior.json",
@@ -33,9 +33,7 @@
     "docs/distribution/store-assets.json",
     "docs/distribution/release-dry-run.md",
     "docs/distribution/release-signing.md",
-    "docs/distribution/supply-chain.md",
-    ".github/workflows/verify.yml",
-    ".github/workflows/release.yml"
+    "docs/distribution/supply-chain.md"
   ],
   "requiredReadmeLinks": [
     "docs/privacy/privacy-policy.md",
@@ -77,7 +75,6 @@
     "https://support.google.com/googleplay/android-developer/answer/9859152",
     "https://support.google.com/googleplay/android-developer/answer/13393723",
     "https://docs.fastlane.tools/actions/supply/",
-    "https://docs.github.com/en/actions/using-workflows/storing-workflow-data-as-artifacts",
     "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases",
     "https://f-droid.org/en/docs/All_About_Descriptions_Graphics_and_Screenshots/"
   ]

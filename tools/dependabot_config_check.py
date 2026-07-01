@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Aura's Dependabot update configuration."""
+"""Validate Aura does not carry Dependabot configuration."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 
-EXPECTED_UPDATES = {
+LEGACY_EXPECTED_UPDATES = {
     ("github-actions", "/"): "09:30",
     ("gradle", "/"): "10:00",
     ("npm", "/"): "10:30",
@@ -25,7 +25,7 @@ class DependabotConfigError(ValueError):
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Validate Aura Dependabot configuration.")
+    parser = argparse.ArgumentParser(description="Validate Aura has no Dependabot configuration.")
     parser.add_argument("--config", default=".github/dependabot.yml")
     return parser.parse_args()
 
@@ -143,7 +143,7 @@ def validate_update(update: dict[str, Any], index: int) -> tuple[str, str]:
     ecosystem = require_string(update.get("package-ecosystem"), f"updates[{index}].package-ecosystem")
     directory = require_string(update.get("directory"), f"updates[{index}].directory")
     key = (ecosystem, directory)
-    if key not in EXPECTED_UPDATES:
+    if key not in LEGACY_EXPECTED_UPDATES:
         raise DependabotConfigError(f"Unexpected Dependabot update entry: {ecosystem} {directory}")
 
     if require_string(update.get("target-branch"), f"{ecosystem} {directory} target-branch") != "main":
@@ -157,8 +157,8 @@ def validate_update(update: dict[str, Any], index: int) -> tuple[str, str]:
     if require_string(schedule.get("timezone"), f"{ecosystem} {directory} schedule.timezone") != "America/New_York":
         raise DependabotConfigError(f"{ecosystem} {directory} schedule timezone must be America/New_York")
     time = require_string(schedule.get("time"), f"{ecosystem} {directory} schedule.time")
-    if time != EXPECTED_UPDATES[key] or not re.fullmatch(r"[0-2][0-9]:[0-5][0-9]", time):
-        raise DependabotConfigError(f"{ecosystem} {directory} schedule time must be {EXPECTED_UPDATES[key]}")
+    if time != LEGACY_EXPECTED_UPDATES[key] or not re.fullmatch(r"[0-2][0-9]:[0-5][0-9]", time):
+        raise DependabotConfigError(f"{ecosystem} {directory} schedule time must be {LEGACY_EXPECTED_UPDATES[key]}")
 
     raw_limit = require_string(update.get("open-pull-requests-limit"), f"{ecosystem} {directory} open PR limit")
     try:
@@ -182,6 +182,18 @@ def validate_update(update: dict[str, Any], index: int) -> tuple[str, str]:
 
 
 def validate_dependabot_config(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {
+            "config": str(path),
+            "status": "ok",
+            "mode": "absent",
+            "updateCount": 0,
+            "updates": [],
+        }
+    raise DependabotConfigError("Dependabot config must not exist; dependency updates are handled manually")
+
+
+def validate_legacy_dependabot_config(path: Path) -> dict[str, Any]:
     parsed = parse_dependabot_config(path.read_text(encoding="utf-8"))
     if parsed.get("version") != "2":
         raise DependabotConfigError("Dependabot config version must be 2")
@@ -197,7 +209,7 @@ def validate_dependabot_config(path: Path) -> dict[str, Any]:
             raise DependabotConfigError(f"Duplicate Dependabot update entry: {key[0]} {key[1]}")
         seen.add(key)
 
-    missing = sorted(set(EXPECTED_UPDATES) - seen)
+    missing = sorted(set(LEGACY_EXPECTED_UPDATES) - seen)
     if missing:
         formatted = ", ".join(f"{ecosystem} {directory}" for ecosystem, directory in missing)
         raise DependabotConfigError(f"Missing Dependabot update entries: {formatted}")
@@ -207,7 +219,7 @@ def validate_dependabot_config(path: Path) -> dict[str, Any]:
         "status": "ok",
         "updateCount": len(updates),
         "updates": [
-            {"packageEcosystem": ecosystem, "directory": directory, "time": EXPECTED_UPDATES[(ecosystem, directory)]}
+            {"packageEcosystem": ecosystem, "directory": directory, "time": LEGACY_EXPECTED_UPDATES[(ecosystem, directory)]}
             for ecosystem, directory in sorted(seen)
         ],
     }

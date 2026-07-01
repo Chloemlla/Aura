@@ -21,11 +21,12 @@ def live_policy() -> dict[str, object]:
 
 def copy_required_tree(destination: Path) -> None:
     paths = {
-        ".github/workflows/verify.yml",
-        ".github/workflows/release.yml",
         "app/build.gradle.kts",
         "docs/background-work-device-evidence.json",
         "docs/background-work-scheduling-ledger.json",
+        "docs/distribution/release-dry-run.md",
+        "docs/distribution/release-metadata-consistency.md",
+        "docs/distribution/supply-chain.md",
     }
     for relative_path in paths:
         source = REPO_ROOT / relative_path
@@ -65,13 +66,13 @@ class BackgroundWorkDeviceEvidenceCheckTest(unittest.TestCase):
         with self.assertRaises(BackgroundWorkDeviceEvidenceError):
             validate_policy(REPO_ROOT, policy)
 
-    def test_rejects_missing_workflow_command(self) -> None:
+    def test_rejects_missing_release_doc_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             copy_required_tree(repo)
-            workflow = repo / ".github/workflows/release.yml"
-            workflow.write_text(
-                workflow.read_text(encoding="utf-8").replace(
+            release_docs = repo / "docs/distribution/supply-chain.md"
+            release_docs.write_text(
+                release_docs.read_text(encoding="utf-8").replace(
                     "tools/background_work_device_evidence_check.py",
                     "",
                 ),

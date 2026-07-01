@@ -1,10 +1,13 @@
 {
   "schemaVersion": 1,
   "policyKind": "rotationTriggerBootBehavior",
-  "status": "permissionRemoved",
+  "status": "rotationTriggersDoNotBootStart",
   "docsPath": "docs/rotation-trigger-boot-behavior.md",
   "manifestPath": "app/src/main/AndroidManifest.xml",
   "removedPermission": "android.permission.RECEIVE_BOOT_COMPLETED",
+  "allowedBootReceivers": [
+    ".service.RingtoneRestorationReceiver"
+  ],
   "forbiddenSourceTerms": [
     "Intent.ACTION_BOOT_COMPLETED",
     "Intent.ACTION_LOCKED_BOOT_COMPLETED",
@@ -12,8 +15,7 @@
     "android.intent.action.LOCKED_BOOT_COMPLETED"
   ],
   "sourceRoots": [
-    "app/src/main/java",
-    "app/src/main/AndroidManifest.xml"
+    "app/src/main/java"
   ],
   "requiredDocs": [
     "docs/privacy/data-safety.md",

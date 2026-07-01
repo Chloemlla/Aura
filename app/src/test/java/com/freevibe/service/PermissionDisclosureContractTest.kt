@@ -7,6 +7,13 @@ import org.junit.Test
 
 class PermissionDisclosureContractTest {
 
+    private fun settingsSource(): String =
+        File("src/main/java/com/freevibe/ui/screens/settings")
+            .walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .sortedBy { it.name }
+            .joinToString("\n") { it.readText() }
+
     @Test
     fun `recording requests microphone only after prominent rationale`() {
         val screen = File("src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt").readText()
@@ -24,7 +31,7 @@ class PermissionDisclosureContractTest {
 
     @Test
     fun `settings permissions have request and denial recovery prompts`() {
-        val screen = File("src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt").readText()
+        val screen = settingsSource()
         val strings = File("src/main/res/values/strings.xml").readText()
 
         assertTrue(screen.contains("SettingsPermissionPrompt.DAILY_NOTIFICATION_REQUEST"))
@@ -41,7 +48,7 @@ class PermissionDisclosureContractTest {
 
     @Test
     fun `settings does not jump to notification settings directly after a denied runtime request`() {
-        val screen = File("src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt").readText()
+        val screen = settingsSource()
 
         assertFalse(
             screen.contains(

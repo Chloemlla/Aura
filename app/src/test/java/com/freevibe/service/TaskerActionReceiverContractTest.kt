@@ -6,6 +6,13 @@ import org.junit.Test
 
 class TaskerActionReceiverContractTest {
 
+    private fun settingsSource(): String =
+        File("src/main/java/com/freevibe/ui/screens/settings")
+            .walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .sortedBy { it.name }
+            .joinToString("\n") { it.readText() }
+
     @Test
     fun `exported automation receiver gates actions before enqueueing rotation`() {
         val source = File("src/main/java/com/freevibe/service/TaskerActionReceiver.kt").readText()
@@ -30,7 +37,7 @@ class TaskerActionReceiverContractTest {
 
     @Test
     fun `settings exposes automation consent and diagnostics`() {
-        val screen = File("src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt").readText()
+        val screen = settingsSource()
         val viewModel = File("src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt").readText()
 
         assertTrue(screen.contains("settings_external_automation_title"))

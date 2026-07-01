@@ -98,6 +98,57 @@
       ]
     },
     {
+      "id": "nasa-apod",
+      "hosts": ["api.nasa.gov", "apod.nasa.gov"],
+      "schemes": ["https"],
+      "surface": "NASA Astronomy Picture of the Day wallpaper metadata and source pages",
+      "authLocation": "query parameter: api_key, defaulting to DEMO_KEY when no user key is configured",
+      "dataSent": "date, count, thumbnail request flag, and API key parameter",
+      "mediaCached": "returned image metadata and source-page URLs can be saved as wallpaper metadata",
+      "rateLimitCachePolicy": "provider response is used as a daily discovery enhancement; source metrics record failures",
+      "fallbackBehavior": "APOD content is skipped when unavailable without hiding local content",
+      "killSwitch": "provider controls",
+      "releaseOwner": "maintainer",
+      "sourceFiles": [
+        "app/src/main/java/com/freevibe/data/remote/nasa/NasaApodApi.kt",
+        "app/src/main/java/com/freevibe/data/remote/Mappers.kt"
+      ]
+    },
+    {
+      "id": "wikimedia-potd",
+      "hosts": ["api.wikimedia.org"],
+      "schemes": ["https"],
+      "surface": "Wikimedia Picture of the Day metadata",
+      "authLocation": "none",
+      "dataSent": "selected date and Wikimedia feed path",
+      "mediaCached": "returned image metadata and media URLs can be saved as wallpaper metadata",
+      "rateLimitCachePolicy": "provider response is used as a daily discovery enhancement; source metrics record failures",
+      "fallbackBehavior": "Wikimedia content is skipped when unavailable without hiding local content",
+      "killSwitch": "provider controls",
+      "releaseOwner": "maintainer",
+      "sourceFiles": [
+        "app/src/main/java/com/freevibe/data/remote/wikimedia/WikimediaPotdApi.kt"
+      ]
+    },
+    {
+      "id": "lemmy-wallpapers",
+      "hosts": ["lemmy.world"],
+      "schemes": ["https"],
+      "surface": "Lemmy wallpaper community posts and source pages",
+      "authLocation": "none",
+      "dataSent": "community name, sort mode, page, and limit parameters",
+      "mediaCached": "returned post metadata and linked media URLs can be cached as wallpaper metadata",
+      "rateLimitCachePolicy": "provider is discovery enhancement-only; source metrics record failures",
+      "fallbackBehavior": "Lemmy content is skipped when unavailable without hiding local content",
+      "killSwitch": "provider controls",
+      "releaseOwner": "maintainer",
+      "sourceFiles": [
+        "app/src/main/java/com/freevibe/data/remote/lemmy/LemmyApi.kt",
+        "app/src/main/java/com/freevibe/data/remote/Mappers.kt",
+        "app/src/main/java/com/freevibe/data/model/ProviderNetworkPolicy.kt"
+      ]
+    },
+    {
       "id": "openverse-audio",
       "hosts": ["api.openverse.org"],
       "schemes": ["https"],

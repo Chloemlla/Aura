@@ -20,6 +20,7 @@ PACKAGE_JSON = Path("functions/package.json")
 ROADMAP = Path("ROADMAP.md")
 RESEARCH = Path("RESEARCH.md")
 README = Path("README.md")
+CLAUDE = Path("CLAUDE.md")
 COMMUNITY_CALLABLE_DOC = Path("docs/community-callable-quota-enforcement.md")
 
 VERSION_PATTERN = re.compile(
@@ -56,6 +57,11 @@ CURRENT_STATE_HEADERS_README = re.compile(
     re.IGNORECASE,
 )
 
+CURRENT_STATE_HEADERS_CLAUDE = re.compile(
+    r"^#{1,4}\s+(?:Overview|Tech\s+Stack|Build|Version|Architecture)",
+    re.IGNORECASE,
+)
+
 
 CURRENT_STATE_HEADERS_COMMUNITY_CALLABLE = re.compile(
     r"^#{1,4}\s+(?:Community\s+Callable\s+Quota\s+Enforcement|"
@@ -68,7 +74,7 @@ SECTION_HEADER = re.compile(r"^(#{1,4})\s+")
 ASPIRATIONAL_SKIP = re.compile(
     r"(?:planned|targets?|upgrade\s+to|migrate\s+to|requires|should\s+become|"
     r"evaluate|skip\s+\S+\s+and\s+go|needs|blocked\s+until|goal\s+is|"
-    r"vs\.?\s+the\s+planned)",
+    r"blocked.*until|until|vs\.?\s+the\s+planned)",
     re.IGNORECASE,
 )
 
@@ -314,6 +320,7 @@ def validate_manifest_consistency(repo_root: Path = Path(".")) -> dict[str, Any]
         (ROADMAP, CURRENT_STATE_HEADERS_ROADMAP),
         (RESEARCH, CURRENT_STATE_HEADERS_RESEARCH),
         (README, CURRENT_STATE_HEADERS_README),
+        (CLAUDE, CURRENT_STATE_HEADERS_CLAUDE),
         (COMMUNITY_CALLABLE_DOC, CURRENT_STATE_HEADERS_COMMUNITY_CALLABLE),
     ]
 
@@ -348,6 +355,7 @@ def main() -> int:
 
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
+        return 1 if result["stale_claims"] or result["duplicate_titles"] else 0
     else:
         stale = result["stale_claims"]
         dupes = result["duplicate_titles"]

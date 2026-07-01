@@ -15,9 +15,7 @@
     "tools/dependency_overlay_check.py",
     "tools/dependency_license_policy.py",
     "tools/native_compliance_inventory.py",
-    "tools/release_artifact_bundle_check.py",
-    ".github/workflows/verify.yml",
-    ".github/workflows/release.yml"
+    "tools/release_artifact_bundle_check.py"
   ],
   "currentReleaseArtifacts": [
     "Aura-vX.Y.Z-versionCode-N-universal-release.apk",
@@ -38,7 +36,7 @@
     "Native, FFmpeg, and youtubedl-android payloads",
     "Release APK digest and signing certificate fingerprint"
   ],
-  "requiredWorkflowCommands": [
+  "requiredLocalCommands": [
     "tools/sbom_readiness_check.py",
     "tools/release_artifact_bundle_check.py",
     "tools/dependency_notice_lock.py --mode check",
@@ -49,8 +47,6 @@
   "sourceUrls": [
     "https://github.com/CycloneDX/cyclonedx-gradle-plugin",
     "https://cyclonedx.org/tool-center/",
-    "https://docs.github.com/en/actions/concepts/security/artifact-attestations",
-    "https://docs.github.com/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds",
     "https://spdx.dev/about/overview/"
   ]
 }

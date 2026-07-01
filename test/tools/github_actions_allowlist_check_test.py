@@ -46,9 +46,9 @@ class GitHubActionsAllowlistCheckTest(unittest.TestCase):
         result = validate_github_actions_allowlist(REPO_ROOT, live_policy())
 
         self.assertEqual("ok", result["status"])
-        self.assertEqual(5, result["workflowCount"])
-        self.assertEqual(10, result["allowedActionCount"])
-        self.assertGreaterEqual(result["actionReferenceCount"], 20)
+        self.assertEqual(0, result["workflowCount"])
+        self.assertEqual(0, result["allowedActionCount"])
+        self.assertEqual(0, result["actionReferenceCount"])
 
     def test_rejects_unreviewed_action(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -1,0 +1,7 @@
+Aura 6.34.3
+
+Recent highlights:
+- Settings is split into feature-owned sections for faster maintenance.
+- Library backup and device transfer support account-free migration.
+- Lemmy, 24H wallpaper packs, and daypart scheduling expand discovery.
+- Accessibility checks now target real Aura surfaces.

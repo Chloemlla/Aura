@@ -31,8 +31,6 @@ def minimal_policy() -> dict[str, object]:
         "settingsScreen": "SettingsScreen.kt",
         "fastlaneFullDescription": "fastlane/metadata/android/en-US/full_description.txt",
         "readme": "README.md",
-        "verifyWorkflow": ".github/workflows/verify.yml",
-        "releaseWorkflow": ".github/workflows/release.yml",
         "releaseDryRunDoc": "docs/distribution/release-dry-run.md",
         "requiredPolicyHeadings": [
             "## Account Model",
@@ -91,8 +89,6 @@ Use the project support channel.
     write(repo / "SettingsScreen.kt", f'const val URL = "{PUBLIC_URL}"\nText("Privacy policy")\n')
     write(repo / "fastlane/metadata/android/en-US/full_description.txt", f"Privacy policy: {PUBLIC_URL}\n")
     write(repo / "README.md", f"[Privacy policy]({PUBLIC_URL})\n")
-    write(repo / ".github/workflows/verify.yml", "python3 tools/privacy_policy_link_check.py\n")
-    write(repo / ".github/workflows/release.yml", "python3 tools/privacy_policy_link_check.py\n")
     write(repo / "docs/distribution/release-dry-run.md", "python3 tools/privacy_policy_link_check.py\n")
     return repo
 
@@ -141,11 +137,11 @@ class PrivacyPolicyLinkCheckTest(unittest.TestCase):
             with self.assertRaises(PrivacyPolicyLinkError):
                 validate_policy(repo, policy)
 
-    def test_rejects_release_workflow_without_gate(self) -> None:
+    def test_rejects_release_dry_run_without_gate(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = seed_repo(Path(tmpdir))
             policy = minimal_policy()
-            write(repo / ".github/workflows/release.yml", "python3 tools/store_metadata_preflight.py\n")
+            write(repo / "docs/distribution/release-dry-run.md", "python3 tools/store_metadata_preflight.py\n")
 
             with self.assertRaises(PrivacyPolicyLinkError):
                 validate_policy(repo, policy)

@@ -26,17 +26,35 @@ def write_workflow(repo_root: Path, path: str, text: str) -> None:
     workflow_path.write_text(text, encoding="utf-8")
 
 
+def fixture_policy() -> dict[str, object]:
+    return {
+        "schemaVersion": 1,
+        "policyKind": "githubSecurityWorkflowPolicy",
+        "workflows": [
+            {
+                "name": "Example",
+                "path": ".github/workflows/example.yml",
+                "requiredSnippets": ["contents: read"],
+                "forbiddenSnippets": [],
+            },
+            {
+                "name": "Second",
+                "path": ".github/workflows/second.yml",
+                "requiredSnippets": ["contents: read"],
+                "forbiddenSnippets": [],
+            },
+        ],
+    }
+
+
 class GitHubSecurityWorkflowCheckTest(unittest.TestCase):
     def test_live_policy_matches_workflows(self) -> None:
         result = validate_workflows(REPO_ROOT, live_policy())
 
         self.assertEqual("githubSecurityWorkflowPolicy", result["policyKind"])
         self.assertEqual(1, result["schemaVersion"])
-        self.assertEqual(3, result["workflowCount"])
-        self.assertEqual(
-            ["Dependency Review", "OpenSSF Scorecard", "Release"],
-            [workflow["name"] for workflow in result["workflows"]],
-        )
+        self.assertEqual(0, result["workflowCount"])
+        self.assertEqual([], result["workflows"])
 
     def test_rejects_missing_required_snippet(self) -> None:
         policy = {
@@ -85,25 +103,33 @@ class GitHubSecurityWorkflowCheckTest(unittest.TestCase):
                 validate_workflows(repo_root, policy)
 
     def test_rejects_duplicate_workflow_name(self) -> None:
-        policy = copy.deepcopy(live_policy())
+        policy = fixture_policy()
         policy["workflows"][1]["name"] = policy["workflows"][0]["name"]  # type: ignore[index]
 
         with self.assertRaises(WorkflowPolicyError):
-            validate_workflows(REPO_ROOT, policy)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                repo_root = Path(tmpdir)
+                write_workflow(repo_root, ".github/workflows/example.yml", "contents: read\n")
+                write_workflow(repo_root, ".github/workflows/second.yml", "contents: read\n")
+                validate_workflows(repo_root, policy)
 
     def test_rejects_duplicate_workflow_path(self) -> None:
-        policy = copy.deepcopy(live_policy())
+        policy = fixture_policy()
         policy["workflows"][1]["path"] = policy["workflows"][0]["path"]  # type: ignore[index]
 
         with self.assertRaises(WorkflowPolicyError):
-            validate_workflows(REPO_ROOT, policy)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                repo_root = Path(tmpdir)
+                write_workflow(repo_root, ".github/workflows/example.yml", "contents: read\n")
+                validate_workflows(repo_root, policy)
 
     def test_rejects_missing_workflow_file(self) -> None:
-        policy = copy.deepcopy(live_policy())
+        policy = fixture_policy()
         policy["workflows"][0]["path"] = ".github/workflows/missing-policy.yml"  # type: ignore[index]
 
         with self.assertRaises(WorkflowPolicyError):
-            validate_workflows(REPO_ROOT, policy)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                validate_workflows(Path(tmpdir), policy)
 
 
 if __name__ == "__main__":

@@ -58,13 +58,13 @@ class SbomReadinessCheckTest(unittest.TestCase):
             with self.assertRaises(SbomReadinessError):
                 validate_policy(repo, live_policy())
 
-    def test_rejects_missing_verify_workflow_command(self) -> None:
+    def test_rejects_missing_supply_chain_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             copy_required_tree(repo)
-            workflow = repo / ".github/workflows/verify.yml"
-            workflow.write_text(
-                workflow.read_text(encoding="utf-8").replace("tools/sbom_readiness_check.py", ""),
+            supply_chain = repo / "docs/distribution/supply-chain.md"
+            supply_chain.write_text(
+                supply_chain.read_text(encoding="utf-8").replace("tools/sbom_readiness_check.py", ""),
                 encoding="utf-8",
             )
 

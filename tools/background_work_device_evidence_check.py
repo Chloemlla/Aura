@@ -155,11 +155,12 @@ def validate_source_urls(policy: dict[str, Any]) -> int:
     return len(urls)
 
 
-def validate_workflow_wiring(repo_root: Path) -> None:
+def validate_local_release_wiring(repo_root: Path) -> None:
     command = "tools/background_work_device_evidence_check.py"
     for label, relative_path in (
-        ("verify workflow", ".github/workflows/verify.yml"),
-        ("release workflow", ".github/workflows/release.yml"),
+        ("release dry-run docs", "docs/distribution/release-dry-run.md"),
+        ("release metadata docs", "docs/distribution/release-metadata-consistency.md"),
+        ("supply-chain docs", "docs/distribution/supply-chain.md"),
     ):
         text = read_text(repo_root, relative_path, label)
         if command not in text:
@@ -194,7 +195,7 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, object
         raise BackgroundWorkDeviceEvidenceError("scenarios do not cover work names: " + ", ".join(missing_work_names))
 
     source_url_count = validate_source_urls(policy)
-    validate_workflow_wiring(repo_root)
+    validate_local_release_wiring(repo_root)
     return {
         "status": "ok",
         "policyKind": EXPECTED_POLICY_KIND,

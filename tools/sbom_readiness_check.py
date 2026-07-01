@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Aura SBOM readiness policy and release workflow wiring."""
+"""Validate Aura SBOM readiness policy and local release wiring."""
 
 from __future__ import annotations
 
@@ -23,8 +23,6 @@ REQUIRED_DOC_TERMS = {
 REQUIRED_SOURCE_URLS = {
     "https://github.com/CycloneDX/cyclonedx-gradle-plugin",
     "https://cyclonedx.org/tool-center/",
-    "https://docs.github.com/en/actions/concepts/security/artifact-attestations",
-    "https://docs.github.com/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds",
     "https://spdx.dev/about/overview/",
 }
 EXPECTED_STATUS = "deferredUntilN1ToolchainUpgrade"
@@ -135,24 +133,17 @@ def require_before(text: str, first: str, second: str, label: str) -> None:
         raise SbomReadinessError(f"{label} must run {first} before {second}")
 
 
-def validate_workflow_wiring(repo_root: Path, policy: dict[str, Any]) -> None:
-    commands = require_string_list(policy.get("requiredWorkflowCommands"), "requiredWorkflowCommands")
-    verify_workflow = read_text(repo_root, ".github/workflows/verify.yml", "verify workflow")
-    release_workflow = read_text(repo_root, ".github/workflows/release.yml", "release workflow")
+def validate_local_release_wiring(repo_root: Path, policy: dict[str, Any]) -> None:
+    commands = require_string_list(policy.get("requiredLocalCommands"), "requiredLocalCommands")
     supply_chain = read_text(repo_root, "docs/distribution/supply-chain.md", "supply-chain docs")
     release_dry_run = read_text(repo_root, "docs/distribution/release-dry-run.md", "release dry-run docs")
     release_signing = read_text(repo_root, "docs/distribution/release-signing.md", "release signing docs")
 
     for command in commands:
-        if command not in verify_workflow and command != "tools/release_artifact_bundle_check.py":
-            raise SbomReadinessError(f"verify workflow missing command: {command}")
-        if command not in release_workflow:
-            raise SbomReadinessError(f"release workflow missing command: {command}")
         if command not in supply_chain:
             raise SbomReadinessError(f"supply-chain docs missing command: {command}")
-
-    require_before(verify_workflow, "tools/sbom_readiness_check.py", "Dependency notice drift", "verify workflow")
-    require_before(release_workflow, "tools/sbom_readiness_check.py", "Build signed release APK", "release workflow")
+    if "tools/sbom_readiness_check.py" not in release_dry_run:
+        raise SbomReadinessError("release dry-run docs missing SBOM readiness command")
 
     for artifact in require_string_list(policy.get("currentReleaseArtifacts"), "currentReleaseArtifacts"):
         if artifact not in supply_chain and artifact != "Aura-vX.Y.Z-versionCode-N-universal-release.apk":
@@ -179,7 +170,7 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, object
     validate_docs(repo_root, policy)
     source_url_count = validate_source_urls(policy)
     evidence_path_count = validate_evidence_paths(repo_root, policy)
-    validate_workflow_wiring(repo_root, policy)
+    validate_local_release_wiring(repo_root, policy)
 
     return {
         "status": "ok",

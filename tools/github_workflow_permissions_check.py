@@ -44,9 +44,10 @@ def require_string(value: Any, label: str) -> str:
     return value.strip()
 
 
-def require_string_list(value: Any, label: str) -> list[str]:
-    if not isinstance(value, list) or not value:
-        raise WorkflowPermissionsError(f"{label} must be a non-empty list")
+def require_string_list(value: Any, label: str, *, allow_empty: bool = False) -> list[str]:
+    if not isinstance(value, list) or (not value and not allow_empty):
+        kind = "a list" if allow_empty else "a non-empty list"
+        raise WorkflowPermissionsError(f"{label} must be {kind}")
     values: list[str] = []
     for index, item in enumerate(value):
         values.append(require_string(item, f"{label}[{index}]"))
@@ -62,7 +63,7 @@ def normalize_repo_relative(path: Path, repo_root: Path) -> str:
 def workflow_paths(repo_root: Path, workflow_directory: str) -> list[Path]:
     directory = repo_root / workflow_directory
     if not directory.is_dir():
-        raise WorkflowPermissionsError(f"Workflow directory is missing: {workflow_directory}")
+        return []
     return sorted(
         path
         for path in directory.iterdir()
@@ -226,11 +227,15 @@ def validate_policy(policy: dict[str, Any]) -> dict[str, Any]:
     workflow_directory = require_string(policy.get("workflowDirectory"), "workflowDirectory")
     if Path(workflow_directory).is_absolute() or ".." in Path(workflow_directory).parts:
         raise WorkflowPermissionsError("workflowDirectory must stay inside the repository")
-    required_workflows = require_string_list(policy.get("requiredWorkflowPaths"), "requiredWorkflowPaths")
+    required_workflows = require_string_list(
+        policy.get("requiredWorkflowPaths"),
+        "requiredWorkflowPaths",
+        allow_empty=True,
+    )
 
     raw_workflows = policy.get("workflows")
-    if not isinstance(raw_workflows, list) or not raw_workflows:
-        raise WorkflowPermissionsError("workflows must be a non-empty list")
+    if not isinstance(raw_workflows, list) or (not raw_workflows and required_workflows):
+        raise WorkflowPermissionsError("workflows must be a list matching requiredWorkflowPaths")
 
     workflows: list[dict[str, Any]] = []
     seen_names: set[str] = set()

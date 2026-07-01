@@ -32,6 +32,17 @@ def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def read_settings_surface_text(repo_root: Path) -> str:
+    settings_dir = repo_root / "app/src/main/java/com/freevibe/ui/screens/settings"
+    if not settings_dir.is_dir():
+        raise CommunityIdentityLazinessError(f"missing settings package: {settings_dir}")
+    return "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted(settings_dir.glob("*.kt"))
+        if path.is_file()
+    )
+
+
 def validate_community_identity_laziness(repo_root: Path) -> dict[str, int | str]:
     app_text = read_text(repo_root / "app/src/main/java/com/freevibe/FreeVibeApp.kt")
     for term in FORBIDDEN_STARTUP_TERMS:
@@ -51,7 +62,7 @@ def validate_community_identity_laziness(repo_root: Path) -> dict[str, int | str
             raise CommunityIdentityLazinessError(f"community write path no longer creates identity lazily: {relative_path}")
         lazy_write_count += text.count("ensureSignedIn(")
 
-    settings_text = read_text(repo_root / "app/src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt")
+    settings_text = read_settings_surface_text(repo_root)
     if "communityIdentitySummary" not in settings_text or "Not created" not in settings_text:
         raise CommunityIdentityLazinessError("Settings must expose current community identity state before deletion/cleanup actions")
 

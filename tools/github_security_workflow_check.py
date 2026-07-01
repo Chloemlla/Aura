@@ -54,8 +54,8 @@ def validate_policy_metadata(policy: dict[str, Any]) -> list[dict[str, Any]]:
     if policy.get("policyKind") != "githubSecurityWorkflowPolicy":
         raise WorkflowPolicyError("Workflow policy policyKind is invalid")
     workflows = policy.get("workflows")
-    if not isinstance(workflows, list) or not workflows:
-        raise WorkflowPolicyError("Workflow policy workflows must be a non-empty list")
+    if not isinstance(workflows, list):
+        raise WorkflowPolicyError("Workflow policy workflows must be a list")
 
     seen_names: set[str] = set()
     seen_paths: set[str] = set()

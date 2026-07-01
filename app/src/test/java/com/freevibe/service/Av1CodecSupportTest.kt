@@ -31,4 +31,21 @@ class Av1CodecSupportTest {
         // MediaCodecList is not available in Robolectric, so this returns false
         assertEquals(false, support.hasHardwareAv1Decode)
     }
+
+    @Test
+    fun `legacy software codec heuristic identifies framework software decoders`() {
+        val support = Av1CodecSupport()
+
+        assertEquals(true, support.isKnownSoftwareCodec("OMX.google.av1.decoder"))
+        assertEquals(true, support.isKnownSoftwareCodec("c2.android.av1.decoder"))
+        assertEquals(true, support.isKnownSoftwareCodec("vendor.sw.av1.decoder"))
+    }
+
+    @Test
+    fun `legacy software codec heuristic keeps vendor hardware decoders eligible`() {
+        val support = Av1CodecSupport()
+
+        assertEquals(false, support.isKnownSoftwareCodec("OMX.qcom.video.decoder.av1"))
+        assertEquals(false, support.isKnownSoftwareCodec("c2.qti.av1.decoder"))
+    }
 }

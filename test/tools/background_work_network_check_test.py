@@ -18,8 +18,6 @@ def live_policy() -> dict[str, object]:
 def copy_required_tree(destination: Path) -> None:
     policy = live_policy()
     paths = {
-        ".github/workflows/verify.yml",
-        ".github/workflows/release.yml",
         "docs/background-work-network-posture.md",
         "docs/background-work-network-posture.json",
         "docs/background-work-scheduling-ledger.json",
@@ -87,13 +85,13 @@ class BackgroundWorkNetworkCheckTest(unittest.TestCase):
         with self.assertRaises(BackgroundWorkNetworkError):
             validate_policy(REPO_ROOT, policy)
 
-    def test_rejects_missing_workflow_command(self) -> None:
+    def test_rejects_missing_release_doc_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             copy_required_tree(repo)
-            workflow = repo / ".github/workflows/release.yml"
-            workflow.write_text(
-                workflow.read_text(encoding="utf-8").replace("tools/background_work_network_check.py", ""),
+            release_docs = repo / "docs/distribution/release-signing.md"
+            release_docs.write_text(
+                release_docs.read_text(encoding="utf-8").replace("tools/background_work_network_check.py", ""),
                 encoding="utf-8",
             )
 

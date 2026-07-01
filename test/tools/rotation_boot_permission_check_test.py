@@ -20,8 +20,6 @@ def copy_required_tree(destination: Path) -> None:
     policy = live_policy()
     paths = {
         "app/src/main/AndroidManifest.xml",
-        ".github/workflows/verify.yml",
-        ".github/workflows/release.yml",
         "docs/distribution/release-dry-run.md",
         "docs/distribution/release-signing.md",
         "docs/distribution/release-metadata-consistency.md",
@@ -43,19 +41,23 @@ class RotationBootPermissionCheckTest(unittest.TestCase):
         result = validate_policy(REPO_ROOT, live_policy())
 
         self.assertEqual("ok", result["status"])
-        self.assertEqual("permissionRemoved", result["decision"])
-        self.assertEqual("android.permission.RECEIVE_BOOT_COMPLETED", result["removedPermission"])
+        self.assertEqual("rotationTriggersDoNotBootStart", result["decision"])
+        self.assertEqual("android.permission.RECEIVE_BOOT_COMPLETED", result["bootPermission"])
 
-    def test_rejects_permission_returning_to_manifest(self) -> None:
+    def test_rejects_unreviewed_boot_receiver(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             copy_required_tree(repo)
             manifest = repo / "app/src/main/AndroidManifest.xml"
             manifest.write_text(
                 manifest.read_text(encoding="utf-8").replace(
-                    "<uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\" />",
-                    "<uses-permission android:name=\"android.permission.RECEIVE_BOOT_COMPLETED\" />\n"
-                    "    <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\" />",
+                    "</application>",
+                    "        <receiver android:name=\".service.UnreviewedBootReceiver\" android:exported=\"false\">\n"
+                    "            <intent-filter>\n"
+                    "                <action android:name=\"android.intent.action.BOOT_COMPLETED\" />\n"
+                    "            </intent-filter>\n"
+                    "        </receiver>\n"
+                    "    </application>",
                 ),
                 encoding="utf-8",
             )
@@ -88,13 +90,13 @@ class RotationBootPermissionCheckTest(unittest.TestCase):
             with self.assertRaises(RotationBootPermissionError):
                 validate_policy(repo, live_policy())
 
-    def test_rejects_missing_workflow_command(self) -> None:
+    def test_rejects_missing_release_doc_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             copy_required_tree(repo)
-            workflow = repo / ".github/workflows/verify.yml"
-            workflow.write_text(
-                workflow.read_text(encoding="utf-8").replace("tools/rotation_boot_permission_check.py", ""),
+            release_docs = repo / "docs/distribution/release-signing.md"
+            release_docs.write_text(
+                release_docs.read_text(encoding="utf-8").replace("tools/rotation_boot_permission_check.py", ""),
                 encoding="utf-8",
             )
 
