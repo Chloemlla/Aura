@@ -198,3 +198,51 @@ Acceptance:
   Touches: `AuraPickVisualMedia.kt`, `PhotoPickerCustomization.kt`, `WallpapersScreen.kt`, `CollectionsScreen.kt`, media ingestion tests.
   Acceptance: Supported devices open a customized/embedded picker for wallpaper and collection imports; unsupported devices fall back to the current picker; no broad storage permission is introduced.
   Complexity: M
+
+### P0
+
+- [ ] P0 - Patch Firebase Functions production dependency advisories
+  Why: The deployed community backend dependency tree has current production advisories, including high-severity `form-data` CRLF injection and moderate `protobufjs`/`uuid` issues.
+  Evidence: `functions/package.json`, `functions/package-lock.json`, `npm --prefix functions audit --omit=dev`, GHSA-hmw2-7cc7-3qxx, GHSA-f38q-mgvj-vph7, GHSA-w5hq-g745-h8pq, Firebase Admin Node release notes.
+  Touches: `functions/package.json`, `functions/package-lock.json`, `functions/src`, `functions/test`, local release/security gate tooling.
+  Acceptance: `npm --prefix functions audit --omit=dev` reports zero production vulnerabilities; `npm --prefix functions test` passes; callable/upload emulator tests still pass under Node 22; any Firebase Admin v14 breaking API changes are migrated without legacy namespace imports.
+  Complexity: M
+
+### P1
+
+- [ ] P1 - Harden provider credential storage
+  Why: Optional provider keys include a paid Stability AI key; DataStore is backup-excluded but still documented as app-private storage without Keystore-backed at-rest protection.
+  Evidence: `PreferencesManager.kt`, `docs/security/provider-credential-storage.json`, `app/src/main/res/xml/backup_rules.xml`, Android Auto Backup docs.
+  Touches: `app/src/main/java/com/freevibe/data/local/PreferencesManager.kt`, Settings API-key dialogs, provider repositories, redaction tests, credential storage policy docs.
+  Acceptance: User-entered provider keys migrate from plain DataStore to Android Keystore-backed encrypted storage or an equivalent tested encrypted wrapper; old DataStore key values are removed after migration; corrupt/locked Keystore fallback is user-visible and non-crashing; backup exclusions and diagnostics redaction remain tested.
+  Complexity: L
+
+- [ ] P1 - Purge workflow-era release documentation
+  Why: README, architecture, contribution, and distribution docs still reference GitHub workflow artifacts/secrets even though Aura now ships from local-only release gates.
+  Evidence: `README.md`, `ARCHITECTURE.md`, `CONTRIBUTING.md`, `docs/distribution/*`, commits `ec73ea7` and `274e876`, F-Droid/Izzy inclusion guidance.
+  Touches: `README.md`, `ARCHITECTURE.md`, `CONTRIBUTING.md`, `docs/distribution/*`, release metadata consistency tests.
+  Acceptance: Active docs describe local signed APK/AAB release commands as the only build/release path; `rg "GitHub Actions|verify.yml|release.yml|repository secrets|workflow artifacts"` returns only historical/disabled-policy references or tests that explicitly validate workflows are absent.
+  Complexity: S
+
+- [ ] P1 - Add OEM battery recovery guidance to diagnostics
+  Why: Scheduled wallpaper, ringtone shuffle, weather, and bundled-content work depend on WorkManager and foreground/background behavior that OEM battery managers often suppress.
+  Evidence: `BackgroundWorkDiagnosticsReader.kt`, `CrashDiagnosticsCollector.kt`, `docs/background-work-network-posture.json`, Android WorkManager docs, dontkillmyapp.com Samsung guidance.
+  Touches: `BackgroundWorkDiagnosticsReader.kt`, `CrashDiagnosticsCollector.kt`, `SettingsDiagnosticsSection.kt`, `strings.xml`, background-work tests, support bundle text.
+  Acceptance: Background diagnostics show manufacturer-aware recovery guidance for Data Saver, battery optimization, metered network, missing WorkInfo, and long-enqueued work; support bundles include the same action hints; JVM tests cover Samsung/Pixel/generic hint selection without requiring a device.
+  Complexity: M
+
+### P2
+
+- [ ] P2 - Add pseudolocale and RTL release gates
+  Why: Aura centralized visible strings but still has only default `values` resources and no automated expanded-text or RTL smoke path before real translations.
+  Evidence: `app/src/main/res/values/strings.xml`, `docs/localization/hardcoded-string-baseline.json`, Android localization docs, Android pseudolocale docs, Compose accessibility test docs.
+  Touches: `app/build.gradle.kts`, accessibility route fixtures, screenshot/Robolectric tests, `docs/localization/hardcoded-string-baseline.json`, `strings.xml`.
+  Acceptance: Debug builds enable pseudolocales; compact route fixtures render under English XA and AR XB pseudolocales; tests fail on clipped primary navigation/action text or obvious LTR-only assumptions; no real human translation pack is required.
+  Complexity: M
+
+- [ ] P2 - Normalize provider backoff and fallback policy
+  Why: Aura has many remote providers, but several endpoint records still have no host-specific backoff or cache fallback policy, causing uneven source degradation behavior.
+  Evidence: `docs/security/network-endpoints.json`, `ProviderNetworkPolicy.kt`, `SourceMetrics.kt`, Wall You and WallFlow multi-source patterns, Android WorkManager retry guidance.
+  Touches: provider repositories, `RateLimitInterceptor.kt`, `ProviderNetworkPolicy.kt`, `SourceMetrics.kt`, `docs/security/network-endpoints.json`, provider tests.
+  Acceptance: Every network provider has a documented timeout/rate-limit/backoff/cache-fallback policy; 429/Retry-After, timeout, DNS, and disabled-provider cases have tests; source diagnostics can display the active policy without exposing provider keys.
+  Complexity: L
