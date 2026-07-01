@@ -37,8 +37,8 @@ class ReleaseMetadataConsistencyCheckTest(unittest.TestCase):
 
         self.assertEqual("ok", result["status"])
         self.assertEqual("com.freevibe", result["packageName"])
-        self.assertEqual("6.34.4", result["versionName"])
-        self.assertEqual(131, result["versionCode"])
+        self.assertEqual("6.34.5", result["versionName"])
+        self.assertEqual(132, result["versionCode"])
 
     def test_rejects_version_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -2,6 +2,12 @@
 
 All notable changes to Aura will be documented in this file.
 
+## v6.34.5 (2026-07-01)
+- **Route-level accessibility release gate**: replaced primitive-only Compose
+  accessibility checks with debug route fixtures for Wallpapers, Sounds detail,
+  Settings diagnostics, Videos, and Wallpaper Editor states. The JSON policy and
+  validator now require every automated fixture to match the executed surfaces.
+
 ## v6.34.4 (2026-06-28)
 - **Compose localization extraction**: moved the remaining scanned Compose UI
   strings for onboarding, downloads, collections, detail, preview, diagnostics,

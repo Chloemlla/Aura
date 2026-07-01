@@ -9,6 +9,44 @@
       "androidx.compose.ui:ui-test-junit4",
       "androidx.compose.ui:ui-test-junit4-accessibility"
     ],
+    "executedSurfaces": [
+      {
+        "id": "wallpapers-grid",
+        "surface": "Wallpapers feed success state with search, local cache status, and wallpaper cards",
+        "fixture": "AuraRouteFixture.WallpapersGridSuccess",
+        "assertion": "Fresh AMOLED picks"
+      },
+      {
+        "id": "wallpapers-offline",
+        "surface": "Wallpapers offline/local empty state with provider failure messaging",
+        "fixture": "AuraRouteFixture.WallpapersOfflineEmpty",
+        "assertion": "Offline wallpaper search"
+      },
+      {
+        "id": "sounds-detail",
+        "surface": "Sound detail state with waveform, playback controls, metadata, and cache status",
+        "fixture": "AuraRouteFixture.SoundDetailReady",
+        "assertion": "Midnight Pulse"
+      },
+      {
+        "id": "settings-diagnostics",
+        "surface": "Settings diagnostics/provider-disabled state at large font scale",
+        "fixture": "AuraRouteFixture.SettingsProviderDisabled",
+        "assertion": "Local-first controls"
+      },
+      {
+        "id": "video-wallpapers",
+        "surface": "Video wallpapers degraded-provider state with preview metadata",
+        "fixture": "AuraRouteFixture.VideoWallpapersError",
+        "assertion": "Video wallpaper metadata"
+      },
+      {
+        "id": "wallpaper-editor",
+        "surface": "Wallpaper editor loading/recovery state with tool controls",
+        "fixture": "AuraRouteFixture.WallpaperEditorLoading",
+        "assertion": "Wallpaper editor recovery"
+      }
+    ],
     "verifyCommand": "./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.freevibe.ui.accessibility.AccessibilityReleaseGateTest"
   },
   "manualScenarios": [

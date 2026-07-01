@@ -1,35 +1,18 @@
 package com.freevibe.ui.accessibility
 
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BatteryAlert
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
-import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.tryPerformAccessibilityChecks
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SdkSuppress
-import com.freevibe.R
-import com.freevibe.ui.components.AuraStateAction
-import com.freevibe.ui.components.AuraStateCard
-import com.freevibe.ui.screens.settings.SettingsItem
-import com.freevibe.ui.screens.settings.SettingsMetric
-import com.freevibe.ui.screens.settings.SettingsSection
-import com.freevibe.ui.screens.settings.SettingsToggle
-import com.freevibe.ui.screens.settings.SettingsValueSlider
+import com.freevibe.ui.screens.fixtures.AuraRouteFixture
+import com.freevibe.ui.screens.fixtures.AuraRouteStateFixture
 import com.freevibe.ui.theme.FreeVibeTheme
 import org.junit.Before
 import org.junit.Rule
@@ -37,10 +20,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Real Aura UI accessibility gate test. Renders actual Aura components
- * (SettingsSection, SettingsToggle, SettingsItem, AuraStateCard, etc.)
- * under Compose accessibility checks to catch missing content descriptions,
- * touch-target violations, and contrast issues.
+ * Release accessibility gate for real Aura route-state fixtures.
+ *
+ * These checks render the same debug route fixtures used by screenshot QA rather
+ * than standalone component primitives, so failures map back to user-facing
+ * Wallpapers, Sounds, Settings, Videos, and editor/detail surfaces.
  */
 @RunWith(AndroidJUnit4::class)
 class AccessibilityReleaseGateTest {
@@ -55,102 +39,79 @@ class AccessibilityReleaseGateTest {
 
     @SdkSuppress(minSdkVersion = 34)
     @Test
-    fun settingsComponentsExposeAccessibleNamesAndStates() {
-        composeRule.setContent {
-            FreeVibeTheme(darkTheme = true) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                ) {
-                    SettingsSection(
-                        title = "Wallpapers",
-                        description = "Tune discovery quality and density.",
-                    ) {
-                        SettingsToggle(
-                            icon = Icons.Default.Schedule,
-                            title = "Auto-rotate wallpapers",
-                            subtitle = "Change wallpaper every 6 hours from Discover",
-                            checked = true,
-                            onCheckedChange = {},
-                        )
-                        SettingsItem(
-                            icon = Icons.Default.FolderOpen,
-                            title = "Local rotation folder",
-                            subtitle = "Choose a local image folder for offline rotation",
-                            onClick = {},
-                        )
-                        SettingsValueSlider(
-                            icon = Icons.Default.BatteryAlert,
-                            title = "Rotation dimming",
-                            subtitle = "Darkens rotated wallpapers for legibility",
-                            valueLabel = "25%",
-                            value = 25f,
-                            valueRange = 0f..100f,
-                            steps = 9,
-                            onValueChange = {},
-                        )
-                    }
-
-                    SettingsSection(
-                        title = "Sounds",
-                        description = "Control previews and search quality.",
-                    ) {
-                        SettingsToggle(
-                            icon = Icons.Default.Schedule,
-                            title = "Auto-preview sounds",
-                            subtitle = "Play a preview when browsing",
-                            checked = false,
-                            onCheckedChange = {},
-                        )
-                    }
-
-                    SettingsMetric(
-                        modifier = Modifier.fillMaxWidth(),
-                        label = "Automation",
-                        value = "6 hours",
-                        icon = Icons.Default.Schedule,
-                        tint = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-        }
-
-        composeRule.onNodeWithText("Wallpapers").assertExists()
-        composeRule.onNodeWithText("Auto-rotate wallpapers").assertExists()
-        composeRule.onNodeWithText("Local rotation folder").assertExists()
-        composeRule.onNodeWithText("Rotation dimming").assertExists()
-        composeRule.onNodeWithText("Sounds").assertExists()
-        composeRule.onRoot().tryPerformAccessibilityChecks()
+    fun wallpapersGridRouteFixturePassesAccessibilityChecks() {
+        renderFixture(
+            fixture = AuraRouteFixture.WallpapersGridSuccess,
+            expectedText = "Fresh AMOLED picks",
+        )
     }
 
     @SdkSuppress(minSdkVersion = 34)
     @Test
-    fun emptyStatesExposeAccessibleActionsAndLabels() {
+    fun wallpapersOfflineRouteFixturePassesAccessibilityChecks() {
+        renderFixture(
+            fixture = AuraRouteFixture.WallpapersOfflineEmpty,
+            expectedText = "Offline wallpaper search",
+            darkTheme = false,
+        )
+    }
+
+    @SdkSuppress(minSdkVersion = 34)
+    @Test
+    fun soundsDetailRouteFixturePassesAccessibilityChecks() {
+        renderFixture(
+            fixture = AuraRouteFixture.SoundDetailReady,
+            expectedText = "Midnight Pulse",
+        )
+    }
+
+    @SdkSuppress(minSdkVersion = 34)
+    @Test
+    fun settingsDiagnosticsRouteFixturePassesAccessibilityChecks() {
+        renderFixture(
+            fixture = AuraRouteFixture.SettingsProviderDisabled,
+            expectedText = "Local-first controls",
+            darkTheme = false,
+            fontScale = 2.0f,
+        )
+    }
+
+    @SdkSuppress(minSdkVersion = 34)
+    @Test
+    fun videoWallpapersRouteFixturePassesAccessibilityChecks() {
+        renderFixture(
+            fixture = AuraRouteFixture.VideoWallpapersError,
+            expectedText = "Video wallpaper metadata",
+        )
+    }
+
+    @SdkSuppress(minSdkVersion = 34)
+    @Test
+    fun wallpaperEditorRouteFixturePassesAccessibilityChecks() {
+        renderFixture(
+            fixture = AuraRouteFixture.WallpaperEditorLoading,
+            expectedText = "Wallpaper editor recovery",
+            darkTheme = false,
+        )
+    }
+
+    private fun renderFixture(
+        fixture: AuraRouteFixture,
+        expectedText: String,
+        darkTheme: Boolean = true,
+        fontScale: Float = 1.0f,
+    ) {
         composeRule.setContent {
-            FreeVibeTheme(darkTheme = true) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                ) {
-                    AuraStateCard(
-                        icon = Icons.Default.Favorite,
-                        title = "No favorite wallpapers yet",
-                        description = "Save wallpapers from detail, or restore a backup.",
-                        primaryAction = AuraStateAction(
-                            label = "Import backup",
-                            icon = Icons.Default.FolderOpen,
-                            onClick = {},
-                        ),
-                    )
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
+                FreeVibeTheme(darkTheme = darkTheme, dynamicColor = false) {
+                    AuraRouteStateFixture(fixture = fixture)
                 }
             }
         }
 
-        composeRule.onNodeWithText("No favorite wallpapers yet").assertExists()
-        composeRule.onNodeWithText("Import backup").assertExists()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText(expectedText).assertExists()
         composeRule.onRoot().tryPerformAccessibilityChecks()
     }
 }

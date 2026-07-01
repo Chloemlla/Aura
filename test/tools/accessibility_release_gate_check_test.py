@@ -22,6 +22,7 @@ class AccessibilityReleaseGateCheckTest(unittest.TestCase):
         self.assertEqual("ok", result["status"])
         self.assertEqual("accessibilityReleaseGate", result["policyKind"])
         self.assertGreaterEqual(result["scenarioCount"], 6)
+        self.assertGreaterEqual(result["executedSurfaceCount"], 6)
 
     def test_rejects_missing_automated_api(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -45,12 +46,38 @@ class AccessibilityReleaseGateCheckTest(unittest.TestCase):
             with self.assertRaises(AccessibilityReleaseGateError):
                 validate_accessibility_release_gate(repo, "docs/qa/accessibility-release-gate.json")
 
+    def test_rejects_missing_executed_surface(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = copy_required_tree(Path(tmpdir))
+            policy_path = repo / "docs/qa/accessibility-release-gate.json"
+            policy = json.loads(policy_path.read_text(encoding="utf-8"))
+            policy["automatedGate"]["executedSurfaces"] = [
+                row for row in policy["automatedGate"]["executedSurfaces"] if row["id"] != "wallpaper-editor"
+            ]
+            policy_path.write_text(json.dumps(policy), encoding="utf-8")
+
+            with self.assertRaises(AccessibilityReleaseGateError):
+                validate_accessibility_release_gate(repo, "docs/qa/accessibility-release-gate.json")
+
+    def test_rejects_direct_primitive_only_test(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = copy_required_tree(Path(tmpdir))
+            test_path = repo / "app/src/androidTest/java/com/freevibe/ui/accessibility/AccessibilityReleaseGateTest.kt"
+            test_path.write_text(
+                test_path.read_text(encoding="utf-8") + "\n@Suppress(\"unused\") fun primitiveOnly() { SettingsToggle() }\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(AccessibilityReleaseGateError):
+                validate_accessibility_release_gate(repo, "docs/qa/accessibility-release-gate.json")
+
 
 def copy_required_tree(destination: Path) -> Path:
     paths = [
         "app/build.gradle.kts",
         "gradle/libs.versions.toml",
         "docs/qa/accessibility-release-gate.json",
+        "app/src/debug/java/com/freevibe/ui/screens/fixtures/AuraRouteStateFixtures.kt",
         "app/src/androidTest/java/com/freevibe/ui/accessibility/AccessibilityReleaseGateTest.kt",
     ]
     for relative_path in paths:

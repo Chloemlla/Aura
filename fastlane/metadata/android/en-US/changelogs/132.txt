@@ -1,0 +1,6 @@
+Aura 6.34.5
+
+Recent highlights:
+- Accessibility release checks now render route-level Aura fixtures instead of primitive-only Compose snippets.
+- Automated gate coverage includes Wallpapers, Sounds detail, Settings diagnostics, Video wallpaper degraded state, and Wallpaper Editor recovery.
+- The release policy validator now confirms each documented accessibility surface is actually exercised.

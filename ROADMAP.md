@@ -6,7 +6,7 @@ physical-device validation, or toolchain gates belongs in `Roadmap_Blocked.md`.
 
 ## Current State
 
-- Version: v6.34.4 / versionCode 131.
+- Version: v6.34.5 / versionCode 132.
 - Stack: Kotlin 2.1.0, AGP 8.7.3, Gradle 8.12, Compose Material 3, Hilt, Room,
   WorkManager, Media3, Coil 2.7.0, Firebase, NewPipe Extractor, yt-dlp.
 - Distribution: local builds only. GitHub Actions workflows have been removed.
@@ -19,17 +19,6 @@ physical-device validation, or toolchain gates belongs in `Roadmap_Blocked.md`.
   evidence tooling, and Settings feature-owned decomposition.
 
 ## P1
-
-### Replace synthetic accessibility gate with real Aura screen checks
-
-`AccessibilityReleaseGateTest` still exercises composed fixture primitives rather
-than launched Aura surfaces.
-
-Acceptance:
-- Connected accessibility checks cover real Wallpapers, Sounds, Settings, and at
-  least one editor/detail flow.
-- Synthetic primitives remain only as helpers.
-- `docs/qa/accessibility-release-gate.json` matches the executed surfaces.
 
 ### Unified local Library hub
 
