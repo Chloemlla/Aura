@@ -57,7 +57,12 @@ sealed class Screen(
         titleRes = R.string.nav_videos,
         icon = Icons.Outlined.VideoLibrary,
         selectedIcon = Icons.Filled.VideoLibrary,
-    )
+        destinationPattern = "video_wallpapers?query={query}",
+    ) {
+        fun createRoute(query: String? = null): String {
+            return if (query.isNullOrBlank()) route else "$route?query=${Uri.encode(query)}"
+        }
+    }
     data object Sounds : Screen(
         route = "sounds",
         titleRes = R.string.nav_sounds,
@@ -82,6 +87,17 @@ sealed class Screen(
         icon = Icons.Outlined.Folder,
         selectedIcon = Icons.Filled.Folder,
     )
+    data object UniversalSearch : Screen(
+        route = "global_search",
+        titleRes = R.string.nav_global_search,
+        icon = Icons.Outlined.Search,
+        selectedIcon = Icons.Filled.Search,
+        destinationPattern = "global_search?query={query}",
+    ) {
+        fun createRoute(query: String? = null): String {
+            return if (query.isNullOrBlank()) route else "$route?query=${Uri.encode(query)}"
+        }
+    }
     data object Settings : Screen(
         route = "settings",
         titleRes = R.string.nav_settings,

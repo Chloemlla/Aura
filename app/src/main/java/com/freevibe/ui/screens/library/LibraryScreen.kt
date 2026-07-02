@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.ImportExport
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -103,6 +104,7 @@ class LibraryViewModel @Inject constructor(
 
 @Composable
 fun LibraryScreen(
+    onSearchClick: () -> Unit,
     onFavoritesClick: () -> Unit,
     onDownloadsClick: () -> Unit,
     onCollectionsClick: () -> Unit,
@@ -113,6 +115,13 @@ fun LibraryScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val items = listOf(
+        LibraryHubItem(
+            title = stringResource(R.string.library_search_title),
+            body = stringResource(R.string.library_search_body),
+            status = stringResource(R.string.library_search_status),
+            icon = Icons.Default.Search,
+            onClick = onSearchClick,
+        ),
         LibraryHubItem(
             title = stringResource(R.string.library_favorites_title),
             body = stringResource(R.string.library_favorites_body),

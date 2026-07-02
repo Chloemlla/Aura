@@ -212,6 +212,7 @@ internal suspend fun launchOrExportVideoWallpaper(
 @Composable
 fun VideoWallpapersScreen(
     onPreview: ((streamUrl: String, title: String) -> Unit)? = null,
+    initialQuery: String? = null,
     viewModel: VideoWallpapersViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -261,6 +262,13 @@ fun VideoWallpapersScreen(
     var searchQuery by rememberSaveable(state.searchQuery) { mutableStateOf(state.searchQuery) }
     val focusManager = LocalFocusManager.current
     val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(initialQuery) {
+        val routeQuery = initialQuery?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        if (routeQuery != state.searchQuery) {
+            searchQuery = routeQuery
+            viewModel.search(routeQuery)
+        }
+    }
     LaunchedEffect(state.error, state.items.isNotEmpty()) {
         if (state.items.isNotEmpty()) {
             state.error?.let { snackbarHostState.showSnackbar(it); viewModel.clearError() }

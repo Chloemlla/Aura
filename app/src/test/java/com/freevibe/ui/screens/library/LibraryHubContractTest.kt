@@ -11,12 +11,14 @@ class LibraryHubContractTest {
         val source = File("src/main/java/com/freevibe/ui/screens/library/LibraryScreen.kt").readText()
 
         listOf(
+            "onSearchClick",
             "onFavoritesClick",
             "onDownloadsClick",
             "onCollectionsClick",
             "onLocalImportsClick",
             "onRecentActivityClick",
             "onBackupRestoreClick",
+            "library_search_title",
             "library_favorites_title",
             "library_downloads_title",
             "library_collections_title",
@@ -34,8 +36,10 @@ class LibraryHubContractTest {
         val screen = File("src/main/java/com/freevibe/ui/navigation/Screen.kt").readText()
 
         assertTrue(screen.contains("data object Library"))
+        assertTrue(screen.contains("data object UniversalSearch"))
         assertTrue(screen.contains("listOf(Wallpapers, VideoWallpapers, Sounds, Library, Settings)"))
         assertTrue(root.contains("composable(Screen.Library.route)"))
+        assertTrue(root.contains("Screen.UniversalSearch.route"))
         assertTrue(root.contains("Screen.Favorites.route"))
         assertTrue(root.contains("Screen.Downloads.route"))
         assertTrue(root.contains("Screen.Collections.route"))

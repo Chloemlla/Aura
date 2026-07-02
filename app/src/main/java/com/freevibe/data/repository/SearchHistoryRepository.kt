@@ -16,6 +16,9 @@ class SearchHistoryRepository @Inject constructor(
     fun getRecentSoundSearches(limit: Int = 20): Flow<List<SearchHistoryEntity>> =
         dao.getRecent("SOUND", limit)
 
+    fun getRecentUniversalSearches(limit: Int = 20): Flow<List<SearchHistoryEntity>> =
+        dao.getRecent("UNIVERSAL", limit)
+
     fun searchSuggestions(type: String, prefix: String): Flow<List<SearchHistoryEntity>> =
         dao.search(type, prefix)
 
@@ -29,9 +32,16 @@ class SearchHistoryRepository @Inject constructor(
         dao.insert(SearchHistoryEntity(query = query.trim(), type = "SOUND"))
     }
 
+    suspend fun addUniversalSearch(query: String) {
+        if (query.isBlank()) return
+        dao.insert(SearchHistoryEntity(query = query.trim(), type = "UNIVERSAL"))
+    }
+
     suspend fun removeSearch(query: String, type: String) = dao.delete(query, type)
 
     suspend fun clearWallpaperHistory() = dao.clearAll("WALLPAPER")
 
     suspend fun clearSoundHistory() = dao.clearAll("SOUND")
+
+    suspend fun clearUniversalHistory() = dao.clearAll("UNIVERSAL")
 }

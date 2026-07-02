@@ -18,20 +18,6 @@ physical-device validation, or toolchain gates belongs in `Roadmap_Blocked.md`.
   library export/import services, manifest consistency tooling, local AAB dry-run
   evidence tooling, and Settings feature-owned decomposition.
 
-## P1
-
-### Universal on-device search
-
-Search is split by content type and does not query saved/local content from one
-entry point.
-
-Acceptance:
-- A single search entry returns segmented results for wallpapers, videos, sounds,
-  collections, downloads, favorites, and local files.
-- Saved/local results work offline.
-- Provider/network results are clearly labeled and disabled offline.
-- Search history stays local and can be cleared.
-
 ## P2
 
 ### FOSS build flavor boundary

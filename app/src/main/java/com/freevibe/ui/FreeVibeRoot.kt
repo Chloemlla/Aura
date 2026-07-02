@@ -51,6 +51,7 @@ import com.freevibe.ui.screens.library.LibraryScreen
 import com.freevibe.ui.screens.onboarding.OnboardingScreen
 import com.freevibe.ui.screens.settings.SettingsScreen
 import com.freevibe.ui.screens.settings.WallpaperHistoryScreen
+import com.freevibe.ui.screens.search.UniversalSearchScreen
 import com.freevibe.ui.screens.sounds.ContactPickerScreen
 import com.freevibe.ui.screens.sounds.SoundDetailScreen
 import com.freevibe.ui.screens.sounds.SoundsScreen
@@ -357,8 +358,18 @@ fun FreeVibeRoot(
                     },
                 )
             }
-            composable(Screen.VideoWallpapers.route) {
+            composable(
+                route = Screen.VideoWallpapers.destinationPattern,
+                arguments = listOf(
+                    navArgument("query") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+            ) { backStackEntry ->
                 VideoWallpapersScreen(
+                    initialQuery = backStackEntry.arguments?.getString("query")?.ifBlank { null },
                     onPreview = { streamUrl, title ->
                         navController.navigate(
                             Screen.VideoWallpaperPreview.createRoute(streamUrl, title)
@@ -389,12 +400,58 @@ fun FreeVibeRoot(
             }
             composable(Screen.Library.route) {
                 LibraryScreen(
+                    onSearchClick = { navController.navigate(Screen.UniversalSearch.route) { launchSingleTop = true } },
                     onFavoritesClick = { navController.navigate(Screen.Favorites.route) { launchSingleTop = true } },
                     onDownloadsClick = { navController.navigate(Screen.Downloads.route) { launchSingleTop = true } },
                     onCollectionsClick = { navController.navigate(Screen.Collections.route) { launchSingleTop = true } },
                     onLocalImportsClick = { navController.navigate(Screen.Collections.route) { launchSingleTop = true } },
                     onRecentActivityClick = { navController.navigate(Screen.WallpaperHistory.route) { launchSingleTop = true } },
                     onBackupRestoreClick = { navController.navigate(Screen.Settings.route) { launchSingleTop = true } },
+                )
+            }
+            composable(
+                route = Screen.UniversalSearch.destinationPattern,
+                arguments = listOf(
+                    navArgument("query") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+            ) { backStackEntry ->
+                UniversalSearchScreen(
+                    initialQuery = backStackEntry.arguments?.getString("query")?.ifBlank { null },
+                    onBack = { navController.navigateUp() },
+                    onWallpaperClick = { favorite ->
+                        navController.navigate(Screen.WallpaperDetail.createRoute(favorite.toWallpaper())) { launchSingleTop = true }
+                    },
+                    onSoundClick = { favorite ->
+                        navController.navigate(Screen.SoundDetail.createRoute(favorite.toSound())) { launchSingleTop = true }
+                    },
+                    onDownloadsClick = { navController.navigate(Screen.Downloads.route) { launchSingleTop = true } },
+                    onCollectionsClick = { navController.navigate(Screen.Collections.route) { launchSingleTop = true } },
+                    onFavoritesClick = { navController.navigate(Screen.Favorites.route) { launchSingleTop = true } },
+                    onSearchWallpapers = { query ->
+                        navController.navigate(Screen.Wallpapers.createRoute(query = query)) {
+                            popUpTo(navigationRootRoute) { saveState = false }
+                            launchSingleTop = true
+                            restoreState = false
+                        }
+                    },
+                    onSearchVideos = { query ->
+                        navController.navigate(Screen.VideoWallpapers.createRoute(query = query)) {
+                            popUpTo(navigationRootRoute) { saveState = false }
+                            launchSingleTop = true
+                            restoreState = false
+                        }
+                    },
+                    onSearchSounds = { query ->
+                        navController.navigate(Screen.Sounds.createRoute(query = query)) {
+                            popUpTo(navigationRootRoute) { saveState = false }
+                            launchSingleTop = true
+                            restoreState = false
+                        }
+                    },
                 )
             }
             composable(Screen.Favorites.route) {

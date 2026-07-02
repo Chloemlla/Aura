@@ -21,11 +21,20 @@ class ScreenTest {
     }
 
     @Test
+    fun `searchable media routes expose query parameters`() {
+        assertTrue(Screen.Wallpapers.destinationPattern.contains("query={query}"))
+        assertTrue(Screen.VideoWallpapers.destinationPattern.contains("query={query}"))
+        assertTrue(Screen.Sounds.destinationPattern.contains("query={query}"))
+        assertTrue(Screen.UniversalSearch.destinationPattern.contains("query={query}"))
+    }
+
+    @Test
     fun `navigation titles are resource backed`() {
         assertEquals(R.string.nav_wallpapers, Screen.Wallpapers.titleRes)
         assertEquals(R.string.nav_videos, Screen.VideoWallpapers.titleRes)
         assertEquals(R.string.nav_sounds, Screen.Sounds.titleRes)
         assertEquals(R.string.nav_library, Screen.Library.titleRes)
+        assertEquals(R.string.nav_global_search, Screen.UniversalSearch.titleRes)
         assertEquals(R.string.nav_favorites, Screen.Favorites.titleRes)
         assertEquals(R.string.nav_settings, Screen.Settings.titleRes)
         assertTrue(Screen.bottomNavItems.all { it.titleRes != 0 })

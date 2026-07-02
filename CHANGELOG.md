@@ -25,6 +25,10 @@ All notable changes to Aura will be documented in this file.
 - **Adaptive large-screen shell**: added width-aware primary navigation that
   keeps bottom navigation on compact screens and switches to a permanent rail on
   expanded screens, with stable expanded Wallpapers/Sounds fixtures.
+- **Universal on-device search**: added a Library search entry that returns
+  segmented saved/local wallpapers, videos, sounds, collections, downloads,
+  favorites, and local files with offline provider handoff states and local
+  search history controls.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose
