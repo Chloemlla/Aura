@@ -22,6 +22,9 @@ All notable changes to Aura will be documented in this file.
 - **Release documentation**: removed workflow-era build/release references from
   active setup docs and clarified the local-only verification and signed
   artifact path.
+- **Adaptive large-screen shell**: added width-aware primary navigation that
+  keeps bottom navigation on compact screens and switches to a permanent rail on
+  expanded screens, with stable expanded Wallpapers/Sounds fixtures.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose

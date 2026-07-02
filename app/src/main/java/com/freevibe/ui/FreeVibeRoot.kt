@@ -28,7 +28,10 @@ import com.freevibe.data.model.Sound
 import com.freevibe.data.model.Wallpaper
 import com.freevibe.data.remote.toSound
 import com.freevibe.data.remote.toWallpaper
+import com.freevibe.ui.navigation.LocalAuraNavigationLayout
 import com.freevibe.ui.navigation.Screen
+import com.freevibe.ui.navigation.auraNavigationLayoutForWidth
+import com.freevibe.ui.navigation.isExpanded
 import com.freevibe.ui.screens.community.CommunityReportsScreen
 import com.freevibe.ui.screens.categories.CategoriesScreen
 import com.freevibe.ui.screens.collections.CollectionsScreen
@@ -158,7 +161,7 @@ fun FreeVibeRoot(
         }
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(
@@ -171,17 +174,21 @@ fun FreeVibeRoot(
                 ),
             ),
     ) {
+        val navigationLayout = auraNavigationLayoutForWidth(maxWidth)
+        val useNavigationRail = showBottomBar && navigationLayout.isExpanded
+
+        CompositionLocalProvider(LocalAuraNavigationLayout provides navigationLayout) {
         Scaffold(
             containerColor = Color.Transparent,
             snackbarHost = {
                 // Lift the snackbar above bottom navigation when visible.
                 AuraSnackbarHost(
                     hostState = snackbarHostState,
-                    modifier = Modifier.padding(bottom = if (showBottomBar) 72.dp else 0.dp),
+                    modifier = Modifier.padding(bottom = if (showBottomBar && !useNavigationRail) 72.dp else 0.dp),
                 )
             },
             bottomBar = {
-                if (showBottomBar) {
+                if (showBottomBar && !useNavigationRail) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -262,13 +269,30 @@ fun FreeVibeRoot(
                 }
             },
         ) { padding ->
+            Row(modifier = Modifier.fillMaxSize()) {
+                if (useNavigationRail) {
+                    PrimaryNavigationRail(
+                        currentDestination = currentDestination,
+                        favoritesCount = favoritesCount,
+                        onNavigate = { screen ->
+                            navController.navigate(screen.route) {
+                                popUpTo(navigationRootRoute) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                    )
+                }
             NavHost(
                 navController = navController,
                 startDestination = startRoute,
-                modifier = Modifier.padding(
-                    top = padding.calculateTopPadding(),
-                    bottom = padding.calculateBottomPadding(),
-                ),
+                modifier = (if (useNavigationRail) Modifier.weight(1f).fillMaxHeight() else Modifier.fillMaxSize())
+                    .padding(
+                        top = padding.calculateTopPadding(),
+                        bottom = padding.calculateBottomPadding(),
+                    ),
                 enterTransition = { fadeIn(tween(250, easing = androidx.compose.animation.core.FastOutSlowInEasing)) + slideInHorizontally(tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it / 5 } },
                 exitTransition = { fadeOut(tween(200, easing = androidx.compose.animation.core.FastOutLinearInEasing)) },
                 popEnterTransition = { fadeIn(tween(250, easing = androidx.compose.animation.core.FastOutSlowInEasing)) + slideInHorizontally(tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { -it / 5 } },
@@ -324,6 +348,7 @@ fun FreeVibeRoot(
                     initialSimilarId = backStackEntry.arguments?.getString("similarId")?.ifBlank { null },
                     initialSimilarSource = backStackEntry.arguments?.getString("similarSource")?.ifBlank { null },
                     initialSimilarFullUrl = backStackEntry.arguments?.getString("similarFullUrl")?.ifBlank { null },
+                    isExpandedLayout = navigationLayout.isExpanded,
                     onWallpaperClick = { wallpaper ->
                         navController.navigate(Screen.WallpaperDetail.createRoute(wallpaper)) { launchSingleTop = true }
                     },
@@ -359,6 +384,7 @@ fun FreeVibeRoot(
                         navController.navigate(Screen.SoundEditor.createLocalRoute(uri)) { launchSingleTop = true }
                     },
                     initialQuery = backStackEntry.arguments?.getString("query")?.ifBlank { null },
+                    isExpandedLayout = navigationLayout.isExpanded,
                 )
             }
             composable(Screen.Library.route) {
@@ -951,6 +977,8 @@ fun FreeVibeRoot(
                 )
             }
             }
+            }
+        }
         }
     }
 }
@@ -975,6 +1003,78 @@ private fun isBottomNavDestination(
     }
     return destination.hierarchy.any { navDestination ->
         screen.matchesDestination(navDestination.route)
+    }
+}
+
+@Composable
+private fun PrimaryNavigationRail(
+    currentDestination: androidx.navigation.NavDestination?,
+    favoritesCount: Int,
+    onNavigate: (Screen) -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxHeight()
+            .windowInsetsPadding(
+                WindowInsets.safeDrawing.only(
+                    WindowInsetsSides.Start + WindowInsetsSides.Vertical,
+                ),
+            )
+            .padding(start = 8.dp, top = 10.dp, bottom = 10.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = 0.dp,
+        shadowElevation = 3.dp,
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f),
+        ),
+    ) {
+        NavigationRail(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(86.dp),
+            containerColor = Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ) {
+            Spacer(Modifier.height(12.dp))
+            Screen.bottomNavItems.forEach { screen ->
+                val selected = isBottomNavDestination(
+                    screen = screen,
+                    destination = currentDestination,
+                )
+                val screenTitle = stringResource(screen.titleRes)
+
+                NavigationRailItem(
+                    selected = selected,
+                    onClick = { onNavigate(screen) },
+                    icon = {
+                        BottomNavIcon(
+                            screen = screen,
+                            selected = selected,
+                            screenTitle = screenTitle,
+                            favoritesCount = favoritesCount,
+                        )
+                    },
+                    label = {
+                        Text(
+                            screenTitle,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                        )
+                    },
+                    alwaysShowLabel = true,
+                    colors = NavigationRailItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        indicatorColor = Color.Transparent,
+                    ),
+                )
+            }
+        }
     }
 }
 

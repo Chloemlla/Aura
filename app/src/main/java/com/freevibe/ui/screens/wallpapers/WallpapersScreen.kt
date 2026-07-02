@@ -77,6 +77,8 @@ import com.freevibe.ui.components.SourceBadge
 import com.freevibe.ui.components.AuraSnackbarHost
 import com.freevibe.ui.components.AuraStatusAction
 import com.freevibe.ui.components.AuraStatusBanner
+import com.freevibe.ui.navigation.LocalAuraNavigationLayout
+import com.freevibe.ui.navigation.isExpanded
 import com.freevibe.ui.policy.CommunityUploadPolicyKind
 import com.freevibe.ui.policy.communityUploadPolicyCopy
 
@@ -106,6 +108,7 @@ fun WallpapersScreen(
     initialSimilarId: String? = null,
     initialSimilarSource: String? = null,
     initialSimilarFullUrl: String? = null,
+    isExpandedLayout: Boolean = LocalAuraNavigationLayout.current.isExpanded,
     onWallpaperClick: (Wallpaper) -> Unit = {},
     onGenerateClick: () -> Unit = {},
     viewModel: WallpapersViewModel = hiltViewModel(),
@@ -239,6 +242,9 @@ fun WallpapersScreen(
             if (state.selectedColor != null) add("color")
             if (state.selectedTab == WallpaperTab.WALLHAVEN && state.topRange != "1M") add("range")
         }.size
+    }
+    val adaptiveGridColumns = remember(gridColumns, isExpandedLayout) {
+        if (isExpandedLayout) gridColumns.coerceAtLeast(3) else gridColumns
     }
 
     LaunchedEffect(initialQuery, initialColor, initialSimilarId, initialSimilarSource, initialSimilarFullUrl) {
@@ -699,7 +705,7 @@ fun WallpapersScreen(
                                 dailyPick = visibleSections.dailyPick,
                                 wallpapers = visibleSections.feedWallpapers,
                                 isLoadingMore = state.isLoadingMore,
-                                columns = gridColumns,
+                                columns = adaptiveGridColumns,
                                 onWallpaperClick = { wp ->
                                     viewModel.selectWallpaper(wp, visibleSections.pagerWallpapers)
                                     onWallpaperClick(wp)
@@ -722,6 +728,7 @@ fun WallpapersScreen(
                                 isDiscoverTab = state.selectedTab == WallpaperTab.DISCOVER,
                                 topVoted = visibleSections.topVoted,
                                 seasonalTheme = if (state.selectedTab == WallpaperTab.DISCOVER) viewModel.seasonalTheme else null,
+                                isExpandedLayout = isExpandedLayout,
                             )
                         }
                     }
@@ -739,7 +746,7 @@ fun WallpapersScreen(
         FloatingActionTray(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 80.dp),
+                .padding(end = 16.dp, bottom = if (isExpandedLayout) 24.dp else 80.dp),
             showUpload = communityProviderEnabled && state.selectedTab == WallpaperTab.COMMUNITY,
             showThemeMatch = wallhavenProviderEnabled && state.selectedTab == WallpaperTab.DISCOVER,
             showEyeDropper = wallhavenProviderEnabled && eyeDropperAvailable && state.selectedTab == WallpaperTab.DISCOVER,
@@ -994,6 +1001,7 @@ private fun WallpaperGrid(
     isDiscoverTab: Boolean = false,
     topVoted: List<Pair<Wallpaper, Int>> = emptyList(),
     seasonalTheme: SeasonalTheme? = null,
+    isExpandedLayout: Boolean = false,
 ) {
     val gridState = rememberLazyStaggeredGridState()
 
@@ -1030,7 +1038,12 @@ private fun WallpaperGrid(
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Fixed(columns.coerceIn(1, 4)),
         state = gridState,
-        contentPadding = PaddingValues(start = 8.dp, top = 0.dp, end = 8.dp, bottom = 96.dp),
+        contentPadding = PaddingValues(
+            start = if (isExpandedLayout) 18.dp else 8.dp,
+            top = if (isExpandedLayout) 6.dp else 0.dp,
+            end = if (isExpandedLayout) 18.dp else 8.dp,
+            bottom = if (isExpandedLayout) 36.dp else 96.dp,
+        ),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalItemSpacing = 8.dp,
     ) {
@@ -2030,4 +2043,3 @@ internal fun isWallpaperHidden(
     wallpaper: Wallpaper,
     hiddenIds: Set<String>,
 ): Boolean = matchesHiddenIds(hiddenIds, wallpaper.stableKey(), wallpaper.id)
-

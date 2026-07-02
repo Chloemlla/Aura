@@ -81,6 +81,8 @@ import com.freevibe.ui.components.SearchHistoryDropdown
 import com.freevibe.ui.components.ShimmerSoundList
 import com.freevibe.ui.components.AuraStatusAction
 import com.freevibe.ui.components.AuraStatusBanner
+import com.freevibe.ui.navigation.LocalAuraNavigationLayout
+import com.freevibe.ui.navigation.isExpanded
 import com.freevibe.ui.policy.CommunityUploadPolicyKind
 import com.freevibe.ui.policy.communityUploadPolicyCopy
 import kotlinx.coroutines.delay
@@ -94,6 +96,7 @@ fun SoundsScreen(
     onSoundClick: (Sound) -> Unit,
     onCreateRingtone: (Uri) -> Unit = {},
     initialQuery: String? = null,
+    isExpandedLayout: Boolean = LocalAuraNavigationLayout.current.isExpanded,
     viewModel: SoundsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -444,7 +447,21 @@ fun SoundsScreen(
             }
         },
     ) { scaffoldPadding ->
-        Column(modifier = Modifier.fillMaxSize().padding(scaffoldPadding)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(scaffoldPadding),
+        ) {
+        Column(
+            modifier = if (isExpandedLayout) {
+                Modifier
+                    .fillMaxSize()
+                    .widthIn(max = 1180.dp)
+                    .align(Alignment.TopCenter)
+            } else {
+                Modifier.fillMaxSize()
+            },
+        ) {
             AuraScreenHeader(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -611,6 +628,7 @@ fun SoundsScreen(
                             onLoadMore = { viewModel.loadMore() },
                             playbackProgress = playbackProgress,
                             topHits = displayTopHits,
+                            isExpandedLayout = isExpandedLayout,
                             voteCounts = voteCounts,
                             collections = if (state.query.isBlank()) {
                                 val base = soundCollectionsFor(state.selectedTab)
@@ -646,6 +664,7 @@ fun SoundsScreen(
                     }
                 }
             }
+        }
         }
     }
 
@@ -873,6 +892,7 @@ private fun SoundsList(
     onLoadMore: () -> Unit,
     playbackProgress: Float,
     topHits: List<Sound>,
+    isExpandedLayout: Boolean = false,
     voteCounts: Map<String, Int> = emptyMap(),
     collections: List<SoundCollectionSpec>,
     onCollectionClick: (SoundCollectionSpec) -> Unit,
@@ -897,7 +917,10 @@ private fun SoundsList(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+        contentPadding = PaddingValues(
+            horizontal = if (isExpandedLayout) 24.dp else 14.dp,
+            vertical = if (isExpandedLayout) 10.dp else 6.dp,
+        ),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         if (collections.isNotEmpty()) {

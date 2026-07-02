@@ -162,15 +162,6 @@ Acceptance:
 
 ## Research-Driven Additions
 
-### P1
-
-- [ ] P1 - Adaptive large-screen shell
-  Why: Aura has no `WindowSizeClass`, navigation-rail, or list-detail adaptive layout usage, while Android tablet/foldable support is now a platform expectation.
-  Evidence: `FreeVibeRoot.kt`, grep for `WindowSizeClass`/`NavigationSuiteScaffold`/`ListDetailPaneScaffold`, Android adaptive UI docs, `Roadmap_Blocked.md` Android 17 large-screen smoke item.
-  Touches: `app/src/main/java/com/freevibe/ui/FreeVibeRoot.kt`, primary media screens, detail routes, screenshot fixtures.
-  Acceptance: Compact devices keep the existing bottom navigation; expanded widths use a rail or permanent navigation surface; at least Wallpapers and Sounds support list-detail or stable two-pane behavior; screenshot fixtures cover compact and expanded layouts.
-  Complexity: L
-
 ### P2
 
 - [ ] P2 - Embedded Photo Picker import polish
