@@ -2,13 +2,11 @@ package com.freevibe.data.repository
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Rect
 import android.net.Uri
+import android.os.Build
 import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
 import com.freevibe.data.local.PreferencesManager
-import com.freevibe.util.rethrowIfCancelled
 import com.freevibe.data.model.COMMUNITY_GUIDELINES_REQUIRED_MESSAGE
 import com.freevibe.data.model.CommunityUploadDeleteReason
 import com.freevibe.data.model.CommunityUploadKind
@@ -23,7 +21,12 @@ import com.freevibe.data.model.sanitizeCommunityUploadKey
 import com.freevibe.data.model.validateCommunityUploadRights
 import com.freevibe.service.ColorExtractor
 import com.freevibe.service.CommunityIdentityProvider
+import com.freevibe.service.MediaIngestionImageFlow
 import com.freevibe.service.SourceMetrics
+import com.freevibe.service.decodeImageUri
+import com.freevibe.service.imageFormatSupportForFlow
+import com.freevibe.service.imageMimeTypeFromExtension
+import com.freevibe.util.rethrowIfCancelled
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.storage.FirebaseStorage
@@ -47,12 +50,6 @@ private val WALLPAPER_UPLOAD_NAME_SANITIZE_REGEX = Regex("[^a-zA-Z0-9_\\- ]")
 private val WALLPAPER_UPLOAD_TAG_SANITIZE_REGEX = Regex("[^a-z0-9_\\- ]")
 private val WALLPAPER_UPLOAD_WHITESPACE_REGEX = Regex("\\s+")
 private val WALLPAPER_UPLOAD_STORAGE_SEGMENT_SANITIZE_REGEX = Regex("[^a-zA-Z0-9_-]")
-private val ALLOWED_WALLPAPER_UPLOAD_MIMES = setOf(
-    "image/jpeg",
-    "image/jpg",
-    "image/png",
-    "image/webp",
-)
 private val ALLOWED_WALLPAPER_UPLOAD_CATEGORIES = setOf(
     "abstract",
     "amoled",
@@ -125,8 +122,12 @@ class WallpaperUploadRepository @Inject constructor(
             val normalizedCategory = normalizeWallpaperUploadCategory(category)
             val normalizedTags = sanitizeWallpaperUploadTags(tags)
             val uploadInfo = resolveUploadInfo(localUri, sanitizedName)
-            if (!isSupportedWallpaperUploadMime(uploadInfo.mimeType)) {
-                throw IllegalArgumentException("Unsupported image format")
+            val imageSupport = imageFormatSupportForFlow(
+                MediaIngestionImageFlow.COMMUNITY_WALLPAPER_UPLOAD,
+                uploadInfo.mimeType,
+            )
+            if (!imageSupport.supported) {
+                throw IllegalArgumentException(imageSupport.message)
             }
 
             ensureReadableWallpaper(localUri)
@@ -422,34 +423,21 @@ class WallpaperUploadRepository @Inject constructor(
     }
 
     private fun decodeCenterCroppedBitmap(localUri: Uri, targetAspect: Float): Bitmap {
-        val resolver = context.contentResolver
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        resolver.openInputStream(localUri)?.use { input ->
-            BitmapFactory.decodeStream(input, null, bounds)
-        } ?: throw IllegalArgumentException("Selected image is unreadable")
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+        val decoded = decodeImageUri(context, localUri, maxLongEdge = MAX_WALLPAPER_LONG_EDGE * 2)
+            ?: throw IllegalArgumentException("Selected image is unreadable")
+        if (decoded.width <= 0 || decoded.height <= 0) {
+            decoded.recycle()
             throw IllegalArgumentException("Selected image is not a valid wallpaper")
         }
 
-        val cropBounds = centerCropBounds(bounds.outWidth, bounds.outHeight, targetAspect)
-        val options = BitmapFactory.Options().apply {
-            inPreferredConfig = Bitmap.Config.ARGB_8888
-            inSampleSize = calculateSampleSize(cropBounds.width(), cropBounds.height(), MAX_WALLPAPER_LONG_EDGE)
-        }
-        val decoded = resolver.openInputStream(localUri)?.use { input ->
-            BitmapFactory.decodeStream(input, null, options)
-        } ?: throw IllegalArgumentException("Selected image is unreadable")
-
-        val scaleX = decoded.width.toFloat() / bounds.outWidth.toFloat()
-        val scaleY = decoded.height.toFloat() / bounds.outHeight.toFloat()
-        val scaledRect = Rect(
-            (cropBounds.left * scaleX).roundToInt().coerceIn(0, decoded.width - 1),
-            (cropBounds.top * scaleY).roundToInt().coerceIn(0, decoded.height - 1),
-            (cropBounds.right * scaleX).roundToInt().coerceIn(1, decoded.width),
-            (cropBounds.bottom * scaleY).roundToInt().coerceIn(1, decoded.height),
+        val cropBounds = centerCropBounds(decoded.width, decoded.height, targetAspect)
+        val cropped = Bitmap.createBitmap(
+            decoded,
+            cropBounds.left,
+            cropBounds.top,
+            cropBounds.width(),
+            cropBounds.height(),
         )
-        val safeRect = normalizeCropRect(scaledRect, decoded.width, decoded.height)
-        val cropped = Bitmap.createBitmap(decoded, safeRect.left, safeRect.top, safeRect.width(), safeRect.height())
         if (cropped !== decoded) decoded.recycle()
         return scaleDownLongEdge(cropped, MAX_WALLPAPER_LONG_EDGE)
     }
@@ -480,7 +468,10 @@ class WallpaperUploadRepository @Inject constructor(
             ?.takeIf { it.isNotBlank() }
             ?.lowercase(java.util.Locale.ROOT)
             ?: inferredExtension
-                ?.let(MimeTypeMap.getSingleton()::getMimeTypeFromExtension)
+                ?.let { extension ->
+                    imageMimeTypeFromExtension(extension)
+                        ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+                }
                 ?.lowercase(java.util.Locale.ROOT)
             ?: ""
         val baseName = originalFileName.substringBeforeLast('.')
@@ -531,7 +522,21 @@ internal fun sanitizeWallpaperUploadTags(tags: List<String>): List<String> =
         .toList()
 
 internal fun isSupportedWallpaperUploadMime(mimeType: String): Boolean =
-    mimeType.lowercase(java.util.Locale.ROOT) in ALLOWED_WALLPAPER_UPLOAD_MIMES
+    isSupportedWallpaperUploadMime(mimeType, Build.VERSION.SDK_INT)
+
+internal fun isSupportedWallpaperUploadMime(mimeType: String, sdkInt: Int): Boolean =
+    imageFormatSupportForFlow(
+        MediaIngestionImageFlow.COMMUNITY_WALLPAPER_UPLOAD,
+        mimeType,
+        sdkInt,
+    ).supported
+
+internal fun unsupportedWallpaperUploadFormatMessage(mimeType: String, sdkInt: Int = Build.VERSION.SDK_INT): String =
+    imageFormatSupportForFlow(
+        MediaIngestionImageFlow.COMMUNITY_WALLPAPER_UPLOAD,
+        mimeType,
+        sdkInt,
+    ).message
 
 internal fun sanitizeWallpaperUploadStorageSegment(segment: String): String =
     segment.trim()
@@ -619,26 +624,6 @@ internal fun compressWallpaperForUpload(
 }
 
 internal fun communityWallpaperId(key: String): String = "cw_$key"
-
-private fun calculateSampleSize(rawW: Int, rawH: Int, maxLongEdge: Int): Int {
-    var sample = 1
-    var width = rawW
-    var height = rawH
-    while (max(width, height) / 2 >= maxLongEdge && sample < (1 shl 28)) {
-        sample *= 2
-        width /= 2
-        height /= 2
-    }
-    return sample.coerceAtLeast(1)
-}
-
-private fun normalizeCropRect(rect: Rect, maxWidth: Int, maxHeight: Int): Rect {
-    val left = rect.left.coerceIn(0, maxWidth - 1)
-    val top = rect.top.coerceIn(0, maxHeight - 1)
-    val right = rect.right.coerceIn(left + 1, maxWidth)
-    val bottom = rect.bottom.coerceIn(top + 1, maxHeight)
-    return Rect(left, top, right, bottom)
-}
 
 private fun DataSnapshot.stringList(childName: String): List<String> =
     child(childName).children.mapNotNull { it.getValue(String::class.java) }

@@ -20,18 +20,6 @@ physical-device validation, or toolchain gates belongs in `Roadmap_Blocked.md`.
 
 ## P2
 
-### HEIF/AVIF ingestion and metadata scrub policy
-
-Format detection exists, but accepted formats and metadata stripping are not
-defined by one source-backed matrix across auto-rotation, local apply, editor,
-and community upload flows.
-
-Acceptance:
-- A single policy defines supported image formats per flow.
-- HEIF/AVIF are accepted and safely transcoded or rejected with actionable UI
-  copy.
-- Metadata/location stripping is tested for community uploads.
-
 ### Split WallpapersViewModel into feature-scoped ViewModels
 
 `WallpapersViewModel.kt` still owns tab state, Discover cache, search,

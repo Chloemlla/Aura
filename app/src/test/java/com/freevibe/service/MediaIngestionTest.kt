@@ -73,6 +73,54 @@ class MediaIngestionTest {
     }
 
     @Test
+    fun `image ingestion policy defines formats per flow`() {
+        val uploadPolicy = imageIngestionPolicy(MediaIngestionImageFlow.COMMUNITY_WALLPAPER_UPLOAD)
+        val editorPolicy = imageIngestionPolicy(MediaIngestionImageFlow.EDITOR)
+
+        assertTrue(IngestedImageFormat.HEIF in uploadPolicy.inputFormats)
+        assertTrue(IngestedImageFormat.AVIF in uploadPolicy.inputFormats)
+        assertFalse(IngestedImageFormat.GIF in uploadPolicy.inputFormats)
+        assertEquals("image/jpeg", uploadPolicy.outputMimeType)
+        assertTrue(uploadPolicy.stripsMetadata)
+        assertTrue(IngestedImageFormat.GIF in editorPolicy.inputFormats)
+        assertFalse(editorPolicy.stripsMetadata)
+    }
+
+    @Test
+    fun `image ingestion support gates AVIF by Android version`() {
+        val supported = imageFormatSupportForFlow(
+            MediaIngestionImageFlow.COMMUNITY_WALLPAPER_UPLOAD,
+            "image/avif",
+            sdkInt = 34,
+        )
+        val rejected = imageFormatSupportForFlow(
+            MediaIngestionImageFlow.COMMUNITY_WALLPAPER_UPLOAD,
+            "image/avif",
+            sdkInt = 33,
+        )
+
+        assertTrue(supported.supported)
+        assertEquals("image/jpeg", supported.outputMimeType)
+        assertTrue(supported.stripsMetadata)
+        assertFalse(rejected.supported)
+        assertTrue(rejected.message.contains("Android 14"))
+    }
+
+    @Test
+    fun `image ingestion support accepts HEIF aliases and extension fallbacks`() {
+        assertTrue(
+            imageFormatSupportForFlow(
+                MediaIngestionImageFlow.LOCAL_APPLY,
+                "image/heic",
+                sdkInt = 26,
+            ).supported,
+        )
+        assertEquals("image/heif", imageMimeTypeFromExtension("heic"))
+        assertEquals("image/heif", imageMimeTypeFromExtension(".heif"))
+        assertEquals("image/avif", imageMimeTypeFromExtension("avif"))
+    }
+
+    @Test
     fun `requireSniffedMediaFile rejects wrong media family`() {
         val file = File.createTempFile("aura", ".jpg").apply {
             writeText("<html>not an image</html>")

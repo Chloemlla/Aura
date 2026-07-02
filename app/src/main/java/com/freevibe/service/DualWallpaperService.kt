@@ -2,7 +2,6 @@ package com.freevibe.service
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import com.freevibe.data.model.Wallpaper
 import com.freevibe.data.model.WallpaperPair
 import com.freevibe.data.model.WallpaperTarget
@@ -98,23 +97,14 @@ class DualWallpaperService @Inject constructor(
             val bytes = readStreamCapped(body.byteStream(), MAX_WALLPAPER_BYTES)
             if (bytes.isEmpty()) throw java.io.IOException("Empty response body")
 
-            // Two-pass decode: measure first, then subsample to avoid OOM on 4K+ images
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
-                throw java.io.IOException("Invalid image: could not decode bounds")
-            }
-            val screenWidth = context.resources.displayMetrics.widthPixels
-            val targetWidth = screenWidth * 2
-            var sampleSize = 1
-            if (bounds.outWidth > targetWidth) {
-                var width = bounds.outWidth
-                while (width / 2 >= targetWidth) { sampleSize *= 2; width /= 2 }
-            }
-            val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+            decodeImageBytes(bytes, maxLongEdge = targetWallpaperDecodeLongEdge())
                 ?: throw IllegalStateException("Failed to decode image")
         }
+    }
+
+    private fun targetWallpaperDecodeLongEdge(): Int {
+        val metrics = context.resources.displayMetrics
+        return (maxOf(metrics.widthPixels, metrics.heightPixels) * 2).coerceAtLeast(1)
     }
 
     private companion object {

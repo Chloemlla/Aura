@@ -2,7 +2,6 @@ package com.freevibe.ui.screens.editor
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -13,6 +12,7 @@ import com.freevibe.service.SmartCropCalculator
 import com.freevibe.service.SmartCropDetector
 import com.freevibe.service.WallpaperApplier
 import com.freevibe.service.advertisedLengthExceeds
+import com.freevibe.service.decodeImageBytes
 import com.freevibe.service.readStreamCapped
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -91,7 +91,7 @@ class WallpaperCropViewModel @Inject constructor(
                             throw Exception("Image too large to crop")
                         }
                         val bytes = readStreamCapped(body.byteStream(), MAX_CROP_BYTES)
-                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                        decodeImageBytes(bytes, maxLongEdge = MAX_CROP_LONG_EDGE)
                             ?: throw Exception("Failed to decode image")
                     }
                 }
@@ -122,7 +122,7 @@ class WallpaperCropViewModel @Inject constructor(
                         ?: throw Exception("Could not open image")
                     stream.use {
                         val bytes = readStreamCapped(it, MAX_CROP_BYTES)
-                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                        decodeImageBytes(bytes, maxLongEdge = MAX_CROP_LONG_EDGE)
                             ?: throw Exception("Failed to decode image")
                     }
                 }
@@ -262,5 +262,6 @@ class WallpaperCropViewModel @Inject constructor(
     private companion object {
         /** Max bytes accepted when downloading a wallpaper for cropping. */
         private const val MAX_CROP_BYTES = 64L * 1024 * 1024
+        private const val MAX_CROP_LONG_EDGE = 4096
     }
 }

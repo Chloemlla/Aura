@@ -5,7 +5,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.BitmapFactory
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -57,7 +56,7 @@ class DailyWallpaperWorker @AssistedInject constructor(
                         if (advertisedLengthExceeds(advertised, DAILY_THUMB_MAX_BYTES)) return@use null
                         val bytes = readStreamCapped(body.byteStream(), DAILY_THUMB_MAX_BYTES)
                         if (bytes.isEmpty()) return@use null
-                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                        decodeImageBytes(bytes, maxLongEdge = DAILY_THUMB_MAX_LONG_EDGE)
                     }
                 } catch (e: Exception) {
                     if (e is kotlinx.coroutines.CancellationException) throw e
@@ -150,6 +149,7 @@ class DailyWallpaperWorker @AssistedInject constructor(
         const val WORK_NAME = "daily_wallpaper"
         const val NOTIFICATION_ID = 42
         private const val DAILY_THUMB_MAX_BYTES = 4L * 1024L * 1024L
+        private const val DAILY_THUMB_MAX_LONG_EDGE = 1024
 
         fun schedule(context: Context) {
             val request = PeriodicWorkRequestBuilder<DailyWallpaperWorker>(

@@ -50,6 +50,11 @@ All notable changes to Aura will be documented in this file.
   the signed Play AAB, bundle manifest evidence, bundletool validation, upload
   key fingerprint, checksums, and Play App Signing owner-step receipt alongside
   the GitHub/Obtainium APK.
+- **HEIF/AVIF wallpaper ingestion**: added a single image-format policy for
+  auto-rotation, local apply, editor, and community upload flows. HEIF is
+  accepted on Android 8+, AVIF is accepted where Android 14+ decoding is
+  available, and community uploads transcode to fresh JPEG bytes with
+  metadata/location stripping before Firebase upload.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose

@@ -1,12 +1,21 @@
 package com.freevibe.service
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
+import android.net.Uri
+import android.os.Build
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.nio.ByteBuffer
 import java.util.Locale
+import kotlin.math.max
+import kotlin.math.roundToInt
 
 class MediaIngestionLimitExceeded(
     message: String,
@@ -57,6 +66,203 @@ internal data class SniffedMediaType(
     val mimeType: String,
     val extension: String,
 )
+
+internal enum class MediaIngestionImageFlow {
+    AUTO_ROTATION,
+    LOCAL_APPLY,
+    EDITOR,
+    COMMUNITY_WALLPAPER_UPLOAD,
+}
+
+internal enum class IngestedImageFormat(
+    val displayName: String,
+    val mimeTypes: Set<String>,
+    val extensions: Set<String>,
+    val minSdk: Int,
+) {
+    JPEG(
+        displayName = "JPEG",
+        mimeTypes = setOf("image/jpeg", "image/jpg"),
+        extensions = setOf("jpg", "jpeg"),
+        minSdk = Build.VERSION_CODES.O,
+    ),
+    PNG(
+        displayName = "PNG",
+        mimeTypes = setOf("image/png"),
+        extensions = setOf("png"),
+        minSdk = Build.VERSION_CODES.O,
+    ),
+    WEBP(
+        displayName = "WebP",
+        mimeTypes = setOf("image/webp"),
+        extensions = setOf("webp"),
+        minSdk = Build.VERSION_CODES.O,
+    ),
+    GIF(
+        displayName = "GIF",
+        mimeTypes = setOf("image/gif"),
+        extensions = setOf("gif"),
+        minSdk = Build.VERSION_CODES.O,
+    ),
+    HEIF(
+        displayName = "HEIF",
+        mimeTypes = setOf("image/heif", "image/heic"),
+        extensions = setOf("heif", "heic"),
+        minSdk = Build.VERSION_CODES.O,
+    ),
+    AVIF(
+        displayName = "AVIF",
+        mimeTypes = setOf("image/avif"),
+        extensions = setOf("avif"),
+        minSdk = ANDROID_14_API,
+    ),
+}
+
+internal data class ImageIngestionPolicy(
+    val flow: MediaIngestionImageFlow,
+    val inputFormats: Set<IngestedImageFormat>,
+    val outputMimeType: String? = null,
+    val stripsMetadata: Boolean = false,
+) {
+    val acceptedMimeTypes: Set<String> = inputFormats.flatMap { it.mimeTypes }.toSet()
+}
+
+internal data class ImageFormatSupport(
+    val supported: Boolean,
+    val format: IngestedImageFormat?,
+    val message: String,
+    val outputMimeType: String?,
+    val stripsMetadata: Boolean,
+)
+
+internal fun imageIngestionPolicy(flow: MediaIngestionImageFlow): ImageIngestionPolicy =
+    when (flow) {
+        MediaIngestionImageFlow.AUTO_ROTATION,
+        MediaIngestionImageFlow.LOCAL_APPLY,
+        MediaIngestionImageFlow.EDITOR ->
+            ImageIngestionPolicy(
+                flow = flow,
+                inputFormats = setOf(
+                    IngestedImageFormat.JPEG,
+                    IngestedImageFormat.PNG,
+                    IngestedImageFormat.WEBP,
+                    IngestedImageFormat.GIF,
+                    IngestedImageFormat.HEIF,
+                    IngestedImageFormat.AVIF,
+                ),
+            )
+        MediaIngestionImageFlow.COMMUNITY_WALLPAPER_UPLOAD ->
+            ImageIngestionPolicy(
+                flow = flow,
+                inputFormats = setOf(
+                    IngestedImageFormat.JPEG,
+                    IngestedImageFormat.PNG,
+                    IngestedImageFormat.WEBP,
+                    IngestedImageFormat.HEIF,
+                    IngestedImageFormat.AVIF,
+                ),
+                outputMimeType = "image/jpeg",
+                stripsMetadata = true,
+            )
+    }
+
+internal fun imageFormatSupportForFlow(
+    flow: MediaIngestionImageFlow,
+    mimeType: String,
+    sdkInt: Int = Build.VERSION.SDK_INT,
+): ImageFormatSupport {
+    val policy = imageIngestionPolicy(flow)
+    val normalized = normalizeMimeType(mimeType)
+    val format = imageFormatForMimeType(normalized)
+    if (format == null || format !in policy.inputFormats) {
+        return ImageFormatSupport(
+            supported = false,
+            format = format,
+            message = "Choose a ${acceptedImageFormatSummary(flow)} image.",
+            outputMimeType = policy.outputMimeType,
+            stripsMetadata = policy.stripsMetadata,
+        )
+    }
+    if (sdkInt < format.minSdk) {
+        val message = if (format == IngestedImageFormat.AVIF) {
+            "AVIF images require Android 14 or newer so Aura can decode and scrub them safely."
+        } else {
+            "${format.displayName} images are not supported on this Android version."
+        }
+        return ImageFormatSupport(
+            supported = false,
+            format = format,
+            message = message,
+            outputMimeType = policy.outputMimeType,
+            stripsMetadata = policy.stripsMetadata,
+        )
+    }
+    return ImageFormatSupport(
+        supported = true,
+        format = format,
+        message = if (policy.stripsMetadata) {
+            "Aura will transcode this image to JPEG before upload so embedded metadata and location tags are not kept."
+        } else {
+            "${format.displayName} image supported."
+        },
+        outputMimeType = policy.outputMimeType,
+        stripsMetadata = policy.stripsMetadata,
+    )
+}
+
+internal fun imageMimeTypeFromExtension(extension: String): String? {
+    val normalized = extension.trim().trimStart('.').lowercase(Locale.ROOT)
+    return IngestedImageFormat.entries
+        .firstOrNull { normalized in it.extensions }
+        ?.mimeTypes
+        ?.first()
+}
+
+internal fun imageFormatForMimeType(mimeType: String): IngestedImageFormat? {
+    val normalized = normalizeMimeType(mimeType)
+    return IngestedImageFormat.entries.firstOrNull { normalized in it.mimeTypes }
+}
+
+internal fun acceptedImageFormatSummary(flow: MediaIngestionImageFlow): String =
+    imageIngestionPolicy(flow).inputFormats
+        .map { it.displayName }
+        .toHumanList()
+
+internal fun decodeImageBytes(
+    bytes: ByteArray,
+    maxLongEdge: Int? = null,
+): Bitmap? {
+    if (bytes.isEmpty()) return null
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        decodeWithImageDecoder(ImageDecoder.createSource(ByteBuffer.wrap(bytes)), maxLongEdge)
+    } else {
+        decodeBytesWithBitmapFactory(bytes, maxLongEdge)
+    }
+}
+
+internal fun decodeImageUri(
+    context: Context,
+    uri: Uri,
+    maxLongEdge: Int? = null,
+): Bitmap? =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        decodeWithImageDecoder(ImageDecoder.createSource(context.contentResolver, uri), maxLongEdge)
+    } else {
+        decodeStreamWithBitmapFactory(
+            maxLongEdge = maxLongEdge,
+            openStream = { context.contentResolver.openInputStream(uri) },
+        )
+    }
+
+internal fun decodeImageFile(
+    file: File,
+    maxLongEdge: Int? = null,
+): Bitmap? =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        decodeWithImageDecoder(ImageDecoder.createSource(file), maxLongEdge)
+    } else {
+        decodeFileWithBitmapFactory(file, maxLongEdge)
+    }
 
 internal fun sniffMediaType(header: ByteArray): SniffedMediaType? {
     if (header.startsWith(0xFF, 0xD8, 0xFF)) {
@@ -138,6 +344,103 @@ internal fun normalizeMediaFileName(
 
 private const val DEFAULT_MEDIA_INGESTION_BUFFER_BYTES = 8 * 1024
 private const val MEDIA_SNIFF_BYTES = 64
+private const val ANDROID_14_API = 34
+
+private fun normalizeMimeType(mimeType: String): String =
+    mimeType.substringBefore(';').trim().lowercase(Locale.ROOT)
+
+private fun List<String>.toHumanList(): String =
+    when (size) {
+        0 -> ""
+        1 -> single()
+        2 -> "${this[0]} or ${this[1]}"
+        else -> dropLast(1).joinToString(", ") + ", or " + last()
+    }
+
+@Suppress("NewApi")
+private fun decodeWithImageDecoder(
+    source: ImageDecoder.Source,
+    maxLongEdge: Int?,
+): Bitmap? =
+    try {
+        ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            val targetLongEdge = maxLongEdge?.takeIf { it > 0 }
+            val width = info.size.width
+            val height = info.size.height
+            if (targetLongEdge != null && width > 0 && height > 0) {
+                val longEdge = max(width, height)
+                if (longEdge > targetLongEdge) {
+                    val scale = targetLongEdge.toFloat() / longEdge.toFloat()
+                    decoder.setTargetSize(
+                        (width * scale).roundToInt().coerceAtLeast(1),
+                        (height * scale).roundToInt().coerceAtLeast(1),
+                    )
+                }
+            }
+        }
+    } catch (_: Exception) {
+        null
+    }
+
+private fun decodeBytesWithBitmapFactory(
+    bytes: ByteArray,
+    maxLongEdge: Int?,
+): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    val options = BitmapFactory.Options().apply {
+        inPreferredConfig = Bitmap.Config.ARGB_8888
+        inSampleSize = decodeSampleSize(bounds.outWidth, bounds.outHeight, maxLongEdge)
+    }
+    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+}
+
+private fun decodeStreamWithBitmapFactory(
+    maxLongEdge: Int?,
+    openStream: () -> InputStream?,
+): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    openStream()?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: return null
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    val options = BitmapFactory.Options().apply {
+        inPreferredConfig = Bitmap.Config.ARGB_8888
+        inSampleSize = decodeSampleSize(bounds.outWidth, bounds.outHeight, maxLongEdge)
+    }
+    return openStream()?.use { BitmapFactory.decodeStream(it, null, options) }
+}
+
+private fun decodeFileWithBitmapFactory(
+    file: File,
+    maxLongEdge: Int?,
+): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(file.absolutePath, bounds)
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    val options = BitmapFactory.Options().apply {
+        inPreferredConfig = Bitmap.Config.ARGB_8888
+        inSampleSize = decodeSampleSize(bounds.outWidth, bounds.outHeight, maxLongEdge)
+    }
+    return BitmapFactory.decodeFile(file.absolutePath, options)
+}
+
+private fun decodeSampleSize(
+    rawWidth: Int,
+    rawHeight: Int,
+    maxLongEdge: Int?,
+): Int {
+    val target = maxLongEdge?.takeIf { it > 0 } ?: return 1
+    var sample = 1
+    var width = rawWidth
+    var height = rawHeight
+    while (max(width, height) / 2 >= target && sample < (1 shl 28)) {
+        sample *= 2
+        width /= 2
+        height /= 2
+    }
+    return sample.coerceAtLeast(1)
+}
 
 private fun ByteArray.startsWith(vararg expected: Int): Boolean =
     size >= expected.size && expected.indices.all { index -> this[index].toInt() and 0xFF == expected[index] }

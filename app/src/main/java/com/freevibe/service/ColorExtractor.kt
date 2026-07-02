@@ -1,7 +1,6 @@
 package com.freevibe.service
 
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import androidx.core.graphics.ColorUtils
 import androidx.palette.graphics.Palette
 import kotlinx.coroutines.Dispatchers
@@ -58,15 +57,7 @@ class ColorExtractor @Inject constructor(
                     return@withContext null
                 }
                 val bytes = readStreamCapped(body.byteStream(), MAX_COLOR_EXTRACT_BYTES)
-                // Decode at reduced size for faster palette extraction
-                val options = BitmapFactory.Options().apply {
-                    inJustDecodeBounds = true
-                }
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
-                if (options.outWidth <= 0 || options.outHeight <= 0) return@withContext null
-                options.inSampleSize = calculateSampleSize(options.outWidth, options.outHeight, 200, 200)
-                options.inJustDecodeBounds = false
-                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+                val bitmap = decodeImageBytes(bytes, maxLongEdge = PALETTE_DECODE_LONG_EDGE)
                     ?: return@withContext null
                 extractFromBitmap(bitmap).also { bitmap.recycle() }
             }
@@ -112,22 +103,9 @@ class ColorExtractor @Inject constructor(
         )
     }
 
-    private fun calculateSampleSize(rawW: Int, rawH: Int, reqW: Int, reqH: Int): Int {
-        var sample = 1
-        if (rawH > reqH || rawW > reqW) {
-            val halfH = rawH / 2
-            val halfW = rawW / 2
-            // Guard the multiply-by-2: a pathological image with dimensions near Integer.MAX_VALUE
-            // would otherwise overflow `sample` into negatives and break the sub-sampling math.
-            while (halfH / sample >= reqH && halfW / sample >= reqW && sample < (1 shl 28)) {
-                sample *= 2
-            }
-        }
-        return sample
-    }
-
     private companion object {
         /** Palette extraction only downsamples to 200x200; 32 MB is plenty for 4K originals. */
         private const val MAX_COLOR_EXTRACT_BYTES = 32L * 1024 * 1024
+        private const val PALETTE_DECODE_LONG_EDGE = 200
     }
 }

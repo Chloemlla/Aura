@@ -3,7 +3,6 @@ package com.freevibe.service
 import android.app.WallpaperManager
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
@@ -246,8 +245,8 @@ class WallpaperApplier @Inject constructor(
             locator.startsWith("content://", ignoreCase = true) ->
                 decodeFromContentUri(locator)
             locator.startsWith("file:", ignoreCase = true) -> {
-                // Both file:/path and file:///path produce a parseable Uri; we want the
-                // raw path for BitmapFactory.decodeFile.
+                // Both file:/path and file:///path produce a parseable Uri; decode the
+                // raw path so local wallpaper files share the same bounded image helper.
                 val path = android.net.Uri.parse(locator).path
                 if (path.isNullOrBlank()) null else decodeLocalPath(path)
             }
@@ -258,17 +257,7 @@ class WallpaperApplier @Inject constructor(
 
     private suspend fun decodeFromContentUri(uri: String): Bitmap? = withContext(Dispatchers.IO) {
         val parsed = runCatching { android.net.Uri.parse(uri) }.getOrNull() ?: return@withContext null
-        // Two-pass bounded decode mirrors downloadBitmap to avoid OOM on huge gallery picks.
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        runCatching {
-            context.contentResolver.openInputStream(parsed)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-        }
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@withContext null
-        val sampleSize = computeSampleSize(bounds.outWidth)
-        val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-        runCatching {
-            context.contentResolver.openInputStream(parsed)?.use { BitmapFactory.decodeStream(it, null, options) }
-        }.getOrNull()
+        decodeImageUri(context, parsed, maxLongEdge = targetWallpaperDecodeLongEdge())
     }
 
     private suspend fun decodeLocalPath(path: String): Bitmap? = withContext(Dispatchers.IO) {
@@ -277,23 +266,12 @@ class WallpaperApplier @Inject constructor(
         // Cap local files at MAX_WALLPAPER_BYTES — even if the file is on user storage we
         // don't want a runaway 200 MB PNG to wedge the WallpaperManager IPC.
         if (file.length() > MAX_WALLPAPER_BYTES) return@withContext null
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(path, bounds)
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@withContext null
-        val sampleSize = computeSampleSize(bounds.outWidth)
-        val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-        BitmapFactory.decodeFile(path, options)
+        decodeImageFile(file, maxLongEdge = targetWallpaperDecodeLongEdge())
     }
 
-    private fun computeSampleSize(srcWidth: Int): Int {
-        val targetWidth = (context.resources.displayMetrics.widthPixels * 2).coerceAtLeast(1)
-        var sampleSize = 1
-        var width = srcWidth
-        while (width / 2 >= targetWidth) {
-            sampleSize *= 2
-            width /= 2
-        }
-        return sampleSize
+    private fun targetWallpaperDecodeLongEdge(): Int {
+        val metrics = context.resources.displayMetrics
+        return (maxOf(metrics.widthPixels, metrics.heightPixels) * 2).coerceAtLeast(1)
     }
 
     private suspend fun downloadBitmap(url: String): Bitmap? = withContext(Dispatchers.IO) {
@@ -316,22 +294,8 @@ class WallpaperApplier @Inject constructor(
             val bytes = readCapped(body.byteStream(), MAX_WALLPAPER_BYTES)
             if (bytes.isEmpty()) throw java.io.IOException("Empty response body")
 
-            // First pass: get image dimensions without allocating pixels
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-            // Guard against a corrupt first-pass decode. Without this, a zero-width result
-            // skips the sub-sampling math and the second decode either crashes or produces
-            // a full-resolution bitmap that can OOM on large wallpapers.
-            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
-                throw java.io.IOException("Invalid image: could not decode bounds")
-            }
-
-            // Calculate inSampleSize to keep bitmap within 2x screen width.
-            val sampleSize = computeSampleSize(bounds.outWidth)
-
-            // Second pass: decode with sub-sampling
-            val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+            decodeImageBytes(bytes, maxLongEdge = targetWallpaperDecodeLongEdge())
+                ?: throw java.io.IOException("Invalid image: could not decode wallpaper")
         }
     }
 

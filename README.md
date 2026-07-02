@@ -46,6 +46,7 @@ the same link is available in Settings > About > Privacy policy.
 | **HD/4K Wallpapers** | Discover feed from Wallhaven, Pexels, Pixabay & Bing |
 | **Wallpaper Quality Filters** | Discover chips for For You, AMOLED, 4K+, Portrait, and Icon Safe with curated ranking |
 | **Community Wallpapers** | Upload phone-cropped gallery images with tags, Palette colors, and community voting |
+| **HEIF/AVIF Wallpaper Import** | Local apply, editor, rotation, and community upload flows share one format policy with HEIF support and Android 14+ AVIF gating |
 | **Creator Profiles** | View upload stats, votes, followed creators, followed uploads, and top creator leaderboard |
 | **Shareable Collections** | Share wallpaper collections as Aura links, QR codes, or JSON files and import them on another device |
 | **Video Wallpapers** | Browse YouTube video wallpapers with ExoPlayer auto-preview or import local clips/GIFs |

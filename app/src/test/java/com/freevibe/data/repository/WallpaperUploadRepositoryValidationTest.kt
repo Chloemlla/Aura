@@ -1,6 +1,8 @@
 package com.freevibe.data.repository
 
 import com.freevibe.service.ColorExtractor
+import com.freevibe.service.MediaIngestionImageFlow
+import com.freevibe.service.imageFormatSupportForFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -49,10 +51,15 @@ class WallpaperUploadRepositoryValidationTest {
 
     @Test
     fun `isSupportedWallpaperUploadMime only allows approved image formats`() {
-        assertTrue(isSupportedWallpaperUploadMime("image/jpeg"))
-        assertTrue(isSupportedWallpaperUploadMime("image/webp"))
-        assertFalse(isSupportedWallpaperUploadMime("image/gif"))
-        assertFalse(isSupportedWallpaperUploadMime(""))
+        assertTrue(isSupportedWallpaperUploadMime("image/jpeg", sdkInt = 26))
+        assertTrue(isSupportedWallpaperUploadMime("image/webp", sdkInt = 26))
+        assertTrue(isSupportedWallpaperUploadMime("image/heif", sdkInt = 26))
+        assertTrue(isSupportedWallpaperUploadMime("image/heic", sdkInt = 26))
+        assertTrue(isSupportedWallpaperUploadMime("image/avif", sdkInt = 34))
+        assertFalse(isSupportedWallpaperUploadMime("image/avif", sdkInt = 33))
+        assertFalse(isSupportedWallpaperUploadMime("image/gif", sdkInt = 34))
+        assertFalse(isSupportedWallpaperUploadMime("", sdkInt = 34))
+        assertTrue(unsupportedWallpaperUploadFormatMessage("image/avif", sdkInt = 33).contains("Android 14"))
     }
 
     @Test
@@ -73,6 +80,20 @@ class WallpaperUploadRepositoryValidationTest {
         )
 
         assertEquals(listOf("#778899", "#112233", "#445566"), colors)
+    }
+
+    @Test
+    fun `community wallpaper upload policy transcodes for metadata scrub`() {
+        val support = imageFormatSupportForFlow(
+            MediaIngestionImageFlow.COMMUNITY_WALLPAPER_UPLOAD,
+            "image/heif",
+            sdkInt = 26,
+        )
+
+        assertTrue(support.supported)
+        assertTrue(support.stripsMetadata)
+        assertEquals("image/jpeg", support.outputMimeType)
+        assertTrue(support.message.contains("metadata"))
     }
 
     @Test
