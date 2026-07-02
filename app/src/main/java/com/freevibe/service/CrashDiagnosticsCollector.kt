@@ -126,6 +126,11 @@ class CrashDiagnosticsCollector @Inject constructor(
             } else {
                 appendLine("- Degraded sources: none")
             }
+            val sourceRows = sourceHealthRows()
+            if (sourceRows.isNotEmpty()) {
+                appendLine("- Source health rows:")
+                sourceRows.forEach { row -> appendLine("  - $row") }
+            }
             appendLine()
             appendLine(backgroundWork)
             if (liveBackgroundWork != null) {
@@ -193,6 +198,25 @@ class CrashDiagnosticsCollector @Inject constructor(
                 "${stat.source} ($health)"
             }
         }
+
+    private fun sourceHealthRows(): List<String> = sourceMetrics.snapshotAll()
+        .take(MAX_SOURCE_HEALTH_ROWS)
+        .map { stat ->
+            val state = stat.healthState.name.lowercase(Locale.ROOT)
+            val fallback = stat.fallbackStatus.name.lowercase(Locale.ROOT)
+            val retry = stat.retryAction.name.lowercase(Locale.ROOT)
+            val lastSuccess = timestampOrNone(stat.lastSuccessAtMs)
+            val lastFailure = timestampOrNone(stat.lastFailureAtMs)
+            val lastDisabled = timestampOrNone(stat.lastDisabledAtMs)
+            val lastError = stat.lastErrorClass?.let { "; lastError=$it" }.orEmpty()
+            "${stat.source}: state=$state; fallback=$fallback; retry=$retry; " +
+                "success=${stat.successCount}/${stat.activeRequests}; failures=${stat.failureCount}; " +
+                "disabled=${stat.disabledCount}; lastSuccess=$lastSuccess; " +
+                "lastFailure=$lastFailure; lastDisabled=$lastDisabled$lastError"
+        }
+
+    private fun timestampOrNone(timeMs: Long): String =
+        if (timeMs > 0L) timestampWithZone(timeMs) else "none"
 
     private suspend fun readPref(block: suspend () -> String): String =
         runCatching { block().ifBlank { "none" } }.getOrDefault("unavailable")
@@ -319,6 +343,7 @@ class CrashDiagnosticsCollector @Inject constructor(
     companion object {
         const val CRASH_LOG_FILE_NAME = "crash.log"
         private const val MAX_CRASH_LOG_CHARS = 16_000
+        private const val MAX_SOURCE_HEALTH_ROWS = 8
         private const val WEATHER_WALLPAPER_PREFS = "freevibe_weather_wp"
         private const val DAILY_WALLPAPER_ENABLED_KEY = "daily_wallpaper_enabled"
         private const val AURA_ORIGINALS_WORK_NAME = "aura_originals_download"

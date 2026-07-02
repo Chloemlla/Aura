@@ -13,6 +13,9 @@ All notable changes to Aura will be documented in this file.
 - **Provider credential storage**: migrated user-entered provider keys from
   DataStore to Android Keystore-backed AES-GCM storage, with legacy migration,
   backup exclusions, and a Settings warning when Keystore access is unavailable.
+- **Source health diagnostics**: expanded Settings diagnostics with per-provider
+  last success/failure/disabled timestamps, fallback status, retry guidance, and
+  sanitized support-bundle source health rows.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose

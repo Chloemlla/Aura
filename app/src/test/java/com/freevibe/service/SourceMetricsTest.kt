@@ -107,6 +107,9 @@ class SourceMetricsTest {
         assertEquals(0L, s.activeRequests)
         assertEquals(1.0, s.successRatio, 0.001)
         assertNull(s.lastErrorClass)
+        assertEquals(SourceMetrics.SourceHealthState.DISABLED, s.healthState)
+        assertEquals(SourceMetrics.SourceFallbackStatus.DISABLED_LOCAL_AVAILABLE, s.fallbackStatus)
+        assertEquals(SourceMetrics.SourceRetryAction.ENABLE_SOURCE, s.retryAction)
     }
 
     @Test
@@ -122,11 +125,29 @@ class SourceMetricsTest {
         s = m.snapshot("reddit")!!
         assertEquals(10L, s.consecutiveFailureCount)
         assertTrue(s.isPersistentlyFailing)
+        assertEquals(SourceMetrics.SourceHealthState.DEGRADED, s.healthState)
+        assertEquals(SourceMetrics.SourceFallbackStatus.AUTO_FALLBACK_ACTIVE, s.fallbackStatus)
+        assertEquals(SourceMetrics.SourceRetryAction.CLEAR_DEGRADED_AND_RETRY, s.retryAction)
 
         m.recordSuccess("reddit", 80L)
         s = m.snapshot("reddit")!!
         assertEquals(0L, s.consecutiveFailureCount)
         assertFalse(s.isPersistentlyFailing)
+        assertEquals(SourceMetrics.SourceHealthState.HEALTHY, s.healthState)
+        assertEquals(SourceMetrics.SourceFallbackStatus.SAVED_OFFLINE_AVAILABLE, s.fallbackStatus)
+        assertEquals(SourceMetrics.SourceRetryAction.REFRESH_IF_NEEDED, s.retryAction)
+    }
+
+    @Test
+    fun `local sources report local-only fallback`() {
+        val m = SourceMetrics()
+        m.recordSuccess("local", 5L)
+
+        val s = m.snapshot("local")!!
+
+        assertEquals(SourceMetrics.SourceHealthState.HEALTHY, s.healthState)
+        assertEquals(SourceMetrics.SourceFallbackStatus.LOCAL_ONLY, s.fallbackStatus)
+        assertEquals(SourceMetrics.SourceRetryAction.REFRESH_IF_NEEDED, s.retryAction)
     }
 
     @Test
@@ -191,6 +212,18 @@ class SourceMetricsTest {
         assertNull(m.snapshot("wallhaven"))
         assertNull(m.snapshot("freesound"))
         assertTrue(m.snapshotAll().isEmpty())
+    }
+
+    @Test
+    fun `reset source clears only that provider state`() {
+        val m = SourceMetrics()
+        m.recordFailure("wallhaven", IOException("timeout"))
+        m.recordSuccess("bing", 100L)
+
+        m.reset("wallhaven")
+
+        assertNull(m.snapshot("wallhaven"))
+        assertNotNull(m.snapshot("bing"))
     }
 
     @Test

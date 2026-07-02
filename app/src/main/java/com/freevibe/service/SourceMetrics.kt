@@ -59,6 +59,55 @@ class SourceMetrics private constructor(
 
         val isPersistentlyFailing: Boolean =
             consecutiveFailureCount >= PERSISTENT_FAILURE_THRESHOLD
+
+        val healthState: SourceHealthState
+            get() = when {
+                isPersistentlyFailing -> SourceHealthState.DEGRADED
+                consecutiveFailureCount > 0L -> SourceHealthState.NEEDS_ATTENTION
+                disabledCount > 0L && activeRequests == 0L -> SourceHealthState.DISABLED
+                else -> SourceHealthState.HEALTHY
+            }
+
+        val fallbackStatus: SourceFallbackStatus
+            get() = when {
+                providerPolicy?.source == com.freevibe.data.model.ContentSource.LOCAL ||
+                    providerPolicy?.source == com.freevibe.data.model.ContentSource.BUNDLED ->
+                    SourceFallbackStatus.LOCAL_ONLY
+                isPersistentlyFailing -> SourceFallbackStatus.AUTO_FALLBACK_ACTIVE
+                disabledCount > 0L && activeRequests == 0L -> SourceFallbackStatus.DISABLED_LOCAL_AVAILABLE
+                consecutiveFailureCount > 0L -> SourceFallbackStatus.CACHE_OR_LOCAL_AVAILABLE
+                else -> SourceFallbackStatus.SAVED_OFFLINE_AVAILABLE
+            }
+
+        val retryAction: SourceRetryAction
+            get() = when {
+                isPersistentlyFailing -> SourceRetryAction.CLEAR_DEGRADED_AND_RETRY
+                consecutiveFailureCount > 0L -> SourceRetryAction.RETRY_SOURCE
+                disabledCount > 0L && activeRequests == 0L -> SourceRetryAction.ENABLE_SOURCE
+                else -> SourceRetryAction.REFRESH_IF_NEEDED
+            }
+    }
+
+    enum class SourceHealthState {
+        HEALTHY,
+        NEEDS_ATTENTION,
+        DEGRADED,
+        DISABLED,
+    }
+
+    enum class SourceFallbackStatus {
+        SAVED_OFFLINE_AVAILABLE,
+        CACHE_OR_LOCAL_AVAILABLE,
+        AUTO_FALLBACK_ACTIVE,
+        DISABLED_LOCAL_AVAILABLE,
+        LOCAL_ONLY,
+    }
+
+    enum class SourceRetryAction {
+        REFRESH_IF_NEEDED,
+        RETRY_SOURCE,
+        CLEAR_DEGRADED_AND_RETRY,
+        ENABLE_SOURCE,
     }
 
     private class MutableEntry {
@@ -173,6 +222,18 @@ class SourceMetrics private constructor(
     fun reset() {
         entries.clear()
         prefs?.edit()?.clear()?.apply()
+        _version.update { it + 1 }
+    }
+
+    /** Forget one source's stats so the next provider action retries from a clean state. */
+    fun reset(source: String) {
+        if (source.isBlank()) return
+        entries.remove(source)
+        prefs?.edit()
+            ?.remove("${source}_consecutive_failures")
+            ?.remove("${source}_last_failure_at")
+            ?.remove("${source}_last_error")
+            ?.apply()
         _version.update { it + 1 }
     }
 

@@ -204,7 +204,10 @@ internal fun DiagnosticsSettingsSection(
                     } else {
                         SourceDiagnosticsSummary(snapshots)
                         snapshots.forEach { stat ->
-                            SourceDiagnosticRow(stat)
+                            SourceDiagnosticRow(
+                                stat = stat,
+                                onRetry = viewModel::resetSourceDiagnostics,
+                            )
                         }
                     }
                 }

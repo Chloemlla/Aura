@@ -27,6 +27,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -508,15 +509,18 @@ internal fun DiagnosticMetricPill(
 }
 
 @Composable
-internal fun SourceDiagnosticRow(stat: SourceMetrics.SourceStats) {
+internal fun SourceDiagnosticRow(
+    stat: SourceMetrics.SourceStats,
+    onRetry: ((String) -> Unit)? = null,
+) {
     val persistentFailure = stat.isPersistentlyFailing
     val successPercent = (stat.successRatio * 100).toInt().coerceIn(0, 100)
-    val hasFailure = stat.failureCount > 0L
-    val hasDisabled = stat.disabledCount > 0L
+    val hasActiveFailure = stat.consecutiveFailureCount > 0L
+    val disabledOnly = stat.healthState == SourceMetrics.SourceHealthState.DISABLED
     val tint = when {
         persistentFailure -> MaterialTheme.colorScheme.error
-        hasFailure -> MaterialTheme.colorScheme.error
-        hasDisabled -> MaterialTheme.colorScheme.tertiary
+        hasActiveFailure -> MaterialTheme.colorScheme.error
+        disabledOnly -> MaterialTheme.colorScheme.tertiary
         else -> MaterialTheme.colorScheme.primary
     }
     val latency = if (stat.p50Ms != null) {
@@ -543,14 +547,14 @@ internal fun SourceDiagnosticRow(stat: SourceMetrics.SourceStats) {
                 HighlightPill(
                     label = when {
                         persistentFailure -> stringResource(R.string.settings_diag_source_persistent_failure)
-                        hasFailure -> stringResource(R.string.settings_diag_source_needs_attention)
-                        hasDisabled -> stringResource(R.string.settings_diag_source_disabled)
+                        hasActiveFailure -> stringResource(R.string.settings_diag_source_needs_attention)
+                        disabledOnly -> stringResource(R.string.settings_diag_source_disabled)
                         else -> stringResource(R.string.settings_diag_source_healthy)
                     },
                     icon = when {
                         persistentFailure -> Icons.Default.ReportProblem
-                        hasFailure -> Icons.Default.Error
-                        hasDisabled -> Icons.Default.Block
+                        hasActiveFailure -> Icons.Default.Error
+                        disabledOnly -> Icons.Default.Block
                         else -> Icons.Default.CheckCircle
                     },
                     tint = tint,
@@ -576,6 +580,36 @@ internal fun SourceDiagnosticRow(stat: SourceMetrics.SourceStats) {
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                stringResource(
+                    R.string.settings_diag_source_last_activity,
+                    formatSourceDiagnosticTime(stat.lastSuccessAtMs),
+                    formatSourceDiagnosticTime(stat.lastFailureAtMs),
+                    formatSourceDiagnosticTime(stat.lastDisabledAtMs),
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                stringResource(
+                    R.string.settings_diag_source_fallback_status,
+                    sourceFallbackStatusLabel(stat.fallbackStatus),
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                stringResource(
+                    R.string.settings_diag_source_retry_action,
+                    sourceRetryActionLabel(stat.retryAction),
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (persistentFailure || hasActiveFailure) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
             )
             stat.providerPolicy?.let { policy ->
                 Text(
@@ -607,9 +641,55 @@ internal fun SourceDiagnosticRow(stat: SourceMetrics.SourceStats) {
                     color = MaterialTheme.colorScheme.error,
                 )
             }
+            if (
+                onRetry != null &&
+                stat.retryAction != SourceMetrics.SourceRetryAction.REFRESH_IF_NEEDED &&
+                stat.retryAction != SourceMetrics.SourceRetryAction.ENABLE_SOURCE
+            ) {
+                TextButton(onClick = { onRetry(stat.source) }) {
+                    Text(stringResource(R.string.settings_diag_source_retry_button))
+                }
+            }
         }
     }
 }
+
+@Composable
+internal fun formatSourceDiagnosticTime(timestampMs: Long): String =
+    if (timestampMs <= 0L) {
+        stringResource(R.string.settings_diag_none)
+    } else {
+        DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, Locale.getDefault())
+            .format(Date(timestampMs))
+    }
+
+@Composable
+private fun sourceFallbackStatusLabel(status: SourceMetrics.SourceFallbackStatus): String =
+    when (status) {
+        SourceMetrics.SourceFallbackStatus.SAVED_OFFLINE_AVAILABLE ->
+            stringResource(R.string.settings_diag_source_fallback_saved_offline)
+        SourceMetrics.SourceFallbackStatus.CACHE_OR_LOCAL_AVAILABLE ->
+            stringResource(R.string.settings_diag_source_fallback_cache_or_local)
+        SourceMetrics.SourceFallbackStatus.AUTO_FALLBACK_ACTIVE ->
+            stringResource(R.string.settings_diag_source_fallback_auto_active)
+        SourceMetrics.SourceFallbackStatus.DISABLED_LOCAL_AVAILABLE ->
+            stringResource(R.string.settings_diag_source_fallback_disabled_local)
+        SourceMetrics.SourceFallbackStatus.LOCAL_ONLY ->
+            stringResource(R.string.settings_diag_source_fallback_local_only)
+    }
+
+@Composable
+private fun sourceRetryActionLabel(action: SourceMetrics.SourceRetryAction): String =
+    when (action) {
+        SourceMetrics.SourceRetryAction.REFRESH_IF_NEEDED ->
+            stringResource(R.string.settings_diag_source_retry_refresh_if_needed)
+        SourceMetrics.SourceRetryAction.RETRY_SOURCE ->
+            stringResource(R.string.settings_diag_source_retry_source)
+        SourceMetrics.SourceRetryAction.CLEAR_DEGRADED_AND_RETRY ->
+            stringResource(R.string.settings_diag_source_retry_clear_degraded)
+        SourceMetrics.SourceRetryAction.ENABLE_SOURCE ->
+            stringResource(R.string.settings_diag_source_retry_enable_source)
+    }
 
 internal fun sourceDisplayName(source: String): String =
     source.split('_', '-')

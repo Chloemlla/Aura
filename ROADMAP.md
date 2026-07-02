@@ -171,13 +171,6 @@ Acceptance:
   Acceptance: Compact devices keep the existing bottom navigation; expanded widths use a rail or permanent navigation surface; at least Wallpapers and Sounds support list-detail or stable two-pane behavior; screenshot fixtures cover compact and expanded layouts.
   Complexity: L
 
-- [ ] P1 - Source health diagnostics console
-  Why: Aura has many network providers and source metrics, but users cannot see which provider failed, when it last succeeded, or what fallback is active.
-  Evidence: `SourceMetrics.kt`, `SettingsDiagnosticsSection.kt`, `ProviderNetworkPolicy.kt`, `docs/security/network-endpoints.json`, competitor auto-rotation reliability issues, dontkillmyapp.com.
-  Touches: `SourceMetrics.kt`, repositories, `SettingsDiagnosticsSection.kt`, `docs/security/network-endpoints.json`, provider tests.
-  Acceptance: Settings diagnostics shows per-provider last success, last failure, disabled/degraded state, retry action, and offline/local fallback status without exposing secrets.
-  Complexity: M
-
 ### P2
 
 - [ ] P2 - Embedded Photo Picker import polish

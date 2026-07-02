@@ -397,6 +397,7 @@ class SettingsViewModel @Inject constructor(
         .map { sourceMetrics.snapshotAll() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), sourceMetrics.snapshotAll())
     fun resetDiagnostics() = sourceMetrics.reset()
+    fun resetSourceDiagnostics(source: String) = sourceMetrics.reset(source)
 
     fun refreshCrashDiagnostics() = viewModelScope.launch {
         _crashDiagnostics.value = withContext(ioDispatcher) {

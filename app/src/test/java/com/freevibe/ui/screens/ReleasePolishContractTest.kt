@@ -150,6 +150,22 @@ class ReleasePolishContractTest {
     }
 
     @Test
+    fun `settings source diagnostics expose fallback and retry guidance`() {
+        val diagnostics = File("src/main/java/com/freevibe/ui/screens/settings/DiagnosticsComponents.kt").readText()
+        val sourceMetrics = File("src/main/java/com/freevibe/service/SourceMetrics.kt").readText()
+        val viewModel = File("src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt").readText()
+
+        assertTrue(diagnostics.contains("settings_diag_source_last_activity"))
+        assertTrue(diagnostics.contains("settings_diag_source_fallback_status"))
+        assertTrue(diagnostics.contains("settings_diag_source_retry_action"))
+        assertTrue(diagnostics.contains("settings_diag_source_retry_button"))
+        assertTrue(sourceMetrics.contains("enum class SourceFallbackStatus"))
+        assertTrue(sourceMetrics.contains("enum class SourceRetryAction"))
+        assertTrue(sourceMetrics.contains("fun reset(source: String)"))
+        assertTrue(viewModel.contains("fun resetSourceDiagnostics(source: String)"))
+    }
+
+    @Test
     fun `settings inline picker dialogs use shared full row radio targets`() {
         val screen = settingsSource()
 
