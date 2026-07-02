@@ -20,17 +20,6 @@ physical-device validation, or toolchain gates belongs in `Roadmap_Blocked.md`.
 
 ## P2
 
-### Consistent browse rails
-
-Wallpapers, Videos, Sounds, Ringtones, and Notifications still use different
-browse skeletons.
-
-Acceptance:
-- Each primary media surface exposes consistent Popular, Newest, Categories, and
-  Collections/Local rails.
-- Provider-specific filters live under refine controls.
-- Empty/error states identify the affected source without hiding local content.
-
 ### Depth/portrait wallpaper composer
 
 Subject segmentation, smart crop, parallax, weather effects, and dual wallpaper

@@ -22,6 +22,16 @@
     <string name="common_retry">Retry</string>
     <string name="common_retry_later">Try again in a moment.</string>
     <string name="common_reset">Reset</string>
+    <string name="browse_rail_popular">Popular</string>
+    <string name="browse_rail_newest">Newest</string>
+    <string name="browse_rail_categories">Categories</string>
+    <string name="browse_rail_collections">Collections</string>
+    <string name="browse_rail_local">Local</string>
+    <string name="browse_rail_wallpaper_newest_query">new wallpapers</string>
+    <string name="browse_rail_video_newest_query">new live wallpaper loop</string>
+    <string name="browse_rail_sound_newest_ringtone_query">new ringtone</string>
+    <string name="browse_rail_sound_newest_notification_query">new notification sound</string>
+    <string name="browse_rail_sound_newest_alarm_query">new alarm tone</string>
     <string name="nav_wallpapers">Wallpapers</string>
     <string name="nav_videos">Videos</string>
     <string name="nav_sounds">Sounds</string>
@@ -733,6 +743,7 @@
     <string name="sounds_banner_dismiss">Dismiss</string>
     <string name="sounds_banner_degraded_title">Some sound sources are temporarily unavailable</string>
     <string name="sounds_error_title">Sounds could not refresh</string>
+    <string name="sounds_error_source_title">%1$s could not refresh</string>
     <string name="sounds_error_description">Aura could not refresh sound sources. Retry, or switch tabs to keep browsing saved picks.</string>
     <string name="sounds_error_retry">Retry</string>
     <string name="sounds_filter_cd">Refine sounds</string>

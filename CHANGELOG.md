@@ -33,6 +33,9 @@ All notable changes to Aura will be documented in this file.
   Firebase, Google Services, Play Services ML Kit, and App Check to the full
   flavor, compiled FOSS against local no-op adapters, and made the F-Droid
   preflight pass for the FOSS variant.
+- **Consistent browse rails**: added shared Popular, Newest, Categories, and
+  Collections/Local rails across Wallpapers, Video Wallpapers, and Sounds while
+  preserving source-specific refine controls and local fallback actions.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose

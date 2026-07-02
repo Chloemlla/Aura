@@ -67,6 +67,8 @@ import com.freevibe.ui.components.AuraScreenHeader
 import com.freevibe.ui.components.AuraSnackbarHost
 import com.freevibe.ui.components.AuraStatusAction
 import com.freevibe.ui.components.AuraStatusBanner
+import com.freevibe.ui.components.BrowseRail
+import com.freevibe.ui.components.BrowseRailItem
 import com.freevibe.ui.components.CompactSearchField
 import com.freevibe.ui.components.CountBadge
 import com.freevibe.ui.LiveWallpaperLaunchMode
@@ -260,6 +262,7 @@ fun VideoWallpapersScreen(
     }
 
     var searchQuery by rememberSaveable(state.searchQuery) { mutableStateOf(state.searchQuery) }
+    val videoNewestQuery = stringResource(R.string.browse_rail_video_newest_query)
     val focusManager = LocalFocusManager.current
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(initialQuery) {
@@ -338,6 +341,39 @@ fun VideoWallpapersScreen(
                     viewModel.search(searchQuery)
                     focusManager.clearFocus()
                 }),
+            )
+            Spacer(Modifier.height(8.dp))
+            BrowseRail(
+                items = listOf(
+                    BrowseRailItem(
+                        label = stringResource(R.string.browse_rail_popular),
+                        icon = Icons.Default.Explore,
+                        selected = state.searchQuery.isBlank(),
+                        onClick = {
+                            searchQuery = ""
+                            viewModel.search("")
+                        },
+                    ),
+                    BrowseRailItem(
+                        label = stringResource(R.string.browse_rail_newest),
+                        icon = Icons.Default.Schedule,
+                        selected = state.searchQuery == videoNewestQuery,
+                        onClick = {
+                            searchQuery = videoNewestQuery
+                            viewModel.search(videoNewestQuery)
+                        },
+                    ),
+                    BrowseRailItem(
+                        label = stringResource(R.string.browse_rail_categories),
+                        icon = Icons.Default.Category,
+                        onClick = { showFiltersSheet = true },
+                    ),
+                    BrowseRailItem(
+                        label = stringResource(R.string.browse_rail_local),
+                        icon = Icons.Default.FolderOpen,
+                        onClick = { galleryLauncher.launch(videoWallpaperMimeTypes()) },
+                    ),
+                ),
             )
             Spacer(Modifier.height(8.dp))
             Row(
@@ -467,6 +503,7 @@ fun VideoWallpapersScreen(
                             title = title,
                             description = detail,
                             primaryAction = AuraStateAction(stringResource(R.string.video_wp_empty_retry), Icons.Default.Refresh) { viewModel.refresh() },
+                            secondaryAction = AuraStateAction(stringResource(R.string.video_wp_error_gallery), Icons.Default.FolderOpen) { galleryLauncher.launch(videoWallpaperMimeTypes()) },
                             modifier = Modifier.padding(24.dp),
                         )
                     }

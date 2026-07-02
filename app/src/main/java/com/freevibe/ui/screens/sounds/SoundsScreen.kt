@@ -77,6 +77,8 @@ import com.freevibe.ui.components.CompactSearchField
 import com.freevibe.ui.components.CommunityGuidelinesDialog
 import com.freevibe.ui.components.CountBadge
 import com.freevibe.ui.components.CommunityPolicyNotice
+import com.freevibe.ui.components.BrowseRail
+import com.freevibe.ui.components.BrowseRailItem
 import com.freevibe.ui.components.SearchHistoryDropdown
 import com.freevibe.ui.components.ShimmerSoundList
 import com.freevibe.ui.components.AuraStatusAction
@@ -195,6 +197,19 @@ fun SoundsScreen(
     val isYouTubeTab = state.selectedTab == SoundTab.YOUTUBE
     val soundFilterCount = remember(state.qualityFilter) {
         if (state.qualityFilter != SoundQualityFilter.BEST) 1 else 0
+    }
+    val railSoundTab = remember(state.selectedTab) {
+        if (state.selectedTab in coreSoundTabs) state.selectedTab else SoundTab.RINGTONES
+    }
+    val soundNewestQuery = stringResource(
+        when (railSoundTab) {
+            SoundTab.NOTIFICATIONS -> R.string.browse_rail_sound_newest_notification_query
+            SoundTab.ALARMS -> R.string.browse_rail_sound_newest_alarm_query
+            else -> R.string.browse_rail_sound_newest_ringtone_query
+        },
+    )
+    val soundCategoryCollection = remember(railSoundTab) {
+        soundCollectionsFor(railSoundTab).firstOrNull()
     }
 
     // Upload state
@@ -542,6 +557,47 @@ fun SoundsScreen(
                 }
 
                 Spacer(Modifier.height(6.dp))
+                BrowseRail(
+                    items = listOf(
+                        BrowseRailItem(
+                            label = stringResource(R.string.browse_rail_popular),
+                            icon = Icons.Default.Explore,
+                            selected = state.selectedTab == railSoundTab && state.query.isBlank(),
+                            onClick = {
+                                searchQuery = ""
+                                viewModel.selectTab(railSoundTab)
+                            },
+                        ),
+                        BrowseRailItem(
+                            label = stringResource(R.string.browse_rail_newest),
+                            icon = Icons.Default.Schedule,
+                            selected = state.query == soundNewestQuery &&
+                                (state.selectedTab == SoundTab.SEARCH || state.selectedTab == SoundTab.YOUTUBE),
+                            onClick = {
+                                searchQuery = soundNewestQuery
+                                viewModel.search(soundNewestQuery)
+                            },
+                        ),
+                        BrowseRailItem(
+                            label = stringResource(R.string.browse_rail_categories),
+                            icon = Icons.Default.Category,
+                            selected = state.selectedTab == SoundTab.SEARCH &&
+                                soundCategoryCollection?.query == state.query,
+                            onClick = {
+                                soundCategoryCollection?.let { collection ->
+                                    searchQuery = collection.query
+                                    viewModel.search(collection.query)
+                                }
+                            },
+                        ),
+                        BrowseRailItem(
+                            label = stringResource(R.string.browse_rail_local),
+                            icon = Icons.Default.FolderOpen,
+                            onClick = { createAudioPickerLauncher.launch("audio/*") },
+                        ),
+                    ),
+                )
+                Spacer(Modifier.height(6.dp))
                 SoundModeBar(
                     selectedTab = state.selectedTab,
                     youtubeProviderEnabled = youtubeProviderEnabled,
@@ -596,13 +652,18 @@ fun SoundsScreen(
                 if (state.error != null && displaySounds.isEmpty() && displayTopHits.isEmpty() && !state.isLoading && !state.isRefreshing) {
                     AuraStateCard(
                         icon = Icons.Default.CloudOff,
-                        title = stringResource(R.string.sounds_error_title),
+                        title = stringResource(R.string.sounds_error_source_title, soundTabLabel(state.selectedTab)),
                         description = state.error ?: stringResource(R.string.sounds_error_description),
                         tone = MaterialTheme.colorScheme.error,
                         primaryAction = AuraStateAction(
                             label = stringResource(R.string.sounds_error_retry),
                             icon = Icons.Default.Refresh,
                             onClick = { viewModel.refresh() },
+                        ),
+                        secondaryAction = AuraStateAction(
+                            label = stringResource(R.string.editor_sound_browse),
+                            icon = Icons.Default.FolderOpen,
+                            onClick = { createAudioPickerLauncher.launch("audio/*") },
                         ),
                         modifier = Modifier
                             .align(Alignment.Center)

@@ -77,6 +77,8 @@ import com.freevibe.ui.components.SourceBadge
 import com.freevibe.ui.components.AuraSnackbarHost
 import com.freevibe.ui.components.AuraStatusAction
 import com.freevibe.ui.components.AuraStatusBanner
+import com.freevibe.ui.components.BrowseRail
+import com.freevibe.ui.components.BrowseRailItem
 import com.freevibe.ui.navigation.LocalAuraNavigationLayout
 import com.freevibe.ui.navigation.isExpanded
 import com.freevibe.ui.policy.CommunityUploadPolicyKind
@@ -111,6 +113,8 @@ fun WallpapersScreen(
     isExpandedLayout: Boolean = LocalAuraNavigationLayout.current.isExpanded,
     onWallpaperClick: (Wallpaper) -> Unit = {},
     onGenerateClick: () -> Unit = {},
+    onCategoriesClick: () -> Unit = {},
+    onCollectionsClick: () -> Unit = {},
     viewModel: WallpapersViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -246,6 +250,7 @@ fun WallpapersScreen(
     val adaptiveGridColumns = remember(gridColumns, isExpandedLayout) {
         if (isExpandedLayout) gridColumns.coerceAtLeast(3) else gridColumns
     }
+    val wallpaperNewestQuery = stringResource(R.string.browse_rail_wallpaper_newest_query)
 
     LaunchedEffect(initialQuery, initialColor, initialSimilarId, initialSimilarSource, initialSimilarFullUrl) {
         viewModel.handleRouteFilters(
@@ -447,6 +452,42 @@ fun WallpapersScreen(
                     }
                 }
 
+                Spacer(Modifier.height(8.dp))
+                BrowseRail(
+                    items = listOf(
+                        BrowseRailItem(
+                            label = stringResource(R.string.browse_rail_popular),
+                            icon = Icons.Default.Explore,
+                            selected = state.selectedTab == WallpaperTab.DISCOVER &&
+                                state.discoverFilter == WallpaperDiscoverFilter.FOR_YOU &&
+                                state.query.isBlank(),
+                            onClick = {
+                                searchQuery = ""
+                                viewModel.selectTab(WallpaperTab.DISCOVER)
+                                viewModel.setDiscoverFilter(WallpaperDiscoverFilter.FOR_YOU)
+                            },
+                        ),
+                        BrowseRailItem(
+                            label = stringResource(R.string.browse_rail_newest),
+                            icon = Icons.Default.Schedule,
+                            selected = state.selectedTab == WallpaperTab.SEARCH && state.query == wallpaperNewestQuery,
+                            onClick = {
+                                searchQuery = wallpaperNewestQuery
+                                viewModel.search(wallpaperNewestQuery)
+                            },
+                        ),
+                        BrowseRailItem(
+                            label = stringResource(R.string.browse_rail_categories),
+                            icon = Icons.Default.Category,
+                            onClick = onCategoriesClick,
+                        ),
+                        BrowseRailItem(
+                            label = stringResource(R.string.browse_rail_collections),
+                            icon = Icons.Default.Folder,
+                            onClick = onCollectionsClick,
+                        ),
+                    ),
+                )
                 Spacer(Modifier.height(8.dp))
                 Row(
                     modifier = Modifier

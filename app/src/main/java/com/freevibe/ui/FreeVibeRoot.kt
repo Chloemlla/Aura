@@ -356,6 +356,12 @@ fun FreeVibeRoot(
                     onGenerateClick = {
                         navController.navigate(Screen.AiWallpaper.route) { launchSingleTop = true }
                     },
+                    onCategoriesClick = {
+                        navController.navigate(Screen.Categories.route) { launchSingleTop = true }
+                    },
+                    onCollectionsClick = {
+                        navController.navigate(Screen.Collections.route) { launchSingleTop = true }
+                    },
                 )
             }
             composable(
