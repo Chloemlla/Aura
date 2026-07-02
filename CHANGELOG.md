@@ -36,6 +36,9 @@ All notable changes to Aura will be documented in this file.
 - **Consistent browse rails**: added shared Popular, Newest, Categories, and
   Collections/Local rails across Wallpapers, Video Wallpapers, and Sounds while
   preserving source-specific refine controls and local fallback actions.
+- **Depth portrait composer**: added a wallpaper-editor depth panel that
+  segments subjects into blurred/tinted/AMOLED portrait backgrounds with frame
+  presets, MediaStore export, apply actions, and Aura Parallax handoff.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose

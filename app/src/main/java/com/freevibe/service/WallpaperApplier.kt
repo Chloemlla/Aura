@@ -184,6 +184,44 @@ class WallpaperApplier @Inject constructor(
         }.onFailure { it.rethrowIfCancelled() }
     }
 
+    /**
+     * Parallax variant for editor-generated bitmaps. This writes through the same
+     * atomic file + SharedPreferences path as URL/gallery parallax sources.
+     */
+    suspend fun prepareParallaxFromBitmap(bitmap: Bitmap, fileName: String): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val dir = java.io.File(context.filesDir, "parallax")
+            dir.mkdirs()
+            val file = java.io.File(dir, fileName)
+            val tempFile = java.io.File(dir, "$fileName.tmp")
+            try {
+                tempFile.outputStream().use { output ->
+                    if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 94, output)) {
+                        throw java.io.IOException("Could not write parallax image")
+                    }
+                }
+                if (tempFile.length() <= 0L) {
+                    throw java.io.IOException("Parallax image is empty")
+                }
+                if (tempFile.length() > MAX_WALLPAPER_BYTES) {
+                    throw java.io.IOException("Parallax image too large: ${tempFile.length()} > $MAX_WALLPAPER_BYTES bytes")
+                }
+                if (!tempFile.renameTo(file)) {
+                    tempFile.copyTo(file, overwrite = true)
+                    tempFile.delete()
+                }
+            } catch (e: Exception) {
+                try { tempFile.delete() } catch (_: Exception) {}
+                throw e
+            }
+            context.getSharedPreferences("freevibe_parallax", Context.MODE_PRIVATE)
+                .edit()
+                .putString("image_path", file.absolutePath)
+                .apply()
+            file.absolutePath
+        }.onFailure { it.rethrowIfCancelled() }
+    }
+
     /** Check if wallpaper operations are supported */
     fun isSupported(): Boolean {
         return wallpaperManager.isWallpaperSupported && wallpaperManager.isSetWallpaperAllowed

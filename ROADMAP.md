@@ -20,17 +20,6 @@ physical-device validation, or toolchain gates belongs in `Roadmap_Blocked.md`.
 
 ## P2
 
-### Depth/portrait wallpaper composer
-
-Subject segmentation, smart crop, parallax, weather effects, and dual wallpaper
-exist, but there is no combined portrait/depth composer.
-
-Acceptance:
-- A user can select a wallpaper, segment the subject, place it over a styled or
-  blurred background, and apply/export the result.
-- Optional shape/frame and parallax depth presets reuse existing services.
-- Failure paths fall back to the original wallpaper with user-visible feedback.
-
 ### Wallpaper editor sticker and text overlays
 
 Crop, smart crop, blur, and color/filter editing exist, but no local layer editor

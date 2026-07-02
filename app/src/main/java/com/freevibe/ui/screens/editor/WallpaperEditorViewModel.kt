@@ -6,6 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.freevibe.data.model.Wallpaper
 import com.freevibe.data.model.WallpaperTarget
 import com.freevibe.data.model.stableKey
+import com.freevibe.service.DepthBackgroundStyle
+import com.freevibe.service.DepthFrameStyle
+import com.freevibe.service.DepthPortraitComposer
+import com.freevibe.service.DepthPortraitOptions
 import com.freevibe.service.WallpaperApplier
 import com.freevibe.service.advertisedLengthExceeds
 import com.freevibe.service.readStreamCapped
@@ -31,9 +35,16 @@ data class EditorState(
     val grain: Float = 0f,            // 0 to 1.0
     val amoledCrush: Float = 0f,      // 0 to 1.0 — pushes dark pixels to pure black
     val warmth: Float = 0f,           // -50 to 50 — color temperature shift
+    val depthBackgroundStyle: DepthBackgroundStyle = DepthBackgroundStyle.BLUR,
+    val depthFrameStyle: DepthFrameStyle = DepthFrameStyle.NONE,
+    val depthSubjectScale: Float = 1f,
     val isProcessing: Boolean = false,
     val isApplying: Boolean = false,
     val isLoadingImage: Boolean = false,
+    val isDepthProcessing: Boolean = false,
+    val isExporting: Boolean = false,
+    val isPreparingParallax: Boolean = false,
+    val pendingParallaxLaunch: Boolean = false,
     val success: String? = null,
     val error: String? = null,
     val qualityWarning: String? = null,
@@ -47,6 +58,7 @@ private data class FilterRenderResult(
 @HiltViewModel
 class WallpaperEditorViewModel @Inject constructor(
     private val wallpaperApplier: WallpaperApplier,
+    private val depthPortraitComposer: DepthPortraitComposer,
     private val okHttpClient: OkHttpClient,
 ) : ViewModel() {
 
@@ -96,6 +108,17 @@ class WallpaperEditorViewModel @Inject constructor(
     fun updateGrain(value: Float) { _state.update { it.copy(grain = value) }; applyFilters() }
     fun updateAmoledCrush(value: Float) { _state.update { it.copy(amoledCrush = value) }; applyFilters() }
     fun updateWarmth(value: Float) { _state.update { it.copy(warmth = value) }; applyFilters() }
+    fun updateDepthBackgroundStyle(style: DepthBackgroundStyle) {
+        _state.update { it.copy(depthBackgroundStyle = style) }
+    }
+
+    fun updateDepthFrameStyle(style: DepthFrameStyle) {
+        _state.update { it.copy(depthFrameStyle = style) }
+    }
+
+    fun updateDepthSubjectScale(value: Float) {
+        _state.update { it.copy(depthSubjectScale = value.coerceIn(0.92f, 1.18f)) }
+    }
 
     fun applyPreset(brightness: Float, contrast: Float, saturation: Float, blur: Float,
                     vignette: Float = 0f, grain: Float = 0f, amoledCrush: Float = 0f, warmth: Float = 0f) {
@@ -118,6 +141,13 @@ class WallpaperEditorViewModel @Inject constructor(
                 editedBitmap = it.originalBitmap,
                 brightness = 0f, contrast = 1f, saturation = 1f, blurRadius = 0f,
                 vignette = 0f, grain = 0f, amoledCrush = 0f, warmth = 0f,
+                depthBackgroundStyle = DepthBackgroundStyle.BLUR,
+                depthFrameStyle = DepthFrameStyle.NONE,
+                depthSubjectScale = 1f,
+                isDepthProcessing = false,
+                isExporting = false,
+                isPreparingParallax = false,
+                pendingParallaxLaunch = false,
                 qualityWarning = null,
             )
         }
@@ -135,6 +165,75 @@ class WallpaperEditorViewModel @Inject constructor(
 
     fun clearSuccess() = _state.update { it.copy(success = null) }
 
+    fun clearPendingParallaxLaunch() = _state.update { it.copy(pendingParallaxLaunch = false) }
+
+    fun composeDepthPortrait() {
+        val source = _state.value.editedBitmap ?: _state.value.originalBitmap ?: return
+        val options = _state.value.depthPortraitOptions()
+        viewModelScope.launch {
+            _state.update { it.copy(isDepthProcessing = true, error = null, success = null) }
+            try {
+                val result = depthPortraitComposer.compose(source, options)
+                _state.update {
+                    it.copy(
+                        editedBitmap = result.bitmap,
+                        isDepthProcessing = false,
+                        success = if (result.segmentationApplied) {
+                            "Depth portrait ready"
+                        } else {
+                            "Subject segmentation unavailable; original wallpaper kept."
+                        },
+                    )
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                _state.update {
+                    it.copy(
+                        editedBitmap = source,
+                        isDepthProcessing = false,
+                        error = e.message ?: "Depth portrait failed",
+                    )
+                }
+            }
+        }
+    }
+
+    fun exportDepthPortrait() {
+        val bitmap = _state.value.editedBitmap ?: _state.value.originalBitmap ?: return
+        viewModelScope.launch {
+            _state.update { it.copy(isExporting = true, error = null, success = null) }
+            depthPortraitComposer.exportToGallery(bitmap)
+                .onSuccess {
+                    _state.update { state ->
+                        state.copy(isExporting = false, success = "Depth portrait saved to Pictures/Aura")
+                    }
+                }
+                .onFailure { error ->
+                    _state.update { state ->
+                        state.copy(isExporting = false, error = error.message ?: "Export failed")
+                    }
+                }
+        }
+    }
+
+    fun prepareDepthParallax() {
+        val bitmap = _state.value.editedBitmap ?: _state.value.originalBitmap ?: return
+        viewModelScope.launch {
+            _state.update { it.copy(isPreparingParallax = true, error = null, success = null) }
+            wallpaperApplier.prepareParallaxFromBitmap(bitmap, "parallax_depth_portrait.jpg")
+                .onSuccess {
+                    _state.update { state ->
+                        state.copy(isPreparingParallax = false, pendingParallaxLaunch = true)
+                    }
+                }
+                .onFailure { error ->
+                    _state.update { state ->
+                        state.copy(isPreparingParallax = false, error = error.message ?: "Parallax setup failed")
+                    }
+                }
+        }
+    }
+
     private fun loadFromUrl(url: String) {
         viewModelScope.launch {
             _state.update {
@@ -149,7 +248,14 @@ class WallpaperEditorViewModel @Inject constructor(
                     grain = 0f,
                     amoledCrush = 0f,
                     warmth = 0f,
+                    depthBackgroundStyle = DepthBackgroundStyle.BLUR,
+                    depthFrameStyle = DepthFrameStyle.NONE,
+                    depthSubjectScale = 1f,
                     isLoadingImage = true,
+                    isDepthProcessing = false,
+                    isExporting = false,
+                    isPreparingParallax = false,
+                    pendingParallaxLaunch = false,
                     success = null,
                     error = null,
                     qualityWarning = null,
@@ -376,6 +482,13 @@ class WallpaperEditorViewModel @Inject constructor(
         private const val MAX_EDIT_BYTES = 64L * 1024 * 1024
     }
 }
+
+private fun EditorState.depthPortraitOptions(): DepthPortraitOptions =
+    DepthPortraitOptions(
+        backgroundStyle = depthBackgroundStyle,
+        frameStyle = depthFrameStyle,
+        subjectScale = depthSubjectScale,
+    )
 
 internal fun wallpaperEditorDownscaleWarning(
     sourceWidth: Int,

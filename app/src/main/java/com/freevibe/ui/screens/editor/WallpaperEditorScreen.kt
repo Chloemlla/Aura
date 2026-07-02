@@ -1,5 +1,6 @@
 package com.freevibe.ui.screens.editor
 
+import android.content.ComponentName
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,15 +17,21 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.freevibe.R
 import com.freevibe.data.model.Wallpaper
 import com.freevibe.data.model.WallpaperTarget
+import com.freevibe.service.DepthBackgroundStyle
+import com.freevibe.service.DepthFrameStyle
+import com.freevibe.service.ParallaxWallpaperService
+import com.freevibe.ui.LiveWallpaperLaunchMode
 import com.freevibe.ui.components.AuraSnackbarHost
 import com.freevibe.ui.components.AuraStatusBanner
 import com.freevibe.ui.components.AuraStateAction
 import com.freevibe.ui.components.AuraStateCard
+import com.freevibe.ui.launchLiveWallpaperPicker
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,6 +75,26 @@ fun WallpaperEditorScreen(
             viewModel.clearError()
         }
     }
+    val parallaxDirectMessage = stringResource(R.string.settings_feedback_parallax_direct)
+    val parallaxChooserMessage = stringResource(R.string.settings_feedback_parallax_chooser)
+    val parallaxManualMessage = stringResource(R.string.settings_feedback_parallax_manual)
+    LaunchedEffect(state.pendingParallaxLaunch) {
+        if (state.pendingParallaxLaunch) {
+            val message = when (
+                launchLiveWallpaperPicker(
+                    context = context,
+                    serviceComponent = ComponentName(context, ParallaxWallpaperService::class.java),
+                    tag = "WallpaperEditorDepth",
+                )
+            ) {
+                LiveWallpaperLaunchMode.DIRECT -> parallaxDirectMessage
+                LiveWallpaperLaunchMode.CHOOSER -> parallaxChooserMessage
+                null -> parallaxManualMessage
+            }
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearPendingParallaxLaunch()
+        }
+    }
 
     data class EditorPreset(val name: String, val b: Float, val c: Float, val s: Float, val bl: Float,
                              val v: Float = 0f, val g: Float = 0f, val a: Float = 0f, val w: Float = 0f)
@@ -105,7 +132,11 @@ fun WallpaperEditorScreen(
         state.blurRadius != 0f ||
         state.amoledCrush != 0f ||
         state.vignette != 0f ||
-        state.grain != 0f
+        state.grain != 0f ||
+        state.depthBackgroundStyle != DepthBackgroundStyle.BLUR ||
+        state.depthFrameStyle != DepthFrameStyle.NONE ||
+        state.depthSubjectScale != 1f ||
+        (state.editedBitmap != null && state.editedBitmap !== state.originalBitmap)
     var showDiscardConfirm by remember { mutableStateOf(false) }
     androidx.activity.compose.BackHandler(enabled = hasUnsavedChanges && !state.isApplying) {
         showDiscardConfirm = true
@@ -226,7 +257,7 @@ fun WallpaperEditorScreen(
                         }
                     }
                 }
-                if (state.isProcessing) {
+                if (state.isProcessing || state.isDepthProcessing) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(32.dp),
                         strokeWidth = 2.dp,
@@ -287,10 +318,27 @@ fun WallpaperEditorScreen(
                         shape = RoundedCornerShape(8.dp),
                     )
                 }
+                FilterChip(
+                    selected = selectedFilter == DEPTH_FILTER_NAME,
+                    onClick = { selectedFilter = DEPTH_FILTER_NAME },
+                    label = {
+                        Text(
+                            stringResource(R.string.editor_wallpaper_depth_chip),
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Default.Layers, null, modifier = Modifier.size(14.dp))
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                )
             }
 
-            // Active slider
-            filters.find { it.name == selectedFilter }?.let { active ->
+            if (selectedFilter == DEPTH_FILTER_NAME) {
+                DepthPortraitControls(state = state, viewModel = viewModel)
+            } else {
+                // Active slider
+                filters.find { it.name == selectedFilter }?.let { active ->
                 Column(
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
                 ) {
@@ -310,6 +358,7 @@ fun WallpaperEditorScreen(
                             activeTrackColor = MaterialTheme.colorScheme.primary,
                         ),
                     )
+                }
                 }
             }
 
@@ -345,6 +394,201 @@ fun WallpaperEditorScreen(
         }
     }
 }
+
+@Composable
+private fun DepthPortraitControls(
+    state: EditorState,
+    viewModel: WallpaperEditorViewModel,
+) {
+    val enabled = state.originalBitmap != null &&
+        !state.isDepthProcessing &&
+        !state.isExporting &&
+        !state.isPreparingParallax
+    val backgroundOptions = listOf(
+        DepthBackgroundStyle.BLUR to stringResource(R.string.editor_wallpaper_depth_background_blur),
+        DepthBackgroundStyle.TINT to stringResource(R.string.editor_wallpaper_depth_background_tint),
+        DepthBackgroundStyle.AMOLED to stringResource(R.string.editor_wallpaper_depth_background_amoled),
+    )
+    val frameOptions = listOf(
+        DepthFrameStyle.NONE to stringResource(R.string.editor_wallpaper_depth_frame_none),
+        DepthFrameStyle.SOFT_HALO to stringResource(R.string.editor_wallpaper_depth_frame_halo),
+        DepthFrameStyle.POSTER_BORDER to stringResource(R.string.editor_wallpaper_depth_frame_poster),
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            stringResource(R.string.editor_wallpaper_depth_title),
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Text(
+            stringResource(R.string.editor_wallpaper_depth_body),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Text(
+            stringResource(R.string.editor_wallpaper_depth_background),
+            style = MaterialTheme.typography.labelMedium,
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            backgroundOptions.forEach { (style, label) ->
+                FilterChip(
+                    selected = state.depthBackgroundStyle == style,
+                    onClick = { viewModel.updateDepthBackgroundStyle(style) },
+                    enabled = enabled,
+                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                    leadingIcon = {
+                        val icon = when (style) {
+                            DepthBackgroundStyle.BLUR -> Icons.Default.BlurOn
+                            DepthBackgroundStyle.TINT -> Icons.Default.ColorLens
+                            DepthBackgroundStyle.AMOLED -> Icons.Default.DarkMode
+                        }
+                        Icon(icon, null, modifier = Modifier.size(14.dp))
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                )
+            }
+        }
+
+        Text(
+            stringResource(R.string.editor_wallpaper_depth_frame),
+            style = MaterialTheme.typography.labelMedium,
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            frameOptions.forEach { (style, label) ->
+                FilterChip(
+                    selected = state.depthFrameStyle == style,
+                    onClick = { viewModel.updateDepthFrameStyle(style) },
+                    enabled = enabled,
+                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                    leadingIcon = {
+                        val icon = when (style) {
+                            DepthFrameStyle.NONE -> Icons.Default.CropFree
+                            DepthFrameStyle.SOFT_HALO -> Icons.Default.AutoAwesome
+                            DepthFrameStyle.POSTER_BORDER -> Icons.Default.CropSquare
+                        }
+                        Icon(icon, null, modifier = Modifier.size(14.dp))
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                )
+            }
+        }
+
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                stringResource(R.string.editor_wallpaper_depth_subject_scale),
+                style = MaterialTheme.typography.labelMedium,
+            )
+            Text(
+                String.format(java.util.Locale.ROOT, "%.2fx", state.depthSubjectScale),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Slider(
+            value = state.depthSubjectScale,
+            onValueChange = viewModel::updateDepthSubjectScale,
+            valueRange = 0.92f..1.18f,
+            enabled = enabled,
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.colorScheme.primary,
+                activeTrackColor = MaterialTheme.colorScheme.primary,
+            ),
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Button(
+                onClick = viewModel::composeDepthPortrait,
+                modifier = Modifier.weight(1f).heightIn(min = 64.dp),
+                enabled = enabled,
+                shape = RoundedCornerShape(8.dp),
+            ) {
+                if (state.isDepthProcessing) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    DepthActionButtonContent(
+                        icon = Icons.Default.Wallpaper,
+                        label = stringResource(R.string.editor_wallpaper_depth_compose),
+                    )
+                }
+            }
+            OutlinedButton(
+                onClick = viewModel::prepareDepthParallax,
+                modifier = Modifier.weight(1f).heightIn(min = 64.dp),
+                enabled = enabled,
+                shape = RoundedCornerShape(8.dp),
+            ) {
+                if (state.isPreparingParallax) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    DepthActionButtonContent(
+                        icon = Icons.Default.Layers,
+                        label = stringResource(R.string.editor_wallpaper_depth_parallax),
+                    )
+                }
+            }
+            OutlinedButton(
+                onClick = viewModel::exportDepthPortrait,
+                modifier = Modifier.weight(1f).heightIn(min = 64.dp),
+                enabled = enabled,
+                shape = RoundedCornerShape(8.dp),
+            ) {
+                if (state.isExporting) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    DepthActionButtonContent(
+                        icon = Icons.Default.Download,
+                        label = stringResource(R.string.editor_wallpaper_depth_export),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DepthActionButtonContent(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(icon, null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.height(2.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Clip,
+        )
+    }
+}
+
+private const val DEPTH_FILTER_NAME = "Depth"
 
 private data class FilterControl(
     val name: String,

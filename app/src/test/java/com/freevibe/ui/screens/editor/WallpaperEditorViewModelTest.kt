@@ -3,10 +3,11 @@ package com.freevibe.ui.screens.editor
 import android.graphics.Bitmap
 import app.cash.turbine.test
 import com.freevibe.data.model.WallpaperTarget
+import com.freevibe.service.DepthPortraitComposer
+import com.freevibe.service.DepthPortraitResult
 import com.freevibe.service.WallpaperApplier
 import io.mockk.coEvery
 import io.mockk.mockk
-import io.mockk.mockkStatic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -24,14 +25,17 @@ class WallpaperEditorViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
     private lateinit var wallpaperApplier: WallpaperApplier
+    private lateinit var depthPortraitComposer: DepthPortraitComposer
     private lateinit var viewModel: WallpaperEditorViewModel
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         wallpaperApplier = mockk(relaxed = true)
+        depthPortraitComposer = mockk(relaxed = true)
         viewModel = WallpaperEditorViewModel(
             wallpaperApplier = wallpaperApplier,
+            depthPortraitComposer = depthPortraitComposer,
             okHttpClient = mockk(relaxed = true),
         )
     }
@@ -53,10 +57,15 @@ class WallpaperEditorViewModelTest {
             assertEquals(0f, state.grain)
             assertEquals(0f, state.amoledCrush)
             assertEquals(0f, state.warmth)
+            assertEquals(1f, state.depthSubjectScale)
             assertNull(state.originalBitmap)
             assertNull(state.editedBitmap)
             assertFalse(state.isProcessing)
             assertFalse(state.isApplying)
+            assertFalse(state.isDepthProcessing)
+            assertFalse(state.isExporting)
+            assertFalse(state.isPreparingParallax)
+            assertFalse(state.pendingParallaxLaunch)
             assertNull(state.qualityWarning)
             cancelAndIgnoreRemainingEvents()
         }
@@ -78,6 +87,7 @@ class WallpaperEditorViewModelTest {
             assertEquals(1f, state.contrast)
             assertEquals(1f, state.saturation)
             assertEquals(0f, state.blurRadius)
+            assertEquals(1f, state.depthSubjectScale)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -98,6 +108,35 @@ class WallpaperEditorViewModelTest {
             assertNull(awaitItem().success)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun `composeDepthPortrait stores composed bitmap and success feedback`() = runTest {
+        val source = mockk<Bitmap>(relaxed = true)
+        val composed = mockk<Bitmap>(relaxed = true)
+        coEvery { depthPortraitComposer.compose(source, any()) } returns
+            DepthPortraitResult(composed, segmentationApplied = true)
+
+        viewModel.setSourceBitmap(source)
+        viewModel.composeDepthPortrait()
+
+        val state = viewModel.state.value
+        assertSame(composed, state.editedBitmap)
+        assertEquals("Depth portrait ready", state.success)
+        assertFalse(state.isDepthProcessing)
+    }
+
+    @Test
+    fun `prepareDepthParallax raises pending launch after bitmap write`() = runTest {
+        val source = mockk<Bitmap>(relaxed = true)
+        coEvery { wallpaperApplier.prepareParallaxFromBitmap(source, any()) } returns Result.success("/tmp/parallax.jpg")
+
+        viewModel.setSourceBitmap(source)
+        viewModel.prepareDepthParallax()
+
+        val state = viewModel.state.value
+        assertTrue(state.pendingParallaxLaunch)
+        assertFalse(state.isPreparingParallax)
     }
 
     @Test

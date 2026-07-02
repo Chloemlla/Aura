@@ -336,6 +336,21 @@
     <string name="editor_wallpaper_quality_warning_title">Reduced-resolution edit</string>
     <string name="editor_wallpaper_discard_title">Discard edits?</string>
     <string name="editor_wallpaper_discard_body">Your filter changes will be lost. Apply them first or discard?</string>
+    <string name="editor_wallpaper_depth_chip">Depth</string>
+    <string name="editor_wallpaper_depth_title">Depth portrait</string>
+    <string name="editor_wallpaper_depth_body">Separate the subject, restyle the background, then apply, export, or hand off to Aura Parallax.</string>
+    <string name="editor_wallpaper_depth_background">Background</string>
+    <string name="editor_wallpaper_depth_frame">Frame</string>
+    <string name="editor_wallpaper_depth_background_blur">Blur</string>
+    <string name="editor_wallpaper_depth_background_tint">Tint</string>
+    <string name="editor_wallpaper_depth_background_amoled">AMOLED</string>
+    <string name="editor_wallpaper_depth_frame_none">None</string>
+    <string name="editor_wallpaper_depth_frame_halo">Halo</string>
+    <string name="editor_wallpaper_depth_frame_poster">Poster</string>
+    <string name="editor_wallpaper_depth_subject_scale">Subject scale</string>
+    <string name="editor_wallpaper_depth_compose">Compose</string>
+    <string name="editor_wallpaper_depth_parallax">Parallax</string>
+    <string name="editor_wallpaper_depth_export">Export</string>
 
     <!-- Wallpaper crop -->
     <string name="editor_crop_title">Crop &amp; Position</string>
