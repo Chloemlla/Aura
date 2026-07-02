@@ -60,7 +60,7 @@ class BackgroundWorkDiagnosticsReaderTest {
         )
 
         assertEquals(
-            "Data Saver is restricting background data; allow unrestricted data for Aura or use Wi-Fi, then refresh diagnostics.",
+            "Data Saver is restricting background data; allow unrestricted data for Aura or use Wi-Fi, then refresh diagnostics. OEM recovery (Android): Open App info > Battery for Aura and allow unrestricted or background battery usage before retesting schedules.",
             hint,
         )
     }
@@ -80,7 +80,7 @@ class BackgroundWorkDiagnosticsReaderTest {
         )
 
         assertEquals(
-            "Waiting for Wi-Fi or another unmetered network before this larger download can run.",
+            "Waiting for Wi-Fi or another unmetered network before this larger download can run. OEM recovery (Android): Open App info > Battery for Aura and allow unrestricted or background battery usage before retesting schedules.",
             hint,
         )
     }
@@ -103,6 +103,81 @@ class BackgroundWorkDiagnosticsReaderTest {
 
         assertEquals(
             "No daily wallpaper was available from Bing or Wallhaven; check enabled providers or wait for the next run.",
+            hint,
+        )
+    }
+
+    @Test
+    fun backgroundBatteryGuidanceSelectsSamsungRecovery() {
+        val guide = backgroundBatteryGuidanceForManufacturer("Samsung")
+
+        assertEquals("Samsung", guide.manufacturer)
+        assertEquals(
+            "Open Settings > Battery > Background usage limits and remove Aura from Sleeping and Deep sleeping apps.",
+            guide.summary,
+        )
+    }
+
+    @Test
+    fun backgroundBatteryGuidanceSelectsPixelRecovery() {
+        val guide = backgroundBatteryGuidanceForManufacturer("Google")
+
+        assertEquals("Pixel", guide.manufacturer)
+        assertEquals(
+            "Open Settings > Apps > Aura > App battery usage and allow background usage; disable Battery Saver while testing schedules.",
+            guide.summary,
+        )
+    }
+
+    @Test
+    fun backgroundBatteryGuidanceFallsBackToGenericAndroidRecovery() {
+        val guide = backgroundBatteryGuidanceForManufacturer("Fairphone")
+
+        assertEquals("Android", guide.manufacturer)
+        assertEquals(
+            "Open App info > Battery for Aura and allow unrestricted or background battery usage before retesting schedules.",
+            guide.summary,
+        )
+    }
+
+    @Test
+    fun backgroundWorkActionHintExplainsMissingWorkInfoWithSamsungRecovery() {
+        val hint = backgroundWorkActionHint(
+            row = BackgroundWorkStatusRow(
+                label = "Weather wallpaper refresh",
+                uniqueWorkName = WeatherUpdateWorker.WORK_NAME,
+                workInfoStatus = "No WorkInfo records",
+            ),
+            network = BackgroundNetworkDiagnostics(
+                activeNetworkMetered = false,
+                restrictBackgroundStatus = "disabled",
+            ),
+            batteryGuidance = backgroundBatteryGuidanceForManufacturer("Samsung"),
+        )
+
+        assertEquals(
+            "No WorkInfo records are visible yet; open Aura once after reboot, wait for the next schedule window, then refresh diagnostics. OEM recovery (Samsung): Open Settings > Battery > Background usage limits and remove Aura from Sleeping and Deep sleeping apps.",
+            hint,
+        )
+    }
+
+    @Test
+    fun backgroundWorkActionHintExplainsLongEnqueuedWorkWithPixelRecovery() {
+        val hint = backgroundWorkActionHint(
+            row = BackgroundWorkStatusRow(
+                label = "Auto wallpaper rotation",
+                uniqueWorkName = AutoWallpaperWorker.WORK_NAME,
+                workInfoStatus = "ENQUEUED=1",
+            ),
+            network = BackgroundNetworkDiagnostics(
+                activeNetworkMetered = false,
+                restrictBackgroundStatus = "disabled",
+            ),
+            batteryGuidance = backgroundBatteryGuidanceForManufacturer("Google Pixel"),
+        )
+
+        assertEquals(
+            "Waiting for the next run window or constraints such as network, battery, charging, idle, or unmetered network. OEM recovery (Pixel): Open Settings > Apps > Aura > App battery usage and allow background usage; disable Battery Saver while testing schedules.",
             hint,
         )
     }

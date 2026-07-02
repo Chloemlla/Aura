@@ -1138,6 +1138,7 @@
     <string name="settings_diag_metric_network">Network</string>
     <string name="settings_diag_metric_data_saver">Data Saver</string>
     <string name="settings_diag_network_read_failed">Network diagnostics read failed: %1$s</string>
+    <string name="settings_diag_background_oem_guidance">Battery recovery (%1$s): %2$s</string>
     <string name="settings_diag_receipt_read_failed">Read failed</string>
     <string name="settings_diag_receipt_found">Receipt found</string>
     <string name="settings_diag_receipt_missing">No receipt</string>

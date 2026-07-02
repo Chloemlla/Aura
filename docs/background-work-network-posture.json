@@ -26,7 +26,7 @@
         "setAutoWallpaperRequiresIdle"
       ],
       "meteredPolicy": "Metered network is allowed only when the user has not enabled Wi-Fi-only rotation.",
-      "dataSaverPolicy": "Settings diagnostics and support bundles read ConnectivityManager metered/Data Saver status and show action hints for restricted background data.",
+      "dataSaverPolicy": "Settings diagnostics and support bundles read ConnectivityManager metered/Data Saver status and show action hints for restricted background data plus OEM battery recovery guidance.",
       "privacySurface": "Remote wallpaper provider fetches already map through Data safety network endpoint rows.",
       "releaseRisk": "Medium"
     },
@@ -47,7 +47,7 @@
         "DailyWallpaperWorker.cancel"
       ],
       "meteredPolicy": "Metered network is currently allowed for the small daily Bing or Wallhaven metadata and thumbnail fetch.",
-      "dataSaverPolicy": "Settings diagnostics and support bundles read ConnectivityManager metered/Data Saver status and show action hints for restricted background data.",
+      "dataSaverPolicy": "Settings diagnostics and support bundles read ConnectivityManager metered/Data Saver status and show action hints for restricted background data plus OEM battery recovery guidance.",
       "privacySurface": "Bing, Wallhaven, and notification behavior are covered by network endpoint and Data safety rows.",
       "releaseRisk": "Medium"
     },
@@ -69,7 +69,7 @@
         "ACCESS_COARSE_LOCATION"
       ],
       "meteredPolicy": "Metered network is currently allowed for lightweight Open-Meteo refreshes.",
-      "dataSaverPolicy": "Settings diagnostics and support bundles read ConnectivityManager metered/Data Saver status and show action hints for restricted background data.",
+      "dataSaverPolicy": "Settings diagnostics and support bundles read ConnectivityManager metered/Data Saver status and show action hints for restricted background data plus OEM battery recovery guidance.",
       "privacySurface": "Weather endpoint and coarse rounded location data use are covered by network endpoint and Data safety rows.",
       "releaseRisk": "Medium"
     },
@@ -90,7 +90,7 @@
         "AuraOriginalsDownloader.enqueue"
       ],
       "meteredPolicy": "Metered network is blocked for the bundled sound pack download.",
-      "dataSaverPolicy": "Unmetered WorkManager constraint is the current Data Saver-safe posture for this larger first-run transfer.",
+      "dataSaverPolicy": "Unmetered WorkManager constraint is the current Data Saver-safe posture for this larger first-run transfer; diagnostics add OEM battery recovery guidance when it stays queued.",
       "privacySurface": "Bundled sound provenance and native/dependency packets cover release evidence; no user data is uploaded.",
       "releaseRisk": "Low"
     },
@@ -111,7 +111,7 @@
         "RotationTriggerService.enqueueRotation"
       ],
       "meteredPolicy": "Metered network is allowed for explicit user/automation-triggered one-shot rotations.",
-      "dataSaverPolicy": "Settings diagnostics and support bundles read ConnectivityManager metered/Data Saver status and show action hints for restricted background data; direct expedited quota receipt remains future OS evidence.",
+      "dataSaverPolicy": "Settings diagnostics and support bundles read ConnectivityManager metered/Data Saver status and show action hints for restricted background data plus OEM battery recovery guidance; direct expedited quota receipt remains future OS evidence.",
       "privacySurface": "Provider fetches inherit the selected wallpaper source's network/Data safety rows.",
       "releaseRisk": "Medium"
     }

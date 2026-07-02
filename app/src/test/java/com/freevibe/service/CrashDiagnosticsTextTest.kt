@@ -183,6 +183,7 @@ class CrashDiagnosticsTextTest {
         assertTrue(section.startsWith("## Background work live receipts"))
         assertTrue(section.contains("meter=unmetered"))
         assertTrue(section.contains("Data Saver=disabled"))
+        assertTrue(section.contains("Battery recovery (Android): Open App info > Battery for Aura"))
         assertTrue(section.contains("auto_wallpaper"))
         assertTrue(section.contains("WorkInfo=ENQUEUED=1"))
         assertTrue(section.contains("records=1"))

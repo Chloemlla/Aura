@@ -14,12 +14,18 @@ import javax.inject.Singleton
 data class BackgroundWorkDiagnostics(
     val network: BackgroundNetworkDiagnostics = BackgroundNetworkDiagnostics(),
     val rows: List<BackgroundWorkStatusRow> = emptyList(),
+    val batteryGuidance: BackgroundBatteryGuidance = backgroundBatteryGuidanceForManufacturer(""),
 )
 
 data class BackgroundNetworkDiagnostics(
     val activeNetworkMetered: Boolean? = null,
     val restrictBackgroundStatus: String = "unavailable",
     val readError: String? = null,
+)
+
+data class BackgroundBatteryGuidance(
+    val manufacturer: String,
+    val summary: String,
 )
 
 data class BackgroundWorkStatusRow(
@@ -49,6 +55,7 @@ class AndroidBackgroundWorkDiagnosticsReader @Inject constructor(
 
     override suspend fun read(): BackgroundWorkDiagnostics {
         val network = readNetworkDiagnostics()
+        val batteryGuidance = backgroundBatteryGuidanceForManufacturer(Build.MANUFACTURER)
         val managerResult = runCatching { WorkManager.getInstance(context) }
         val rows = BACKGROUND_WORK_ITEMS.map { item ->
             managerResult.fold(
@@ -69,11 +76,12 @@ class AndroidBackgroundWorkDiagnosticsReader @Inject constructor(
                 },
             )
         }.map { row ->
-            row.copy(actionHint = backgroundWorkActionHint(row, network))
+            row.copy(actionHint = backgroundWorkActionHint(row, network, batteryGuidance))
         }
         return BackgroundWorkDiagnostics(
             network = network,
             rows = rows,
+            batteryGuidance = batteryGuidance,
         )
     }
 
@@ -169,16 +177,32 @@ internal fun restrictBackgroundStatusLabel(status: Int): String = when (status) 
 internal fun backgroundWorkActionHint(
     row: BackgroundWorkStatusRow,
     network: BackgroundNetworkDiagnostics,
+    batteryGuidance: BackgroundBatteryGuidance = backgroundBatteryGuidanceForManufacturer(""),
 ): String? {
     row.readError?.let {
-        return "Refresh diagnostics; include the support bundle if WorkInfo still cannot be read."
+        return withBatteryGuidance(
+            "Refresh diagnostics; include the support bundle if WorkInfo still cannot be read.",
+            batteryGuidance,
+        )
     }
 
     if (network.restrictBackgroundStatus == "enabled" && row.usesNetwork()) {
-        return "Data Saver is restricting background data; allow unrestricted data for Aura or use Wi-Fi, then refresh diagnostics."
+        return withBatteryGuidance(
+            "Data Saver is restricting background data; allow unrestricted data for Aura or use Wi-Fi, then refresh diagnostics.",
+            batteryGuidance,
+        )
     }
     if (network.activeNetworkMetered == true && row.requiresUnmeteredNetwork()) {
-        return "Waiting for Wi-Fi or another unmetered network before this larger download can run."
+        return withBatteryGuidance(
+            "Waiting for Wi-Fi or another unmetered network before this larger download can run.",
+            batteryGuidance,
+        )
+    }
+    if (row.workInfoStatus == "No WorkInfo records") {
+        return withBatteryGuidance(
+            "No WorkInfo records are visible yet; open Aura once after reboot, wait for the next schedule window, then refresh diagnostics.",
+            batteryGuidance,
+        )
     }
 
     val reason = row.lastDeferralReason.orEmpty().lowercase(Locale.ROOT)
@@ -203,16 +227,57 @@ internal fun backgroundWorkActionHint(
 
     val lastResult = row.lastResult.orEmpty().lowercase(Locale.ROOT)
     if (lastResult == "retry") {
-        return "WorkManager scheduled a retry; check network, source settings, battery, charging, and Wi-Fi-only constraints."
+        return withBatteryGuidance(
+            "WorkManager scheduled a retry; check network, source settings, battery, charging, and Wi-Fi-only constraints.",
+            batteryGuidance,
+        )
     }
     if (lastResult == "failure") {
         return "The worker failed instead of retrying; include the support bundle with the last error class."
     }
     if (row.workInfoStatus.contains("ENQUEUED")) {
-        return "Waiting for the next run window or constraints such as network, battery, charging, idle, or unmetered network."
+        return withBatteryGuidance(
+            "Waiting for the next run window or constraints such as network, battery, charging, idle, or unmetered network.",
+            batteryGuidance,
+        )
     }
     return null
 }
+
+internal fun backgroundBatteryGuidanceForManufacturer(manufacturer: String): BackgroundBatteryGuidance {
+    val normalized = manufacturer.lowercase(Locale.ROOT)
+    return when {
+        normalized.contains("samsung") -> BackgroundBatteryGuidance(
+            manufacturer = "Samsung",
+            summary = "Open Settings > Battery > Background usage limits and remove Aura from Sleeping and Deep sleeping apps.",
+        )
+        normalized.contains("google") || normalized.contains("pixel") -> BackgroundBatteryGuidance(
+            manufacturer = "Pixel",
+            summary = "Open Settings > Apps > Aura > App battery usage and allow background usage; disable Battery Saver while testing schedules.",
+        )
+        normalized.contains("xiaomi") || normalized.contains("redmi") || normalized.contains("poco") ->
+            BackgroundBatteryGuidance(
+                manufacturer = "Xiaomi",
+                summary = "Open Settings > Apps > Aura > Battery saver and choose No restrictions; also allow Auto-start.",
+            )
+        normalized.contains("oneplus") || normalized.contains("oppo") || normalized.contains("realme") ->
+            BackgroundBatteryGuidance(
+                manufacturer = "OnePlus/OPPO",
+                summary = "Open Settings > Battery > Battery optimization > Aura and choose Don't optimize.",
+            )
+        normalized.contains("huawei") || normalized.contains("honor") -> BackgroundBatteryGuidance(
+            manufacturer = "Huawei",
+            summary = "Open Settings > Battery > App launch > Aura and allow Auto-launch, Secondary launch, and Run in background.",
+        )
+        else -> BackgroundBatteryGuidance(
+            manufacturer = "Android",
+            summary = "Open App info > Battery for Aura and allow unrestricted or background battery usage before retesting schedules.",
+        )
+    }
+}
+
+private fun withBatteryGuidance(base: String, batteryGuidance: BackgroundBatteryGuidance): String =
+    "$base OEM recovery (${batteryGuidance.manufacturer}): ${batteryGuidance.summary}"
 
 private fun BackgroundWorkStatusRow.usesNetwork(): Boolean = uniqueWorkName in NETWORK_WORK_NAMES
 

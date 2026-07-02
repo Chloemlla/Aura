@@ -319,6 +319,15 @@ internal fun BackgroundWorkDiagnosticsSummary(status: BackgroundWorkDiagnostics)
             color = MaterialTheme.colorScheme.error,
         )
     }
+    Text(
+        stringResource(
+            R.string.settings_diag_background_oem_guidance,
+            status.batteryGuidance.manufacturer,
+            status.batteryGuidance.summary,
+        ),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable

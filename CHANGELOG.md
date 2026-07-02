@@ -16,6 +16,9 @@ All notable changes to Aura will be documented in this file.
 - **Source health diagnostics**: expanded Settings diagnostics with per-provider
   last success/failure/disabled timestamps, fallback status, retry guidance, and
   sanitized support-bundle source health rows.
+- **Background recovery diagnostics**: added manufacturer-aware OEM battery
+  recovery guidance for Data Saver, metered-network waits, missing WorkInfo, and
+  long-enqueued WorkManager jobs in Settings and support bundles.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose

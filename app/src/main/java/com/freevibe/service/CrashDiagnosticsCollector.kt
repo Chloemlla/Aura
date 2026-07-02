@@ -414,6 +414,7 @@ internal object CrashDiagnosticsText {
                 "Data Saver=${status.network.restrictBackgroundStatus}" +
                 (status.network.readError?.let { "; readError=$it" } ?: ""),
         )
+        appendLine("- Battery recovery (${status.batteryGuidance.manufacturer}): ${status.batteryGuidance.summary}")
         if (status.rows.isEmpty()) {
             appendLine("- No WorkInfo rows available.")
         } else {

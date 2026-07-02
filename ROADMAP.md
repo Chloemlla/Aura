@@ -189,13 +189,6 @@ Acceptance:
   Acceptance: Active docs describe local signed APK/AAB release commands as the only build/release path; `rg "GitHub Actions|verify.yml|release.yml|repository secrets|workflow artifacts"` returns only historical/disabled-policy references or tests that explicitly validate workflows are absent.
   Complexity: S
 
-- [ ] P1 - Add OEM battery recovery guidance to diagnostics
-  Why: Scheduled wallpaper, ringtone shuffle, weather, and bundled-content work depend on WorkManager and foreground/background behavior that OEM battery managers often suppress.
-  Evidence: `BackgroundWorkDiagnosticsReader.kt`, `CrashDiagnosticsCollector.kt`, `docs/background-work-network-posture.json`, Android WorkManager docs, dontkillmyapp.com Samsung guidance.
-  Touches: `BackgroundWorkDiagnosticsReader.kt`, `CrashDiagnosticsCollector.kt`, `SettingsDiagnosticsSection.kt`, `strings.xml`, background-work tests, support bundle text.
-  Acceptance: Background diagnostics show manufacturer-aware recovery guidance for Data Saver, battery optimization, metered network, missing WorkInfo, and long-enqueued work; support bundles include the same action hints; JVM tests cover Samsung/Pixel/generic hint selection without requiring a device.
-  Complexity: M
-
 ### P2
 
 - [ ] P2 - Add pseudolocale and RTL release gates
