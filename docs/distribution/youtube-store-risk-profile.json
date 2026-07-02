@@ -15,7 +15,7 @@
     },
     "fdroidMainline": {
       "youtubeEnabled": "blocked",
-      "rationale": "F-Droid mainline is blocked until a real FOSS flavor exists. YouTube extraction through NewPipe/yt-dlp is GPL-compatible but Firebase blocks inclusion regardless.",
+      "rationale": "A local FOSS flavor boundary now isolates Firebase and Play Services dependencies; F-Droid mainline availability still needs release/source-build metadata and owner review.",
       "metadataPolicy": "N/A — not submitted."
     },
     "play": {

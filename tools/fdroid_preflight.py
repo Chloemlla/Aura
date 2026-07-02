@@ -51,6 +51,19 @@ def scan_blockers(path: Path) -> list[Finding]:
         stripped = line.strip()
         if stripped.startswith("//") or stripped.startswith("#"):
             continue
+        if stripped.startswith(
+            (
+                "fullImplementation(",
+                "fullDebugImplementation(",
+                "fullReleaseImplementation(",
+                "debugFullImplementation(",
+                'add("fullImplementation"',
+                'add("fullDebugImplementation"',
+                'add("fullReleaseImplementation"',
+                'add("debugFullImplementation"',
+            )
+        ):
+            continue
         for label, pattern in BLOCKERS:
             if pattern.search(line):
                 findings.append(
@@ -68,23 +81,33 @@ def has_product_flavors(path: Path) -> bool:
     return any("productFlavors" in line for line in read_lines(path))
 
 
+def has_foss_flavor(path: Path) -> bool:
+    return any('create("foss")' in line or "create('foss')" in line for line in read_lines(path))
+
+
 def analyze() -> dict[str, object]:
     blockers = scan_blockers(APP_GRADLE)
     product_flavors = has_product_flavors(APP_GRADLE)
-    status = "blocked" if blockers or not product_flavors else "ready-for-review"
+    foss_flavor = has_foss_flavor(APP_GRADLE)
+    status = "blocked" if blockers or not product_flavors or not foss_flavor else "ready-for-review"
     notes: list[str] = []
 
     if not product_flavors:
         notes.append("No productFlavors block found; Aura currently has one full-feature app variant.")
+    elif not foss_flavor:
+        notes.append("No foss product flavor found; F-Droid mainline needs a Firebase-free build target.")
     if blockers:
-        notes.append("Current app variant includes Firebase and/or Google Play Services dependencies.")
+        notes.append("FOSS-active Gradle configuration includes Firebase and/or Google Play Services markers.")
     if status == "blocked":
         notes.append("Do not open an F-Droid mainline metadata PR until these blockers are removed or isolated.")
+    else:
+        notes.append("FOSS flavor boundary is present and Firebase/Play Services dependencies are isolated to full-only configurations.")
 
     return {
         "status": status,
         "decision": "full-only-for-now" if status == "blocked" else "foss-review-ready",
         "productFlavors": product_flavors,
+        "fossFlavor": foss_flavor,
         "blockers": [asdict(item) for item in blockers],
         "notes": notes,
         "scanned": [
@@ -114,6 +137,11 @@ def main() -> int:
         action="store_true",
         help="Exit 0 only when the current tree is blocked for F-Droid mainline.",
     )
+    parser.add_argument(
+        "--expect-pass",
+        action="store_true",
+        help="Exit 0 only when the current tree has a FOSS-ready flavor boundary.",
+    )
     args = parser.parse_args()
 
     report = analyze()
@@ -125,6 +153,8 @@ def main() -> int:
     blocked = report["status"] == "blocked"
     if args.expect_blocked:
         return 0 if blocked else 1
+    if args.expect_pass:
+        return 0 if not blocked else 1
     return 2 if blocked else 0
 
 

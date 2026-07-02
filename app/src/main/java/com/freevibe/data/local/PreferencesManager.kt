@@ -79,10 +79,15 @@ class PreferencesManager @Inject constructor(
     val bingProviderEnabled: Flow<Boolean> = get(Keys.BING_PROVIDER_ENABLED, true)
     val pexelsProviderEnabled: Flow<Boolean> = get(Keys.PEXELS_PROVIDER_ENABLED, true)
     val pixabayProviderEnabled: Flow<Boolean> = get(Keys.PIXABAY_PROVIDER_ENABLED, true)
-    val communityProviderEnabled: Flow<Boolean> = get(
-        Keys.COMMUNITY_PROVIDER_ENABLED,
-        DEFAULT_COMMUNITY_PROVIDER_ENABLED,
-    )
+    val communityProviderEnabled: Flow<Boolean> =
+        if (com.freevibe.BuildConfig.FOSS_BUILD) {
+            MutableStateFlow(false)
+        } else {
+            get(
+                Keys.COMMUNITY_PROVIDER_ENABLED,
+                DEFAULT_COMMUNITY_PROVIDER_ENABLED,
+            )
+        }
     val communityGuidelinesAcceptedVersion: Flow<Int> = get(Keys.COMMUNITY_GUIDELINES_ACCEPTED_VERSION, 0)
     val communityGuidelinesAccepted: Flow<Boolean> =
         communityGuidelinesAcceptedVersion.map(::hasAcceptedCommunityGuidelinesVersion)
@@ -111,7 +116,11 @@ class PreferencesManager @Inject constructor(
     suspend fun setBingProviderEnabled(enabled: Boolean) = set(Keys.BING_PROVIDER_ENABLED, enabled)
     suspend fun setPexelsProviderEnabled(enabled: Boolean) = set(Keys.PEXELS_PROVIDER_ENABLED, enabled)
     suspend fun setPixabayProviderEnabled(enabled: Boolean) = set(Keys.PIXABAY_PROVIDER_ENABLED, enabled)
-    suspend fun setCommunityProviderEnabled(enabled: Boolean) = set(Keys.COMMUNITY_PROVIDER_ENABLED, enabled)
+    suspend fun setCommunityProviderEnabled(enabled: Boolean) {
+        if (!com.freevibe.BuildConfig.FOSS_BUILD) {
+            set(Keys.COMMUNITY_PROVIDER_ENABLED, enabled)
+        }
+    }
     suspend fun acceptCommunityGuidelines() =
         set(Keys.COMMUNITY_GUIDELINES_ACCEPTED_VERSION, COMMUNITY_GUIDELINES_VERSION)
     suspend fun resetCommunityGuidelines() = set(Keys.COMMUNITY_GUIDELINES_ACCEPTED_VERSION, 0)

@@ -3,7 +3,7 @@
   "policyKind": "altStoreDisclosureMatrix",
   "packageName": "com.freevibe",
   "docsPath": "docs/distribution/alt-store-metadata.md",
-  "decision": "full-build-for-github-obtainium-izzy-fdroid-mainline-blocked",
+  "decision": "full-build-for-github-obtainium-izzy-foss-boundary-ready",
   "requiredEvidencePaths": [
     "app/build.gradle.kts",
     "settings.gradle.kts",
@@ -41,8 +41,8 @@
       "id": "fdroid-mainline",
       "name": "F-Droid mainline",
       "status": "blocked",
-      "artifact": "No current artifact",
-      "disclosure": "Blocked until a real FOSS flavor removes or isolates Firebase, Google Services, and Play Services ML Kit dependencies."
+      "artifact": "No published artifact",
+      "disclosure": "Local FOSS flavor preflight passes, but mainline submission still needs release/source-build metadata and owner review."
     }
   ],
   "antiFeatures": [
@@ -107,8 +107,8 @@
     {
       "id": "google-services-plugin",
       "path": "app/build.gradle.kts",
-      "marker": "com.google.gms.google-services",
-      "disclosure": "Google Services Gradle plugin is part of the current full build."
+      "marker": "google-services",
+      "disclosure": "Google Services Gradle plugin is applied only when the requested Gradle tasks are not FOSS-only."
     },
     {
       "id": "firebase-bom",
@@ -300,7 +300,7 @@
       "Use the signed GitHub Release APK and checksum.",
       "Include anti-feature details at least in en-US.",
       "Disclose Firebase/Google Play services dependencies and remote provider network services.",
-      "Do not claim F-Droid mainline readiness until the FOSS flavor criteria pass."
+      "Do not claim F-Droid mainline availability until release/source-build metadata and owner review pass."
     ]
   },
   "sourceUrls": [

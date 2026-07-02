@@ -20,18 +20,6 @@ physical-device validation, or toolchain gates belongs in `Roadmap_Blocked.md`.
 
 ## P2
 
-### FOSS build flavor boundary
-
-Aura still has one full-feature app variant with Firebase, Google Services,
-Play Services ML Kit, and App Check in the main dependency graph.
-
-Acceptance:
-- A `foss` product flavor builds without Firebase or Play Services dependencies.
-- Community features are compile-time absent or replaced by clear local-only
-  unavailable states.
-- Parallax/subject features fall back without Play Services ML Kit.
-- `tools/fdroid_preflight.py --expect-pass` succeeds for the FOSS variant.
-
 ### Consistent browse rails
 
 Wallpapers, Videos, Sounds, Ringtones, and Notifications still use different

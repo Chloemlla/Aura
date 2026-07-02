@@ -29,6 +29,10 @@ All notable changes to Aura will be documented in this file.
   segmented saved/local wallpapers, videos, sounds, collections, downloads,
   favorites, and local files with offline provider handoff states and local
   search history controls.
+- **FOSS flavor boundary**: added full/FOSS distribution flavors, isolated
+  Firebase, Google Services, Play Services ML Kit, and App Check to the full
+  flavor, compiled FOSS against local no-op adapters, and made the F-Droid
+  preflight pass for the FOSS variant.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose

@@ -1,0 +1,1 @@
+FOSS build dependency notices are generated from the Firebase-free dependency graph.
