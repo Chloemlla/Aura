@@ -2,6 +2,12 @@
 
 All notable changes to Aura will be documented in this file.
 
+## v6.34.6 (2026-07-01)
+- **Unified local Library hub**: added a first-class Library tab that groups
+  Favorites, Downloads, Collections, Local imports, Recent activity, and
+  backup/restore entry points while preserving existing deep links and
+  local-first copy.
+
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose
   accessibility checks with debug route fixtures for Wallpapers, Sounds detail,

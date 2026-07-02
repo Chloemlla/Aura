@@ -76,6 +76,12 @@ sealed class Screen(
         icon = Icons.Outlined.FavoriteBorder,
         selectedIcon = Icons.Filled.Favorite,
     )
+    data object Library : Screen(
+        route = "library",
+        titleRes = R.string.nav_library,
+        icon = Icons.Outlined.Folder,
+        selectedIcon = Icons.Filled.Folder,
+    )
     data object Settings : Screen(
         route = "settings",
         titleRes = R.string.nav_settings,
@@ -329,6 +335,6 @@ sealed class Screen(
 
     companion object {
         val bottomNavItems: List<Screen>
-            get() = listOf(Wallpapers, VideoWallpapers, Sounds, Favorites, Settings)
+            get() = listOf(Wallpapers, VideoWallpapers, Sounds, Library, Settings)
     }
 }

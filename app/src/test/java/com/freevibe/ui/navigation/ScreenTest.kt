@@ -10,7 +10,7 @@ class ScreenTest {
     @Test
     fun `bottomNavItems exposes all expected routes`() {
         assertEquals(
-            listOf("wallpapers", "video_wallpapers", "sounds", "favorites", "settings"),
+            listOf("wallpapers", "video_wallpapers", "sounds", "library", "settings"),
             Screen.bottomNavItems.map { it.route },
         )
     }
@@ -25,6 +25,7 @@ class ScreenTest {
         assertEquals(R.string.nav_wallpapers, Screen.Wallpapers.titleRes)
         assertEquals(R.string.nav_videos, Screen.VideoWallpapers.titleRes)
         assertEquals(R.string.nav_sounds, Screen.Sounds.titleRes)
+        assertEquals(R.string.nav_library, Screen.Library.titleRes)
         assertEquals(R.string.nav_favorites, Screen.Favorites.titleRes)
         assertEquals(R.string.nav_settings, Screen.Settings.titleRes)
         assertTrue(Screen.bottomNavItems.all { it.titleRes != 0 })

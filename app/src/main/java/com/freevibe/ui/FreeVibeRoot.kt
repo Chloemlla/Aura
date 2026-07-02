@@ -44,6 +44,7 @@ import com.freevibe.ui.screens.editor.WallpaperCropScreen
 import com.freevibe.ui.screens.editor.WallpaperEditorScreen
 import com.freevibe.ui.screens.favorites.FavoritesScreen
 import com.freevibe.ui.screens.licenses.LicensesScreen
+import com.freevibe.ui.screens.library.LibraryScreen
 import com.freevibe.ui.screens.onboarding.OnboardingScreen
 import com.freevibe.ui.screens.settings.SettingsScreen
 import com.freevibe.ui.screens.settings.WallpaperHistoryScreen
@@ -358,6 +359,16 @@ fun FreeVibeRoot(
                         navController.navigate(Screen.SoundEditor.createLocalRoute(uri)) { launchSingleTop = true }
                     },
                     initialQuery = backStackEntry.arguments?.getString("query")?.ifBlank { null },
+                )
+            }
+            composable(Screen.Library.route) {
+                LibraryScreen(
+                    onFavoritesClick = { navController.navigate(Screen.Favorites.route) { launchSingleTop = true } },
+                    onDownloadsClick = { navController.navigate(Screen.Downloads.route) { launchSingleTop = true } },
+                    onCollectionsClick = { navController.navigate(Screen.Collections.route) { launchSingleTop = true } },
+                    onLocalImportsClick = { navController.navigate(Screen.Collections.route) { launchSingleTop = true } },
+                    onRecentActivityClick = { navController.navigate(Screen.WallpaperHistory.route) { launchSingleTop = true } },
+                    onBackupRestoreClick = { navController.navigate(Screen.Settings.route) { launchSingleTop = true } },
                 )
             }
             composable(Screen.Favorites.route) {
@@ -949,6 +960,19 @@ private fun isBottomNavDestination(
     destination: androidx.navigation.NavDestination?,
 ): Boolean {
     if (destination == null) return false
+    if (screen == Screen.Library) {
+        val libraryRoutes = setOf(
+            Screen.Library.route,
+            Screen.Favorites.route,
+            Screen.Downloads.route,
+            Screen.Collections.route,
+            Screen.Collections.destinationPattern,
+            Screen.WallpaperHistory.route,
+        )
+        return destination.hierarchy.any { navDestination ->
+            navDestination.route in libraryRoutes
+        }
+    }
     return destination.hierarchy.any { navDestination ->
         screen.matchesDestination(navDestination.route)
     }
@@ -971,7 +995,7 @@ private fun BottomNavIcon(
                 contentDescription = screenTitle,
                 modifier = Modifier.size(22.dp),
             )
-            if (screen == Screen.Favorites && favoritesCount > 0) {
+            if (screen == Screen.Library && favoritesCount > 0) {
                 CountBadge(
                     count = favoritesCount,
                     modifier = Modifier

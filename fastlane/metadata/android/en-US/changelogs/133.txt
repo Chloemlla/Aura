@@ -1,0 +1,6 @@
+Aura 6.34.6
+
+Recent highlights:
+- Added a first-class local Library tab for saved and offline content.
+- Library groups Favorites, Downloads, Collections, Local imports, Recent activity, and backup/restore entry points.
+- Existing Favorites, Downloads, Collections, and Wallpaper History routes remain valid for shortcuts and deep links.

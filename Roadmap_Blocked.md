@@ -190,9 +190,11 @@ These items require adb-connected device or Android 17 emulator testing:
 
 ---
 
-## Later / Under Consideration / Rejected (kept in ROADMAP.md)
+## Roadmap file hygiene
 
-The Later, Under Consideration, and Rejected sections remain in ROADMAP.md as they are not blocked per se but intentionally deferred.
+`ROADMAP.md` is actionable only. Blocked work stays in this file, and duplicate
+blocked-roadmap variants are normalized to this exact filename:
+`Roadmap_Blocked.md`.
 
 ---
 
