@@ -155,7 +155,7 @@ Requires JDK 17+ and Android SDK 35. Android Studio Ladybug (2024.2.1) or later 
 ./gradlew assembleDebug      # use gradlew.bat on Windows
 ./gradlew testDebugUnitTest
 ./gradlew lintDebug
-./gradlew assembleRelease     # requires signing config
+./gradlew assembleFullRelease bundleFullRelease  # requires signing config
 ```
 
 > Always use the included Gradle wrapper. It pins Gradle 8.12 which is required by AGP 8.7.3.

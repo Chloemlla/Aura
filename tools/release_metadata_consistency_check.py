@@ -27,8 +27,12 @@ REQUIRED_DOC_TERMS = {
     "Sources",
 }
 REQUIRED_SOURCE_URLS = {
+    "https://developer.android.com/guide/app-bundle",
+    "https://developer.android.com/studio/publish/app-signing",
+    "https://developer.android.com/tools/bundletool",
     "https://support.google.com/googleplay/android-developer/answer/9859152",
     "https://support.google.com/googleplay/android-developer/answer/13393723",
+    "https://support.google.com/googleplay/android-developer/answer/9842756",
     "https://docs.fastlane.tools/actions/supply/",
     "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases",
     "https://f-droid.org/en/docs/All_About_Descriptions_Graphics_and_Screenshots/",

@@ -9,13 +9,13 @@
     "arm64-v8a",
     "x86_64"
   ],
-  "releaseApkGlob": "app/build/outputs/apk/release/*release*.apk",
+  "releaseApkGlob": "app/build/outputs/apk/*/release/*release*.apk",
   "verificationCommand": "python3 tools/native_alignment_check.py --policy docs/distribution/native-alignment.json --apk <release-apk>",
   "latestLocalEvidence": {
-    "date": "2026-06-12",
+    "date": "2026-07-02",
     "status": "verified",
-    "apkPath": "app/build/outputs/apk/release/app-release.apk",
-    "apkSha256": "892fe4dc125d41eeb449f06eaade69eace1bee3034a155b67db12826ce553311",
+    "apkPath": "app/build/outputs/apk/full/release/app-full-release.apk",
+    "apkSha256": "f2cfacd78cc35ce229025ba1c8f1147c1c6cd44dc684b1b7fc46f9d8fdbd59db",
     "checked64BitLoadSegments": 43,
     "seen64BitAbis": [
       "arm64-v8a",

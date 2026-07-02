@@ -20,18 +20,6 @@ physical-device validation, or toolchain gates belongs in `Roadmap_Blocked.md`.
 
 ## P2
 
-### Local Play-ready AAB dry-run lane
-
-GitHub workflow AAB logic is no longer the source of truth. Local release tooling
-still needs a first-class bundle dry run for Play readiness.
-
-Acceptance:
-- Local release dry run produces a signed `.aab` alongside the GitHub/Obtainium
-  APK artifact.
-- Bundle metadata, versionCode/versionName, signing lineage, SHA-256, and Play
-  App Signing owner steps are checked by local tools/docs.
-- APK release behavior remains unchanged.
-
 ### HEIF/AVIF ingestion and metadata scrub policy
 
 Format detection exists, but accepted formats and metadata stripping are not

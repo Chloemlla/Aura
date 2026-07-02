@@ -19,9 +19,11 @@
   ],
   "currentReleaseArtifacts": [
     "Aura-vX.Y.Z-versionCode-N-universal-release.apk",
+    "Aura-vX.Y.Z-versionCode-N-play-release.aab",
     "THIRD-PARTY-NOTICES.md",
     "GOOGLE-OSS-RAW-INPUTS.zip",
     "NATIVE-COMPLIANCE.md",
+    "NATIVE-ALIGNMENT.json",
     "SHA256SUMS.txt",
     "RELEASE_NOTES.md"
   ],
@@ -34,7 +36,7 @@
     "Gradle plugins and version-catalog dependencies",
     "Release runtime dependency graph",
     "Native, FFmpeg, and youtubedl-android payloads",
-    "Release APK digest and signing certificate fingerprint"
+    "Release APK/AAB digests and signing certificate fingerprints"
   ],
   "requiredLocalCommands": [
     "tools/sbom_readiness_check.py",

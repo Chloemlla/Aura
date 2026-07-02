@@ -46,6 +46,10 @@ All notable changes to Aura will be documented in this file.
   packs that bundle JSON recipes for wallpapers, video wallpaper, sounds,
   widget tint metadata, and launcher shortcuts with bounded local assets where
   Android grants file access.
+- **Play-ready local AAB dry run**: made release artifact validation require
+  the signed Play AAB, bundle manifest evidence, bundletool validation, upload
+  key fingerprint, checksums, and Play App Signing owner-step receipt alongside
+  the GitHub/Obtainium APK.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose

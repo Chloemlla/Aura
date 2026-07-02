@@ -22,6 +22,11 @@ REQUIRED_STATIC_FILES = {
     "RELEASE_NOTES.md",
     "apksigner.txt",
     "aapt-badging.txt",
+    "aab-manifest.txt",
+    "bundletool-validate.txt",
+    "aab-jarsigner.txt",
+    "aab-keytool.txt",
+    "PLAY-APP-SIGNING-OWNER-STEPS.txt",
 }
 
 
@@ -31,6 +36,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--release-dir", default="release")
     parser.add_argument("--apk-name", required=True)
+    parser.add_argument("--aab-name", required=True)
     parser.add_argument("--version-name", required=True)
     parser.add_argument("--version-code", required=True)
     return parser.parse_args()
@@ -39,7 +45,13 @@ def parse_args() -> argparse.Namespace:
 def read_text(path: Path) -> str:
     if not path.is_file():
         raise FileNotFoundError(f"Required file not found: {path}")
-    return path.read_text(encoding="utf-8", errors="replace")
+    data = path.read_bytes()
+    for encoding in ("utf-8-sig", "utf-16"):
+        try:
+            return data.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return data.decode("utf-8", errors="replace")
 
 
 def sha256_file(path: Path) -> str:
@@ -96,16 +108,92 @@ def validate_native_alignment(path: Path, *, package_name: str) -> list[str]:
     return errors
 
 
+def validate_aab_manifest(path: Path, *, package_name: str, version_name: str, version_code: str) -> list[str]:
+    errors: list[str] = []
+    try:
+        manifest = read_text(path)
+    except FileNotFoundError as exc:
+        return [str(exc)]
+    required_fragments = {
+        package_name: "AAB manifest package name",
+        "versionCode": "AAB manifest versionCode field",
+        version_code: "AAB manifest versionCode value",
+        "versionName": "AAB manifest versionName field",
+        version_name: "AAB manifest versionName value",
+    }
+    for fragment, label in required_fragments.items():
+        if fragment not in manifest:
+            errors.append(f"aab-manifest.txt missing {label}: {fragment}")
+    return errors
+
+
+def validate_bundletool_receipt(path: Path, *, aab_name: str) -> list[str]:
+    try:
+        receipt = read_text(path)
+    except FileNotFoundError as exc:
+        return [str(exc)]
+    errors: list[str] = []
+    if aab_name not in receipt:
+        errors.append("bundletool-validate.txt must name the checked AAB")
+    if "bundletool validate passed" not in receipt.lower():
+        errors.append("bundletool-validate.txt must record bundletool validate passed")
+    return errors
+
+
+def validate_aab_signature_receipts(
+    *,
+    jarsigner_path: Path,
+    keytool_path: Path,
+    owner_steps_path: Path,
+    package_name: str,
+) -> list[str]:
+    errors: list[str] = []
+    try:
+        jarsigner = read_text(jarsigner_path).lower()
+        if "jar verified" not in jarsigner:
+            errors.append("aab-jarsigner.txt must record jar verified")
+        if "jar is unsigned" in jarsigner:
+            errors.append("aab-jarsigner.txt must not contain unsigned output")
+    except FileNotFoundError as exc:
+        errors.append(str(exc))
+
+    try:
+        keytool = read_text(keytool_path)
+        if "SHA256:" not in keytool and "SHA-256" not in keytool:
+            errors.append("aab-keytool.txt missing upload key SHA-256 fingerprint")
+    except FileNotFoundError as exc:
+        errors.append(str(exc))
+
+    try:
+        owner_steps = read_text(owner_steps_path)
+        required_owner_fragments = [
+            "Play App Signing",
+            "App integrity",
+            "upload key",
+            "app signing key",
+            "owner-confirmation-required",
+            package_name,
+        ]
+        for fragment in required_owner_fragments:
+            if fragment not in owner_steps:
+                errors.append(f"PLAY-APP-SIGNING-OWNER-STEPS.txt missing fragment: {fragment}")
+    except FileNotFoundError as exc:
+        errors.append(str(exc))
+    return errors
+
+
 def validate_bundle(
     *,
     release_dir: Path,
     apk_name: str,
+    aab_name: str,
     version_name: str,
     version_code: str,
 ) -> list[str]:
     errors: list[str] = []
     expected_files = set(REQUIRED_STATIC_FILES)
     expected_files.add(apk_name)
+    expected_files.add(aab_name)
 
     if not release_dir.is_dir():
         return [f"Release directory not found: {release_dir}"]
@@ -118,10 +206,17 @@ def validate_bundle(
             errors.append(str(exc))
 
     apk_path = release_dir / apk_name
+    aab_path = release_dir / aab_name
     expected_apk_fragment = f"versionCode-{version_code}-universal-release.apk"
     if not apk_name.startswith(f"Aura-v{version_name}-") or expected_apk_fragment not in apk_name:
         errors.append(
             f"APK name {apk_name} does not match versionName {version_name} "
+            f"and versionCode {version_code}"
+        )
+    expected_aab_fragment = f"versionCode-{version_code}-play-release.aab"
+    if not aab_name.startswith(f"Aura-v{version_name}-") or expected_aab_fragment not in aab_name:
+        errors.append(
+            f"AAB name {aab_name} does not match versionName {version_name} "
             f"and versionCode {version_code}"
         )
 
@@ -130,6 +225,7 @@ def validate_bundle(
         checksums = parse_sha256sums(checksum_path)
         expected_checksum_files = {
             apk_name,
+            aab_name,
             "THIRD-PARTY-NOTICES.md",
             RAW_GOOGLE_OSS_INPUT_ARCHIVE,
             "NATIVE-COMPLIANCE.md",
@@ -157,12 +253,16 @@ def validate_bundle(
         required_note_fragments = [
             f"Aura {version_name} (versionCode {version_code})",
             apk_name,
+            aab_name,
             "APK SHA-256:",
+            "AAB SHA-256:",
             "THIRD-PARTY-NOTICES.md",
             RAW_GOOGLE_OSS_INPUT_ARCHIVE,
             "NATIVE-COMPLIANCE.md",
             "NATIVE-ALIGNMENT.json",
             "Signing certificate SHA-256:",
+            "Upload key certificate SHA-256:",
+            "Play App Signing owner steps:",
             "Local build receipt:",
             "Build type: release, android:debuggable=false",
             "Package: com.freevibe",
@@ -172,7 +272,9 @@ def validate_bundle(
                 errors.append(f"RELEASE_NOTES.md missing fragment: {fragment}")
         valued_note_labels = [
             "APK SHA-256",
+            "AAB SHA-256",
             "Signing certificate SHA-256",
+            "Upload key certificate SHA-256",
             "Local build receipt",
         ]
         for label in valued_note_labels:
@@ -182,12 +284,16 @@ def validate_bundle(
             apk_digest = sha256_file(apk_path)
             if apk_digest not in release_notes:
                 errors.append("RELEASE_NOTES.md missing APK SHA-256 value")
+        if aab_path.is_file():
+            aab_digest = sha256_file(aab_path)
+            if aab_digest not in release_notes:
+                errors.append("RELEASE_NOTES.md missing AAB SHA-256 value")
     except FileNotFoundError as exc:
         errors.append(str(exc))
 
     try:
         apksigner = read_text(release_dir / "apksigner.txt")
-        if "Signer #1 certificate SHA-256 digest:" not in apksigner:
+        if "certificate SHA-256 digest:" not in apksigner:
             errors.append("apksigner.txt missing signer SHA-256 digest")
     except FileNotFoundError as exc:
         errors.append(str(exc))
@@ -200,6 +306,23 @@ def validate_bundle(
         errors.append(str(exc))
 
     errors.extend(validate_native_alignment(release_dir / "NATIVE-ALIGNMENT.json", package_name="com.freevibe"))
+    errors.extend(
+        validate_aab_manifest(
+            release_dir / "aab-manifest.txt",
+            package_name="com.freevibe",
+            version_name=version_name,
+            version_code=version_code,
+        )
+    )
+    errors.extend(validate_bundletool_receipt(release_dir / "bundletool-validate.txt", aab_name=aab_name))
+    errors.extend(
+        validate_aab_signature_receipts(
+            jarsigner_path=release_dir / "aab-jarsigner.txt",
+            keytool_path=release_dir / "aab-keytool.txt",
+            owner_steps_path=release_dir / "PLAY-APP-SIGNING-OWNER-STEPS.txt",
+            package_name="com.freevibe",
+        )
+    )
 
     return errors
 
@@ -210,6 +333,7 @@ def main() -> int:
     errors = validate_bundle(
         release_dir=release_dir,
         apk_name=args.apk_name,
+        aab_name=args.aab_name,
         version_name=args.version_name,
         version_code=args.version_code,
     )
@@ -221,6 +345,7 @@ def main() -> int:
     print(
         json.dumps(
             {
+                "aab": args.aab_name,
                 "apk": args.apk_name,
                 "releaseDir": str(release_dir),
                 "status": "ok",
