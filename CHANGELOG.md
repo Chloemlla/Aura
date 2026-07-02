@@ -19,6 +19,9 @@ All notable changes to Aura will be documented in this file.
 - **Background recovery diagnostics**: added manufacturer-aware OEM battery
   recovery guidance for Data Saver, metered-network waits, missing WorkInfo, and
   long-enqueued WorkManager jobs in Settings and support bundles.
+- **Release documentation**: removed workflow-era build/release references from
+  active setup docs and clarified the local-only verification and signed
+  artifact path.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose

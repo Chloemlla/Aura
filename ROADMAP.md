@@ -182,13 +182,6 @@ Acceptance:
 
 ### P1
 
-- [ ] P1 - Purge workflow-era release documentation
-  Why: README, architecture, contribution, and distribution docs still reference GitHub workflow artifacts/secrets even though Aura now ships from local-only release gates.
-  Evidence: `README.md`, `ARCHITECTURE.md`, `CONTRIBUTING.md`, `docs/distribution/*`, commits `ec73ea7` and `274e876`, F-Droid/Izzy inclusion guidance.
-  Touches: `README.md`, `ARCHITECTURE.md`, `CONTRIBUTING.md`, `docs/distribution/*`, release metadata consistency tests.
-  Acceptance: Active docs describe local signed APK/AAB release commands as the only build/release path; `rg "GitHub Actions|verify.yml|release.yml|repository secrets|workflow artifacts"` returns only historical/disabled-policy references or tests that explicitly validate workflows are absent.
-  Complexity: S
-
 ### P2
 
 - [ ] P2 - Add pseudolocale and RTL release gates
