@@ -11,6 +11,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -66,6 +67,9 @@ class WallpaperEditorViewModelTest {
             assertFalse(state.isExporting)
             assertFalse(state.isPreparingParallax)
             assertFalse(state.pendingParallaxLaunch)
+            assertTrue(state.overlayLayers.isEmpty())
+            assertNull(state.selectedOverlayId)
+            assertFalse(state.canUndoOverlay)
             assertNull(state.qualityWarning)
             cancelAndIgnoreRemainingEvents()
         }
@@ -88,8 +92,55 @@ class WallpaperEditorViewModelTest {
             assertEquals(1f, state.saturation)
             assertEquals(0f, state.blurRadius)
             assertEquals(1f, state.depthSubjectScale)
+            assertTrue(state.overlayLayers.isEmpty())
+            assertNull(state.selectedOverlayId)
+            assertFalse(state.canUndoOverlay)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun `text overlay can move delete and undo`() = runTest {
+        viewModel.addTextOverlay("Focus")
+
+        val added = viewModel.state.value
+        assertEquals(1, added.overlayLayers.size)
+        assertEquals("Focus", added.overlayLayers.single().text)
+        assertEquals(added.overlayLayers.single().id, added.selectedOverlayId)
+        assertTrue(added.canUndoOverlay)
+
+        val id = added.overlayLayers.single().id
+        viewModel.moveOverlay(id, 0.2f, -0.1f)
+        val moved = viewModel.state.value.overlayLayers.single()
+        assertEquals(0.7f, moved.x, 0.001f)
+        assertEquals(0.4f, moved.y, 0.001f)
+
+        viewModel.undoOverlayEdit()
+        val restored = viewModel.state.value.overlayLayers.single()
+        assertEquals(0.5f, restored.x, 0.001f)
+        assertEquals(0.5f, restored.y, 0.001f)
+
+        viewModel.deleteSelectedOverlay()
+        assertTrue(viewModel.state.value.overlayLayers.isEmpty())
+
+        viewModel.undoOverlayEdit()
+        assertEquals(1, viewModel.state.value.overlayLayers.size)
+    }
+
+    @Test
+    fun `sticker overlay stores style scale rotation and color`() = runTest {
+        viewModel.addStickerOverlay(WallpaperSticker.HEART)
+        viewModel.updateSelectedSticker(WallpaperSticker.SPARKLE)
+        viewModel.updateSelectedOverlayScale(1.8f)
+        viewModel.updateSelectedOverlayRotation(45f)
+        viewModel.updateSelectedOverlayColor(0xFF4FC3F7.toInt())
+
+        val sticker = viewModel.state.value.overlayLayers.single()
+        assertEquals(WallpaperOverlayType.STICKER, sticker.type)
+        assertEquals(WallpaperSticker.SPARKLE, sticker.sticker)
+        assertEquals(1.8f, sticker.scale, 0.001f)
+        assertEquals(45f, sticker.rotationDegrees, 0.001f)
+        assertEquals(0xFF4FC3F7.toInt(), sticker.color)
     }
 
     @Test
@@ -133,6 +184,7 @@ class WallpaperEditorViewModelTest {
 
         viewModel.setSourceBitmap(source)
         viewModel.prepareDepthParallax()
+        advanceUntilIdle()
 
         val state = viewModel.state.value
         assertTrue(state.pendingParallaxLaunch)

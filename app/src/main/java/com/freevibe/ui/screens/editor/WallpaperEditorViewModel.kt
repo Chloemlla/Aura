@@ -21,8 +21,28 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.sin
 import javax.inject.Inject
+
+enum class WallpaperOverlayType { TEXT, STICKER }
+
+enum class WallpaperSticker { STAR, HEART, SPARKLE }
+
+data class WallpaperOverlayLayer(
+    val id: Long,
+    val type: WallpaperOverlayType,
+    val text: String = DEFAULT_OVERLAY_TEXT,
+    val sticker: WallpaperSticker = WallpaperSticker.STAR,
+    val x: Float = 0.5f,
+    val y: Float = 0.5f,
+    val scale: Float = 1f,
+    val rotationDegrees: Float = 0f,
+    val color: Int = Color.WHITE,
+)
 
 data class EditorState(
     val originalBitmap: Bitmap? = null,
@@ -38,6 +58,9 @@ data class EditorState(
     val depthBackgroundStyle: DepthBackgroundStyle = DepthBackgroundStyle.BLUR,
     val depthFrameStyle: DepthFrameStyle = DepthFrameStyle.NONE,
     val depthSubjectScale: Float = 1f,
+    val overlayLayers: List<WallpaperOverlayLayer> = emptyList(),
+    val selectedOverlayId: Long? = null,
+    val canUndoOverlay: Boolean = false,
     val isProcessing: Boolean = false,
     val isApplying: Boolean = false,
     val isLoadingImage: Boolean = false,
@@ -66,6 +89,8 @@ class WallpaperEditorViewModel @Inject constructor(
     val state = _state.asStateFlow()
     private var filterJob: kotlinx.coroutines.Job? = null
     private var loadedWallpaperKey: String? = null
+    private var nextOverlayId = 1L
+    private val overlayUndoStack = ArrayDeque<List<WallpaperOverlayLayer>>()
 
     fun loadWallpaper(wallpaper: Wallpaper): Boolean {
         val currentState = _state.value
@@ -81,7 +106,17 @@ class WallpaperEditorViewModel @Inject constructor(
     fun clearError() = _state.update { it.copy(error = null) }
 
     fun setSourceBitmap(bitmap: Bitmap) {
-        _state.update { it.copy(originalBitmap = bitmap, editedBitmap = bitmap, qualityWarning = null) }
+        overlayUndoStack.clear()
+        _state.update {
+            it.copy(
+                originalBitmap = bitmap,
+                editedBitmap = bitmap,
+                overlayLayers = emptyList(),
+                selectedOverlayId = null,
+                canUndoOverlay = false,
+                qualityWarning = null,
+            )
+        }
     }
 
     fun updateBrightness(value: Float) {
@@ -144,6 +179,9 @@ class WallpaperEditorViewModel @Inject constructor(
                 depthBackgroundStyle = DepthBackgroundStyle.BLUR,
                 depthFrameStyle = DepthFrameStyle.NONE,
                 depthSubjectScale = 1f,
+                overlayLayers = emptyList(),
+                selectedOverlayId = null,
+                canUndoOverlay = false,
                 isDepthProcessing = false,
                 isExporting = false,
                 isPreparingParallax = false,
@@ -151,15 +189,26 @@ class WallpaperEditorViewModel @Inject constructor(
                 qualityWarning = null,
             )
         }
+        overlayUndoStack.clear()
     }
 
     fun apply(target: WallpaperTarget) {
-        val bitmap = _state.value.editedBitmap ?: return
+        val snapshot = _state.value
+        if (snapshot.editedBitmap == null && snapshot.originalBitmap == null) return
         viewModelScope.launch {
             _state.update { it.copy(isApplying = true) }
-            wallpaperApplier.applyFromBitmap(bitmap, target)
-                .onSuccess { _state.update { it.copy(isApplying = false, success = "Applied") } }
-                .onFailure { e -> _state.update { it.copy(isApplying = false, error = e.message) } }
+            val bitmap = snapshot.renderBitmapForOutputAsync()
+            if (bitmap == null) {
+                _state.update { it.copy(isApplying = false) }
+                return@launch
+            }
+            try {
+                wallpaperApplier.applyFromBitmap(bitmap, target)
+                    .onSuccess { _state.update { it.copy(isApplying = false, success = "Applied") } }
+                    .onFailure { e -> _state.update { it.copy(isApplying = false, error = e.message) } }
+            } finally {
+                recycleRenderedBitmap(bitmap, snapshot)
+            }
         }
     }
 
@@ -199,38 +248,178 @@ class WallpaperEditorViewModel @Inject constructor(
     }
 
     fun exportDepthPortrait() {
-        val bitmap = _state.value.editedBitmap ?: _state.value.originalBitmap ?: return
+        exportCurrentBitmap("Depth portrait saved to Pictures/Aura")
+    }
+
+    fun exportEditedWallpaper() {
+        exportCurrentBitmap("Edited wallpaper saved to Pictures/Aura")
+    }
+
+    private fun exportCurrentBitmap(successMessage: String) {
+        val snapshot = _state.value
+        if (snapshot.editedBitmap == null && snapshot.originalBitmap == null) return
         viewModelScope.launch {
             _state.update { it.copy(isExporting = true, error = null, success = null) }
-            depthPortraitComposer.exportToGallery(bitmap)
-                .onSuccess {
-                    _state.update { state ->
-                        state.copy(isExporting = false, success = "Depth portrait saved to Pictures/Aura")
+            val bitmap = snapshot.renderBitmapForOutputAsync()
+            if (bitmap == null) {
+                _state.update { it.copy(isExporting = false) }
+                return@launch
+            }
+            try {
+                depthPortraitComposer.exportToGallery(bitmap)
+                    .onSuccess {
+                        _state.update { state ->
+                            state.copy(isExporting = false, success = successMessage)
+                        }
                     }
-                }
-                .onFailure { error ->
-                    _state.update { state ->
-                        state.copy(isExporting = false, error = error.message ?: "Export failed")
+                    .onFailure { error ->
+                        _state.update { state ->
+                            state.copy(isExporting = false, error = error.message ?: "Export failed")
+                        }
                     }
-                }
+            } finally {
+                recycleRenderedBitmap(bitmap, snapshot)
+            }
         }
     }
 
     fun prepareDepthParallax() {
-        val bitmap = _state.value.editedBitmap ?: _state.value.originalBitmap ?: return
+        val snapshot = _state.value
+        if (snapshot.editedBitmap == null && snapshot.originalBitmap == null) return
         viewModelScope.launch {
             _state.update { it.copy(isPreparingParallax = true, error = null, success = null) }
-            wallpaperApplier.prepareParallaxFromBitmap(bitmap, "parallax_depth_portrait.jpg")
-                .onSuccess {
-                    _state.update { state ->
-                        state.copy(isPreparingParallax = false, pendingParallaxLaunch = true)
+            val bitmap = snapshot.renderBitmapForOutputAsync()
+            if (bitmap == null) {
+                _state.update { it.copy(isPreparingParallax = false) }
+                return@launch
+            }
+            try {
+                wallpaperApplier.prepareParallaxFromBitmap(bitmap, "parallax_depth_portrait.jpg")
+                    .onSuccess {
+                        _state.update { state ->
+                            state.copy(isPreparingParallax = false, pendingParallaxLaunch = true)
+                        }
                     }
-                }
-                .onFailure { error ->
-                    _state.update { state ->
-                        state.copy(isPreparingParallax = false, error = error.message ?: "Parallax setup failed")
+                    .onFailure { error ->
+                        _state.update { state ->
+                            state.copy(isPreparingParallax = false, error = error.message ?: "Parallax setup failed")
+                        }
                     }
-                }
+            } finally {
+                recycleRenderedBitmap(bitmap, snapshot)
+            }
+        }
+    }
+
+    fun addTextOverlay(text: String = DEFAULT_OVERLAY_TEXT) {
+        val state = _state.value
+        saveOverlayUndoSnapshot(state)
+        val id = nextOverlayId++
+        val layer = WallpaperOverlayLayer(
+            id = id,
+            type = WallpaperOverlayType.TEXT,
+            text = text.ifBlank { DEFAULT_OVERLAY_TEXT }.take(MAX_OVERLAY_TEXT_LENGTH),
+            color = Color.WHITE,
+        )
+        _state.update {
+            it.copy(
+                overlayLayers = it.overlayLayers + layer,
+                selectedOverlayId = id,
+                canUndoOverlay = overlayUndoStack.isNotEmpty(),
+                success = "Text layer added",
+            )
+        }
+    }
+
+    fun addStickerOverlay(sticker: WallpaperSticker = WallpaperSticker.STAR) {
+        val state = _state.value
+        saveOverlayUndoSnapshot(state)
+        val id = nextOverlayId++
+        val layer = WallpaperOverlayLayer(
+            id = id,
+            type = WallpaperOverlayType.STICKER,
+            sticker = sticker,
+            color = 0xFFFFD54F.toInt(),
+        )
+        _state.update {
+            it.copy(
+                overlayLayers = it.overlayLayers + layer,
+                selectedOverlayId = id,
+                canUndoOverlay = overlayUndoStack.isNotEmpty(),
+                success = "Sticker layer added",
+            )
+        }
+    }
+
+    fun selectOverlay(id: Long?) {
+        _state.update { state ->
+            state.copy(selectedOverlayId = id?.takeIf { selectedId -> state.overlayLayers.any { it.id == selectedId } })
+        }
+    }
+
+    fun moveOverlay(id: Long, deltaX: Float, deltaY: Float) {
+        updateOverlay(id) { layer ->
+            layer.copy(
+                x = (layer.x + deltaX).coerceIn(0f, 1f),
+                y = (layer.y + deltaY).coerceIn(0f, 1f),
+            )
+        }
+    }
+
+    fun updateSelectedOverlayText(value: String) {
+        val id = _state.value.selectedOverlayId ?: return
+        updateOverlay(id) { layer ->
+            layer.copy(text = value.take(MAX_OVERLAY_TEXT_LENGTH))
+        }
+    }
+
+    fun updateSelectedOverlayScale(value: Float) {
+        val id = _state.value.selectedOverlayId ?: return
+        updateOverlay(id) { layer -> layer.copy(scale = value.coerceIn(0.5f, 2.25f)) }
+    }
+
+    fun updateSelectedOverlayRotation(value: Float) {
+        val id = _state.value.selectedOverlayId ?: return
+        updateOverlay(id) { layer -> layer.copy(rotationDegrees = value.coerceIn(-180f, 180f)) }
+    }
+
+    fun updateSelectedOverlayColor(color: Int) {
+        val id = _state.value.selectedOverlayId ?: return
+        updateOverlay(id) { layer -> layer.copy(color = color) }
+    }
+
+    fun updateSelectedSticker(sticker: WallpaperSticker) {
+        val id = _state.value.selectedOverlayId ?: return
+        updateOverlay(id) { layer -> layer.copy(sticker = sticker) }
+    }
+
+    fun deleteSelectedOverlay() {
+        val state = _state.value
+        val selectedId = state.selectedOverlayId ?: return
+        if (state.overlayLayers.none { it.id == selectedId }) return
+        saveOverlayUndoSnapshot(state)
+        val remaining = state.overlayLayers.filterNot { it.id == selectedId }
+        _state.update {
+            it.copy(
+                overlayLayers = remaining,
+                selectedOverlayId = remaining.lastOrNull()?.id,
+                canUndoOverlay = overlayUndoStack.isNotEmpty(),
+            )
+        }
+    }
+
+    fun undoOverlayEdit() {
+        if (overlayUndoStack.isEmpty()) return
+        val previous = overlayUndoStack.removeLast()
+        val selectedId = _state.value.selectedOverlayId
+            ?.takeIf { id -> previous.any { it.id == id } }
+            ?: previous.lastOrNull()?.id
+        _state.update {
+            it.copy(
+                overlayLayers = previous,
+                selectedOverlayId = selectedId,
+                canUndoOverlay = overlayUndoStack.isNotEmpty(),
+            )
         }
     }
 
@@ -251,6 +440,9 @@ class WallpaperEditorViewModel @Inject constructor(
                     depthBackgroundStyle = DepthBackgroundStyle.BLUR,
                     depthFrameStyle = DepthFrameStyle.NONE,
                     depthSubjectScale = 1f,
+                    overlayLayers = emptyList(),
+                    selectedOverlayId = null,
+                    canUndoOverlay = false,
                     isLoadingImage = true,
                     isDepthProcessing = false,
                     isExporting = false,
@@ -261,6 +453,7 @@ class WallpaperEditorViewModel @Inject constructor(
                     qualityWarning = null,
                 )
             }
+            overlayUndoStack.clear()
             try {
                 val bitmap = withContext(Dispatchers.IO) {
                     val request = okhttp3.Request.Builder().url(url).build()
@@ -283,6 +476,31 @@ class WallpaperEditorViewModel @Inject constructor(
                 _state.update { it.copy(isLoadingImage = false, error = e.message ?: "Failed to load image") }
             }
         }
+    }
+
+    private fun updateOverlay(
+        id: Long,
+        transform: (WallpaperOverlayLayer) -> WallpaperOverlayLayer,
+    ) {
+        val state = _state.value
+        if (state.overlayLayers.none { it.id == id }) return
+        saveOverlayUndoSnapshot(state)
+        _state.update {
+            it.copy(
+                overlayLayers = it.overlayLayers.map { layer ->
+                    if (layer.id == id) transform(layer) else layer
+                },
+                selectedOverlayId = id,
+                canUndoOverlay = overlayUndoStack.isNotEmpty(),
+            )
+        }
+    }
+
+    private fun saveOverlayUndoSnapshot(state: EditorState) {
+        if (overlayUndoStack.size >= MAX_OVERLAY_UNDO) {
+            overlayUndoStack.removeFirst()
+        }
+        overlayUndoStack.addLast(state.overlayLayers)
     }
 
     private fun applyFilters() {
@@ -480,8 +698,12 @@ class WallpaperEditorViewModel @Inject constructor(
     private companion object {
         /** Max bytes accepted when downloading a wallpaper for editing. */
         private const val MAX_EDIT_BYTES = 64L * 1024 * 1024
+        private const val MAX_OVERLAY_UNDO = 20
+        private const val MAX_OVERLAY_TEXT_LENGTH = 48
     }
 }
+
+private const val DEFAULT_OVERLAY_TEXT = "Aura"
 
 private fun EditorState.depthPortraitOptions(): DepthPortraitOptions =
     DepthPortraitOptions(
@@ -489,6 +711,123 @@ private fun EditorState.depthPortraitOptions(): DepthPortraitOptions =
         frameStyle = depthFrameStyle,
         subjectScale = depthSubjectScale,
     )
+
+private fun EditorState.renderBitmapForOutput(): Bitmap? {
+    val base = editedBitmap ?: originalBitmap ?: return null
+    if (overlayLayers.isEmpty()) return base
+    return renderWallpaperOverlays(base, overlayLayers)
+}
+
+private suspend fun EditorState.renderBitmapForOutputAsync(): Bitmap? =
+    if (overlayLayers.isEmpty()) {
+        renderBitmapForOutput()
+    } else {
+        withContext(Dispatchers.Default) { renderBitmapForOutput() }
+    }
+
+private fun recycleRenderedBitmap(bitmap: Bitmap, snapshot: EditorState) {
+    if (snapshot.overlayLayers.isNotEmpty() &&
+        bitmap !== snapshot.editedBitmap &&
+        bitmap !== snapshot.originalBitmap &&
+        !bitmap.isRecycled
+    ) {
+        bitmap.recycle()
+    }
+}
+
+internal fun renderWallpaperOverlays(
+    base: Bitmap,
+    layers: List<WallpaperOverlayLayer>,
+): Bitmap {
+    val result = base.copy(Bitmap.Config.ARGB_8888, true) ?: Bitmap.createBitmap(
+        base.width,
+        base.height,
+        Bitmap.Config.ARGB_8888,
+    ).also { fallback ->
+        Canvas(fallback).drawBitmap(base, 0f, 0f, null)
+    }
+    val canvas = Canvas(result)
+    layers.forEach { layer ->
+        canvas.save()
+        canvas.translate(layer.x.coerceIn(0f, 1f) * result.width, layer.y.coerceIn(0f, 1f) * result.height)
+        canvas.rotate(layer.rotationDegrees)
+        when (layer.type) {
+            WallpaperOverlayType.TEXT -> drawTextOverlay(canvas, result, layer)
+            WallpaperOverlayType.STICKER -> drawStickerOverlay(canvas, result, layer)
+        }
+        canvas.restore()
+    }
+    return result
+}
+
+private fun drawTextOverlay(canvas: Canvas, bitmap: Bitmap, layer: WallpaperOverlayLayer) {
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = layer.color
+        textAlign = Paint.Align.CENTER
+        textSize = (bitmap.width * 0.09f * layer.scale).coerceAtLeast(18f)
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        setShadowLayer(textSize * 0.08f, 0f, textSize * 0.04f, Color.argb(180, 0, 0, 0))
+    }
+    val metrics = paint.fontMetrics
+    val baseline = -(metrics.ascent + metrics.descent) / 2f
+    canvas.drawText(layer.text.ifBlank { DEFAULT_OVERLAY_TEXT }, 0f, baseline, paint)
+}
+
+private fun drawStickerOverlay(canvas: Canvas, bitmap: Bitmap, layer: WallpaperOverlayLayer) {
+    val size = (min(bitmap.width, bitmap.height) * 0.16f * layer.scale).coerceAtLeast(32f)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = layer.color
+        style = Paint.Style.FILL
+        setShadowLayer(size * 0.08f, 0f, size * 0.04f, Color.argb(150, 0, 0, 0))
+    }
+    val path = when (layer.sticker) {
+        WallpaperSticker.STAR -> starPath(size)
+        WallpaperSticker.HEART -> heartPath(size)
+        WallpaperSticker.SPARKLE -> sparklePath(size)
+    }
+    canvas.drawPath(path, paint)
+}
+
+private fun starPath(size: Float): Path {
+    val path = Path()
+    val outer = size / 2f
+    val inner = outer * 0.45f
+    for (i in 0 until 10) {
+        val radius = if (i % 2 == 0) outer else inner
+        val angle = -PI / 2.0 + i * PI / 5.0
+        val x = (cos(angle) * radius).toFloat()
+        val y = (sin(angle) * radius).toFloat()
+        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+    }
+    path.close()
+    return path
+}
+
+private fun heartPath(size: Float): Path {
+    val half = size / 2f
+    return Path().apply {
+        moveTo(0f, half * 0.72f)
+        cubicTo(-half, -half * 0.05f, -half * 0.82f, -half * 0.76f, 0f, -half * 0.32f)
+        cubicTo(half * 0.82f, -half * 0.76f, half, -half * 0.05f, 0f, half * 0.72f)
+        close()
+    }
+}
+
+private fun sparklePath(size: Float): Path {
+    val half = size / 2f
+    val arm = half * 0.32f
+    return Path().apply {
+        moveTo(0f, -half)
+        lineTo(arm, -arm)
+        lineTo(half, 0f)
+        lineTo(arm, arm)
+        lineTo(0f, half)
+        lineTo(-arm, arm)
+        lineTo(-half, 0f)
+        lineTo(-arm, -arm)
+        close()
+    }
+}
 
 internal fun wallpaperEditorDownscaleWarning(
     sourceWidth: Int,

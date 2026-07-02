@@ -39,6 +39,9 @@ All notable changes to Aura will be documented in this file.
 - **Depth portrait composer**: added a wallpaper-editor depth panel that
   segments subjects into blurred/tinted/AMOLED portrait backgrounds with frame
   presets, MediaStore export, apply actions, and Aura Parallax handoff.
+- **Wallpaper text and sticker layers**: added local text/sticker overlays in
+  the wallpaper editor with drag/move, scale, rotate, color, undo, MediaStore
+  export, and apply/parallax rendering through the existing wallpaper pipeline.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose

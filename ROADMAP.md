@@ -20,17 +20,6 @@ physical-device validation, or toolchain gates belongs in `Roadmap_Blocked.md`.
 
 ## P2
 
-### Wallpaper editor sticker and text overlays
-
-Crop, smart crop, blur, and color/filter editing exist, but no local layer editor
-for text/stickers exists.
-
-Acceptance:
-- Users can add text and local sticker layers, move/scale/rotate them, undo
-  edits, and apply/export through the existing wallpaper pipeline.
-- Final render matches preview inside crop bounds.
-- No remote sticker store or account surface is added.
-
 ### Local theme pack recipe
 
 Wallpaper/video wallpaper, sounds, widgets, and launcher shortcut recipes are

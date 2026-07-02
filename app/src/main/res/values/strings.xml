@@ -351,6 +351,25 @@
     <string name="editor_wallpaper_depth_compose">Compose</string>
     <string name="editor_wallpaper_depth_parallax">Parallax</string>
     <string name="editor_wallpaper_depth_export">Export</string>
+    <string name="editor_wallpaper_layers_chip">Layers</string>
+    <string name="editor_wallpaper_layers_title">Text and stickers</string>
+    <string name="editor_wallpaper_layers_body">Add local layers, drag them on the preview, then apply or export the rendered wallpaper.</string>
+    <string name="editor_wallpaper_layers_add_text">Text</string>
+    <string name="editor_wallpaper_layers_add_sticker">Sticker</string>
+    <string name="editor_wallpaper_layers_undo">Undo</string>
+    <string name="editor_wallpaper_layers_empty">Add or select a layer to edit its text, sticker, color, scale, rotation, and position.</string>
+    <string name="editor_wallpaper_layers_text_label">Text</string>
+    <string name="editor_wallpaper_layers_sticker_star">Star</string>
+    <string name="editor_wallpaper_layers_sticker_heart">Heart</string>
+    <string name="editor_wallpaper_layers_sticker_sparkle">Sparkle</string>
+    <string name="editor_wallpaper_layers_color">Color</string>
+    <string name="editor_wallpaper_layers_scale">Scale</string>
+    <string name="editor_wallpaper_layers_rotation">Rotation</string>
+    <string name="editor_wallpaper_layers_move">Move</string>
+    <string name="editor_wallpaper_layers_move_left">Move layer left</string>
+    <string name="editor_wallpaper_layers_move_right">Move layer right</string>
+    <string name="editor_wallpaper_layers_move_up">Move layer up</string>
+    <string name="editor_wallpaper_layers_move_down">Move layer down</string>
 
     <!-- Wallpaper crop -->
     <string name="editor_crop_title">Crop &amp; Position</string>
