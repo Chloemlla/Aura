@@ -95,6 +95,7 @@ internal data class SettingsScreenState(
     val externalAutomationDiagnostics: ExternalAutomationDiagnostics,
     val videoWallpaperSelectionResult: VideoWallpaperSelectionResult?,
     val ytDlpUpdate: YtDlpUpdateUiState,
+    val themePackTransfer: ThemePackTransferState,
     val parallaxGalleryResult: ParallaxGalleryResult?,
     val videoBatteryDashboard: VideoBatteryDashboardState,
     val selectedStyleCount: Int,
@@ -184,6 +185,7 @@ internal fun rememberSettingsScreenState(
     val externalAutomationDiagnostics by viewModel.externalAutomationDiagnostics.collectAsStateWithLifecycle()
     val videoWallpaperSelectionResult by viewModel.videoWallpaperSelectionResult.collectAsStateWithLifecycle()
     val ytDlpUpdate by viewModel.ytDlpUpdate.collectAsStateWithLifecycle()
+    val themePackTransfer by viewModel.themePackTransfer.collectAsStateWithLifecycle()
     val parallaxGalleryResult by viewModel.parallaxGalleryResult.collectAsStateWithLifecycle()
     val videoBatteryDashboard by rememberVideoBatteryDashboardState(
         context = context,
@@ -290,6 +292,7 @@ internal fun rememberSettingsScreenState(
         externalAutomationDiagnostics = externalAutomationDiagnostics,
         videoWallpaperSelectionResult = videoWallpaperSelectionResult,
         ytDlpUpdate = ytDlpUpdate,
+        themePackTransfer = themePackTransfer,
         parallaxGalleryResult = parallaxGalleryResult,
         videoBatteryDashboard = videoBatteryDashboard,
         selectedStyleCount = selectedStyleCount,

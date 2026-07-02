@@ -16,6 +16,9 @@ import com.freevibe.service.CommunityIdentityProvider
 import com.freevibe.service.CommunityIdentitySummary
 import com.freevibe.service.CrashDiagnosticsCollector
 import com.freevibe.service.OfflineFavoritesManager
+import com.freevibe.service.ThemePackExportReport
+import com.freevibe.service.ThemePackImportReport
+import com.freevibe.service.ThemePackRecipeManager
 import com.freevibe.service.VideoWallpaperSelectionResult
 import com.freevibe.service.VideoWallpaperStorage
 import com.freevibe.service.WallpaperHistoryManager
@@ -334,6 +337,52 @@ class SettingsViewModelTest {
         coVerify(exactly = 1) { manager.updateStable() }
     }
 
+    @Test
+    fun `exportThemePack delegates to recipe manager and reports summary`() = runTest(dispatcher) {
+        val uri = mockk<Uri>()
+        val manager = mockk<ThemePackRecipeManager>()
+        coEvery { manager.exportThemePack(uri, any()) } returns Result.success(
+            ThemePackExportReport(
+                exportedItemCount = 7,
+                embeddedAssetCount = 2,
+                skippedAssetCount = 1,
+            ),
+        )
+        val viewModel = createViewModel(
+            cacheDir = createTempDirectory("settings-theme-export").toFile().also(tempDirs::add),
+            themePackRecipeManagerOverride = manager,
+        )
+
+        viewModel.exportThemePack(uri)
+        advanceUntilIdle()
+
+        assertEquals("Theme pack exported: 7 recipes, 2 local assets", viewModel.themePackTransfer.value.message)
+        coVerify(exactly = 1) { manager.exportThemePack(uri, any()) }
+    }
+
+    @Test
+    fun `importThemePack delegates to recipe manager and exposes setup instructions`() = runTest(dispatcher) {
+        val uri = mockk<Uri>()
+        val manager = mockk<ThemePackRecipeManager>()
+        coEvery { manager.importThemePack(uri) } returns Result.success(
+            ThemePackImportReport(
+                importedItemCount = 3,
+                instructions = listOf("Pin Aura shortcuts from the launcher."),
+            ),
+        )
+        val viewModel = createViewModel(
+            cacheDir = createTempDirectory("settings-theme-import").toFile().also(tempDirs::add),
+            themePackRecipeManagerOverride = manager,
+        )
+
+        viewModel.importThemePack(uri)
+        advanceUntilIdle()
+
+        assertEquals("Theme pack imported: 3 settings restored", viewModel.themePackTransfer.value.message)
+        assertEquals(listOf("Pin Aura shortcuts from the launcher."), viewModel.themePackTransfer.value.instructions)
+        coVerify(exactly = 1) { manager.importThemePack(uri) }
+    }
+
     private fun createViewModel(
         cacheDir: File,
         offlineFavoritesSize: Long = 0L,
@@ -345,6 +394,7 @@ class SettingsViewModelTest {
         communityIdentityProviderOverride: CommunityIdentityProvider? = null,
         backgroundWorkDiagnosticsReaderOverride: BackgroundWorkDiagnosticsReader? = null,
         ytDlpUpdateManagerOverride: YtDlpUpdateManager? = null,
+        themePackRecipeManagerOverride: ThemePackRecipeManager? = null,
         isAdmin: Boolean = false,
     ): SettingsViewModel {
         val context = mockk<Context>(relaxed = true).also {
@@ -382,6 +432,10 @@ class SettingsViewModelTest {
         val ytDlpUpdateManager = ytDlpUpdateManagerOverride ?: mockk<YtDlpUpdateManager>().also {
             every { it.snapshot() } returns YtDlpUpdateSnapshot()
         }
+        val themePackRecipeManager = themePackRecipeManagerOverride ?: mockk<ThemePackRecipeManager>().also {
+            coEvery { it.exportThemePack(any(), any()) } returns Result.success(ThemePackExportReport(0, 0, 0))
+            coEvery { it.importThemePack(any()) } returns Result.success(ThemePackImportReport(0, emptyList()))
+        }
         return SettingsViewModel(
             context = context,
             prefs = prefs,
@@ -407,6 +461,7 @@ class SettingsViewModelTest {
             communityBlockRepo = communityBlockRepo,
             communityIdentityProvider = communityIdentityProvider,
             ytDlpUpdateManager = ytDlpUpdateManager,
+            themePackRecipeManager = themePackRecipeManager,
             ioDispatcher = dispatcher,
         )
     }

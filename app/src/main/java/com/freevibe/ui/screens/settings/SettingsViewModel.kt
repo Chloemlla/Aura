@@ -24,6 +24,7 @@ import com.freevibe.service.ExternalAutomationDiagnostics
 import com.freevibe.service.ExternalAutomationGate
 import com.freevibe.service.OfflineFavoritesManager
 import com.freevibe.service.SourceMetrics
+import com.freevibe.service.ThemePackRecipeManager
 import com.freevibe.service.VideoWallpaperSelectionResult
 import com.freevibe.service.VideoWallpaperStorage
 import com.freevibe.service.WallpaperApplier
@@ -64,6 +65,13 @@ data class YtDlpUpdateUiState(
     val error: String? = null,
 )
 
+data class ThemePackTransferState(
+    val inProgress: Boolean = false,
+    val message: String? = null,
+    val error: String? = null,
+    val instructions: List<String> = emptyList(),
+)
+
 sealed interface ParallaxGalleryResult {
     data object Preparing : ParallaxGalleryResult
     data object Ready : ParallaxGalleryResult
@@ -87,6 +95,7 @@ class SettingsViewModel @Inject constructor(
     private val communityBlockRepo: CommunityBlockRepository,
     private val communityIdentityProvider: CommunityIdentityProvider,
     private val ytDlpUpdateManager: YtDlpUpdateManager,
+    private val themePackRecipeManager: ThemePackRecipeManager,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
@@ -251,6 +260,8 @@ class SettingsViewModel @Inject constructor(
         YtDlpUpdateUiState(snapshot = ytDlpUpdateManager.snapshot()),
     )
     val ytDlpUpdate = _ytDlpUpdate.asStateFlow()
+    private val _themePackTransfer = MutableStateFlow(ThemePackTransferState())
+    val themePackTransfer = _themePackTransfer.asStateFlow()
 
     init {
         refreshCacheUsage()
@@ -460,6 +471,47 @@ class SettingsViewModel @Inject constructor(
 
     fun clearYtDlpUpdateNotice() {
         _ytDlpUpdate.update { it.copy(completedStatus = null, error = null) }
+    }
+
+    fun exportThemePack(uri: Uri) {
+        if (_themePackTransfer.value.inProgress) return
+        viewModelScope.launch {
+            _themePackTransfer.value = ThemePackTransferState(inProgress = true)
+            val result = themePackRecipeManager.exportThemePack(uri)
+            _themePackTransfer.value = result.fold(
+                onSuccess = { report ->
+                    ThemePackTransferState(
+                        message = "Theme pack exported: ${report.exportedItemCount} recipes, ${report.embeddedAssetCount} local assets",
+                    )
+                },
+                onFailure = { error ->
+                    ThemePackTransferState(error = "Theme pack export failed: ${error.message ?: "try again"}")
+                },
+            )
+        }
+    }
+
+    fun importThemePack(uri: Uri) {
+        if (_themePackTransfer.value.inProgress) return
+        viewModelScope.launch {
+            _themePackTransfer.value = ThemePackTransferState(inProgress = true)
+            val result = themePackRecipeManager.importThemePack(uri)
+            _themePackTransfer.value = result.fold(
+                onSuccess = { report ->
+                    ThemePackTransferState(
+                        message = "Theme pack imported: ${report.importedItemCount} settings restored",
+                        instructions = report.instructions,
+                    )
+                },
+                onFailure = { error ->
+                    ThemePackTransferState(error = "Theme pack import failed: ${error.message ?: "try again"}")
+                },
+            )
+        }
+    }
+
+    fun clearThemePackTransferNotice() {
+        _themePackTransfer.update { it.copy(message = null, error = null, instructions = emptyList()) }
     }
 
     fun clearWallpaperHistory() = viewModelScope.launch {

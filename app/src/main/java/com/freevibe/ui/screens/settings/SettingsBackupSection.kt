@@ -1,6 +1,11 @@
 package com.freevibe.ui.screens.settings
 
 import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteOutline
@@ -11,10 +16,12 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.freevibe.R
 
@@ -27,11 +34,38 @@ internal fun BackupSettingsSection(
     autoBackupFolderPermissionActive: Boolean,
     autoBackupIntervalHours: Long,
     autoBackupKeepCount: Int,
+    themePackTransfer: ThemePackTransferState,
     onChooseAutoBackupFolder: (Boolean) -> Unit,
     onFeedback: (String) -> Unit,
 ) {
     var showAutoBackupIntervalPicker by remember { mutableStateOf(false) }
     var showAutoBackupKeepPicker by remember { mutableStateOf(false) }
+    val themePackExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri: Uri? ->
+        uri?.let(viewModel::exportThemePack)
+    }
+    val themePackImportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri: Uri? ->
+        uri?.let(viewModel::importThemePack)
+    }
+    var themePackInstructions by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    LaunchedEffect(themePackTransfer) {
+        themePackTransfer.message?.let { onFeedback(it) }
+        themePackTransfer.error?.let { onFeedback(it) }
+        if (themePackTransfer.instructions.isNotEmpty()) {
+            themePackInstructions = themePackTransfer.instructions
+        }
+        if (
+            themePackTransfer.message != null ||
+            themePackTransfer.error != null ||
+            themePackTransfer.instructions.isNotEmpty()
+        ) {
+            viewModel.clearThemePackTransferNotice()
+        }
+    }
 
     SettingsSection(
         title = stringResource(R.string.settings_backup_section_title),
@@ -87,6 +121,56 @@ internal fun BackupSettingsSection(
             title = stringResource(R.string.settings_backup_keep_title),
             subtitle = autoBackupRetentionLabel(autoBackupKeepCount),
             onClick = { showAutoBackupKeepPicker = true },
+        )
+        SettingsItem(
+            icon = Icons.Default.FolderOpen,
+            title = stringResource(R.string.settings_theme_pack_export_title),
+            subtitle = if (themePackTransfer.inProgress) {
+                stringResource(R.string.settings_theme_pack_working_subtitle)
+            } else {
+                stringResource(R.string.settings_theme_pack_export_subtitle)
+            },
+            onClick = {
+                themePackExportLauncher.launch(context.getString(R.string.settings_theme_pack_default_filename))
+            },
+        )
+        SettingsItem(
+            icon = Icons.Default.History,
+            title = stringResource(R.string.settings_theme_pack_import_title),
+            subtitle = if (themePackTransfer.inProgress) {
+                stringResource(R.string.settings_theme_pack_working_subtitle)
+            } else {
+                stringResource(R.string.settings_theme_pack_import_subtitle)
+            },
+            onClick = {
+                themePackImportLauncher.launch(
+                    arrayOf(
+                        "application/zip",
+                        "application/json",
+                        "application/octet-stream",
+                        "*/*",
+                    ),
+                )
+            },
+        )
+    }
+
+    if (themePackInstructions.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { themePackInstructions = emptyList() },
+            title = { Text(stringResource(R.string.settings_theme_pack_instructions_title)) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    themePackInstructions.forEach { instruction ->
+                        Text(stringResource(R.string.settings_theme_pack_instruction_row, instruction))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { themePackInstructions = emptyList() }) {
+                    Text(stringResource(R.string.common_done))
+                }
+            },
         )
     }
 

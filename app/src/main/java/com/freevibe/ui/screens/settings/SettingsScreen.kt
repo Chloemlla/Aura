@@ -74,7 +74,6 @@ fun SettingsScreen(
     fun showSettingsFeedback(message: String) {
         feedbackScope.launch { snackbarHostState.showSnackbar(message) }
     }
-
     val settingsState = rememberSettingsScreenState(viewModel, context)
     var dailyWallpaperEnabled by remember {
         mutableStateOf(
@@ -156,7 +155,6 @@ fun SettingsScreen(
         pendingLocalFolderSource = target
         localFolderPickerLauncher.launch(null)
     }
-
     var enableAutoBackupAfterFolder by remember { mutableStateOf(false) }
     val backupFolderPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
@@ -186,7 +184,6 @@ fun SettingsScreen(
         enableAutoBackupAfterFolder = enableAfterSelection
         backupFolderPickerLauncher.launch(null)
     }
-
     val videoPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri: Uri? ->
@@ -392,6 +389,7 @@ fun SettingsScreen(
                 autoBackupFolderPermissionActive = autoBackupFolderPermissionActive,
                 autoBackupIntervalHours = autoBackupIntervalHours,
                 autoBackupKeepCount = autoBackupKeepCount,
+                themePackTransfer = themePackTransfer,
                 onChooseAutoBackupFolder = ::chooseAutoBackupFolder,
                 onFeedback = ::showSettingsFeedback,
             )

@@ -1055,6 +1055,14 @@
     <string name="settings_backup_clear_subtitle">Disable scheduled backup and remove Aura\'s saved folder grant</string>
     <string name="settings_backup_interval_title">Backup interval</string>
     <string name="settings_backup_keep_title">Backups to keep</string>
+    <string name="settings_theme_pack_export_title">Export theme pack</string>
+    <string name="settings_theme_pack_export_subtitle">Save wallpaper, video, sound, widget, and shortcut recipes as a local Aura pack</string>
+    <string name="settings_theme_pack_import_title">Import theme pack</string>
+    <string name="settings_theme_pack_import_subtitle">Restore supported recipe settings and show any launcher steps that require manual setup</string>
+    <string name="settings_theme_pack_working_subtitle">Working on theme pack transfer...</string>
+    <string name="settings_theme_pack_default_filename">aura-theme-pack.zip</string>
+    <string name="settings_theme_pack_instructions_title">Theme pack setup steps</string>
+    <string name="settings_theme_pack_instruction_row">- %1$s</string>
     <string name="settings_smart_daily_wp_title">Daily wallpaper</string>
     <string name="settings_smart_daily_wp_subtitle">Get a daily wallpaper recommendation notification</string>
     <string name="settings_smart_tint_title">Time-of-day tint</string>

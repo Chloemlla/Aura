@@ -73,6 +73,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Per-Contact Ringtones** | Assign custom ringtones to individual contacts |
 | **Dual Wallpapers** | Coordinated home + lock screen wallpaper pairs |
 | **Favorites Export** | JSON export/import with full metadata via Android SAF |
+| **Theme Packs** | Local zip export/import for wallpaper, video, sound, widget tint, and launcher shortcut recipes |
 | **Community Voting** | Upvote/downvote wallpapers and sounds via Firebase |
 | **OLED Dark Theme** | Deep blacks, zero burn-in, Material 3 |
 

@@ -20,18 +20,6 @@ physical-device validation, or toolchain gates belongs in `Roadmap_Blocked.md`.
 
 ## P2
 
-### Local theme pack recipe
-
-Wallpaper/video wallpaper, sounds, widgets, and launcher shortcut recipes are
-not grouped into a portable local pack.
-
-Acceptance:
-- Users can save and import a local pack with wallpaper/video references,
-  optional sounds, widget tint/preview metadata, and launcher shortcut recipe
-  data.
-- Export/import uses JSON plus local assets where permitted.
-- Unsupported launcher actions degrade to clear local instructions.
-
 ### Local Play-ready AAB dry-run lane
 
 GitHub workflow AAB logic is no longer the source of truth. Local release tooling

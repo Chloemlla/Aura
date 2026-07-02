@@ -42,6 +42,10 @@ All notable changes to Aura will be documented in this file.
 - **Wallpaper text and sticker layers**: added local text/sticker overlays in
   the wallpaper editor with drag/move, scale, rotate, color, undo, MediaStore
   export, and apply/parallax rendering through the existing wallpaper pipeline.
+- **Local theme packs**: added Settings export/import for portable Aura theme
+  packs that bundle JSON recipes for wallpapers, video wallpaper, sounds,
+  widget tint metadata, and launcher shortcuts with bounded local assets where
+  Android grants file access.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose
