@@ -187,15 +187,6 @@ Acceptance:
   Acceptance: Supported devices open a customized/embedded picker for wallpaper and collection imports; unsupported devices fall back to the current picker; no broad storage permission is introduced.
   Complexity: M
 
-### P0
-
-- [ ] P0 - Patch Firebase Functions production dependency advisories
-  Why: The deployed community backend dependency tree has current production advisories, including high-severity `form-data` CRLF injection and moderate `protobufjs`/`uuid` issues.
-  Evidence: `functions/package.json`, `functions/package-lock.json`, `npm --prefix functions audit --omit=dev`, GHSA-hmw2-7cc7-3qxx, GHSA-f38q-mgvj-vph7, GHSA-w5hq-g745-h8pq, Firebase Admin Node release notes.
-  Touches: `functions/package.json`, `functions/package-lock.json`, `functions/src`, `functions/test`, local release/security gate tooling.
-  Acceptance: `npm --prefix functions audit --omit=dev` reports zero production vulnerabilities; `npm --prefix functions test` passes; callable/upload emulator tests still pass under Node 22; any Firebase Admin v14 breaking API changes are migrated without legacy namespace imports.
-  Complexity: M
-
 ### P1
 
 - [ ] P1 - Harden provider credential storage

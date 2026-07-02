@@ -7,6 +7,9 @@ All notable changes to Aura will be documented in this file.
   Favorites, Downloads, Collections, Local imports, Recent activity, and
   backup/restore entry points while preserving existing deep links and
   local-first copy.
+- **Functions dependency hardening**: pinned safe transitive versions for
+  `form-data`, `protobufjs`, and `uuid` so the community Functions package
+  audits cleanly without forcing an incompatible Firebase Admin major upgrade.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose
