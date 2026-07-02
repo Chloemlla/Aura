@@ -70,6 +70,7 @@ internal data class SettingsScreenState(
     val pixabayApiKey: String,
     val freesoundApiKey: String,
     val stabilityAiKey: String,
+    val providerCredentialStorageUnavailable: Boolean,
     val generatedContentProviderEnabled: Boolean,
     val generatedContentDisclosureAccepted: Boolean,
     val wallhavenProviderEnabled: Boolean,
@@ -158,6 +159,7 @@ internal fun rememberSettingsScreenState(
     val pixabayApiKey by viewModel.pixabayApiKey.collectAsStateWithLifecycle()
     val freesoundApiKey by viewModel.freesoundApiKey.collectAsStateWithLifecycle()
     val stabilityAiKey by viewModel.stabilityAiKey.collectAsStateWithLifecycle()
+    val providerCredentialStorageUnavailable by viewModel.providerCredentialStorageUnavailable.collectAsStateWithLifecycle()
     val generatedContentProviderEnabled by viewModel.generatedContentProviderEnabled.collectAsStateWithLifecycle()
     val generatedContentDisclosureAccepted by viewModel.generatedContentDisclosureAccepted.collectAsStateWithLifecycle()
     val wallhavenProviderEnabled by viewModel.wallhavenProviderEnabled.collectAsStateWithLifecycle()
@@ -263,6 +265,7 @@ internal fun rememberSettingsScreenState(
         pixabayApiKey = pixabayApiKey,
         freesoundApiKey = freesoundApiKey,
         stabilityAiKey = stabilityAiKey,
+        providerCredentialStorageUnavailable = providerCredentialStorageUnavailable,
         generatedContentProviderEnabled = generatedContentProviderEnabled,
         generatedContentDisclosureAccepted = generatedContentDisclosureAccepted,
         wallhavenProviderEnabled = wallhavenProviderEnabled,

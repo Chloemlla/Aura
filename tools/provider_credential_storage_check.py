@@ -25,12 +25,12 @@ REQUIRED_CREDENTIAL_FIELDS = {
     "redactionTerms",
 }
 SUPPORTED_CLASSIFICATIONS = {"optionalQuotaKey", "publicClientId", "paidSensitiveSecret"}
-SUPPORTED_STORAGE = {"dataStore", "buildConfigOnly"}
+SUPPORTED_STORAGE = {"encryptedSharedPreferences", "buildConfigOnly"}
 STABILITY_CREDENTIAL_ID = "stability-ai-key"
 STABILITY_REQUIREMENTS = {
     "provider": "Stability AI",
     "classification": "paidSensitiveSecret",
-    "storage": "dataStore",
+    "storage": "encryptedSharedPreferences",
     "preferenceKey": "stability_ai_key",
     "buildConfigField": "STABILITY_AI_KEY",
     "gradleProperty": "stability.ai.key",
@@ -102,11 +102,11 @@ def read_settings_surface_text(repo_root: Path, relative_path: str) -> str:
     return "\n".join([text, section_text, strings_text])
 
 
-def validate_backup_exclusion(xml_text: str, data_store_path: str, label: str) -> None:
+def validate_backup_exclusion(xml_text: str, domain: str, path: str, label: str) -> None:
     compact = re.sub(r"\s+", " ", xml_text)
-    required = f'domain="file" path="{data_store_path}"'
+    required = f'domain="{domain}" path="{path}"'
     if required not in compact:
-        raise ProviderCredentialStorageError(f"{label} must exclude {data_store_path}")
+        raise ProviderCredentialStorageError(f"{label} must exclude {domain}:{path}")
 
 
 def validate_gradle_default(app_gradle_text: str, credential: dict[str, Any]) -> None:
@@ -139,10 +139,20 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
     data_store_file = require_string(data_store.get("filePath"), "dataStore.filePath")
     at_rest = require_string(data_store.get("atRestProtection"), "dataStore.atRestProtection")
     keystore_decision = require_string(data_store.get("keystoreDecision"), "dataStore.keystoreDecision")
-    if at_rest != "appPrivateDataStoreNoKeystore":
-        raise ProviderCredentialStorageError("dataStore.atRestProtection must document the no-Keystore posture")
-    if "noKeystore" not in keystore_decision:
-        raise ProviderCredentialStorageError("dataStore.keystoreDecision must be explicit")
+    if at_rest != "legacyMigrationOnly":
+        raise ProviderCredentialStorageError("dataStore.atRestProtection must document legacy migration only")
+    if "remove" not in keystore_decision.lower() or "migration" not in keystore_decision.lower():
+        raise ProviderCredentialStorageError("dataStore.keystoreDecision must document legacy removal after migration")
+    encrypted_store = require_object(policy.get("encryptedStore"), "encryptedStore")
+    encrypted_store_file = require_string(encrypted_store.get("filePath"), "encryptedStore.filePath")
+    encrypted_prefs_name = require_string(encrypted_store.get("sharedPreferencesName"), "encryptedStore.sharedPreferencesName")
+    key_alias = require_string(encrypted_store.get("keyAlias"), "encryptedStore.keyAlias")
+    cipher = require_string(encrypted_store.get("cipher"), "encryptedStore.cipher")
+    encrypted_protection = require_string(encrypted_store.get("atRestProtection"), "encryptedStore.atRestProtection")
+    if encrypted_protection != "androidKeystoreAesGcm":
+        raise ProviderCredentialStorageError("encryptedStore.atRestProtection must be androidKeystoreAesGcm")
+    if cipher != "AES/GCM/NoPadding":
+        raise ProviderCredentialStorageError("encryptedStore.cipher must be AES/GCM/NoPadding")
 
     docs_text = read_text(repo_root, docs_path)
     preferences_manager_text = read_text(repo_root, preferences_manager_path)
@@ -153,25 +163,37 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
     diagnostics_doc_text = read_text(repo_root, diagnostics_doc_path).lower()
     privacy_policy_text = read_text(repo_root, privacy_policy_path).lower()
 
-    validate_backup_exclusion(backup_rules_text, data_store_file, backup_rules_path)
-    validate_backup_exclusion(data_extraction_rules_text, data_store_file, data_extraction_rules_path)
+    validate_backup_exclusion(backup_rules_text, "file", data_store_file, backup_rules_path)
+    validate_backup_exclusion(data_extraction_rules_text, "file", data_store_file, data_extraction_rules_path)
+    validate_backup_exclusion(backup_rules_text, "sharedpref", encrypted_store_file, backup_rules_path)
+    validate_backup_exclusion(data_extraction_rules_text, "sharedpref", encrypted_store_file, data_extraction_rules_path)
     if "<cloud-backup>" not in data_extraction_rules_text or "<device-transfer>" not in data_extraction_rules_text:
         raise ProviderCredentialStorageError(f"{data_extraction_rules_path} must cover cloud backup and device transfer")
     if "api keys entered by the user" not in privacy_policy_text:
         raise ProviderCredentialStorageError("privacy policy must disclose user-entered API key storage")
     if (
-        "ProviderApiKeyDialog(" not in settings_screen_text
-        or "settings_apikey_clear" not in settings_screen_text
-        or ">Clear<" not in settings_screen_text
+            "ProviderApiKeyDialog(" not in settings_screen_text
+            or "settings_apikey_clear" not in settings_screen_text
+            or ">Clear<" not in settings_screen_text
+            or "settings_services_provider_key_storage_warning_title" not in settings_screen_text
     ):
-        raise ProviderCredentialStorageError("Settings screen must expose an explicit provider key Clear action")
+        raise ProviderCredentialStorageError("Settings screen must expose Clear and provider-key storage warning UI")
+    validate_encrypted_store_source(
+        preferences_manager_text=preferences_manager_text,
+        repo_root=repo_root,
+        preferences_manager_path=preferences_manager_path,
+        encrypted_prefs_name=encrypted_prefs_name,
+        encrypted_store_file=encrypted_store_file,
+        key_alias=key_alias,
+        cipher=cipher,
+    )
 
     credentials_raw = policy.get("credentials")
     if not isinstance(credentials_raw, list) or not credentials_raw:
         raise ProviderCredentialStorageError("credentials must be a non-empty list")
 
     seen_ids: set[str] = set()
-    data_store_count = 0
+    encrypted_count = 0
     build_config_count = 0
     paid_sensitive_count = 0
     stability_credential: dict[str, Any] | None = None
@@ -203,12 +225,14 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
             if term not in docs_text:
                 raise ProviderCredentialStorageError(f"{docs_path} is missing {term}")
 
-        if storage == "dataStore":
-            data_store_count += 1
+        if storage == "encryptedSharedPreferences":
+            encrypted_count += 1
             if not preference_key:
-                raise ProviderCredentialStorageError(f"{credential_id} dataStore rows require preferenceKey")
+                raise ProviderCredentialStorageError(f"{credential_id} encrypted rows require legacy preferenceKey")
             if f'stringPreferencesKey("{preference_key}")' not in preferences_manager_text:
-                raise ProviderCredentialStorageError(f"PreferencesManager missing {preference_key}")
+                raise ProviderCredentialStorageError(f"PreferencesManager missing legacy key {preference_key}")
+            if f'ProviderCredentialKey.{provider_credential_enum_name(preference_key)}' not in preferences_manager_text:
+                raise ProviderCredentialStorageError(f"PreferencesManager missing encrypted mapping for {preference_key}")
             if not settings_label or settings_label not in settings_screen_text:
                 raise ProviderCredentialStorageError(f"Settings screen missing label for {credential_id}")
         elif preference_key:
@@ -224,8 +248,8 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
 
         if classification == "paidSensitiveSecret":
             paid_sensitive_count += 1
-            if "not strong at-rest protection" not in docs_text:
-                raise ProviderCredentialStorageError(f"{docs_path} must disclose no strong at-rest protection")
+            if "android keystore" not in docs_text.lower():
+                raise ProviderCredentialStorageError(f"{docs_path} must document Android Keystore protection")
         if credential_id == STABILITY_CREDENTIAL_ID:
             stability_credential = credential
 
@@ -239,13 +263,63 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
         "policyKind": policy["policyKind"],
         "schemaVersion": policy["schemaVersion"],
         "credentialCount": len(credentials_raw),
-        "dataStoreCredentialCount": data_store_count,
+        "encryptedCredentialCount": encrypted_count,
         "buildConfigCredentialCount": build_config_count,
         "paidSensitiveCredentialCount": paid_sensitive_count,
         "stabilityCredentialStatus": "ok",
         "dataStoreFile": data_store_file,
+        "encryptedStoreFile": encrypted_store_file,
         "status": "ok",
     }
+
+
+def provider_credential_enum_name(preference_key: str) -> str:
+    mapping = {
+        "wallhaven_api_key": "WALLHAVEN",
+        "pexels_api_key": "PEXELS",
+        "pixabay_api_key": "PIXABAY",
+        "freesound_api_key": "FREESOUND",
+        "stability_ai_key": "STABILITY_AI",
+    }
+    if preference_key not in mapping:
+        raise ProviderCredentialStorageError(f"missing ProviderCredentialKey mapping for {preference_key}")
+    return mapping[preference_key]
+
+
+def validate_encrypted_store_source(
+    *,
+    preferences_manager_text: str,
+    repo_root: Path,
+    preferences_manager_path: str,
+    encrypted_prefs_name: str,
+    encrypted_store_file: str,
+    key_alias: str,
+    cipher: str,
+) -> None:
+    store_text = read_text(repo_root, "app/src/main/java/com/freevibe/data/local/ProviderCredentialStore.kt")
+    for required in (
+        "AndroidKeyStore",
+        "KeyGenParameterSpec",
+        "KeyProperties.KEY_ALGORITHM_AES",
+        "KeyProperties.BLOCK_MODE_GCM",
+        "setRandomizedEncryptionRequired(true)",
+        "GCMParameterSpec",
+        cipher,
+        encrypted_prefs_name,
+        encrypted_store_file,
+        key_alias,
+    ):
+        if required not in store_text:
+            raise ProviderCredentialStorageError(f"ProviderCredentialStore.kt missing {required}")
+    for required in (
+        "providerCredential(",
+        "readProviderCredential(",
+        "setProviderCredential(",
+        "dataStore.edit { it.remove(legacyKey) }",
+        "providerCredentialStorageUnavailable",
+    ):
+        if required not in preferences_manager_text:
+            raise ProviderCredentialStorageError(f"{preferences_manager_path} missing {required}")
 
 
 def validate_stability_credential(credential: dict[str, Any] | None) -> None:

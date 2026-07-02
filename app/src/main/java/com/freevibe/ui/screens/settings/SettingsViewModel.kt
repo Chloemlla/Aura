@@ -180,6 +180,7 @@ class SettingsViewModel @Inject constructor(
     val pixabayApiKey = prefs.pixabayApiKey.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
     val freesoundApiKey = prefs.freesoundApiKey.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
     val stabilityAiKey = prefs.stabilityAiKey.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+    val providerCredentialStorageUnavailable = prefs.providerCredentialStorageUnavailable
     val generatedContentProviderEnabled = prefs.generatedContentProviderEnabled.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),

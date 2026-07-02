@@ -354,12 +354,29 @@
         "app/src/main/res/xml/backup_rules.xml",
         "app/src/main/res/xml/data_extraction_rules.xml"
       ],
-      "dataTypes": ["Provider API keys", "App settings", "Generated content disclosure", "Provider source switches", "Scheduler preferences"],
+      "dataTypes": ["App settings", "Generated content disclosure", "Provider source switches", "Scheduler preferences", "Legacy provider-key migration inputs"],
       "collectionStatus": "localOnly",
       "sharingStatus": "notShared",
-      "userControl": "Settings provider-key Clear actions, feature switches, generated-content disclosure reset, or Android clear-app-data.",
+      "userControl": "Settings feature switches, generated-content disclosure reset, or Android clear-app-data.",
       "retention": "Retained until the user changes the setting, clears the key/disclosure where available, or clears app data.",
       "deletionPath": "Use Settings controls for keys and toggles, or clear Aura app data.",
+      "backupStatus": "excludedFromBackupAndTransfer"
+    },
+    {
+      "surfaceId": "provider-credential-store",
+      "storageLocation": "shared_prefs/aura_provider_credentials.xml",
+      "sourcePaths": [
+        "app/src/main/java/com/freevibe/data/local/ProviderCredentialStore.kt",
+        "app/src/main/java/com/freevibe/data/local/PreferencesManager.kt",
+        "app/src/main/res/xml/backup_rules.xml",
+        "app/src/main/res/xml/data_extraction_rules.xml"
+      ],
+      "dataTypes": ["Provider API keys"],
+      "collectionStatus": "localOnly",
+      "sharingStatus": "notShared",
+      "userControl": "Settings provider-key Clear actions, saving blank, or Android clear-app-data.",
+      "retention": "Retained in Android Keystore-backed encrypted SharedPreferences until cleared by the user or app data is cleared.",
+      "deletionPath": "Use Settings > API Keys > Clear or save blank, or clear Aura app data.",
       "backupStatus": "excludedFromBackupAndTransfer"
     },
     {

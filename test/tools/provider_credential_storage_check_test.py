@@ -27,7 +27,7 @@ class ProviderCredentialStorageCheckTest(unittest.TestCase):
 
         self.assertEqual("ok", result["status"])
         self.assertEqual(6, result["credentialCount"])
-        self.assertEqual(5, result["dataStoreCredentialCount"])
+        self.assertEqual(5, result["encryptedCredentialCount"])
         self.assertEqual(5, result["buildConfigCredentialCount"])
         self.assertEqual(1, result["paidSensitiveCredentialCount"])
         self.assertEqual("ok", result["stabilityCredentialStatus"])
@@ -37,6 +37,18 @@ class ProviderCredentialStorageCheckTest(unittest.TestCase):
             repo = seed_repo(Path(tmpdir))
             policy = minimal_policy()
             write(repo / "backup.xml", "<full-backup-content />\n")
+
+            with self.assertRaises(ProviderCredentialStorageError):
+                validate_policy(repo, policy)
+
+    def test_rejects_missing_encrypted_sharedpref_backup_exclusion(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = seed_repo(Path(tmpdir))
+            policy = minimal_policy()
+            write(
+                repo / "backup.xml",
+                '<full-backup-content><exclude domain="file" path="datastore/freevibe_prefs.preferences_pb" /></full-backup-content>\n',
+            )
 
             with self.assertRaises(ProviderCredentialStorageError):
                 validate_policy(repo, policy)
@@ -65,6 +77,15 @@ class ProviderCredentialStorageCheckTest(unittest.TestCase):
             repo = seed_repo(Path(tmpdir))
             policy = minimal_policy()
             write(repo / "SettingsScreen.kt", 'Text("Pexels API Key")\n')
+
+            with self.assertRaises(ProviderCredentialStorageError):
+                validate_policy(repo, policy)
+
+    def test_rejects_missing_keystore_wrapper(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = seed_repo(Path(tmpdir))
+            policy = minimal_policy()
+            write(repo / "app/src/main/java/com/freevibe/data/local/ProviderCredentialStore.kt", "class ProviderCredentialStore\n")
 
             with self.assertRaises(ProviderCredentialStorageError):
                 validate_policy(repo, policy)
@@ -122,20 +143,29 @@ def minimal_policy() -> dict[str, object]:
         "dataExtractionRules": "data-extraction.xml",
         "diagnosticsDoc": "diagnostics.md",
         "privacyPolicy": "privacy.md",
-        "dataStore": {
-            "name": "freevibe_prefs",
-            "filePath": "datastore/freevibe_prefs.preferences_pb",
-            "backupDecision": "excludedFromCloudBackupAndDeviceTransfer",
-            "atRestProtection": "appPrivateDataStoreNoKeystore",
-            "keystoreDecision": "noKeystoreMigrationForCurrentOptionalProviderKeys",
-        },
-        "credentials": [
-            {
-                "id": "pexels-api-key",
-                "provider": "Pexels",
-                "classification": "optionalQuotaKey",
-                "storage": "dataStore",
-                "preferenceKey": "pexels_api_key",
+            "dataStore": {
+                "name": "freevibe_prefs",
+                "filePath": "datastore/freevibe_prefs.preferences_pb",
+                "backupDecision": "excludedFromCloudBackupAndDeviceTransfer",
+                "atRestProtection": "legacyMigrationOnly",
+                "keystoreDecision": "Legacy provider key values are removed after successful encrypted-store migration.",
+            },
+            "encryptedStore": {
+                "sharedPreferencesName": "aura_provider_credentials",
+                "filePath": "aura_provider_credentials.xml",
+                "backupDecision": "excludedFromCloudBackupAndDeviceTransfer",
+                "atRestProtection": "androidKeystoreAesGcm",
+                "keyAlias": "aura_provider_credentials_v1",
+                "cipher": "AES/GCM/NoPadding",
+                "fallback": "Settings shows a provider-key storage warning and old DataStore values are retained until migration succeeds.",
+            },
+            "credentials": [
+                {
+                    "id": "pexels-api-key",
+                    "provider": "Pexels",
+                    "classification": "optionalQuotaKey",
+                    "storage": "encryptedSharedPreferences",
+                    "preferenceKey": "pexels_api_key",
                 "buildConfigField": "PEXELS_API_KEY",
                 "gradleProperty": "pexels.api.key",
                 "settingsLabel": "Pexels API Key",
@@ -148,14 +178,37 @@ def minimal_policy() -> dict[str, object]:
 
 
 def seed_repo(repo: Path) -> Path:
-    write(repo / "docs.md", "pexels-api-key\nPexels\noptionalQuotaKey\nnot strong at-rest protection\n")
-    write(repo / "PreferencesManager.kt", 'val PEXELS_KEY = stringPreferencesKey("pexels_api_key")\n')
-    write(repo / "SettingsScreen.kt", 'ProviderApiKeyDialog(\nText("Pexels API Key")\nText("Clear")\n')
+    write(repo / "docs.md", "pexels-api-key\nPexels\noptionalQuotaKey\nAndroid Keystore\n")
+    write(
+        repo / "PreferencesManager.kt",
+        'val PEXELS_KEY = stringPreferencesKey("pexels_api_key")\n'
+        'ProviderCredentialKey.PEXELS\n'
+        'providerCredential(\n'
+        'readProviderCredential(\n'
+        'setProviderCredential(\n'
+        'dataStore.edit { it.remove(legacyKey) }\n'
+        'providerCredentialStorageUnavailable\n',
+    )
+    write(
+        repo / "app/src/main/java/com/freevibe/data/local/ProviderCredentialStore.kt",
+        'AndroidKeyStore\nKeyGenParameterSpec\nKeyProperties.KEY_ALGORITHM_AES\n'
+        'KeyProperties.BLOCK_MODE_GCM\nsetRandomizedEncryptionRequired(true)\n'
+        'GCMParameterSpec\nAES/GCM/NoPadding\naura_provider_credentials\n'
+        'aura_provider_credentials.xml\naura_provider_credentials_v1\n',
+    )
+    write(
+        repo / "SettingsScreen.kt",
+        'ProviderApiKeyDialog(\nText("Pexels API Key")\nText("Clear")\n'
+        'settings_services_provider_key_storage_warning_title\n',
+    )
     write(repo / "build.gradle.kts", 'buildConfigField("String", "PEXELS_API_KEY", "\\"${localProps.getProperty("pexels.api.key", "")}\\"")\n')
-    write(repo / "backup.xml", '<full-backup-content><exclude domain="file" path="datastore/freevibe_prefs.preferences_pb" /></full-backup-content>\n')
+    write(
+        repo / "backup.xml",
+        '<full-backup-content><exclude domain="file" path="datastore/freevibe_prefs.preferences_pb" /><exclude domain="sharedpref" path="aura_provider_credentials.xml" /></full-backup-content>\n',
+    )
     write(
         repo / "data-extraction.xml",
-        '<data-extraction-rules><cloud-backup><exclude domain="file" path="datastore/freevibe_prefs.preferences_pb" /></cloud-backup><device-transfer><exclude domain="file" path="datastore/freevibe_prefs.preferences_pb" /></device-transfer></data-extraction-rules>\n',
+        '<data-extraction-rules><cloud-backup><exclude domain="file" path="datastore/freevibe_prefs.preferences_pb" /><exclude domain="sharedpref" path="aura_provider_credentials.xml" /></cloud-backup><device-transfer><exclude domain="file" path="datastore/freevibe_prefs.preferences_pb" /><exclude domain="sharedpref" path="aura_provider_credentials.xml" /></device-transfer></data-extraction-rules>\n',
     )
     write(repo / "diagnostics.md", "key\napi keys\nlocal.properties\n")
     write(repo / "privacy.md", "API keys entered by the user\n")

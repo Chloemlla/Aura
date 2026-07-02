@@ -189,13 +189,6 @@ Acceptance:
 
 ### P1
 
-- [ ] P1 - Harden provider credential storage
-  Why: Optional provider keys include a paid Stability AI key; DataStore is backup-excluded but still documented as app-private storage without Keystore-backed at-rest protection.
-  Evidence: `PreferencesManager.kt`, `docs/security/provider-credential-storage.json`, `app/src/main/res/xml/backup_rules.xml`, Android Auto Backup docs.
-  Touches: `app/src/main/java/com/freevibe/data/local/PreferencesManager.kt`, Settings API-key dialogs, provider repositories, redaction tests, credential storage policy docs.
-  Acceptance: User-entered provider keys migrate from plain DataStore to Android Keystore-backed encrypted storage or an equivalent tested encrypted wrapper; old DataStore key values are removed after migration; corrupt/locked Keystore fallback is user-visible and non-crashing; backup exclusions and diagnostics redaction remain tested.
-  Complexity: L
-
 - [ ] P1 - Purge workflow-era release documentation
   Why: README, architecture, contribution, and distribution docs still reference GitHub workflow artifacts/secrets even though Aura now ships from local-only release gates.
   Evidence: `README.md`, `ARCHITECTURE.md`, `CONTRIBUTING.md`, `docs/distribution/*`, commits `ec73ea7` and `274e876`, F-Droid/Izzy inclusion guidance.

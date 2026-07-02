@@ -14,9 +14,14 @@ import com.freevibe.service.VIDEO_PREFS_NAME
 import com.freevibe.service.sanitizeVideoFpsLimit
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -47,14 +52,24 @@ class PreferencesManager @Inject constructor(
     }
 
     private val dataStore = context.dataStore
+    private val providerCredentialStore = ProviderCredentialStore(context)
+    private val providerCredentialRevision = MutableStateFlow(0)
+    private val _providerCredentialStorageUnavailable = MutableStateFlow(false)
+    val providerCredentialStorageUnavailable: StateFlow<Boolean> =
+        _providerCredentialStorageUnavailable.asStateFlow()
 
     // ── API Keys (optional, for higher rate limits) ────────────────
 
-    val wallhavenApiKey: Flow<String> = get(Keys.WALLHAVEN_KEY, "")
-    val pexelsApiKey: Flow<String> = get(Keys.PEXELS_KEY, com.freevibe.BuildConfig.PEXELS_API_KEY)
-    val pixabayApiKey: Flow<String> = get(Keys.PIXABAY_KEY, com.freevibe.BuildConfig.PIXABAY_API_KEY)
-    val freesoundApiKey: Flow<String> = get(Keys.FREESOUND_KEY, com.freevibe.BuildConfig.FREESOUND_API_KEY)
-    val stabilityAiKey: Flow<String> = get(Keys.STABILITY_KEY, com.freevibe.BuildConfig.STABILITY_AI_KEY)
+    val wallhavenApiKey: Flow<String> =
+        providerCredential(ProviderCredentialKey.WALLHAVEN, Keys.WALLHAVEN_KEY, "")
+    val pexelsApiKey: Flow<String> =
+        providerCredential(ProviderCredentialKey.PEXELS, Keys.PEXELS_KEY, com.freevibe.BuildConfig.PEXELS_API_KEY)
+    val pixabayApiKey: Flow<String> =
+        providerCredential(ProviderCredentialKey.PIXABAY, Keys.PIXABAY_KEY, com.freevibe.BuildConfig.PIXABAY_API_KEY)
+    val freesoundApiKey: Flow<String> =
+        providerCredential(ProviderCredentialKey.FREESOUND, Keys.FREESOUND_KEY, com.freevibe.BuildConfig.FREESOUND_API_KEY)
+    val stabilityAiKey: Flow<String> =
+        providerCredential(ProviderCredentialKey.STABILITY_AI, Keys.STABILITY_KEY, com.freevibe.BuildConfig.STABILITY_AI_KEY)
     val generatedContentProviderEnabled: Flow<Boolean> = get(
         Keys.GENERATED_CONTENT_PROVIDER_ENABLED,
         DEFAULT_GENERATED_CONTENT_PROVIDER_ENABLED,
@@ -78,11 +93,16 @@ class PreferencesManager @Inject constructor(
     private fun sanitizeApiKey(key: String): String =
         key.trim().filter { it.code >= 0x20 && it.code != 0x7F }
 
-    suspend fun setWallhavenKey(key: String) = set(Keys.WALLHAVEN_KEY, sanitizeApiKey(key))
-    suspend fun setPexelsKey(key: String) = set(Keys.PEXELS_KEY, sanitizeApiKey(key))
-    suspend fun setPixabayKey(key: String) = set(Keys.PIXABAY_KEY, sanitizeApiKey(key))
-    suspend fun setFreesoundKey(key: String) = set(Keys.FREESOUND_KEY, sanitizeApiKey(key))
-    suspend fun setStabilityKey(key: String) = set(Keys.STABILITY_KEY, sanitizeApiKey(key))
+    suspend fun setWallhavenKey(key: String) =
+        setProviderCredential(ProviderCredentialKey.WALLHAVEN, Keys.WALLHAVEN_KEY, key)
+    suspend fun setPexelsKey(key: String) =
+        setProviderCredential(ProviderCredentialKey.PEXELS, Keys.PEXELS_KEY, key)
+    suspend fun setPixabayKey(key: String) =
+        setProviderCredential(ProviderCredentialKey.PIXABAY, Keys.PIXABAY_KEY, key)
+    suspend fun setFreesoundKey(key: String) =
+        setProviderCredential(ProviderCredentialKey.FREESOUND, Keys.FREESOUND_KEY, key)
+    suspend fun setStabilityKey(key: String) =
+        setProviderCredential(ProviderCredentialKey.STABILITY_AI, Keys.STABILITY_KEY, key)
     suspend fun setGeneratedContentProviderEnabled(enabled: Boolean) =
         set(Keys.GENERATED_CONTENT_PROVIDER_ENABLED, enabled)
     suspend fun setGeneratedContentDisclosureAccepted(accepted: Boolean) =
@@ -328,6 +348,61 @@ class PreferencesManager @Inject constructor(
 
     private suspend fun <T> set(key: Preferences.Key<T>, value: T) {
         dataStore.edit { it[key] = value }
+    }
+
+    private fun providerCredential(
+        credentialKey: ProviderCredentialKey,
+        legacyKey: Preferences.Key<String>,
+        default: String,
+    ): Flow<String> = providerCredentialRevision
+        .map { readProviderCredential(credentialKey, legacyKey, default) }
+        .distinctUntilChanged()
+
+    private suspend fun readProviderCredential(
+        credentialKey: ProviderCredentialKey,
+        legacyKey: Preferences.Key<String>,
+        default: String,
+    ): String {
+        val legacyValue = dataStore.data.catch { emit(emptyPreferences()) }.first()[legacyKey]
+        if (legacyValue != null) {
+            val sanitized = sanitizeApiKey(legacyValue)
+            if (writeProviderCredentialValue(credentialKey, sanitized)) {
+                dataStore.edit { it.remove(legacyKey) }
+            }
+            return sanitized.ifBlank { default }
+        }
+        return readProviderCredentialValue(credentialKey) ?: default
+    }
+
+    private suspend fun setProviderCredential(
+        credentialKey: ProviderCredentialKey,
+        legacyKey: Preferences.Key<String>,
+        key: String,
+    ) {
+        val sanitized = sanitizeApiKey(key)
+        val stored = writeProviderCredentialValue(credentialKey, sanitized)
+        if (stored || sanitized.isBlank()) {
+            dataStore.edit { it.remove(legacyKey) }
+        }
+        providerCredentialRevision.update { it + 1 }
+    }
+
+    private fun readProviderCredentialValue(credentialKey: ProviderCredentialKey): String? =
+        runCatching { providerCredentialStore.get(credentialKey) }
+            .onFailure { markProviderCredentialStorageUnavailable() }
+            .getOrNull()
+
+    private fun writeProviderCredentialValue(
+        credentialKey: ProviderCredentialKey,
+        value: String,
+    ): Boolean = runCatching {
+        providerCredentialStore.set(credentialKey, value)
+    }.onFailure {
+        markProviderCredentialStorageUnavailable()
+    }.isSuccess
+
+    private fun markProviderCredentialStorageUnavailable() {
+        _providerCredentialStorageUnavailable.value = true
     }
 
     private object Keys {

@@ -10,6 +10,9 @@ All notable changes to Aura will be documented in this file.
 - **Functions dependency hardening**: pinned safe transitive versions for
   `form-data`, `protobufjs`, and `uuid` so the community Functions package
   audits cleanly without forcing an incompatible Firebase Admin major upgrade.
+- **Provider credential storage**: migrated user-entered provider keys from
+  DataStore to Android Keystore-backed AES-GCM storage, with legacy migration,
+  backup exclusions, and a Settings warning when Keystore access is unavailable.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose

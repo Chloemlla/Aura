@@ -457,6 +457,7 @@ fun SettingsScreen(
                 pixabayApiKey = pixabayApiKey,
                 freesoundApiKey = freesoundApiKey,
                 stabilityAiKey = stabilityAiKey,
+                providerCredentialStorageUnavailable = providerCredentialStorageUnavailable,
                 generatedContentProviderEnabled = generatedContentProviderEnabled,
                 generatedContentDisclosureAccepted = generatedContentDisclosureAccepted,
                 wallhavenProviderEnabled = wallhavenProviderEnabled,

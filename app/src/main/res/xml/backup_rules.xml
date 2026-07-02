@@ -15,6 +15,7 @@
     <exclude domain="file" path="live_wallpaper.webm" />
     <exclude domain="file" path="offline_favorites/" />
     <exclude domain="file" path="parallax/" />
+    <exclude domain="sharedpref" path="aura_provider_credentials.xml" />
     <exclude domain="sharedpref" path="aura_community_identity.xml" />
     <exclude domain="sharedpref" path="aura_votes.xml" />
     <exclude domain="sharedpref" path="background_work_receipts.xml" />

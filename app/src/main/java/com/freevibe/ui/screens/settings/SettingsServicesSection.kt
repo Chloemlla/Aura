@@ -62,6 +62,7 @@ internal fun ServicesCommunitySettingsSection(
     pixabayApiKey: String,
     freesoundApiKey: String,
     stabilityAiKey: String,
+    providerCredentialStorageUnavailable: Boolean,
     generatedContentProviderEnabled: Boolean,
     generatedContentDisclosureAccepted: Boolean,
     wallhavenProviderEnabled: Boolean,
@@ -176,6 +177,14 @@ internal fun ServicesCommunitySettingsSection(
             subtitle = stringResource(R.string.settings_services_wallhaven_key_subtitle),
             onClick = { showWallhavenKey = true },
         )
+        if (providerCredentialStorageUnavailable) {
+            SettingsItem(
+                icon = Icons.Default.Warning,
+                title = stringResource(R.string.settings_services_provider_key_storage_warning_title),
+                subtitle = stringResource(R.string.settings_services_provider_key_storage_warning_subtitle),
+                onClick = { },
+            )
+        }
         SettingsToggle(
             icon = Icons.Default.ImageSearch,
             title = stringResource(R.string.settings_services_wallhaven_enable_title),

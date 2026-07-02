@@ -106,11 +106,22 @@
       "path": "datastore/freevibe_prefs.preferences_pb",
       "type": "DataStore protobuf",
       "budget": "Small (settings only)",
-      "retention": "Persistent; user settings and API keys",
+      "retention": "Persistent; user settings and legacy provider-key migration inputs",
       "backupExcluded": true,
-      "userCleanup": "Reset individual settings; clear API keys in Settings",
+      "userCleanup": "Reset individual settings; legacy provider keys migrate to encrypted storage",
       "uninstallBehavior": "Removed with app",
       "sourceFile": "PreferencesManager.kt"
+    },
+    {
+      "id": "provider_credentials",
+      "path": "shared_prefs/aura_provider_credentials.xml",
+      "type": "Android Keystore encrypted SharedPreferences",
+      "budget": "Small (optional provider keys only)",
+      "retention": "Persistent until Settings Clear, saving blank, or Android clear-app-data",
+      "backupExcluded": true,
+      "userCleanup": "Settings > API Keys > Clear or save blank",
+      "uninstallBehavior": "Removed with app",
+      "sourceFile": "ProviderCredentialStore.kt"
     },
     {
       "id": "mediastore_images",
@@ -159,6 +170,7 @@
   "sharedPreferencesFiles": [
     "freevibe_widget.xml",
     "freevibe_app.xml",
+    "aura_provider_credentials.xml",
     "aura_votes.xml",
     "freevibe_live_wp.xml",
     "freevibe_weather_wp.xml",
