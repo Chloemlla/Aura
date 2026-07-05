@@ -22,6 +22,11 @@
     <string name="common_retry">Retry</string>
     <string name="common_retry_later">Try again in a moment.</string>
     <string name="common_reset">Reset</string>
+    <string name="photo_picker_fallback_open">Open system picker</string>
+    <string name="photo_picker_wallpaper_title">Choose wallpaper image</string>
+    <string name="photo_picker_wallpaper_body">Aura receives access only to the image selected for upload.</string>
+    <string name="photo_picker_qr_title">Choose QR image</string>
+    <string name="photo_picker_qr_body">Aura receives access only to the QR image selected for import.</string>
     <string name="browse_rail_popular">Popular</string>
     <string name="browse_rail_newest">Newest</string>
     <string name="browse_rail_categories">Categories</string>

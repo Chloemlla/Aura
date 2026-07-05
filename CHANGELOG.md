@@ -61,6 +61,9 @@ All notable changes to Aura will be documented in this file.
 - **Sounds ViewModel split**: moved feed loading, YouTube search/import,
   playback/progress, community upload/moderation, and sound selection state into
   feature-owned modules. Sound playback now continues when switching tabs.
+- **Embedded Photo Picker imports**: added an API-gated embedded image picker
+  for wallpaper uploads and collection QR imports, with portrait-grid
+  customization and the existing scoped Photo Picker as fallback.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose

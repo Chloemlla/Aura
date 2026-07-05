@@ -47,9 +47,11 @@ import com.freevibe.data.model.stableKey
 import com.freevibe.data.repository.CollectionRepository
 import com.freevibe.service.CollectionExporter
 import com.freevibe.service.CollectionImportResult
+import com.freevibe.service.PhotoPickerCustomization
 import com.freevibe.service.SelectedContentHolder
 import com.freevibe.ui.components.AuraSnackbarHost
 import com.freevibe.ui.components.AuraStateCard
+import com.freevibe.ui.components.EmbeddedImagePickerSheet
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -216,18 +218,30 @@ fun CollectionsScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     val clipboard = LocalClipboardManager.current
     val shareEvent by viewModel.shareEvent.collectAsStateWithLifecycle()
+    var showEmbeddedQrPicker by remember { mutableStateOf(false) }
     val jsonImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(viewModel::importCollectionFile)
     }
+    fun handleQrImageUri(uri: Uri?) {
+        uri?.let(viewModel::importCollectionQr)
+    }
     // QR code import via Photo Picker (no READ_MEDIA_IMAGES; scoped-storage compliant).
-    // NX-11: AuraPickVisualMedia attaches the Android 17 9:16 portrait grid hint.
+    // Supported Android 14+ extension devices use the embedded picker; fallback remains
+    // ActivityResultContracts.PickVisualMedia with Aura's 9:16 portrait grid customization.
     val qrImportLauncher = rememberLauncherForActivityResult(
         com.freevibe.service.AuraPickVisualMedia()
     ) { uri ->
-        uri?.let(viewModel::importCollectionQr)
+        handleQrImageUri(uri)
     }
     val qrImportPickerRequest = remember {
         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+    }
+    fun launchQrImportPicker() {
+        if (PhotoPickerCustomization.isEmbeddedImagePickerAvailable(context)) {
+            showEmbeddedQrPicker = true
+        } else {
+            qrImportLauncher.launch(qrImportPickerRequest)
+        }
     }
 
     LaunchedEffect(initialImportToken, initialImportUri) {
@@ -273,7 +287,23 @@ fun CollectionsScreen(
             },
             onOpenQrImage = {
                 showImportSheet = false
+                launchQrImportPicker()
+            },
+        )
+    }
+    if (showEmbeddedQrPicker) {
+        EmbeddedImagePickerSheet(
+            title = stringResource(R.string.photo_picker_qr_title),
+            body = stringResource(R.string.photo_picker_qr_body),
+            fallbackLabel = stringResource(R.string.photo_picker_fallback_open),
+            onDismiss = { showEmbeddedQrPicker = false },
+            onFallback = {
+                showEmbeddedQrPicker = false
                 qrImportLauncher.launch(qrImportPickerRequest)
+            },
+            onImagePicked = { uri ->
+                showEmbeddedQrPicker = false
+                handleQrImageUri(uri)
             },
         )
     }

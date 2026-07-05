@@ -63,11 +63,13 @@ import com.freevibe.data.model.favoriteIdentity
 import com.freevibe.data.model.stableKey
 import com.freevibe.data.repository.matchesHiddenIds
 import com.freevibe.service.SeasonalTheme
+import com.freevibe.service.PhotoPickerCustomization
 import com.freevibe.ui.components.CompactSearchField
 import com.freevibe.ui.components.CommunityGuidelinesDialog
 import com.freevibe.ui.components.CommunityPolicyNotice
 import com.freevibe.ui.components.CountBadge
 import com.freevibe.ui.components.DownloadProgressBar
+import com.freevibe.ui.components.EmbeddedImagePickerSheet
 import com.freevibe.ui.components.GlassCard
 import com.freevibe.ui.components.HighlightPill
 import com.freevibe.ui.components.SearchHistoryDropdown
@@ -174,6 +176,7 @@ fun WallpapersScreen(
     var showFiltersSheet by remember { mutableStateOf(false) }
     var showCommunityGuidelines by remember { mutableStateOf(false) }
     var showWallpaperUploadDialog by remember { mutableStateOf(false) }
+    var showEmbeddedWallpaperPicker by remember { mutableStateOf(false) }
     var selectedWallpaperUploadUri by remember { mutableStateOf<Uri?>(null) }
     var awaitingWallpaperUploadResult by remember { mutableStateOf(false) }
     LaunchedEffect(wallhavenProviderEnabled, pexelsProviderEnabled, pixabayProviderEnabled, communityProviderEnabled, state.selectedTab) {
@@ -189,13 +192,7 @@ fun WallpapersScreen(
             viewModel.selectTab(WallpaperTab.DISCOVER)
         }
     }
-    // Photo Picker (Android 13+, backported via Google Play services on older versions). No
-    // READ_MEDIA_IMAGES permission needed; scoped-storage compliant; better UX than GetContent.
-    // NX-11: AuraPickVisualMedia attaches the Android 17 9:16 portrait grid customisation
-    // when running on API 37+. On older devices it's a transparent passthrough.
-    val wallpaperUploadLauncher = rememberLauncherForActivityResult(
-        com.freevibe.service.AuraPickVisualMedia()
-    ) { uri ->
+    fun handleWallpaperUploadUri(uri: Uri?) {
         if (communityProviderEnabled && communityGuidelinesAccepted && uri != null) {
             selectedWallpaperUploadUri = uri
             showWallpaperUploadDialog = true
@@ -204,8 +201,25 @@ fun WallpapersScreen(
             showCommunityGuidelines = true
         }
     }
+
+    // Photo Picker (Android 13+, backported via Google Play services on older versions). No
+    // READ_MEDIA_IMAGES permission needed; scoped-storage compliant; better UX than GetContent.
+    // Supported Android 14+ extension devices use the embedded picker; fallback remains
+    // ActivityResultContracts.PickVisualMedia with Aura's 9:16 portrait grid customization.
+    val wallpaperUploadLauncher = rememberLauncherForActivityResult(
+        com.freevibe.service.AuraPickVisualMedia()
+    ) { uri ->
+        handleWallpaperUploadUri(uri)
+    }
     val wallpaperUploadPickerRequest = remember {
         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+    }
+    fun launchWallpaperUploadPicker() {
+        if (PhotoPickerCustomization.isEmbeddedImagePickerAvailable(context)) {
+            showEmbeddedWallpaperPicker = true
+        } else {
+            wallpaperUploadLauncher.launch(wallpaperUploadPickerRequest)
+        }
     }
 
     // NX-10: EyeDropper API (Android 17+). The EyeDropper app launches a system
@@ -310,6 +324,22 @@ fun WallpapersScreen(
                 selectedWallpaperUploadUri = null
             }
         }
+    }
+    if (showEmbeddedWallpaperPicker) {
+        EmbeddedImagePickerSheet(
+            title = stringResource(R.string.photo_picker_wallpaper_title),
+            body = stringResource(R.string.photo_picker_wallpaper_body),
+            fallbackLabel = stringResource(R.string.photo_picker_fallback_open),
+            onDismiss = { showEmbeddedWallpaperPicker = false },
+            onFallback = {
+                showEmbeddedWallpaperPicker = false
+                wallpaperUploadLauncher.launch(wallpaperUploadPickerRequest)
+            },
+            onImagePicked = { uri ->
+                showEmbeddedWallpaperPicker = false
+                handleWallpaperUploadUri(uri)
+            },
+        )
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -722,7 +752,7 @@ fun WallpapersScreen(
                                     onClick = {
                                         if (state.selectedTab == WallpaperTab.COMMUNITY) {
                                             if (communityGuidelinesAccepted) {
-                                                wallpaperUploadLauncher.launch(wallpaperUploadPickerRequest)
+                                                launchWallpaperUploadPicker()
                                             } else {
                                                 showCommunityGuidelines = true
                                             }
@@ -794,7 +824,7 @@ fun WallpapersScreen(
             showSurprise = wallhavenProviderEnabled,
             onUpload = {
                 if (communityGuidelinesAccepted) {
-                    wallpaperUploadLauncher.launch(wallpaperUploadPickerRequest)
+                    launchWallpaperUploadPicker()
                 } else {
                     showCommunityGuidelines = true
                 }

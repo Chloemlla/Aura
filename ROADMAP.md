@@ -45,13 +45,6 @@ Acceptance:
 
 ### P2
 
-- [ ] P2 - Embedded Photo Picker import polish
-  Why: Aura already uses scoped picker flows and compileSdk-compatible shims, but Android's newer picker customization can make local wallpaper/collection import faster and more private where supported.
-  Evidence: `AuraPickVisualMedia.kt`, `PhotoPickerCustomization.kt`, `WallpapersScreen.kt`, `CollectionsScreen.kt`, Android Photo Picker docs.
-  Touches: `AuraPickVisualMedia.kt`, `PhotoPickerCustomization.kt`, `WallpapersScreen.kt`, `CollectionsScreen.kt`, media ingestion tests.
-  Acceptance: Supported devices open a customized/embedded picker for wallpaper and collection imports; unsupported devices fall back to the current picker; no broad storage permission is introduced.
-  Complexity: M
-
 ### P1
 
 ### P2
