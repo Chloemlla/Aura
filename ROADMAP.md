@@ -20,17 +20,6 @@ physical-device validation, or toolchain gates belongs in `Roadmap_Blocked.md`.
 
 ## P3
 
-### Curated AGSL shader gallery
-
-`AgslEffectPipeline.kt` is scaffolded, but no user-selectable shader gallery is
-available.
-
-Acceptance:
-- Five to ten curated shader presets can be selected as live-wallpaper
-  backgrounds.
-- Android 12 and below receive a static fallback.
-- User-authored shader input is not exposed.
-
 ### On-device wallpaper style learning
 
 Aura has deterministic quality ranking and style preferences, but no learned

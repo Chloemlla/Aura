@@ -64,6 +64,7 @@ internal data class SettingsScreenState(
     val darkModeSwitch: Boolean,
     val darkModeWallpaperId: String,
     val lightModeWallpaperId: String,
+    val liveWallpaperShaderPreset: String,
     val videoFpsLimit: Int,
     val wallhavenApiKey: String,
     val pexelsApiKey: String,
@@ -154,6 +155,7 @@ internal fun rememberSettingsScreenState(
     val darkModeSwitch by viewModel.darkModeSwitch.collectAsStateWithLifecycle()
     val darkModeWallpaperId by viewModel.darkModeWallpaperId.collectAsStateWithLifecycle()
     val lightModeWallpaperId by viewModel.lightModeWallpaperId.collectAsStateWithLifecycle()
+    val liveWallpaperShaderPreset by viewModel.liveWallpaperShaderPreset.collectAsStateWithLifecycle()
     val videoFpsLimit by viewModel.videoFpsLimit.collectAsStateWithLifecycle()
     val wallhavenApiKey by viewModel.wallhavenApiKey.collectAsStateWithLifecycle()
     val pexelsApiKey by viewModel.pexelsApiKey.collectAsStateWithLifecycle()
@@ -261,6 +263,7 @@ internal fun rememberSettingsScreenState(
         darkModeSwitch = darkModeSwitch,
         darkModeWallpaperId = darkModeWallpaperId,
         lightModeWallpaperId = lightModeWallpaperId,
+        liveWallpaperShaderPreset = liveWallpaperShaderPreset,
         videoFpsLimit = videoFpsLimit,
         wallhavenApiKey = wallhavenApiKey,
         pexelsApiKey = pexelsApiKey,

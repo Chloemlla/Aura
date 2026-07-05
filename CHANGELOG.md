@@ -70,6 +70,9 @@ All notable changes to Aura will be documented in this file.
 - **Provider backoff policy**: normalized provider timeout, backoff, cache
   fallback, and disabled-source diagnostics across network sources, with
   coverage for Retry-After, timeout, DNS, and disabled-provider cases.
+- **Curated AGSL shader gallery**: added six built-in live-wallpaper shader
+  backgrounds, a Settings picker with no user-authored shader input, API 33+
+  RuntimeShader rendering, and static Canvas fallback for older Android releases.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose

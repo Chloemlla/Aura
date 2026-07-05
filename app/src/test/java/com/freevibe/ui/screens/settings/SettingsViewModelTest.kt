@@ -8,6 +8,7 @@ import com.freevibe.data.model.CommunityBlockReason
 import com.freevibe.data.repository.CommunityBlockedUser
 import com.freevibe.data.repository.CommunityBlockRepository
 import com.freevibe.data.repository.VoteRepository
+import com.freevibe.service.AgslShaderGallery
 import com.freevibe.service.BackgroundNetworkDiagnostics
 import com.freevibe.service.BackgroundWorkDiagnostics
 import com.freevibe.service.BackgroundWorkDiagnosticsReader
@@ -383,6 +384,20 @@ class SettingsViewModelTest {
         coVerify(exactly = 1) { manager.importThemePack(uri) }
     }
 
+    @Test
+    fun `setLiveWallpaperShaderPreset sanitizes unknown preset ids`() = runTest(dispatcher) {
+        val prefs = mockPreferences()
+        val viewModel = createViewModel(
+            cacheDir = createTempDirectory("settings-shader-preset").toFile().also(tempDirs::add),
+            prefsOverride = prefs,
+        )
+
+        viewModel.setLiveWallpaperShaderPreset("custom_shader_input")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { prefs.setLiveWallpaperShaderPreset(AgslShaderGallery.NONE_ID) }
+    }
+
     private fun createViewModel(
         cacheDir: File,
         offlineFavoritesSize: Long = 0L,
@@ -395,6 +410,7 @@ class SettingsViewModelTest {
         backgroundWorkDiagnosticsReaderOverride: BackgroundWorkDiagnosticsReader? = null,
         ytDlpUpdateManagerOverride: YtDlpUpdateManager? = null,
         themePackRecipeManagerOverride: ThemePackRecipeManager? = null,
+        prefsOverride: PreferencesManager? = null,
         isAdmin: Boolean = false,
     ): SettingsViewModel {
         val context = mockk<Context>(relaxed = true).also {
@@ -402,7 +418,7 @@ class SettingsViewModelTest {
             every { it.filesDir } returns cacheDir.parentFile ?: cacheDir
             every { it.applicationContext } returns it
         }
-        val prefs = mockPreferences()
+        val prefs = prefsOverride ?: mockPreferences()
         val historyManager = mockk<WallpaperHistoryManager>(relaxed = true).also {
             every { it.getRecent(any()) } returns flowOf(emptyList())
         }
@@ -527,6 +543,7 @@ class SettingsViewModelTest {
             every { prefs.alarmShuffleEnabled } returns flowOf(false)
             every { prefs.soundProfilesEnabled } returns flowOf(false)
             every { prefs.liveWallpaperDimEnabled } returns flowOf(false)
+            every { prefs.liveWallpaperShaderPreset } returns flowOf(AgslShaderGallery.NONE_ID)
             every { prefs.soundProfilesJson } returns flowOf("")
             every { prefs.soundProfileLastAppliedId } returns flowOf("")
             every { prefs.wallpaperPackEnabled } returns flowOf(false)
@@ -542,6 +559,7 @@ class SettingsViewModelTest {
             every { prefs.reduceAnimations } returns flowOf(false) // Reduced-motion a11y
             every { prefs.ringtoneShuffleEnabled } returns flowOf(false)
             every { prefs.ringtoneShuffleIntervalHours } returns flowOf(24L)
+            coEvery { prefs.setLiveWallpaperShaderPreset(any()) } returns Unit
         }
 
     private class FakeBackgroundWorkDiagnosticsReader(

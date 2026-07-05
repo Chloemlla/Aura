@@ -404,6 +404,7 @@ fun SettingsScreen(
                 darkModeSwitch = darkModeSwitch,
                 darkModeWallpaperId = darkModeWallpaperId,
                 lightModeWallpaperId = lightModeWallpaperId,
+                liveWallpaperShaderPreset = liveWallpaperShaderPreset,
                 wallpaperHistory = wallpaperHistory,
                 reduceAnimations = reduceAnimations,
                 liveWallpaperDimEnabled = liveWallpaperDimEnabled,

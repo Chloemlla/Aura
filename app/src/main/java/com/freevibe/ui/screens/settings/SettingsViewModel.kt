@@ -11,9 +11,9 @@ import com.freevibe.data.repository.CollectionRepository
 import com.freevibe.data.repository.CommunityBlockRepository
 import com.freevibe.data.repository.VoteRepository
 import com.freevibe.di.IoDispatcher
-import com.freevibe.service.AutoWallpaperWorker
+import com.freevibe.service.AgslShaderGallery
 import com.freevibe.service.AutoBackupWorker
-import com.freevibe.service.RingtoneShuffleWorker
+import com.freevibe.service.AutoWallpaperWorker
 import com.freevibe.service.BackgroundWorkDiagnostics
 import com.freevibe.service.BackgroundWorkDiagnosticsReader
 import com.freevibe.service.CommunityIdentityProvider
@@ -22,7 +22,9 @@ import com.freevibe.service.CrashDiagnosticsCollector
 import com.freevibe.service.CrashDiagnosticsSummary
 import com.freevibe.service.ExternalAutomationDiagnostics
 import com.freevibe.service.ExternalAutomationGate
+import com.freevibe.service.LIVE_WALLPAPER_SHADER_PRESET_PREF
 import com.freevibe.service.OfflineFavoritesManager
+import com.freevibe.service.RingtoneShuffleWorker
 import com.freevibe.service.SourceMetrics
 import com.freevibe.service.ThemePackRecipeManager
 import com.freevibe.service.VideoWallpaperSelectionResult
@@ -161,6 +163,11 @@ class SettingsViewModel @Inject constructor(
     val darkModeSwitch = prefs.darkModeAutoSwitch.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val darkModeWallpaperId = prefs.darkModeWallpaperId.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
     val lightModeWallpaperId = prefs.lightModeWallpaperId.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+    val liveWallpaperShaderPreset = prefs.liveWallpaperShaderPreset.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        AgslShaderGallery.NONE_ID,
+    )
     val autoPreview = prefs.autoPreviewSounds.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
     val gridColumns = prefs.wallpaperGridColumns.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 2)
     val previewVolume = prefs.soundPreviewVolume.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.7f)
@@ -762,6 +769,12 @@ class SettingsViewModel @Inject constructor(
     fun setDarkModeSwitch(enabled: Boolean) = viewModelScope.launch { prefs.setDarkModeAutoSwitch(enabled) }
     fun setDarkModeWallpaperId(id: String) = viewModelScope.launch { prefs.setDarkModeWallpaperId(id) }
     fun setLightModeWallpaperId(id: String) = viewModelScope.launch { prefs.setLightModeWallpaperId(id) }
+    fun setLiveWallpaperShaderPreset(id: String) = viewModelScope.launch {
+        val sanitized = AgslShaderGallery.sanitizeId(id)
+        prefs.setLiveWallpaperShaderPreset(sanitized)
+        context.getSharedPreferences("freevibe_weather_wp", android.content.Context.MODE_PRIVATE)
+            .edit().putString(LIVE_WALLPAPER_SHADER_PRESET_PREF, sanitized).apply()
+    }
 
     fun clearCache() = viewModelScope.launch {
         withContext(ioDispatcher) {

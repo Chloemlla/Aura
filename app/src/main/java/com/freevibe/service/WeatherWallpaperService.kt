@@ -29,6 +29,8 @@ class WeatherWallpaperService : WallpaperService() {
         private var renderer: WeatherParticleRenderer? = null
         private var vfxRenderer: VfxParticleRenderer? = null
         private var touchRenderer: TouchEffectRenderer? = null
+        private val shaderRenderer = AgslShaderBackgroundRenderer()
+        private var shaderPreset: AgslShaderPreset? = null
         private var wallpaperBitmap: Bitmap? = null
         private var scaledBitmap: Bitmap? = null
         private val bitmapLock = Any()
@@ -64,7 +66,8 @@ class WeatherWallpaperService : WallpaperService() {
         override fun onSurfaceCreated(holder: SurfaceHolder) {
             super.onSurfaceCreated(holder)
             setTouchEventsEnabled(true)
-            receiptStore.recordSurfaceCreated(LiveWallpaperReceiptStore.ENGINE_WEATHER, weatherPrefs().getString("wallpaper_path", null))
+            loadShaderPresetFromPrefs()
+            receiptStore.recordSurfaceCreated(LiveWallpaperReceiptStore.ENGINE_WEATHER, currentWallpaperLocator())
             loadWallpaperBitmap()
         }
 
@@ -82,6 +85,7 @@ class WeatherWallpaperService : WallpaperService() {
             loadWeatherFromPrefs()
             loadVfxFromPrefs()
             loadTouchEffectsFromPrefs()
+            loadShaderPresetFromPrefs()
             loadAdaptiveTintFromPrefs()
             loadDimmingFromPrefs()
             if (visible) scheduleDraw()
@@ -96,6 +100,7 @@ class WeatherWallpaperService : WallpaperService() {
                 loadWeatherFromPrefs()
                 loadVfxFromPrefs()
                 loadTouchEffectsFromPrefs()
+                loadShaderPresetFromPrefs()
                 loadAdaptiveTintFromPrefs()
                 loadDimmingFromPrefs()
                 scheduleDraw()
@@ -134,6 +139,7 @@ class WeatherWallpaperService : WallpaperService() {
                 scaledBitmap = null
                 wallpaperBitmap = null
             }
+            shaderRenderer.clear()
         }
 
         private fun loadWallpaperBitmap() {
@@ -205,6 +211,22 @@ class WeatherWallpaperService : WallpaperService() {
             val prefs = weatherPrefs()
             touchRenderer?.setStrength(parseTouchEffectStrength(prefs.getString("touch_effect_strength", "OFF")))
         }
+
+        private fun loadShaderPresetFromPrefs() {
+            val presetId = weatherPrefs().getString(
+                LIVE_WALLPAPER_SHADER_PRESET_PREF,
+                AgslShaderGallery.NONE_ID,
+            )
+            val nextPreset = AgslShaderGallery.find(AgslShaderGallery.sanitizeId(presetId))
+            if (nextPreset?.id != shaderPreset?.id) {
+                shaderPreset = nextPreset
+                shaderRenderer.clear()
+            }
+        }
+
+        private fun currentWallpaperLocator(): String? =
+            shaderPreset?.let { "shader:${it.id}" }
+                ?: weatherPrefs().getString("wallpaper_path", null)
 
         private fun loadWeatherFromPrefs() {
             val prefs = weatherPrefs()
@@ -297,14 +319,7 @@ class WeatherWallpaperService : WallpaperService() {
             try {
                 canvas = holder.lockCanvas()
                 if (canvas != null) {
-                    // Draw wallpaper background
-                    val bmp = synchronized(bitmapLock) { scaledBitmap }
-                    if (bmp != null && !bmp.isRecycled) {
-                        val paint = currentTintPaint()
-                        canvas.drawBitmap(bmp, 0f, 0f, paint)
-                    } else {
-                        canvas.drawColor(android.graphics.Color.BLACK)
-                    }
+                    drawBaseBackground(canvas)
 
                     if (!reducedMotion) {
                         renderer?.update()
@@ -336,6 +351,21 @@ class WeatherWallpaperService : WallpaperService() {
             }
             if (visible && !reducedMotion) {
                 handler.postDelayed(drawRunner, frameInterval)
+            }
+        }
+
+        private fun drawBaseBackground(canvas: Canvas) {
+            val preset = shaderPreset
+            if (preset != null) {
+                shaderRenderer.draw(canvas, preset)
+                return
+            }
+            val bmp = synchronized(bitmapLock) { scaledBitmap }
+            if (bmp != null && !bmp.isRecycled) {
+                val paint = currentTintPaint()
+                canvas.drawBitmap(bmp, 0f, 0f, paint)
+            } else {
+                canvas.drawColor(android.graphics.Color.BLACK)
             }
         }
 

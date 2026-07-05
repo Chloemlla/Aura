@@ -1084,6 +1084,15 @@
     <string name="settings_smart_slot_not_set">Not set</string>
     <string name="settings_smart_slot_set">Set</string>
     <string name="settings_smart_slot_hint">Tap either slot to choose which wallpaper to apply when the system switches to that theme</string>
+    <string name="settings_smart_shader_title">Shader backgrounds</string>
+    <string name="settings_smart_shader_dialog_title">Shader background</string>
+    <string name="settings_smart_shader_none">None</string>
+    <string name="settings_smart_shader_aurora">Aurora ribbons</string>
+    <string name="settings_smart_shader_chroma_mist">Chroma mist</string>
+    <string name="settings_smart_shader_neon_dusk">Neon dusk grid</string>
+    <string name="settings_smart_shader_solar_drift">Solar drift</string>
+    <string name="settings_smart_shader_deep_ocean">Deep ocean</string>
+    <string name="settings_smart_shader_monochrome_rain">Monochrome rain</string>
     <string name="settings_smart_vfx_title">Decorative effects</string>
     <string name="settings_smart_vfx_subtitle">Fireflies, sakura, embers, bubbles, leaves, sparkles</string>
     <string name="settings_smart_vfx_dialog_title">Decorative overlay</string>

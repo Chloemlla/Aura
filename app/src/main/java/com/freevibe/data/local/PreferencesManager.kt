@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.freevibe.data.model.COMMUNITY_GUIDELINES_VERSION
 import com.freevibe.data.model.hasAcceptedCommunityGuidelinesVersion
+import com.freevibe.service.AgslShaderGallery
 import com.freevibe.service.VIDEO_AUTO_BATTERY_SAVER_PREF
 import com.freevibe.service.VIDEO_FPS_LIMIT_PREF
 import com.freevibe.service.VIDEO_FPS_OVERLAY_PREF
@@ -336,6 +337,10 @@ class PreferencesManager @Inject constructor(
     val darkModeAutoSwitch: Flow<Boolean> = get(Keys.DARK_MODE_SWITCH, false)
     val darkModeWallpaperId: Flow<String> = get(Keys.DARK_WALLPAPER_ID, "")
     val lightModeWallpaperId: Flow<String> = get(Keys.LIGHT_WALLPAPER_ID, "")
+    val liveWallpaperShaderPreset: Flow<String> = get(
+        Keys.LIVE_WALLPAPER_SHADER_PRESET,
+        AgslShaderGallery.NONE_ID,
+    ).map(AgslShaderGallery::sanitizeId)
 
     suspend fun setAdaptiveTintEnabled(enabled: Boolean) = set(Keys.ADAPTIVE_TINT, enabled)
     suspend fun setAdaptiveTintIntensity(intensity: Float) = set(Keys.ADAPTIVE_TINT_INTENSITY, intensity)
@@ -344,6 +349,8 @@ class PreferencesManager @Inject constructor(
     suspend fun setDarkModeAutoSwitch(enabled: Boolean) = set(Keys.DARK_MODE_SWITCH, enabled)
     suspend fun setDarkModeWallpaperId(id: String) = set(Keys.DARK_WALLPAPER_ID, id)
     suspend fun setLightModeWallpaperId(id: String) = set(Keys.LIGHT_WALLPAPER_ID, id)
+    suspend fun setLiveWallpaperShaderPreset(id: String) =
+        set(Keys.LIVE_WALLPAPER_SHADER_PRESET, AgslShaderGallery.sanitizeId(id))
 
     // ── Personalization ──────────────────────────────────────────
 
@@ -483,6 +490,7 @@ class PreferencesManager @Inject constructor(
         val DARK_MODE_SWITCH = booleanPreferencesKey("dark_mode_auto_switch")
         val DARK_WALLPAPER_ID = stringPreferencesKey("dark_mode_wallpaper_id")
         val LIGHT_WALLPAPER_ID = stringPreferencesKey("light_mode_wallpaper_id")
+        val LIVE_WALLPAPER_SHADER_PRESET = stringPreferencesKey("live_wallpaper_shader_preset")
         val USER_STYLES = stringPreferencesKey("user_styles")
         // Ringtone shuffle
         val RINGTONE_SHUFFLE_ENABLED = booleanPreferencesKey("ringtone_shuffle_enabled")

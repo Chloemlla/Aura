@@ -46,6 +46,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.freevibe.R
 import com.freevibe.data.model.WallpaperHistoryEntity
+import com.freevibe.service.AgslShaderGallery
 import com.freevibe.ui.util.openExternalUrl
 
 @Composable
@@ -59,6 +60,7 @@ internal fun SmartLiveWallpaperSettingsSection(
     darkModeSwitch: Boolean,
     darkModeWallpaperId: String,
     lightModeWallpaperId: String,
+    liveWallpaperShaderPreset: String,
     wallpaperHistory: List<WallpaperHistoryEntity>,
     reduceAnimations: Boolean,
     liveWallpaperDimEnabled: Boolean,
@@ -69,6 +71,7 @@ internal fun SmartLiveWallpaperSettingsSection(
 ) {
     var showDarkModeWallpaperPicker by remember { mutableStateOf(false) }
     var showLightModeWallpaperPicker by remember { mutableStateOf(false) }
+    var showShaderPicker by remember { mutableStateOf(false) }
     var showVfxPicker by remember { mutableStateOf(false) }
     var showTouchEffectsPicker by remember { mutableStateOf(false) }
     var touchEffectStrength by remember {
@@ -172,6 +175,12 @@ internal fun SmartLiveWallpaperSettingsSection(
         }
         SettingsItem(
             icon = Icons.Default.AutoFixHigh,
+            title = stringResource(R.string.settings_smart_shader_title),
+            subtitle = shaderPresetLabel(liveWallpaperShaderPreset),
+            onClick = { showShaderPicker = true },
+        )
+        SettingsItem(
+            icon = Icons.Default.AutoFixHigh,
             title = stringResource(R.string.settings_smart_vfx_title),
             subtitle = stringResource(R.string.settings_smart_vfx_subtitle),
             onClick = { showVfxPicker = true },
@@ -202,6 +211,13 @@ internal fun SmartLiveWallpaperSettingsSection(
         VfxPickerDialog(
             context = context,
             onDismiss = { showVfxPicker = false },
+        )
+    }
+    if (showShaderPicker) {
+        ShaderPresetPickerDialog(
+            selectedPresetId = liveWallpaperShaderPreset,
+            onSelect = viewModel::setLiveWallpaperShaderPreset,
+            onDismiss = { showShaderPicker = false },
         )
     }
     if (showTouchEffectsPicker) {
@@ -236,6 +252,48 @@ internal fun SmartLiveWallpaperSettingsSection(
             onDismiss = { showLightModeWallpaperPicker = false },
         )
     }
+}
+
+@Composable
+private fun ShaderPresetPickerDialog(
+    selectedPresetId: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val selectedId = AgslShaderGallery.sanitizeId(selectedPresetId)
+    val options = listOf(AgslShaderGallery.NONE_ID) + AgslShaderGallery.presets.map { it.id }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_smart_shader_dialog_title)) },
+        text = {
+            Column {
+                options.forEach { presetId ->
+                    SettingsRadioOptionRow(
+                        label = shaderPresetLabel(presetId),
+                        selected = selectedId == presetId,
+                        onClick = {
+                            onSelect(presetId)
+                            onDismiss()
+                        },
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_close)) }
+        },
+    )
+}
+
+@Composable
+private fun shaderPresetLabel(presetId: String): String = when (presetId) {
+    AgslShaderGallery.AURORA_RIBBONS -> stringResource(R.string.settings_smart_shader_aurora)
+    AgslShaderGallery.CHROMA_MIST -> stringResource(R.string.settings_smart_shader_chroma_mist)
+    AgslShaderGallery.NEON_DUSK -> stringResource(R.string.settings_smart_shader_neon_dusk)
+    AgslShaderGallery.SOLAR_DRIFT -> stringResource(R.string.settings_smart_shader_solar_drift)
+    AgslShaderGallery.DEEP_OCEAN -> stringResource(R.string.settings_smart_shader_deep_ocean)
+    AgslShaderGallery.MONOCHROME_RAIN -> stringResource(R.string.settings_smart_shader_monochrome_rain)
+    else -> stringResource(R.string.settings_smart_shader_none)
 }
 
 @Composable

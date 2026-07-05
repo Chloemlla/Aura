@@ -56,6 +56,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Video Battery Dashboard** | Live wallpaper-service heartbeat, battery status, effective FPS, and automatic low-battery capping |
 | **Parallax Wallpapers** | ML Kit depth segmentation for layered tilt-responsive live wallpapers |
 | **Weather Wallpapers** | Live weather effects overlay on wallpapers |
+| **Shader Wallpapers** | Curated AGSL live wallpaper backgrounds with static fallback on older Android releases |
 | **Touch-Reactive Effects** | Optional ripple and sparkle bursts on live wallpaper touches |
 | **YouTube Sounds** | YouTube-first ringtone, notification, and alarm discovery with duration-aware searches powered by NewPipe + yt-dlp |
 | **Community Sound Uploads** | Pick or record sounds, tag them, vote on community picks, and share via Firebase Storage |
