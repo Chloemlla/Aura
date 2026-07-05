@@ -790,9 +790,16 @@ fun WallpapersScreen(
                                 onUpvote = if (communityProviderEnabled) ({ id ->
                                     if (communityGuidelinesAccepted) viewModel.upvote(id) else showCommunityGuidelines = true
                                 }) else null,
-                                onDownvote = if (communityProviderEnabled) ({ id ->
-                                    if (communityGuidelinesAccepted) viewModel.downvote(id) else showCommunityGuidelines = true
-                                }) else null,
+                                onDownvote = { wallpaper ->
+                                    viewModel.skipWallpaper(wallpaper)
+                                    if (communityProviderEnabled) {
+                                        if (communityGuidelinesAccepted) {
+                                            viewModel.downvote(wallpaper.stableKey())
+                                        } else {
+                                            showCommunityGuidelines = true
+                                        }
+                                    }
+                                },
                                 voteCounts = voteCounts,
                                 onLoadMore = { viewModel.loadMore() },
                                 onSearch = { query -> viewModel.search(query) },
@@ -1065,7 +1072,7 @@ private fun WallpaperGrid(
     favoriteIdentities: Set<FavoriteIdentity> = emptySet(),
     hiddenIds: Set<String> = emptySet(),
     onUpvote: ((String) -> Unit)? = null,
-    onDownvote: ((String) -> Unit)? = null,
+    onDownvote: ((Wallpaper) -> Unit)? = null,
     voteCounts: Map<String, Int> = emptyMap(),
     onLoadMore: () -> Unit,
     onSearch: ((String) -> Unit)? = null,
@@ -1215,7 +1222,7 @@ private fun WallpaperGrid(
                         voteCount = votes,
                         onClick = { onWallpaperClick(wp) },
                         onFavoriteClick = onLongPress?.let { { it(wp) } },
-                        onLongPress = onDownvote?.let { { it(wp.stableKey()) } },
+                        onLongPress = onDownvote?.let { { it(wp) } },
                         onUpvote = onUpvote?.let { { it(wp.stableKey()) } },
                     )
                 }
@@ -1230,9 +1237,9 @@ private fun WallpaperGrid(
                 voteCount = voteCounts[wallpaper.stableKey()] ?: 0,
                 onClick = { onWallpaperClick(wallpaper) },
                 onFavoriteClick = onLongPress?.let { { it(wallpaper) } },
-                onLongPress = onDownvote?.let { { it(wallpaper.stableKey()) } },
+                onLongPress = onDownvote?.let { { it(wallpaper) } },
                 onUpvote = onUpvote?.let { { it(wallpaper.stableKey()) } },
-                onDownvote = onDownvote?.let { { it(wallpaper.stableKey()) } },
+                onDownvote = onDownvote?.let { { it(wallpaper) } },
             )
         }
 

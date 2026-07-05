@@ -856,6 +856,9 @@ class WallpapersViewModelTest {
         every { prefs.communityGuidelinesAccepted } returns flowOf(true)
         every { prefs.preferredResolution } returns flowOf("1080x1920")
         every { prefs.userStyles } returns flowOf("minimal,nature")
+        every { prefs.wallpaperStyleLearningJson } returns flowOf("")
+        coEvery { prefs.setWallpaperStyleLearningJson(any()) } returns Unit
+        coEvery { prefs.clearWallpaperStyleLearning() } returns Unit
 
         val collectionRepo = mockk<CollectionRepository>()
         every { collectionRepo.getAll() } returns flowOf(emptyList<WallpaperCollectionEntity>())

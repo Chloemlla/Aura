@@ -20,16 +20,6 @@ physical-device validation, or toolchain gates belongs in `Roadmap_Blocked.md`.
 
 ## P3
 
-### On-device wallpaper style learning
-
-Aura has deterministic quality ranking and style preferences, but no learned
-on-device taste model.
-
-Acceptance:
-- Apply, favorite, and skip signals stay local.
-- Discover ranking adapts after enough interactions.
-- Users can reset learned preferences in Settings.
-
 ## Research-Driven Additions
 
 ### P2

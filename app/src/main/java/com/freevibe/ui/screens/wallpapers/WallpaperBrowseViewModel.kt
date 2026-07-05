@@ -11,6 +11,7 @@ import com.freevibe.data.repository.VoteRepository
 import com.freevibe.data.repository.WallpaperRepository
 import com.freevibe.data.repository.WallpaperUploadRepository
 import com.freevibe.service.SourceMetrics
+import com.freevibe.service.WallpaperStyleLearningProfile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -135,11 +136,13 @@ internal class WallpaperBrowseViewModel(
                 if (visibleCached.isNotEmpty()) {
                     val preferredResolution = prefs.preferredResolution.first()
                     val userStyles = loadUserStyles()
+                    val styleLearningProfile = loadStyleLearningProfile()
                     val rankedCached = rankWallpapers(
                         wallpapers = visibleCached,
                         filter = state.value.discoverFilter,
                         preferredResolution = preferredResolution,
                         userStyles = userStyles,
+                        styleLearningProfile = styleLearningProfile,
                     )
                     state.update {
                         it.copy(
@@ -154,6 +157,7 @@ internal class WallpaperBrowseViewModel(
             val currentPage = state.value.currentPage
             try {
                 val userStyles = loadUserStyles()
+                val styleLearningProfile = loadStyleLearningProfile()
                 if (currentTab == WallpaperTab.REDDIT && !isRedditProviderEnabled()) {
                     redditRepo.getMultiSubreddit()
                     state.update {
@@ -212,6 +216,7 @@ internal class WallpaperBrowseViewModel(
                         filter = activeFilter,
                         preferredResolution = preferredResolution,
                         userStyles = userStyles,
+                        styleLearningProfile = styleLearningProfile,
                     )
                 }
                 val preserveExistingDiscoverFeed =
@@ -289,6 +294,9 @@ internal class WallpaperBrowseViewModel(
             .split(",")
             .map { it.trim().lowercase(java.util.Locale.ROOT) }
             .filter { it.isNotBlank() }
+
+    suspend fun loadStyleLearningProfile(): WallpaperStyleLearningProfile =
+        WallpaperStyleLearningProfile.parse(prefs.wallpaperStyleLearningJson.first())
 
     private suspend fun isRedditProviderEnabled(): Boolean = false
 

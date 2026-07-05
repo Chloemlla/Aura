@@ -355,7 +355,10 @@ class PreferencesManager @Inject constructor(
     // ── Personalization ──────────────────────────────────────────
 
     val userStyles: Flow<String> = get(Keys.USER_STYLES, "")
+    val wallpaperStyleLearningJson: Flow<String> = get(Keys.WALLPAPER_STYLE_LEARNING_JSON, "")
     suspend fun setUserStyles(styles: String) = set(Keys.USER_STYLES, styles)
+    suspend fun setWallpaperStyleLearningJson(json: String) = set(Keys.WALLPAPER_STYLE_LEARNING_JSON, json)
+    suspend fun clearWallpaperStyleLearning() = set(Keys.WALLPAPER_STYLE_LEARNING_JSON, "")
 
     // ── Generic helpers ───────────────────────────────────────────
 
@@ -492,6 +495,7 @@ class PreferencesManager @Inject constructor(
         val LIGHT_WALLPAPER_ID = stringPreferencesKey("light_mode_wallpaper_id")
         val LIVE_WALLPAPER_SHADER_PRESET = stringPreferencesKey("live_wallpaper_shader_preset")
         val USER_STYLES = stringPreferencesKey("user_styles")
+        val WALLPAPER_STYLE_LEARNING_JSON = stringPreferencesKey("wallpaper_style_learning_json")
         // Ringtone shuffle
         val RINGTONE_SHUFFLE_ENABLED = booleanPreferencesKey("ringtone_shuffle_enabled")
         val RINGTONE_SHUFFLE_INTERVAL_HOURS = longPreferencesKey("ringtone_shuffle_interval_hours")

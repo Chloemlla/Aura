@@ -77,6 +77,7 @@ internal fun WallpaperRotationSettingsSection(
     gridColumns: Int,
     preferredRes: String,
     userStyles: String,
+    wallpaperStyleLearningSignalCount: Int,
     bingProviderEnabled: Boolean,
     wallhavenProviderEnabled: Boolean,
     pixabayProviderEnabled: Boolean,
@@ -270,6 +271,17 @@ internal fun WallpaperRotationSettingsSection(
             subtitle = userStylesSummary(userStyles),
             onClick = { showStylePicker = true },
         )
+        if (wallpaperStyleLearningSignalCount > 0) {
+            SettingsItem(
+                icon = Icons.Default.DeleteOutline,
+                title = stringResource(R.string.settings_wp_style_learning_reset_title),
+                subtitle = stringResource(
+                    R.string.settings_wp_style_learning_reset_subtitle,
+                    wallpaperStyleLearningSignalCount,
+                ),
+                onClick = viewModel::resetWallpaperStyleLearning,
+            )
+        }
         SettingsItem(
             icon = Icons.Default.Forum,
             title = stringResource(R.string.settings_wp_reddit_title),

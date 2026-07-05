@@ -51,6 +51,7 @@ internal data class SettingsScreenState(
     val wallpaperPackJson: String,
     val preferredRes: String,
     val userStyles: String,
+    val wallpaperStyleLearningSignalCount: Int,
     val schedulerEnabled: Boolean,
     val schedulerInterval: Long,
     val schedulerSource: String,
@@ -142,6 +143,7 @@ internal fun rememberSettingsScreenState(
     val wallpaperPackJson by viewModel.wallpaperPackJson.collectAsStateWithLifecycle()
     val preferredRes by viewModel.preferredRes.collectAsStateWithLifecycle()
     val userStyles by viewModel.userStyles.collectAsStateWithLifecycle()
+    val wallpaperStyleLearningSignalCount by viewModel.wallpaperStyleLearningSignalCount.collectAsStateWithLifecycle()
     val schedulerEnabled by viewModel.schedulerEnabled.collectAsStateWithLifecycle()
     val schedulerInterval by viewModel.schedulerInterval.collectAsStateWithLifecycle()
     val schedulerSource by viewModel.schedulerSource.collectAsStateWithLifecycle()
@@ -250,6 +252,7 @@ internal fun rememberSettingsScreenState(
         wallpaperPackJson = wallpaperPackJson,
         preferredRes = preferredRes,
         userStyles = userStyles,
+        wallpaperStyleLearningSignalCount = wallpaperStyleLearningSignalCount,
         schedulerEnabled = schedulerEnabled,
         schedulerInterval = schedulerInterval,
         schedulerSource = schedulerSource,

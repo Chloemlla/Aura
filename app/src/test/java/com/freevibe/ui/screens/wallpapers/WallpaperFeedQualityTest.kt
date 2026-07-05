@@ -2,6 +2,8 @@ package com.freevibe.ui.screens.wallpapers
 
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Wallpaper
+import com.freevibe.service.WallpaperStyleLearningProfile
+import com.freevibe.service.WallpaperStyleLearningSignal
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -172,6 +174,48 @@ class WallpaperFeedQualityTest {
 
         assertEquals(4, ranked.size)
         assertTrue(ranked.none { it.id == "weak_logo" })
+    }
+
+    @Test
+    fun `style learning adapts for you ranking after enough local signals`() {
+        val liked = wallpaper(
+            id = "liked_forest",
+            source = ContentSource.WALLHAVEN,
+            url = "https://example.com/liked.jpg",
+            width = 1440,
+            height = 3200,
+            tags = listOf("forest", "nature"),
+            colors = listOf("#226633"),
+        )
+        val skipped = wallpaper(
+            id = "skipped_minimal",
+            source = ContentSource.PEXELS,
+            url = "https://example.com/skipped.jpg",
+            width = 1440,
+            height = 3200,
+            tags = listOf("minimal", "gradient", "amoled"),
+            colors = listOf("#050505"),
+            favorites = 900,
+        )
+        val earlyProfile = WallpaperStyleLearningProfile.EMPTY
+            .record(liked, WallpaperStyleLearningSignal.FAVORITED)
+            .record(skipped, WallpaperStyleLearningSignal.SKIPPED)
+        val learnedProfile = earlyProfile.record(liked, WallpaperStyleLearningSignal.APPLIED)
+            .record(skipped, WallpaperStyleLearningSignal.SKIPPED)
+
+        val earlyRanked = rankWallpapers(
+            wallpapers = listOf(skipped, liked),
+            filter = WallpaperDiscoverFilter.FOR_YOU,
+            styleLearningProfile = earlyProfile,
+        )
+        val learnedRanked = rankWallpapers(
+            wallpapers = listOf(skipped, liked),
+            filter = WallpaperDiscoverFilter.FOR_YOU,
+            styleLearningProfile = learnedProfile,
+        )
+
+        assertEquals(listOf("skipped_minimal", "liked_forest"), earlyRanked.map { it.id })
+        assertEquals(listOf("liked_forest", "skipped_minimal"), learnedRanked.map { it.id })
     }
 
     private fun wallpaper(

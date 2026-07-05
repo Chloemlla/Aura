@@ -2,6 +2,7 @@ package com.freevibe.ui.screens.wallpapers
 
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Wallpaper
+import com.freevibe.service.WallpaperStyleLearningProfile
 import java.util.Locale
 import kotlin.math.max
 
@@ -20,6 +21,7 @@ internal fun rankWallpapers(
     filter: WallpaperDiscoverFilter,
     preferredResolution: String = "",
     userStyles: List<String> = emptyList(),
+    styleLearningProfile: WallpaperStyleLearningProfile = WallpaperStyleLearningProfile.EMPTY,
 ): List<Wallpaper> {
     val candidatePool = if (filter == WallpaperDiscoverFilter.FOR_YOU) {
         wallpapers
@@ -31,6 +33,7 @@ internal fun rankWallpapers(
         filter = filter,
         preferredResolution = preferredResolution,
         userStyles = userStyles,
+        styleLearningProfile = styleLearningProfile,
     )
     val rankedBase = deduped.ifEmpty {
         dedupeWallpapers(
@@ -38,6 +41,7 @@ internal fun rankWallpapers(
             filter = WallpaperDiscoverFilter.FOR_YOU,
             preferredResolution = preferredResolution,
             userStyles = userStyles,
+            styleLearningProfile = styleLearningProfile,
         )
     }
     val scored = rankedBase
@@ -47,6 +51,7 @@ internal fun rankWallpapers(
                 filter = filter,
                 preferredResolution = preferredResolution,
                 userStyles = userStyles,
+                styleLearningProfile = styleLearningProfile,
             )
         }
         .sortedByDescending { it.second }
@@ -58,6 +63,7 @@ private fun dedupeWallpapers(
     filter: WallpaperDiscoverFilter,
     preferredResolution: String,
     userStyles: List<String>,
+    styleLearningProfile: WallpaperStyleLearningProfile,
 ): List<Wallpaper> = wallpapers
     .groupBy(::wallpaperKey)
     .values
@@ -68,6 +74,7 @@ private fun dedupeWallpapers(
                 filter = filter,
                 preferredResolution = preferredResolution,
                 userStyles = userStyles,
+                styleLearningProfile = styleLearningProfile,
             )
         }
     }
@@ -122,6 +129,7 @@ private fun wallpaperQualityScore(
     filter: WallpaperDiscoverFilter,
     preferredResolution: String,
     userStyles: List<String>,
+    styleLearningProfile: WallpaperStyleLearningProfile,
 ): Int {
     val pixels = wallpaper.width.toLong() * wallpaper.height.toLong()
     val normalizedTags = wallpaper.searchableTerms()
@@ -158,6 +166,7 @@ private fun wallpaperQualityScore(
         val styleHits = normalizedTags.count { it in userStyles.toSet() }
         score += styleHits * 6
     }
+    score += styleLearningProfile.scoreFor(wallpaper)
     score += when (filter) {
         WallpaperDiscoverFilter.FOR_YOU -> 0
         WallpaperDiscoverFilter.AMOLED -> if (wallpaper.isAmoledFriendly()) 18 else -8

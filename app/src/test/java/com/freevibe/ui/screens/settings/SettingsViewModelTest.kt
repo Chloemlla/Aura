@@ -398,6 +398,20 @@ class SettingsViewModelTest {
         coVerify(exactly = 1) { prefs.setLiveWallpaperShaderPreset(AgslShaderGallery.NONE_ID) }
     }
 
+    @Test
+    fun `resetWallpaperStyleLearning clears local style profile`() = runTest(dispatcher) {
+        val prefs = mockPreferences()
+        val viewModel = createViewModel(
+            cacheDir = createTempDirectory("settings-style-learning-reset").toFile().also(tempDirs::add),
+            prefsOverride = prefs,
+        )
+
+        viewModel.resetWallpaperStyleLearning()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { prefs.clearWallpaperStyleLearning() }
+    }
+
     private fun createViewModel(
         cacheDir: File,
         offlineFavoritesSize: Long = 0L,
@@ -504,6 +518,7 @@ class SettingsViewModelTest {
             every { prefs.redditProviderEnabled } returns flowOf(true)
             every { prefs.preferredResolution } returns flowOf("")
             every { prefs.userStyles } returns flowOf("")
+            every { prefs.wallpaperStyleLearningJson } returns flowOf("")
             every { prefs.ytSoundQueryRingtones } returns flowOf("ringtone")
             every { prefs.ytSoundQueryNotifications } returns flowOf("notification")
             every { prefs.ytSoundQueryAlarms } returns flowOf("alarm")
@@ -560,6 +575,7 @@ class SettingsViewModelTest {
             every { prefs.ringtoneShuffleEnabled } returns flowOf(false)
             every { prefs.ringtoneShuffleIntervalHours } returns flowOf(24L)
             coEvery { prefs.setLiveWallpaperShaderPreset(any()) } returns Unit
+            coEvery { prefs.clearWallpaperStyleLearning() } returns Unit
         }
 
     private class FakeBackgroundWorkDiagnosticsReader(

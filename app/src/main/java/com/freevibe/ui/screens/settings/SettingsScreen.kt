@@ -347,6 +347,7 @@ fun SettingsScreen(
                 gridColumns = gridColumns,
                 preferredRes = preferredRes,
                 userStyles = userStyles,
+                wallpaperStyleLearningSignalCount = wallpaperStyleLearningSignalCount,
                 bingProviderEnabled = bingProviderEnabled,
                 wallhavenProviderEnabled = wallhavenProviderEnabled,
                 pixabayProviderEnabled = pixabayProviderEnabled,

@@ -31,6 +31,7 @@ import com.freevibe.service.VideoWallpaperSelectionResult
 import com.freevibe.service.VideoWallpaperStorage
 import com.freevibe.service.WallpaperApplier
 import com.freevibe.service.WallpaperHistoryManager
+import com.freevibe.service.WallpaperStyleLearningProfile
 import com.freevibe.service.YtDlpUpdateManager
 import com.freevibe.service.YtDlpUpdateResult
 import com.freevibe.service.YtDlpUpdateSnapshot
@@ -183,6 +184,9 @@ class SettingsViewModel @Inject constructor(
     val redditProviderEnabled = prefs.redditProviderEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val preferredRes = prefs.preferredResolution.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
     val userStyles = prefs.userStyles.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+    val wallpaperStyleLearningSignalCount = prefs.wallpaperStyleLearningJson
+        .map { WallpaperStyleLearningProfile.parse(it).signalCount }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
     val ytRingtonesQuery = prefs.ytSoundQueryRingtones.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PreferencesManager.defaultRingtoneQuery())
     val ytNotificationsQuery = prefs.ytSoundQueryNotifications.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PreferencesManager.defaultNotificationQuery())
     val ytAlarmsQuery = prefs.ytSoundQueryAlarms.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PreferencesManager.defaultAlarmQuery())
@@ -601,6 +605,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setUserStyles(styles: String) = viewModelScope.launch {
         prefs.setUserStyles(styles)
+    }
+
+    fun resetWallpaperStyleLearning() = viewModelScope.launch {
+        prefs.clearWallpaperStyleLearning()
     }
 
     fun setWallhavenKey(key: String) = viewModelScope.launch {

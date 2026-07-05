@@ -73,6 +73,9 @@ All notable changes to Aura will be documented in this file.
 - **Curated AGSL shader gallery**: added six built-in live-wallpaper shader
   backgrounds, a Settings picker with no user-authored shader input, API 33+
   RuntimeShader rendering, and static Canvas fallback for older Android releases.
+- **On-device wallpaper style learning**: Discover ranking now adapts after
+  local apply, favorite, and hide signals, stores the learned taste profile only
+  in app-private preferences, and exposes a Settings reset action.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose

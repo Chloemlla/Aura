@@ -1010,6 +1010,8 @@
     <string name="settings_wp_resolution_title">Preferred resolution</string>
     <string name="settings_wp_resolution_any">Any resolution</string>
     <string name="settings_wp_style_title">Style preferences</string>
+    <string name="settings_wp_style_learning_reset_title">Reset learned wallpaper taste</string>
+    <string name="settings_wp_style_learning_reset_subtitle">%1$d local signals</string>
     <string name="settings_wp_reddit_title">Reddit source discontinued</string>
     <string name="settings_wp_reddit_subtitle">Public feeds are retired; saved Reddit wallpapers keep attribution and unavailable-source states</string>
     <string name="settings_wp_bing_title">Enable Bing Daily source</string>

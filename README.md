@@ -45,6 +45,7 @@ the same link is available in Settings > About > Privacy policy.
 |---------|-------------|
 | **HD/4K Wallpapers** | Discover feed from Wallhaven, Pexels, Pixabay & Bing |
 | **Wallpaper Quality Filters** | Discover chips for For You, AMOLED, 4K+, Portrait, and Icon Safe with curated ranking |
+| **On-Device Style Learning** | Apply, favorite, and hide signals adapt Discover locally with a Settings reset control |
 | **Community Wallpapers** | Upload phone-cropped gallery images with tags, Palette colors, and community voting |
 | **HEIF/AVIF Wallpaper Import** | Local apply, editor, rotation, and community upload flows share one format policy with HEIF support and Android 14+ AVIF gating |
 | **Creator Profiles** | View upload stats, votes, followed creators, followed uploads, and top creator leaderboard |

@@ -16,6 +16,7 @@ import com.freevibe.service.DualWallpaperService
 import com.freevibe.service.OfflineFavoritesManager
 import com.freevibe.service.WallpaperApplier
 import com.freevibe.service.WallpaperHistoryManager
+import com.freevibe.service.WallpaperStyleLearningSignal
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,6 +35,7 @@ internal class WallpaperApplyActions(
     private val applyFeedbackBus: ApplyFeedbackBus,
     private val state: MutableStateFlow<WallpapersUiState>,
     private val scope: CoroutineScope,
+    private val onStyleSignal: suspend (Wallpaper, WallpaperStyleLearningSignal) -> Unit = { _, _ -> },
 ) {
 
     val activeDownloads = downloadManager.activeDownloads
@@ -43,6 +45,7 @@ internal class WallpaperApplyActions(
             state.update { it.copy(isApplying = true, applySuccess = null) }
             wallpaperApplier.applyFromUrl(wallpaper.fullUrl, target)
                 .onSuccess {
+                    onStyleSignal(wallpaper, WallpaperStyleLearningSignal.APPLIED)
                     historyManager.record(wallpaper, target)
                     val undoTarget = historyManager.previousSnapshot()
                     val label = when (target) {
@@ -86,6 +89,7 @@ internal class WallpaperApplyActions(
             state.update { it.copy(isApplying = true, applySuccess = null) }
             dualWallpaperService.applySplitCrop(wallpaper)
                 .onSuccess {
+                    onStyleSignal(wallpaper, WallpaperStyleLearningSignal.APPLIED)
                     historyManager.record(wallpaper, WallpaperTarget.BOTH)
                     state.update { it.copy(isApplying = false, applySuccess = "Split crop applied to home & lock") }
                 }
@@ -101,6 +105,7 @@ internal class WallpaperApplyActions(
             val ext = guessImageExtension(wallpaper.fileType, wallpaper.fullUrl)
             wallpaperApplier.prepareParallaxWallpaper(wallpaper.fullUrl, "parallax_wp.$ext")
                 .onSuccess {
+                    onStyleSignal(wallpaper, WallpaperStyleLearningSignal.APPLIED)
                     state.update { it.copy(isApplying = false, pendingLiveWallpaperLaunch = true) }
                 }
                 .onFailure { e ->
@@ -136,8 +141,10 @@ internal class WallpaperApplyActions(
             val isFav = favoritesRepo.isFavorite(wallpaper.favoriteIdentity()).first()
             favoritesRepo.toggle(entity, isFav)
             if (!isFav) {
+                onStyleSignal(wallpaper, WallpaperStyleLearningSignal.FAVORITED)
                 offlineFavorites.cacheOffline(entity, wallpaper.fullUrl)
             } else {
+                onStyleSignal(wallpaper, WallpaperStyleLearningSignal.UNFAVORITED)
                 offlineFavorites.removeOffline(entity)
                 if (wallpaper.source == ContentSource.AI_GENERATED) {
                     aiWallpaperRepository.deleteGeneratedWallpaper(wallpaper.fullUrl)
@@ -176,4 +183,3 @@ internal fun guessImageExtension(fileType: String, url: String): String {
         else -> "jpg"
     }
 }
-
