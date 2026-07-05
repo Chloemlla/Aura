@@ -875,6 +875,54 @@ class SoundsViewModelTest {
     }
 
     @Test
+    fun `tab changes keep current playback alive`() = runTest(dispatcher) {
+        val youtubeRepo = mockk<YouTubeRepository>()
+        val freesoundRepo = mockk<FreesoundRepository>()
+        val freesoundV2Repo = mockk<FreesoundV2Repository>()
+        val audiusRepo = mockk<AudiusRepository>()
+        val ccMixterRepo = mockk<CcMixterRepository>()
+        val soundCloudRepo = mockk<SoundCloudRepository>()
+        val currentSoundId = MutableStateFlow<String?>(null)
+        val audioPlaybackManager = mockk<AudioPlaybackManager>(relaxed = true)
+
+        stubCommonDependencies(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+        )
+        every { audioPlaybackManager.currentSoundId } returns currentSoundId
+        every { audioPlaybackManager.currentPosition } returns MutableStateFlow(0L)
+        every { audioPlaybackManager.duration } returns MutableStateFlow(1_000L)
+        every { audioPlaybackManager.isPlaying } returns MutableStateFlow(true)
+
+        val viewModel = createViewModel(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+            audioPlaybackManagerOverride = audioPlaybackManager,
+        )
+
+        advanceUntilIdle()
+        val sound = testSound("bundled_keep_playing", ContentSource.BUNDLED, "Keep Playing")
+        currentSoundId.value = sound.stableKey()
+        advanceUntilIdle()
+        clearMocks(audioPlaybackManager, answers = false, recordedCalls = true)
+
+        viewModel.selectTab(SoundTab.NOTIFICATIONS)
+        advanceUntilIdle()
+
+        assertEquals(SoundTab.NOTIFICATIONS, viewModel.state.value.selectedTab)
+        assertEquals(sound.stableKey(), viewModel.state.value.playingId)
+        verify(exactly = 0) { audioPlaybackManager.stop() }
+    }
+
+    @Test
     fun `downloadSound refreshes youtube stream urls instead of reusing stale favorites`() = runTest(dispatcher) {
         val youtubeRepo = mockk<YouTubeRepository>()
         val freesoundRepo = mockk<FreesoundRepository>()

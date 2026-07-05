@@ -18,19 +18,6 @@ physical-device validation, or toolchain gates belongs in `Roadmap_Blocked.md`.
   library export/import services, manifest consistency tooling, local AAB dry-run
   evidence tooling, and Settings feature-owned decomposition.
 
-## P2
-
-### Split Sounds browse and playback modules
-
-Sounds browse, YouTube resolution, playback, community upload/report/block,
-downloads, editor routing, and diagnostics remain tightly coupled.
-
-Acceptance:
-- Browse/feed, playback/progress, upload/community, and YouTube resolution state
-  are split into feature-owned modules.
-- Playback continues across tab changes.
-- Existing sound tests pass and add a tab-switch/playback contract test.
-
 ## P3
 
 ### Curated AGSL shader gallery

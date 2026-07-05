@@ -58,6 +58,9 @@ All notable changes to Aura will be documented in this file.
 - **Wallpaper ViewModel split**: moved browse/loading, shared wallpaper state,
   and identity helpers out of the root Hilt ViewModel, keeping wallpaper
   ViewModel files under the 500-line feature-boundary gate.
+- **Sounds ViewModel split**: moved feed loading, YouTube search/import,
+  playback/progress, community upload/moderation, and sound selection state into
+  feature-owned modules. Sound playback now continues when switching tabs.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose
