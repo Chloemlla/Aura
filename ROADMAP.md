@@ -20,17 +20,6 @@ physical-device validation, or toolchain gates belongs in `Roadmap_Blocked.md`.
 
 ## P2
 
-### Split WallpapersViewModel into feature-scoped ViewModels
-
-`WallpapersViewModel.kt` still owns tab state, Discover cache, search,
-find-similar, match-my-theme, color search, category filtering, community
-favorites, daily pick, random wallpaper, and pagination.
-
-Acceptance:
-- No wallpaper ViewModel exceeds 500 lines.
-- Discover, search/tab, and detail/action state are isolated.
-- Existing wallpaper tests pass after the split.
-
 ### Split Sounds browse and playback modules
 
 Sounds browse, YouTube resolution, playback, community upload/report/block,

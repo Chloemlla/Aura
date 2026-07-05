@@ -55,6 +55,9 @@ All notable changes to Aura will be documented in this file.
   accepted on Android 8+, AVIF is accepted where Android 14+ decoding is
   available, and community uploads transcode to fresh JPEG bytes with
   metadata/location stripping before Firebase upload.
+- **Wallpaper ViewModel split**: moved browse/loading, shared wallpaper state,
+  and identity helpers out of the root Hilt ViewModel, keeping wallpaper
+  ViewModel files under the 500-line feature-boundary gate.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose
