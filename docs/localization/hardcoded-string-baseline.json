@@ -13,9 +13,24 @@
     "nextSteps": [
       "Extract stable navigation labels, screen titles, and primary actions first.",
       "Replace dynamic status and error templates with resource placeholders.",
-      "Keep locale generation disabled until pseudo-localization and RTL smoke checks pass."
+      "Keep real translation packs disabled until pseudolocale and RTL gates stay green."
     ],
     "targetResourceFile": "app/src/main/res/values/strings.xml"
+  },
+  "pseudolocaleReleaseGate": {
+    "status": "active",
+    "enabledBuildType": "debug",
+    "locales": ["en-XA", "ar-XB"],
+    "fixtureGate": "app/src/test/java/com/freevibe/ui/screens/fixtures/AuraRouteStateScreenshotTest.kt",
+    "compactRouteFixtures": [
+      "AuraRouteFixture.WallpapersGridSuccess",
+      "AuraRouteFixture.SettingsProviderDisabled"
+    ],
+    "checks": [
+      "Debug builds package generated pseudolocale resources.",
+      "English XA compact route fixture renders expanded primary text.",
+      "Arabic XB compact route fixture renders with RTL layout direction."
+    ]
   },
   "policyKind": "composeHardcodedStringBaseline",
   "scanSourceRoots": [

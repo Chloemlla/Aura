@@ -49,13 +49,6 @@ Acceptance:
 
 ### P2
 
-- [ ] P2 - Add pseudolocale and RTL release gates
-  Why: Aura centralized visible strings but still has only default `values` resources and no automated expanded-text or RTL smoke path before real translations.
-  Evidence: `app/src/main/res/values/strings.xml`, `docs/localization/hardcoded-string-baseline.json`, Android localization docs, Android pseudolocale docs, Compose accessibility test docs.
-  Touches: `app/build.gradle.kts`, accessibility route fixtures, screenshot/Robolectric tests, `docs/localization/hardcoded-string-baseline.json`, `strings.xml`.
-  Acceptance: Debug builds enable pseudolocales; compact route fixtures render under English XA and AR XB pseudolocales; tests fail on clipped primary navigation/action text or obvious LTR-only assumptions; no real human translation pack is required.
-  Complexity: M
-
 - [ ] P2 - Normalize provider backoff and fallback policy
   Why: Aura has many remote providers, but several endpoint records still have no host-specific backoff or cache fallback policy, causing uneven source degradation behavior.
   Evidence: `docs/security/network-endpoints.json`, `ProviderNetworkPolicy.kt`, `SourceMetrics.kt`, Wall You and WallFlow multi-source patterns, Android WorkManager retry guidance.

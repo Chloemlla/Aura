@@ -64,6 +64,9 @@ All notable changes to Aura will be documented in this file.
 - **Embedded Photo Picker imports**: added an API-gated embedded image picker
   for wallpaper uploads and collection QR imports, with portrait-grid
   customization and the existing scoped Photo Picker as fallback.
+- **Pseudolocale and RTL gate**: enabled debug pseudolocales and added compact
+  English XA plus Arabic XB RTL route fixture coverage before real translation
+  packs are introduced.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose

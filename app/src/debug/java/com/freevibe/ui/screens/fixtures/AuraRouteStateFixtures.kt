@@ -60,6 +60,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -83,6 +84,11 @@ import com.freevibe.ui.components.CompactSearchField
 import com.freevibe.ui.components.ShimmerSoundList
 import com.freevibe.ui.components.ShimmerWallpaperGrid
 import com.freevibe.ui.theme.FreeVibeTheme
+
+val LocalFixtureTextTransform = staticCompositionLocalOf<(String) -> String> { { it } }
+
+@Composable
+private fun fixtureText(text: String): String = LocalFixtureTextTransform.current(text)
 
 enum class AuraRouteFixture(
     val screenshotName: String,
@@ -135,23 +141,23 @@ private fun ScreenColumn(
 private fun WallpapersGridFixture() {
     ScreenColumn {
         AuraScreenHeader(
-            label = "Wallpapers",
+            label = fixtureText("Wallpapers"),
             icon = Icons.Default.Wallpaper,
-            title = "Fresh AMOLED picks",
-            subtitle = "Local saves stay visible while provider results refresh.",
+            title = fixtureText("Fresh AMOLED picks"),
+            subtitle = fixtureText("Local saves stay visible while provider results refresh."),
             tint = MaterialTheme.colorScheme.primary,
         ) {
             CompactSearchField(
                 value = "neon forest",
                 onValueChange = {},
-                placeholder = "Search wallpapers",
+                placeholder = fixtureText("Search wallpapers"),
                 leadingIcon = Icons.Default.Search,
             )
         }
         AuraStatusBanner(
             icon = Icons.Default.CheckCircle,
-            title = "Local cache ready",
-            message = "18 downloaded wallpapers and 4 favorites are available offline.",
+            title = fixtureText("Local cache ready"),
+            message = fixtureText("18 downloaded wallpapers and 4 favorites are available offline."),
             tone = MaterialTheme.colorScheme.secondary,
         )
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -187,32 +193,32 @@ private fun WallpapersGridFixture() {
 private fun WallpapersOfflineFixture() {
     ScreenColumn {
         AuraScreenHeader(
-            label = "Wallpapers",
+            label = fixtureText("Wallpapers"),
             icon = Icons.Default.Wallpaper,
-            title = "Offline wallpaper search",
-            subtitle = "Network providers pause without hiding local content.",
+            title = fixtureText("Offline wallpaper search"),
+            subtitle = fixtureText("Network providers pause without hiding local content."),
             tint = MaterialTheme.colorScheme.tertiary,
         ) {
             CompactSearchField(
                 value = "",
                 onValueChange = {},
-                placeholder = "Search local saves",
+                placeholder = fixtureText("Search local saves"),
                 leadingIcon = Icons.Default.Search,
             )
         }
         AuraStatusBanner(
             icon = Icons.Default.CloudOff,
-            title = "Provider results unavailable",
-            message = "Wallhaven, Pexels, and Pixabay are disabled until the connection returns.",
+            title = fixtureText("Provider results unavailable"),
+            message = fixtureText("Wallhaven, Pexels, and Pixabay are disabled until the connection returns."),
             tone = MaterialTheme.colorScheme.tertiary,
         )
         AuraStateCard(
             icon = Icons.Default.Folder,
-            title = "No local matches",
-            description = "Downloads, favorites, and imported files will appear here when they match the search.",
+            title = fixtureText("No local matches"),
+            description = fixtureText("Downloads, favorites, and imported files will appear here when they match the search."),
             tone = MaterialTheme.colorScheme.secondary,
-            primaryAction = AuraStateAction("Open downloads", Icons.Default.Download, {}),
-            secondaryAction = AuraStateAction("Clear search", Icons.Default.Search, {}),
+            primaryAction = AuraStateAction(fixtureText("Open downloads"), Icons.Default.Download, {}),
+            secondaryAction = AuraStateAction(fixtureText("Clear search"), Icons.Default.Search, {}),
         )
         ShimmerWallpaperGrid(modifier = Modifier.fillMaxWidth())
     }
@@ -225,10 +231,11 @@ private fun FixtureWallpaperCard(
     colors: List<Color>,
     modifier: Modifier = Modifier,
 ) {
+    val cardDescription = fixtureText("$title from $source")
     Surface(
         modifier = modifier
             .aspectRatio(0.72f)
-            .semantics { contentDescription = "$title from $source" },
+            .semantics { contentDescription = cardDescription },
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f)),
@@ -246,14 +253,14 @@ private fun FixtureWallpaperCard(
                     .padding(10.dp),
             ) {
                 Text(
-                    text = title,
+                    text = fixtureText(title),
                     color = Color.White,
                     style = MaterialTheme.typography.titleSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = source,
+                    text = fixtureText(source),
                     color = Color.White.copy(alpha = 0.72f),
                     style = MaterialTheme.typography.labelSmall,
                 )
@@ -266,10 +273,10 @@ private fun FixtureWallpaperCard(
 private fun SoundDetailFixture() {
     ScreenColumn {
         AuraScreenHeader(
-            label = "Sound",
+            label = fixtureText("Sound"),
             icon = Icons.Default.LibraryMusic,
-            title = "Midnight Pulse",
-            subtitle = "Freesound - CC BY 4.0 - 28 seconds",
+            title = fixtureText("Midnight Pulse"),
+            subtitle = fixtureText("Freesound - CC BY 4.0 - 28 seconds"),
             tint = MaterialTheme.colorScheme.secondary,
         ) {
             WaveformFixture()
@@ -287,12 +294,12 @@ private fun SoundDetailFixture() {
             Button(onClick = {}, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Preview")
+                Text(fixtureText("Preview"))
             }
             OutlinedButton(onClick = {}, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
                 Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Set tone")
+                Text(fixtureText("Set tone"))
             }
         }
         FixtureInfoGrid(
@@ -305,8 +312,8 @@ private fun SoundDetailFixture() {
         )
         AuraStatusBanner(
             icon = Icons.Default.Info,
-            title = "Playback cached",
-            message = "Preview continues while browsing other sound tabs.",
+            title = fixtureText("Playback cached"),
+            message = fixtureText("Preview continues while browsing other sound tabs."),
             tone = MaterialTheme.colorScheme.primary,
         )
     }
@@ -341,16 +348,16 @@ private fun WaveformFixture() {
 private fun SettingsFixture() {
     ScreenColumn {
         AuraScreenHeader(
-            label = "Settings",
+            label = fixtureText("Settings"),
             icon = Icons.Default.Settings,
-            title = "Local-first controls",
-            subtitle = "Provider keys, automation, diagnostics, and privacy are grouped by task.",
+            title = fixtureText("Local-first controls"),
+            subtitle = fixtureText("Provider keys, automation, diagnostics, and privacy are grouped by task."),
             tint = MaterialTheme.colorScheme.primary,
         ) {
             AuraStatusBanner(
                 icon = Icons.Default.Error,
-                title = "Provider disabled",
-                message = "Pixabay search is off until an API key is saved.",
+                title = fixtureText("Provider disabled"),
+                message = fixtureText("Pixabay search is off until an API key is saved."),
                 tone = MaterialTheme.colorScheme.tertiary,
             )
         }
@@ -403,8 +410,8 @@ private fun SettingsRowFixture(
         ) {
             Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall)
-                Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(fixtureText(title), style = MaterialTheme.typography.titleSmall)
+                Text(fixtureText(body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Switch(checked = checked, onCheckedChange = null)
         }
@@ -415,23 +422,23 @@ private fun SettingsRowFixture(
 private fun VideoWallpapersFixture() {
     ScreenColumn {
         AuraScreenHeader(
-            label = "Videos",
+            label = fixtureText("Videos"),
             icon = Icons.Default.Movie,
-            title = "Video wallpaper metadata",
-            subtitle = "Stream dimensions are probed before apply decisions.",
+            title = fixtureText("Video wallpaper metadata"),
+            subtitle = fixtureText("Stream dimensions are probed before apply decisions."),
             tint = MaterialTheme.colorScheme.secondary,
         ) {
             CompactSearchField(
                 value = "city loops",
                 onValueChange = {},
-                placeholder = "Search video wallpapers",
+                placeholder = fixtureText("Search video wallpapers"),
                 leadingIcon = Icons.Default.Search,
             )
         }
         AuraStatusBanner(
             icon = Icons.Default.BrokenImage,
-            title = "One source failed",
-            message = "YouTube metadata timed out; local clips and Pexels results remain available.",
+            title = fixtureText("One source failed"),
+            message = fixtureText("YouTube metadata timed out; local clips and Pexels results remain available."),
             tone = MaterialTheme.colorScheme.tertiary,
         )
         FixtureVideoCard()
@@ -480,8 +487,8 @@ private fun FixtureVideoCard() {
                 }
             }
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Portrait rain loop", style = MaterialTheme.typography.titleMedium)
-                Text("Ready for crop preview - source: Pexels", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(fixtureText("Portrait rain loop"), style = MaterialTheme.typography.titleMedium)
+                Text(fixtureText("Ready for crop preview - source: Pexels"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -492,10 +499,10 @@ private fun FixtureVideoCard() {
 private fun WallpaperEditorFixture() {
     ScreenColumn {
         AuraScreenHeader(
-            label = "Editor",
+            label = fixtureText("Editor"),
             icon = Icons.Default.Palette,
-            title = "Wallpaper editor recovery",
-            subtitle = "Image loading, filter controls, and empty states remain deterministic.",
+            title = fixtureText("Wallpaper editor recovery"),
+            subtitle = fixtureText("Image loading, filter controls, and empty states remain deterministic."),
             tint = MaterialTheme.colorScheme.primary,
         ) {
             Box(
@@ -508,7 +515,7 @@ private fun WallpaperEditorFixture() {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.height(12.dp))
-                    Text("Loading full-resolution source", color = Color.White.copy(alpha = 0.72f), style = MaterialTheme.typography.bodySmall)
+                    Text(fixtureText("Loading full-resolution source"), color = Color.White.copy(alpha = 0.72f), style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -525,12 +532,12 @@ private fun WallpaperEditorFixture() {
             OutlinedButton(onClick = {}, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
                 Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Preview")
+                Text(fixtureText("Preview"))
             }
             Button(onClick = {}, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
                 Icon(Icons.Default.Brush, contentDescription = null, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Apply")
+                Text(fixtureText("Apply"))
             }
         }
     }
@@ -545,7 +552,7 @@ private fun ToolChipFixture(
     FilterChip(
         selected = selected,
         onClick = {},
-        label = { Text(label) },
+        label = { Text(fixtureText(label)) },
         leadingIcon = { Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp)) },
         shape = RoundedCornerShape(8.dp),
     )
@@ -558,7 +565,7 @@ private fun EditorSliderFixture(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            Text(label, style = MaterialTheme.typography.titleSmall)
+            Text(fixtureText(label), style = MaterialTheme.typography.titleSmall)
             Text("${(value * 100).toInt()}%", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Slider(value = value, onValueChange = {})
@@ -578,9 +585,9 @@ private fun FixtureInfoGrid(items: List<Pair<String, String>>) {
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f)),
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
-                            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(fixtureText(label), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.height(3.dp))
-                            Text(value, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(fixtureText(value), style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }

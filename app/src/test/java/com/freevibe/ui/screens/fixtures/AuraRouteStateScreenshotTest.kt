@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
@@ -77,6 +78,30 @@ class AuraRouteStateScreenshotTest {
     }
 
     @Test
+    @Config(sdk = [35], qualifiers = "en-rXA-w411dp-h891dp-xhdpi")
+    fun wallpapersGridCompactEnglishXa() {
+        captureFixture(
+            fixture = AuraRouteFixture.WallpapersGridSuccess,
+            darkTheme = true,
+            pseudoLocaleTag = "en_XA",
+            textTransform = ::englishXaPseudo,
+        )
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "ar-rXB-w411dp-h891dp-xhdpi")
+    fun settingsProviderDisabledCompactArabicXbRtl() {
+        captureFixture(
+            fixture = AuraRouteFixture.SettingsProviderDisabled,
+            darkTheme = false,
+            fontScale = 1.3f,
+            layoutDirection = LayoutDirection.Rtl,
+            pseudoLocaleTag = "ar_XB",
+            textTransform = ::arabicXbPseudo,
+        )
+    }
+
+    @Test
     fun videoWallpapersErrorAmoledRtl() {
         captureFixture(
             fixture = AuraRouteFixture.VideoWallpapersError,
@@ -97,6 +122,8 @@ class AuraRouteStateScreenshotTest {
         layoutDirection: LayoutDirection = LayoutDirection.Ltr,
         width: Dp = 411.dp,
         height: Dp = 891.dp,
+        pseudoLocaleTag: String? = null,
+        textTransform: (String) -> String = { it },
     ) {
         val variant = buildString {
             append(fixture.screenshotName)
@@ -106,6 +133,7 @@ class AuraRouteStateScreenshotTest {
             }
             if (fontScale > 1.0f) append("_font${fontScale.toString().replace(".", "_")}")
             if (layoutDirection == LayoutDirection.Rtl) append("_rtl")
+            pseudoLocaleTag?.let { append("_$it") }
         }
 
         composeRule.setContent {
@@ -115,13 +143,26 @@ class AuraRouteStateScreenshotTest {
                 layoutDirection = layoutDirection,
                 width = width,
                 height = height,
+                textTransform = textTransform,
             ) {
                 AuraRouteStateFixture(fixture)
             }
         }
         composeRule.waitForIdle()
+        pseudoLocaleTag?.let {
+            composeRule.onNodeWithText(textTransform(fixture.primaryAssertionText())).assertExists()
+        }
         composeRule.onRoot().captureRoboImage("src/test/screenshots/$variant.png")
     }
+}
+
+private fun AuraRouteFixture.primaryAssertionText(): String = when (this) {
+    AuraRouteFixture.WallpapersGridSuccess -> "Fresh AMOLED picks"
+    AuraRouteFixture.WallpapersOfflineEmpty -> "Offline wallpaper search"
+    AuraRouteFixture.SoundDetailReady -> "Midnight Pulse"
+    AuraRouteFixture.SettingsProviderDisabled -> "Local-first controls"
+    AuraRouteFixture.VideoWallpapersError -> "Video wallpaper metadata"
+    AuraRouteFixture.WallpaperEditorLoading -> "Wallpaper editor recovery"
 }
 
 @Composable
@@ -131,12 +172,14 @@ private fun FixtureRoot(
     layoutDirection: LayoutDirection,
     width: Dp,
     height: Dp,
+    textTransform: (String) -> String,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
     CompositionLocalProvider(
         LocalDensity provides Density(density.density, fontScale),
         LocalLayoutDirection provides layoutDirection,
+        LocalFixtureTextTransform provides textTransform,
     ) {
         FreeVibeTheme(darkTheme = darkTheme, dynamicColor = false) {
             Surface(
@@ -146,4 +189,24 @@ private fun FixtureRoot(
             )
         }
     }
+}
+
+private fun englishXaPseudo(text: String): String =
+    "[!! " + text.map(::accentLatinChar).joinToString("") + " !!]"
+
+private fun arabicXbPseudo(text: String): String =
+    "\u202e" + englishXaPseudo(text) + "\u202c"
+
+private fun accentLatinChar(char: Char): Char = when (char) {
+    'A' -> '\u00c5'
+    'a' -> '\u00e5'
+    'E' -> '\u018e'
+    'e' -> '\u0119'
+    'I' -> '\u00cf'
+    'i' -> '\u00ef'
+    'O' -> '\u00d8'
+    'o' -> '\u00f8'
+    'U' -> '\u00db'
+    'u' -> '\u00fb'
+    else -> char
 }
