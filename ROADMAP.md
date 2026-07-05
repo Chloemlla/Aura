@@ -48,10 +48,3 @@ Acceptance:
 ### P1
 
 ### P2
-
-- [ ] P2 - Normalize provider backoff and fallback policy
-  Why: Aura has many remote providers, but several endpoint records still have no host-specific backoff or cache fallback policy, causing uneven source degradation behavior.
-  Evidence: `docs/security/network-endpoints.json`, `ProviderNetworkPolicy.kt`, `SourceMetrics.kt`, Wall You and WallFlow multi-source patterns, Android WorkManager retry guidance.
-  Touches: provider repositories, `RateLimitInterceptor.kt`, `ProviderNetworkPolicy.kt`, `SourceMetrics.kt`, `docs/security/network-endpoints.json`, provider tests.
-  Acceptance: Every network provider has a documented timeout/rate-limit/backoff/cache-fallback policy; 429/Retry-After, timeout, DNS, and disabled-provider cases have tests; source diagnostics can display the active policy without exposing provider keys.
-  Complexity: L

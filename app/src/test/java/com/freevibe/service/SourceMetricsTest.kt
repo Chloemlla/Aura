@@ -10,6 +10,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 
 class SourceMetricsTest {
 
@@ -57,6 +59,36 @@ class SourceMetricsTest {
         assertEquals("timeout", s.lastErrorMessage)
         assertEquals(0.0, s.successRatio, 0.001)
         assertFalse(s.isPersistentlyFailing)
+    }
+
+    @Test
+    fun `timeout failure exposes cache fallback and retry guidance`() {
+        val m = SourceMetrics()
+        m.recordFailure("pexels", SocketTimeoutException("timeout"))
+
+        val s = m.snapshot("pexels")!!
+
+        assertEquals("SocketTimeoutException", s.lastErrorClass)
+        assertEquals(SourceMetrics.SourceHealthState.NEEDS_ATTENTION, s.healthState)
+        assertEquals(SourceMetrics.SourceFallbackStatus.CACHE_OR_LOCAL_AVAILABLE, s.fallbackStatus)
+        assertEquals(SourceMetrics.SourceRetryAction.RETRY_SOURCE, s.retryAction)
+        assertTrue(s.providerPolicy!!.diagnosticSummary.contains("timeout "))
+        assertTrue(s.providerPolicy!!.diagnosticSummary.contains("fallback "))
+    }
+
+    @Test
+    fun `dns failure exposes provider policy without secrets`() {
+        val m = SourceMetrics()
+        m.recordFailure("wallhaven", UnknownHostException("wallhaven.cc"))
+
+        val s = m.snapshot("wallhaven")!!
+        val summary = s.providerPolicy!!.diagnosticSummary
+
+        assertEquals("UnknownHostException", s.lastErrorClass)
+        assertEquals(SourceMetrics.SourceFallbackStatus.CACHE_OR_LOCAL_AVAILABLE, s.fallbackStatus)
+        assertFalse(summary.contains("Authorization"))
+        assertFalse(summary.contains("apikey"))
+        assertFalse(summary.contains("token"))
     }
 
     @Test

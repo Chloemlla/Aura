@@ -17,6 +17,22 @@ class ProviderNetworkPolicyTest {
     }
 
     @Test
+    fun `network policies declare timeout backoff fallback and disabled behavior`() {
+        providerNetworkPolicies.forEach { policy ->
+            assertTrue("${policy.source} timeout", policy.timeoutPolicy.isNotBlank())
+            assertTrue("${policy.source} backoff", policy.backoffPolicy.isNotBlank())
+            assertTrue("${policy.source} fallback", policy.cacheFallbackPolicy.isNotBlank())
+            assertTrue("${policy.source} disabled", policy.disabledBehavior.isNotBlank())
+            assertTrue("${policy.source} diagnostic timeout", policy.diagnosticSummary.contains("timeout "))
+            assertTrue("${policy.source} diagnostic backoff", policy.diagnosticSummary.contains("backoff "))
+            assertTrue("${policy.source} diagnostic fallback", policy.diagnosticSummary.contains("fallback "))
+            assertFalse("${policy.source} no stale wording", policy.diagnosticSummary.contains("no host-specific"))
+            assertFalse("${policy.source} no auth header leak", policy.diagnosticSummary.contains("Authorization"))
+            assertFalse("${policy.source} no token leak", policy.diagnosticSummary.contains("apikey"))
+        }
+    }
+
+    @Test
     fun `pixabay declares twenty four hour cache and retry policy`() {
         val policy = providerNetworkPoliciesBySource.getValue(ContentSource.PIXABAY)
 

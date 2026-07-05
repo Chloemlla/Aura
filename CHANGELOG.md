@@ -67,6 +67,9 @@ All notable changes to Aura will be documented in this file.
 - **Pseudolocale and RTL gate**: enabled debug pseudolocales and added compact
   English XA plus Arabic XB RTL route fixture coverage before real translation
   packs are introduced.
+- **Provider backoff policy**: normalized provider timeout, backoff, cache
+  fallback, and disabled-source diagnostics across network sources, with
+  coverage for Retry-After, timeout, DNS, and disabled-provider cases.
 
 ## v6.34.5 (2026-07-01)
 - **Route-level accessibility release gate**: replaced primitive-only Compose
