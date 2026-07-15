@@ -149,7 +149,7 @@ class SourceMetrics private constructor(
     fun recordSuccess(source: String, latencyMs: Long) {
         if (source.isBlank()) return
         val e = entries.computeIfAbsent(source) { MutableEntry().also { loadPersistedState(source, it) } }
-        val wasDegraded = e.consecutiveFailures.get() >= PERSISTENT_FAILURE_THRESHOLD
+        val hadFailureStreak = e.consecutiveFailures.get() > 0L
         e.total.incrementAndGet()
         e.success.incrementAndGet()
         e.consecutiveFailures.set(0L)
@@ -158,7 +158,7 @@ class SourceMetrics private constructor(
             e.latencies.addLast(latencyMs.coerceAtLeast(0L))
             while (e.latencies.size > MAX_LATENCY_SAMPLES) e.latencies.pollFirst()
         }
-        if (wasDegraded) persistRecovery(source)
+        if (hadFailureStreak) persistRecovery(source)
         _version.update { it + 1 }
     }
 

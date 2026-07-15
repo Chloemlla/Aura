@@ -16,6 +16,7 @@ import com.freevibe.data.remote.wallhaven.WallhavenApi
 import com.freevibe.data.remote.wikimedia.WikimediaPotdApi
 import com.freevibe.service.SourceMetrics
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.first
@@ -28,6 +29,7 @@ import java.net.UnknownHostException
 import javax.net.ssl.SSLException
 import java.util.Calendar
 import java.util.Locale
+import java.util.TimeZone
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -359,7 +361,7 @@ class WallpaperRepository @Inject constructor(
                 val cached = cacheManager.getCached("nasa_apod_today", ContentSource.NASA)
                 if (!cached.isNullOrEmpty()) return@measure cached.first()
                 val response = withTimeoutOrNull(8_000L) { nasaApodApi.getApod() }
-                    ?: return@measure null
+                    ?: throw SocketTimeoutException("NASA APOD request timed out")
                 val wallpaper = response.toWallpaper() ?: return@measure null
                 cacheManager.cache("nasa_apod_today", listOf(wallpaper))
                 wallpaper
@@ -374,7 +376,7 @@ class WallpaperRepository @Inject constructor(
         return try {
             sourceMetrics.measure(SOURCE_APOD) {
                 val responses = withTimeoutOrNull(8_000L) { nasaApodApi.getApodList(count = count) }
-                    ?: return@measure emptySourceResult(1)
+                    ?: throw SocketTimeoutException("NASA APOD request timed out")
                 val wallpapers = responses.mapNotNull { it.toWallpaper() }
                 SearchResult(
                     items = wallpapers,
@@ -394,13 +396,15 @@ class WallpaperRepository @Inject constructor(
             sourceMetrics.measure(SOURCE_WIKI_POTD) {
                 val cached = cacheManager.getCached("wiki_potd_today", ContentSource.WIKIMEDIA)
                 if (!cached.isNullOrEmpty()) return@measure cached.first()
-                val cal = Calendar.getInstance()
+                // The en-featured feed keys entries by UTC date; a device-local date can
+                // 404 for hours each morning in UTC+ timezones.
+                val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
                 val year = String.format(Locale.ROOT, "%04d", cal.get(Calendar.YEAR))
                 val month = String.format(Locale.ROOT, "%02d", cal.get(Calendar.MONTH) + 1)
                 val day = String.format(Locale.ROOT, "%02d", cal.get(Calendar.DAY_OF_MONTH))
                 val response = withTimeoutOrNull(8_000L) {
                     wikimediaPotdApi.getFeatured(year, month, day)
-                } ?: return@measure null
+                } ?: throw SocketTimeoutException("Wikipedia POTD request timed out")
                 val wallpaper = response.image?.toWallpaper("$year-$month-$day")
                     ?: return@measure null
                 cacheManager.cache("wiki_potd_today", listOf(wallpaper))
@@ -414,17 +418,21 @@ class WallpaperRepository @Inject constructor(
 
     suspend fun getLemmyWallpapers(page: Int = 1): SearchResult<Wallpaper> {
         return try {
-            sourceMetrics.measure(SOURCE_LEMMY) {
-                val response = withTimeoutOrNull(8_000L) {
-                    lemmyApi.getPosts(page = page)
-                } ?: return@measure emptySourceResult(page)
-                val wallpapers = response.posts.mapNotNull { it.toWallpaper() }
-                SearchResult(
-                    items = wallpapers,
-                    totalCount = wallpapers.size,
-                    currentPage = page,
-                    hasMore = wallpapers.size >= 15,
-                )
+            withCacheFallback("lemmy_$page", ContentSource.LEMMY) {
+                sourceMetrics.measure(SOURCE_LEMMY) {
+                    val response = withTimeoutOrNull(8_000L) {
+                        lemmyApi.getPosts(page = page)
+                    } ?: throw SocketTimeoutException("Lemmy request timed out")
+                    val wallpapers = response.posts.mapNotNull { it.toWallpaper() }
+                    SearchResult(
+                        items = wallpapers,
+                        totalCount = wallpapers.size,
+                        currentPage = page,
+                        // Paginate on the raw page size — filtering text/NSFW posts out of a
+                        // full page must not end paging early.
+                        hasMore = response.posts.size >= 20,
+                    )
+                }
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
@@ -588,6 +596,7 @@ class WallpaperRepository @Inject constructor(
         return cacheManager.getStaleCached("discover_$page")
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     suspend fun getDiscover(page: Int = 1, userStyles: List<String> = emptyList()): SearchResult<Wallpaper> =
         sourceMetrics.measure(SOURCE_DISCOVER) {
             supervisorScope {
@@ -629,7 +638,17 @@ class WallpaperRepository @Inject constructor(
                 val primaryResults = primarySources.awaitAll()
                 val secondaryResults = withTimeoutOrNull(DISCOVER_SECONDARY_SOURCE_BUDGET_MS) {
                     secondarySources.awaitAll()
-                } ?: emptyList()
+                } ?: secondarySources.map { deferred ->
+                    // Budget elapsed: keep whatever finished and cancel the stragglers —
+                    // otherwise supervisorScope blocks on their internal timeouts while
+                    // their results are discarded anyway.
+                    if (deferred.isCompleted) {
+                        runCatching { deferred.getCompleted() }.getOrNull()
+                    } else {
+                        deferred.cancel()
+                        null
+                    }
+                }
                 val merged = mergeDiscoverResults(
                     results = keepPexelsAsDiscoverEnhancement(primaryResults + secondaryResults),
                     page = page,
