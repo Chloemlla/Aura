@@ -92,6 +92,11 @@ class SoundProfileWorker @AssistedInject constructor(
             val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
             val active = activeProfileForHour(profiles, hour)
             if (active == null) {
+                // Clear the dedup marker so a single profile (e.g. night-only) is
+                // re-applied when its window comes around again tomorrow.
+                if (prefs.soundProfileLastAppliedId.first().isNotBlank()) {
+                    prefs.setSoundProfileLastAppliedId("")
+                }
                 receiptStore.recordSuccess(WORK_NAME)
                 return Result.success()
             }
@@ -102,12 +107,16 @@ class SoundProfileWorker @AssistedInject constructor(
                 return Result.success()
             }
 
+            // Persist lastApplied*Uri alongside each set so the boot/update restoration
+            // receiver restores the profile sound instead of stomping it with a stale
+            // manually-applied one.
             if (active.ringtoneUri.isNotBlank()) {
                 RingtoneManager.setActualDefaultRingtoneUri(
                     applicationContext,
                     RingtoneManager.TYPE_RINGTONE,
                     Uri.parse(active.ringtoneUri),
                 )
+                prefs.setLastAppliedRingtoneUri(active.ringtoneUri)
             }
             if (active.notificationUri.isNotBlank()) {
                 RingtoneManager.setActualDefaultRingtoneUri(
@@ -115,6 +124,7 @@ class SoundProfileWorker @AssistedInject constructor(
                     RingtoneManager.TYPE_NOTIFICATION,
                     Uri.parse(active.notificationUri),
                 )
+                prefs.setLastAppliedNotificationUri(active.notificationUri)
             }
             if (active.alarmUri.isNotBlank()) {
                 RingtoneManager.setActualDefaultRingtoneUri(
@@ -122,6 +132,7 @@ class SoundProfileWorker @AssistedInject constructor(
                     RingtoneManager.TYPE_ALARM,
                     Uri.parse(active.alarmUri),
                 )
+                prefs.setLastAppliedAlarmUri(active.alarmUri)
             }
 
             prefs.setSoundProfileLastAppliedId(active.id)

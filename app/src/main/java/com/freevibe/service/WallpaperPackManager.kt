@@ -100,6 +100,11 @@ class WallpaperPackWorker @AssistedInject constructor(
             val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
             val slot = activeSlotForHour(pack, hour)
             if (slot == null || slot.wallpaperUri.isBlank()) {
+                // Clear the dedup marker so a partial pack (e.g. morning-only) is
+                // re-applied when its daypart comes around again tomorrow.
+                if (prefs.wallpaperPackLastAppliedDaypart.first().isNotBlank()) {
+                    prefs.setWallpaperPackLastAppliedDaypart("")
+                }
                 receiptStore.recordSuccess(WORK_NAME)
                 return Result.success()
             }

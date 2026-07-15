@@ -104,12 +104,10 @@ class AutoWallpaperWorker @AssistedInject constructor(
         if (homeEnabled && lockEnabled) {
             applyAndRecord(pick, WallpaperTarget.BOTH)
         } else {
+            // Only one target can be enabled here; both use the deterministic pick so
+            // sequential (no-shuffle) rotation stays sequential in lock-only mode too.
             if (homeEnabled) applyAndRecord(pick, WallpaperTarget.HOME)
-            if (lockEnabled) {
-                // Pick a different wallpaper for lock if available
-                val lockPick = pickAlternateWallpaper(wallpapers, pick)
-                applyAndRecord(lockPick, WallpaperTarget.LOCK)
-            }
+            if (lockEnabled) applyAndRecord(pick, WallpaperTarget.LOCK)
         }
         return Result.success()
     }
@@ -134,7 +132,16 @@ class AutoWallpaperWorker @AssistedInject constructor(
     private suspend fun filterRecentRepeats(wallpapers: List<Wallpaper>): List<Wallpaper> {
         if (!prefs.avoidRecentRepeats.first()) return wallpapers
         val recentIds = prefs.getRecentRotationIds().toSet()
-        return excludeRecentWallpapers(wallpapers, recentIds)
+        val remaining = excludeRecentWallpapers(wallpapers, recentIds)
+        return if (remaining.isEmpty() && wallpapers.isNotEmpty()) {
+            // Every candidate has already been shown — reset the no-repeat cycle.
+            // Without this, sequential rotation pins to first() forever while the
+            // recent-IDs FIFO keeps re-recording it.
+            prefs.clearRecentRotationIds()
+            wallpapers
+        } else {
+            remaining
+        }
     }
 
     private suspend fun fetchWallpapers(source: String): List<Wallpaper> {
@@ -208,17 +215,20 @@ class AutoWallpaperWorker @AssistedInject constructor(
             val requiresCharging = prefs.autoWallpaperRequiresCharging.first()
             val requiresWiFiOnly = prefs.autoWallpaperRequiresWiFiOnly.first()
             val requiresIdle = prefs.autoWallpaperRequiresIdle.first()
-            val source = if (prefs.schedulerEnabled.first()) {
+            val requiresNetwork = if (prefs.schedulerEnabled.first()) {
                 val daySource = prefs.schedulerDaySource.first()
                 val nightSource = prefs.schedulerNightSource.first()
                 if (daySource.isNotEmpty() && nightSource.isNotEmpty()) {
-                    val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-                    if (hour in 6..17) daySource else nightSource
+                    // The periodic worker runs both halves of the day under this one
+                    // constraint, so it must satisfy whichever half needs network —
+                    // picking the source matching the hour at *scheduling* time would
+                    // bake in a stale constraint for the other half.
+                    sourceRequiresNetwork(daySource) || sourceRequiresNetwork(nightSource)
                 } else {
-                    prefs.schedulerSource.first()
+                    sourceRequiresNetwork(prefs.schedulerSource.first())
                 }
             } else {
-                prefs.autoWallpaperSource.first()
+                sourceRequiresNetwork(prefs.autoWallpaperSource.first())
             }
             scheduleWithConstraints(
                 context = context,
@@ -226,7 +236,7 @@ class AutoWallpaperWorker @AssistedInject constructor(
                 requiresCharging = requiresCharging,
                 requiresWiFiOnly = requiresWiFiOnly,
                 requiresIdle = requiresIdle,
-                requiresNetwork = sourceRequiresNetwork(source),
+                requiresNetwork = requiresNetwork,
             )
         }
 
@@ -323,21 +333,16 @@ internal fun pickScheduledWallpaper(
     else -> wallpapers.first()
 }
 
-internal fun pickAlternateWallpaper(
-    wallpapers: List<Wallpaper>,
-    current: Wallpaper,
-): Wallpaper = wallpapers
-    .filter { it.stableKey() != current.stableKey() }
-    .randomOrNull()
-    ?: current
-
+/**
+ * Filters out recently applied wallpapers. Returns an EMPTY list when every
+ * candidate is recent so the caller can reset the no-repeat cycle explicitly.
+ */
 internal fun excludeRecentWallpapers(
     wallpapers: List<Wallpaper>,
     recentIds: Set<String>,
 ): List<Wallpaper> {
     if (recentIds.isEmpty()) return wallpapers
-    val filtered = wallpapers.filter { it.stableKey() !in recentIds }
-    return filtered.ifEmpty { wallpapers }
+    return wallpapers.filter { it.stableKey() !in recentIds }
 }
 
 internal fun queryLocalFolderWallpapers(

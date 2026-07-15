@@ -147,6 +147,9 @@ class PreferencesManager @Inject constructor(
             .filter { it.isNotBlank() }
     suspend fun addRecentRotationId(id: String) {
         val recent = getRecentRotationIds().toMutableList()
+        // Move-to-end instead of append: duplicates would fill the FIFO with copies
+        // of one key and evict genuinely-recent entries.
+        recent.remove(id)
         recent.add(id)
         val maxSize = 50
         while (recent.size > maxSize) recent.removeAt(0)
@@ -408,6 +411,7 @@ class PreferencesManager @Inject constructor(
 
     private fun readProviderCredentialValue(credentialKey: ProviderCredentialKey): String? =
         runCatching { providerCredentialStore.get(credentialKey) }
+            .onSuccess { clearProviderCredentialStorageUnavailable() }
             .onFailure { markProviderCredentialStorageUnavailable() }
             .getOrNull()
 
@@ -416,12 +420,20 @@ class PreferencesManager @Inject constructor(
         value: String,
     ): Boolean = runCatching {
         providerCredentialStore.set(credentialKey, value)
+    }.onSuccess {
+        clearProviderCredentialStorageUnavailable()
     }.onFailure {
         markProviderCredentialStorageUnavailable()
     }.isSuccess
 
     private fun markProviderCredentialStorageUnavailable() {
         _providerCredentialStorageUnavailable.value = true
+    }
+
+    private fun clearProviderCredentialStorageUnavailable() {
+        // A transient keystore hiccup must not flag credential storage broken for the
+        // whole process lifetime once subsequent operations succeed.
+        _providerCredentialStorageUnavailable.value = false
     }
 
     private object Keys {

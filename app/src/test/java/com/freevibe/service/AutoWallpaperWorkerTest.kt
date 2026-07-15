@@ -6,7 +6,6 @@ import com.freevibe.data.model.Wallpaper
 import com.freevibe.data.model.stableKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -63,26 +62,6 @@ class AutoWallpaperWorkerTest {
         assertEquals(first, picked)
     }
 
-    @Test
-    fun `pickAlternateWallpaper falls back when no distinct alternative exists`() {
-        val current = wallpaper(id = "shared", source = ContentSource.WALLHAVEN)
-        val duplicate = wallpaper(id = "shared", source = ContentSource.WALLHAVEN)
-
-        val picked = pickAlternateWallpaper(listOf(current, duplicate), current)
-
-        assertSame(current, picked)
-    }
-
-    @Test
-    fun `pickAlternateWallpaper prefers a different stable key when available`() {
-        val current = wallpaper(id = "shared", source = ContentSource.WALLHAVEN)
-        val alternate = wallpaper(id = "shared", source = ContentSource.PIXABAY)
-
-        val picked = pickAlternateWallpaper(listOf(current, alternate), current)
-
-        assertEquals(alternate, picked)
-    }
-
     // ── excludeRecentWallpapers (sequential selection) ──
 
     @Test
@@ -108,14 +87,14 @@ class AutoWallpaperWorkerTest {
     }
 
     @Test
-    fun `excludeRecentWallpapers falls back to full list when all are recent`() {
+    fun `excludeRecentWallpapers returns empty when all are recent so the caller resets the cycle`() {
         val a = wallpaper("a", ContentSource.WALLHAVEN)
         val b = wallpaper("b", ContentSource.PEXELS)
         val recentIds = setOf(a.stableKey(), b.stableKey())
 
         val result = excludeRecentWallpapers(listOf(a, b), recentIds)
 
-        assertEquals(listOf(a, b), result)
+        assertTrue(result.isEmpty())
     }
 
     private fun wallpaper(id: String, source: ContentSource) = Wallpaper(

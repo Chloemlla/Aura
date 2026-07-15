@@ -66,6 +66,10 @@ class RingtoneShuffleWorker @AssistedInject constructor(
                     uri,
                 )
                 prefs.setRingtoneShuffleLastAppliedId(chosen.id)
+                // Keep the restoration receiver's expectation in sync — otherwise the
+                // next boot/app update reverts the shuffled sound to the stale
+                // last-manually-applied one.
+                prefs.setLastAppliedRingtoneUri(uri.toString())
             }
 
             if (prefs.alarmShuffleEnabled.first()) {
@@ -84,6 +88,7 @@ class RingtoneShuffleWorker @AssistedInject constructor(
                         uri,
                     )
                     prefs.setAlarmShuffleLastAppliedId(chosen.id)
+                    prefs.setLastAppliedAlarmUri(uri.toString())
                 } else {
                     receiptStore.recordFailure(
                         uniqueWorkName = WORK_NAME,

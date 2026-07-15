@@ -13,6 +13,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
+import kotlinx.coroutines.flow.first
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
@@ -57,11 +58,22 @@ class RotationTriggerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Allow Intent extras to update which triggers are active without restarting
-        // the service. EXTRA_UNLOCK / EXTRA_SCREEN_OFF default to the current state
-        // so the caller can selectively flip one without re-declaring both.
-        screenOffEnabled = intent?.getBooleanExtra(EXTRA_SCREEN_OFF, screenOffEnabled) ?: screenOffEnabled
-        unlockEnabled = intent?.getBooleanExtra(EXTRA_UNLOCK, unlockEnabled) ?: unlockEnabled
+        if (intent == null) {
+            // START_STICKY restart after process death: the volatile flags are gone
+            // and defaulting them to false would stopSelf() — silently killing
+            // rotate-on-unlock until the app is next opened. Re-read the toggles.
+            val prefs = com.freevibe.data.local.PreferencesManager(applicationContext)
+            kotlinx.coroutines.runBlocking {
+                unlockEnabled = prefs.rotateOnUnlock.first()
+                screenOffEnabled = prefs.rotateOnScreenOff.first()
+            }
+        } else {
+            // Allow Intent extras to update which triggers are active without
+            // restarting the service. EXTRA_UNLOCK / EXTRA_SCREEN_OFF default to the
+            // current state so the caller can selectively flip one.
+            screenOffEnabled = intent.getBooleanExtra(EXTRA_SCREEN_OFF, screenOffEnabled)
+            unlockEnabled = intent.getBooleanExtra(EXTRA_UNLOCK, unlockEnabled)
+        }
         if (!screenOffEnabled && !unlockEnabled) {
             stopSelf()
         }
