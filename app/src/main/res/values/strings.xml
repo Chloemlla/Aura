@@ -1651,9 +1651,15 @@
     <string name="settings_library_import_title">Import whole library</string>
     <string name="settings_library_import_subtitle">Restore a library backup — items merge with what\'s already here</string>
     <string name="settings_library_default_filename">aura-library-backup.json</string>
-    <string name="settings_library_export_done">Library exported: %1$d items</string>
+    <plurals name="settings_library_export_done">
+        <item quantity="one">Library exported: %1$d item</item>
+        <item quantity="other">Library exported: %1$d items</item>
+    </plurals>
     <string name="settings_library_export_failed">Library export failed: %1$s</string>
-    <string name="settings_library_import_done">Library imported: %1$d items</string>
+    <plurals name="settings_library_import_done">
+        <item quantity="one">Library imported: %1$d item</item>
+        <item quantity="other">Library imported: %1$d items</item>
+    </plurals>
     <string name="settings_library_import_failed">Library import failed: %1$s</string>
 
     <!-- Global apply/undo feedback (FreeVibeRoot snackbar) -->

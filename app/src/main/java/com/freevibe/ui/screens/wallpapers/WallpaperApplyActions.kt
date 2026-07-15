@@ -53,7 +53,9 @@ internal class WallpaperApplyActions(
                         WallpaperTarget.LOCK -> "lock screen"
                         WallpaperTarget.BOTH -> "home & lock screen"
                     }
-                    state.update { it.copy(isApplying = false, applySuccess = "Set as $label wallpaper") }
+                    // Feedback goes through the global bus only — setting applySuccess
+                    // too stacks a second snackbar on top of the bus one (seen on-device).
+                    state.update { it.copy(isApplying = false) }
                     applyFeedbackBus.post(
                         ApplyFeedbackEvent(
                             message = "Applied to $label",
@@ -75,7 +77,8 @@ internal class WallpaperApplyActions(
                 .getOrDefault(WallpaperTarget.BOTH)
             wallpaperApplier.applyFromUrl(entry.fullUrl, target)
                 .onSuccess {
-                    state.update { it.copy(isApplying = false, applySuccess = "Reverted") }
+                    // Bus-only feedback — see applyWallpaper.
+                    state.update { it.copy(isApplying = false) }
                     applyFeedbackBus.post(ApplyFeedbackEvent(message = "Reverted to previous wallpaper", undoTarget = null))
                 }
                 .onFailure { e ->

@@ -63,9 +63,17 @@ class WeatherWallpaperService : WallpaperService() {
             onRevealChanged = { if (visible) handler.post(drawRunner) },
         )
 
+        override fun onCreate(surfaceHolder: SurfaceHolder) {
+            super.onCreate(surfaceHolder)
+            // MUST be here, not in onSurfaceCreated: on Android 16 the framework's
+            // setTouchEventsEnabled() re-runs updateSurface(), which re-dispatches
+            // onSurfaceCreated — infinite recursion -> StackOverflowError (observed
+            // as a wallpaper-process crash after reboot on SDK 36).
+            setTouchEventsEnabled(true)
+        }
+
         override fun onSurfaceCreated(holder: SurfaceHolder) {
             super.onSurfaceCreated(holder)
-            setTouchEventsEnabled(true)
             loadShaderPresetFromPrefs()
             receiptStore.recordSurfaceCreated(LiveWallpaperReceiptStore.ENGINE_WEATHER, currentWallpaperLocator())
             loadWallpaperBitmap()

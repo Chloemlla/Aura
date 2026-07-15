@@ -537,7 +537,9 @@ class SettingsViewModel @Inject constructor(
             _themePackTransfer.value = result.fold(
                 onSuccess = { count ->
                     ThemePackTransferState(
-                        message = context.getString(R.string.settings_library_export_done, count),
+                        message = context.resources.getQuantityString(
+                            R.plurals.settings_library_export_done, count, count,
+                        ),
                     )
                 },
                 onFailure = { error ->
@@ -560,7 +562,9 @@ class SettingsViewModel @Inject constructor(
             _themePackTransfer.value = result.fold(
                 onSuccess = { count ->
                     ThemePackTransferState(
-                        message = context.getString(R.string.settings_library_import_done, count),
+                        message = context.resources.getQuantityString(
+                            R.plurals.settings_library_import_done, count, count,
+                        ),
                     )
                 },
                 onFailure = { error ->
