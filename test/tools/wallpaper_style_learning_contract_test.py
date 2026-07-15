@@ -5,6 +5,7 @@ ROOT = Path(__file__).resolve().parents[2]
 MODEL = ROOT / "app/src/main/java/com/freevibe/service/WallpaperStyleLearning.kt"
 RANKER = ROOT / "app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperFeedQuality.kt"
 VIEWMODEL = ROOT / "app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersViewModel.kt"
+STYLE_ACTIONS = ROOT / "app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperStyleActions.kt"
 APPLY = ROOT / "app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperApplyActions.kt"
 SCREEN = ROOT / "app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt"
 SETTINGS = ROOT / "app/src/main/java/com/freevibe/ui/screens/settings/SettingsWallpaperSection.kt"
@@ -27,6 +28,7 @@ def test_wallpaper_style_learning_stays_local_and_has_threshold():
 def test_wallpaper_style_learning_records_apply_favorite_skip_and_resets():
     ranker = RANKER.read_text(encoding="utf-8")
     viewmodel = VIEWMODEL.read_text(encoding="utf-8")
+    style_actions = STYLE_ACTIONS.read_text(encoding="utf-8")
     apply_actions = APPLY.read_text(encoding="utf-8")
     screen = SCREEN.read_text(encoding="utf-8")
     settings = SETTINGS.read_text(encoding="utf-8")
@@ -34,6 +36,9 @@ def test_wallpaper_style_learning_records_apply_favorite_skip_and_resets():
     assert "styleLearningProfile.scoreFor(wallpaper)" in ranker
     assert "WallpaperStyleLearningSignal.APPLIED" in apply_actions
     assert "WallpaperStyleLearningSignal.FAVORITED" in apply_actions
-    assert "WallpaperStyleLearningSignal.SKIPPED" in viewmodel
+    # Signal recording lives in the WallpaperStyleActions delegate (mutex-guarded);
+    # the Hilt root only forwards to it.
+    assert "WallpaperStyleLearningSignal.SKIPPED" in style_actions
+    assert "styleActions.skipWallpaper" in viewmodel
     assert "skipWallpaper(wallpaper)" in screen
     assert "resetWallpaperStyleLearning" in settings

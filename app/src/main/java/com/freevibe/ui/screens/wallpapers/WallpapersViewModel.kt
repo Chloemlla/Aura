@@ -10,7 +10,6 @@ import com.freevibe.data.model.CommunityUploadRights
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Wallpaper
 import com.freevibe.data.model.WallpaperTarget
-import com.freevibe.data.model.stableKey
 import com.freevibe.data.repository.CollectionRepository
 import com.freevibe.data.repository.AiWallpaperRepository
 import com.freevibe.data.repository.CommunityBlockRepository
@@ -31,13 +30,10 @@ import com.freevibe.service.SelectedContentHolder
 import com.freevibe.service.SourceMetrics
 import com.freevibe.service.WallpaperApplier
 import com.freevibe.service.WallpaperHistoryManager
-import com.freevibe.service.WallpaperStyleLearningProfile
-import com.freevibe.service.WallpaperStyleLearningSignal
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -138,6 +134,13 @@ class WallpapersViewModel @Inject constructor(
         scope = viewModelScope,
     )
 
+    internal val styleActions = WallpaperStyleActions(
+        prefs = prefs,
+        browse = browse,
+        state = _state,
+        scope = viewModelScope,
+    )
+
     internal val applyActions = WallpaperApplyActions(
         wallpaperApplier = wallpaperApplier,
         downloadManager = downloadManager,
@@ -149,7 +152,7 @@ class WallpapersViewModel @Inject constructor(
         applyFeedbackBus = applyFeedbackBus,
         state = _state,
         scope = viewModelScope,
-        onStyleSignal = ::recordStyleLearningSignal,
+        onStyleSignal = styleActions::recordSignal,
     )
 
     internal val searchActions = WallpaperSearchActions(
@@ -164,6 +167,7 @@ class WallpapersViewModel @Inject constructor(
         topVoted = _topVoted,
         dailyPick = _dailyPick,
         scope = viewModelScope,
+        cancelBrowseLoad = browse::cancel,
     )
 
     internal val community = WallpaperCommunityActions(
@@ -249,6 +253,7 @@ class WallpapersViewModel @Inject constructor(
     fun selectTab(tab: WallpaperTab) {
         val targetTab = if (browse.isProviderDisabledTab(tab)) WallpaperTab.DISCOVER else tab
         if (targetTab == WallpaperTab.REDDIT) redditRepo.resetPagination()
+        searchActions.cancel()
         _state.update {
             it.copy(
                 selectedTab = targetTab,
@@ -270,26 +275,7 @@ class WallpapersViewModel @Inject constructor(
         browse.loadWallpapers()
     }
 
-    fun setDiscoverFilter(filter: WallpaperDiscoverFilter) {
-        viewModelScope.launch {
-            val preferredResolution = prefs.preferredResolution.first()
-            val userStyles = browse.loadUserStyles()
-            val styleLearningProfile = browse.loadStyleLearningProfile()
-            val ranked = rankWallpapers(
-                wallpapers = _state.value.wallpapers,
-                filter = filter,
-                preferredResolution = preferredResolution,
-                userStyles = userStyles,
-                styleLearningProfile = styleLearningProfile,
-            )
-            _state.update {
-                it.copy(
-                    discoverFilter = filter,
-                    wallpapers = ranked,
-                )
-            }
-        }
-    }
+    fun setDiscoverFilter(filter: WallpaperDiscoverFilter) = styleActions.setDiscoverFilter(filter)
 
     fun search(query: String) {
         if (query.isBlank()) {
@@ -299,6 +285,7 @@ class WallpapersViewModel @Inject constructor(
         val returnTab = _state.value.selectedTab
             .takeIf { it != WallpaperTab.SEARCH && it != WallpaperTab.COLOR }
             ?: _state.value.browseTab
+        searchActions.cancel()
         _state.update {
             it.copy(
                 query = query,
@@ -338,6 +325,7 @@ class WallpapersViewModel @Inject constructor(
             _state.value.browseTab
         }
         if (returnTab == WallpaperTab.REDDIT) redditRepo.resetPagination()
+        searchActions.cancel()
         _state.update {
             it.copy(
                 selectedTab = returnTab,
@@ -412,24 +400,9 @@ class WallpapersViewModel @Inject constructor(
     fun dismissDownload(id: String) = applyActions.dismissDownload(id)
     fun toggleFavorite(wallpaper: Wallpaper) = applyActions.toggleFavorite(wallpaper)
     fun isFavorite(wallpaper: Wallpaper): Flow<Boolean> = applyActions.isFavorite(wallpaper)
-    fun skipWallpaper(wallpaper: Wallpaper) {
-        viewModelScope.launch {
-            recordStyleLearningSignal(wallpaper, WallpaperStyleLearningSignal.SKIPPED)
-            _state.update { state ->
-                state.copy(
-                    wallpapers = state.wallpapers.filterNot { it.stableKey() == wallpaper.stableKey() },
-                    applySuccess = "Hidden from this feed",
-                )
-            }
-        }
-    }
+    fun skipWallpaper(wallpaper: Wallpaper) = styleActions.skipWallpaper(wallpaper)
 
-    fun resetWallpaperStyleLearning() {
-        viewModelScope.launch {
-            prefs.clearWallpaperStyleLearning()
-            rerankCurrentDiscoverFeed(WallpaperStyleLearningProfile.EMPTY)
-        }
-    }
+    fun resetWallpaperStyleLearning() = styleActions.resetStyleLearning()
 
     fun clearError() = _state.update { it.copy(error = null, errorSource = null) }
     fun clearSuccess() = _state.update { it.copy(applySuccess = null) }
@@ -510,29 +483,4 @@ class WallpapersViewModel @Inject constructor(
     ) = searchActions.resolveWallpaperSelection(id, source, fullUrl)
 
     fun acceptCommunityGuidelines() = community.acceptCommunityGuidelines()
-
-    private suspend fun recordStyleLearningSignal(
-        wallpaper: Wallpaper,
-        signal: WallpaperStyleLearningSignal,
-    ) {
-        val current = WallpaperStyleLearningProfile.parse(prefs.wallpaperStyleLearningJson.first())
-        val next = current.record(wallpaper, signal)
-        prefs.setWallpaperStyleLearningJson(WallpaperStyleLearningProfile.serialize(next))
-        rerankCurrentDiscoverFeed(next)
-    }
-
-    private suspend fun rerankCurrentDiscoverFeed(profile: WallpaperStyleLearningProfile) {
-        val current = _state.value
-        if (current.selectedTab != WallpaperTab.DISCOVER || current.wallpapers.isEmpty()) return
-        val preferredResolution = prefs.preferredResolution.first()
-        val userStyles = browse.loadUserStyles()
-        val ranked = rankWallpapers(
-            wallpapers = current.wallpapers,
-            filter = current.discoverFilter,
-            preferredResolution = preferredResolution,
-            userStyles = userStyles,
-            styleLearningProfile = profile,
-        )
-        _state.update { it.copy(wallpapers = ranked) }
-    }
 }

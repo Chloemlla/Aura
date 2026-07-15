@@ -108,6 +108,7 @@ class WallpaperEditorViewModel @Inject constructor(
 
     fun setSourceBitmap(bitmap: Bitmap) {
         overlayUndoStack.clear()
+        resetUndoCoalescing()
         _state.update {
             it.copy(
                 originalBitmap = bitmap,
@@ -175,6 +176,9 @@ class WallpaperEditorViewModel @Inject constructor(
         _state.update {
             it.copy(
                 editedBitmap = it.originalBitmap,
+                // The cancelled filter job can no longer clear this — do it here or the
+                // processing overlay stays up forever.
+                isProcessing = false,
                 brightness = 0f, contrast = 1f, saturation = 1f, blurRadius = 0f,
                 vignette = 0f, grain = 0f, amoledCrush = 0f, warmth = 0f,
                 depthBackgroundStyle = DepthBackgroundStyle.BLUR,
@@ -191,6 +195,7 @@ class WallpaperEditorViewModel @Inject constructor(
             )
         }
         overlayUndoStack.clear()
+        resetUndoCoalescing()
     }
 
     fun apply(target: WallpaperTarget) {
@@ -411,6 +416,9 @@ class WallpaperEditorViewModel @Inject constructor(
 
     fun undoOverlayEdit() {
         if (overlayUndoStack.isEmpty()) return
+        // A new gesture right after an undo must get its own snapshot — never
+        // coalesce across an undo boundary.
+        resetUndoCoalescing()
         val previous = overlayUndoStack.removeLast()
         val selectedId = _state.value.selectedOverlayId
             ?.takeIf { id -> previous.any { it.id == id } }
@@ -485,7 +493,7 @@ class WallpaperEditorViewModel @Inject constructor(
     ) {
         val state = _state.value
         if (state.overlayLayers.none { it.id == id }) return
-        saveOverlayUndoSnapshot(state)
+        saveOverlayUndoSnapshot(state, coalesceKey = id)
         _state.update {
             it.copy(
                 overlayLayers = it.overlayLayers.map { layer ->
@@ -497,7 +505,31 @@ class WallpaperEditorViewModel @Inject constructor(
         }
     }
 
-    private fun saveOverlayUndoSnapshot(state: EditorState) {
+    private var lastUndoCoalesceKey: Long? = null
+    private var lastUndoSnapshotAtNanos = 0L
+
+    private fun resetUndoCoalescing() {
+        lastUndoCoalesceKey = null
+        lastUndoSnapshotAtNanos = 0L
+    }
+
+    /**
+     * Pushes an undo snapshot. Continuous edits (drag move, scale/rotation slider,
+     * per-keystroke text) pass the layer id as [coalesceKey] so a burst of updates
+     * produces ONE undo step — a single drag emits dozens of events and would
+     * otherwise flush the entire [MAX_OVERLAY_UNDO]-deep history.
+     */
+    private fun saveOverlayUndoSnapshot(state: EditorState, coalesceKey: Long? = null) {
+        val now = System.nanoTime()
+        if (coalesceKey != null && coalesceKey == lastUndoCoalesceKey &&
+            now - lastUndoSnapshotAtNanos < OVERLAY_UNDO_COALESCE_NANOS
+        ) {
+            // Same gesture burst — keep the window rolling without a new snapshot.
+            lastUndoSnapshotAtNanos = now
+            return
+        }
+        lastUndoCoalesceKey = coalesceKey
+        lastUndoSnapshotAtNanos = now
         if (overlayUndoStack.size >= MAX_OVERLAY_UNDO) {
             overlayUndoStack.removeFirst()
         }
@@ -510,7 +542,11 @@ class WallpaperEditorViewModel @Inject constructor(
         if (s.brightness == 0f && s.contrast == 1f && s.saturation == 1f &&
             s.blurRadius == 0f && s.vignette == 0f && s.grain == 0f &&
             s.amoledCrush == 0f && s.warmth == 0f) {
-            _state.update { it.copy(editedBitmap = original, qualityWarning = null) }
+            // Cancel any in-flight render: a slider released back at its default must
+            // not be overwritten moments later by the previous filtered frame, and the
+            // dead job can no longer clear isProcessing.
+            filterJob?.cancel()
+            _state.update { it.copy(editedBitmap = original, isProcessing = false, qualityWarning = null) }
             return
         }
         filterJob?.cancel()
@@ -702,6 +738,7 @@ class WallpaperEditorViewModel @Inject constructor(
         private const val MAX_EDIT_LONG_EDGE = 4096
         private const val MAX_OVERLAY_UNDO = 20
         private const val MAX_OVERLAY_TEXT_LENGTH = 48
+        private const val OVERLAY_UNDO_COALESCE_NANOS = 1_000_000_000L // 1s gesture window
     }
 }
 

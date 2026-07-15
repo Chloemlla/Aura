@@ -11,6 +11,7 @@ import com.freevibe.data.repository.WallpaperRepository
 import com.freevibe.service.SelectedContentHolder
 import com.freevibe.service.SourceMetrics
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -28,7 +29,25 @@ internal class WallpaperSearchActions(
     private val topVoted: MutableStateFlow<List<Pair<Wallpaper, Int>>>,
     private val dailyPick: MutableStateFlow<Wallpaper?>,
     private val scope: CoroutineScope,
+    private val cancelBrowseLoad: () -> Unit = {},
 ) {
+    private var searchJob: Job? = null
+
+    /** Cancel any in-flight search/similar/color load so a tab change can't be clobbered. */
+    fun cancel() {
+        searchJob?.cancel()
+    }
+
+    /**
+     * All search-style loads run cancel-and-replace and also cancel the browse
+     * delegate's loadJob: a slow in-flight Discover load must not overwrite fresh
+     * color-search results, and vice versa.
+     */
+    private fun launchSearchLoad(block: suspend () -> Unit) {
+        cancelBrowseLoad()
+        searchJob?.cancel()
+        searchJob = scope.launch { block() }
+    }
 
     fun findSimilar(wallpaper: Wallpaper) {
         if (!wallhavenProviderEnabled.value) {
@@ -45,7 +64,7 @@ internal class WallpaperSearchActions(
         val returnTab = state.value.selectedTab
             .takeIf { it != WallpaperTab.SEARCH && it != WallpaperTab.COLOR }
             ?: state.value.browseTab
-        scope.launch {
+        launchSearchLoad {
             state.update {
                 it.copy(
                     selectedTab = WallpaperTab.SEARCH,
@@ -82,7 +101,10 @@ internal class WallpaperSearchActions(
         source: ContentSource? = null,
         fullUrl: String? = null,
     ) {
-        scope.launch {
+        // Runs inside the tracked search job so a tab switch cancels the resolve too —
+        // an orphaned resolve would call findSimilar() later and yank the UI back to
+        // the SEARCH tab.
+        launchSearchLoad {
             val wallpaper = resolveWallpaperSelection(wallpaperId, source, fullUrl)?.first
             if (wallpaper != null) {
                 findSimilar(wallpaper)
@@ -112,7 +134,7 @@ internal class WallpaperSearchActions(
             }
             return
         }
-        scope.launch {
+        launchSearchLoad {
             state.update { it.copy(selectedTab = WallpaperTab.SEARCH, query = "Random", wallpapers = emptyList(), isLoading = true, currentPage = 1) }
             try {
                 val result = wallpaperRepo.getRandomWallhaven()
@@ -162,7 +184,7 @@ internal class WallpaperSearchActions(
         val returnTab = state.value.selectedTab
             .takeIf { it != WallpaperTab.SEARCH && it != WallpaperTab.COLOR }
             ?: state.value.browseTab
-        scope.launch {
+        launchSearchLoad {
             state.update {
                 it.copy(
                     selectedTab = WallpaperTab.COLOR,
