@@ -2,6 +2,104 @@
 
 All notable changes to Aura will be documented in this file.
 
+## v6.35.0 (2026-07-15)
+
+Deep audit release — ~45 verified fixes across correctness, data safety, UX, i18n, and theming.
+
+### Critical / high
+- **Live wallpapers crash-looped on the lock screen after reboot**: the direct-boot
+  manifest flag survived a fix that moved all reads back to credential-encrypted
+  storage, so FBE devices bound the services before first unlock and every prefs
+  read threw. Removed `directBootAware` from all three wallpaper services.
+- **Hostile or stale `navigate_to` launch extras could crash the app at startup**:
+  the exported launcher activity passed the extra into navigation unvalidated.
+  Unknown routes now fall back to the start destination.
+- **Discover secondary sources (NASA, Wikipedia, Lemmy, Bing) were silently missing
+  most of the time**: the 1.2 s budget discarded completed results on timeout while
+  still blocking on the stragglers. Completed sources are now kept and stragglers
+  cancelled.
+
+### Correctness & reliability
+- Sequential (no-shuffle) wallpaper rotation no longer pins to the first item after
+  one full cycle: the no-repeat FIFO now dedupes and resets when exhausted, and
+  lock-only rotation applies the deterministic pick instead of a random alternate.
+- Day/night rotation schedules now require network if either half of the day needs
+  it, instead of baking in the constraint of whichever source matched at
+  scheduling time.
+- Ringtone/alarm shuffle and time-of-day sound profiles survive reboots and app
+  updates: the workers now record what they applied so the boot restoration
+  receiver no longer stomps them with a stale manual selection; single profiles
+  and partial 24H packs re-apply on their next window instead of running once.
+- Disabling ringtone shuffle no longer silently kills alarm shuffle (shared worker
+  is cancelled only when both are off).
+- 60-second voice recordings are no longer deleted as "too short" when the
+  recorder auto-stops at the cap; recording auto-finalizes, and start/stop
+  failures surface errors instead of doing nothing.
+- Audio previews: the progress bar works on the first play after launch, and
+  player errors (expired stream URLs) clear the stuck playing/resolving state.
+- Sounds tab: switching to Community mid-load no longer lets the stale load
+  overwrite the community feed; exiting search cancels the in-flight search.
+- Wallpaper search actions (find similar, random, color) now cancel and replace
+  each other and the browse load — no more feed clobbering across tabs.
+- Video wallpapers: searching after scrolling no longer 400s Pixabay with a stale
+  page number; a cancelled load no longer clears the new load's spinner (showing
+  a false "No matches" during search); the applying overlay blocks input and
+  concurrent applies are guarded; evicted stream URLs un-mark their items so they
+  don't spin forever.
+- Rotate-on-unlock/screen-off survives process death: the trigger service re-reads
+  its toggles on a sticky restart instead of stopping itself.
+- Wallpaper editor: releasing a filter slider at its default no longer lets the
+  previous render overwrite the image, Reset clears the processing overlay, and a
+  single overlay drag no longer flushes the whole 20-step undo history (gesture
+  coalescing, with undo-boundary reset).
+- Weather wallpaper: dim reveal re-dims under reduced motion, and the legacy
+  coordinate fallback for adaptive tint actually takes effect after upgrade.
+- SourceMetrics: a persisted sub-threshold failure streak is cleared on success
+  (no more false DEGRADED after restart), and provider timeouts now count as
+  failures so degraded-source cooldowns actually engage; NASA/Wikipedia policy
+  aliases resolve in diagnostics.
+- Lemmy: responses are cached per the declared 15-min TTL, pagination uses the
+  pre-filter page size, and Wikipedia POTD uses the UTC date its feed is keyed by.
+- Provider credential store: keystore key generation is process-locked (no more
+  orphaned ciphertext from concurrent first use), and a transient keystore
+  failure no longer flags credential storage broken for the whole session.
+
+### Data safety
+- Failed scheduled backups no longer leave empty files that evict good backups
+  from retention; theme-pack import failures no longer orphan up to 128 MB of
+  extracted assets (import dirs are also pruned when superseded), exports clean
+  their temp copies and delete truncated output, and colliding asset names inside
+  a pack no longer overwrite each other.
+- Whole-library backup (shipped unreachable in v6.34.x) is now wired into
+  Settings > Backup with validated, idempotent import (https-only URLs,
+  enum-checked sources, name-merged collections).
+- Gallery video export no longer leaves an orphaned 0-byte MediaStore row on
+  failure (pending-flag flow with cleanup).
+- Diagnostics bundles redact live-wallpaper media paths like the crash log.
+
+### UX / accessibility / i18n
+- Universal search: fast typing no longer drops keystrokes, rotation keeps the
+  query, URL fields no longer match every item (searching "http" returned
+  everything), favorites aren't listed twice, favorite-origin local files open
+  the item instead of a Downloads dead end, the history dropdown tracks the real
+  field height at large font scale, and the offline state shows the disabled
+  provider reasons instead of a generic no-results card.
+- Preview-screen wallpaper applies report failures via snackbar (previously
+  silent); apply/undo feedback strings are localized resources.
+- Settings: permission-scope badges no longer break in non-English locales
+  (enum-based), the hardcoded green "granted" tint uses a theme token, ~120
+  hardcoded English strings across diagnostics/dialogs/subtitles moved to
+  resources (with proper plurals — also fixing "90 min → 1 hours"), shader/VFX/
+  interval pickers scroll on short screens, theme-pack rows disable while a
+  transfer runs, and progress bars use on-scale 4 dp radii.
+- Sound detail: a failed similar-sounds load shows an honest error with Retry
+  instead of "No close matches".
+- Widget: last-shuffle time honors the device 12/24-hour setting.
+- Embedded photo picker: reflection failures in the async session callback fall
+  back to the standard picker instead of crashing; bottom sheet uses an on-scale
+  12 dp radius; OEM battery-guidance deep links now resolve on Android 11+
+  (package visibility declarations).
+
 ## v6.34.6 (2026-07-01)
 - **Unified local Library hub**: added a first-class Library tab that groups
   Favorites, Downloads, Collections, Local imports, Recent activity, and
