@@ -252,16 +252,27 @@ class WeatherWallpaperService : WallpaperService() {
             // existing users don't lose tinting between an upgrade and the next 30-min
             // worker tick. location_present is the canonical "we have coordinates" flag.
             tintLocationPresent = prefs.getBoolean("location_present", false)
-            tintLat = if (tintLocationPresent) {
-                prefs.getFloat("location_lat", 0f).toDouble()
+            if (tintLocationPresent) {
+                tintLat = prefs.getFloat("location_lat", 0f).toDouble()
+                tintLon = prefs.getFloat("location_lon", 0f).toDouble()
             } else {
-                // Legacy fallback for users who upgraded mid-cycle.
-                runCatching { prefs.getLong("location_lat", 0L).toDouble() }.getOrDefault(0.0)
-            }
-            tintLon = if (tintLocationPresent) {
-                prefs.getFloat("location_lon", 0f).toDouble()
-            } else {
-                runCatching { prefs.getLong("location_lon", 0L).toDouble() }.getOrDefault(0.0)
+                // Legacy fallback for users who upgraded mid-cycle: pre-Float-schema
+                // Long coords. Mark the location present when both exist — otherwise
+                // currentTintPaint() bails on !tintLocationPresent and the fallback
+                // values are never consumed (tint silently off until the next worker
+                // tick rewrites the Float keys).
+                val legacyLat = runCatching { prefs.getLong("location_lat", Long.MIN_VALUE) }
+                    .getOrDefault(Long.MIN_VALUE)
+                val legacyLon = runCatching { prefs.getLong("location_lon", Long.MIN_VALUE) }
+                    .getOrDefault(Long.MIN_VALUE)
+                if (legacyLat != Long.MIN_VALUE && legacyLon != Long.MIN_VALUE) {
+                    tintLat = legacyLat.toDouble()
+                    tintLon = legacyLon.toDouble()
+                    tintLocationPresent = true
+                } else {
+                    tintLat = 0.0
+                    tintLon = 0.0
+                }
             }
             // Invalidate the cached tint paint — any of these inputs may have changed.
             tintPaint = null
@@ -351,6 +362,12 @@ class WeatherWallpaperService : WallpaperService() {
             }
             if (visible && !reducedMotion) {
                 handler.postDelayed(drawRunner, frameInterval)
+            } else if (visible && dimEnabled && dimming.isRevealing) {
+                // Reduced-motion mode has no self-rescheduling frame loop, so the
+                // re-dim frame at reveal expiry must be scheduled here, AFTER the
+                // touch handler's scheduleDraw() (which removes pending callbacks)
+                // has already run — scheduling it from onTouchEvent gets cancelled.
+                handler.postDelayed(drawRunner, LiveWallpaperDimming.REVEAL_DURATION_MS + 50L)
             }
         }
 

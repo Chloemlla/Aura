@@ -39,6 +39,16 @@
         android:name="android.software.live_wallpaper"
         android:required="false" />
 
+    <!-- Package visibility (API 30+): OemBatteryGuidance resolves OEM battery-manager
+         activities before deep-linking; without these declarations resolveActivity()
+         always returns null and every guide degrades to the generic app-details page. -->
+    <queries>
+        <package android:name="com.samsung.android.lool" />
+        <package android:name="com.miui.powerkeeper" />
+        <package android:name="com.huawei.systemmanager" />
+        <package android:name="com.asus.mobilemanager" />
+    </queries>
+
     <application
         android:name=".FreeVibeApp"
         android:allowBackup="true"
@@ -102,7 +112,6 @@
         <!-- Video Live Wallpaper Service -->
         <service
             android:name=".service.VideoWallpaperService"
-            android:directBootAware="true"
             android:exported="true"
             android:label="@string/video_wallpaper_label"
             android:permission="android.permission.BIND_WALLPAPER">
@@ -117,7 +126,6 @@
         <!-- Weather Live Wallpaper Service -->
         <service
             android:name=".service.WeatherWallpaperService"
-            android:directBootAware="true"
             android:exported="true"
             android:label="Aura Weather"
             android:permission="android.permission.BIND_WALLPAPER">
@@ -132,7 +140,6 @@
         <!-- Parallax Depth Live Wallpaper Service -->
         <service
             android:name=".service.ParallaxWallpaperService"
-            android:directBootAware="true"
             android:exported="true"
             android:label="Aura Parallax"
             android:permission="android.permission.BIND_WALLPAPER">
