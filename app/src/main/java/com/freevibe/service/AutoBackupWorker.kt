@@ -72,7 +72,16 @@ class AutoBackupWorker @AssistedInject constructor(
                 return Result.retry()
             }
 
-            val count = favoritesExporter.export(newDocUri).getOrThrow()
+            val count = try {
+                favoritesExporter.export(newDocUri).getOrThrow()
+            } catch (e: Throwable) {
+                // A failed or cancelled export leaves an empty/partial file that would
+                // sort newest-first in pruneOldBackups and evict good older backups.
+                runCatching {
+                    DocumentsContract.deleteDocument(applicationContext.contentResolver, newDocUri)
+                }
+                throw e
+            }
 
             val keepCount = prefs.autoBackupKeepCount.first().coerceAtLeast(1)
             pruneOldBackups(treeUri, treeDocId, keepCount)

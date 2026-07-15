@@ -138,7 +138,14 @@ class CrashDiagnosticsCollector @Inject constructor(
                 appendLine(CrashDiagnosticsText.formatLiveBackgroundWorkReceipts(liveBackgroundWork))
             }
             appendLine()
-            appendLine(formatLiveWallpaperReceipts())
+            // Receipts carry raw media file paths (user filenames) — run them through
+            // the same redaction as the crash-log tail before they enter share text.
+            appendLine(
+                CrashDiagnosticsText.sanitize(
+                    raw = formatLiveWallpaperReceipts(),
+                    appPaths = appPrivatePaths(),
+                ),
+            )
             appendLine()
             val exitInfoSection = formatRecentExitInfo()
             if (exitInfoSection.isNotBlank()) {

@@ -250,6 +250,7 @@ class ThemePackRecipeManager @Inject constructor(
                 val imported = readThemePack(inputUri)
                 val recipe = imported.recipe
                 if (recipe.version > THEME_PACK_VERSION) {
+                    imported.importDir?.let { runCatching { it.deleteRecursively() } }
                     throw IllegalStateException("Theme pack version ${recipe.version} is not supported yet")
                 }
                 val references = recipe.allMediaReferences()
@@ -314,12 +315,49 @@ class ThemePackRecipeManager @Inject constructor(
                     importedCount++
                 }
 
+                pruneStaleImportDirs(current = imported.importDir)
+
                 ThemePackImportReport(
                     importedItemCount = importedCount,
                     instructions = themePackImportInstructions(recipe, imported.assetsByKey),
                 )
             }.onFailure { it.rethrowIfCancelled() }
         }
+
+    /**
+     * Deletes previous `theme_packs/import-*` directories that are no longer referenced
+     * by any imported configuration. Without this, every import permanently orphans the
+     * previous import's assets (nothing else — including Settings "Clear cache", which
+     * only touches cacheDir — ever reclaims them).
+     */
+    private suspend fun pruneStaleImportDirs(current: File?) {
+        val root = File(context.filesDir, "theme_packs")
+        val dirs = root.listFiles { f -> f.isDirectory && f.name.startsWith("import-") } ?: return
+        if (dirs.isEmpty()) return
+        val referenced = buildString {
+            appendLine(prefs.wallpaperPackJson.first())
+            appendLine(prefs.soundProfilesJson.first())
+            appendLine(prefs.lastAppliedRingtoneUri.first())
+            appendLine(prefs.lastAppliedNotificationUri.first())
+            appendLine(prefs.lastAppliedAlarmUri.first())
+            appendLine(
+                context.getSharedPreferences(LIVE_WALLPAPER_PREFS, Context.MODE_PRIVATE)
+                    .getString("video_path", "").orEmpty(),
+            )
+            // Recent wallpaper-history locators: the global apply-undo flow re-applies
+            // the previous wallpaper by locator, which may live in a prior import dir.
+            wallpaperHistoryManager.getRecent(limit = 10).first().forEach { entry ->
+                appendLine(entry.fullUrl)
+                appendLine(entry.thumbnailUrl)
+            }
+        }
+        dirs.forEach { dir ->
+            if (current != null && dir.name == current.name) return@forEach
+            if (!referenced.contains(dir.absolutePath)) {
+                runCatching { dir.deleteRecursively() }
+            }
+        }
+    }
 
     private suspend fun buildRecipeSnapshot(name: String): ThemePackRecipe {
         val wallpaperPackJson = prefs.wallpaperPackJson.first()
@@ -471,26 +509,36 @@ class ThemePackRecipeManager @Inject constructor(
         recipe: ThemePackRecipe,
         preparedAssets: List<PreparedThemeAsset>,
     ) {
-        context.contentResolver.openOutputStream(outputUri)?.use { output ->
-            ZipOutputStream(output.buffered()).use { zip ->
-                preparedAssets.forEach { asset ->
-                    zip.putNextEntry(ZipEntry(asset.entryName))
-                    asset.file.inputStream().use { input ->
-                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                        while (true) {
-                            val read = input.read(buffer)
-                            if (read == -1) break
-                            zip.write(buffer, 0, read)
+        try {
+            context.contentResolver.openOutputStream(outputUri)?.use { output ->
+                ZipOutputStream(output.buffered()).use { zip ->
+                    preparedAssets.forEach { asset ->
+                        zip.putNextEntry(ZipEntry(asset.entryName))
+                        asset.file.inputStream().use { input ->
+                            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                            while (true) {
+                                val read = input.read(buffer)
+                                if (read == -1) break
+                                zip.write(buffer, 0, read)
+                            }
                         }
+                        zip.closeEntry()
                     }
+                    zip.putNextEntry(ZipEntry(THEME_PACK_MANIFEST_ENTRY))
+                    zip.write(serializeThemePackRecipe(recipe).toByteArray(Charsets.UTF_8))
                     zip.closeEntry()
                 }
-                zip.putNextEntry(ZipEntry(THEME_PACK_MANIFEST_ENTRY))
-                zip.write(serializeThemePackRecipe(recipe).toByteArray(Charsets.UTF_8))
-                zip.closeEntry()
+            } ?: throw IOException("Could not open theme pack output")
+        } catch (e: Throwable) {
+            // Don't leave a truncated pack at the user's chosen location.
+            runCatching {
+                android.provider.DocumentsContract.deleteDocument(context.contentResolver, outputUri)
             }
-        } ?: throw IOException("Could not open theme pack output")
-        preparedAssets.forEach { it.file.delete() }
+            throw e
+        } finally {
+            // Temp copies (up to 128 MB) must go regardless of export outcome.
+            preparedAssets.forEach { runCatching { it.file.delete() } }
+        }
     }
 
     private fun readThemePack(inputUri: Uri): ImportedThemePack {
@@ -517,34 +565,43 @@ class ThemePackRecipeManager @Inject constructor(
     private fun readZipThemePack(zip: ZipInputStream): ImportedThemePack {
         val importDir = File(context.filesDir, "theme_packs/import-${System.currentTimeMillis()}")
         importDir.mkdirs()
-        val assetsByKey = mutableMapOf<String, String>()
-        var manifest: String? = null
-        var totalAssetBytes = 0L
-        var entry = zip.nextEntry
-        while (entry != null) {
-            val name = entry.name
-            when {
-                entry.isDirectory -> Unit
-                name == THEME_PACK_MANIFEST_ENTRY -> {
-                    manifest = zip.reader(Charsets.UTF_8).readTextCapped(THEME_PACK_MAX_MANIFEST_CHARS)
-                }
-                name.startsWith("assets/") && !name.contains("..") -> {
-                    val safeName = name.substringAfterLast('/').ifBlank { shortHash(name) }
-                    val target = File(importDir, safeName)
-                    val bytes = copyZipEntryCapped(zip, target, THEME_PACK_MAX_ASSET_BYTES)
-                    totalAssetBytes += bytes
-                    if (totalAssetBytes > THEME_PACK_MAX_TOTAL_ASSET_BYTES) {
-                        throw IOException("Theme pack assets exceed import limit")
+        try {
+            val assetsByKey = mutableMapOf<String, String>()
+            var manifest: String? = null
+            var totalAssetBytes = 0L
+            var entry = zip.nextEntry
+            while (entry != null) {
+                val name = entry.name
+                when {
+                    entry.isDirectory -> Unit
+                    name == THEME_PACK_MANIFEST_ENTRY -> {
+                        manifest = zip.reader(Charsets.UTF_8).readTextCapped(THEME_PACK_MAX_MANIFEST_CHARS)
                     }
-                    assetsByKey[name] = target.absolutePath
+                    name.startsWith("assets/") && !name.contains("..") -> {
+                        // Hash-prefix the flattened name: assets/a/x.png and assets/b/x.png
+                        // must map to distinct files, not silently overwrite each other.
+                        val safeName = "${shortHash(name)}_${name.substringAfterLast('/').take(60)}"
+                        val target = File(importDir, safeName)
+                        val bytes = copyZipEntryCapped(zip, target, THEME_PACK_MAX_ASSET_BYTES)
+                        totalAssetBytes += bytes
+                        if (totalAssetBytes > THEME_PACK_MAX_TOTAL_ASSET_BYTES) {
+                            throw IOException("Theme pack assets exceed import limit")
+                        }
+                        assetsByKey[name] = target.absolutePath
+                    }
                 }
+                zip.closeEntry()
+                entry = zip.nextEntry
             }
-            zip.closeEntry()
-            entry = zip.nextEntry
+            val recipe = parseThemePackRecipe(manifest.orEmpty())
+                ?: throw IllegalStateException("Theme pack manifest missing or invalid")
+            return ImportedThemePack(recipe = recipe, assetsByKey = assetsByKey, importDir = importDir)
+        } catch (e: Throwable) {
+            // A failed import (bad manifest, oversize assets, IO error) must not orphan
+            // up to 128 MB of extracted assets in filesDir — nothing else cleans it.
+            runCatching { importDir.deleteRecursively() }
+            throw e
         }
-        val recipe = parseThemePackRecipe(manifest.orEmpty())
-            ?: throw IllegalStateException("Theme pack manifest missing or invalid")
-        return ImportedThemePack(recipe = recipe, assetsByKey = assetsByKey)
     }
 
     private fun prepareAssets(references: List<ThemePackMediaReference>): List<PreparedThemeAsset> {
@@ -750,5 +807,6 @@ class ThemePackRecipeManager @Inject constructor(
     private data class ImportedThemePack(
         val recipe: ThemePackRecipe,
         val assetsByKey: Map<String, String>,
+        val importDir: File? = null,
     )
 }

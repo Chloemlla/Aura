@@ -22,6 +22,10 @@ import javax.inject.Singleton
 
 private const val LIBRARY_EXPORT_VERSION = 1
 private const val MAX_IMPORT_SIZE_CHARS = 10_000_000
+private const val MAX_IMPORT_FAVORITES = 5_000
+private const val MAX_IMPORT_COLLECTIONS = 100
+private const val MAX_IMPORT_COLLECTION_ITEMS = 500
+private const val MAX_IMPORT_SEARCHES = 200
 
 @JsonClass(generateAdapter = true)
 data class LibraryExportFile(
@@ -144,22 +148,49 @@ class LibraryExporter @Inject constructor(
             var imported = 0
 
             if (exportFile.favorites.isNotEmpty()) {
-                val entities = exportFile.favorites.mapNotNull { it.toEntity() }
+                val entities = exportFile.favorites
+                    .take(MAX_IMPORT_FAVORITES)
+                    .mapNotNull { it.toEntity() }
                 favoriteDao.insertAll(entities)
                 imported += entities.size
             }
 
+            // Downloads are intentionally NOT imported: their localPath rows point at
+            // files on the exporting device and would render as broken entries here.
+
+            // Merge by name so re-importing the same backup doesn't duplicate
+            // collections (favorites already dedupe at the DAO layer).
+            val existingCollectionsByName = collectionRepo.getAll().first()
+                .associateBy({ it.name }, { it.collectionId })
+            exportFile.collections.take(MAX_IMPORT_COLLECTIONS).forEach { collection ->
+                val name = normalizeImportedText(collection.name)
+                if (name.isBlank()) return@forEach
+                val targetId = existingCollectionsByName[name] ?: collectionRepo.create(name)
+                val existingItemIds = collectionRepo.getItems(targetId).first()
+                    .map { it.wallpaperId }
+                    .toSet()
+                collection.items.take(MAX_IMPORT_COLLECTION_ITEMS).forEach items@{ item ->
+                    val wallpaper = item.toWallpaperOrNull() ?: return@items
+                    if (wallpaper.id in existingItemIds) return@items
+                    collectionRepo.addWallpaper(targetId, wallpaper)
+                }
+                imported++
+            }
+
             if (exportFile.searchHistory.isNotEmpty()) {
-                exportFile.searchHistory.forEach { entry ->
+                val entries = exportFile.searchHistory
+                    .take(MAX_IMPORT_SEARCHES)
+                    .filter { normalizeImportedText(it.query).isNotBlank() }
+                entries.forEach { entry ->
                     searchHistoryDao.insert(
                         SearchHistoryEntity(
-                            query = entry.query,
-                            type = entry.type,
+                            query = normalizeImportedText(entry.query),
+                            type = normalizeImportedText(entry.type),
                             timestamp = entry.searchedAt,
                         )
                     )
                 }
-                imported += exportFile.searchHistory.size
+                imported += entries.size
             }
 
             if (exportFile.wallpaperPackJson.isNotBlank()) {
@@ -222,15 +253,50 @@ private fun SearchHistoryEntity.toExportEntry() = SearchHistoryExportEntry(
     searchedAt = timestamp,
 )
 
+/**
+ * Validated import mapping — mirrors FavoritesExporter.toValidatedEntity: enum-checked
+ * source, https-only URLs, bounded text. Unvalidated rows are dropped, not persisted.
+ */
 private fun FavoriteExportEntry.toEntity(): FavoriteEntity? {
-    if (id.isBlank() || source.isBlank() || type.isBlank()) return null
+    val normalizedId = normalizeImportedText(id)
+    val normalizedSource = normalizeImportedContentSource(source) ?: return null
+    val normalizedType = type.trim().uppercase(java.util.Locale.ROOT)
+    if (normalizedId.isBlank()) return null
+    if (normalizedType !in setOf("WALLPAPER", "SOUND")) return null
+    val normalizedThumbnailUrl = normalizeImportedHttpsUrl(
+        thumbnailUrl,
+        allowBlank = normalizedType == "SOUND",
+    ) ?: return null
+    val normalizedFullUrl = normalizeImportedHttpsUrl(fullUrl) ?: return null
+    if (normalizedFullUrl.isBlank()) return null
+    if (normalizedType == "WALLPAPER" && normalizedThumbnailUrl.isBlank()) return null
     return FavoriteEntity(
-        id = id,
-        source = source,
-        type = type,
-        thumbnailUrl = thumbnailUrl,
-        fullUrl = fullUrl,
-        name = name,
+        id = normalizedId,
+        source = normalizedSource,
+        type = normalizedType,
+        thumbnailUrl = normalizedThumbnailUrl,
+        fullUrl = normalizedFullUrl,
+        name = normalizeImportedText(name),
         addedAt = if (addedAt > 0) addedAt else System.currentTimeMillis(),
+    )
+}
+
+private fun CollectionItemExportEntry.toWallpaperOrNull(): com.freevibe.data.model.Wallpaper? {
+    val normalizedId = normalizeImportedText(wallpaperId)
+    if (normalizedId.isBlank()) return null
+    val normalizedSource = normalizeImportedContentSource(source) ?: return null
+    val normalizedThumbnailUrl = normalizeImportedHttpsUrl(thumbnailUrl) ?: return null
+    val normalizedFullUrl = normalizeImportedHttpsUrl(fullUrl) ?: return null
+    if (normalizedThumbnailUrl.isBlank() || normalizedFullUrl.isBlank()) return null
+    val contentSource = runCatching {
+        com.freevibe.data.model.ContentSource.valueOf(normalizedSource)
+    }.getOrNull() ?: return null
+    return com.freevibe.data.model.Wallpaper(
+        id = normalizedId,
+        source = contentSource,
+        thumbnailUrl = normalizedThumbnailUrl,
+        fullUrl = normalizedFullUrl,
+        width = 0,
+        height = 0,
     )
 }

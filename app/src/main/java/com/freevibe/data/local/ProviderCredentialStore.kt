@@ -71,7 +71,10 @@ class ProviderCredentialStore(
         throw ProviderCredentialStoreException("Provider credential decryption failed", error)
     }
 
-    private fun secretKey(): SecretKey {
+    // Process-wide lock: concurrent first-time credential ops (e.g. the startup legacy
+    // migration reading all five key flows) must not each generate a key — the second
+    // generateKey() would overwrite the alias and orphan ciphertext written under the first.
+    private fun secretKey(): SecretKey = synchronized(KEY_LOCK) {
         val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER).apply { load(null) }
         (keyStore.getEntry(KEY_ALIAS, null) as? KeyStore.SecretKeyEntry)?.let { return it.secretKey }
 
@@ -86,10 +89,11 @@ class ProviderCredentialStore(
             .setRandomizedEncryptionRequired(true)
             .build()
         generator.init(spec)
-        return generator.generateKey()
+        return@synchronized generator.generateKey()
     }
 
     companion object {
+        private val KEY_LOCK = Any()
         const val PREFS_NAME = "aura_provider_credentials"
         const val PREFS_FILE = "aura_provider_credentials.xml"
         const val KEY_ALIAS = "aura_provider_credentials_v1"
