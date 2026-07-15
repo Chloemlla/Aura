@@ -22,7 +22,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -50,13 +52,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -289,18 +295,26 @@ fun UniversalSearchScreen(
     viewModel: UniversalSearchViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var text by remember { mutableStateOf(initialQuery.orEmpty()) }
+    // rememberSaveable: activity recreation (rotation) must not wipe the user's
+    // refined query back to the nav argument.
+    var text by rememberSaveable { mutableStateOf(initialQuery.orEmpty()) }
+    var initialQueryConsumed by rememberSaveable { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
 
-    LaunchedEffect(initialQuery) {
-        if (!initialQuery.isNullOrBlank()) {
-            text = initialQuery
-            viewModel.submitSearch(initialQuery)
+    LaunchedEffect(Unit) {
+        if (!initialQueryConsumed) {
+            initialQueryConsumed = true
+            if (!initialQuery.isNullOrBlank()) {
+                text = initialQuery
+                viewModel.submitSearch(initialQuery)
+                return@LaunchedEffect
+            }
         }
+        // Restored after process death: re-sync the ViewModel query from the field.
+        if (text.isNotBlank()) viewModel.updateQuery(text)
     }
-    LaunchedEffect(state.query) {
-        if (state.query != text) text = state.query
-    }
+    // NOTE: no state.query -> text back-sync. The StateFlow lags fast typing (4-flow
+    // combine), and syncing back drops keystrokes and jumps the cursor.
 
     Scaffold(
         topBar = {
@@ -329,6 +343,9 @@ fun UniversalSearchScreen(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.32f)),
             ) {
                 Box(Modifier.padding(12.dp)) {
+                    // Measured, not hardcoded: at large font scale the field grows past
+                    // the old fixed 42dp offset and the dropdown would overlap the input.
+                    var fieldHeightPx by remember { mutableIntStateOf(0) }
                     CompactSearchField(
                         value = text,
                         onValueChange = {
@@ -337,7 +354,9 @@ fun UniversalSearchScreen(
                         },
                         placeholder = stringResource(R.string.search_placeholder),
                         leadingIcon = Icons.Default.Search,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { fieldHeightPx = it.size.height },
                         onClear = {
                             text = ""
                             viewModel.updateQuery("")
@@ -363,7 +382,7 @@ fun UniversalSearchScreen(
                         onClearAll = viewModel::clearSearchHistory,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 42.dp),
+                            .padding(top = with(LocalDensity.current) { fieldHeightPx.toDp() } + 4.dp),
                     )
                 }
             }
@@ -378,13 +397,24 @@ fun UniversalSearchScreen(
                     )
                 }
             } else if (state.localResults.isEmpty() && state.providerActions.none { it.enabled }) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                // Keep the disabled provider cards visible: their reason ("You're
+                // offline", "provider disabled") is exactly what the user needs here.
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 24.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     AuraStateCard(
                         icon = Icons.Default.SearchOff,
                         title = stringResource(R.string.search_no_results_title),
                         description = stringResource(R.string.search_no_results_body, state.query),
-                        modifier = Modifier.padding(24.dp),
+                        modifier = Modifier.fillMaxWidth(),
                     )
+                    state.providerActions.forEach { action ->
+                        UniversalProviderActionCard(action, onClick = {})
+                    }
                 }
             } else {
                 UniversalSearchResultsList(
@@ -655,8 +685,41 @@ internal fun buildUniversalSearchResults(
     val normalized = query.normalizedSearchNeedle()
     if (normalized.isBlank()) return emptyList()
 
-    val favoriteResults = favorites
-        .filter { it.matchesFavoriteQuery(normalized) }
+    val matchedFavorites = favorites.filter { it.matchesFavoriteQuery(normalized) }
+    val wallpaperFavorites = matchedFavorites
+        .filter { it.type.equals("WALLPAPER", ignoreCase = true) }
+        .take(6)
+    val soundFavorites = matchedFavorites
+        .filter { it.type.equals("SOUND", ignoreCase = true) }
+        .take(6)
+
+    val wallpaperResults = wallpaperFavorites.map { favorite ->
+        UniversalSearchItem(
+            id = "wallpaper_${favorite.stableSearchId()}",
+            section = UniversalSearchSection.WALLPAPERS,
+            title = favorite.displayTitle(),
+            subtitle = listOf(favorite.category.orEmpty(), favorite.source).filter { it.isNotBlank() }.joinToString(" - "),
+            badge = UniversalSearchBadge.OFFLINE,
+            target = UniversalSearchTarget.WallpaperFavorite(favorite),
+        )
+    }
+
+    val soundResults = soundFavorites.map { favorite ->
+        UniversalSearchItem(
+            id = "sound_${favorite.stableSearchId()}",
+            section = UniversalSearchSection.SOUNDS,
+            title = favorite.displayTitle(),
+            subtitle = listOf(favorite.fileType.orEmpty(), favorite.source).filter { it.isNotBlank() }.joinToString(" - "),
+            badge = UniversalSearchBadge.OFFLINE,
+            target = UniversalSearchTarget.SoundFavorite(favorite),
+        )
+    }
+
+    // FAVORITES is an overflow section: only favorites that didn't fit the per-type
+    // caps above — the same item must not be listed twice in one result list.
+    val shownFavoriteKeys = (wallpaperFavorites + soundFavorites).map { it.stableSearchId() }.toSet()
+    val favoriteResults = matchedFavorites
+        .filterNot { it.stableSearchId() in shownFavoriteKeys }
         .take(12)
         .map { favorite ->
             val type = favorite.type.uppercase(Locale.ROOT)
@@ -671,34 +734,6 @@ internal fun buildUniversalSearchResults(
                 } else {
                     UniversalSearchTarget.WallpaperFavorite(favorite)
                 },
-            )
-        }
-
-    val wallpaperResults = favorites
-        .filter { it.type.equals("WALLPAPER", ignoreCase = true) && it.matchesFavoriteQuery(normalized) }
-        .take(6)
-        .map { favorite ->
-            UniversalSearchItem(
-                id = "wallpaper_${favorite.stableSearchId()}",
-                section = UniversalSearchSection.WALLPAPERS,
-                title = favorite.displayTitle(),
-                subtitle = listOf(favorite.category.orEmpty(), favorite.source).filter { it.isNotBlank() }.joinToString(" - "),
-                badge = UniversalSearchBadge.OFFLINE,
-                target = UniversalSearchTarget.WallpaperFavorite(favorite),
-            )
-        }
-
-    val soundResults = favorites
-        .filter { it.type.equals("SOUND", ignoreCase = true) && it.matchesFavoriteQuery(normalized) }
-        .take(6)
-        .map { favorite ->
-            UniversalSearchItem(
-                id = "sound_${favorite.stableSearchId()}",
-                section = UniversalSearchSection.SOUNDS,
-                title = favorite.displayTitle(),
-                subtitle = listOf(favorite.fileType.orEmpty(), favorite.source).filter { it.isNotBlank() }.joinToString(" - "),
-                badge = UniversalSearchBadge.OFFLINE,
-                target = UniversalSearchTarget.SoundFavorite(favorite),
             )
         }
 
@@ -768,7 +803,13 @@ internal fun buildUniversalSearchResults(
                         title = favorite.offlinePath.fileNameFromPath().ifBlank { favorite.displayTitle() },
                         subtitle = favorite.offlinePath,
                         badge = UniversalSearchBadge.LOCAL,
-                        target = UniversalSearchTarget.LocalFile(favorite.offlinePath),
+                        // Route to the favorite itself: these files aren't listed on
+                        // the Downloads screen, so a Downloads target is a dead end.
+                        target = if (favorite.type.equals("SOUND", ignoreCase = true)) {
+                            UniversalSearchTarget.SoundFavorite(favorite)
+                        } else {
+                            UniversalSearchTarget.WallpaperFavorite(favorite)
+                        },
                     )
                 }
         )
@@ -816,26 +857,25 @@ private fun providerDisabledReason(
     else -> null
 }
 
+// URL and raw-path fields are deliberately excluded from matching: queries like
+// "http", "com", or "storage" would otherwise match essentially every item.
 private fun FavoriteEntity.matchesFavoriteQuery(normalized: String): Boolean =
     listOf(
         id,
         source,
         type,
         name,
-        thumbnailUrl,
-        fullUrl,
-        offlinePath,
+        offlinePath.fileNameFromPath(),
         tags.orEmpty(),
         colors.orEmpty(),
         category.orEmpty(),
         uploaderName.orEmpty(),
-        sourcePageUrl.orEmpty(),
         license.orEmpty(),
         fileType.orEmpty(),
     ).any { it.normalizedSearchHaystack().contains(normalized) }
 
 private fun DownloadEntity.matchesDownloadQuery(normalized: String): Boolean =
-    listOf(id, source, type, localPath, name, localPath.fileNameFromPath())
+    listOf(id, source, type, name, localPath.fileNameFromPath())
         .any { it.normalizedSearchHaystack().contains(normalized) }
 
 private fun FavoriteEntity.displayTitle(): String =

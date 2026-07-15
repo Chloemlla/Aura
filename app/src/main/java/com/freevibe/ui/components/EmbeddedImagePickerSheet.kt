@@ -53,7 +53,7 @@ fun EmbeddedImagePickerSheet(
     val selectedUri = remember { mutableStateOf<Uri?>(null) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
+        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
     ) {
         Column(
             modifier = Modifier

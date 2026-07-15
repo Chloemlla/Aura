@@ -76,14 +76,45 @@ class UniversalSearchIndexTest {
             UniversalSearchSection.SOUNDS,
             UniversalSearchSection.COLLECTIONS,
             UniversalSearchSection.DOWNLOADS,
-            UniversalSearchSection.FAVORITES,
             UniversalSearchSection.LOCAL_FILES,
         ).forEach { section ->
             assertTrue("Missing section $section in $sections", section in sections)
         }
+        // FAVORITES is an overflow section: both favorites already appear in their
+        // typed sections, so listing them again would duplicate results.
+        assertTrue(results.none { it.section == UniversalSearchSection.FAVORITES })
         assertEquals(
             UniversalSearchBadge.LOCAL,
             results.first { it.section == UniversalSearchSection.DOWNLOADS }.badge,
         )
+    }
+
+    @Test
+    fun `url and raw path fields do not match queries`() {
+        val results = buildUniversalSearchResults(
+            query = "https",
+            favorites = listOf(
+                FavoriteEntity(
+                    id = "wall-1",
+                    source = "WALLHAVEN",
+                    type = "WALLPAPER",
+                    thumbnailUrl = "https://example.test/thumb.jpg",
+                    fullUrl = "https://example.test/full.jpg",
+                    name = "Sunset ridge",
+                ),
+            ),
+            downloads = listOf(
+                DownloadEntity(
+                    id = "download-1",
+                    source = "WALLHAVEN",
+                    type = "WALLPAPER",
+                    localPath = "/storage/emulated/0/Pictures/sunset.jpg",
+                    name = "Sunset local",
+                ),
+            ),
+            collections = emptyList(),
+        )
+
+        assertTrue("Generic URL tokens must not match every item: $results", results.isEmpty())
     }
 }

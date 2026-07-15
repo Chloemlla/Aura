@@ -100,23 +100,48 @@ object PhotoPickerCustomization {
             val client = Proxy.newProxyInstance(
                 clientCls.classLoader,
                 arrayOf(clientCls),
-            ) { _, method, args ->
+            ) { proxy, method, args ->
                 when (method.name) {
+                    // Object methods are routed through the handler too — returning
+                    // null for hashCode/equals NPEs on unboxing if the platform ever
+                    // stores the client in a hash container.
+                    "hashCode" -> System.identityHashCode(proxy)
+                    "equals" -> proxy === args?.firstOrNull()
+                    "toString" -> "AuraEmbeddedPhotoPickerClient"
                     "onSessionOpened" -> {
                         val session = args?.firstOrNull()
                         if (session != null) {
-                            attachSurfacePackage(surfaceView, session, sessionCls)
-                            controller.attach(session)
-                            controller.resize(widthPx, heightPx)
-                            controller.setVisible(true)
+                            // This runs as an async platform callback after the outer
+                            // runCatching returned — a reflection failure here must
+                            // route to onSessionError (scoped-picker fallback), not
+                            // crash the main thread.
+                            runCatching {
+                                attachSurfacePackage(surfaceView, session, sessionCls)
+                                controller.attach(session)
+                                controller.resize(widthPx, heightPx)
+                                controller.setVisible(true)
+                            }.onFailure(onSessionError)
                         }
+                        null
                     }
-                    "onUriPermissionGranted" -> onUriPermissionGranted(args.firstUriList())
-                    "onUriPermissionRevoked" -> onUriPermissionRevoked(args.firstUriList())
-                    "onSelectionComplete" -> onSelectionComplete()
-                    "onSessionError" -> onSessionError(args?.firstOrNull() as? Throwable ?: RuntimeException("Embedded picker error"))
+                    "onUriPermissionGranted" -> {
+                        onUriPermissionGranted(args.firstUriList())
+                        null
+                    }
+                    "onUriPermissionRevoked" -> {
+                        onUriPermissionRevoked(args.firstUriList())
+                        null
+                    }
+                    "onSelectionComplete" -> {
+                        onSelectionComplete()
+                        null
+                    }
+                    "onSessionError" -> {
+                        onSessionError(args?.firstOrNull() as? Throwable ?: RuntimeException("Embedded picker error"))
+                        null
+                    }
+                    else -> null
                 }
-                null
             }
 
             val featureInfo = buildEmbeddedFeatureInfo(accentColor)

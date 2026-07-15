@@ -23,6 +23,7 @@ import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
+import com.freevibe.R
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Sound
 import com.freevibe.data.model.Wallpaper
@@ -102,12 +103,17 @@ fun FreeVibeRoot(
         }
 
         if (route != null) {
-            navController.navigate(route) {
-                popUpTo(navigationRootRoute) {
-                    saveState = route == Screen.Favorites.route
+            // navigate_to arrives via an exported-activity intent extra, so the route can be
+            // arbitrary (hostile sender, stale shortcut after a rename). An unknown route must
+            // not crash the launcher activity — stay on the start destination instead.
+            runCatching {
+                navController.navigate(route) {
+                    popUpTo(navigationRootRoute) {
+                        saveState = route == Screen.Favorites.route
+                    }
+                    launchSingleTop = true
+                    restoreState = route == Screen.Favorites.route
                 }
-                launchSingleTop = true
-                restoreState = route == Screen.Favorites.route
             }
         }
     }
@@ -127,7 +133,7 @@ fun FreeVibeRoot(
         entryPoint.applyFeedbackBus().events.collect { event ->
             val result = snackbarHostState.showSnackbar(
                 message = event.message,
-                actionLabel = if (event.undoTarget != null) "Undo" else null,
+                actionLabel = if (event.undoTarget != null) context.getString(R.string.apply_feedback_undo) else null,
                 duration = SnackbarDuration.Short,
                 withDismissAction = true,
             )
@@ -144,7 +150,7 @@ fun FreeVibeRoot(
                             entryPoint.wallpaperHistoryManager().recordRestore(entry)
                             entryPoint.applyFeedbackBus().post(
                                 com.freevibe.service.ApplyFeedbackEvent(
-                                    message = "Reverted to previous wallpaper",
+                                    message = context.getString(R.string.apply_feedback_reverted),
                                     undoTarget = null,
                                 )
                             )
@@ -152,7 +158,10 @@ fun FreeVibeRoot(
                         .onFailure { e ->
                             entryPoint.applyFeedbackBus().post(
                                 com.freevibe.service.ApplyFeedbackEvent(
-                                    message = "Undo failed: ${e.message ?: "unknown error"}",
+                                    message = context.getString(
+                                        R.string.apply_feedback_undo_failed,
+                                        e.message ?: context.getString(R.string.apply_feedback_unknown_error),
+                                    ),
                                     undoTarget = null,
                                 )
                             )
@@ -769,14 +778,27 @@ fun FreeVibeRoot(
                                     entryPoint.wallpaperHistoryManager().record(wallpaper, target)
                                     val undoTarget = entryPoint.wallpaperHistoryManager().previousSnapshot()
                                     val label = when (target) {
-                                        com.freevibe.data.model.WallpaperTarget.HOME -> "home screen"
-                                        com.freevibe.data.model.WallpaperTarget.LOCK -> "lock screen"
-                                        com.freevibe.data.model.WallpaperTarget.BOTH -> "home & lock screen"
+                                        com.freevibe.data.model.WallpaperTarget.HOME -> context.getString(R.string.apply_target_home)
+                                        com.freevibe.data.model.WallpaperTarget.LOCK -> context.getString(R.string.apply_target_lock)
+                                        com.freevibe.data.model.WallpaperTarget.BOTH -> context.getString(R.string.apply_target_both)
                                     }
                                     entryPoint.applyFeedbackBus().post(
                                         com.freevibe.service.ApplyFeedbackEvent(
-                                            message = "Applied to $label",
+                                            message = context.getString(R.string.apply_feedback_applied_to, label),
                                             undoTarget = undoTarget,
+                                        )
+                                    )
+                                }
+                                .onFailure { e ->
+                                    // The preview screen pops immediately, so this snackbar is the
+                                    // only signal the apply didn't happen.
+                                    entryPoint.applyFeedbackBus().post(
+                                        com.freevibe.service.ApplyFeedbackEvent(
+                                            message = context.getString(
+                                                R.string.apply_feedback_apply_failed,
+                                                e.message ?: context.getString(R.string.apply_feedback_unknown_error),
+                                            ),
+                                            undoTarget = null,
                                         )
                                     )
                                 }
