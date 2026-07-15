@@ -2,6 +2,36 @@
 
 All notable changes to Aura will be documented in this file.
 
+## v6.35.1 (2026-07-15)
+
+On-device QA pass on a Galaxy S22 Ultra (Android 16) following the v6.35.0 audit.
+Verified live: cold start (245 ms, clean logcat), onboarding, all five tabs,
+dark/light themes, sound preview first-play progress, universal search typing and
+provider handoff, whole-library export/import round-trip through SAF, wallpaper
+apply, and reboots with the weather live wallpaper active. A persistent logcat
+crash monitor during the session caught two P1s that only reproduce on-device:
+
+- **Fixed weather wallpaper crash loop on Android 16**: calling
+  `setTouchEventsEnabled(true)` from `onSurfaceCreated` recurses on SDK 36 —
+  the framework re-runs `updateSurface()`, which re-dispatches
+  `onSurfaceCreated` — ending in `StackOverflowError` every time the system
+  recreates the wallpaper surface (observed as a repeating wallpaper-process
+  crash starting minutes after reboot). The call now happens once in
+  `Engine.onCreate`, before any surface exists.
+- **Fixed BOOT_COMPLETED ANR**: `RingtoneRestorationReceiver` did DataStore and
+  ContentResolver reads under the broadcast deadline via `goAsync()`; under
+  post-boot CPU pressure the deadline blew and the process ANR'd. The receiver
+  now enqueues a WorkManager job (no deadline) and returns immediately.
+- **Fixed duplicate apply feedback**: applying a wallpaper showed two stacked
+  snackbars (the screen-local "Set as … wallpaper" and the global
+  "Applied to …" with Undo). Feedback now goes through the global bus only,
+  which survives navigation and carries the Undo action. Same fix on the undo
+  path ("Reverted" + "Reverted to previous wallpaper").
+- **Fixed "1 items" grammar** in the whole-library export/import feedback —
+  proper plurals resources.
+- Version-consistency gates synced (fastlane changelogs 134/135, release
+  metadata JSON) — these had drifted red with the v6.35.0 bump.
+
 ## v6.35.0 (2026-07-15)
 
 Deep audit release — ~45 verified fixes across correctness, data safety, UX, i18n, and theming.

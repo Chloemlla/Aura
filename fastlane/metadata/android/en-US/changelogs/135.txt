@@ -1,0 +1,8 @@
+Aura 6.35.1 - on-device QA follow-up
+
+- FIXED: weather live wallpaper crash loop on Android 16 (surface recreation recursion)
+- FIXED: boot-time ANR in ringtone restoration (now runs as deadline-free background work)
+- FIXED: doubled wallpaper-apply confirmation snackbars (single bar with Undo)
+- FIXED: plural grammar in library backup feedback
+
+Recent highlights: the 6.35.0 deep audit shipped ~45 fixes - reliable discover sources, corrected rotation and sound scheduling, recording data safety at the 60s cap, whole-library backup in Settings, and broad localization polish.
