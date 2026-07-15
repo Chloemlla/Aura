@@ -73,7 +73,10 @@ internal class SoundBrowseViewModel(
     fun selectTab(tab: SoundTab) {
         communityFeed.cancel()
         if (tab != SoundTab.YOUTUBE) cancelYouTubeLoad()
-        if (tab == SoundTab.YOUTUBE) loadJob?.cancel()
+        // Always cancel the in-flight browse load: switching to COMMUNITY (whose feed
+        // never touches loadJob) must not let a stale RINGTONES/SEARCH load finish
+        // later and overwrite the community list.
+        loadJob?.cancel()
 
         if (tab == SoundTab.YOUTUBE && !youtubeProviderEnabled.value) {
             sourceMetrics.recordDisabled(SOURCE_YOUTUBE)
@@ -139,6 +142,8 @@ internal class SoundBrowseViewModel(
         }
         communityFeed.cancel()
         cancelYouTubeLoad()
+        // A still-running SEARCH load would otherwise clobber the restored tab's feed.
+        loadJob?.cancel()
         state.update {
             it.copy(
                 selectedTab = returnTab,

@@ -100,7 +100,7 @@ internal class SoundCommunityActions(
     fun startRecording() {
         if (state.value.isRecordingUpload) return
         if (communityActionBlocked()) return
-        communityAudioRecorder.start()
+        communityAudioRecorder.start(onMaxDurationReached = ::stopRecording)
             .onSuccess {
                 state.update {
                     it.copy(

@@ -45,7 +45,22 @@ class AudioPlaybackManager @Inject constructor(
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
-            if (playbackState == Player.STATE_ENDED) {
+            // Re-check the controller's CURRENT state: a queued event from the
+            // previous item must not clear state that play() just set for a new one.
+            if (playbackState == Player.STATE_ENDED &&
+                controller?.playbackState == Player.STATE_ENDED
+            ) {
+                _isPlaying.value = false
+                _currentSoundId.value = null
+                _currentPosition.value = 0L
+            }
+        }
+
+        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+            // Expired stream URL / network drop: without this the UI keeps showing
+            // an indefinite "playing"/resolving state for the failed sound. Skip if a
+            // newer play() has already re-prepared the player (stale queued event).
+            if (controller?.playerError != null) {
                 _isPlaying.value = false
                 _currentSoundId.value = null
                 _currentPosition.value = 0L
@@ -90,6 +105,10 @@ class AudioPlaybackManager @Inject constructor(
 
     fun play(sound: Sound, url: String, volume: Float = 1f) {
         stopped = false
+        // Set synchronously: on the first play the controller connects asynchronously,
+        // and callers keying progress loops on currentSoundId would otherwise see null
+        // and bail before playback starts.
+        _currentSoundId.value = sound.stableKey()
         ensureConnected { mc ->
             val mediaItem = MediaItem.Builder()
                 .setUri(url)

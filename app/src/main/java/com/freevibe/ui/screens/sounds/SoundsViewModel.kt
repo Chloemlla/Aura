@@ -318,9 +318,16 @@ class SoundsViewModel @Inject constructor(
 
     fun startPersonalRecording() {
         if (_state.value.isRecordingPersonal) return
-        communityAudioRecorder.start()
+        communityAudioRecorder.start(onMaxDurationReached = ::stopPersonalRecording)
             .onSuccess {
                 _state.update { it.copy(isRecordingPersonal = true, personalRecordingUri = null) }
+            }
+            .onFailure { e ->
+                // Mic held by a call/another app: without feedback the record FAB
+                // silently does nothing.
+                _state.update {
+                    it.copy(error = "Recording failed: ${e.message ?: "microphone unavailable"}")
+                }
             }
     }
 
@@ -330,8 +337,13 @@ class SoundsViewModel @Inject constructor(
             .onSuccess { uri ->
                 _state.update { it.copy(isRecordingPersonal = false, personalRecordingUri = uri) }
             }
-            .onFailure {
-                _state.update { it.copy(isRecordingPersonal = false) }
+            .onFailure { e ->
+                _state.update {
+                    it.copy(
+                        isRecordingPersonal = false,
+                        error = e.message ?: "Recording could not be saved",
+                    )
+                }
             }
     }
 

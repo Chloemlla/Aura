@@ -16,6 +16,9 @@ class CommunityAudioRecorder @Inject constructor(
     private var recorder: MediaRecorder? = null
     private var outputFile: File? = null
 
+    @Volatile
+    private var maxDurationReached = false
+
     val isRecording: Boolean
         get() = recorder != null
 
@@ -23,10 +26,16 @@ class CommunityAudioRecorder @Inject constructor(
         ShareOutbox.pruneStaleFiles(context)
     }
 
-    fun start(): Result<Unit> = runCatching {
+    /**
+     * [onMaxDurationReached] fires (on the recorder's event thread) when the 60 s cap
+     * auto-stops the recorder, so callers can finalize instead of showing a timer that
+     * keeps counting with the mic already off.
+     */
+    fun start(onMaxDurationReached: () -> Unit = {}): Result<Unit> = runCatching {
         check(recorder == null) { "Recording is already in progress" }
 
         pruneStaleRecordings()
+        maxDurationReached = false
         val directory = ShareOutbox.directory(context, "community_recordings")
         val file = File(directory, "community_${System.currentTimeMillis()}.m4a")
         val activeRecorder = createRecorder()
@@ -38,6 +47,12 @@ class CommunityAudioRecorder @Inject constructor(
             activeRecorder.setAudioSamplingRate(44_100)
             activeRecorder.setOutputFile(file.absolutePath)
             activeRecorder.setMaxDuration(MAX_RECORDING_MS)
+            activeRecorder.setOnInfoListener { _, what, _ ->
+                if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED) {
+                    maxDurationReached = true
+                    onMaxDurationReached()
+                }
+            }
             activeRecorder.prepare()
             activeRecorder.start()
         } catch (e: Exception) {
@@ -60,6 +75,10 @@ class CommunityAudioRecorder @Inject constructor(
         }
 
         return try {
+            // Always call stop(): the max-duration auto-stop finalizes asynchronously,
+            // so skipping stop() here could reset() a recorder whose moov finalization
+            // is still in flight. If it already stopped, stop() throws and the
+            // RuntimeException branch below keeps the finalized take.
             activeRecorder.stop()
             release()
             if (!file.exists() || file.length() <= MIN_RECORDING_BYTES) {
@@ -70,8 +89,13 @@ class CommunityAudioRecorder @Inject constructor(
             }
         } catch (e: RuntimeException) {
             release()
-            file.delete()
-            Result.failure(IllegalArgumentException("Recording was too short"))
+            if (maxDurationReached && file.exists() && file.length() > MIN_RECORDING_BYTES) {
+                // stop() raced the 60 s auto-stop — the file is complete, keep it.
+                Result.success(ShareOutbox.uriFor(context, file))
+            } else {
+                file.delete()
+                Result.failure(IllegalArgumentException("Recording was too short"))
+            }
         } catch (e: Exception) {
             release()
             file.delete()
