@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
@@ -140,25 +141,38 @@ internal fun persistSelectedVideoWallpaper(
 }
 
 internal suspend fun exportVideoToGallery(context: Context, file: File): Uri? = withContext(Dispatchers.IO) {
+    var insertedUri: Uri? = null
     try {
+        if (file.length() > MAX_VIDEO_WALLPAPER_BYTES) {
+            throw java.io.IOException("Video exceeds size limit")
+        }
         val values = android.content.ContentValues().apply {
             put(android.provider.MediaStore.Video.Media.DISPLAY_NAME, "Aura_Wallpaper_${System.currentTimeMillis()}.mp4")
             put(android.provider.MediaStore.Video.Media.MIME_TYPE, "video/mp4")
             put(android.provider.MediaStore.Video.Media.RELATIVE_PATH, android.os.Environment.DIRECTORY_MOVIES + "/Aura")
+            put(android.provider.MediaStore.Video.Media.IS_PENDING, 1)
         }
         val uri = context.contentResolver.insert(android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+        insertedUri = uri
         uri?.let { destUri ->
             context.contentResolver.openOutputStream(destUri)?.use { out ->
-                if (file.length() > MAX_VIDEO_WALLPAPER_BYTES) {
-                    throw java.io.IOException("Video exceeds size limit")
-                }
                 file.inputStream().use { input ->
                     copyStreamCapped(input, out, MAX_VIDEO_WALLPAPER_BYTES)
                 }
             }
+            context.contentResolver.update(
+                destUri,
+                android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.Video.Media.IS_PENDING, 0)
+                },
+                null,
+                null,
+            )
         }
         uri
     } catch (e: Exception) {
+        // Don't leave an orphaned 0-byte row in the user's gallery.
+        insertedUri?.let { runCatching { context.contentResolver.delete(it, null, null) } }
         if (com.freevibe.BuildConfig.DEBUG) Log.e("VideoWP", "Failed to export video fallback", e)
         null
     }
@@ -601,7 +615,10 @@ fun VideoWallpapersScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.7f)),
+                .background(Color.Black.copy(alpha = 0.7f))
+                // Consume touches: without this the scrim lets taps through to the
+                // list beneath, allowing a second concurrent apply.
+                .pointerInput(Unit) {},
             contentAlignment = Alignment.Center,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {

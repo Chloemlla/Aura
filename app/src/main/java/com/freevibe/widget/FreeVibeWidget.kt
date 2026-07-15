@@ -34,9 +34,7 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 
 // ── Colors ────────────────────────────────────────────────────────
 
@@ -189,9 +187,10 @@ private fun WidgetContent(
 
             Spacer(GlanceModifier.height(6.dp))
 
-            // Last shuffle timestamp
+            // Last shuffle timestamp — honor the device's 12/24-hour setting.
             if (lastShuffleTime > 0 && size.height >= 200.dp) {
-                val timeStr = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(lastShuffleTime))
+                val timeStr = android.text.format.DateFormat.getTimeFormat(LocalContext.current)
+                    .format(Date(lastShuffleTime))
                 Text(
                     text = "Last: $timeStr",
                     style = TextStyle(color = TextDim, fontSize = 10.sp),

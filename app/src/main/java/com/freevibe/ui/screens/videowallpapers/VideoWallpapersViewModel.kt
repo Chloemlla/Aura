@@ -296,13 +296,22 @@ class VideoWallpapersViewModel @Inject constructor(
     @Volatile
     private var pixabayVideoRateLimitedUntilMs: Long = 0L
 
-    // Cache of resolved video stream URLs
-    // Bounded cache — evict oldest when exceeding 200 entries
-    private val streamUrls = object : LinkedHashMap<String, String>(64, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?) = size > 200
-    }.let { java.util.Collections.synchronizedMap(it) }
     private val _resolvedIds = MutableStateFlow<Set<String>>(emptySet())
     val resolvedIds = _resolvedIds.asStateFlow()
+
+    // Cache of resolved video stream URLs
+    // Bounded cache — evict oldest when exceeding 200 entries. Eviction must also
+    // un-mark the id as resolved: a resolved id with no cached URL renders a
+    // permanent spinner and misroutes Apply into the yt-dlp re-resolve path.
+    private val streamUrls = object : LinkedHashMap<String, String>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean {
+            val evict = size > 200
+            if (evict && eldest != null) {
+                _resolvedIds.update { ids -> ids - eldest.key }
+            }
+            return evict
+        }
+    }.let { java.util.Collections.synchronizedMap(it) }
 
     private val junkPatterns = listOf(
         "top \\d+", "\\d+ best", "how to", "tutorial", "review", "setup",
@@ -380,6 +389,9 @@ class VideoWallpapersViewModel @Inject constructor(
                 error = null,
                 degradedSources = emptyList(),
                 pexelsPage = 1,
+                // pixabayPage too: a stale high page against a new filter/query makes
+                // Pixabay return HTTP 400 (page out of range) until pull-to-refresh.
+                pixabayPage = 1,
                 ytQueryIndex = 0,
                 redditSubIndex = 0,
                 redditAfters = emptyMap(),
@@ -408,6 +420,7 @@ class VideoWallpapersViewModel @Inject constructor(
                 error = null,
                 degradedSources = emptyList(),
                 pexelsPage = 1,
+                pixabayPage = 1,
                 ytQueryIndex = 0,
                 redditSubIndex = 0,
                 redditAfters = emptyMap(),
@@ -442,6 +455,7 @@ class VideoWallpapersViewModel @Inject constructor(
         item: VideoWallpaperItem,
         scaleMode: String = VIDEO_WALLPAPER_SCALE_MODE_ZOOM,
     ) {
+        if (_state.value.isApplying != null) return
         viewModelScope.launch {
             _state.update { it.copy(isApplying = item.id) }
             try {
@@ -548,6 +562,7 @@ class VideoWallpapersViewModel @Inject constructor(
     private fun load(loadMore: Boolean = false) {
         if (!loadMore) loadJob?.cancel()
         loadJob = viewModelScope.launch {
+            val thisJob = kotlin.coroutines.coroutineContext[Job]
             try {
             if (!loadMore) {
                 _state.update {
@@ -838,7 +853,12 @@ class VideoWallpapersViewModel @Inject constructor(
                 }
             }
             } finally {
-                _state.update { it.copy(isLoading = false, isLoadingMore = false, isRefreshing = false) }
+                // Only the CURRENT load may clear the flags: a cancelled load's finally
+                // runs after its replacement already set isLoading = true, and clearing
+                // here would flash the empty-state card for the whole new load.
+                if (loadJob === thisJob) {
+                    _state.update { it.copy(isLoading = false, isLoadingMore = false, isRefreshing = false) }
+                }
             }
         }
     }
