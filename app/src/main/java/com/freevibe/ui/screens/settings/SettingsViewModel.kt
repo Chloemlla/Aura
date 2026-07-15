@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.freevibe.R
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.local.WallpaperCacheManager
 import com.freevibe.data.model.WallpaperCollectionEntity
@@ -99,6 +100,7 @@ class SettingsViewModel @Inject constructor(
     private val communityIdentityProvider: CommunityIdentityProvider,
     private val ytDlpUpdateManager: YtDlpUpdateManager,
     private val themePackRecipeManager: ThemePackRecipeManager,
+    private val libraryExporter: com.freevibe.service.LibraryExporter,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
@@ -525,6 +527,54 @@ class SettingsViewModel @Inject constructor(
         _themePackTransfer.update { it.copy(message = null, error = null, instructions = emptyList()) }
     }
 
+    // Whole-library backup shares the theme-pack transfer state so only one
+    // export/import runs at a time and the same rows disable while working.
+    fun exportLibrary(uri: Uri) {
+        if (_themePackTransfer.value.inProgress) return
+        viewModelScope.launch {
+            _themePackTransfer.value = ThemePackTransferState(inProgress = true)
+            val result = libraryExporter.exportLibrary(uri)
+            _themePackTransfer.value = result.fold(
+                onSuccess = { count ->
+                    ThemePackTransferState(
+                        message = context.getString(R.string.settings_library_export_done, count),
+                    )
+                },
+                onFailure = { error ->
+                    ThemePackTransferState(
+                        error = context.getString(
+                            R.string.settings_library_export_failed,
+                            error.message ?: context.getString(R.string.common_retry_later),
+                        ),
+                    )
+                },
+            )
+        }
+    }
+
+    fun importLibrary(uri: Uri) {
+        if (_themePackTransfer.value.inProgress) return
+        viewModelScope.launch {
+            _themePackTransfer.value = ThemePackTransferState(inProgress = true)
+            val result = libraryExporter.importLibrary(uri)
+            _themePackTransfer.value = result.fold(
+                onSuccess = { count ->
+                    ThemePackTransferState(
+                        message = context.getString(R.string.settings_library_import_done, count),
+                    )
+                },
+                onFailure = { error ->
+                    ThemePackTransferState(
+                        error = context.getString(
+                            R.string.settings_library_import_failed,
+                            error.message ?: context.getString(R.string.common_retry_later),
+                        ),
+                    )
+                },
+            )
+        }
+    }
+
     fun clearWallpaperHistory() = viewModelScope.launch {
         historyManager.clearAll()
     }
@@ -546,7 +596,9 @@ class SettingsViewModel @Inject constructor(
         if (enabled) {
             val interval = prefs.ringtoneShuffleIntervalHours.first()
             RingtoneShuffleWorker.schedule(context, interval)
-        } else {
+        } else if (!prefs.alarmShuffleEnabled.first()) {
+            // Ringtone and alarm shuffle share one periodic worker — only cancel it
+            // when neither feature still needs it.
             RingtoneShuffleWorker.cancel(context)
         }
     }
@@ -560,9 +612,13 @@ class SettingsViewModel @Inject constructor(
 
     fun setAlarmShuffleEnabled(enabled: Boolean) = viewModelScope.launch {
         prefs.setAlarmShuffleEnabled(enabled)
-        if (enabled && !prefs.ringtoneShuffleEnabled.first()) {
-            val interval = prefs.ringtoneShuffleIntervalHours.first()
-            RingtoneShuffleWorker.schedule(context, interval)
+        if (enabled) {
+            if (!prefs.ringtoneShuffleEnabled.first()) {
+                val interval = prefs.ringtoneShuffleIntervalHours.first()
+                RingtoneShuffleWorker.schedule(context, interval)
+            }
+        } else if (!prefs.ringtoneShuffleEnabled.first()) {
+            RingtoneShuffleWorker.cancel(context)
         }
     }
 

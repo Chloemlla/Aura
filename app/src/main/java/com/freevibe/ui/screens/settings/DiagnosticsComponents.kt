@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.freevibe.R
@@ -60,29 +61,46 @@ import java.util.Locale
 
 // -- Subtitle formatters --
 
+@Composable
 internal fun backgroundWorkDiagnosticsSubtitle(status: BackgroundWorkDiagnostics): String {
-    if (status.rows.isEmpty()) return "Check WorkManager and Data Saver state"
+    if (status.rows.isEmpty()) return stringResource(R.string.settings_diag_background_check_subtitle)
     val receiptCount = status.rows.count { it.workInfoCount > 0 && it.readError == null }
-    return "$receiptCount WorkInfo receipts • ${meteredNetworkLabel(status.network.activeNetworkMetered)} • Data Saver ${status.network.restrictBackgroundStatus}"
+    return stringResource(
+        R.string.settings_diag_background_status_subtitle,
+        pluralStringResource(R.plurals.settings_diag_workinfo_receipts, receiptCount, receiptCount),
+        meteredNetworkLabel(status.network.activeNetworkMetered),
+        status.network.restrictBackgroundStatus,
+    )
 }
 
+@Composable
 internal fun externalAutomationSubtitle(status: ExternalAutomationDiagnostics): String {
-    val state = if (status.enabled) "Enabled" else "Off"
+    val state = stringResource(
+        if (status.enabled) R.string.settings_diag_state_enabled else R.string.settings_diag_state_off,
+    )
     val last = when {
-        status.lastAcceptedAtMs > 0L -> "last accepted ${formatExternalAutomationTime(status.lastAcceptedAtMs)}"
-        status.lastRejectedAtMs > 0L -> {
-            "last rejected: ${externalAutomationReasonLabel(status.lastRejectedReason)}"
-        }
-        else -> "no external triggers recorded"
+        status.lastAcceptedAtMs > 0L -> stringResource(
+            R.string.settings_external_automation_sub_accepted,
+            formatExternalAutomationTime(status.lastAcceptedAtMs),
+        )
+        status.lastRejectedAtMs > 0L -> stringResource(
+            R.string.settings_external_automation_sub_rejected,
+            externalAutomationReasonLabel(status.lastRejectedReason),
+        )
+        else -> stringResource(R.string.settings_external_automation_sub_none)
     }
-    return "$state - $last"
+    return stringResource(R.string.settings_external_automation_subtitle, state, last)
 }
 
+@Composable
 internal fun crashDiagnosticsSubtitle(summary: CrashDiagnosticsSummary): String =
     if (summary.hasCrashLog) {
-        "Last crash ${summary.lastCrashAt ?: "recorded"} • Copy or share a sanitized issue bundle"
+        stringResource(
+            R.string.settings_diag_crash_last_subtitle,
+            summary.lastCrashAt ?: stringResource(R.string.settings_diag_crash_recorded),
+        )
     } else {
-        "No local crash log yet • Copy or share environment details if the app freezes"
+        stringResource(R.string.settings_diag_crash_none_subtitle)
     }
 
 // -- External automation helpers --
@@ -96,30 +114,34 @@ internal fun formatExternalAutomationTime(timestampMs: Long): String =
     DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, Locale.getDefault())
         .format(Date(timestampMs))
 
+@Composable
 internal fun externalAutomationReasonLabel(reason: String): String = when (reason) {
-    "disabled" -> "disabled"
-    "rate_limited" -> "rate limited"
-    "unsupported_action" -> "unsupported action"
-    "" -> "none"
+    "disabled" -> stringResource(R.string.settings_external_automation_reason_disabled)
+    "rate_limited" -> stringResource(R.string.settings_external_automation_reason_rate_limited)
+    "unsupported_action" -> stringResource(R.string.settings_external_automation_reason_unsupported)
+    "" -> stringResource(R.string.settings_diag_none)
     else -> reason
 }
 
+@Composable
 internal fun externalAutomationActionLabel(action: String): String = when (action) {
-    "com.freevibe.action.ROTATE_NOW" -> "rotate"
-    "com.freevibe.action.SHUFFLE_NOW" -> "shuffle"
-    "" -> "none"
-    else -> "unsupported"
+    "com.freevibe.action.ROTATE_NOW" -> stringResource(R.string.settings_external_automation_action_rotate)
+    "com.freevibe.action.SHUFFLE_NOW" -> stringResource(R.string.settings_external_automation_action_shuffle)
+    "" -> stringResource(R.string.settings_diag_none)
+    else -> stringResource(R.string.settings_external_automation_action_unsupported)
 }
 
+@Composable
 internal fun externalAutomationCallerLabel(callerPackage: String): String =
-    callerPackage.ifBlank { "not provided" }.let { label ->
+    callerPackage.ifBlank { stringResource(R.string.settings_external_automation_caller_missing) }.let { label ->
         if (label.length <= 28) label else "${label.take(25)}..."
     }
 
+@Composable
 internal fun meteredNetworkLabel(activeNetworkMetered: Boolean?): String = when (activeNetworkMetered) {
-    true -> "metered"
-    false -> "unmetered"
-    null -> "meter unknown"
+    true -> stringResource(R.string.settings_diag_network_metered)
+    false -> stringResource(R.string.settings_diag_network_unmetered)
+    null -> stringResource(R.string.settings_diag_network_meter_unknown)
 }
 
 // -- yt-dlp update helpers --
@@ -183,7 +205,7 @@ internal fun copyCrashDiagnosticsBundle(
 ) {
     val clipboard = context.getSystemService(ClipboardManager::class.java)
     clipboard.setPrimaryClip(ClipData.newPlainText("Aura diagnostics", bundle))
-    onFeedback("Diagnostics copied")
+    onFeedback(context.getString(R.string.settings_feedback_diagnostics_copied))
 }
 
 internal fun copyCommunityDeletionCode(
@@ -193,7 +215,7 @@ internal fun copyCommunityDeletionCode(
 ) {
     val clipboard = context.getSystemService(ClipboardManager::class.java)
     clipboard.setPrimaryClip(ClipData.newPlainText("Aura deletion request code", code))
-    onFeedback("Deletion request code copied")
+    onFeedback(context.getString(R.string.settings_feedback_deletion_code_copied))
 }
 
 internal fun shareCommunityDeletionRequest(
@@ -207,9 +229,11 @@ internal fun shareCommunityDeletionRequest(
         putExtra(Intent.EXTRA_TEXT, communityDeletionRequestBody(summary))
     }
     try {
-        context.startActivity(Intent.createChooser(intent, "Share deletion request"))
+        context.startActivity(
+            Intent.createChooser(intent, context.getString(R.string.settings_share_deletion_request_title)),
+        )
     } catch (_: Exception) {
-        onFeedback("No app can share deletion requests")
+        onFeedback(context.getString(R.string.settings_feedback_share_deletion_unavailable))
     }
 }
 
@@ -220,13 +244,15 @@ internal fun shareCrashDiagnosticsBundle(
 ) {
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
-        putExtra(Intent.EXTRA_SUBJECT, "Aura diagnostics bundle")
+        putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.settings_share_diagnostics_subject))
         putExtra(Intent.EXTRA_TEXT, bundle)
     }
     try {
-        context.startActivity(Intent.createChooser(intent, "Share diagnostics"))
+        context.startActivity(
+            Intent.createChooser(intent, context.getString(R.string.settings_share_diagnostics_title)),
+        )
     } catch (_: Exception) {
-        onFeedback("No app can share diagnostics")
+        onFeedback(context.getString(R.string.settings_feedback_share_diagnostics_unavailable))
     }
 }
 
@@ -573,8 +599,8 @@ internal fun SourceDiagnosticRow(
                 progress = { stat.successRatio.toFloat().coerceIn(0f, 1f) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(5.dp)
-                    .clip(RoundedCornerShape(3.dp)),
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)),
                 color = tint,
                 trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             )

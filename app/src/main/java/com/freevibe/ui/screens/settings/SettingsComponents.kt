@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -88,6 +89,7 @@ internal fun SettingsItem(
     title: String,
     subtitle: String,
     onClick: () -> Unit,
+    enabled: Boolean = true,
 ) {
     val itemDescription = stringResource(R.string.a11y_title_subtitle, title, subtitle)
     Surface(
@@ -99,6 +101,7 @@ internal fun SettingsItem(
                 onClick(label = title, action = null)
             },
         onClick = onClick,
+        enabled = enabled,
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.74f),
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(
@@ -399,18 +402,30 @@ internal fun SettingsMetric(
     }
 }
 
+/** Locale-independent data scope of a disclosed permission. */
+internal enum class PermissionScope { LOCAL, REMOTE }
+
 @Composable
 internal fun PermissionTransparencyRow(
     icon: ImageVector,
     permission: String,
-    scope: String,
+    scope: PermissionScope,
     description: String,
     granted: Boolean? = null,
 ) {
-    val rowDescription = if (granted != null) {
-        "$permission ($scope) - ${if (granted) "Granted" else "Not granted"} - $description"
+    val isLocal = scope == PermissionScope.LOCAL
+    val scopeLabel = stringResource(
+        if (isLocal) R.string.settings_perm_scope_local else R.string.settings_perm_scope_remote,
+    )
+    val grantedLabel = when (granted) {
+        null -> null
+        true -> stringResource(R.string.settings_perm_granted)
+        false -> stringResource(R.string.settings_perm_not_granted)
+    }
+    val rowDescription = if (grantedLabel != null) {
+        stringResource(R.string.settings_perm_a11y_row_granted, permission, scopeLabel, grantedLabel, description)
     } else {
-        "$permission ($scope) - $description"
+        stringResource(R.string.settings_perm_a11y_row, permission, scopeLabel, description)
     }
     Surface(
         modifier = Modifier
@@ -454,38 +469,38 @@ internal fun PermissionTransparencyRow(
                     Text(permission, style = MaterialTheme.typography.titleMedium)
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = if (scope == "Local") {
+                        color = if (isLocal) {
                             MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f)
                         } else {
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
                         },
                     ) {
                         Text(
-                            text = scope,
+                            text = scopeLabel,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (scope == "Local") {
+                            color = if (isLocal) {
                                 MaterialTheme.colorScheme.tertiary
                             } else {
                                 MaterialTheme.colorScheme.primary
                             },
                         )
                     }
-                    if (granted != null) {
+                    if (granted != null && grantedLabel != null) {
                         Surface(
                             shape = RoundedCornerShape(4.dp),
                             color = if (granted) {
-                                Color(0xFF2E7D32).copy(alpha = 0.14f)
+                                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f)
                             } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.10f)
                             },
                         ) {
                             Text(
-                                text = if (granted) "Granted" else "Not granted",
+                                text = grantedLabel,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = if (granted) {
-                                    Color(0xFF2E7D32)
+                                    MaterialTheme.colorScheme.tertiary
                                 } else {
                                     MaterialTheme.colorScheme.onSurfaceVariant
                                 },
@@ -504,11 +519,19 @@ internal fun PermissionTransparencyRow(
     }
 }
 
-/** Format a rotation interval in minutes to a readable label. */
+/** Format a rotation interval in minutes to a localized, readable label. */
+@Composable
 internal fun formatInterval(minutes: Long): String = when {
-    minutes < 60 -> "$minutes minutes"
-    minutes == 60L -> "1 hour"
-    minutes < 1440 -> "${minutes / 60} hours"
-    minutes == 1440L -> "1 day"
-    else -> "${minutes / 1440} days"
+    minutes < 60L -> {
+        val count = minutes.toInt()
+        pluralStringResource(R.plurals.settings_interval_minutes, count, count)
+    }
+    minutes < 1440L -> {
+        val hours = (minutes / 60L).toInt()
+        pluralStringResource(R.plurals.settings_interval_hours, hours, hours)
+    }
+    else -> {
+        val days = (minutes / 1440L).toInt()
+        pluralStringResource(R.plurals.settings_interval_days, days, days)
+    }
 }

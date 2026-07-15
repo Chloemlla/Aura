@@ -42,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -249,7 +250,11 @@ internal fun IntervalPickerDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.settings_dialogs_interval_title)) },
         text = {
-            Column {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
                 intervals.forEach { (hours, label) ->
                     SettingsRadioOptionRow(
                         label = label,
@@ -569,8 +574,8 @@ internal fun VideoBatteryDashboardCard(
                     progress = { percent / 100f },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(5.dp)
-                        .clip(RoundedCornerShape(3.dp)),
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp)),
                     color = if (state.lowBatterySaverActive) {
                         MaterialTheme.colorScheme.error
                     } else {
@@ -751,23 +756,26 @@ internal fun SettingsOverviewCard(
 
 // ── Helper functions ─────────────────────────────────────────────────
 
+@Composable
 internal fun blockedCreatorSubtitle(blocked: CommunityBlockedUser): String {
     val reason = blocked.reason.storageValue.lowercase(Locale.ROOT)
         .replaceFirstChar { it.titlecase(Locale.ROOT) }
     val blockedAt = blocked.createdAt.takeIf { it > 0L }?.let {
         DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it))
     }
-    return listOfNotNull(
-        "Reason: $reason",
-        blockedAt?.let { "Blocked: $it" },
-    ).joinToString(" - ")
+    return if (blockedAt != null) {
+        stringResource(R.string.settings_dialogs_blocked_reason_time, reason, blockedAt)
+    } else {
+        stringResource(R.string.settings_dialogs_blocked_reason, reason)
+    }
 }
 
+@Composable
 internal fun communityIdentitySubtitle(summary: CommunityIdentitySummary): String =
     if (summary.hasFirebaseIdentity) {
         "${summary.authLabel} - ${communityIdentitySuffixLabel(summary)}"
     } else {
-        "No Firebase identity created"
+        stringResource(R.string.settings_dialogs_identity_none)
     }
 
 internal fun communityIdentitySuffixLabel(summary: CommunityIdentitySummary): String =
@@ -778,24 +786,26 @@ internal fun isLocalWallpaperFolderReady(
     localFolderPermissionActive: Boolean,
 ): Boolean = localFolderUri.isNotBlank() && localFolderPermissionActive
 
+@Composable
 internal fun localWallpaperFolderSubtitle(
     localFolderUri: String,
     localFolderPermissionActive: Boolean,
 ): String = when {
-    localFolderUri.isBlank() -> "Choose a local image folder for offline rotation"
-    localFolderPermissionActive -> "Folder selected for local-only wallpaper rotation"
-    else -> "Permission needs repair; choose the folder again"
+    localFolderUri.isBlank() -> stringResource(R.string.settings_wp_local_folder_choose_subtitle)
+    localFolderPermissionActive -> stringResource(R.string.settings_wp_local_folder_selected_subtitle)
+    else -> stringResource(R.string.settings_folder_permission_repair)
 }
 
+@Composable
 internal fun wallpaperRotationSourceLabel(
     source: String,
     localFolderUri: String,
     localFolderPermissionActive: Boolean,
 ): String = when (source) {
     WALLPAPER_SOURCE_LOCAL_FOLDER -> when {
-        localFolderUri.isBlank() -> "Local folder (choose folder)"
-        localFolderPermissionActive -> "Local folder"
-        else -> "Local folder (permission needed)"
+        localFolderUri.isBlank() -> stringResource(R.string.settings_dialogs_source_local_folder_choose)
+        localFolderPermissionActive -> stringResource(R.string.settings_dialogs_source_local_folder)
+        else -> stringResource(R.string.settings_dialogs_source_local_folder_permission)
     }
     else -> sourceDisplayName(source)
 }
@@ -818,84 +828,110 @@ internal fun hasPersistedWritePermission(context: Context, uriString: String): B
     }.getOrDefault(false)
 }
 
+@Composable
 internal fun darkenPercentLabel(percent: Int): String =
-    if (percent <= 0) "Off" else "${percent.coerceIn(0, 100)}%"
+    if (percent <= 0) {
+        stringResource(R.string.common_off)
+    } else {
+        stringResource(R.string.settings_wp_dimming_percent, percent.coerceIn(0, 100))
+    }
 
+@Composable
 internal fun rotationDarkenSubtitle(percent: Int, rotationActive: Boolean): String = when {
-    percent <= 0 && rotationActive -> "Keep rotated wallpapers unchanged"
-    percent <= 0 -> "Saved for the next auto-rotation or trigger you enable"
-    rotationActive -> "Darkens rotated wallpapers for clock and status-bar legibility"
-    else -> "Dimming is ready but no rotation trigger is active"
+    percent <= 0 && rotationActive -> stringResource(R.string.settings_wp_dimming_keep_unchanged)
+    percent <= 0 -> stringResource(R.string.settings_wp_dimming_saved_for_next)
+    rotationActive -> stringResource(R.string.settings_wp_dimming_active)
+    else -> stringResource(R.string.settings_wp_dimming_ready)
 }
 
+@Composable
 internal fun autoBackupStatusSubtitle(
     enabled: Boolean,
     folderUri: String,
     folderPermissionActive: Boolean,
     intervalHours: Long,
     keepCount: Int,
-): String = when {
-    !enabled && folderUri.isBlank() -> "Choose a folder to unlock local, account-free scheduled backups"
-    !enabled && !folderPermissionActive -> "Folder permission needs repair before backup can be enabled"
-    !enabled -> "Ready. ${formatAutoBackupInterval(intervalHours)} and keeping ${keepCount.coerceAtLeast(1)} files"
-    folderUri.isBlank() -> "Choose a backup folder to start scheduled exports"
-    !folderPermissionActive -> "Paused. Folder permission needs repair before Aura can write backups"
-    else -> "${formatAutoBackupInterval(intervalHours)}; keeping ${keepCount.coerceAtLeast(1)} newest backups"
+): String {
+    val safeKeepCount = keepCount.coerceAtLeast(1)
+    return when {
+        !enabled && folderUri.isBlank() -> stringResource(R.string.settings_backup_status_choose_folder)
+        !enabled && !folderPermissionActive -> stringResource(R.string.settings_backup_status_permission_repair)
+        !enabled -> stringResource(
+            R.string.settings_backup_status_ready,
+            formatAutoBackupInterval(intervalHours),
+            pluralStringResource(R.plurals.settings_backup_keeping_files, safeKeepCount, safeKeepCount),
+        )
+        folderUri.isBlank() -> stringResource(R.string.settings_backup_status_choose_folder_start)
+        !folderPermissionActive -> stringResource(R.string.settings_backup_status_paused)
+        else -> stringResource(
+            R.string.settings_backup_status_active,
+            formatAutoBackupInterval(intervalHours),
+            pluralStringResource(R.plurals.settings_backup_keeping_newest, safeKeepCount, safeKeepCount),
+        )
+    }
 }
 
+@Composable
 internal fun autoBackupFolderSubtitle(
     folderUri: String,
     folderPermissionActive: Boolean,
 ): String = when {
-    folderUri.isBlank() -> "Choose where Aura should write JSON backup files"
-    folderPermissionActive -> "Writable folder selected for scheduled backup"
-    else -> "Permission needs repair; choose the folder again"
+    folderUri.isBlank() -> stringResource(R.string.settings_backup_folder_choose_subtitle)
+    folderPermissionActive -> stringResource(R.string.settings_backup_folder_selected_subtitle)
+    else -> stringResource(R.string.settings_folder_permission_repair)
 }
 
+@Composable
 internal fun formatAutoBackupInterval(hours: Long): String = when (hours) {
-    12L -> "Every 12 hours"
-    24L -> "Daily"
-    168L -> "Weekly"
-    720L -> "Monthly"
-    else -> "Every ${hours.coerceAtLeast(1)} hours"
+    24L -> stringResource(R.string.settings_picker_backup_interval_daily)
+    168L -> stringResource(R.string.settings_picker_backup_interval_weekly)
+    720L -> stringResource(R.string.settings_picker_backup_interval_monthly)
+    else -> {
+        val safeHours = hours.coerceAtLeast(1L).toInt()
+        pluralStringResource(R.plurals.settings_backup_interval_every_hours, safeHours, safeHours)
+    }
 }
 
-internal fun autoBackupRetentionLabel(keepCount: Int): String =
-    "Keep ${keepCount.coerceAtLeast(1)} newest backup${if (keepCount == 1) "" else "s"}"
+@Composable
+internal fun autoBackupRetentionLabel(keepCount: Int): String {
+    val safeKeepCount = keepCount.coerceAtLeast(1)
+    return pluralStringResource(R.plurals.settings_backup_retention_keep, safeKeepCount, safeKeepCount)
+}
 
 internal fun countSelectedStyles(raw: String): Int =
     raw.split(",").count { it.trim().isNotBlank() }
 
+@Composable
 internal fun userStylesSummary(raw: String): String {
     val styles = raw.split(",")
         .map { it.trim().lowercase(java.util.Locale.ROOT) }
         .filter { it.isNotBlank() }
-    if (styles.isEmpty()) return "No style preference"
+    if (styles.isEmpty()) return stringResource(R.string.settings_wp_style_no_preference)
     return styles.joinToString(" • ") { stylePreferenceLabel(it) }
 }
 
 internal fun stylePreferenceLabel(style: String): String =
     style.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 
+@Composable
 internal fun touchEffectSummary(raw: String): String = when (raw.uppercase(java.util.Locale.ROOT)) {
-    "SUBTLE" -> "Subtle ripples on live wallpapers"
-    "STRONG" -> "Ripples and spark bursts on touch"
-    else -> "Off"
+    "SUBTLE" -> stringResource(R.string.settings_smart_touch_subtle_summary)
+    "STRONG" -> stringResource(R.string.settings_smart_touch_strong_summary)
+    else -> stringResource(R.string.settings_smart_touch_off)
 }
 
+@Composable
 internal fun cacheUsageSubtitle(cacheUsage: CacheUsageState): String =
-    buildString {
-        append("Using ${cacheUsage.fileUsageLabel} of temp files and offline saves")
-        if (cacheUsage.hasWallpaperMetadataCache) {
-            append(" + wallpaper feed cache")
-        }
+    if (cacheUsage.hasWallpaperMetadataCache) {
+        stringResource(R.string.settings_storage_cache_usage_with_feed, cacheUsage.fileUsageLabel)
+    } else {
+        stringResource(R.string.settings_storage_cache_usage, cacheUsage.fileUsageLabel)
     }
 
+@Composable
 internal fun clearCacheConfirmation(cacheUsage: CacheUsageState): String =
-    buildString {
-        append("This will remove ${cacheUsage.fileUsageLabel} of temporary media and offline favorites")
-        if (cacheUsage.hasWallpaperMetadataCache) {
-            append(", and reset cached wallpaper feeds")
-        }
-        append(". Downloaded files are not affected.")
+    if (cacheUsage.hasWallpaperMetadataCache) {
+        stringResource(R.string.settings_storage_clear_cache_confirmation_with_feed, cacheUsage.fileUsageLabel)
+    } else {
+        stringResource(R.string.settings_storage_clear_cache_confirmation, cacheUsage.fileUsageLabel)
     }

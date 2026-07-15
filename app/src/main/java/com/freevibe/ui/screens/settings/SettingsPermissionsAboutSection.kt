@@ -126,19 +126,19 @@ internal fun PermissionsSettingsSection(context: Context) {
         PermissionTransparencyRow(
             icon = Icons.Default.Wallpaper,
             permission = stringResource(R.string.settings_perm_wallpaper),
-            scope = stringResource(R.string.settings_perm_wallpaper_scope),
+            scope = PermissionScope.LOCAL,
             description = stringResource(R.string.settings_perm_wallpaper_desc),
         )
         PermissionTransparencyRow(
             icon = Icons.Default.Language,
             permission = stringResource(R.string.settings_perm_internet),
-            scope = stringResource(R.string.settings_perm_internet_scope),
+            scope = PermissionScope.REMOTE,
             description = stringResource(R.string.settings_perm_internet_desc),
         )
         PermissionTransparencyRow(
             icon = Icons.Default.Notifications,
             permission = stringResource(R.string.settings_perm_notifications),
-            scope = stringResource(R.string.settings_perm_notifications_scope),
+            scope = PermissionScope.LOCAL,
             description = stringResource(R.string.settings_perm_notifications_desc),
             granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -149,34 +149,34 @@ internal fun PermissionsSettingsSection(context: Context) {
         PermissionTransparencyRow(
             icon = Icons.Default.LocationOn,
             permission = stringResource(R.string.settings_perm_location),
-            scope = stringResource(R.string.settings_perm_location_scope),
+            scope = PermissionScope.REMOTE,
             description = stringResource(R.string.settings_perm_location_desc),
             granted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED,
         )
         PermissionTransparencyRow(
             icon = Icons.Default.Contacts,
             permission = stringResource(R.string.settings_perm_contacts),
-            scope = stringResource(R.string.settings_perm_contacts_scope),
+            scope = PermissionScope.LOCAL,
             description = stringResource(R.string.settings_perm_contacts_desc),
             granted = ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED,
         )
         PermissionTransparencyRow(
             icon = Icons.Default.Mic,
             permission = stringResource(R.string.settings_perm_microphone),
-            scope = stringResource(R.string.settings_perm_microphone_scope),
+            scope = PermissionScope.LOCAL,
             description = stringResource(R.string.settings_perm_microphone_desc),
             granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
         )
         PermissionTransparencyRow(
             icon = Icons.Default.Settings,
             permission = stringResource(R.string.settings_perm_modify_settings),
-            scope = stringResource(R.string.settings_perm_modify_settings_scope),
+            scope = PermissionScope.LOCAL,
             description = stringResource(R.string.settings_perm_modify_settings_desc),
         )
         PermissionTransparencyRow(
             icon = Icons.Default.PlayCircle,
             permission = stringResource(R.string.settings_perm_foreground),
-            scope = stringResource(R.string.settings_perm_foreground_scope),
+            scope = PermissionScope.LOCAL,
             description = stringResource(R.string.settings_perm_foreground_desc),
         )
     }

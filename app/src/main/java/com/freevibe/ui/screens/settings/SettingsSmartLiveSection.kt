@@ -12,9 +12,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Accessibility
@@ -266,7 +269,11 @@ private fun ShaderPresetPickerDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.settings_smart_shader_dialog_title)) },
         text = {
-            Column {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
                 options.forEach { presetId ->
                     SettingsRadioOptionRow(
                         label = shaderPresetLabel(presetId),
@@ -424,7 +431,11 @@ private fun VfxPickerDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.settings_smart_vfx_dialog_title)) },
         text = {
-            Column {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
                 effects.forEach { (key, label) ->
                     SettingsRadioOptionRow(
                         label = label,

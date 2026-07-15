@@ -50,6 +50,16 @@ internal fun BackupSettingsSection(
     ) { uri: Uri? ->
         uri?.let(viewModel::importThemePack)
     }
+    val libraryExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri: Uri? ->
+        uri?.let(viewModel::exportLibrary)
+    }
+    val libraryImportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri: Uri? ->
+        uri?.let(viewModel::importLibrary)
+    }
     var themePackInstructions by remember { mutableStateOf<List<String>>(emptyList()) }
 
     LaunchedEffect(themePackTransfer) {
@@ -133,6 +143,7 @@ internal fun BackupSettingsSection(
             onClick = {
                 themePackExportLauncher.launch(context.getString(R.string.settings_theme_pack_default_filename))
             },
+            enabled = !themePackTransfer.inProgress,
         )
         SettingsItem(
             icon = Icons.Default.History,
@@ -152,6 +163,35 @@ internal fun BackupSettingsSection(
                     ),
                 )
             },
+            enabled = !themePackTransfer.inProgress,
+        )
+        SettingsItem(
+            icon = Icons.Default.FolderOpen,
+            title = stringResource(R.string.settings_library_export_title),
+            subtitle = if (themePackTransfer.inProgress) {
+                stringResource(R.string.settings_theme_pack_working_subtitle)
+            } else {
+                stringResource(R.string.settings_library_export_subtitle)
+            },
+            onClick = {
+                libraryExportLauncher.launch(context.getString(R.string.settings_library_default_filename))
+            },
+            enabled = !themePackTransfer.inProgress,
+        )
+        SettingsItem(
+            icon = Icons.Default.History,
+            title = stringResource(R.string.settings_library_import_title),
+            subtitle = if (themePackTransfer.inProgress) {
+                stringResource(R.string.settings_theme_pack_working_subtitle)
+            } else {
+                stringResource(R.string.settings_library_import_subtitle)
+            },
+            onClick = {
+                libraryImportLauncher.launch(
+                    arrayOf("application/json", "application/octet-stream", "*/*"),
+                )
+            },
+            enabled = !themePackTransfer.inProgress,
         )
     }
 

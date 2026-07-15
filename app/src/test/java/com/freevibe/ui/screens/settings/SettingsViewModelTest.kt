@@ -492,6 +492,10 @@ class SettingsViewModelTest {
             communityIdentityProvider = communityIdentityProvider,
             ytDlpUpdateManager = ytDlpUpdateManager,
             themePackRecipeManager = themePackRecipeManager,
+            libraryExporter = mockk<com.freevibe.service.LibraryExporter>().also {
+                coEvery { it.exportLibrary(any()) } returns Result.success(0)
+                coEvery { it.importLibrary(any()) } returns Result.success(0)
+            },
             ioDispatcher = dispatcher,
         )
     }

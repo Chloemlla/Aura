@@ -184,6 +184,18 @@
     <string name="settings_external_automation_public_contract">Public actions: com.freevibe.action.ROTATE_NOW and com.freevibe.action.SHUFFLE_NOW. Optional diagnostic extra: com.freevibe.extra.CALLER_PACKAGE.</string>
     <string name="settings_external_automation_last_accepted">Last accepted: %1$s</string>
     <string name="settings_external_automation_last_rejected">Last rejected: %1$s (%2$s)</string>
+    <!-- External automation subtitle formatters -->
+    <string name="settings_external_automation_subtitle">%1$s - %2$s</string>
+    <string name="settings_external_automation_sub_accepted">last accepted %1$s</string>
+    <string name="settings_external_automation_sub_rejected">last rejected: %1$s</string>
+    <string name="settings_external_automation_sub_none">no external triggers recorded</string>
+    <string name="settings_external_automation_reason_disabled">disabled</string>
+    <string name="settings_external_automation_reason_rate_limited">rate limited</string>
+    <string name="settings_external_automation_reason_unsupported">unsupported action</string>
+    <string name="settings_external_automation_action_rotate">rotate</string>
+    <string name="settings_external_automation_action_shuffle">shuffle</string>
+    <string name="settings_external_automation_action_unsupported">unsupported</string>
+    <string name="settings_external_automation_caller_missing">not provided</string>
     <string name="settings_diagnostics_policy">Policy: %1$s</string>
     <string name="settings_ytdlp_update_title">Update YouTube extractor</string>
     <string name="settings_ytdlp_update_disabled">Enable YouTube features before updating the extractor</string>
@@ -262,6 +274,7 @@
     <string name="common_block">Block</string>
     <string name="common_share">Share</string>
     <string name="common_error_format">Error: %1$s</string>
+    <string name="common_off">Off</string>
     <string name="aura_status_banner_cd">%1$s. %2$s</string>
 
     <!-- Onboarding -->
@@ -711,6 +724,9 @@
     <string name="settings_dialogs_blocked_title">Blocked creators</string>
     <string name="settings_dialogs_blocked_empty">No community creators are hidden for your account.</string>
     <string name="settings_dialogs_blocked_unblock">Unblock</string>
+    <string name="settings_dialogs_blocked_reason">Reason: %1$s</string>
+    <string name="settings_dialogs_blocked_reason_time">Reason: %1$s - Blocked: %2$s</string>
+    <string name="settings_dialogs_identity_none">No Firebase identity created</string>
     <string name="settings_dialogs_interval_title">Wallpaper change interval</string>
     <string name="settings_dialogs_interval_1h">1 hour</string>
     <string name="settings_dialogs_interval_3h">3 hours</string>
@@ -725,6 +741,7 @@
     <string name="settings_dialogs_source_favorites">My Favorites</string>
     <string name="settings_dialogs_source_local_folder">Local folder</string>
     <string name="settings_dialogs_source_local_folder_choose">Local folder (choose folder)</string>
+    <string name="settings_dialogs_source_local_folder_permission">Local folder (permission needed)</string>
     <string name="settings_dialogs_source_wallhaven">Wallhaven</string>
     <string name="settings_dialogs_source_pixabay">Pixabay</string>
     <string name="settings_dialogs_source_bing">Bing Daily</string>
@@ -959,6 +976,13 @@
     <string name="settings_feedback_reddit_discontinued">Reddit public feeds are no longer available in Aura.</string>
     <string name="settings_feedback_backup_choose_folder">Choose a writable folder before enabling scheduled backups.</string>
     <string name="settings_feedback_diagnostics_failed">Could not build diagnostics</string>
+    <string name="settings_feedback_diagnostics_copied">Diagnostics copied</string>
+    <string name="settings_feedback_deletion_code_copied">Deletion request code copied</string>
+    <string name="settings_feedback_share_deletion_unavailable">No app can share deletion requests</string>
+    <string name="settings_feedback_share_diagnostics_unavailable">No app can share diagnostics</string>
+    <string name="settings_share_deletion_request_title">Share deletion request</string>
+    <string name="settings_share_diagnostics_subject">Aura diagnostics bundle</string>
+    <string name="settings_share_diagnostics_title">Share diagnostics</string>
     <string name="settings_wallpapers_section_title">Wallpapers</string>
     <string name="settings_wallpapers_section_description">Tune discovery quality, density, and the overall look of your feed.</string>
     <string name="settings_scheduler_section_title">Wallpaper Scheduler</string>
@@ -991,8 +1015,16 @@
     <string name="settings_wp_idle_only_title">Device idle only</string>
     <string name="settings_wp_idle_only_subtitle">Defer rotation until you\'re not actively using the phone</string>
     <string name="settings_wp_dimming_title">Rotation dimming</string>
+    <string name="settings_wp_dimming_percent">%1$d%%</string>
+    <string name="settings_wp_dimming_keep_unchanged">Keep rotated wallpapers unchanged</string>
+    <string name="settings_wp_dimming_saved_for_next">Saved for the next auto-rotation or trigger you enable</string>
+    <string name="settings_wp_dimming_active">Darkens rotated wallpapers for clock and status-bar legibility</string>
+    <string name="settings_wp_dimming_ready">Dimming is ready but no rotation trigger is active</string>
     <string name="settings_wp_oem_battery_title">%1$s battery optimization</string>
     <string name="settings_wp_local_folder_title">Local rotation folder</string>
+    <string name="settings_wp_local_folder_choose_subtitle">Choose a local image folder for offline rotation</string>
+    <string name="settings_wp_local_folder_selected_subtitle">Folder selected for local-only wallpaper rotation</string>
+    <string name="settings_folder_permission_repair">Permission needs repair; choose the folder again</string>
     <string name="settings_wp_clear_local_folder_title">Clear local rotation folder</string>
     <string name="settings_wp_clear_local_folder_subtitle">Remove the saved folder grant from Aura</string>
     <string name="settings_wp_unlock_title">Change on every unlock</string>
@@ -1010,6 +1042,7 @@
     <string name="settings_wp_resolution_title">Preferred resolution</string>
     <string name="settings_wp_resolution_any">Any resolution</string>
     <string name="settings_wp_style_title">Style preferences</string>
+    <string name="settings_wp_style_no_preference">No style preference</string>
     <string name="settings_wp_style_learning_reset_title">Reset learned wallpaper taste</string>
     <string name="settings_wp_style_learning_reset_subtitle">%1$d local signals</string>
     <string name="settings_wp_reddit_title">Reddit source discontinued</string>
@@ -1045,6 +1078,19 @@
     <string name="settings_sched_interval_12h">12 hours</string>
     <string name="settings_sched_interval_24h">24 hours</string>
     <string name="settings_sched_interval_2d">2 days</string>
+    <!-- Rotation interval formatter -->
+    <plurals name="settings_interval_minutes">
+        <item quantity="one">%1$d minute</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
+    <plurals name="settings_interval_hours">
+        <item quantity="one">%1$d hour</item>
+        <item quantity="other">%1$d hours</item>
+    </plurals>
+    <plurals name="settings_interval_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
     <string name="settings_sched_source_discover">Discover (mixed)</string>
     <string name="settings_sched_source_favorites">My Favorites</string>
     <string name="settings_sched_source_local">Local folder</string>
@@ -1062,6 +1108,31 @@
     <string name="settings_backup_clear_subtitle">Disable scheduled backup and remove Aura\'s saved folder grant</string>
     <string name="settings_backup_interval_title">Backup interval</string>
     <string name="settings_backup_keep_title">Backups to keep</string>
+    <!-- Scheduled backup subtitle formatters -->
+    <string name="settings_backup_status_choose_folder">Choose a folder to unlock local, account-free scheduled backups</string>
+    <string name="settings_backup_status_permission_repair">Folder permission needs repair before backup can be enabled</string>
+    <string name="settings_backup_status_ready">Ready. %1$s and %2$s</string>
+    <string name="settings_backup_status_choose_folder_start">Choose a backup folder to start scheduled exports</string>
+    <string name="settings_backup_status_paused">Paused. Folder permission needs repair before Aura can write backups</string>
+    <string name="settings_backup_status_active">%1$s; %2$s</string>
+    <string name="settings_backup_folder_choose_subtitle">Choose where Aura should write JSON backup files</string>
+    <string name="settings_backup_folder_selected_subtitle">Writable folder selected for scheduled backup</string>
+    <plurals name="settings_backup_keeping_files">
+        <item quantity="one">keeping %1$d file</item>
+        <item quantity="other">keeping %1$d files</item>
+    </plurals>
+    <plurals name="settings_backup_keeping_newest">
+        <item quantity="one">keeping %1$d newest backup</item>
+        <item quantity="other">keeping %1$d newest backups</item>
+    </plurals>
+    <plurals name="settings_backup_interval_every_hours">
+        <item quantity="one">Every %1$d hour</item>
+        <item quantity="other">Every %1$d hours</item>
+    </plurals>
+    <plurals name="settings_backup_retention_keep">
+        <item quantity="one">Keep %1$d newest backup</item>
+        <item quantity="other">Keep %1$d newest backups</item>
+    </plurals>
     <string name="settings_theme_pack_export_title">Export theme pack</string>
     <string name="settings_theme_pack_export_subtitle">Save wallpaper, video, sound, widget, and shortcut recipes as a local Aura pack</string>
     <string name="settings_theme_pack_import_title">Import theme pack</string>
@@ -1110,6 +1181,8 @@
     <string name="settings_smart_touch_off">Off</string>
     <string name="settings_smart_touch_subtle">Subtle ripples</string>
     <string name="settings_smart_touch_strong">Ripples + sparkles</string>
+    <string name="settings_smart_touch_subtle_summary">Subtle ripples on live wallpapers</string>
+    <string name="settings_smart_touch_strong_summary">Ripples and spark bursts on touch</string>
     <string name="settings_smart_reduce_title">Reduce animations</string>
     <string name="settings_smart_reduce_subtitle">Disable particle, weather, and touch effects on live wallpapers</string>
     <string name="settings_smart_dark_wp_picker">Choose dark mode wallpaper</string>
@@ -1221,7 +1294,15 @@
     <string name="settings_storage_downloads_title">Downloads</string>
     <string name="settings_storage_downloads_subtitle">Review wallpapers, sounds, and videos saved by Aura</string>
     <string name="settings_storage_free_up_title">Free up storage</string>
+    <!-- Storage cache formatters -->
+    <string name="settings_storage_cache_usage">Using %1$s of temp files and offline saves</string>
+    <string name="settings_storage_cache_usage_with_feed">Using %1$s of temp files and offline saves + wallpaper feed cache</string>
+    <string name="settings_storage_clear_cache_confirmation">This will remove %1$s of temporary media and offline favorites. Downloaded files are not affected.</string>
+    <string name="settings_storage_clear_cache_confirmation_with_feed">This will remove %1$s of temporary media and offline favorites, and reset cached wallpaper feeds. Downloaded files are not affected.</string>
     <string name="settings_diag_crash_title">Crash diagnostics bundle</string>
+    <string name="settings_diag_crash_last_subtitle">Last crash %1$s • Copy or share a sanitized issue bundle</string>
+    <string name="settings_diag_crash_recorded">recorded</string>
+    <string name="settings_diag_crash_none_subtitle">No local crash log yet • Copy or share environment details if the app freezes</string>
     <string name="settings_diag_background_title">Background work</string>
     <string name="settings_diag_source_title">Source diagnostics</string>
     <string name="settings_diag_source_empty_subtitle">Live provider health appears here after browsing</string>
@@ -1236,6 +1317,15 @@
     <string name="settings_diag_metric_receipts">Receipts</string>
     <string name="settings_diag_metric_network">Network</string>
     <string name="settings_diag_metric_data_saver">Data Saver</string>
+    <string name="settings_diag_background_check_subtitle">Check WorkManager and Data Saver state</string>
+    <string name="settings_diag_background_status_subtitle">%1$s • %2$s • Data Saver %3$s</string>
+    <string name="settings_diag_network_metered">metered</string>
+    <string name="settings_diag_network_unmetered">unmetered</string>
+    <string name="settings_diag_network_meter_unknown">meter unknown</string>
+    <plurals name="settings_diag_workinfo_receipts">
+        <item quantity="one">%1$d WorkInfo receipt</item>
+        <item quantity="other">%1$d WorkInfo receipts</item>
+    </plurals>
     <string name="settings_diag_network_read_failed">Network diagnostics read failed: %1$s</string>
     <string name="settings_diag_background_oem_guidance">Battery recovery (%1$s): %2$s</string>
     <string name="settings_diag_receipt_read_failed">Read failed</string>
@@ -1290,29 +1380,28 @@
     <string name="settings_diag_crash_dialog_no_send">Aura does not send this data unless you copy it or choose a share target.</string>
     <string name="settings_diag_crash_copy">Copy</string>
     <string name="settings_diag_crash_share">Share</string>
+    <!-- Permission scope and grant labels -->
+    <string name="settings_perm_scope_local">Local</string>
+    <string name="settings_perm_scope_remote">Remote</string>
+    <string name="settings_perm_granted">Granted</string>
+    <string name="settings_perm_not_granted">Not granted</string>
+    <string name="settings_perm_a11y_row">%1$s (%2$s) - %3$s</string>
+    <string name="settings_perm_a11y_row_granted">%1$s (%2$s) - %3$s - %4$s</string>
     <string name="settings_perm_wallpaper">Set wallpaper</string>
-    <string name="settings_perm_wallpaper_scope">Local</string>
     <string name="settings_perm_wallpaper_desc">Apply images as home or lock screen wallpaper. No data leaves the device.</string>
     <string name="settings_perm_internet">Internet</string>
-    <string name="settings_perm_internet_scope">Remote</string>
     <string name="settings_perm_internet_desc">Fetch wallpapers, videos, and sounds from Wallhaven, Pexels, Pixabay, YouTube (NewPipe/yt-dlp), and Freesound. Community features use Firebase.</string>
     <string name="settings_perm_notifications">Notifications</string>
-    <string name="settings_perm_notifications_scope">Local</string>
     <string name="settings_perm_notifications_desc">Daily wallpaper reminders and download completion alerts. Only active when you enable daily wallpaper or download content.</string>
     <string name="settings_perm_location">Approximate location</string>
-    <string name="settings_perm_location_scope">Remote</string>
     <string name="settings_perm_location_desc">Weather wallpaper effects fetch local conditions from Open-Meteo. Coordinates are rounded and cleared when weather effects are disabled.</string>
     <string name="settings_perm_contacts">Contacts</string>
-    <string name="settings_perm_contacts_scope">Local</string>
     <string name="settings_perm_contacts_desc">Assign per-contact ringtones. Contact data stays on-device and is never uploaded.</string>
     <string name="settings_perm_microphone">Microphone</string>
-    <string name="settings_perm_microphone_scope">Local</string>
     <string name="settings_perm_microphone_desc">Record audio for custom sounds. Recording starts only on tap and stays local until you choose to upload.</string>
     <string name="settings_perm_modify_settings">Modify settings</string>
-    <string name="settings_perm_modify_settings_scope">Local</string>
     <string name="settings_perm_modify_settings_desc">Set default ringtone, notification, or alarm sound via system RingtoneManager.</string>
     <string name="settings_perm_foreground">Foreground service</string>
-    <string name="settings_perm_foreground_scope">Local</string>
     <string name="settings_perm_foreground_desc">Live wallpaper playback and wallpaper rotation triggers. Runs only when live wallpaper or rotation is active.</string>
     <string name="settings_about_app_title">Aura</string>
     <string name="settings_about_app_subtitle">Version %1$s • Open-source device personalization studio</string>
@@ -1552,4 +1641,29 @@
     <string name="settings_wp_pack_title">24H wallpaper pack</string>
     <string name="settings_wp_pack_on_subtitle">%1$d daypart slot(s) — wallpaper changes by time of day</string>
     <string name="settings_wp_pack_off_subtitle">Map different wallpapers to morning, day, evening, and night</string>
+
+    <!-- Sound detail: similar sounds -->
+    <string name="sound_detail_similar_load_failed">Couldn\'t load similar sounds. Check your connection.</string>
+
+    <!-- Whole-library backup (Settings > Backup) -->
+    <string name="settings_library_export_title">Export whole library</string>
+    <string name="settings_library_export_subtitle">Favorites, collections, packs, and profiles to one JSON file for device transfer</string>
+    <string name="settings_library_import_title">Import whole library</string>
+    <string name="settings_library_import_subtitle">Restore a library backup — items merge with what\'s already here</string>
+    <string name="settings_library_default_filename">aura-library-backup.json</string>
+    <string name="settings_library_export_done">Library exported: %1$d items</string>
+    <string name="settings_library_export_failed">Library export failed: %1$s</string>
+    <string name="settings_library_import_done">Library imported: %1$d items</string>
+    <string name="settings_library_import_failed">Library import failed: %1$s</string>
+
+    <!-- Global apply/undo feedback (FreeVibeRoot snackbar) -->
+    <string name="apply_feedback_undo">Undo</string>
+    <string name="apply_feedback_reverted">Reverted to previous wallpaper</string>
+    <string name="apply_feedback_undo_failed">Undo failed: %1$s</string>
+    <string name="apply_feedback_apply_failed">Couldn\'t apply wallpaper: %1$s</string>
+    <string name="apply_feedback_unknown_error">unknown error</string>
+    <string name="apply_feedback_applied_to">Applied to %1$s</string>
+    <string name="apply_target_home">home screen</string>
+    <string name="apply_target_lock">lock screen</string>
+    <string name="apply_target_both">home &amp; lock screen</string>
 </resources>

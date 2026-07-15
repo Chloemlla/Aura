@@ -755,10 +755,18 @@ private fun SimilarSoundsSection(
     onSoundClick: (Sound) -> Unit,
 ) {
     var loaded by remember(sound.stableKey()) { mutableStateOf(false) }
-    LaunchedEffect(sound.stableKey()) {
+    var loadFailed by remember(sound.stableKey()) { mutableStateOf(false) }
+    // `loaded` is a key so the Retry button (loaded = false) restarts the effect.
+    LaunchedEffect(sound.stableKey(), loaded) {
         if (!loaded && !isLoading.value) {
-            isLoading.value = true; similarSounds.value = emptyList()
-            try { similarSounds.value = viewModel.loadSimilar(sound) } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e }
+            isLoading.value = true; similarSounds.value = emptyList(); loadFailed = false
+            try {
+                similarSounds.value = viewModel.loadSimilar(sound)
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                // A network failure is not "no close matches" — show honest copy.
+                loadFailed = true
+            }
             isLoading.value = false; loaded = true
         }
     }
@@ -840,7 +848,20 @@ private fun SimilarSoundsSection(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(Icons.Default.TravelExplore, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(stringResource(R.string.sound_detail_no_close_matches), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        stringResource(
+                            if (loadFailed) R.string.sound_detail_similar_load_failed
+                            else R.string.sound_detail_no_close_matches,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (loadFailed) {
+                        Spacer(Modifier.weight(1f))
+                        TextButton(onClick = { loaded = false }) {
+                            Text(stringResource(R.string.common_retry))
+                        }
+                    }
                 }
             }
         }
