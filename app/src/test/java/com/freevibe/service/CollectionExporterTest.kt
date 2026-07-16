@@ -1,5 +1,11 @@
 package com.freevibe.service
 
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.BinaryBitmap
+import com.google.zxing.MultiFormatReader
+import com.google.zxing.RGBLuminanceSource
+import com.google.zxing.common.HybridBinarizer
+import com.google.zxing.qrcode.QRCodeWriter
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -7,6 +13,23 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CollectionExporterTest {
+    @Test
+    fun `zxing QR export decodes back to the Aura collection link`() {
+        val shareLink = "aura://collection/import/abc123_DEF-456"
+        val matrix = QRCodeWriter().encode(shareLink, BarcodeFormat.QR_CODE, 256, 256)
+        val pixels = IntArray(matrix.width * matrix.height) { index ->
+            val x = index % matrix.width
+            val y = index / matrix.width
+            if (matrix[x, y]) 0xFF000000.toInt() else 0xFFFFFFFF.toInt()
+        }
+
+        val decoded = MultiFormatReader().decode(
+            BinaryBitmap(HybridBinarizer(RGBLuminanceSource(matrix.width, matrix.height, pixels))),
+        )
+
+        assertEquals(shareLink, decoded.text)
+    }
+
     @Test
     fun `extractCollectionShareToken accepts Aura deep links and plain tokens`() {
         assertEquals(

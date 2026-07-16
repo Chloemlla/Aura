@@ -269,7 +269,7 @@ dependencies {
     implementation(libs.serialization.json)
 
     // QR code generation/decoding for shareable collection links
-    implementation("com.google.zxing:core:3.5.3")
+    implementation(libs.zxing.core)
 
     // Glance Widgets
     implementation(libs.glance.appwidget)

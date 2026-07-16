@@ -49,6 +49,8 @@ and a no-OAuth Reddit RSS pipeline.
 - **Added a Next wallpaper Quick Settings tile**: the system tile mirrors Aura's
   automatic-rotation state and queues the same one-shot worker used by trusted
   automation, including when periodic rotation is disabled.
+- **Refreshed paging, JSON, and QR dependencies**: Paging 3.3.6, Moshi 1.15.2,
+  and ZXing 3.5.4 bring bounded bug fixes without changing Aura's public formats.
 - **Added a video wallpaper motion guard**: the existing automatic battery control
   now holds videos and GIFs on a static frame while Android Battery Saver is active,
   resumes the retained decoder when saver exits, and reports the state in Settings.
