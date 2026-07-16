@@ -1,6 +1,8 @@
+import hashlib
 import json
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 from tools import ytdlp_cve_policy_check
@@ -57,12 +59,13 @@ def write_policy_v2(repo_root: Path) -> Path:
                     {"cve": "CVE-2026-50023", "advisory": "", "summary": "Filename sanitization", "forbiddenOptions": []},
                     {"cve": "CVE-2026-50574", "advisory": "", "summary": "aria2c code exec", "forbiddenOptions": ["aria2c", "--downloader"]},
                     {"cve": "CVE-2025-54072", "advisory": "", "summary": "--exec injection", "forbiddenOptions": ["--exec"]},
+                    {"cve": "CVE-2026-55404", "advisory": "GHSA-6v4j-43gg-vj32", "summary": "write-link injection", "forbiddenOptions": ["--write-link", "--write-url-link", "--write-webloc-link", "--write-desktop-link"]},
                 ],
                 "affectedVersionRange": {"introduced": "2023.06.21", "fixed": "2026.02.21"},
                 "minimumSafeYtDlpVersion": "2026.02.21",
                 "nativeComplianceLockPath": "docs/legal/native-compliance.lock.json",
                 "allowedAffectedReachability": "affectedBundledVersionAllowedOnlyWhenForbiddenOptionsAreAbsent",
-                "forbiddenOptions": ["--netrc-cmd", "netrc_cmd", "--cookies", "aria2c", "--downloader", "--exec"],
+                "forbiddenOptions": ["--netrc-cmd", "netrc_cmd", "--cookies", "aria2c", "--downloader", "--exec", "--write-link", "--write-url-link", "--write-webloc-link", "--write-desktop-link"],
                 "scanSourceRoots": ["app/src/main/java"],
                 "requiredYtDlpCallSites": [
                     {
@@ -152,7 +155,7 @@ class YtDlpCvePolicyCheckV1Test(unittest.TestCase):
 
 
 class YtDlpCvePolicyCheckV2Test(unittest.TestCase):
-    def test_v2_tracks_all_five_cves(self):
+    def test_v2_tracks_all_six_cves(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
             policy_path = write_policy_v2(repo_root)
@@ -162,12 +165,13 @@ class YtDlpCvePolicyCheckV2Test(unittest.TestCase):
             result = ytdlp_cve_policy_check.validate_policy(repo_root, policy_path)
 
             self.assertEqual(result["status"], "affected_not_reachable")
-            self.assertEqual(len(result["trackedCves"]), 5)
+            self.assertEqual(len(result["trackedCves"]), 6)
             self.assertIn("CVE-2026-26331", result["trackedCves"])
             self.assertIn("CVE-2026-50019", result["trackedCves"])
             self.assertIn("CVE-2026-50023", result["trackedCves"])
             self.assertIn("CVE-2026-50574", result["trackedCves"])
             self.assertIn("CVE-2025-54072", result["trackedCves"])
+            self.assertIn("CVE-2026-55404", result["trackedCves"])
 
     def test_v2_rejects_exec_flag(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -218,7 +222,64 @@ class YtDlpCvePolicyCheckV2Test(unittest.TestCase):
             result = ytdlp_cve_policy_check.validate_policy(repo_root, policy_path)
 
             self.assertEqual(result["status"], "affected_not_reachable")
-            self.assertEqual(len(result["forbiddenOptions"]), 6)
+            self.assertEqual(len(result["forbiddenOptions"]), 10)
+
+    def test_v2_validates_effective_app_payload_override(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            policy_path = write_policy_v2(repo_root)
+            policy = json.loads(policy_path.read_text(encoding="utf-8"))
+            payload = repo_root / "app/src/main/res/raw/ytdlp"
+            payload.parent.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(payload, "w") as archive:
+                archive.writestr("yt_dlp/version.py", "__version__ = '2026.07.04'\n")
+            digest = hashlib.sha256(payload.read_bytes()).hexdigest()
+            policy.update(
+                {
+                    "affectedVersionRange": {"introduced": "2023.06.21", "fixed": "2026.07.04"},
+                    "minimumSafeYtDlpVersion": "2026.07.04",
+                    "bundledPayloadPath": "app/src/main/res/raw/ytdlp",
+                    "bundledPayloadSha256": digest,
+                    "bundledPayloadSourceUrl": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.07.04/yt-dlp",
+                }
+            )
+            write_text(policy_path, json.dumps(policy))
+            write_lock(repo_root, "2025.11.12")
+            write_call_site(repo_root)
+
+            result = ytdlp_cve_policy_check.validate_policy(repo_root, policy_path)
+
+            self.assertEqual(result["status"], "fixed_or_unaffected")
+            self.assertEqual(result["bundledYtDlpVersion"], "2026.07.04")
+            self.assertEqual(result["bundledPayloadSha256"], digest)
+
+    def test_v2_rejects_payload_hash_mismatch(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            policy_path = write_policy_v2(repo_root)
+            policy = json.loads(policy_path.read_text(encoding="utf-8"))
+            payload = repo_root / "app/src/main/res/raw/ytdlp"
+            payload.parent.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(payload, "w") as archive:
+                archive.writestr("yt_dlp/version.py", "__version__ = '2026.07.04'\n")
+            policy.update(
+                {
+                    "affectedVersionRange": {"introduced": "2023.06.21", "fixed": "2026.07.04"},
+                    "minimumSafeYtDlpVersion": "2026.07.04",
+                    "bundledPayloadPath": "app/src/main/res/raw/ytdlp",
+                    "bundledPayloadSha256": "0" * 64,
+                    "bundledPayloadSourceUrl": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.07.04/yt-dlp",
+                }
+            )
+            write_text(policy_path, json.dumps(policy))
+            write_lock(repo_root, "2025.11.12")
+            write_call_site(repo_root)
+
+            with self.assertRaisesRegex(
+                ytdlp_cve_policy_check.YtDlpCvePolicyError,
+                "SHA-256 mismatch",
+            ):
+                ytdlp_cve_policy_check.validate_policy(repo_root, policy_path)
 
 
 if __name__ == "__main__":

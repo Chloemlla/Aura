@@ -33,7 +33,7 @@ class YtDlpUpdateManagerTest {
         val fakeRuntime = FakeYtDlpRuntime(
             updateAction = {
                 fixture.runtimeFile.writeText("new")
-                activeVersionName = "2026.06.12"
+                activeVersionName = "2026.07.04"
             },
         )
         val manager = fixture.manager(fakeRuntime)
@@ -144,6 +144,33 @@ class YtDlpUpdateManagerTest {
         assertFalse(manager.snapshot().pendingValidation)
     }
 
+    @Test
+    fun `update below the security floor restores the previous runtime`() = runTest(dispatcher) {
+        val fixture = createFixture()
+        fixture.runtimeFile.writeText("safe-bundled")
+        val fakeRuntime = FakeYtDlpRuntime(
+            updateAction = {
+                fixture.runtimeFile.writeText("stale-update")
+                activeVersionName = "2026.06.09"
+            },
+        )
+        val manager = fixture.manager(fakeRuntime)
+
+        val update = manager.updateStable()
+
+        assertEquals(YtDlpUpdateStatus.FAILED, update.status)
+        assertEquals("safe-bundled", fixture.runtimeFile.readText())
+        assertTrue(update.snapshot.lastError?.contains("2026.07.04") == true)
+    }
+
+    @Test
+    fun `version comparison accepts the floor and later stable labels`() {
+        assertTrue(isYtDlpVersionAtLeast("2026.07.04", YtDlpUpdateManager.MINIMUM_SAFE_VERSION))
+        assertTrue(isYtDlpVersionAtLeast("stable@2026.08.01", YtDlpUpdateManager.MINIMUM_SAFE_VERSION))
+        assertFalse(isYtDlpVersionAtLeast("2026.06.09", YtDlpUpdateManager.MINIMUM_SAFE_VERSION))
+        assertFalse(isYtDlpVersionAtLeast("bundled", YtDlpUpdateManager.MINIMUM_SAFE_VERSION))
+    }
+
     private fun createFixture(): Fixture {
         val root = createTempDirectory("ytdlp-update").toFile().also(tempDirs::add)
         val noBackupDir = File(root, "no-backup").apply { mkdirs() }
@@ -193,7 +220,7 @@ class YtDlpUpdateManagerTest {
     private class FakeYtDlpRuntime(
         private val updateAction: FakeYtDlpRuntime.() -> Unit,
     ) : YtDlpRuntime {
-        var activeVersionName: String? = "bundled"
+        var activeVersionName: String? = "2026.07.04"
         var initYtDlpCalls: Int = 0
         var initYtDlpThrows: Boolean = false
 

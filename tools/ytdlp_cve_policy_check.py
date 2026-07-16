@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Validate Aura's yt-dlp netrc-cmd CVE reachability policy."""
+"""Validate Aura's effective bundled yt-dlp version and CVE reachability policy."""
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import re
 import sys
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -85,6 +88,30 @@ def bundled_ytdlp_version(lock: dict[str, Any]) -> str:
     if len(versions) != 1:
         raise YtDlpCvePolicyError(f"native compliance lock has multiple yt-dlp versions: {versions}")
     return versions[0]
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def bundled_ytdlp_version_from_payload(path: Path) -> str:
+    if not path.is_file():
+        raise YtDlpCvePolicyError(f"bundled yt-dlp payload is missing: {path}")
+    try:
+        with zipfile.ZipFile(path) as archive:
+            version_text = archive.read("yt_dlp/version.py").decode("utf-8", "replace")
+    except (KeyError, zipfile.BadZipFile) as exc:
+        raise YtDlpCvePolicyError(
+            f"bundled yt-dlp payload does not contain yt_dlp/version.py: {path}"
+        ) from exc
+    match = re.search(r"__version__\s*=\s*['\"]([^'\"]+)['\"]", version_text)
+    if not match:
+        raise YtDlpCvePolicyError("bundled yt-dlp payload does not declare __version__")
+    return match.group(1)
 
 
 def version_in_affected_range(version: str, introduced: str, fixed: str) -> bool:
@@ -167,7 +194,22 @@ def validate_policy(repo_root: Path, policy_path: Path) -> dict[str, Any]:
 
     lock_path = repo_root / require_string(policy.get("nativeComplianceLockPath"), "nativeComplianceLockPath")
     lock = require_object(read_json(lock_path), "native compliance lock")
-    ytdlp_version = bundled_ytdlp_version(lock)
+    payload_relative = policy.get("bundledPayloadPath")
+    payload_sha256: str | None = None
+    if payload_relative is None:
+        ytdlp_version = bundled_ytdlp_version(lock)
+    else:
+        payload_path = repo_root / require_string(payload_relative, "bundledPayloadPath")
+        expected_sha256 = require_string(policy.get("bundledPayloadSha256"), "bundledPayloadSha256").lower()
+        if len(expected_sha256) != 64 or any(char not in "0123456789abcdef" for char in expected_sha256):
+            raise YtDlpCvePolicyError("bundledPayloadSha256 must be a lowercase SHA-256 digest")
+        payload_sha256 = sha256(payload_path)
+        if payload_sha256 != expected_sha256:
+            raise YtDlpCvePolicyError(
+                f"bundled yt-dlp payload SHA-256 mismatch: expected {expected_sha256}, got {payload_sha256}"
+            )
+        require_string(policy.get("bundledPayloadSourceUrl"), "bundledPayloadSourceUrl")
+        ytdlp_version = bundled_ytdlp_version_from_payload(payload_path)
     affected = version_in_affected_range(ytdlp_version, introduced, fixed)
 
     source_roots = require_string_list(policy.get("scanSourceRoots"), "scanSourceRoots")
@@ -188,6 +230,7 @@ def validate_policy(repo_root: Path, policy_path: Path) -> dict[str, Any]:
         "trackedCves": tracked_cves,
         "advisory": advisory,
         "bundledYtDlpVersion": ytdlp_version,
+        "bundledPayloadSha256": payload_sha256,
         "minimumSafeYtDlpVersion": minimum_safe,
         "forbiddenOptions": forbidden_options,
         "validatedCallSites": call_sites,

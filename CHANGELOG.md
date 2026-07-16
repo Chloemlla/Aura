@@ -48,6 +48,10 @@ and a no-OAuth Reddit RSS pipeline.
 - **Raised the Jackson security floor to 2.18.9**: yt-dlp's legacy transitive
   Jackson 2.11.1 dependency now resolves to the patched 2.18.9 line, with the
   resolved artifacts covered by Gradle SHA-256 dependency verification.
+- **Shipped a current yt-dlp payload with guarded updates**: the app-level
+  extractor payload is the official 2026.07.04 release, pinned by SHA-256 and
+  verified from the packaged resource; stable-channel updates now roll back if
+  they fail to reach that security floor.
 
 ## v6.35.1 (2026-07-15)
 

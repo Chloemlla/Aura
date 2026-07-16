@@ -4,5 +4,6 @@ Aura 6.36.0 - content-first discovery
 - Added persistent sound/video feeds, shared preview caching, and full-screen swipe discovery.
 - Simplified Wallpapers, Videos, Sounds, and Settings around primary content and actions.
 - Raised jackson-databind to the 2.18.9 security floor.
+- Bundled the official yt-dlp 2026.07.04 security release and guarded runtime updates.
 
 Recent highlights: persistent Reddit wallpaper and motion feeds, full-screen swipe previews, warm sound/video relaunches, and clearer content-first controls.

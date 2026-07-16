@@ -110,6 +110,14 @@ class YtDlpUpdateManager @Inject constructor(
 
                 val updateStatus = runtime.updateStable(context)
                     ?: throw IllegalStateException("yt-dlp update returned no status")
+                val activeVersion = runtime.versionName(context).orNullIfBlank()
+                    ?: runtime.version(context).orNullIfBlank()
+                    ?: throw IllegalStateException("yt-dlp update did not report an active version")
+                if (!isYtDlpVersionAtLeast(activeVersion, MINIMUM_SAFE_VERSION)) {
+                    throw IllegalStateException(
+                        "yt-dlp update stayed below the $MINIMUM_SAFE_VERSION security floor"
+                    )
+                }
                 val mappedStatus = when (updateStatus) {
                     YoutubeDL.UpdateStatus.DONE -> YtDlpUpdateStatus.UPDATED_PENDING_VALIDATION
                     YoutubeDL.UpdateStatus.ALREADY_UP_TO_DATE -> YtDlpUpdateStatus.ALREADY_UP_TO_DATE
@@ -360,5 +368,22 @@ class YtDlpUpdateManager @Inject constructor(
         private const val KEY_PREVIOUS_VERSION_NAME = "previousVersionName"
         private const val LIBRARY_VERSION_KEY = "dlpVersion"
         private const val LIBRARY_VERSION_NAME_KEY = "dlpVersionName"
+        internal const val MINIMUM_SAFE_VERSION = "2026.07.04"
     }
+}
+
+internal fun isYtDlpVersionAtLeast(version: String, minimum: String): Boolean {
+    fun parse(value: String): Triple<Int, Int, Int>? {
+        val match = Regex("(?<!\\d)(\\d{4})\\.(\\d{2})\\.(\\d{2})(?!\\d)").find(value)
+            ?: return null
+        return Triple(
+            match.groupValues[1].toInt(),
+            match.groupValues[2].toInt(),
+            match.groupValues[3].toInt(),
+        )
+    }
+
+    val current = parse(version) ?: return false
+    val floor = parse(minimum) ?: return false
+    return compareValuesBy(current, floor, Triple<Int, Int, Int>::first, Triple<Int, Int, Int>::second, Triple<Int, Int, Int>::third) >= 0
 }
