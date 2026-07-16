@@ -22,6 +22,9 @@ and a no-OAuth Reddit RSS pipeline.
 - **Preserved raw Reddit motion cursors in the video cache**: fresh and stale
   cached RSS pages now retain the final Atom entry plus explicit exhaustion
   state, so filtered text/gallery tails no longer make pagination overlap.
+- **Avoided ineffective video preview prebuffers**: the preview disk cache now
+  accepts only progressive MP4/WebM URLs and skips HLS manifests, GIFs, local
+  content, and unknown stream shapes before allocating a cache writer.
 - **Added day/night wallpaper scheduling**: auto-rotation can keep one source,
   switch between independently selected day and night sources at configurable
   clock boundaries, or follow the system light/dark theme. Phase sources and

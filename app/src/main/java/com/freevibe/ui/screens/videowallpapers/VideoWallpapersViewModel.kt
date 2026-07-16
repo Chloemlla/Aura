@@ -21,6 +21,7 @@ import com.freevibe.service.VIDEO_WALLPAPER_SCALE_MODE_ZOOM
 import com.freevibe.service.VideoWallpaperSelectionResult
 import com.freevibe.service.VideoWallpaperStorage
 import com.freevibe.service.VideoPreviewCache
+import com.freevibe.service.shouldPrebufferVideoPreview
 import com.freevibe.service.YtDlpUpdateManager
 import com.freevibe.service.YouTubeYtDlpRequestFactory
 import com.freevibe.service.advertisedLengthExceeds
@@ -635,6 +636,7 @@ class VideoWallpapersViewModel @Inject constructor(
     }
 
     private fun prebufferPreview(id: String, url: String) {
+        if (!shouldPrebufferVideoPreview(url)) return
         viewModelScope.launch {
             runCatching { videoPreviewCache.prebuffer(id, url) }
         }

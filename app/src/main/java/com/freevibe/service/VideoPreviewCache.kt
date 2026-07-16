@@ -19,8 +19,38 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 import javax.inject.Inject
 import javax.inject.Singleton
+
+internal fun shouldPrebufferVideoPreview(url: String): Boolean {
+    val normalized = url.trim().substringBefore('#')
+    if (!normalized.startsWith("http://", ignoreCase = true) &&
+        !normalized.startsWith("https://", ignoreCase = true)
+    ) {
+        return false
+    }
+    val path = normalized.substringBefore('?').lowercase()
+    if (path.endsWith(".m3u8") || path.endsWith(".gif")) return false
+    if (path.endsWith(".mp4") || path.endsWith(".webm")) return true
+
+    val mime = normalized.substringAfter('?', "")
+        .split('&')
+        .firstNotNullOfOrNull { parameter ->
+            val (key, value) = parameter.split('=', limit = 2).let {
+                it.firstOrNull().orEmpty() to it.getOrElse(1) { "" }
+            }
+            value.takeIf { key.equals("mime", ignoreCase = true) }
+        }
+        ?.let { encoded ->
+            runCatching { URLDecoder.decode(encoded, StandardCharsets.UTF_8.name()) }
+                .getOrDefault(encoded)
+        }
+        ?.lowercase()
+        .orEmpty()
+    return mime.startsWith("video/mp4") || mime.startsWith("video/webm")
+}
 
 @OptIn(UnstableApi::class)
 @Singleton
@@ -54,8 +84,7 @@ class VideoPreviewCache @Inject constructor(
         DefaultMediaSourceFactory(DefaultDataSource.Factory(context, dataSourceFactory))
 
     suspend fun prebuffer(cacheKey: String, url: String): Boolean {
-        if (url.isBlank()) return false
-        if (!url.startsWith("http://") && !url.startsWith("https://")) return true
+        if (!shouldPrebufferVideoPreview(url)) return false
         return withContext(Dispatchers.IO) {
             try {
                 val dataSpec = DataSpec.Builder()
