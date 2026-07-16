@@ -559,6 +559,7 @@ class SettingsViewModelTest {
             every { prefs.autoWallpaperRequiresWiFiOnly } returns flowOf(false)
             every { prefs.autoWallpaperRequiresIdle } returns flowOf(false)
             every { prefs.autoWallpaperDarkenPercent } returns flowOf(0)
+            every { prefs.autoWallpaperNightVariantEnabled } returns flowOf(false)
             every { prefs.autoBackupEnabled } returns flowOf(false)
             every { prefs.autoBackupFolderUri } returns flowOf("")
             every { prefs.autoBackupIntervalHours } returns flowOf(24L)

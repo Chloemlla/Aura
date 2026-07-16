@@ -211,9 +211,11 @@ class ReleasePolishContractTest {
         val source = settingsSource()
 
         assertTrue(source.contains("val autoWallpaperDarkenPercent by viewModel.autoWallpaperDarkenPercent.collectAsStateWithLifecycle()"))
+        assertTrue(source.contains("val autoWallpaperNightVariantEnabled by viewModel.autoWallpaperNightVariantEnabled.collectAsStateWithLifecycle()"))
         assertTrue(source.contains("val autoBackupEnabled by viewModel.autoBackupEnabled.collectAsStateWithLifecycle()"))
         assertTrue(source.contains("SettingsValueSlider("))
         assertTrue(source.contains("settings_wp_dimming_title") || source.contains("Rotation dimming"))
+        assertTrue(source.contains("settings_wp_night_variant_title"))
         assertTrue(source.contains("backup") || source.contains("Backup"))
         assertTrue(source.contains("Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION"))
         assertTrue(source.contains("hasPersistedWritePermission(context, autoBackupFolderUri)"))
@@ -221,6 +223,19 @@ class ReleasePolishContractTest {
         assertTrue(source.contains("onChooseAutoBackupFolder(true)"))
         assertTrue(source.contains("showAutoBackupIntervalPicker"))
         assertTrue(source.contains("showAutoBackupKeepPicker"))
+    }
+
+    @Test
+    fun `night variant preserves the original locator across theme transitions`() {
+        val worker = File("src/main/java/com/freevibe/service/AutoWallpaperWorker.kt").readText()
+        val listener = File("src/main/java/com/freevibe/service/SystemThemeListener.kt").readText()
+        val applier = File("src/main/java/com/freevibe/service/WallpaperApplier.kt").readText()
+
+        assertTrue(worker.contains("shouldUseNightWallpaperVariant("))
+        assertTrue(worker.contains("setLastNightVariantWallpaper("))
+        assertTrue(listener.contains("lastNightVariantWallpaperLocator.first()"))
+        assertTrue(listener.contains("nightVariant = isNight"))
+        assertTrue(applier.contains("nightWallpaperVariantColorMatrix()"))
     }
 
     @Test

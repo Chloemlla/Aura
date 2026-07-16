@@ -10,6 +10,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -37,13 +38,14 @@ class SystemThemeListener @Inject constructor(
     private val wallpaperApplier: WallpaperApplier,
 ) {
     private val scope = CoroutineScope(Dispatchers.Default)
-    @Volatile private var enabled = false
+    @Volatile private var darkLightPairEnabled = false
+    @Volatile private var nightVariantEnabled = false
     @Volatile private var lastNightMode = isNightMode()
     private var prefJob: Job? = null
 
     private val callbacks = object : ComponentCallbacks {
         override fun onConfigurationChanged(newConfig: Configuration) {
-            if (!enabled) return
+            if (!darkLightPairEnabled && !nightVariantEnabled) return
             val isNight = (newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
             if (isNight == lastNightMode) return
@@ -55,17 +57,29 @@ class SystemThemeListener @Inject constructor(
     }
 
     fun startListening() {
-        // Track the pref so toggling the feature off cancels in-flight work cleanly.
+        // Track both theme-driven features without a polling loop.
         prefJob?.cancel()
         prefJob = scope.launch {
-            prefs.darkModeAutoSwitch.distinctUntilChanged().collect { isOn ->
-                enabled = isOn
-                if (isOn) {
-                    // Resync the baseline so we don't re-apply on the very next config change
-                    // when the user enables the toggle while already in (say) dark mode.
-                    lastNightMode = isNightMode()
+            combine(
+                prefs.darkModeAutoSwitch,
+                prefs.autoWallpaperNightVariantEnabled,
+            ) { pairEnabled, variantEnabled -> pairEnabled to variantEnabled }
+                .distinctUntilChanged()
+                .collect { (pairEnabled, variantEnabled) ->
+                    val variantWasEnabled = nightVariantEnabled
+                    darkLightPairEnabled = pairEnabled
+                    nightVariantEnabled = variantEnabled
+                    if (pairEnabled || variantEnabled) {
+                        // Resync the baseline so we don't re-apply on the very next config change
+                        // when the user enables the toggle while already in (say) dark mode.
+                        lastNightMode = isNightMode()
+                    }
+                    when {
+                        variantEnabled && !variantWasEnabled -> applyForMode(lastNightMode)
+                        !variantEnabled && variantWasEnabled && pairEnabled -> applyForMode(lastNightMode)
+                        !variantEnabled && variantWasEnabled -> applyLastNightVariantWallpaper(isNight = false)
+                    }
                 }
-            }
         }
         // ComponentCallbacks registration is idempotent if we ever wire startListening
         // to be re-entrant; Application.registerComponentCallbacks tolerates a re-add
@@ -76,13 +90,21 @@ class SystemThemeListener @Inject constructor(
     /** Test/debug entrypoint — apply whichever wallpaper matches the requested mode. */
     suspend fun applyForMode(isNight: Boolean) {
         try {
-            val wallpaperId = if (isNight) {
-                prefs.darkModeWallpaperId.first()
+            val pairEnabled = prefs.darkModeAutoSwitch.first()
+            val variantEnabled = prefs.autoWallpaperNightVariantEnabled.first()
+            if (pairEnabled) {
+                val wallpaperId = if (isNight) {
+                    prefs.darkModeWallpaperId.first()
+                } else {
+                    prefs.lightModeWallpaperId.first()
+                }
+                if (wallpaperId.isBlank()) return
+                applyStoredWallpaper(wallpaperId, nightVariant = isNight && variantEnabled)
+            } else if (variantEnabled) {
+                applyLastNightVariantWallpaper(isNight)
             } else {
-                prefs.lightModeWallpaperId.first()
+                return
             }
-            if (wallpaperId.isBlank()) return
-            applyStoredWallpaper(wallpaperId)
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -91,7 +113,7 @@ class SystemThemeListener @Inject constructor(
         }
     }
 
-    private suspend fun applyStoredWallpaper(wallpaperId: String) {
+    private suspend fun applyStoredWallpaper(wallpaperId: String, nightVariant: Boolean) {
         // Wallpaper ID format: "source|id|url" (stored when user applies a wallpaper).
         // Split with limit=3 so URLs that happen to contain "|" stay intact.
         val parts = wallpaperId.split("|", limit = 3)
@@ -102,7 +124,25 @@ class SystemThemeListener @Inject constructor(
         // and content:// URIs (uploads / gallery picks). Earlier revisions called
         // applyFromUrl which only spoke HTTP and threw IllegalArgumentException for any
         // other scheme — silently breaking auto-switch for AI-generated wallpapers.
-        wallpaperApplier.applyByLocator(url, WallpaperTarget.BOTH)
+        wallpaperApplier.applyByLocator(
+            url,
+            WallpaperTarget.BOTH,
+            nightVariant = nightVariant,
+        )
+    }
+
+    private suspend fun applyLastNightVariantWallpaper(isNight: Boolean) {
+        val locator = prefs.lastNightVariantWallpaperLocator.first()
+        if (locator.isBlank()) return
+        val target = runCatching {
+            WallpaperTarget.valueOf(prefs.lastNightVariantWallpaperTarget.first())
+        }.getOrDefault(WallpaperTarget.BOTH)
+        wallpaperApplier.applyByLocator(
+            locator = locator,
+            target = target,
+            darkenPercent = prefs.lastNightVariantWallpaperDarkenPercent.first(),
+            nightVariant = isNight,
+        )
     }
 
     private fun isNightMode(): Boolean {

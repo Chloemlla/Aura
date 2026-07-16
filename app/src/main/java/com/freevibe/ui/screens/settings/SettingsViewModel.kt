@@ -149,6 +149,11 @@ class SettingsViewModel @Inject constructor(
     val autoWpRequiresWiFi = prefs.autoWallpaperRequiresWiFiOnly.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val autoWpRequiresIdle = prefs.autoWallpaperRequiresIdle.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val autoWallpaperDarkenPercent = prefs.autoWallpaperDarkenPercent.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+    val autoWallpaperNightVariantEnabled = prefs.autoWallpaperNightVariantEnabled.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        false,
+    )
     val autoBackupEnabled = prefs.autoBackupEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val autoBackupFolderUri = prefs.autoBackupFolderUri.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
     val autoBackupIntervalHours = prefs.autoBackupIntervalHours.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 24L)
@@ -388,6 +393,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setAutoWallpaperDarkenPercent(percent: Int) = viewModelScope.launch {
         prefs.setAutoWallpaperDarkenPercent(percent)
+    }
+
+    fun setAutoWallpaperNightVariantEnabled(enabled: Boolean) = viewModelScope.launch {
+        prefs.setAutoWallpaperNightVariantEnabled(enabled)
     }
 
     fun setAutoBackupEnabled(enabled: Boolean) = viewModelScope.launch {

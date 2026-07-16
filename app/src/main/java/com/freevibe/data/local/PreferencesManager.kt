@@ -287,6 +287,19 @@ class PreferencesManager @Inject constructor(
     suspend fun setRotateOnScreenOff(v: Boolean) = set(Keys.ROTATE_ON_SCREEN_OFF, v)
     val autoWallpaperDarkenPercent: Flow<Int> = get(Keys.AUTO_WP_DARKEN_PERCENT, 0)
     suspend fun setAutoWallpaperDarkenPercent(v: Int) = set(Keys.AUTO_WP_DARKEN_PERCENT, v.coerceIn(0, 100))
+    val autoWallpaperNightVariantEnabled: Flow<Boolean> = get(Keys.AUTO_WP_NIGHT_VARIANT_ENABLED, false)
+    val lastNightVariantWallpaperLocator: Flow<String> = get(Keys.LAST_NIGHT_VARIANT_WP_LOCATOR, "")
+    val lastNightVariantWallpaperTarget: Flow<String> = get(Keys.LAST_NIGHT_VARIANT_WP_TARGET, "BOTH")
+    val lastNightVariantWallpaperDarkenPercent: Flow<Int> = get(Keys.LAST_NIGHT_VARIANT_WP_DARKEN_PERCENT, 0)
+    suspend fun setAutoWallpaperNightVariantEnabled(enabled: Boolean) =
+        set(Keys.AUTO_WP_NIGHT_VARIANT_ENABLED, enabled)
+    suspend fun setLastNightVariantWallpaper(locator: String, target: String, darkenPercent: Int = 0) {
+        dataStore.edit { preferences ->
+            preferences[Keys.LAST_NIGHT_VARIANT_WP_LOCATOR] = locator.trim()
+            preferences[Keys.LAST_NIGHT_VARIANT_WP_TARGET] = target
+            preferences[Keys.LAST_NIGHT_VARIANT_WP_DARKEN_PERCENT] = darkenPercent.coerceIn(0, 100)
+        }
+    }
 
     // ── Auto-backup ─────────────────────────────────────────────
 
@@ -658,6 +671,10 @@ class PreferencesManager @Inject constructor(
         val ROTATE_ON_UNLOCK = booleanPreferencesKey("rotate_on_unlock")
         val ROTATE_ON_SCREEN_OFF = booleanPreferencesKey("rotate_on_screen_off")
         val AUTO_WP_DARKEN_PERCENT = intPreferencesKey("auto_wp_darken_percent")
+        val AUTO_WP_NIGHT_VARIANT_ENABLED = booleanPreferencesKey("auto_wp_night_variant_enabled")
+        val LAST_NIGHT_VARIANT_WP_LOCATOR = stringPreferencesKey("last_night_variant_wp_locator")
+        val LAST_NIGHT_VARIANT_WP_TARGET = stringPreferencesKey("last_night_variant_wp_target")
+        val LAST_NIGHT_VARIANT_WP_DARKEN_PERCENT = intPreferencesKey("last_night_variant_wp_darken_percent")
         val PREF_RESOLUTION = stringPreferencesKey("pref_resolution")
         val REDDIT_SUBS = stringPreferencesKey("reddit_subreddits")
         val REDDIT_VIDEO_SUBS = stringPreferencesKey("reddit_video_subreddits")

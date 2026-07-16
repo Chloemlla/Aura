@@ -67,6 +67,7 @@ internal fun WallpaperRotationSettingsSection(
     autoWpRequiresWiFi: Boolean,
     autoWpRequiresIdle: Boolean,
     autoWallpaperDarkenPercent: Int,
+    autoWallpaperNightVariantEnabled: Boolean,
     schedulerEnabled: Boolean,
     rotateOnUnlock: Boolean,
     rotateOnScreenOff: Boolean,
@@ -160,6 +161,17 @@ internal fun WallpaperRotationSettingsSection(
             valueRange = 0f..100f,
             steps = 9,
             onValueChange = { viewModel.setAutoWallpaperDarkenPercent(it.roundToInt()) },
+        )
+        SettingsToggle(
+            icon = Icons.Default.Bedtime,
+            title = stringResource(R.string.settings_wp_night_variant_title),
+            subtitle = if (autoWallpaperNightVariantEnabled) {
+                stringResource(R.string.settings_wp_night_variant_on_subtitle)
+            } else {
+                stringResource(R.string.settings_wp_night_variant_off_subtitle)
+            },
+            checked = autoWallpaperNightVariantEnabled,
+            onCheckedChange = viewModel::setAutoWallpaperNightVariantEnabled,
         )
         val rotationActive = autoWpEnabled || schedulerEnabled || rotateOnUnlock || rotateOnScreenOff
         if (rotationActive) {

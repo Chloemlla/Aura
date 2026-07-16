@@ -143,6 +143,8 @@ class WallpapersViewModel @Inject constructor(
     )
 
     internal val applyActions = WallpaperApplyActions(
+        context = context,
+        prefs = prefs,
         wallpaperApplier = wallpaperApplier,
         downloadManager = downloadManager,
         dualWallpaperService = dualWallpaperService,

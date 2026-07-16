@@ -24,6 +24,7 @@ internal data class SettingsScreenState(
     val autoWpRequiresWiFi: Boolean,
     val autoWpRequiresIdle: Boolean,
     val autoWallpaperDarkenPercent: Int,
+    val autoWallpaperNightVariantEnabled: Boolean,
     val autoBackupEnabled: Boolean,
     val autoBackupFolderUri: String,
     val autoBackupFolderPermissionActive: Boolean,
@@ -126,6 +127,7 @@ internal fun rememberSettingsScreenState(
     val autoWpRequiresWiFi by viewModel.autoWpRequiresWiFi.collectAsStateWithLifecycle()
     val autoWpRequiresIdle by viewModel.autoWpRequiresIdle.collectAsStateWithLifecycle()
     val autoWallpaperDarkenPercent by viewModel.autoWallpaperDarkenPercent.collectAsStateWithLifecycle()
+    val autoWallpaperNightVariantEnabled by viewModel.autoWallpaperNightVariantEnabled.collectAsStateWithLifecycle()
     val autoBackupEnabled by viewModel.autoBackupEnabled.collectAsStateWithLifecycle()
     val autoBackupFolderUri by viewModel.autoBackupFolderUri.collectAsStateWithLifecycle()
     val autoBackupIntervalHours by viewModel.autoBackupIntervalHours.collectAsStateWithLifecycle()
@@ -243,6 +245,7 @@ internal fun rememberSettingsScreenState(
         autoWpRequiresWiFi = autoWpRequiresWiFi,
         autoWpRequiresIdle = autoWpRequiresIdle,
         autoWallpaperDarkenPercent = autoWallpaperDarkenPercent,
+        autoWallpaperNightVariantEnabled = autoWallpaperNightVariantEnabled,
         autoBackupEnabled = autoBackupEnabled,
         autoBackupFolderUri = autoBackupFolderUri,
         autoBackupFolderPermissionActive = autoBackupFolderPermissionActive,

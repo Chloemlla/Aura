@@ -321,6 +321,7 @@ fun SettingsScreen(
                 autoWpRequiresWiFi = autoWpRequiresWiFi,
                 autoWpRequiresIdle = autoWpRequiresIdle,
                 autoWallpaperDarkenPercent = autoWallpaperDarkenPercent,
+                autoWallpaperNightVariantEnabled = autoWallpaperNightVariantEnabled,
                 schedulerEnabled = schedulerEnabled,
                 rotateOnUnlock = rotateOnUnlock,
                 rotateOnScreenOff = rotateOnScreenOff,

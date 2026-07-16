@@ -190,9 +190,25 @@ class AutoWallpaperWorker @AssistedInject constructor(
 
     private suspend fun applyAndRecord(wallpaper: Wallpaper, target: WallpaperTarget): Result {
         val darkenPercent = prefs.autoWallpaperDarkenPercent.first()
-        return wallpaperApplier.applyByLocator(wallpaper.fullUrl, target, darkenPercent = darkenPercent).fold(
+        val nightVariant = shouldUseNightWallpaperVariant(
+            enabled = prefs.autoWallpaperNightVariantEnabled.first(),
+            schedulerEnabled = prefs.schedulerEnabled.first(),
+            schedulerMode = prefs.schedulerDayNightMode.first(),
+            hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY),
+            dayStartHour = prefs.schedulerDayStartHour.first(),
+            nightStartHour = prefs.schedulerNightStartHour.first(),
+            isSystemDark = applicationContext.resources.configuration.uiMode and
+                Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES,
+        )
+        return wallpaperApplier.applyByLocator(
+            wallpaper.fullUrl,
+            target,
+            darkenPercent = darkenPercent,
+            nightVariant = nightVariant,
+        ).fold(
             onSuccess = {
                 historyManager.record(wallpaper, target)
+                prefs.setLastNightVariantWallpaper(wallpaper.fullUrl, target.name, darkenPercent)
                 if (prefs.avoidRecentRepeats.first()) {
                     prefs.addRecentRotationId(wallpaper.stableKey())
                 }
@@ -372,6 +388,22 @@ internal fun isHourInScheduledDayWindow(hour: Int, dayStartHour: Int, nightStart
     } else {
         normalizedHour >= dayStart || normalizedHour < nightStart
     }
+}
+
+internal fun shouldUseNightWallpaperVariant(
+    enabled: Boolean,
+    schedulerEnabled: Boolean,
+    schedulerMode: String,
+    hour: Int,
+    dayStartHour: Int,
+    nightStartHour: Int,
+    isSystemDark: Boolean,
+): Boolean {
+    if (!enabled) return false
+    if (isSystemDark) return true
+    return schedulerEnabled &&
+        schedulerMode == SCHEDULER_DAY_NIGHT_MODE_CLOCK &&
+        !isHourInScheduledDayWindow(hour, dayStartHour, nightStartHour)
 }
 
 internal fun pickScheduledWallpaper(

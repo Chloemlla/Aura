@@ -18,6 +18,13 @@ import okhttp3.Request
 import javax.inject.Inject
 import javax.inject.Singleton
 
+internal fun nightWallpaperVariantColorMatrix(): FloatArray = floatArrayOf(
+    0.72f, 0f, 0f, 0f, -24f,
+    0f, 0.72f, 0f, 0f, -24f,
+    0f, 0f, 0.72f, 0f, -24f,
+    0f, 0f, 0f, 1f, 0f,
+)
+
 @Singleton
 class WallpaperApplier @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -30,28 +37,13 @@ class WallpaperApplier @Inject constructor(
         url: String,
         target: WallpaperTarget = WallpaperTarget.BOTH,
         cropRect: Rect? = null,
-    ): Result<Unit> = withContext(Dispatchers.IO) {
-        runCatching {
-            val bitmap = downloadBitmap(url)
-                ?: throw IllegalStateException("Failed to decode wallpaper image")
-            try {
-                val flag = when (target) {
-                    WallpaperTarget.HOME -> WallpaperManager.FLAG_SYSTEM
-                    WallpaperTarget.LOCK -> WallpaperManager.FLAG_LOCK
-                    WallpaperTarget.BOTH -> WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK
-                }
-
-                if (cropRect != null) {
-                    wallpaperManager.setBitmap(bitmap, cropRect, true, flag)
-                } else {
-                    wallpaperManager.setBitmap(bitmap, null, true, flag)
-                }
-                Unit
-            } finally {
-                bitmap.recycle()
-            }
-        }.onFailure { it.rethrowIfCancelled() }
-    }
+        nightVariant: Boolean = false,
+    ): Result<Unit> = applyByLocator(
+        locator = url,
+        target = target,
+        cropRect = cropRect,
+        nightVariant = nightVariant,
+    )
 
     /**
      * Apply a wallpaper from any locator — http(s) URL, file:// URI, content:// URI,
@@ -64,6 +56,7 @@ class WallpaperApplier @Inject constructor(
         target: WallpaperTarget = WallpaperTarget.BOTH,
         cropRect: Rect? = null,
         darkenPercent: Int = 0,
+        nightVariant: Boolean = false,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             var bitmap = decodeFromLocator(locator)
@@ -73,6 +66,11 @@ class WallpaperApplier @Inject constructor(
                     val darkened = applyDarken(bitmap, darkenPercent.coerceIn(1, 100))
                     bitmap.recycle()
                     bitmap = darkened
+                }
+                if (nightVariant) {
+                    val nightBitmap = applyNightVariant(bitmap)
+                    bitmap.recycle()
+                    bitmap = nightBitmap
                 }
                 val flag = when (target) {
                     WallpaperTarget.HOME -> WallpaperManager.FLAG_SYSTEM
@@ -351,6 +349,21 @@ class WallpaperApplier @Inject constructor(
                     0f, 0f, 1f, 0f, brightness,
                     0f, 0f, 0f, 1f, 0f,
                 )))
+            }
+            canvas.drawBitmap(src, 0f, 0f, paint)
+        } catch (t: Throwable) {
+            result.recycle()
+            throw t
+        }
+        return result
+    }
+
+    private fun applyNightVariant(src: Bitmap): Bitmap {
+        val result = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
+        try {
+            val canvas = Canvas(result)
+            val paint = Paint().apply {
+                colorFilter = ColorMatrixColorFilter(ColorMatrix(nightWallpaperVariantColorMatrix()))
             }
             canvas.drawBitmap(src, 0f, 0f, paint)
         } catch (t: Throwable) {

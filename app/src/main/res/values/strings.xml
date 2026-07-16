@@ -1023,6 +1023,9 @@
     <string name="settings_wp_dimming_saved_for_next">Saved for the next auto-rotation or trigger you enable</string>
     <string name="settings_wp_dimming_active">Darkens rotated wallpapers for clock and status-bar legibility</string>
     <string name="settings_wp_dimming_ready">Dimming is ready but no rotation trigger is active</string>
+    <string name="settings_wp_night_variant_title">Automatic dark/OLED variant</string>
+    <string name="settings_wp_night_variant_on_subtitle">Black-point darkening follows system dark mode or the scheduler night window</string>
+    <string name="settings_wp_night_variant_off_subtitle">Keep applied and rotated wallpapers identical in light and dark modes</string>
     <string name="settings_wp_oem_battery_title">%1$s battery optimization</string>
     <string name="settings_wp_local_folder_title">Local rotation folder</string>
     <string name="settings_wp_local_folder_choose_subtitle">Choose a local image folder for offline rotation</string>

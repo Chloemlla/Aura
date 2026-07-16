@@ -8,6 +8,7 @@ import com.freevibe.data.model.WALLPAPER_SOURCE_LOCAL_FOLDER
 import com.freevibe.data.model.Wallpaper
 import com.freevibe.data.model.stableKey
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -91,6 +92,32 @@ class AutoWallpaperWorkerTest {
                 mode = SCHEDULER_DAY_NIGHT_MODE_CLOCK,
             ),
         )
+    }
+
+    @Test
+    fun `night variant follows system dark mode and clock night window`() {
+        fun active(
+            enabled: Boolean = true,
+            schedulerEnabled: Boolean = true,
+            mode: String = SCHEDULER_DAY_NIGHT_MODE_CLOCK,
+            hour: Int = 12,
+            isSystemDark: Boolean = false,
+        ) = shouldUseNightWallpaperVariant(
+            enabled = enabled,
+            schedulerEnabled = schedulerEnabled,
+            schedulerMode = mode,
+            hour = hour,
+            dayStartHour = 6,
+            nightStartHour = 18,
+            isSystemDark = isSystemDark,
+        )
+
+        assertFalse(active(enabled = false, hour = 22, isSystemDark = true))
+        assertTrue(active(isSystemDark = true))
+        assertTrue(active(hour = 22))
+        assertFalse(active(hour = 12))
+        assertFalse(active(schedulerEnabled = false, hour = 22))
+        assertFalse(active(mode = SCHEDULER_DAY_NIGHT_MODE_SINGLE, hour = 22))
     }
 
     @Test

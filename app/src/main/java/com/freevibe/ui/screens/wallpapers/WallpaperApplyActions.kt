@@ -1,5 +1,8 @@
 package com.freevibe.ui.screens.wallpapers
 
+import android.content.Context
+import android.content.res.Configuration
+import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Wallpaper
 import com.freevibe.data.model.WallpaperTarget
@@ -17,14 +20,18 @@ import com.freevibe.service.OfflineFavoritesManager
 import com.freevibe.service.WallpaperApplier
 import com.freevibe.service.WallpaperHistoryManager
 import com.freevibe.service.WallpaperStyleLearningSignal
+import com.freevibe.service.shouldUseNightWallpaperVariant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
 internal class WallpaperApplyActions(
+    private val context: Context,
+    private val prefs: PreferencesManager,
     private val wallpaperApplier: WallpaperApplier,
     private val downloadManager: DownloadManager,
     private val dualWallpaperService: DualWallpaperService,
@@ -43,10 +50,15 @@ internal class WallpaperApplyActions(
     fun applyWallpaper(wallpaper: Wallpaper, target: WallpaperTarget) {
         scope.launch {
             state.update { it.copy(isApplying = true, applySuccess = null) }
-            wallpaperApplier.applyFromUrl(wallpaper.fullUrl, target)
+            wallpaperApplier.applyFromUrl(
+                wallpaper.fullUrl,
+                target,
+                nightVariant = shouldApplyNightVariant(),
+            )
                 .onSuccess {
                     onStyleSignal(wallpaper, WallpaperStyleLearningSignal.APPLIED)
                     historyManager.record(wallpaper, target)
+                    prefs.setLastNightVariantWallpaper(wallpaper.fullUrl, target.name)
                     val undoTarget = historyManager.previousSnapshot()
                     val label = when (target) {
                         WallpaperTarget.HOME -> "home screen"
@@ -75,8 +87,13 @@ internal class WallpaperApplyActions(
             state.update { it.copy(isApplying = true) }
             val target = runCatching { WallpaperTarget.valueOf(entry.target) }
                 .getOrDefault(WallpaperTarget.BOTH)
-            wallpaperApplier.applyFromUrl(entry.fullUrl, target)
+            wallpaperApplier.applyFromUrl(
+                entry.fullUrl,
+                target,
+                nightVariant = shouldApplyNightVariant(),
+            )
                 .onSuccess {
+                    prefs.setLastNightVariantWallpaper(entry.fullUrl, target.name)
                     // Bus-only feedback — see applyWallpaper.
                     state.update { it.copy(isApplying = false) }
                     applyFeedbackBus.post(ApplyFeedbackEvent(message = "Reverted to previous wallpaper", undoTarget = null))
@@ -118,6 +135,17 @@ internal class WallpaperApplyActions(
     }
 
     fun clearPendingLaunch() = state.update { it.copy(pendingLiveWallpaperLaunch = false) }
+
+    private suspend fun shouldApplyNightVariant(): Boolean = shouldUseNightWallpaperVariant(
+        enabled = prefs.autoWallpaperNightVariantEnabled.first(),
+        schedulerEnabled = prefs.schedulerEnabled.first(),
+        schedulerMode = prefs.schedulerDayNightMode.first(),
+        hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY),
+        dayStartHour = prefs.schedulerDayStartHour.first(),
+        nightStartHour = prefs.schedulerNightStartHour.first(),
+        isSystemDark = context.resources.configuration.uiMode and
+            Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES,
+    )
 
     fun downloadWallpaper(wallpaper: Wallpaper) {
         scope.launch {
