@@ -48,6 +48,20 @@ class LibraryHubContractTest {
     }
 
     @Test
+    fun `backup row anchors the settings backup section`() {
+        val root = File("src/main/java/com/freevibe/ui/FreeVibeRoot.kt").readText()
+        val settings = File("src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt").readText()
+        val anchor = File("src/main/java/com/freevibe/ui/screens/settings/SettingsSectionNavigation.kt").readText()
+
+        assertTrue(root.contains("Screen.Settings.createRoute(Screen.Settings.BACKUP_SECTION)"))
+        assertTrue(root.contains("route = Screen.Settings.destinationPattern"))
+        assertTrue(root.contains("initialSection = backStackEntry.arguments?.getString(\"section\")"))
+        assertTrue(settings.contains("SettingsSectionAnchorTarget(Screen.Settings.BACKUP_SECTION, initialSection)"))
+        assertTrue(anchor.contains("BringIntoViewRequester"))
+        assertTrue(anchor.contains("requester.bringIntoView()"))
+    }
+
+    @Test
     fun `library strings stay local first`() {
         val strings = File("src/main/res/values/strings.xml").readText()
         val libraryBlock = Regex("""(?s)<!-- Library screen -->(.*?)<!-- Favorites screen -->""")

@@ -420,7 +420,11 @@ fun FreeVibeRoot(
                     onCollectionsClick = { navController.navigate(Screen.Collections.route) { launchSingleTop = true } },
                     onLocalImportsClick = { navController.navigate(Screen.Collections.route) { launchSingleTop = true } },
                     onRecentActivityClick = { navController.navigate(Screen.WallpaperHistory.route) { launchSingleTop = true } },
-                    onBackupRestoreClick = { navController.navigate(Screen.Settings.route) { launchSingleTop = true } },
+                    onBackupRestoreClick = {
+                        navController.navigate(Screen.Settings.createRoute(Screen.Settings.BACKUP_SECTION)) {
+                            launchSingleTop = true
+                        }
+                    },
                 )
             }
             composable(
@@ -478,8 +482,18 @@ fun FreeVibeRoot(
                     },
                 )
             }
-            composable(Screen.Settings.route) {
+            composable(
+                route = Screen.Settings.destinationPattern,
+                arguments = listOf(
+                    navArgument("section") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+            ) { backStackEntry ->
                 SettingsScreen(
+                    initialSection = backStackEntry.arguments?.getString("section")?.ifBlank { null },
                     onDownloadsClick = { navController.navigate(Screen.Downloads.route) { launchSingleTop = true } },
                     onLicensesClick = { navController.navigate(Screen.Licenses.route) { launchSingleTop = true } },
                     onCategoriesClick = { navController.navigate(Screen.Categories.route) { launchSingleTop = true } },

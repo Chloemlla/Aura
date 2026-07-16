@@ -29,6 +29,14 @@ class ScreenTest {
     }
 
     @Test
+    fun `settings route carries section anchors`() {
+        assertTrue(Screen.Settings.destinationPattern.contains("section={section}"))
+        assertEquals("settings?section=backup", Screen.Settings.createRoute(Screen.Settings.BACKUP_SECTION))
+        assertEquals("settings", Screen.Settings.createRoute())
+        assertEquals("settings", Screen.Settings.createRoute("unknown"))
+    }
+
+    @Test
     fun `navigation titles are resource backed`() {
         assertEquals(R.string.nav_wallpapers, Screen.Wallpapers.titleRes)
         assertEquals(R.string.nav_videos, Screen.VideoWallpapers.titleRes)

@@ -50,11 +50,13 @@ import com.freevibe.service.videoWallpaperMimeTypes
 import com.freevibe.ui.LiveWallpaperLaunchMode
 import com.freevibe.ui.components.AuraSnackbarHost
 import com.freevibe.ui.launchLiveWallpaperPicker
+import com.freevibe.ui.navigation.Screen
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    initialSection: String? = null,
     onDownloadsClick: () -> Unit = {},
     onLicensesClick: () -> Unit = {},
     onCategoriesClick: () -> Unit = {},
@@ -374,18 +376,20 @@ fun SettingsScreen(
                 onChooseLocalWallpaperFolder = ::chooseLocalWallpaperFolder,
             )
 
-            BackupSettingsSection(
-                context = context,
-                viewModel = viewModel,
-                autoBackupEnabled = autoBackupEnabled,
-                autoBackupFolderUri = autoBackupFolderUri,
-                autoBackupFolderPermissionActive = autoBackupFolderPermissionActive,
-                autoBackupIntervalHours = autoBackupIntervalHours,
-                autoBackupKeepCount = autoBackupKeepCount,
-                themePackTransfer = themePackTransfer,
-                onChooseAutoBackupFolder = ::chooseAutoBackupFolder,
-                onFeedback = ::showSettingsFeedback,
-            )
+            SettingsSectionAnchorTarget(Screen.Settings.BACKUP_SECTION, initialSection) {
+                BackupSettingsSection(
+                    context = context,
+                    viewModel = viewModel,
+                    autoBackupEnabled = autoBackupEnabled,
+                    autoBackupFolderUri = autoBackupFolderUri,
+                    autoBackupFolderPermissionActive = autoBackupFolderPermissionActive,
+                    autoBackupIntervalHours = autoBackupIntervalHours,
+                    autoBackupKeepCount = autoBackupKeepCount,
+                    themePackTransfer = themePackTransfer,
+                    onChooseAutoBackupFolder = ::chooseAutoBackupFolder,
+                    onFeedback = ::showSettingsFeedback,
+                )
+            }
 
             SmartLiveWallpaperSettingsSection(
                 context = context,

@@ -57,6 +57,8 @@ and a no-OAuth Reddit RSS pipeline.
 - **Kept failed community-sound deletions actionable**: the detail screen now waits
   for Firebase deletion to succeed before navigating back, so failures remain visible
   and can be retried in place.
+- **Linked Library directly to backup controls**: the Backup & restore row now carries
+  a Settings section anchor and scrolls the destination to the backup controls.
 - **Added a video wallpaper motion guard**: the existing automatic battery control
   now holds videos and GIFs on a static frame while Android Battery Saver is active,
   resumes the retained decoder when saver exits, and reports the state in Settings.

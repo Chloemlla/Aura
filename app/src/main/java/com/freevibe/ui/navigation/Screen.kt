@@ -103,7 +103,13 @@ sealed class Screen(
         titleRes = R.string.nav_settings,
         icon = Icons.Outlined.Settings,
         selectedIcon = Icons.Filled.Settings,
-    )
+        destinationPattern = "settings?section={section}",
+    ) {
+        const val BACKUP_SECTION = "backup"
+
+        fun createRoute(section: String? = null): String =
+            if (section == BACKUP_SECTION) "$route?section=$section" else route
+    }
     data object CreatorProfile : Screen(
         route = "creator_profile",
         titleRes = R.string.nav_creator_profile,
