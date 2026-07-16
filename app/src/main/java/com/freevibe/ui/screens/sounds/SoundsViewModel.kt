@@ -309,10 +309,6 @@ class SoundsViewModel @Inject constructor(
         viewModelScope.launch { onResult(audioTrimmer.normalize(inputPath)) }
     }
 
-    fun convertAudio(inputPath: String, targetFormat: String, onResult: (Result<String>) -> Unit) {
-        viewModelScope.launch { onResult(audioTrimmer.convert(inputPath, targetFormat)) }
-    }
-
     fun clearError() = _state.update { it.copy(error = null) }
     fun clearSuccess() = _state.update { it.copy(applySuccess = null) }
 

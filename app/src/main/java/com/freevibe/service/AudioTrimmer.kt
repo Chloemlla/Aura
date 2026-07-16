@@ -1,22 +1,96 @@
 package com.freevibe.service
 
 import android.content.Context
-import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
-import android.media.MediaMuxer
 import com.freevibe.util.rethrowIfCancelled
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.nio.ByteBuffer
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.abs
 
 private const val FFMPEG_TIMEOUT_SECONDS = 120L
 private const val FFMPEG_LOG_DRAIN_LIMIT_BYTES = 256 * 1024 // cap stderr-draining to 256 KB so a misbehaving FFmpeg can't OOM us
 private val SANITIZE_REGEX = Regex("[^a-zA-Z0-9_-]")
+
+enum class AudioFadeCurve(val ffmpegValue: String) {
+    LINEAR("tri"),
+    SMOOTH("qsin"),
+    EXPONENTIAL("exp"),
+}
+
+enum class AudioExportFormat(
+    val extension: String,
+    val bitratesKbps: List<Int>,
+    val defaultBitrateKbps: Int?,
+) {
+    MP3("mp3", listOf(96, 128, 192, 256, 320), 192),
+    OGG("ogg", listOf(96, 128, 192, 256), 192),
+    OPUS("opus", listOf(48, 64, 96, 128, 192), 96),
+    WAV("wav", emptyList(), null),
+    FLAC("flac", emptyList(), null),
+    M4A("m4a", listOf(96, 128, 192, 256), 192),
+}
+
+internal fun isTrimDurationWithinOneAudioFrame(
+    expectedDurationMs: Long,
+    actualDurationMs: Long,
+    frameDurationMs: Long,
+): Boolean = abs(expectedDurationMs - actualDurationMs) <= frameDurationMs.coerceAtLeast(1L)
+
+private fun ffmpegSeconds(milliseconds: Long): String =
+    String.format(Locale.ROOT, "%.3f", milliseconds / 1000.0)
+
+internal fun buildFfmpegTrimCommand(
+    ffmpegPath: String,
+    inputPath: String,
+    outputPath: String,
+    startMs: Long,
+    endMs: Long,
+    fadeInMs: Long,
+    fadeOutMs: Long,
+    fadeCurve: AudioFadeCurve,
+    exportFormat: AudioExportFormat,
+    bitrateKbps: Int?,
+): List<String> {
+    require(endMs > startMs) { "End time must be after start time" }
+    val durationMs = endMs - startMs
+    val filters = mutableListOf(
+        "atrim=start=${ffmpegSeconds(startMs)}:end=${ffmpegSeconds(endMs)}",
+        "asetpts=PTS-STARTPTS",
+    )
+    if (fadeInMs > 0L) {
+        filters += "afade=t=in:st=0:d=${ffmpegSeconds(fadeInMs.coerceAtMost(durationMs))}:curve=${fadeCurve.ffmpegValue}"
+    }
+    if (fadeOutMs > 0L) {
+        val duration = fadeOutMs.coerceAtMost(durationMs)
+        filters += "afade=t=out:st=${ffmpegSeconds((durationMs - duration).coerceAtLeast(0L))}:d=${ffmpegSeconds(duration)}:curve=${fadeCurve.ffmpegValue}"
+    }
+
+    val codec = when (exportFormat) {
+        AudioExportFormat.MP3 -> listOf("-c:a", "libmp3lame", "-b:a", "${bitrateKbps ?: exportFormat.defaultBitrateKbps}k")
+        AudioExportFormat.OGG -> listOf("-c:a", "libvorbis", "-b:a", "${bitrateKbps ?: exportFormat.defaultBitrateKbps}k")
+        AudioExportFormat.OPUS -> listOf("-c:a", "libopus", "-b:a", "${bitrateKbps ?: exportFormat.defaultBitrateKbps}k")
+        AudioExportFormat.WAV -> listOf("-c:a", "pcm_s16le")
+        AudioExportFormat.FLAC -> listOf("-c:a", "flac")
+        AudioExportFormat.M4A -> listOf("-c:a", "aac", "-b:a", "${bitrateKbps ?: exportFormat.defaultBitrateKbps}k")
+    }
+
+    return mutableListOf(
+        ffmpegPath,
+        "-hide_banner",
+        "-loglevel", "error",
+        "-y",
+        "-i", inputPath,
+        "-map", "0:a:0",
+        "-vn",
+        "-af", filters.joinToString(","),
+    ) + codec + outputPath
+}
 
 /**
  * Drain stdout/stderr from an FFmpeg process without buffering the full stream.
@@ -43,10 +117,7 @@ private fun java.io.InputStream.drainBounded(limit: Int = FFMPEG_LOG_DRAIN_LIMIT
 class AudioTrimmer @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
-    /**
-     * Trim audio file losslessly using MediaExtractor + MediaMuxer.
-     * Returns path to trimmed output file.
-     */
+    /** Decode, sample-trim, process, and encode audio in one FFmpeg pass. */
     suspend fun trim(
         inputPath: String,
         startMs: Long,
@@ -54,199 +125,111 @@ class AudioTrimmer @Inject constructor(
         outputFileName: String,
         fadeInMs: Long = 0,
         fadeOutMs: Long = 0,
+        fadeCurve: AudioFadeCurve = AudioFadeCurve.LINEAR,
+        exportFormat: AudioExportFormat = AudioExportFormat.MP3,
+        bitrateKbps: Int? = exportFormat.defaultBitrateKbps,
     ): Result<String> = withContext(Dispatchers.IO) {
+        var pendingOutput: File? = null
         runCatching {
             require(endMs > startMs) { "End time must be after start time" }
+            require(bitrateKbps == null || bitrateKbps in exportFormat.bitratesKbps) {
+                "Unsupported ${exportFormat.name} bitrate: $bitrateKbps kbps"
+            }
 
             val outputDir = File(context.cacheDir, "trimmed")
             outputDir.mkdirs()
-            val ext = inputPath.substringAfterLast(".", "mp3")
-            val outputFile = File(outputDir, "${outputFileName.replace(SANITIZE_REGEX, "_")}.$ext")
-
-            val extractor = MediaExtractor()
-            var muxer: MediaMuxer? = null
-            try {
-                extractor.setDataSource(inputPath)
-
-                // Find audio track
-                var audioTrackIndex = -1
-                var audioFormat: MediaFormat? = null
-                for (i in 0 until extractor.trackCount) {
-                    val format = extractor.getTrackFormat(i)
-                    val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
-                    if (mime.startsWith("audio/")) {
-                        audioTrackIndex = i
-                        audioFormat = format
-                        break
-                    }
-                }
-                require(audioTrackIndex >= 0 && audioFormat != null) { "No audio track found" }
-
-                extractor.selectTrack(audioTrackIndex)
-
-                if (ext.lowercase(java.util.Locale.ROOT) == "mp3") {
-                    // MediaMuxer can't handle MP3 - use FFmpeg for lossless trim
-                    extractor.release()
-                    val ffmpegInfo = getYtdlpFfmpeg() ?: throw Exception("FFmpeg not available for MP3 trim")
-                    val (ffmpegPath, ldLibPath) = ffmpegInfo
-                    val cmd = mutableListOf(
-                        ffmpegPath.absolutePath,
-                        "-y",
-                        "-i", inputPath,
-                        "-ss", "${startMs / 1000.0}",
-                        "-to", "${endMs / 1000.0}",
-                        "-c:a", "copy",
-                        outputFile.absolutePath,
-                    )
-                    val pb = ProcessBuilder(cmd).redirectErrorStream(true).directory(outputDir)
-                    if (ldLibPath.isNotEmpty()) pb.environment()["LD_LIBRARY_PATH"] = ldLibPath
-                    val process = pb.start()
-                    try {
-                        process.inputStream.drainBounded()
-                        val completed = process.waitFor(FFMPEG_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)
-                        val exitCode = if (completed) process.exitValue() else {
-                            process.destroyForcibly()
-                            throw Exception("FFmpeg MP3 trim timed out after ${FFMPEG_TIMEOUT_SECONDS}s")
-                        }
-                        if (exitCode != 0 || !outputFile.exists() || outputFile.length() <= 0) {
-                            throw Exception("FFmpeg MP3 trim failed (exit $exitCode)")
-                        }
-                    } finally {
-                        try { process.destroy() } catch (_: Exception) {}
-                    }
-                } else {
-                    val muxerFormat = when (ext.lowercase(java.util.Locale.ROOT)) {
-                        "mp4", "m4a", "aac" -> MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
-                        "webm", "ogg" -> MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM
-                        else -> MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
-                    }
-
-                    muxer = MediaMuxer(outputFile.absolutePath, muxerFormat)
-                    val muxerTrackIndex = muxer.addTrack(audioFormat)
-                    muxer.start()
-
-                    val startUs = startMs * 1000L
-                    val endUs = endMs * 1000L
-
-                    extractor.seekTo(startUs, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
-
-                    val bufferSize = (
-                        if (audioFormat.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) {
-                            audioFormat.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE)
-                        } else {
-                            256 * 1024
-                        }
-                    ).coerceIn(8192, 1024 * 1024)
-                    val buffer = ByteBuffer.allocate(bufferSize)
-                    val bufferInfo = MediaCodec.BufferInfo()
-
-                    while (true) {
-                        val sampleSize = extractor.readSampleData(buffer, 0)
-                        if (sampleSize < 0) break
-
-                        val sampleTime = extractor.sampleTime
-                        if (sampleTime > endUs) break
-
-                        if (sampleTime >= startUs) {
-                            bufferInfo.offset = 0
-                            bufferInfo.size = sampleSize
-                            bufferInfo.presentationTimeUs = sampleTime - startUs
-                            var sampleFlags = 0
-                            if ((extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC) != 0) {
-                                sampleFlags = sampleFlags or MediaCodec.BUFFER_FLAG_KEY_FRAME
-                            }
-                            if ((extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_PARTIAL_FRAME) != 0) {
-                                sampleFlags = sampleFlags or MediaCodec.BUFFER_FLAG_PARTIAL_FRAME
-                            }
-                            bufferInfo.flags = sampleFlags
-
-                            muxer.writeSampleData(muxerTrackIndex, buffer, bufferInfo)
-                        }
-
-                        extractor.advance()
-                        buffer.clear()
-                    }
-
-                    muxer.stop()
-                }
-            } catch (e: Exception) {
-                outputFile.delete()
-                throw e
-            } finally {
-                try { muxer?.release() } catch (_: Exception) {}
-                try { extractor.release() } catch (_: Exception) {}
-            }
-
-            // Apply fade effects via FFmpeg (proper decode→fade→encode, no audio corruption)
-            if (fadeInMs > 0 || fadeOutMs > 0) {
-                applyFadeViaFfmpeg(outputFile, fadeInMs, fadeOutMs, endMs - startMs)
-            }
-
-            outputFile.absolutePath
-        }.onFailure { it.rethrowIfCancelled() }
-    }
-
-    /**
-     * Apply fade in/out using FFmpeg for proper audio processing.
-     * Decodes, applies fade filter, re-encodes. No byte-level corruption.
-     */
-    private fun applyFadeViaFfmpeg(file: File, fadeInMs: Long, fadeOutMs: Long, totalDurationMs: Long) {
-        val ffmpegInfo = getYtdlpFfmpeg() ?: return
-        val (ffmpegPath, ldLibPath) = ffmpegInfo
-
-        val tempOut = File(file.parentFile, "fade_${file.name}")
-        try {
-            val filters = mutableListOf<String>()
-            if (fadeInMs > 0) {
-                val fadeInSec = fadeInMs / 1000.0
-                filters.add("afade=t=in:st=0:d=$fadeInSec")
-            }
-            if (fadeOutMs > 0) {
-                val fadeOutSec = fadeOutMs / 1000.0
-                val startSec = (totalDurationMs - fadeOutMs) / 1000.0
-                filters.add("afade=t=out:st=$startSec:d=$fadeOutSec")
-            }
-
-            val cmd = mutableListOf(
-                ffmpegPath.absolutePath,
-                "-y",
-                "-i", file.absolutePath,
-                "-af", filters.joinToString(","),
-                "-c:a", when (file.extension.lowercase(java.util.Locale.ROOT)) {
-                    "mp3" -> "libmp3lame"
-                    "ogg" -> "libvorbis"
-                    "opus" -> "libopus"
-                    "flac" -> "flac"
-                    "wav" -> "pcm_s16le"
-                    "m4a", "aac" -> "aac"
-                    else -> "libmp3lame"
-                },
-                "-q:a", "2",
-                tempOut.absolutePath,
+            val outputFile = File(
+                outputDir,
+                "${outputFileName.replace(SANITIZE_REGEX, "_")}.${exportFormat.extension}",
+            )
+            pendingOutput = outputFile
+            outputFile.delete()
+            val ffmpegInfo = getYtdlpFfmpeg() ?: throw Exception("FFmpeg not available")
+            val (ffmpegPath, ldLibPath) = ffmpegInfo
+            val command = buildFfmpegTrimCommand(
+                ffmpegPath = ffmpegPath.absolutePath,
+                inputPath = inputPath,
+                outputPath = outputFile.absolutePath,
+                startMs = startMs,
+                endMs = endMs,
+                fadeInMs = fadeInMs,
+                fadeOutMs = fadeOutMs,
+                fadeCurve = fadeCurve,
+                exportFormat = exportFormat,
+                bitrateKbps = bitrateKbps,
             )
 
-            val pb = ProcessBuilder(cmd).redirectErrorStream(true).directory(file.parentFile)
-            if (ldLibPath.isNotEmpty()) pb.environment()["LD_LIBRARY_PATH"] = ldLibPath
-            val process = pb.start()
+            val processBuilder = ProcessBuilder(command)
+                .redirectErrorStream(true)
+                .directory(outputDir)
+            if (ldLibPath.isNotEmpty()) processBuilder.environment()["LD_LIBRARY_PATH"] = ldLibPath
+            val process = processBuilder.start()
             try {
                 process.inputStream.drainBounded()
                 val completed = process.waitFor(FFMPEG_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)
                 if (!completed) {
                     process.destroyForcibly()
-                    throw Exception("FFmpeg fade timed out after ${FFMPEG_TIMEOUT_SECONDS}s")
+                    throw Exception("Audio export timed out after ${FFMPEG_TIMEOUT_SECONDS}s")
                 }
                 val exitCode = process.exitValue()
-                if (exitCode == 0 && tempOut.exists() && tempOut.length() > 1024) {
-                    tempOut.copyTo(file, overwrite = true)
+                if (exitCode != 0 || !outputFile.exists() || outputFile.length() <= 100L) {
+                    throw Exception("Audio export failed (exit $exitCode)")
+                }
+                val timing = readEncodedAudioTiming(outputFile.absolutePath)
+                if (
+                    timing.durationMs > 0L &&
+                    !isTrimDurationWithinOneAudioFrame(
+                        expectedDurationMs = endMs - startMs,
+                        actualDurationMs = timing.durationMs,
+                        frameDurationMs = timing.frameDurationMs,
+                    )
+                ) {
+                    throw Exception(
+                        "Audio export duration ${timing.durationMs}ms exceeded one-frame trim tolerance",
+                    )
                 }
             } finally {
                 try { process.destroy() } catch (_: Exception) {}
             }
-        } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            if (com.freevibe.BuildConfig.DEBUG) android.util.Log.e("AudioTrimmer", "FFmpeg fade failed: ${e.message}")
+            outputFile.absolutePath
+        }.onFailure {
+            pendingOutput?.delete()
+            it.rethrowIfCancelled()
+        }
+    }
+
+    private data class EncodedAudioTiming(val durationMs: Long, val frameDurationMs: Long)
+
+    private fun readEncodedAudioTiming(path: String): EncodedAudioTiming {
+        val extractor = MediaExtractor()
+        return try {
+            extractor.setDataSource(path)
+            val trackIndex = (0 until extractor.trackCount).firstOrNull { index ->
+                extractor.getTrackFormat(index).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
+            } ?: return EncodedAudioTiming(0L, 1L)
+            val format = extractor.getTrackFormat(trackIndex)
+            val durationMs = if (format.containsKey(MediaFormat.KEY_DURATION)) {
+                (format.getLong(MediaFormat.KEY_DURATION) / 1_000L).coerceAtLeast(0L)
+            } else {
+                0L
+            }
+            extractor.selectTrack(trackIndex)
+            val firstSampleUs = extractor.sampleTime
+            val frameDurationMs = if (firstSampleUs >= 0L && extractor.advance()) {
+                val secondSampleUs = extractor.sampleTime
+                if (secondSampleUs > firstSampleUs) {
+                    ((secondSampleUs - firstSampleUs + 999L) / 1_000L).coerceAtLeast(1L)
+                } else {
+                    1L
+                }
+            } else {
+                1L
+            }
+            EncodedAudioTiming(durationMs, frameDurationMs)
+        } catch (_: Exception) {
+            EncodedAudioTiming(0L, 1L)
         } finally {
-            try { tempOut.delete() } catch (_: Exception) {}
+            try { extractor.release() } catch (_: Exception) {}
         }
     }
 
@@ -302,50 +285,6 @@ class AudioTrimmer @Inject constructor(
                 throw Exception("Normalization failed (exit $exitCode)")
             }
             inputPath
-        }.onFailure { it.rethrowIfCancelled() }
-    }
-
-    /** Convert audio format via FFmpeg */
-    suspend fun convert(inputPath: String, targetFormat: String): Result<String> = withContext(Dispatchers.IO) {
-        runCatching {
-            val ffmpegInfo = getYtdlpFfmpeg() ?: throw Exception("FFmpeg not available")
-            val (ffmpegPath, ldLibPath) = ffmpegInfo
-            val input = File(inputPath)
-            val outputName = input.nameWithoutExtension + "." + targetFormat
-            val output = File(input.parentFile, outputName)
-
-            val codec = when (targetFormat.lowercase(java.util.Locale.ROOT)) {
-                "mp3" -> listOf("-c:a", "libmp3lame", "-q:a", "2")
-                "ogg" -> listOf("-c:a", "libvorbis", "-q:a", "6")
-                "opus" -> listOf("-c:a", "libopus", "-b:a", "48k")
-                "wav" -> listOf("-c:a", "pcm_s16le")
-                "flac" -> listOf("-c:a", "flac")
-                "m4a", "aac" -> listOf("-c:a", "aac", "-b:a", "192k")
-                else -> listOf("-c:a", "libmp3lame", "-q:a", "2")
-            }
-
-            val cmd = mutableListOf(ffmpegPath.absolutePath, "-y", "-i", inputPath) + codec + listOf(output.absolutePath)
-            val pb = ProcessBuilder(cmd).redirectErrorStream(true).directory(input.parentFile)
-            if (ldLibPath.isNotEmpty()) pb.environment()["LD_LIBRARY_PATH"] = ldLibPath
-            val process = pb.start()
-            val exitCode = try {
-                process.inputStream.drainBounded()
-                val completed = process.waitFor(FFMPEG_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)
-                if (!completed) {
-                    process.destroyForcibly()
-                    throw Exception("Conversion timed out after ${FFMPEG_TIMEOUT_SECONDS}s")
-                }
-                process.exitValue()
-            } finally {
-                try { process.destroy() } catch (_: Exception) {}
-            }
-
-            if (exitCode == 0 && output.exists() && output.length() > 100) {
-                output.absolutePath
-            } else {
-                output.delete()
-                throw Exception("Conversion failed (exit $exitCode)")
-            }
         }.onFailure { it.rethrowIfCancelled() }
     }
 

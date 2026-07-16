@@ -99,6 +99,70 @@ class SoundEditorViewModelTest {
     }
 
     @Test
+    fun `default ringtone trim milliseconds preserve exact short duration`() {
+        assertEquals(20_123L, defaultRingtoneTrimEndMs(20_123L))
+        assertEquals(30_000L, defaultRingtoneTrimEndMs(60_000L))
+    }
+
+    @Test
+    fun `numeric trim bounds clamp to one encoded frame`() {
+        assertEquals(
+            9_977L,
+            clampTrimStartMs(
+                requestedMs = 10_000L,
+                trimEndMs = 10_000L,
+                durationMs = 20_000L,
+                frameDurationMs = 23L,
+            ),
+        )
+        assertEquals(
+            1_023L,
+            clampTrimEndMs(
+                requestedMs = 1_001L,
+                trimStartMs = 1_000L,
+                durationMs = 20_000L,
+                frameDurationMs = 23L,
+            ),
+        )
+    }
+
+    @Test
+    fun `sound editor state preserves exact millisecond bounds`() {
+        val state = SoundEditorState(
+            durationMs = 123_456L,
+            trimStartMs = 12_345L,
+            trimEndMs = 98_765L,
+        )
+
+        assertEquals(12_345L, state.trimStartMs)
+        assertEquals(98_765L, state.trimEndMs)
+        assertEquals(86_420L, state.trimDurationMs)
+    }
+
+    @Test
+    fun `waveform zoom keeps focus anchored and clamps viewport`() {
+        val zoomed = updateWaveformViewport(
+            zoom = 1f,
+            startFraction = 0f,
+            zoomChange = 2f,
+            panFraction = 0f,
+            focusFraction = 0.75f,
+        )
+        assertEquals(2f, zoomed.zoom, 0.0001f)
+        assertEquals(0.375f, zoomed.startFraction, 0.0001f)
+
+        val clamped = updateWaveformViewport(
+            zoom = zoomed.zoom,
+            startFraction = zoomed.startFraction,
+            zoomChange = 100f,
+            panFraction = -10f,
+            focusFraction = 0.5f,
+        )
+        assertEquals(MAX_WAVEFORM_ZOOM, clamped.zoom, 0.0001f)
+        assertTrue(clamped.startFraction in 0f..(1f - 1f / MAX_WAVEFORM_ZOOM))
+    }
+
+    @Test
     fun `local audio editor identity is scoped to uri`() {
         val first = buildLocalAudioEditorIdentity("content://audio/1")
         val second = buildLocalAudioEditorIdentity("content://audio/2")

@@ -4,8 +4,14 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -16,11 +22,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
@@ -29,6 +37,8 @@ import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -37,6 +47,8 @@ import com.freevibe.R
 import com.freevibe.data.model.ContentType
 import com.freevibe.data.model.Sound
 import com.freevibe.data.model.stableKey
+import com.freevibe.service.AudioExportFormat
+import com.freevibe.service.AudioFadeCurve
 import com.freevibe.ui.components.AuraSnackbarHost
 import com.freevibe.ui.components.AuraStateAction
 import com.freevibe.ui.components.AuraStateCard
@@ -153,10 +165,11 @@ fun SoundEditorScreen(
     // NX-13: unsaved-changes guard. Audio edits (trim, fade, normalize) survive
     // FFmpeg invocation cost. Backing out unintentionally costs the user a
     // careful trim pass and a 2-5 s FFmpeg roundtrip.
-    val hasUnsavedChanges = state.trimStartFraction != 0f ||
-        state.trimEndFraction != 1f ||
+    val hasUnsavedChanges = state.trimStartMs != 0L ||
+        state.trimEndMs != defaultRingtoneTrimEndMs(state.durationMs) ||
         state.fadeInMs != 0L ||
-        state.fadeOutMs != 0L
+        state.fadeOutMs != 0L ||
+        state.fadeCurve != AudioFadeCurve.LINEAR
     var showSoundDiscardConfirm by remember { mutableStateOf(false) }
     androidx.activity.compose.BackHandler(enabled = hasUnsavedChanges && !state.isApplying) {
         showSoundDiscardConfirm = true
@@ -299,32 +312,74 @@ fun SoundEditorScreen(
                     isPlaying = state.isPlaying,
                     fadeInFraction = if (state.durationMs > 0) state.fadeInMs.toFloat() / state.durationMs else 0f,
                     fadeOutFraction = if (state.durationMs > 0) state.fadeOutMs.toFloat() / state.durationMs else 0f,
+                    zoom = state.waveformZoom,
+                    viewportStart = state.waveformViewportStart,
                     onDragStart = { viewModel.saveUndo() },
                     onTrimStartChange = { viewModel.setTrimStart(it) },
                     onTrimEndChange = { viewModel.setTrimEnd(it) },
+                    onViewportTransform = { zoomChange, panFraction, focusFraction ->
+                        viewModel.transformWaveformViewport(zoomChange, panFraction, focusFraction)
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(180.dp),
                 )
 
-                // Time display
                 Row(
-                    Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        formatMs(state.trimStartMs),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        stringResource(R.string.editor_sound_zoom_hint, state.waveformZoom),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row {
+                        IconButton(
+                            onClick = { viewModel.transformWaveformViewport(1f / 1.5f, 0f, 0.5f) },
+                            enabled = state.waveformZoom > 1f,
+                        ) {
+                            Icon(Icons.Default.ZoomOut, stringResource(R.string.editor_sound_zoom_out))
+                        }
+                        IconButton(
+                            onClick = { viewModel.resetWaveformViewport() },
+                            enabled = state.waveformZoom > 1f,
+                        ) {
+                            Icon(Icons.Default.CenterFocusStrong, stringResource(R.string.editor_sound_zoom_reset))
+                        }
+                        IconButton(
+                            onClick = { viewModel.transformWaveformViewport(1.5f, 0f, 0.5f) },
+                            enabled = state.waveformZoom < MAX_WAVEFORM_ZOOM,
+                        ) {
+                            Icon(Icons.Default.ZoomIn, stringResource(R.string.editor_sound_zoom_in))
+                        }
+                    }
+                }
+
+                // Exact millisecond bounds
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    MillisecondField(
+                        value = state.trimStartMs,
+                        label = stringResource(R.string.editor_sound_trim_start),
+                        onEditStart = viewModel::saveUndo,
+                        onCommit = viewModel::setTrimStartMs,
+                        modifier = Modifier.weight(1f),
                     )
                     Text(
                         stringResource(R.string.editor_sound_duration, formatMs(state.trimDurationMs)),
                         style = MaterialTheme.typography.labelMedium,
                     )
-                    Text(
-                        formatMs(state.trimEndMs),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
+                    MillisecondField(
+                        value = state.trimEndMs,
+                        label = stringResource(R.string.editor_sound_trim_end),
+                        onEditStart = viewModel::saveUndo,
+                        onCommit = viewModel::setTrimEndMs,
+                        modifier = Modifier.weight(1f),
                     )
                 }
 
@@ -420,25 +475,84 @@ fun SoundEditorScreen(
                     }
                 }
 
-                // Format convert
-                Text(stringResource(R.string.editor_sound_convert_format), style = MaterialTheme.typography.labelLarge)
                 Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    val formats = listOf("mp3", "ogg", "opus", "wav", "flac", "m4a")
-                    val currentExt = state.localFilePath
-                        ?.substringAfterLast(".", "")
-                        ?.lowercase(java.util.Locale.ROOT)
-                        ?: ""
-                    for (fmt in formats) {
-                        FilterChip(
-                            selected = currentExt == fmt,
-                            onClick = { if (currentExt != fmt) viewModel.convertFormat(fmt) },
-                            label = { Text(fmt.uppercase(java.util.Locale.ROOT), style = MaterialTheme.typography.labelSmall) },
-                            enabled = !state.isApplying && currentExt != fmt,
-                            modifier = Modifier.weight(1f),
+                    AudioFadeCurve.entries.forEach { curve ->
+                        val label = stringResource(
+                            when (curve) {
+                                AudioFadeCurve.LINEAR -> R.string.editor_sound_fade_curve_linear
+                                AudioFadeCurve.SMOOTH -> R.string.editor_sound_fade_curve_smooth
+                                AudioFadeCurve.EXPONENTIAL -> R.string.editor_sound_fade_curve_exponential
+                            },
                         )
+                        FilterChip(
+                            selected = state.fadeCurve == curve,
+                            onClick = {
+                                viewModel.saveUndo()
+                                viewModel.setFadeCurve(curve)
+                            },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+
+                // Export settings
+                Text(stringResource(R.string.editor_sound_export_settings), style = MaterialTheme.typography.labelLarge)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    AudioExportFormat.entries.forEach { format ->
+                        FilterChip(
+                            selected = state.exportFormat == format,
+                            onClick = { viewModel.setExportFormat(format) },
+                            label = { Text(format.name, style = MaterialTheme.typography.labelSmall) },
+                            enabled = !state.isApplying,
+                        )
+                    }
+                }
+                if (state.exportFormat.bitratesKbps.isNotEmpty()) {
+                    Text(stringResource(R.string.editor_sound_export_bitrate), style = MaterialTheme.typography.labelMedium)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        state.exportFormat.bitratesKbps.forEach { bitrate ->
+                            FilterChip(
+                                selected = state.exportBitrateKbps == bitrate,
+                                onClick = { viewModel.setExportBitrate(bitrate) },
+                                label = { Text(stringResource(R.string.editor_sound_bitrate_value, bitrate)) },
+                                enabled = !state.isApplying,
+                            )
+                        }
+                    }
+                } else {
+                    Text(
+                        stringResource(R.string.editor_sound_lossless_export),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Button(
+                    onClick = viewModel::exportTrimmed,
+                    enabled = !state.isApplying,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(8.dp),
+                ) {
+                    if (state.isApplying) {
+                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Default.SaveAlt, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.editor_sound_export_to_music))
                     }
                 }
 
@@ -484,6 +598,46 @@ fun SoundEditorScreen(
             }
         }
     }
+}
+
+@Composable
+private fun MillisecondField(
+    value: Long,
+    label: String,
+    onEditStart: () -> Unit,
+    onCommit: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var text by remember(value) { mutableStateOf(value.toString()) }
+    var wasFocused by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+    fun commit() {
+        onCommit(text.toLongOrNull() ?: value)
+    }
+    OutlinedTextField(
+        value = text,
+        onValueChange = { updated ->
+            text = updated.filter(Char::isDigit).take(10)
+        },
+        label = { Text(label) },
+        suffix = { Text(stringResource(R.string.editor_sound_milliseconds_suffix)) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Number,
+            imeAction = ImeAction.Done,
+        ),
+        keyboardActions = KeyboardActions(
+            onDone = {
+                commit()
+                focusManager.clearFocus()
+            },
+        ),
+        modifier = modifier.onFocusChanged { focusState ->
+            if (focusState.isFocused && !wasFocused) onEditStart()
+            if (!focusState.isFocused && wasFocused) commit()
+            wasFocused = focusState.isFocused
+        },
+    )
 }
 
 @Composable
@@ -574,7 +728,10 @@ private fun WaveformView(
     modifier: Modifier = Modifier,
     fadeInFraction: Float = 0f,
     fadeOutFraction: Float = 0f,
+    zoom: Float = 1f,
+    viewportStart: Float = 0f,
     onDragStart: () -> Unit = {},
+    onViewportTransform: (zoomChange: Float, panFraction: Float, focusFraction: Float) -> Unit = { _, _, _ -> },
 ) {
     val primary = MaterialTheme.colorScheme.primary
     val dimmed = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
@@ -590,6 +747,16 @@ private fun WaveformView(
         stringResource(R.string.a11y_stopped)
     }
     val trimPlaybackState = stringResource(R.string.a11y_trim_playback_state, trimState, playbackState)
+    val waveformState = stringResource(R.string.editor_sound_waveform_state, trimPlaybackState, zoom)
+    val visibleSpan = 1f / zoom.coerceIn(1f, MAX_WAVEFORM_ZOOM)
+    val clampedViewportStart = viewportStart.coerceIn(0f, (1f - visibleSpan).coerceAtLeast(0f))
+    val currentTrimStart by rememberUpdatedState(trimStart)
+    val currentTrimEnd by rememberUpdatedState(trimEnd)
+    val currentVisibleSpan by rememberUpdatedState(visibleSpan)
+    val currentViewportStart by rememberUpdatedState(clampedViewportStart)
+    val currentOnTrimStartChange by rememberUpdatedState(onTrimStartChange)
+    val currentOnTrimEndChange by rememberUpdatedState(onTrimEndChange)
+    val currentOnViewportTransform by rememberUpdatedState(onViewportTransform)
 
     Box(
         modifier = modifier
@@ -597,7 +764,7 @@ private fun WaveformView(
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .semantics {
                 contentDescription = trimDescription
-                stateDescription = trimPlaybackState
+                stateDescription = waveformState
                 progressBarRangeInfo = ProgressBarRangeInfo(playbackPosition.coerceIn(0f, 1f), 0f..1f)
             }
     ) {
@@ -605,36 +772,69 @@ private fun WaveformView(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) {
-                    detectHorizontalDragGestures(
-                        onDragStart = { onDragStart() },
-                        onHorizontalDrag = { change, _ ->
-                            val fraction = (change.position.x / size.width).coerceIn(0f, 1f)
-                            val distToStart = abs(fraction - trimStart)
-                            val distToEnd = abs(fraction - trimEnd)
-                            if (distToStart < distToEnd) onTrimStartChange(fraction)
-                            else onTrimEndChange(fraction)
-                        },
-                    )
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        var transformed = false
+                        var undoSaved = false
+                        var movingStartHandle: Boolean? = null
+                        var hasPressedPointers = true
+                        do {
+                            val event = awaitPointerEvent()
+                            val pressed = event.changes.filter { it.pressed }
+                            if (pressed.size >= 2) {
+                                transformed = true
+                                val zoomChange = event.calculateZoom()
+                                val pan = event.calculatePan()
+                                val centroid = event.calculateCentroid(useCurrent = true)
+                                if (zoomChange != 1f || pan.x != 0f) {
+                                    currentOnViewportTransform(
+                                        zoomChange,
+                                        pan.x / size.width.coerceAtLeast(1),
+                                        centroid.x / size.width.coerceAtLeast(1),
+                                    )
+                                    pressed.forEach { it.consume() }
+                                }
+                            } else if (pressed.size == 1 && !transformed) {
+                                if (!undoSaved) {
+                                    onDragStart()
+                                    undoSaved = true
+                                }
+                                val localFraction = (pressed.first().position.x / size.width.coerceAtLeast(1))
+                                    .coerceIn(0f, 1f)
+                                val fraction = currentViewportStart + localFraction * currentVisibleSpan
+                                if (movingStartHandle == null) {
+                                    movingStartHandle = abs(fraction - currentTrimStart) < abs(fraction - currentTrimEnd)
+                                }
+                                if (movingStartHandle == true) currentOnTrimStartChange(fraction)
+                                else currentOnTrimEndChange(fraction)
+                                pressed.first().consume()
+                            }
+                            hasPressedPointers = event.changes.any { it.pressed }
+                        } while (hasPressedPointers)
+                    }
                 },
         ) {
             val w = size.width
             val h = size.height
             val centerY = h / 2
-            val barWidth = w / waveform.size
+            val barWidth = w / (waveform.size * visibleSpan).coerceAtLeast(1f)
             val maxAmp = h * 0.45f
+            fun sourceToX(fraction: Float): Float =
+                ((fraction - clampedViewportStart) / visibleSpan) * w
 
             // Draw waveform bars
             for (i in waveform.indices) {
-                val x = i * barWidth
+                val fraction = i.toFloat() / (waveform.size - 1).coerceAtLeast(1)
+                if (fraction < clampedViewportStart || fraction > clampedViewportStart + visibleSpan) continue
+                val x = sourceToX(fraction)
                 val amplitude = waveform[i] * maxAmp
-                val fraction = i.toFloat() / waveform.size
                 val inTrim = fraction in trimStart..trimEnd
                 val color = if (inTrim) primary else dimmed
 
                 drawLine(
                     color = color,
-                    start = Offset(x + barWidth / 2, centerY - amplitude),
-                    end = Offset(x + barWidth / 2, centerY + amplitude),
+                    start = Offset(x, centerY - amplitude),
+                    end = Offset(x, centerY + amplitude),
                     strokeWidth = max(barWidth - 1f, 1f),
                 )
             }
@@ -643,18 +843,18 @@ private fun WaveformView(
             drawRect(
                 color = Color.Black.copy(alpha = 0.4f),
                 topLeft = Offset(0f, 0f),
-                size = androidx.compose.ui.geometry.Size(w * trimStart, h),
+                size = androidx.compose.ui.geometry.Size(sourceToX(trimStart).coerceIn(0f, w), h),
             )
             drawRect(
                 color = Color.Black.copy(alpha = 0.4f),
-                topLeft = Offset(w * trimEnd, 0f),
-                size = androidx.compose.ui.geometry.Size(w * (1f - trimEnd), h),
+                topLeft = Offset(sourceToX(trimEnd).coerceIn(0f, w), 0f),
+                size = androidx.compose.ui.geometry.Size((w - sourceToX(trimEnd).coerceIn(0f, w)).coerceAtLeast(0f), h),
             )
 
             // Fade in overlay (triangle)
             if (fadeInFraction > 0f) {
-                val fadeInX = w * (trimStart + fadeInFraction)
-                val trimStartX = w * trimStart
+                val fadeInX = sourceToX(trimStart + fadeInFraction).coerceIn(0f, w)
+                val trimStartX = sourceToX(trimStart).coerceIn(0f, w)
                 val path = androidx.compose.ui.graphics.Path().apply {
                     moveTo(trimStartX, 0f)
                     lineTo(trimStartX, h)
@@ -666,8 +866,8 @@ private fun WaveformView(
 
             // Fade out overlay (triangle)
             if (fadeOutFraction > 0f) {
-                val fadeOutStartX = w * (trimEnd - fadeOutFraction)
-                val trimEndX = w * trimEnd
+                val fadeOutStartX = sourceToX(trimEnd - fadeOutFraction).coerceIn(0f, w)
+                val trimEndX = sourceToX(trimEnd).coerceIn(0f, w)
                 val path = androidx.compose.ui.graphics.Path().apply {
                     moveTo(trimEndX, 0f)
                     lineTo(trimEndX, h)
@@ -678,15 +878,17 @@ private fun WaveformView(
             }
 
             // Trim handles
-            drawTrimHandle(w * trimStart, h, primary)
-            drawTrimHandle(w * trimEnd, h, primary)
+            val trimStartX = sourceToX(trimStart)
+            val trimEndX = sourceToX(trimEnd)
+            if (trimStartX in 0f..w) drawTrimHandle(trimStartX, h, primary)
+            if (trimEndX in 0f..w) drawTrimHandle(trimEndX, h, primary)
 
             // Playback position
             if (isPlaying) {
                 drawLine(
                     color = playhead,
-                    start = Offset(w * playbackPosition, 0f),
-                    end = Offset(w * playbackPosition, h),
+                    start = Offset(sourceToX(playbackPosition), 0f),
+                    end = Offset(sourceToX(playbackPosition), h),
                     strokeWidth = 2.dp.toPx(),
                 )
             }

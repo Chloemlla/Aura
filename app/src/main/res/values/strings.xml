@@ -416,9 +416,27 @@
     <string name="editor_sound_open_body">Choose a sound file to trim into a ringtone, notification, or alarm.</string>
     <string name="editor_sound_browse">Browse files</string>
     <string name="editor_sound_duration">Duration: %1$s</string>
+    <string name="editor_sound_trim_start">Start</string>
+    <string name="editor_sound_trim_end">End</string>
+    <string name="editor_sound_milliseconds_suffix">ms</string>
+    <string name="editor_sound_zoom_hint">Pinch or use controls to zoom · %1$.1f×</string>
+    <string name="editor_sound_zoom_out">Zoom out waveform</string>
+    <string name="editor_sound_zoom_reset">Reset waveform zoom</string>
+    <string name="editor_sound_zoom_in">Zoom in waveform</string>
+    <string name="editor_sound_waveform_state">%1$s, waveform zoom %2$.1f times</string>
     <string name="editor_sound_fade_effects">Fade effects</string>
     <string name="editor_sound_fade_in">Fade in: %1$d ms</string>
     <string name="editor_sound_fade_out">Fade out: %1$d ms</string>
+    <string name="editor_sound_fade_curve_linear">Linear</string>
+    <string name="editor_sound_fade_curve_smooth">Smooth</string>
+    <string name="editor_sound_fade_curve_exponential">Exponential</string>
+    <string name="editor_sound_export_settings">Export format</string>
+    <string name="editor_sound_export_bitrate">Bitrate</string>
+    <string name="editor_sound_bitrate_value">%1$d kbps</string>
+    <string name="editor_sound_lossless_export">Lossless export · bitrate follows the source signal.</string>
+    <string name="editor_sound_export_to_music">Export trimmed audio to Music/Aura</string>
+    <string name="editor_sound_export_success">Exported %1$s to Music/Aura</string>
+    <string name="editor_sound_export_failed">Export failed: %1$s</string>
     <string name="editor_sound_apply_as">Set trimmed audio as</string>
     <string name="editor_sound_apply_ringtone">Ringtone</string>
     <string name="editor_sound_apply_notification">Notification</string>
@@ -431,7 +449,6 @@
     <string name="editor_sound_guidance_short_body">This clip is under 8s. It can still work well as a notification or alarm.</string>
     <string name="editor_sound_guidance_long">Shorten the selection</string>
     <string name="editor_sound_guidance_long_body">Keep custom ringtones at 30s or less for a cleaner loop and faster apply.</string>
-    <string name="editor_sound_convert_format">Convert Format</string>
 
     <!-- Collections -->
     <string name="collections_title">Collections</string>

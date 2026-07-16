@@ -113,6 +113,20 @@ class SoundApplier @Inject constructor(
         }.onFailure { it.rethrowIfCancelled() }
     }
 
+    /** Save an edited local audio file to Music/Aura without changing a system sound. */
+    suspend fun exportFromLocalFile(
+        filePath: String,
+        fileName: String,
+    ): Result<Uri> = withContext(Dispatchers.IO) {
+        runCatching {
+            saveLocalFileToMediaStore(
+                fileName = fileName.replace(SANITIZE_REGEX, "_"),
+                type = null,
+                file = File(filePath),
+            ) ?: throw IllegalStateException("Failed to export audio to MediaStore")
+        }.onFailure { it.rethrowIfCancelled() }
+    }
+
     private suspend fun persistAppliedUri(type: ContentType, uri: Uri) {
         when (type) {
             ContentType.RINGTONE -> prefs.setLastAppliedRingtoneUri(uri.toString())
@@ -125,14 +139,14 @@ class SoundApplier @Inject constructor(
     private fun saveToMediaStore(
         fileName: String,
         mimeType: String,
-        type: ContentType,
+        type: ContentType?,
         writeContent: (OutputStream) -> Unit,
     ): Uri? {
         val relativePath = when (type) {
             ContentType.RINGTONE -> Environment.DIRECTORY_RINGTONES
             ContentType.NOTIFICATION -> Environment.DIRECTORY_NOTIFICATIONS
             ContentType.ALARM -> Environment.DIRECTORY_ALARMS
-            else -> Environment.DIRECTORY_MUSIC
+            else -> Environment.DIRECTORY_MUSIC + "/Aura"
         }
 
         val contentValues = ContentValues().apply {
@@ -214,7 +228,7 @@ class SoundApplier @Inject constructor(
 
     private fun saveLocalFileToMediaStore(
         fileName: String,
-        type: ContentType,
+        type: ContentType?,
         file: File,
     ): Uri? {
         if (file.length() > MAX_APPLY_BYTES) {

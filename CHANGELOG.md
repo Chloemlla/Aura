@@ -58,6 +58,11 @@ and a no-OAuth Reddit RSS pipeline.
   hours persist in DataStore, continue through WorkManager after reboot, fall
   back safely to the main source when unset, and update network constraints when
   their mode or source changes.
+- **Upgraded the sound editor for precise exports**: trim bounds now accept exact
+  milliseconds, the waveform supports anchored pinch zoom and pan, linear/smooth/
+  exponential fades run in the same sample-accurate FFmpeg pass, and MP3, OGG,
+  Opus, WAV, FLAC, or M4A exports offer compatible bitrate choices before saving
+  to Music/Aura.
 - **Hardened Android 16 background scheduling**: the checked ledger now covers all
   nine `CoroutineWorker` implementations and all 10 unique work names, rejects
   unaudited direct `JobScheduler` or long-running worker additions, and documents
