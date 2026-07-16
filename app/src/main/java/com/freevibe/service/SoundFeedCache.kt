@@ -15,7 +15,10 @@ import javax.inject.Singleton
 internal const val SOUND_FEED_CACHE_TTL_MS = 24L * 60L * 60L * 1000L
 internal const val SOUND_PREVIEW_URL_TTL_MS = 4L * 60L * 60L * 1000L
 private const val SOUND_FEED_CACHE_PREFS = "freevibe_sound_feed_cache"
+private const val SOUND_FEED_CACHE_KEY_PREFIX = "sound_feed_"
+private const val SOUND_FEED_CACHE_ACCESS_PREFIX = "sound_feed_access_"
 private const val MAX_CACHED_SOUNDS = 40
+internal const val MAX_SOUND_FEED_CACHE_KEYS = 24
 private const val LIST_SEPARATOR = "\u001f"
 
 internal data class CachedSoundFeed(
@@ -23,8 +26,14 @@ internal data class CachedSoundFeed(
     val cachedAtMs: Long,
 )
 
+internal data class SoundFeedCacheEntry(
+    val key: String,
+    val raw: String,
+    val lastAccessedAtMs: Long,
+)
+
 internal fun soundFeedCacheKey(tabName: String, query: String): String =
-    "sound_feed_${tabName.lowercase()}_${query.trim().lowercase().hashCode()}"
+    "$SOUND_FEED_CACHE_KEY_PREFIX${tabName.lowercase()}_${query.trim().lowercase().hashCode()}"
 
 internal fun encodeSoundFeedCache(cached: CachedSoundFeed): String {
     val properties = Properties()
@@ -106,21 +115,87 @@ internal fun decodeSoundFeedCache(raw: String?, nowMs: Long): CachedSoundFeed? {
     }.getOrNull()
 }
 
+internal fun soundFeedCacheKeysToRemove(
+    entries: Collection<SoundFeedCacheEntry>,
+    nowMs: Long,
+    maxKeys: Int = MAX_SOUND_FEED_CACHE_KEYS,
+): Set<String> {
+    val invalidKeys = mutableSetOf<String>()
+    val validEntries = entries.mapNotNull { entry ->
+        val cached = decodeSoundFeedCache(entry.raw, nowMs)
+        if (cached == null) {
+            invalidKeys += entry.key
+            null
+        } else {
+            Triple(
+                entry.key,
+                entry.lastAccessedAtMs.takeIf { it > 0L } ?: cached.cachedAtMs,
+                cached.cachedAtMs,
+            )
+        }
+    }
+    val overflow = (validEntries.size - maxKeys.coerceAtLeast(0)).coerceAtLeast(0)
+    val leastRecentlyUsed = validEntries
+        .sortedWith(compareBy<Triple<String, Long, Long>>({ it.second }, { it.third }, { it.first }))
+        .take(overflow)
+        .mapTo(mutableSetOf()) { it.first }
+    return invalidKeys + leastRecentlyUsed
+}
+
 @Singleton
-internal class SoundFeedCache @Inject constructor(
+class SoundFeedCache @Inject constructor(
     @ApplicationContext context: Context,
 ) {
     private val prefs = context.getSharedPreferences(SOUND_FEED_CACHE_PREFS, Context.MODE_PRIVATE)
 
     @Synchronized
-    fun read(key: String, nowMs: Long = System.currentTimeMillis()): CachedSoundFeed? =
-        decodeSoundFeedCache(prefs.getString(key, null), nowMs)
+    internal fun read(key: String, nowMs: Long = System.currentTimeMillis()): CachedSoundFeed? {
+        val cached = decodeSoundFeedCache(prefs.getString(key, null), nowMs)
+        if (cached == null) {
+            prefs.edit()
+                .remove(key)
+                .remove(accessKey(key))
+                .apply()
+            return null
+        }
+        prefs.edit().putLong(accessKey(key), nowMs).apply()
+        return cached
+    }
 
     @Synchronized
-    fun write(key: String, sounds: List<Sound>, nowMs: Long = System.currentTimeMillis()) {
+    internal fun write(key: String, sounds: List<Sound>, nowMs: Long = System.currentTimeMillis()) {
         if (sounds.isEmpty()) return
-        prefs.edit()
-            .putString(key, encodeSoundFeedCache(CachedSoundFeed(sounds, nowMs)))
-            .apply()
+        val raw = encodeSoundFeedCache(CachedSoundFeed(sounds, nowMs))
+        val all = prefs.all
+        val entries = all.mapNotNull { (storedKey, value) ->
+            if (!isFeedKey(storedKey) || value !is String || storedKey == key) return@mapNotNull null
+            SoundFeedCacheEntry(
+                key = storedKey,
+                raw = value,
+                lastAccessedAtMs = all[accessKey(storedKey)] as? Long ?: 0L,
+            )
+        } + SoundFeedCacheEntry(key, raw, nowMs)
+        val keysToRemove = soundFeedCacheKeysToRemove(entries, nowMs)
+        val invalidTypedKeys = all
+            .filter { (storedKey, value) -> isFeedKey(storedKey) && value !is String }
+            .keys
+        val retainedDataKeys = entries.mapTo(mutableSetOf()) { it.key } - keysToRemove
+
+        val editor = prefs.edit()
+            .putString(key, raw)
+            .putLong(accessKey(key), nowMs)
+        (keysToRemove + invalidTypedKeys).forEach { storedKey ->
+            editor.remove(storedKey).remove(accessKey(storedKey))
+        }
+        all.keys
+            .filter { it.startsWith(SOUND_FEED_CACHE_ACCESS_PREFIX) }
+            .filter { it.removePrefix(SOUND_FEED_CACHE_ACCESS_PREFIX) !in retainedDataKeys }
+            .forEach(editor::remove)
+        editor.apply()
     }
+
+    private fun accessKey(key: String): String = "$SOUND_FEED_CACHE_ACCESS_PREFIX$key"
+
+    private fun isFeedKey(key: String): Boolean =
+        key.startsWith(SOUND_FEED_CACHE_KEY_PREFIX) && !key.startsWith(SOUND_FEED_CACHE_ACCESS_PREFIX)
 }

@@ -12,6 +12,10 @@ and a no-OAuth Reddit RSS pipeline.
   one-time advanced flow. The distribution runbook records the decision to
   register Aura's existing package and signing certificate while leaving only
   the identity-sensitive Android Developer Console work owner-gated.
+- **Bounded persistent sound-feed caching**: the shared sound cache now removes
+  expired entries during writes, caps feed/search snapshots with least-recently
+  used eviction, refreshes recency on reads, and is injected as the single Hilt
+  instance used by Sounds instead of bypassing its singleton lock.
 - **Added day/night wallpaper scheduling**: auto-rotation can keep one source,
   switch between independently selected day and night sources at configurable
   clock boundaries, or follow the system light/dark theme. Phase sources and

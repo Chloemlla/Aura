@@ -1,6 +1,5 @@
 package com.freevibe.ui.screens.sounds
 
-import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -30,7 +29,6 @@ import com.freevibe.service.SoundFeedCache
 import com.freevibe.service.soundFeedCacheKey
 import com.freevibe.service.SourceMetrics
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -44,7 +42,6 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SoundsViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
     private val youtubeRepo: YouTubeRepository,
     private val favoritesRepo: FavoritesRepository,
     private val soundApplier: SoundApplier,
@@ -64,9 +61,8 @@ class SoundsViewModel @Inject constructor(
     private val seasonalContentManager: SeasonalContentManager,
     private val communityAudioRecorder: CommunityAudioRecorder,
     private val sourceMetrics: SourceMetrics,
+    private val soundFeedCache: SoundFeedCache,
 ) : ViewModel() {
-
-    private val soundFeedCache = SoundFeedCache(context)
 
     private val _state = MutableStateFlow(SoundsUiState())
     val state = _state.asStateFlow()

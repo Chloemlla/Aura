@@ -48,6 +48,31 @@ class SoundFeedCacheTest {
         assertTrue(soundFeedCacheKey("SEARCH", "rain") != soundFeedCacheKey("SEARCH", "ocean"))
     }
 
+    @Test
+    fun `write sweep removes expired entries and least recently used overflow`() {
+        val now = 100_000_000L
+        fun entry(key: String, cachedAtMs: Long, lastAccessedAtMs: Long) = SoundFeedCacheEntry(
+            key = key,
+            raw = encodeSoundFeedCache(
+                CachedSoundFeed(listOf(sound(key, ContentSource.BUNDLED)), cachedAtMs),
+            ),
+            lastAccessedAtMs = lastAccessedAtMs,
+        )
+
+        val removals = soundFeedCacheKeysToRemove(
+            entries = listOf(
+                entry("expired", now - SOUND_FEED_CACHE_TTL_MS - 1L, now - 1L),
+                entry("least-recent", now - 4_000L, now - 3_000L),
+                entry("middle", now - 3_000L, now - 2_000L),
+                entry("recent", now - 2_000L, now - 1_000L),
+            ),
+            nowMs = now,
+            maxKeys = 2,
+        )
+
+        assertEquals(setOf("expired", "least-recent"), removals)
+    }
+
     private fun sound(id: String, source: ContentSource) = Sound(
         id = id,
         source = source,

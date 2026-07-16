@@ -1,6 +1,5 @@
 package com.freevibe.ui.screens.sounds
 
-import android.content.Context
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.model.CommunityBlockReason
 import com.freevibe.data.model.CommunityReportReason
@@ -33,6 +32,7 @@ import com.freevibe.service.DownloadManager
 import com.freevibe.service.SeasonalContentManager
 import com.freevibe.service.SelectedContentHolder
 import com.freevibe.service.SoundApplier
+import com.freevibe.service.SoundFeedCache
 import com.freevibe.service.SoundUrlResolver
 import com.freevibe.service.testSelectedContentHolder
 import io.mockk.clearMocks
@@ -1435,7 +1435,6 @@ class SoundsViewModelTest {
         }
 
         return SoundsViewModel(
-            context = mockk<Context>(relaxed = true),
             youtubeRepo = youtubeRepo,
             favoritesRepo = favoritesRepo,
             soundApplier = mockk<SoundApplier>(relaxed = true),
@@ -1455,6 +1454,7 @@ class SoundsViewModelTest {
             seasonalContentManager = SeasonalContentManager(),
             communityAudioRecorder = mockk<com.freevibe.service.CommunityAudioRecorder>(relaxed = true),
             sourceMetrics = com.freevibe.service.SourceMetrics(),
+            soundFeedCache = mockk<SoundFeedCache>(relaxed = true),
         )
     }
 
