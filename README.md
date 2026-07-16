@@ -25,6 +25,36 @@
 - **Performance proof path** — Baseline Profile and Macrobenchmark tests cover startup, Wallpaper Detail, and the main media grids on a physical-device runner.
 - **5 bottom nav tabs** — Wallpapers, Videos, Sounds, Favorites, Settings.
 
+## Installing Aura
+
+Download the signed universal APK and `SHA256SUMS.txt` from the same
+[GitHub Release](https://github.com/SysAdminDoc/Aura/releases). Obtainium users
+should select the asset named
+`Aura-vX.Y.Z-versionCode-N-universal-release.apk`; do not install debug or
+third-party re-signed builds.
+
+Verify the download, then install or update it with ADB:
+
+```powershell
+Get-FileHash .\Aura-vX.Y.Z-versionCode-N-universal-release.apk -Algorithm SHA256
+adb install --user 0 -r .\Aura-vX.Y.Z-versionCode-N-universal-release.apk
+```
+
+Compare the printed digest with `SHA256SUMS.txt` before installing. The `-r`
+update keeps app data only when the installed app and new APK use the same
+signing certificate. If Android reports a signature mismatch, obtain the
+official matching Aura build; uninstalling would erase local app data.
+
+Android's developer-verification rollout begins on September 30, 2026 for
+participating stores in Brazil, Indonesia, Singapore, and Thailand, then expands
+globally in 2027. Unregistered APKs remain installable through ADB. Android is
+also launching a one-time advanced flow in August 2026 for power users who
+enable developer mode, acknowledge the security warnings, and complete its
+24-hour waiting period. Follow the on-device advanced flow when the normal
+package installer declines an unregistered APK; the wait does not apply to ADB.
+See Android's [verification FAQ](https://developer.android.com/developer-verification/guides/faq)
+and Aura's [verification decision record](docs/distribution/developer-verification.md).
+
 ## Quick Start
 
 ```bash
