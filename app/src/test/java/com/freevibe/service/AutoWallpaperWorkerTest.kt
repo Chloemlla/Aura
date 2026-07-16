@@ -1,5 +1,8 @@
 package com.freevibe.service
 
+import com.freevibe.data.local.SCHEDULER_DAY_NIGHT_MODE_CLOCK
+import com.freevibe.data.local.SCHEDULER_DAY_NIGHT_MODE_SINGLE
+import com.freevibe.data.local.SCHEDULER_DAY_NIGHT_MODE_SYSTEM_THEME
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.WALLPAPER_SOURCE_LOCAL_FOLDER
 import com.freevibe.data.model.Wallpaper
@@ -10,6 +13,85 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AutoWallpaperWorkerTest {
+
+    @Test
+    fun `clock schedule swaps sources exactly at day and night boundaries`() {
+        fun sourceAt(hour: Int) = resolveScheduledWallpaperSource(
+            defaultSource = "discover",
+            daySource = "bing",
+            nightSource = "wallhaven",
+            mode = SCHEDULER_DAY_NIGHT_MODE_CLOCK,
+            hour = hour,
+            dayStartHour = 6,
+            nightStartHour = 18,
+            isSystemDark = false,
+        )
+
+        assertEquals("wallhaven", sourceAt(5))
+        assertEquals("bing", sourceAt(6))
+        assertEquals("bing", sourceAt(17))
+        assertEquals("wallhaven", sourceAt(18))
+    }
+
+    @Test
+    fun `clock schedule supports a day window that crosses midnight`() {
+        assertTrue(isHourInScheduledDayWindow(hour = 22, dayStartHour = 20, nightStartHour = 5))
+        assertTrue(isHourInScheduledDayWindow(hour = 4, dayStartHour = 20, nightStartHour = 5))
+        assertEquals(false, isHourInScheduledDayWindow(hour = 5, dayStartHour = 20, nightStartHour = 5))
+    }
+
+    @Test
+    fun `system theme schedule maps light to day and dark to night`() {
+        val light = resolveScheduledWallpaperSource(
+            defaultSource = "discover",
+            daySource = "favorites",
+            nightSource = "local_folder",
+            mode = SCHEDULER_DAY_NIGHT_MODE_SYSTEM_THEME,
+            hour = 23,
+            dayStartHour = 6,
+            nightStartHour = 18,
+            isSystemDark = false,
+        )
+        val dark = resolveScheduledWallpaperSource(
+            defaultSource = "discover",
+            daySource = "favorites",
+            nightSource = "local_folder",
+            mode = SCHEDULER_DAY_NIGHT_MODE_SYSTEM_THEME,
+            hour = 12,
+            dayStartHour = 6,
+            nightStartHour = 18,
+            isSystemDark = true,
+        )
+
+        assertEquals("favorites", light)
+        assertEquals("local_folder", dark)
+    }
+
+    @Test
+    fun `single source mode ignores persisted phase values and phase blanks fall back`() {
+        assertEquals(
+            "discover",
+            resolveScheduledWallpaperSource(
+                defaultSource = "discover",
+                daySource = "bing",
+                nightSource = "wallhaven",
+                mode = SCHEDULER_DAY_NIGHT_MODE_SINGLE,
+                hour = 23,
+                dayStartHour = 6,
+                nightStartHour = 18,
+                isSystemDark = true,
+            ),
+        )
+        assertEquals(
+            setOf("discover", "wallhaven"),
+            scheduledSourceCandidates(
+                defaultSource = "discover",
+                daySource = "",
+                nightSource = "wallhaven",
+                mode = SCHEDULER_DAY_NIGHT_MODE_CLOCK,
+            ),
+        )
+    }
 
     @Test
     fun `normalizeWallpaperRotationSource maps legacy unsplash to discover`() {

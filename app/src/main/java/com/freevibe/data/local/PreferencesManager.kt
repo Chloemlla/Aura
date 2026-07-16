@@ -32,6 +32,9 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("f
 
 private const val LEGACY_REDDIT_RSS_PAGE_PREFIX = "reddit_rss_page_v2_"
 internal const val MAX_REDDIT_RSS_PAGE_METADATA_ENTRIES = 64
+internal const val SCHEDULER_DAY_NIGHT_MODE_SINGLE = "single"
+internal const val SCHEDULER_DAY_NIGHT_MODE_CLOCK = "clock"
+internal const val SCHEDULER_DAY_NIGHT_MODE_SYSTEM_THEME = "system_theme"
 private val REDDIT_RSS_CURSOR_TOKEN = Regex("[a-zA-Z0-9]{1,64}")
 
 internal data class RedditRssPageMetadataEntry(
@@ -412,6 +415,9 @@ class PreferencesManager @Inject constructor(
     val schedulerCollectionId: Flow<Long> = get(Keys.SCHEDULER_COLLECTION, -1L)
     val schedulerDaySource: Flow<String> = get(Keys.SCHEDULER_DAY_SOURCE, "")
     val schedulerNightSource: Flow<String> = get(Keys.SCHEDULER_NIGHT_SOURCE, "")
+    val schedulerDayNightMode: Flow<String> = get(Keys.SCHEDULER_DAY_NIGHT_MODE, SCHEDULER_DAY_NIGHT_MODE_SINGLE)
+    val schedulerDayStartHour: Flow<Int> = get(Keys.SCHEDULER_DAY_START_HOUR, 6)
+    val schedulerNightStartHour: Flow<Int> = get(Keys.SCHEDULER_NIGHT_START_HOUR, 18)
 
     suspend fun setSchedulerEnabled(enabled: Boolean) = set(Keys.SCHEDULER_ENABLED, enabled)
     suspend fun setSchedulerInterval(minutes: Long) = set(Keys.SCHEDULER_INTERVAL, minutes)
@@ -422,6 +428,16 @@ class PreferencesManager @Inject constructor(
     suspend fun setSchedulerCollection(id: Long) = set(Keys.SCHEDULER_COLLECTION, id)
     suspend fun setSchedulerDaySource(source: String) = set(Keys.SCHEDULER_DAY_SOURCE, source)
     suspend fun setSchedulerNightSource(source: String) = set(Keys.SCHEDULER_NIGHT_SOURCE, source)
+    suspend fun setSchedulerDayNightMode(mode: String) = set(
+        Keys.SCHEDULER_DAY_NIGHT_MODE,
+        mode.takeIf {
+            it == SCHEDULER_DAY_NIGHT_MODE_SINGLE ||
+                it == SCHEDULER_DAY_NIGHT_MODE_CLOCK ||
+                it == SCHEDULER_DAY_NIGHT_MODE_SYSTEM_THEME
+        } ?: SCHEDULER_DAY_NIGHT_MODE_SINGLE,
+    )
+    suspend fun setSchedulerDayStartHour(hour: Int) = set(Keys.SCHEDULER_DAY_START_HOUR, hour.coerceIn(0, 23))
+    suspend fun setSchedulerNightStartHour(hour: Int) = set(Keys.SCHEDULER_NIGHT_START_HOUR, hour.coerceIn(0, 23))
 
     // ── Video wallpaper settings ────────────────────────────────
 
@@ -619,6 +635,9 @@ class PreferencesManager @Inject constructor(
         val SCHEDULER_COLLECTION = longPreferencesKey("scheduler_collection_id")
         val SCHEDULER_DAY_SOURCE = stringPreferencesKey("scheduler_day_source")
         val SCHEDULER_NIGHT_SOURCE = stringPreferencesKey("scheduler_night_source")
+        val SCHEDULER_DAY_NIGHT_MODE = stringPreferencesKey("scheduler_day_night_mode")
+        val SCHEDULER_DAY_START_HOUR = intPreferencesKey("scheduler_day_start_hour")
+        val SCHEDULER_NIGHT_START_HOUR = intPreferencesKey("scheduler_night_start_hour")
         val AVOID_RECENT_REPEATS = booleanPreferencesKey("avoid_recent_repeats")
         val RECENT_ROTATION_IDS = stringPreferencesKey("recent_rotation_ids")
         // Video wallpaper

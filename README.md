@@ -79,7 +79,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Crop & Position** | Pinch-zoom with aspect ratio presets (9:16, 16:9, 1:1) |
 | **Collections** | Organize wallpapers into named folders with 2x2 cover previews |
 | **Home Widget** | Glance-based widget for quick shuffle with error feedback |
-| **Auto Wallpaper** | Rotation schedule + source selection including favorites |
+| **Auto Wallpaper** | Rotation schedule with one source, clock-based day/night sources, or system light/dark theme matching |
 | **Shuffle FAB** | One-tap random wallpaper from current tab |
 | **Per-Contact Ringtones** | Assign custom ringtones to individual contacts |
 | **Dual Wallpapers** | Coordinated home + lock screen wallpaper pairs |

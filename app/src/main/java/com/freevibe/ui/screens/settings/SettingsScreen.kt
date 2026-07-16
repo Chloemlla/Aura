@@ -137,6 +137,14 @@ fun SettingsScreen(
             when (target) {
                 "auto" -> viewModel.setAutoWpSource(WALLPAPER_SOURCE_LOCAL_FOLDER)
                 "scheduler" -> viewModel.setSchedulerSource(WALLPAPER_SOURCE_LOCAL_FOLDER)
+                "scheduler_day" -> viewModel.setSchedulerSource(
+                    SchedulerSourceTarget.DAY,
+                    WALLPAPER_SOURCE_LOCAL_FOLDER,
+                )
+                "scheduler_night" -> viewModel.setSchedulerSource(
+                    SchedulerSourceTarget.NIGHT,
+                    WALLPAPER_SOURCE_LOCAL_FOLDER,
+                )
             }
             showSettingsFeedback(
                 if (persisted) {
@@ -348,6 +356,11 @@ fun SettingsScreen(
                 schedulerEnabled = schedulerEnabled,
                 schedulerInterval = schedulerInterval,
                 schedulerSource = schedulerSource,
+                schedulerDaySource = schedulerDaySource,
+                schedulerNightSource = schedulerNightSource,
+                schedulerDayNightMode = schedulerDayNightMode,
+                schedulerDayStartHour = schedulerDayStartHour,
+                schedulerNightStartHour = schedulerNightStartHour,
                 schedulerHome = schedulerHome,
                 schedulerLock = schedulerLock,
                 schedulerShuffle = schedulerShuffle,

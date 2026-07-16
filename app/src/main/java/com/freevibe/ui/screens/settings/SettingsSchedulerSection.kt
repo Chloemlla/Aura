@@ -26,6 +26,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.freevibe.R
+import com.freevibe.data.local.SCHEDULER_DAY_NIGHT_MODE_CLOCK
+import com.freevibe.data.local.SCHEDULER_DAY_NIGHT_MODE_SINGLE
+import com.freevibe.data.local.SCHEDULER_DAY_NIGHT_MODE_SYSTEM_THEME
 import com.freevibe.data.model.WALLPAPER_SOURCE_LOCAL_FOLDER
 
 @Composable
@@ -35,6 +38,11 @@ internal fun SchedulerSettingsSection(
     schedulerEnabled: Boolean,
     schedulerInterval: Long,
     schedulerSource: String,
+    schedulerDaySource: String,
+    schedulerNightSource: String,
+    schedulerDayNightMode: String,
+    schedulerDayStartHour: Int,
+    schedulerNightStartHour: Int,
     schedulerHome: Boolean,
     schedulerLock: Boolean,
     schedulerShuffle: Boolean,
@@ -46,8 +54,10 @@ internal fun SchedulerSettingsSection(
     onChooseLocalWallpaperFolder: (String?) -> Unit,
 ) {
     var showSchedulerInterval by remember { mutableStateOf(false) }
-    var showSchedulerSource by remember { mutableStateOf(false) }
-    var showCollectionPicker by remember { mutableStateOf(false) }
+    var schedulerSourceTarget by remember { mutableStateOf<SchedulerSourceTarget?>(null) }
+    var collectionPickerTarget by remember { mutableStateOf<SchedulerSourceTarget?>(null) }
+    var showDayNightMode by remember { mutableStateOf(false) }
+    var startHourTarget by remember { mutableStateOf<SchedulerSourceTarget?>(null) }
 
     SettingsSection(
         title = stringResource(R.string.settings_scheduler_section_title),
@@ -76,24 +86,74 @@ internal fun SchedulerSettingsSection(
             val activeCollectionName = remember(collectionsList, activeCollectionId) {
                 collectionsList.firstOrNull { it.collectionId == activeCollectionId }?.name
             }
-            val sourceSubtitle = when {
-                schedulerSource == "collection" && activeCollectionName != null ->
-                    context.getString(R.string.settings_sched_collection_prefix, activeCollectionName)
-                schedulerSource == "collection" ->
-                    context.getString(R.string.settings_sched_collection_none)
-                else ->
-                    wallpaperRotationSourceLabel(
-                        source = schedulerSource,
+            @Composable
+            fun sourceSubtitle(source: String, fallbackToMain: Boolean = false): String {
+                if (source.isBlank() && fallbackToMain) {
+                    return context.getString(
+                        R.string.settings_sched_source_same_as_main,
+                        sourceSubtitle(schedulerSource),
+                    )
+                }
+                return when {
+                    source == "collection" && activeCollectionName != null ->
+                        context.getString(R.string.settings_sched_collection_prefix, activeCollectionName)
+                    source == "collection" -> context.getString(R.string.settings_sched_collection_none)
+                    else -> wallpaperRotationSourceLabel(
+                        source = source,
                         localFolderUri = localWallpaperFolderUri,
                         localFolderPermissionActive = localFolderPermissionActive,
                     )
+                }
             }
             SettingsItem(
                 icon = Icons.Default.Source,
                 title = stringResource(R.string.settings_sched_source_title),
-                subtitle = sourceSubtitle,
-                onClick = { showSchedulerSource = true },
+                subtitle = sourceSubtitle(schedulerSource),
+                onClick = { schedulerSourceTarget = SchedulerSourceTarget.DEFAULT },
             )
+            SettingsItem(
+                icon = Icons.Default.Schedule,
+                title = stringResource(R.string.settings_sched_day_night_mode_title),
+                subtitle = when (schedulerDayNightMode) {
+                    SCHEDULER_DAY_NIGHT_MODE_CLOCK -> stringResource(
+                        R.string.settings_sched_day_night_clock_summary,
+                        formatSchedulerHour(context, schedulerDayStartHour),
+                        formatSchedulerHour(context, schedulerNightStartHour),
+                    )
+                    SCHEDULER_DAY_NIGHT_MODE_SYSTEM_THEME ->
+                        stringResource(R.string.settings_sched_day_night_system_theme_summary)
+                    else -> stringResource(R.string.settings_sched_day_night_single_summary)
+                },
+                onClick = { showDayNightMode = true },
+            )
+            if (schedulerDayNightMode != SCHEDULER_DAY_NIGHT_MODE_SINGLE) {
+                SettingsItem(
+                    icon = Icons.Default.Source,
+                    title = stringResource(R.string.settings_sched_day_source_title),
+                    subtitle = sourceSubtitle(schedulerDaySource, fallbackToMain = true),
+                    onClick = { schedulerSourceTarget = SchedulerSourceTarget.DAY },
+                )
+                SettingsItem(
+                    icon = Icons.Default.Source,
+                    title = stringResource(R.string.settings_sched_night_source_title),
+                    subtitle = sourceSubtitle(schedulerNightSource, fallbackToMain = true),
+                    onClick = { schedulerSourceTarget = SchedulerSourceTarget.NIGHT },
+                )
+                if (schedulerDayNightMode == SCHEDULER_DAY_NIGHT_MODE_CLOCK) {
+                    SettingsItem(
+                        icon = Icons.Default.Timer,
+                        title = stringResource(R.string.settings_sched_day_starts_title),
+                        subtitle = formatSchedulerHour(context, schedulerDayStartHour),
+                        onClick = { startHourTarget = SchedulerSourceTarget.DAY },
+                    )
+                    SettingsItem(
+                        icon = Icons.Default.Timer,
+                        title = stringResource(R.string.settings_sched_night_starts_title),
+                        subtitle = formatSchedulerHour(context, schedulerNightStartHour),
+                        onClick = { startHourTarget = SchedulerSourceTarget.NIGHT },
+                    )
+                }
+            }
             SettingsToggle(
                 icon = Icons.Default.Home,
                 title = stringResource(R.string.settings_sched_home_title),
@@ -156,36 +216,44 @@ internal fun SchedulerSettingsSection(
         )
     }
 
-    if (showSchedulerSource) {
-        val sources = listOf(
-            "discover" to stringResource(R.string.settings_sched_source_discover),
-            "favorites" to stringResource(R.string.settings_sched_source_favorites),
-            WALLPAPER_SOURCE_LOCAL_FOLDER to stringResource(R.string.settings_sched_source_local),
-            "wallhaven" to stringResource(R.string.settings_sched_source_wallhaven),
-            "pixabay" to stringResource(R.string.settings_sched_source_pixabay),
-            "bing" to stringResource(R.string.settings_sched_source_bing),
-            "collection" to stringResource(R.string.settings_sched_source_collection),
-        ).filter { (key, _) ->
+    schedulerSourceTarget?.let { sourceTarget ->
+        val selectedSource = when (sourceTarget) {
+            SchedulerSourceTarget.DEFAULT -> schedulerSource
+            SchedulerSourceTarget.DAY -> schedulerDaySource
+            SchedulerSourceTarget.NIGHT -> schedulerNightSource
+        }
+        val sources = buildList {
+            if (sourceTarget != SchedulerSourceTarget.DEFAULT) {
+                add("" to context.getString(R.string.settings_sched_source_use_main))
+            }
+            add("discover" to context.getString(R.string.settings_sched_source_discover))
+            add("favorites" to context.getString(R.string.settings_sched_source_favorites))
+            add(WALLPAPER_SOURCE_LOCAL_FOLDER to context.getString(R.string.settings_sched_source_local))
+            add("wallhaven" to context.getString(R.string.settings_sched_source_wallhaven))
+            add("pixabay" to context.getString(R.string.settings_sched_source_pixabay))
+            add("bing" to context.getString(R.string.settings_sched_source_bing))
+            add("collection" to context.getString(R.string.settings_sched_source_collection))
+        }.filter { (key, _) ->
             when (key) {
-                "wallhaven" -> wallhavenProviderEnabled || schedulerSource == "wallhaven"
-                "pixabay" -> pixabayProviderEnabled || schedulerSource == "pixabay"
-                "bing" -> bingProviderEnabled || schedulerSource == "bing"
+                "wallhaven" -> wallhavenProviderEnabled || selectedSource == "wallhaven"
+                "pixabay" -> pixabayProviderEnabled || selectedSource == "pixabay"
+                "bing" -> bingProviderEnabled || selectedSource == "bing"
                 else -> true
             }
         }
         AlertDialog(
-            onDismissRequest = { showSchedulerSource = false },
+            onDismissRequest = { schedulerSourceTarget = null },
             title = { Text(stringResource(R.string.settings_sched_wp_source_title)) },
             text = {
                 Column {
                     sources.forEach { (key, label) ->
                         SettingsRadioOptionRow(
                             label = label,
-                            selected = schedulerSource == key,
+                            selected = selectedSource == key,
                             onClick = {
                                 if (key == "collection") {
-                                    showSchedulerSource = false
-                                    showCollectionPicker = true
+                                    schedulerSourceTarget = null
+                                    collectionPickerTarget = sourceTarget
                                 } else if (
                                     key == WALLPAPER_SOURCE_LOCAL_FOLDER &&
                                     !isLocalWallpaperFolderReady(
@@ -193,11 +261,17 @@ internal fun SchedulerSettingsSection(
                                         localFolderPermissionActive,
                                     )
                                 ) {
-                                    showSchedulerSource = false
-                                    onChooseLocalWallpaperFolder("scheduler")
+                                    schedulerSourceTarget = null
+                                    onChooseLocalWallpaperFolder(
+                                        when (sourceTarget) {
+                                            SchedulerSourceTarget.DEFAULT -> "scheduler"
+                                            SchedulerSourceTarget.DAY -> "scheduler_day"
+                                            SchedulerSourceTarget.NIGHT -> "scheduler_night"
+                                        },
+                                    )
                                 } else {
-                                    viewModel.setSchedulerSource(key)
-                                    showSchedulerSource = false
+                                    viewModel.setSchedulerSource(sourceTarget, key)
+                                    schedulerSourceTarget = null
                                 }
                             },
                         )
@@ -205,16 +279,16 @@ internal fun SchedulerSettingsSection(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showSchedulerSource = false }) { Text(stringResource(R.string.common_cancel)) }
+                TextButton(onClick = { schedulerSourceTarget = null }) { Text(stringResource(R.string.common_cancel)) }
             },
         )
     }
 
-    if (showCollectionPicker) {
+    collectionPickerTarget?.let { sourceTarget ->
         val collections by viewModel.collections.collectAsStateWithLifecycle()
         val activeId by viewModel.schedulerCollectionId.collectAsStateWithLifecycle()
         AlertDialog(
-            onDismissRequest = { showCollectionPicker = false },
+            onDismissRequest = { collectionPickerTarget = null },
             title = { Text(stringResource(R.string.settings_sched_collection_picker_title)) },
             text = {
                 if (collections.isEmpty()) {
@@ -240,8 +314,8 @@ internal fun SchedulerSettingsSection(
                                 label = collection.name,
                                 selected = activeId == collection.collectionId,
                                 onClick = {
-                                    viewModel.setSchedulerCollection(collection.collectionId)
-                                    showCollectionPicker = false
+                                    viewModel.setSchedulerCollection(collection.collectionId, sourceTarget)
+                                    collectionPickerTarget = null
                                 },
                             )
                         }
@@ -249,8 +323,88 @@ internal fun SchedulerSettingsSection(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showCollectionPicker = false }) { Text(stringResource(R.string.common_cancel)) }
+                TextButton(onClick = { collectionPickerTarget = null }) { Text(stringResource(R.string.common_cancel)) }
             },
         )
     }
+
+    if (showDayNightMode) {
+        val modes = listOf(
+            SCHEDULER_DAY_NIGHT_MODE_SINGLE to stringResource(R.string.settings_sched_day_night_single),
+            SCHEDULER_DAY_NIGHT_MODE_CLOCK to stringResource(R.string.settings_sched_day_night_clock),
+            SCHEDULER_DAY_NIGHT_MODE_SYSTEM_THEME to stringResource(R.string.settings_sched_day_night_system_theme),
+        )
+        AlertDialog(
+            onDismissRequest = { showDayNightMode = false },
+            title = { Text(stringResource(R.string.settings_sched_day_night_mode_title)) },
+            text = {
+                Column {
+                    modes.forEach { (mode, label) ->
+                        SettingsRadioOptionRow(
+                            label = label,
+                            selected = schedulerDayNightMode == mode,
+                            onClick = {
+                                viewModel.setSchedulerDayNightMode(mode)
+                                showDayNightMode = false
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDayNightMode = false }) { Text(stringResource(R.string.common_cancel)) }
+            },
+        )
+    }
+
+    startHourTarget?.let { target ->
+        val selectedHour = if (target == SchedulerSourceTarget.DAY) schedulerDayStartHour else schedulerNightStartHour
+        AlertDialog(
+            onDismissRequest = { startHourTarget = null },
+            title = {
+                Text(
+                    stringResource(
+                        if (target == SchedulerSourceTarget.DAY) {
+                            R.string.settings_sched_day_starts_title
+                        } else {
+                            R.string.settings_sched_night_starts_title
+                        },
+                    ),
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    (0..23).forEach { hour ->
+                        SettingsRadioOptionRow(
+                            label = formatSchedulerHour(context, hour),
+                            selected = selectedHour == hour,
+                            onClick = {
+                                if (target == SchedulerSourceTarget.DAY) {
+                                    viewModel.setSchedulerDayStartHour(hour)
+                                } else {
+                                    viewModel.setSchedulerNightStartHour(hour)
+                                }
+                                startHourTarget = null
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { startHourTarget = null }) { Text(stringResource(R.string.common_cancel)) }
+            },
+        )
+    }
+}
+
+internal fun formatSchedulerHour(context: Context, hour: Int): String {
+    val calendar = java.util.Calendar.getInstance().apply {
+        set(java.util.Calendar.HOUR_OF_DAY, hour.coerceIn(0, 23))
+        set(java.util.Calendar.MINUTE, 0)
+    }
+    return android.text.format.DateFormat.getTimeFormat(context).format(calendar.time)
 }

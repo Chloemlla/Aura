@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.freevibe.R
 import com.freevibe.data.local.PreferencesManager
+import com.freevibe.data.local.SCHEDULER_DAY_NIGHT_MODE_SINGLE
 import com.freevibe.data.local.WallpaperCacheManager
 import com.freevibe.data.model.WallpaperCollectionEntity
 import com.freevibe.data.repository.CollectionRepository
@@ -49,6 +50,8 @@ data class CacheUsageState(
     val fileUsageLabel: String = "Calculating...",
     val hasWallpaperMetadataCache: Boolean = false,
 )
+
+enum class SchedulerSourceTarget { DEFAULT, DAY, NIGHT }
 
 data class CommunityBlockActionState(
     val unblockingUserId: String? = null,
@@ -156,6 +159,15 @@ class SettingsViewModel @Inject constructor(
     val schedulerEnabled = prefs.schedulerEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val schedulerInterval = prefs.schedulerIntervalMinutes.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 360L)
     val schedulerSource = prefs.schedulerSource.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "discover")
+    val schedulerDaySource = prefs.schedulerDaySource.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+    val schedulerNightSource = prefs.schedulerNightSource.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+    val schedulerDayNightMode = prefs.schedulerDayNightMode.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        SCHEDULER_DAY_NIGHT_MODE_SINGLE,
+    )
+    val schedulerDayStartHour = prefs.schedulerDayStartHour.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 6)
+    val schedulerNightStartHour = prefs.schedulerNightStartHour.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 18)
     val schedulerHome = prefs.schedulerHomeEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
     val schedulerLock = prefs.schedulerLockEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
     val schedulerShuffle = prefs.schedulerShuffle.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -792,7 +804,29 @@ class SettingsViewModel @Inject constructor(
         if (schedulerEnabled.value) AutoWallpaperWorker.schedule(context, minutes)
     }
 
-    fun setSchedulerSource(source: String) = viewModelScope.launch { prefs.setSchedulerSource(source) }
+    fun setSchedulerSource(source: String) = setSchedulerSource(SchedulerSourceTarget.DEFAULT, source)
+
+    fun setSchedulerSource(target: SchedulerSourceTarget, source: String) = viewModelScope.launch {
+        when (target) {
+            SchedulerSourceTarget.DEFAULT -> prefs.setSchedulerSource(source)
+            SchedulerSourceTarget.DAY -> prefs.setSchedulerDaySource(source)
+            SchedulerSourceTarget.NIGHT -> prefs.setSchedulerNightSource(source)
+        }
+        rescheduleSchedulerIfEnabled()
+    }
+
+    fun setSchedulerDayNightMode(mode: String) = viewModelScope.launch {
+        prefs.setSchedulerDayNightMode(mode)
+        rescheduleSchedulerIfEnabled()
+    }
+
+    fun setSchedulerDayStartHour(hour: Int) = viewModelScope.launch {
+        prefs.setSchedulerDayStartHour(hour)
+    }
+
+    fun setSchedulerNightStartHour(hour: Int) = viewModelScope.launch {
+        prefs.setSchedulerNightStartHour(hour)
+    }
 
     // Collection rotation ----------------------------------------------------
     val collections: StateFlow<List<WallpaperCollectionEntity>> = collectionRepo.getAll()
@@ -804,13 +838,27 @@ class SettingsViewModel @Inject constructor(
      * Pick a specific collection to rotate from. Also flips the source to "collection" so
      * the next scheduler tick actually reads from it.
      */
-    fun setSchedulerCollection(id: Long) = viewModelScope.launch {
+    fun setSchedulerCollection(
+        id: Long,
+        target: SchedulerSourceTarget = SchedulerSourceTarget.DEFAULT,
+    ) = viewModelScope.launch {
         prefs.setSchedulerCollection(id)
-        prefs.setSchedulerSource("collection")
+        when (target) {
+            SchedulerSourceTarget.DEFAULT -> prefs.setSchedulerSource("collection")
+            SchedulerSourceTarget.DAY -> prefs.setSchedulerDaySource("collection")
+            SchedulerSourceTarget.NIGHT -> prefs.setSchedulerNightSource("collection")
+        }
+        rescheduleSchedulerIfEnabled()
     }
     fun setSchedulerHome(enabled: Boolean) = viewModelScope.launch { prefs.setSchedulerHome(enabled) }
     fun setSchedulerLock(enabled: Boolean) = viewModelScope.launch { prefs.setSchedulerLock(enabled) }
     fun setSchedulerShuffle(shuffle: Boolean) = viewModelScope.launch { prefs.setSchedulerShuffle(shuffle) }
+
+    private suspend fun rescheduleSchedulerIfEnabled() {
+        if (prefs.schedulerEnabled.first()) {
+            AutoWallpaperWorker.schedule(context, prefs.schedulerIntervalMinutes.first())
+        }
+    }
     fun setWeatherEffects(enabled: Boolean) = viewModelScope.launch { prefs.setWeatherEffectsEnabled(enabled) }
     fun setReduceAnimations(enabled: Boolean) = viewModelScope.launch {
         prefs.setReduceAnimations(enabled)

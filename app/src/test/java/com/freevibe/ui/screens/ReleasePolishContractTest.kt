@@ -183,7 +183,7 @@ class ReleasePolishContractTest {
         val screen = settingsSource()
 
         assertTrue(screen.contains("showSchedulerInterval"))
-        assertTrue(screen.contains("showSchedulerSource"))
+        assertTrue(screen.contains("schedulerSourceTarget"))
         assertTrue(screen.contains("showFpsPicker"))
         assertTrue(screen.contains("showColumnsPicker"))
         assertTrue(screen.contains("showResPicker"))

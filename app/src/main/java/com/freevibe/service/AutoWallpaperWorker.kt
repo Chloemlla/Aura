@@ -1,11 +1,15 @@
 package com.freevibe.service
 
 import android.content.Context
+import android.content.res.Configuration
 import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.hilt.work.HiltWorker
 import androidx.work.*
 import com.freevibe.data.local.PreferencesManager
+import com.freevibe.data.local.SCHEDULER_DAY_NIGHT_MODE_CLOCK
+import com.freevibe.data.local.SCHEDULER_DAY_NIGHT_MODE_SINGLE
+import com.freevibe.data.local.SCHEDULER_DAY_NIGHT_MODE_SYSTEM_THEME
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.WALLPAPER_SOURCE_LOCAL_FOLDER
 import com.freevibe.data.model.Wallpaper
@@ -80,15 +84,20 @@ class AutoWallpaperWorker @AssistedInject constructor(
         val lockEnabled = prefs.schedulerLockEnabled.first()
         val shuffle = prefs.schedulerShuffle.first()
 
-        // Determine source based on time-of-day if day/night sources are configured
+        val defaultSource = prefs.schedulerSource.first()
         val daySource = prefs.schedulerDaySource.first()
         val nightSource = prefs.schedulerNightSource.first()
-        val source = if (daySource.isNotEmpty() && nightSource.isNotEmpty()) {
-            val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-            if (hour in 6..17) daySource else nightSource
-        } else {
-            prefs.schedulerSource.first()
-        }.normalizeWallpaperRotationSource()
+        val source = resolveScheduledWallpaperSource(
+            defaultSource = defaultSource,
+            daySource = daySource,
+            nightSource = nightSource,
+            mode = prefs.schedulerDayNightMode.first(),
+            hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY),
+            dayStartHour = prefs.schedulerDayStartHour.first(),
+            nightStartHour = prefs.schedulerNightStartHour.first(),
+            isSystemDark = applicationContext.resources.configuration.uiMode and
+                Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES,
+        ).normalizeWallpaperRotationSource()
 
         if (source == "reddit" && !prefs.redditProviderEnabled.first()) return Result.success()
         if (source == "wallhaven" && !prefs.wallhavenProviderEnabled.first()) return Result.success()
@@ -216,17 +225,12 @@ class AutoWallpaperWorker @AssistedInject constructor(
             val requiresWiFiOnly = prefs.autoWallpaperRequiresWiFiOnly.first()
             val requiresIdle = prefs.autoWallpaperRequiresIdle.first()
             val requiresNetwork = if (prefs.schedulerEnabled.first()) {
-                val daySource = prefs.schedulerDaySource.first()
-                val nightSource = prefs.schedulerNightSource.first()
-                if (daySource.isNotEmpty() && nightSource.isNotEmpty()) {
-                    // The periodic worker runs both halves of the day under this one
-                    // constraint, so it must satisfy whichever half needs network —
-                    // picking the source matching the hour at *scheduling* time would
-                    // bake in a stale constraint for the other half.
-                    sourceRequiresNetwork(daySource) || sourceRequiresNetwork(nightSource)
-                } else {
-                    sourceRequiresNetwork(prefs.schedulerSource.first())
-                }
+                scheduledSourceCandidates(
+                    defaultSource = prefs.schedulerSource.first(),
+                    daySource = prefs.schedulerDaySource.first(),
+                    nightSource = prefs.schedulerNightSource.first(),
+                    mode = prefs.schedulerDayNightMode.first(),
+                ).any(::sourceRequiresNetwork)
             } else {
                 sourceRequiresNetwork(prefs.autoWallpaperSource.first())
             }
@@ -323,6 +327,52 @@ internal fun String.normalizeWallpaperRotationSource(): String = when (lowercase
 
 internal fun sourceRequiresNetwork(source: String): Boolean =
     source.normalizeWallpaperRotationSource() != WALLPAPER_SOURCE_LOCAL_FOLDER
+
+internal fun resolveScheduledWallpaperSource(
+    defaultSource: String,
+    daySource: String,
+    nightSource: String,
+    mode: String,
+    hour: Int,
+    dayStartHour: Int,
+    nightStartHour: Int,
+    isSystemDark: Boolean,
+): String {
+    val day = daySource.ifBlank { defaultSource }
+    val night = nightSource.ifBlank { defaultSource }
+    return when (mode) {
+        SCHEDULER_DAY_NIGHT_MODE_CLOCK -> if (
+            isHourInScheduledDayWindow(hour, dayStartHour, nightStartHour)
+        ) day else night
+        SCHEDULER_DAY_NIGHT_MODE_SYSTEM_THEME -> if (isSystemDark) night else day
+        else -> defaultSource
+    }
+}
+
+internal fun scheduledSourceCandidates(
+    defaultSource: String,
+    daySource: String,
+    nightSource: String,
+    mode: String,
+): Set<String> = when (mode) {
+    SCHEDULER_DAY_NIGHT_MODE_CLOCK,
+    SCHEDULER_DAY_NIGHT_MODE_SYSTEM_THEME,
+    -> setOf(daySource.ifBlank { defaultSource }, nightSource.ifBlank { defaultSource })
+    SCHEDULER_DAY_NIGHT_MODE_SINGLE -> setOf(defaultSource)
+    else -> setOf(defaultSource)
+}
+
+internal fun isHourInScheduledDayWindow(hour: Int, dayStartHour: Int, nightStartHour: Int): Boolean {
+    val normalizedHour = hour.coerceIn(0, 23)
+    val dayStart = dayStartHour.coerceIn(0, 23)
+    val nightStart = nightStartHour.coerceIn(0, 23)
+    if (dayStart == nightStart) return true
+    return if (dayStart < nightStart) {
+        normalizedHour in dayStart until nightStart
+    } else {
+        normalizedHour >= dayStart || normalizedHour < nightStart
+    }
+}
 
 internal fun pickScheduledWallpaper(
     wallpapers: List<Wallpaper>,

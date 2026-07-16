@@ -7,6 +7,12 @@ All notable changes to Aura will be documented in this file.
 Content-first discovery overhaul with persistent media feeds, swipe-first previews,
 and a no-OAuth Reddit RSS pipeline.
 
+- **Added day/night wallpaper scheduling**: auto-rotation can keep one source,
+  switch between independently selected day and night sources at configurable
+  clock boundaries, or follow the system light/dark theme. Phase sources and
+  hours persist in DataStore, continue through WorkManager after reboot, fall
+  back safely to the main source when unset, and update network constraints when
+  their mode or source changes.
 - **Hardened Android 16 background scheduling**: the checked ledger now covers all
   nine `CoroutineWorker` implementations and all 10 unique work names, rejects
   unaudited direct `JobScheduler` or long-running worker additions, and documents

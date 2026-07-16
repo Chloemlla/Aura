@@ -14,8 +14,9 @@
         "!requiresNetwork -> NetworkType.NOT_REQUIRED",
         "requiresWiFiOnly -> NetworkType.UNMETERED",
         "else -> NetworkType.CONNECTED",
-        "sourceRequiresNetwork(daySource) || sourceRequiresNetwork(nightSource)",
-        "sourceRequiresNetwork(prefs.schedulerSource.first())",
+        "scheduledSourceCandidates(",
+        "mode = prefs.schedulerDayNightMode.first()",
+        ".any(::sourceRequiresNetwork)",
         "setRequiresBatteryNotLow(true)",
         "setRequiresCharging(true)",
         "setRequiresDeviceIdle(true)"

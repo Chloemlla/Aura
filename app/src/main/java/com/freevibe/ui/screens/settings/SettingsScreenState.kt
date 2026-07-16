@@ -56,6 +56,11 @@ internal data class SettingsScreenState(
     val schedulerEnabled: Boolean,
     val schedulerInterval: Long,
     val schedulerSource: String,
+    val schedulerDaySource: String,
+    val schedulerNightSource: String,
+    val schedulerDayNightMode: String,
+    val schedulerDayStartHour: Int,
+    val schedulerNightStartHour: Int,
     val schedulerHome: Boolean,
     val schedulerLock: Boolean,
     val schedulerShuffle: Boolean,
@@ -150,6 +155,11 @@ internal fun rememberSettingsScreenState(
     val schedulerEnabled by viewModel.schedulerEnabled.collectAsStateWithLifecycle()
     val schedulerInterval by viewModel.schedulerInterval.collectAsStateWithLifecycle()
     val schedulerSource by viewModel.schedulerSource.collectAsStateWithLifecycle()
+    val schedulerDaySource by viewModel.schedulerDaySource.collectAsStateWithLifecycle()
+    val schedulerNightSource by viewModel.schedulerNightSource.collectAsStateWithLifecycle()
+    val schedulerDayNightMode by viewModel.schedulerDayNightMode.collectAsStateWithLifecycle()
+    val schedulerDayStartHour by viewModel.schedulerDayStartHour.collectAsStateWithLifecycle()
+    val schedulerNightStartHour by viewModel.schedulerNightStartHour.collectAsStateWithLifecycle()
     val schedulerHome by viewModel.schedulerHome.collectAsStateWithLifecycle()
     val schedulerLock by viewModel.schedulerLock.collectAsStateWithLifecycle()
     val schedulerShuffle by viewModel.schedulerShuffle.collectAsStateWithLifecycle()
@@ -261,6 +271,11 @@ internal fun rememberSettingsScreenState(
         schedulerEnabled = schedulerEnabled,
         schedulerInterval = schedulerInterval,
         schedulerSource = schedulerSource,
+        schedulerDaySource = schedulerDaySource,
+        schedulerNightSource = schedulerNightSource,
+        schedulerDayNightMode = schedulerDayNightMode,
+        schedulerDayStartHour = schedulerDayStartHour,
+        schedulerNightStartHour = schedulerNightStartHour,
         schedulerHome = schedulerHome,
         schedulerLock = schedulerLock,
         schedulerShuffle = schedulerShuffle,
