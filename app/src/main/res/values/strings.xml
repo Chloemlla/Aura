@@ -797,6 +797,10 @@
     <string name="sounds_banner_stale_title">Showing last good sound results</string>
     <string name="sounds_banner_stale_message">%1$s. Playback and saved results remain available while Aura refreshes.</string>
     <string name="sounds_banner_dismiss">Dismiss</string>
+    <string name="sounds_youtube_backup_title">YouTube backup active</string>
+    <string name="sounds_youtube_backup_message">%1$s could not respond. Aura is using %2$s automatically.</string>
+    <string name="sounds_youtube_unavailable_title">YouTube changed something</string>
+    <string name="sounds_youtube_unavailable_message">NewPipe and yt-dlp both failed. Update the YouTube extractor in Settings or try again later.</string>
     <string name="data_warning_title">Using mobile data</string>
     <string name="data_warning_message">Aura streams and downloads wallpapers, video wallpapers, and sounds, which can use a lot of data. Connect to Wi-Fi to avoid using your mobile data plan.</string>
     <string name="data_warning_dismiss">Got it</string>

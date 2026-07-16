@@ -54,4 +54,22 @@ class YouTubeRepositoryTest {
 
         assertNull(metadata)
     }
+
+    @Test
+    fun `yt-dlp search parser builds sounds and drops malformed rows`() {
+        val sounds = parseYtDlpSearchOutput(
+            listOf(
+                "abcdefghijk\tWarm Bell\tAura Studio\t12.5",
+                "invalid\tBad row\tUnknown\t8",
+                "lmnopqrstuv\tMissing duration\tCreator\tNA",
+            ).joinToString("\n"),
+        )
+
+        assertEquals(1, sounds.size)
+        assertEquals("yt_abcdefghijk", sounds.single().id)
+        assertEquals("Warm Bell", sounds.single().name)
+        assertEquals("Aura Studio", sounds.single().uploaderName)
+        assertEquals(12.5, sounds.single().duration, 0.0)
+        assertEquals("https://www.youtube.com/watch?v=abcdefghijk", sounds.single().sourcePageUrl)
+    }
 }

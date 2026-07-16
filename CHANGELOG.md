@@ -59,6 +59,10 @@ and a no-OAuth Reddit RSS pipeline.
   at a credential-free HTTPS bgutil server. Aura packages the reviewed 1.3.1
   provider plugin, verifies its release hash before activation, and keeps the
   standard extractor path when no provider is configured.
+- **Made YouTube extraction failover explicit**: search, preview, and download
+  audio now share a cancellation-safe NewPipe-to-yt-dlp policy. Sounds reports
+  when the backup extractor is active and shows a specific "YouTube changed
+  something" recovery state when neither engine can serve the request.
 
 ## v6.35.1 (2026-07-15)
 

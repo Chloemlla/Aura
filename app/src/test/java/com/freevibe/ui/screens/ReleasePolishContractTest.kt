@@ -91,6 +91,19 @@ class ReleasePolishContractTest {
     }
 
     @Test
+    fun `sounds expose explicit youtube extractor fallback and outage states`() {
+        val screen = File("src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt").readText()
+        val state = File("src/main/java/com/freevibe/ui/screens/sounds/SoundsState.kt").readText()
+        val strings = File("src/main/res/values/strings.xml").readText()
+
+        assertTrue(screen.contains("YouTubeExtractionMode.BACKUP_ACTIVE"))
+        assertTrue(screen.contains("sounds_youtube_unavailable_message"))
+        assertTrue(state.contains("youtubeExtractionStatus"))
+        assertTrue(strings.contains("YouTube changed something"))
+        assertTrue(strings.contains("NewPipe and yt-dlp both failed"))
+    }
+
+    @Test
     fun `wallpaper upload dialog remains usable on compact ime screens`() {
         val source = File("src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt").readText()
         val uploadDialog = source.substringAfter("private fun WallpaperUploadDialog(")

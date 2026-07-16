@@ -2,6 +2,7 @@ package com.freevibe.ui.screens.sounds
 
 import android.net.Uri
 import com.freevibe.data.model.Sound
+import com.freevibe.data.repository.YouTubeExtractionStatus
 
 @androidx.compose.runtime.Immutable
 data class SoundsUiState(
@@ -29,6 +30,7 @@ data class SoundsUiState(
     val isRecordingPersonal: Boolean = false,
     val personalRecordingUri: Uri? = null,
     val degradedSources: Set<String> = emptySet(),
+    val youtubeExtractionStatus: YouTubeExtractionStatus = YouTubeExtractionStatus(),
 )
 
 enum class SoundTab {

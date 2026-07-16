@@ -10,6 +10,9 @@ import com.freevibe.service.YtDlpUpdateManager
 import com.freevibe.service.YouTubeYtDlpRequestFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -94,6 +97,36 @@ internal fun parseYtDlpVideoMetadataOutput(raw: String): YouTubeVideoMetadata? {
     )
 }
 
+internal fun parseYtDlpSearchOutput(raw: String): List<Sound> = raw.lineSequence()
+    .map(String::trim)
+    .filter(String::isNotBlank)
+    .mapNotNull { line ->
+        val fields = line.split('\t', limit = 4)
+        if (fields.size < 4) return@mapNotNull null
+        val videoId = fields[0].trim().takeIf { YOUTUBE_VIDEO_ID.matches(it) }
+            ?: return@mapNotNull null
+        val title = fields[1].trim().takeIf { it.isNotBlank() }
+            ?: return@mapNotNull null
+        val uploader = fields[2].normalizedYtDlpValue().ifBlank { "Unknown" }
+        val duration = fields[3].normalizedYtDlpValue().toDoubleOrNull()
+            ?.takeIf { it > 0.0 }
+            ?: return@mapNotNull null
+        Sound(
+            id = "yt_$videoId",
+            source = ContentSource.YOUTUBE,
+            name = title,
+            description = "by $uploader",
+            previewUrl = "",
+            downloadUrl = "",
+            duration = duration,
+            tags = emptyList(),
+            license = "YouTube",
+            uploaderName = uploader,
+            sourcePageUrl = "https://www.youtube.com/watch?v=$videoId",
+        )
+    }
+    .toList()
+
 /**
  * YouTube search + stream extraction via NewPipe Extractor.
  * Scrapes YouTube directly — no API key, no Piped instances, no quotas.
@@ -105,6 +138,9 @@ class YouTubeRepository @Inject constructor(
     private val ytDlpUpdateManager: YtDlpUpdateManager,
     private val ytDlpRequestFactory: YouTubeYtDlpRequestFactory,
 ) {
+
+    private val _extractionStatus = MutableStateFlow(YouTubeExtractionStatus())
+    val extractionStatus: StateFlow<YouTubeExtractionStatus> = _extractionStatus.asStateFlow()
 
     // Cache resolved stream URLs with TTL to avoid stale URLs (YouTube tokens expire)
     private data class CachedStream(val url: String, val cachedAt: Long)
@@ -167,28 +203,55 @@ class YouTubeRepository @Inject constructor(
         try {
             sourceMetrics.measure(sourceName) {
                 if (BuildConfig.DEBUG) android.util.Log.d("YouTubeRepo", "Searching YouTube for: $query")
-                val service = NewPipe.getService(ServiceList.YouTube.serviceId)
-                val searchExtractor = service.getSearchExtractor(query)
-                searchExtractor.fetchPage()
-
-                // Combine hardcoded + user-provided blocked words
                 val allBlocked = junkPatterns + blockedWords
                     .filter { it.isNotBlank() }
                     .map { Regex(Regex.escape(it.trim()), RegexOption.IGNORE_CASE) }
-
-                val sounds = searchExtractor.initialPage.items
-                    .filterIsInstance<StreamInfoItem>()
-                    .filter { it.duration > 0 }
-                    .filter { it.duration in minDuration.toLong()..maxDuration.toLong() }
-                    .filter { item -> allBlocked.none { it.containsMatchIn(item.name) } }
-                    .filter { !it.name.contains("#") }
-                    .map { it.toSound() }
-
-                SearchResult(
-                    items = sounds,
-                    totalCount = sounds.size,
-                    currentPage = 1,
-                    hasMore = searchExtractor.initialPage.hasNextPage(),
+                val result = executeYouTubeFailover(
+                    primaryEngine = YouTubeExtractionEngine.NEWPIPE,
+                    fallbackEngine = YouTubeExtractionEngine.YT_DLP,
+                    primary = {
+                        val service = NewPipe.getService(ServiceList.YouTube.serviceId)
+                        val extractor = service.getSearchExtractor(query)
+                        extractor.fetchPage()
+                        val sounds = filterSearchSounds(
+                            sounds = extractor.initialPage.items
+                                .filterIsInstance<StreamInfoItem>()
+                                .map { it.toSound() },
+                            minDuration = minDuration,
+                            maxDuration = maxDuration,
+                            blocked = allBlocked,
+                        )
+                        SearchResult(
+                            items = sounds,
+                            totalCount = sounds.size,
+                            currentPage = 1,
+                            hasMore = extractor.initialPage.hasNextPage(),
+                        )
+                    },
+                    fallback = {
+                        val request = ytDlpRequestFactory.create("ytsearch30:$query")
+                        request.addOption("--flat-playlist")
+                        request.addOption("--playlist-end", "30")
+                        request.addOption("--print", "%(id)s\t%(title)s\t%(channel)s\t%(duration)s")
+                        val response = com.yausername.youtubedl_android.YoutubeDL.getInstance().execute(request)
+                        val sounds = filterSearchSounds(
+                            sounds = parseYtDlpSearchOutput(response.out.orEmpty()),
+                            minDuration = minDuration,
+                            maxDuration = maxDuration,
+                            blocked = allBlocked,
+                        )
+                        SearchResult(
+                            items = sounds,
+                            totalCount = sounds.size,
+                            currentPage = 1,
+                            hasMore = false,
+                        )
+                    },
+                )
+                reportExtractionResult(result)
+                result.value ?: throw YouTubeExtractionUnavailableException(
+                    primaryError = result.primaryError,
+                    fallbackError = result.fallbackError,
                 )
             }
         } catch (e: CancellationException) {
@@ -220,53 +283,27 @@ class YouTubeRepository @Inject constructor(
                     sourceMetrics.measure(sourceName) {
                         val startedAt = android.os.SystemClock.elapsedRealtime()
                         val pageUrl = "https://www.youtube.com/watch?v=$videoId"
-                        val newPipeUrl = runCatching {
-                            val service = NewPipe.getService(ServiceList.YouTube.serviceId)
-                            StreamInfo.getInfo(service, pageUrl).audioStreams
-                                .asSequence()
-                                .filter { it.isUrl && it.url?.isNotBlank() == true }
-                                .filter { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
-                                .sortedWith(
-                                    compareBy<org.schabi.newpipe.extractor.stream.AudioStream> {
-                                        when (it.format) {
-                                            MediaFormat.M4A -> 0
-                                            MediaFormat.WEBMA, MediaFormat.WEBMA_OPUS -> 1
-                                            else -> 2
-                                        }
-                                    }.thenBy { it.averageBitrate.takeIf { bitrate -> bitrate > 0 } ?: Int.MAX_VALUE },
-                                )
-                                .firstOrNull()
-                                ?.url
-                        }.onFailure { error ->
-                            if (BuildConfig.DEBUG) {
-                                android.util.Log.w("YouTubeRepo", "NewPipe preview resolve failed for $videoId: ${error.message}")
-                            }
-                        }.getOrNull()
-
-                        val streamUrl = newPipeUrl ?: run {
-                            if (BuildConfig.DEBUG) android.util.Log.d("YouTubeRepo", "Falling back to yt-dlp preview resolve for $videoId")
-                            val request = ytDlpRequestFactory.create(pageUrl)
-                            request.addOption("-f", "worstaudio")
-                            request.addOption("--get-url")
-                            val response = com.yausername.youtubedl_android.YoutubeDL.getInstance().execute(request)
-                            response.out?.trim()?.takeIf { it.isNotBlank() }.also {
-                                if (it != null) ytDlpUpdateManager.recordExtractionSuccess()
-                            }
-                        }
+                        val result = executeYouTubeFailover(
+                            primaryEngine = YouTubeExtractionEngine.NEWPIPE,
+                            fallbackEngine = YouTubeExtractionEngine.YT_DLP,
+                            primary = { resolveNewPipeAudio(pageUrl, preferLowBitrate = true) },
+                            fallback = { resolveYtDlpAudio(pageUrl, format = "worstaudio") },
+                            isUsable = String::isNotBlank,
+                        )
+                        reportExtractionResult(result)
+                        val streamUrl = result.value ?: throw YouTubeExtractionUnavailableException(
+                            primaryError = result.primaryError,
+                            fallbackError = result.fallbackError,
+                        )
                         if (BuildConfig.DEBUG) {
-                            val resolver = if (newPipeUrl != null) "NewPipe" else "yt-dlp"
+                            val resolver = result.engine?.displayName().orEmpty()
                             android.util.Log.d(
                                 "YouTubeRepo",
                                 "Audio preview resolved via $resolver in ${android.os.SystemClock.elapsedRealtime() - startedAt}ms for $videoId",
                             )
                         }
-                        if (streamUrl == null) {
-                            recordEmptyExtractorResult()
-                            null
-                        } else {
-                            streamCache[videoId] = CachedStream(streamUrl, System.currentTimeMillis())
-                            streamUrl
-                        }
+                        streamCache[videoId] = CachedStream(streamUrl, System.currentTimeMillis())
+                        streamUrl
                     }
                 } catch (e: CancellationException) {
                     throw e
@@ -290,40 +327,18 @@ class YouTubeRepository @Inject constructor(
         try {
             sourceMetrics.measure(sourceName) {
                 val pageUrl = "https://www.youtube.com/watch?v=$videoId"
-                val newPipeUrl = runCatching {
-                    val service = NewPipe.getService(ServiceList.YouTube.serviceId)
-                    StreamInfo.getInfo(service, pageUrl).audioStreams
-                        .asSequence()
-                        .filter { it.isUrl && it.url?.isNotBlank() == true }
-                        .filter { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
-                        .sortedWith(
-                            compareBy<org.schabi.newpipe.extractor.stream.AudioStream> {
-                                when (it.format) {
-                                    MediaFormat.M4A -> 0
-                                    MediaFormat.WEBMA, MediaFormat.WEBMA_OPUS -> 1
-                                    else -> 2
-                                }
-                            }.thenByDescending { it.averageBitrate },
-                        )
-                        .firstOrNull()
-                        ?.url
-                }.getOrNull()
-                val streamUrl = newPipeUrl ?: run {
-                    if (BuildConfig.DEBUG) android.util.Log.d("YouTubeRepo", "Falling back to yt-dlp bestaudio for $videoId")
-                    val request = ytDlpRequestFactory.create(pageUrl)
-                    request.addOption("-f", "bestaudio")
-                    request.addOption("--get-url")
-                    val response = com.yausername.youtubedl_android.YoutubeDL.getInstance().execute(request)
-                    response.out?.trim().also {
-                        if (!it.isNullOrBlank()) ytDlpUpdateManager.recordExtractionSuccess()
-                    }
-                }
-                if (streamUrl.isNullOrBlank()) {
-                    recordEmptyExtractorResult()
-                    null
-                } else {
-                    streamUrl
-                }
+                val result = executeYouTubeFailover(
+                    primaryEngine = YouTubeExtractionEngine.NEWPIPE,
+                    fallbackEngine = YouTubeExtractionEngine.YT_DLP,
+                    primary = { resolveNewPipeAudio(pageUrl, preferLowBitrate = false) },
+                    fallback = { resolveYtDlpAudio(pageUrl, format = "bestaudio") },
+                    isUsable = String::isNotBlank,
+                )
+                reportExtractionResult(result)
+                result.value ?: throw YouTubeExtractionUnavailableException(
+                    primaryError = result.primaryError,
+                    fallbackError = result.fallbackError,
+                )
             }
         } catch (e: CancellationException) {
             throw e
@@ -399,6 +414,55 @@ class YouTubeRepository @Inject constructor(
 
     private suspend fun isProviderEnabled(): Boolean = prefs.youtubeProviderEnabled.first()
 
+    private fun filterSearchSounds(
+        sounds: List<Sound>,
+        minDuration: Int,
+        maxDuration: Int,
+        blocked: List<Regex>,
+    ): List<Sound> = sounds
+        .filter { it.duration > 0.0 }
+        .filter { it.duration in minDuration.toDouble()..maxDuration.toDouble() }
+        .filter { sound -> blocked.none { it.containsMatchIn(sound.name) } }
+        .filter { !it.name.contains("#") }
+
+    private fun resolveNewPipeAudio(pageUrl: String, preferLowBitrate: Boolean): String? {
+        val service = NewPipe.getService(ServiceList.YouTube.serviceId)
+        val streams = StreamInfo.getInfo(service, pageUrl).audioStreams
+            .asSequence()
+            .filter { it.isUrl && it.url?.isNotBlank() == true }
+            .filter { it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
+        val comparator = compareBy<org.schabi.newpipe.extractor.stream.AudioStream> {
+            when (it.format) {
+                MediaFormat.M4A -> 0
+                MediaFormat.WEBMA, MediaFormat.WEBMA_OPUS -> 1
+                else -> 2
+            }
+        }.thenBy { stream ->
+            val bitrate = stream.averageBitrate.takeIf { it > 0 } ?: Int.MAX_VALUE
+            if (preferLowBitrate) bitrate else -bitrate
+        }
+        return streams.sortedWith(comparator).firstOrNull()?.url
+    }
+
+    private suspend fun resolveYtDlpAudio(pageUrl: String, format: String): String? {
+        val request = ytDlpRequestFactory.create(pageUrl)
+        request.addOption("-f", format)
+        request.addOption("--get-url")
+        val response = com.yausername.youtubedl_android.YoutubeDL.getInstance().execute(request)
+        return response.out?.trim()?.lineSequence()?.firstOrNull(String::isNotBlank)
+    }
+
+    private suspend fun <T> reportExtractionResult(result: YouTubeFailoverResult<T>) {
+        _extractionStatus.value = result.toExtractionStatus()
+        when {
+            result.engine == YouTubeExtractionEngine.YT_DLP -> ytDlpUpdateManager.recordExtractionSuccess()
+            result.value == null -> ytDlpUpdateManager.recordExtractionFailure(
+                result.fallbackError ?: result.primaryError
+                    ?: IllegalStateException("Both YouTube extractors returned no result"),
+            )
+        }
+    }
+
     private suspend fun recordEmptyExtractorResult() {
         ytDlpUpdateManager.recordExtractionFailure(
             IllegalStateException("yt-dlp returned an empty stream URL"),
@@ -462,6 +526,8 @@ private fun videoMimeTypeForExtension(ext: String): String = when (ext.lowercase
     "ogv", "ogg" -> "video/ogg"
     else -> ""
 }
+
+private val YOUTUBE_VIDEO_ID = Regex("[A-Za-z0-9_-]{11}")
 
 /**
  * Minimal Downloader implementation required by NewPipe Extractor.

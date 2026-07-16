@@ -25,6 +25,7 @@ import com.freevibe.data.repository.SoundCloudRepository
 import com.freevibe.data.repository.UploadRepository
 import com.freevibe.data.repository.VoteRepository
 import com.freevibe.data.repository.YouTubeRepository
+import com.freevibe.data.repository.YouTubeExtractionStatus
 import com.freevibe.service.AudioPlaybackManager
 import com.freevibe.service.AudioPreviewCache
 import com.freevibe.service.BundledContentProvider
@@ -1465,6 +1466,7 @@ class SoundsViewModelTest {
         ccMixterRepo: CcMixterRepository,
         soundCloudRepo: SoundCloudRepository,
     ) {
+        every { youtubeRepo.extractionStatus } returns MutableStateFlow(YouTubeExtractionStatus())
         every { youtubeRepo.isCached(any()) } returns false
         coEvery { youtubeRepo.searchSounds(any(), any(), any(), any()) } returns emptySoundResult()
         coEvery { youtubeRepo.getAudioPreviewUrl(any()) } returns null

@@ -67,6 +67,8 @@ import com.freevibe.data.model.SoundLicenseCapabilities
 import com.freevibe.data.model.soundLicenseCapabilities
 import com.freevibe.data.model.stableKey
 import com.freevibe.data.repository.matchesHiddenIds
+import com.freevibe.data.repository.YouTubeExtractionMode
+import com.freevibe.data.repository.displayName
 import com.freevibe.ui.components.AuraStateAction
 import com.freevibe.ui.components.AuraStateCard
 import com.freevibe.ui.components.AuraSnackbarHost
@@ -566,6 +568,45 @@ fun SoundsScreen(
                             viewModel.selectTab(tab)
                         }
                     },
+                )
+            }
+
+            if (
+                state.selectedTab == SoundTab.YOUTUBE &&
+                youtubeProviderEnabled &&
+                state.youtubeExtractionStatus.mode != YouTubeExtractionMode.HEALTHY
+            ) {
+                val status = state.youtubeExtractionStatus
+                val usingBackup = status.mode == YouTubeExtractionMode.BACKUP_ACTIVE
+                AuraStatusBanner(
+                    icon = Icons.Default.WarningAmber,
+                    title = stringResource(
+                        if (usingBackup) {
+                            R.string.sounds_youtube_backup_title
+                        } else {
+                            R.string.sounds_youtube_unavailable_title
+                        },
+                    ),
+                    message = if (usingBackup) {
+                        stringResource(
+                            R.string.sounds_youtube_backup_message,
+                            status.failedEngine?.displayName().orEmpty(),
+                            status.activeEngine?.displayName().orEmpty(),
+                        )
+                    } else {
+                        stringResource(R.string.sounds_youtube_unavailable_message)
+                    },
+                    tone = if (usingBackup) {
+                        MaterialTheme.colorScheme.tertiary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                    primaryAction = AuraStatusAction(
+                        label = stringResource(R.string.common_refresh),
+                        icon = Icons.Default.Refresh,
+                        onClick = { viewModel.refresh() },
+                    ),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 )
             }
 

@@ -223,6 +223,11 @@ class SoundsViewModel @Inject constructor(
         community.init()
         browse.start()
         viewModelScope.launch {
+            youtubeRepo.extractionStatus.collect { status ->
+                _state.update { it.copy(youtubeExtractionStatus = status) }
+            }
+        }
+        viewModelScope.launch {
             sourceMetrics.version.collect {
                 _state.update { s -> s.copy(degradedSources = sourceMetrics.degradedSources()) }
             }
