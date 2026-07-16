@@ -34,6 +34,9 @@ and a no-OAuth Reddit RSS pipeline.
 - **Enforced image format policy before local decodes**: apply, rotation, crop,
   and editor paths now verify sniffed image bytes and surface format/Android
   compatibility guidance instead of collapsing unsupported input into decode errors.
+- **Localized action-layer feedback**: wallpaper apply/style, community sound,
+  personal recording, and generated-wallpaper outcomes now resolve through app
+  resources instead of embedding English messages inside ViewModels and delegates.
 - **Added day/night wallpaper scheduling**: auto-rotation can keep one source,
   switch between independently selected day and night sources at configurable
   clock boundaries, or follow the system light/dark theme. Phase sources and

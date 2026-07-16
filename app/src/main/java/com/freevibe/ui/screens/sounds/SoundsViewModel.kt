@@ -1,8 +1,10 @@
 package com.freevibe.ui.screens.sounds
 
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.freevibe.R
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.model.CommunityReportReason
 import com.freevibe.data.model.CommunityUploadRights
@@ -29,6 +31,7 @@ import com.freevibe.service.SoundFeedCache
 import com.freevibe.service.soundFeedCacheKey
 import com.freevibe.service.SourceMetrics
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -42,6 +45,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SoundsViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val youtubeRepo: YouTubeRepository,
     private val favoritesRepo: FavoritesRepository,
     private val soundApplier: SoundApplier,
@@ -96,6 +100,7 @@ class SoundsViewModel @Inject constructor(
     val communityUploads = _communityUploads.asStateFlow()
 
     internal val community = SoundCommunityActions(
+        context = context,
         voteRepo = voteRepo,
         reportRepo = reportRepo,
         communityBlockRepo = communityBlockRepo,
@@ -330,7 +335,12 @@ class SoundsViewModel @Inject constructor(
                 // Mic held by a call/another app: without feedback the record FAB
                 // silently does nothing.
                 _state.update {
-                    it.copy(error = "Recording failed: ${e.message ?: "microphone unavailable"}")
+                    it.copy(
+                        error = context.getString(
+                            R.string.sound_feedback_recording_failed,
+                            e.message ?: context.getString(R.string.sound_feedback_microphone_unavailable),
+                        ),
+                    )
                 }
             }
     }
@@ -345,7 +355,9 @@ class SoundsViewModel @Inject constructor(
                 _state.update {
                     it.copy(
                         isRecordingPersonal = false,
-                        error = e.message ?: "Recording could not be saved",
+                        error = e.message?.let {
+                            context.getString(R.string.sound_feedback_recording_save_failed, it)
+                        } ?: context.getString(R.string.sound_feedback_recording_could_not_save),
                     )
                 }
             }

@@ -1,5 +1,7 @@
 package com.freevibe.ui.screens.sounds
 
+import android.content.Context
+import com.freevibe.R
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.model.CommunityBlockReason
 import com.freevibe.data.model.CommunityReportReason
@@ -1435,6 +1437,7 @@ class SoundsViewModelTest {
         }
 
         return SoundsViewModel(
+            context = localizedFeedbackContext(),
             youtubeRepo = youtubeRepo,
             favoritesRepo = favoritesRepo,
             soundApplier = mockk<SoundApplier>(relaxed = true),
@@ -1456,6 +1459,14 @@ class SoundsViewModelTest {
             sourceMetrics = com.freevibe.service.SourceMetrics(),
             soundFeedCache = mockk<SoundFeedCache>(relaxed = true),
         )
+    }
+
+    private fun localizedFeedbackContext(): Context = mockk<Context>(relaxed = true).also { context ->
+        every { context.getString(R.string.sound_feedback_community_disabled) } returns
+            "Community source is disabled in Settings"
+        every { context.getString(R.string.feedback_report_submitted) } returns "Report submitted"
+        every { context.getString(R.string.feedback_creator_blocked) } returns "Creator blocked"
+        every { context.getString(R.string.feedback_upload_deleted) } returns "Upload deleted"
     }
 
     private fun stubCommonDependencies(

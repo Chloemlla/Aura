@@ -1,5 +1,7 @@
 package com.freevibe.ui.screens.wallpapers
 
+import android.content.Context
+import com.freevibe.R
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.model.Wallpaper
 import com.freevibe.data.model.stableKey
@@ -20,6 +22,7 @@ import kotlinx.coroutines.sync.withLock
  * read-modify-write would otherwise interleave and drop signals.
  */
 internal class WallpaperStyleActions(
+    private val context: Context,
     private val prefs: PreferencesManager,
     private val browse: WallpaperBrowseViewModel,
     private val state: MutableStateFlow<WallpapersUiState>,
@@ -33,7 +36,7 @@ internal class WallpaperStyleActions(
             state.update { s ->
                 s.copy(
                     wallpapers = s.wallpapers.filterNot { it.stableKey() == wallpaper.stableKey() },
-                    applySuccess = "Hidden from this feed",
+                    applySuccess = context.getString(R.string.wallpaper_feedback_hidden),
                 )
             }
         }

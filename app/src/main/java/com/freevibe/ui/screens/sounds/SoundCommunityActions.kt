@@ -1,12 +1,13 @@
 package com.freevibe.ui.screens.sounds
 
+import android.content.Context
 import android.net.Uri
+import com.freevibe.R
 import com.freevibe.data.model.CommunityBlockReason
 import com.freevibe.data.model.CommunityReportInput
 import com.freevibe.data.model.CommunityReportReason
 import com.freevibe.data.model.CommunityUploadRights
 import com.freevibe.data.model.ContentSource
-import com.freevibe.data.model.COMMUNITY_GUIDELINES_REQUIRED_MESSAGE
 import com.freevibe.data.model.Sound
 import com.freevibe.data.model.sanitizeCommunityOwnerKey
 import com.freevibe.data.model.stableKey
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 internal class SoundCommunityActions(
+    private val context: Context,
     val voteRepo: VoteRepository,
     private val reportRepo: CommunityReportRepository,
     private val communityBlockRepo: CommunityBlockRepository,
@@ -70,9 +72,9 @@ internal class SoundCommunityActions(
 
     fun communityDisabledMessage(): String =
         if (!communityProviderEnabled.value) {
-            "Community source is disabled in Settings"
+            context.getString(R.string.sound_feedback_community_disabled)
         } else {
-            COMMUNITY_GUIDELINES_REQUIRED_MESSAGE
+            context.getString(R.string.community_guidelines_action_required)
         }
 
     fun upvote(id: String) {
@@ -81,7 +83,7 @@ internal class SoundCommunityActions(
             try { voteRepo.upvote(id) }
             catch (e: Exception) {
                 e.rethrowIfCancelled()
-                state.update { it.copy(error = e.message ?: "Failed to upvote") }
+                state.update { it.copy(error = e.message ?: context.getString(R.string.sound_feedback_upvote_failed)) }
             }
         }
     }
@@ -92,7 +94,7 @@ internal class SoundCommunityActions(
             try { voteRepo.downvote(id) }
             catch (e: Exception) {
                 e.rethrowIfCancelled()
-                state.update { it.copy(error = e.message ?: "Failed to downvote") }
+                state.update { it.copy(error = e.message ?: context.getString(R.string.sound_feedback_downvote_failed)) }
             }
         }
     }
@@ -113,7 +115,12 @@ internal class SoundCommunityActions(
             }
             .onFailure { e ->
                 state.update {
-                    it.copy(error = "Recording failed: ${e.message ?: "microphone unavailable"}")
+                    it.copy(
+                        error = context.getString(
+                            R.string.sound_feedback_recording_failed,
+                            e.message ?: context.getString(R.string.sound_feedback_microphone_unavailable),
+                        ),
+                    )
                 }
             }
     }
@@ -127,7 +134,7 @@ internal class SoundCommunityActions(
                         isRecordingUpload = false,
                         recordingStartedAtMs = 0L,
                         recordedUploadUri = uri,
-                        applySuccess = "Recording ready to upload",
+                        applySuccess = context.getString(R.string.sound_feedback_recording_ready),
                     )
                 }
             }
@@ -136,7 +143,9 @@ internal class SoundCommunityActions(
                     it.copy(
                         isRecordingUpload = false,
                         recordingStartedAtMs = 0L,
-                        error = e.message ?: "Recording could not be saved",
+                        error = e.message?.let {
+                            context.getString(R.string.sound_feedback_recording_save_failed, it)
+                        } ?: context.getString(R.string.sound_feedback_recording_could_not_save),
                     )
                 }
             }
@@ -159,7 +168,7 @@ internal class SoundCommunityActions(
 
     fun reportRecordingPermissionDenied() {
         if (communityActionBlocked()) return
-        state.update { it.copy(error = "Microphone permission is required to record a community sound") }
+        state.update { it.copy(error = context.getString(R.string.sound_feedback_microphone_permission)) }
     }
 
     fun uploadSound(
@@ -183,9 +192,24 @@ internal class SoundCommunityActions(
                     state.update { it.copy(uploadProgress = progress) }
                 },
             ).onSuccess {
-                state.update { it.copy(isUploading = false, uploadProgress = 0f, applySuccess = "Upload complete") }
+                state.update {
+                    it.copy(
+                        isUploading = false,
+                        uploadProgress = 0f,
+                        applySuccess = context.getString(R.string.sound_feedback_upload_complete),
+                    )
+                }
             }.onFailure { e ->
-                state.update { it.copy(isUploading = false, uploadProgress = 0f, error = "Upload failed: ${e.message}") }
+                state.update {
+                    it.copy(
+                        isUploading = false,
+                        uploadProgress = 0f,
+                        error = context.getString(
+                            R.string.sound_feedback_upload_failed,
+                            e.message ?: context.getString(R.string.feedback_try_again),
+                        ),
+                    )
+                }
             }
         }
     }
@@ -210,12 +234,19 @@ internal class SoundCommunityActions(
                     state.update { s ->
                         s.copy(
                             sounds = s.sounds.filterNot { it.stableKey() == key },
-                            applySuccess = "Upload deleted",
+                            applySuccess = context.getString(R.string.feedback_upload_deleted),
                         )
                     }
                 }
                 .onFailure { error ->
-                    state.update { it.copy(error = "Delete failed: ${error.message ?: "try again"}") }
+                    state.update {
+                        it.copy(
+                            error = context.getString(
+                                R.string.feedback_delete_failed,
+                                error.message ?: context.getString(R.string.feedback_try_again),
+                            ),
+                        )
+                    }
                 }
         }
     }
@@ -236,9 +267,16 @@ internal class SoundCommunityActions(
                     uploaderUid = sound.communityUploaderId,
                 ),
             ).onSuccess {
-                state.update { it.copy(applySuccess = "Report submitted") }
+                state.update { it.copy(applySuccess = context.getString(R.string.feedback_report_submitted)) }
             }.onFailure { error ->
-                state.update { it.copy(error = "Report failed: ${error.message ?: "try again"}") }
+                state.update {
+                    it.copy(
+                        error = context.getString(
+                            R.string.feedback_report_failed,
+                            error.message ?: context.getString(R.string.feedback_try_again),
+                        ),
+                    )
+                }
             }
         }
     }
@@ -253,7 +291,7 @@ internal class SoundCommunityActions(
         if (communityActionBlocked()) return
         val blockedUploaderId = sound.communityUploaderId
         if (sound.source != ContentSource.COMMUNITY || blockedUploaderId.isBlank()) {
-            state.update { it.copy(error = "This sound does not expose a blockable community uploader") }
+            state.update { it.copy(error = context.getString(R.string.sound_feedback_unblockable_uploader)) }
             return
         }
         scope.launch {
@@ -265,13 +303,20 @@ internal class SoundCommunityActions(
                     state.update { s ->
                         s.copy(
                             sounds = s.sounds.filterNot { it.matchesCommunityUploader(blockedUploaderId) },
-                            applySuccess = "Creator blocked",
+                            applySuccess = context.getString(R.string.feedback_creator_blocked),
                         )
                     }
                     onBlocked()
                 }
                 .onFailure { error ->
-                    state.update { it.copy(error = "Block failed: ${error.message ?: "try again"}") }
+                    state.update {
+                        it.copy(
+                            error = context.getString(
+                                R.string.feedback_block_failed,
+                                error.message ?: context.getString(R.string.feedback_try_again),
+                            ),
+                        )
+                    }
                 }
         }
     }

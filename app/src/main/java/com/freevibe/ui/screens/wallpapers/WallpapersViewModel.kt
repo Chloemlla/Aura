@@ -136,6 +136,7 @@ class WallpapersViewModel @Inject constructor(
     )
 
     internal val styleActions = WallpaperStyleActions(
+        context = context,
         prefs = prefs,
         browse = browse,
         state = _state,

@@ -2,6 +2,7 @@ package com.freevibe.ui.screens.wallpapers
 
 import android.content.Context
 import android.content.res.Configuration
+import com.freevibe.R
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Wallpaper
@@ -60,17 +61,20 @@ internal class WallpaperApplyActions(
                     historyManager.record(wallpaper, target)
                     prefs.setLastNightVariantWallpaper(wallpaper.fullUrl, target.name)
                     val undoTarget = historyManager.previousSnapshot()
-                    val label = when (target) {
-                        WallpaperTarget.HOME -> "home screen"
-                        WallpaperTarget.LOCK -> "lock screen"
-                        WallpaperTarget.BOTH -> "home & lock screen"
+                    val labelRes = when (target) {
+                        WallpaperTarget.HOME -> R.string.apply_target_home
+                        WallpaperTarget.LOCK -> R.string.apply_target_lock
+                        WallpaperTarget.BOTH -> R.string.apply_target_both
                     }
                     // Feedback goes through the global bus only — setting applySuccess
                     // too stacks a second snackbar on top of the bus one (seen on-device).
                     state.update { it.copy(isApplying = false) }
                     applyFeedbackBus.post(
                         ApplyFeedbackEvent(
-                            message = "Applied to $label",
+                            message = context.getString(
+                                R.string.apply_feedback_applied_to,
+                                context.getString(labelRes),
+                            ),
                             undoTarget = undoTarget,
                         )
                     )
@@ -96,10 +100,23 @@ internal class WallpaperApplyActions(
                     prefs.setLastNightVariantWallpaper(entry.fullUrl, target.name)
                     // Bus-only feedback — see applyWallpaper.
                     state.update { it.copy(isApplying = false) }
-                    applyFeedbackBus.post(ApplyFeedbackEvent(message = "Reverted to previous wallpaper", undoTarget = null))
+                    applyFeedbackBus.post(
+                        ApplyFeedbackEvent(
+                            message = context.getString(R.string.apply_feedback_reverted),
+                            undoTarget = null,
+                        ),
+                    )
                 }
                 .onFailure { e ->
-                    state.update { it.copy(isApplying = false, error = "Undo failed: ${e.message}") }
+                    state.update {
+                        it.copy(
+                            isApplying = false,
+                            error = context.getString(
+                                R.string.apply_feedback_undo_failed,
+                                e.message ?: context.getString(R.string.apply_feedback_unknown_error),
+                            ),
+                        )
+                    }
                 }
         }
     }
@@ -111,7 +128,12 @@ internal class WallpaperApplyActions(
                 .onSuccess {
                     onStyleSignal(wallpaper, WallpaperStyleLearningSignal.APPLIED)
                     historyManager.record(wallpaper, WallpaperTarget.BOTH)
-                    state.update { it.copy(isApplying = false, applySuccess = "Split crop applied to home & lock") }
+                    state.update {
+                        it.copy(
+                            isApplying = false,
+                            applySuccess = context.getString(R.string.wallpaper_feedback_split_crop_applied),
+                        )
+                    }
                 }
                 .onFailure { e ->
                     state.update { it.copy(isApplying = false, error = e.message) }
@@ -184,7 +206,17 @@ internal class WallpaperApplyActions(
                     }
                 }
             }
-            state.update { it.copy(applySuccess = if (isFav) "Removed from favorites" else "Added to favorites") }
+            state.update {
+                it.copy(
+                    applySuccess = context.getString(
+                        if (isFav) {
+                            R.string.wallpaper_feedback_favorite_removed
+                        } else {
+                            R.string.wallpaper_feedback_favorite_added
+                        },
+                    ),
+                )
+            }
         }
     }
 

@@ -255,6 +255,29 @@ class ReleasePolishContractTest {
     }
 
     @Test
+    fun `viewmodel feedback is resolved through application resources`() {
+        val feedbackFiles = listOf(
+            "src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperApplyActions.kt",
+            "src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperStyleActions.kt",
+            "src/main/java/com/freevibe/ui/screens/sounds/SoundCommunityActions.kt",
+            "src/main/java/com/freevibe/ui/screens/sounds/SoundsViewModel.kt",
+            "src/main/java/com/freevibe/ui/screens/aigenerate/AiWallpaperViewModel.kt",
+        ).map { File(it).readText() }
+        val source = feedbackFiles.joinToString("\n")
+
+        assertTrue(source.contains("@ApplicationContext private val context: Context") || source.contains("private val context: Context"))
+        assertTrue(source.contains("context.getString("))
+        listOf(
+            "Applied to $",
+            "Reverted to previous wallpaper\"",
+            "Recording failed:",
+            "Hidden from this feed\"",
+            "Upload complete\"",
+            "Report submitted\"",
+        ).forEach { literal -> assertTrue("feedback literal should be resource-backed: $literal", !source.contains(literal)) }
+    }
+
+    @Test
     fun `settings viewmodel schedules and cancels local backup work`() {
         val source = File("src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt").readText()
         val backupSlice = source.substringAfter("fun setAutoBackupEnabled(").substringBefore("// T-6: Source diagnostics")

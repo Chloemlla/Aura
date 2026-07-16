@@ -1,7 +1,9 @@
 package com.freevibe.ui.screens.aigenerate
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.freevibe.R
 import com.freevibe.data.model.CommunityReportInput
 import com.freevibe.data.model.CommunityReportReason
 import com.freevibe.data.model.ContentSource
@@ -18,6 +20,7 @@ import com.freevibe.data.local.PreferencesManager
 import com.freevibe.service.SourceMetrics
 import com.freevibe.service.WallpaperApplier
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,6 +37,8 @@ const val GENERATED_CONTENT_DISCLOSURE_REQUIRED_MESSAGE =
     "Review and accept the generated wallpaper disclosure before generating."
 const val GENERATED_CONTENT_IN_FLIGHT_MESSAGE =
     "Generation already in progress. Wait for it to finish before starting another Stability request."
+const val GENERATED_PROMPT_REQUIRED_MESSAGE = "Describe your wallpaper to get started."
+const val GENERATED_API_KEY_REQUIRED_MESSAGE = "Enter your Stability AI key to generate images."
 
 private val GENERATED_PROMPT_WHITESPACE_RE = "\\s+".toRegex()
 
@@ -79,8 +84,8 @@ fun generatedWallpaperRequestError(
 ): String? = when {
     !providerEnabled -> GENERATED_CONTENT_DISABLED_MESSAGE
     isGenerating -> GENERATED_CONTENT_IN_FLIGHT_MESSAGE
-    prompt.isBlank() -> "Describe your wallpaper to get started."
-    apiKey.isBlank() -> "Enter your Stability AI key to generate images."
+    prompt.isBlank() -> GENERATED_PROMPT_REQUIRED_MESSAGE
+    apiKey.isBlank() -> GENERATED_API_KEY_REQUIRED_MESSAGE
     !disclosureAccepted -> GENERATED_CONTENT_DISCLOSURE_REQUIRED_MESSAGE
     else -> null
 }
@@ -135,6 +140,7 @@ data class AiWallpaperUiState(
 
 @HiltViewModel
 class AiWallpaperViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val repo: AiWallpaperRepository,
     private val favoritesRepo: FavoritesRepository,
     private val reportRepo: CommunityReportRepository,
@@ -217,7 +223,7 @@ class AiWallpaperViewModel @Inject constructor(
         )
         if (requestError != null) {
             if (!providerEnabled) sourceMetrics.recordDisabled(SOURCE_AI_GENERATED)
-            _state.update { it.copy(error = requestError) }
+            _state.update { it.copy(error = localizedRequestError(requestError)) }
             return
         }
 
@@ -266,7 +272,14 @@ class AiWallpaperViewModel @Inject constructor(
                     )
                 }
             }.onFailure { e ->
-                _state.update { it.copy(isGenerating = false, error = e.message ?: "Generation failed") }
+                _state.update {
+                    it.copy(
+                        isGenerating = false,
+                        error = e.message?.let { message ->
+                            context.getString(R.string.ai_feedback_generation_failed_detail, message)
+                        } ?: context.getString(R.string.ai_feedback_generation_failed),
+                    )
+                }
             }
         }
     }
@@ -289,7 +302,12 @@ class AiWallpaperViewModel @Inject constructor(
         val job = generationJob ?: return
         if (job.isActive) {
             job.cancel()
-            _state.update { it.copy(isGenerating = false, error = "Generation cancelled") }
+            _state.update {
+                it.copy(
+                    isGenerating = false,
+                    error = context.getString(R.string.ai_feedback_generation_cancelled),
+                )
+            }
         }
         generationJob = null
     }
@@ -310,15 +328,31 @@ class AiWallpaperViewModel @Inject constructor(
             // synchronously on the UI thread). applyByLocator handles file:// URIs natively.
             wallpaperApplier.applyByLocator(wallpaper.fullUrl, target)
                 .onSuccess {
-                    val label = when (target) {
-                        WallpaperTarget.HOME -> "home screen"
-                        WallpaperTarget.LOCK -> "lock screen"
-                        WallpaperTarget.BOTH -> "home & lock screen"
+                    val labelRes = when (target) {
+                        WallpaperTarget.HOME -> R.string.apply_target_home
+                        WallpaperTarget.LOCK -> R.string.apply_target_lock
+                        WallpaperTarget.BOTH -> R.string.apply_target_both
                     }
-                    _state.update { it.copy(isApplying = false, applySuccess = "Applied to $label") }
+                    _state.update {
+                        it.copy(
+                            isApplying = false,
+                            applySuccess = context.getString(
+                                R.string.apply_feedback_applied_to,
+                                context.getString(labelRes),
+                            ),
+                        )
+                    }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(isApplying = false, error = "Apply failed: ${e.message ?: "unknown"}") }
+                    _state.update {
+                        it.copy(
+                            isApplying = false,
+                            error = context.getString(
+                                R.string.apply_feedback_apply_failed,
+                                e.message ?: context.getString(R.string.apply_feedback_unknown_error),
+                            ),
+                        )
+                    }
                 }
         }
     }
@@ -335,11 +369,30 @@ class AiWallpaperViewModel @Inject constructor(
         viewModelScope.launch {
             reportRepo.submitReport(generatedWallpaperReportInput(wallpaper, reason, note))
                 .onSuccess {
-                    _state.update { it.copy(applySuccess = "Report submitted") }
+                    _state.update { it.copy(applySuccess = context.getString(R.string.feedback_report_submitted)) }
                 }
                 .onFailure { error ->
-                    _state.update { it.copy(error = "Report failed: ${error.message ?: "try again"}") }
+                    _state.update {
+                        it.copy(
+                            error = context.getString(
+                                R.string.feedback_report_failed,
+                                error.message ?: context.getString(R.string.feedback_try_again),
+                            ),
+                        )
+                    }
                 }
         }
+    }
+
+    private fun localizedRequestError(error: String): String {
+        val stringRes = when (error) {
+            GENERATED_CONTENT_DISABLED_MESSAGE -> R.string.ai_feedback_provider_disabled
+            GENERATED_CONTENT_IN_FLIGHT_MESSAGE -> R.string.ai_feedback_generation_in_progress
+            GENERATED_PROMPT_REQUIRED_MESSAGE -> R.string.ai_feedback_prompt_required
+            GENERATED_API_KEY_REQUIRED_MESSAGE -> R.string.ai_feedback_key_required
+            GENERATED_CONTENT_DISCLOSURE_REQUIRED_MESSAGE -> R.string.ai_feedback_disclosure_required
+            else -> return error
+        }
+        return context.getString(stringRes)
     }
 }
