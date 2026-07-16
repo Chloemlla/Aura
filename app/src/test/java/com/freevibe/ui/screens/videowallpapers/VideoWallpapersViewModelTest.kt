@@ -3,6 +3,7 @@ package com.freevibe.ui.screens.videowallpapers
 import com.freevibe.data.remote.pixabay.PixabayVideo
 import com.freevibe.data.remote.pixabay.PixabayVideoFile
 import com.freevibe.data.remote.pixabay.PixabayVideoFiles
+import com.freevibe.data.repository.parseRedditRssPage
 import com.freevibe.data.repository.YouTubeVideoMetadata
 import com.freevibe.data.repository.sanitizeVoteKey
 import com.freevibe.util.rethrowIfCancelled
@@ -385,6 +386,55 @@ class VideoWallpapersViewModelTest {
             ),
         )
         assertNotNull(decodePixabayVideoCache(encoded, nowMs = afterRedditTtl, requireFresh = true))
+    }
+
+    @Test
+    fun `reddit motion cache preserves raw cursor when atom tail is non media`() {
+        val xml = buildString {
+            append("<feed>")
+            append(
+                """
+                <entry>
+                  <id>t3_motion</id>
+                  <title>Loop</title>
+                  <content type="html">&lt;a href=&quot;https://i.redd.it/motion.gif&quot;&gt;loop&lt;/a&gt;</content>
+                </entry>
+                """.trimIndent(),
+            )
+            repeat(99) { index ->
+                append("<entry><id>t3_text$index</id><title>Text tail $index</title></entry>")
+            }
+            append("</feed>")
+        }
+        val rssPage = parseRedditRssPage(xml, "Cinemagraphs")
+        val result = PixabayVideoMetadataResult(
+            items = listOf(
+                VideoWallpaperItem(
+                    id = "rd_motion",
+                    title = "Loop",
+                    thumbnailUrl = "https://example.com/motion.jpg",
+                    source = "Reddit",
+                ),
+            ),
+            streamUrls = mapOf("rd_motion" to "https://i.redd.it/motion.gif"),
+        )
+
+        val decoded = decodePixabayVideoCache(
+            raw = encodePixabayVideoCache(
+                CachedPixabayVideoMetadata(
+                    result = result,
+                    cachedAtMs = 1_000L,
+                    nextAfter = rssPage.nextAfter,
+                    pageExhausted = isRedditMotionPageExhausted(rssPage.rawEntryCount, rssPage.nextAfter),
+                ),
+            ),
+            nowMs = 2_000L,
+        )
+
+        assertEquals(100, rssPage.rawEntryCount)
+        assertEquals("t3_text98", decoded?.nextAfter)
+        assertEquals(false, decoded?.pageExhausted)
+        assertEquals("rd_motion", decoded?.result?.items?.single()?.id)
     }
 
     @Test

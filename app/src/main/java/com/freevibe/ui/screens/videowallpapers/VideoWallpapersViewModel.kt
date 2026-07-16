@@ -82,6 +82,8 @@ internal data class PixabayVideoMetadataResult(
 internal data class CachedPixabayVideoMetadata(
     val result: PixabayVideoMetadataResult,
     val cachedAtMs: Long,
+    val nextAfter: String? = null,
+    val pageExhausted: Boolean? = null,
 )
 
 internal data class RedditMotionFeedGroup(
@@ -345,6 +347,8 @@ internal fun encodePixabayVideoCache(
 ): String {
     val properties = Properties()
     properties.setProperty("cachedAtMs", cached.cachedAtMs.toString())
+    cached.nextAfter?.let { properties.setProperty("nextAfter", it) }
+    cached.pageExhausted?.let { properties.setProperty("pageExhausted", it.toString()) }
     properties.setProperty("count", cached.result.items.size.toString())
     cached.result.items.forEachIndexed { index, item ->
         val prefix = "item.$index."
@@ -380,6 +384,7 @@ internal fun decodePixabayVideoCache(
         properties.load(ByteArrayInputStream(raw.toByteArray(StandardCharsets.ISO_8859_1)))
         val cachedAtMs = properties.getProperty("cachedAtMs")?.toLongOrNull() ?: 0L
         if (requireFresh && (cachedAtMs <= 0 || nowMs - cachedAtMs > freshnessTtlMs)) return null
+        val pageExhausted = properties.getProperty("pageExhausted")?.toBooleanStrictOrNull()
         val count = properties.getProperty("count")?.toIntOrNull()?.coerceAtLeast(0) ?: 0
         val items = mutableListOf<VideoWallpaperItem>()
         val urls = linkedMapOf<String, String>()
@@ -406,10 +411,12 @@ internal fun decodePixabayVideoCache(
             items += item
             urls[id] = streamUrl
         }
-        if (items.isEmpty()) return null
+        if (items.isEmpty() && pageExhausted == null) return null
         CachedPixabayVideoMetadata(
             result = PixabayVideoMetadataResult(items = items, streamUrls = urls),
             cachedAtMs = cachedAtMs,
+            nextAfter = properties.getProperty("nextAfter")?.takeIf { it.isNotBlank() },
+            pageExhausted = pageExhausted,
         )
     }.getOrNull()
 }
@@ -1135,16 +1142,20 @@ class VideoWallpapersViewModel @Inject constructor(
         count: Int,
     ): RedditRssMotionPage {
         val cacheKey = redditRssMotionCacheKey(group, after)
-        readPixabayVideoCache(
+        readVideoMetadataCache(
             cacheKey = cacheKey,
             freshOnly = true,
             freshnessTtlMs = REDDIT_RSS_MOTION_CACHE_TTL_MS,
         )?.let { cached ->
             return RedditRssMotionPage(
-                result = cached,
+                result = cached.result,
                 groupKey = group.key,
-                nextAfter = redditAfterToken(cached.items.lastOrNull()?.id),
-                exhausted = false,
+                nextAfter = if (cached.pageExhausted != null) {
+                    cached.nextAfter
+                } else {
+                    redditAfterToken(cached.result.items.lastOrNull()?.id)
+                },
+                exhausted = cached.pageExhausted ?: false,
             )
         }
         return try {
@@ -1195,25 +1206,35 @@ class VideoWallpapersViewModel @Inject constructor(
                 }
                 .toList()
             val result = PixabayVideoMetadataResult(items = items, streamUrls = urls)
-            if (result.items.isNotEmpty()) writePixabayVideoCache(cacheKey, result)
+            val exhausted = isRedditMotionPageExhausted(rssPage.rawEntryCount, rssPage.nextAfter)
+            writePixabayVideoCache(
+                cacheKey = cacheKey,
+                result = result,
+                nextAfter = rssPage.nextAfter,
+                pageExhausted = exhausted,
+            )
             RedditRssMotionPage(
                 result = result,
                 groupKey = group.key,
                 nextAfter = rssPage.nextAfter,
-                exhausted = isRedditMotionPageExhausted(rssPage.rawEntryCount, rssPage.nextAfter),
+                exhausted = exhausted,
             )
         } catch (e: Throwable) {
             e.rethrowIfCancelled()
-            val stale = readPixabayVideoCache(
+            val stale = readVideoMetadataCache(
                 cacheKey = cacheKey,
                 freshOnly = false,
                 freshnessTtlMs = REDDIT_RSS_MOTION_CACHE_TTL_MS,
             ) ?: throw e
             RedditRssMotionPage(
-                result = stale,
+                result = stale.result,
                 groupKey = group.key,
-                nextAfter = redditAfterToken(stale.items.lastOrNull()?.id),
-                exhausted = false,
+                nextAfter = if (stale.pageExhausted != null) {
+                    stale.nextAfter
+                } else {
+                    redditAfterToken(stale.result.items.lastOrNull()?.id)
+                },
+                exhausted = stale.pageExhausted ?: false,
             )
         }
     }
@@ -1222,19 +1243,26 @@ class VideoWallpapersViewModel @Inject constructor(
         cacheKey: String,
         freshOnly: Boolean,
         freshnessTtlMs: Long = PIXABAY_VIDEO_CACHE_TTL_MS,
-    ): PixabayVideoMetadataResult? {
-        val cached = decodePixabayVideoCache(
+    ): PixabayVideoMetadataResult? =
+        readVideoMetadataCache(cacheKey, freshOnly, freshnessTtlMs)?.result
+
+    private fun readVideoMetadataCache(
+        cacheKey: String,
+        freshOnly: Boolean,
+        freshnessTtlMs: Long,
+    ): CachedPixabayVideoMetadata? =
+        decodePixabayVideoCache(
             raw = pixabayVideoCachePrefs.getString(cacheKey, null),
             nowMs = System.currentTimeMillis(),
             requireFresh = freshOnly,
             freshnessTtlMs = freshnessTtlMs,
-        ) ?: return null
-        return cached.result
-    }
+        )
 
     private fun writePixabayVideoCache(
         cacheKey: String,
         result: PixabayVideoMetadataResult,
+        nextAfter: String? = null,
+        pageExhausted: Boolean? = null,
     ) {
         pixabayVideoCachePrefs.edit()
             .putString(
@@ -1243,6 +1271,8 @@ class VideoWallpapersViewModel @Inject constructor(
                     CachedPixabayVideoMetadata(
                         result = result,
                         cachedAtMs = System.currentTimeMillis(),
+                        nextAfter = nextAfter,
+                        pageExhausted = pageExhausted,
                     ),
                 ),
             )

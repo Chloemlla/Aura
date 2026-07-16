@@ -19,6 +19,9 @@ and a no-OAuth Reddit RSS pipeline.
 - **Stopped Reddit cooldown retries from repeating every wallpaper provider**:
   deferred RSS pages now retry only Reddit, merge into the current tab/page,
   retain secondary pagination, and abandon stale retries after navigation.
+- **Preserved raw Reddit motion cursors in the video cache**: fresh and stale
+  cached RSS pages now retain the final Atom entry plus explicit exhaustion
+  state, so filtered text/gallery tails no longer make pagination overlap.
 - **Added day/night wallpaper scheduling**: auto-rotation can keep one source,
   switch between independently selected day and night sources at configurable
   clock boundaries, or follow the system light/dark theme. Phase sources and
