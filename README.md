@@ -34,6 +34,13 @@ cd Aura
 
 Open in Android Studio and run. Core browsing works out of the box; optional provider keys can be added later in Settings or `local.properties`.
 
+YouTube extraction works without account credentials. For networks where YouTube
+requires proof-of-origin tokens, Settings > Sounds > YouTube PO token provider
+accepts the credential-free HTTPS base URL of a self-hosted
+[bgutil provider](https://github.com/Brainicism/bgutil-ytdlp-pot-provider). Aura
+ships its hash-pinned yt-dlp plugin but sends attestation data only after this
+optional URL is configured; see yt-dlp's [PO Token Guide](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide).
+
 ## Privacy
 
 Aura has no ads, no subscription, and no cross-app tracking. The public privacy

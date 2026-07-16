@@ -44,6 +44,7 @@
   "requiredOverlayIds": [
     "firebase-android-sdk",
     "ffmpeg-payload",
+    "bgutil-ytdlp-pot-provider",
     "google-mlkit-subject-segmentation",
     "google-play-services",
     "newpipe-extractor",
@@ -55,6 +56,10 @@
     "zxing-core"
   ],
   "requiredPayloadTargets": [
+    {
+      "overlayId": "bgutil-ytdlp-pot-provider",
+      "target": "bgutil-ytdlp-pot-provider"
+    },
     {
       "overlayId": "ffmpeg-payload",
       "target": "ffmpeg"

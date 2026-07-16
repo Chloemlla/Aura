@@ -7,6 +7,7 @@ import com.freevibe.BuildConfig
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.service.SourceMetrics
 import com.freevibe.service.YtDlpUpdateManager
+import com.freevibe.service.YouTubeYtDlpRequestFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -102,6 +103,7 @@ class YouTubeRepository @Inject constructor(
     private val sourceMetrics: SourceMetrics,
     private val prefs: PreferencesManager,
     private val ytDlpUpdateManager: YtDlpUpdateManager,
+    private val ytDlpRequestFactory: YouTubeYtDlpRequestFactory,
 ) {
 
     // Cache resolved stream URLs with TTL to avoid stale URLs (YouTube tokens expire)
@@ -243,7 +245,7 @@ class YouTubeRepository @Inject constructor(
 
                         val streamUrl = newPipeUrl ?: run {
                             if (BuildConfig.DEBUG) android.util.Log.d("YouTubeRepo", "Falling back to yt-dlp preview resolve for $videoId")
-                            val request = com.yausername.youtubedl_android.YoutubeDLRequest(pageUrl)
+                            val request = ytDlpRequestFactory.create(pageUrl)
                             request.addOption("-f", "worstaudio")
                             request.addOption("--get-url")
                             val response = com.yausername.youtubedl_android.YoutubeDL.getInstance().execute(request)
@@ -308,7 +310,7 @@ class YouTubeRepository @Inject constructor(
                 }.getOrNull()
                 val streamUrl = newPipeUrl ?: run {
                     if (BuildConfig.DEBUG) android.util.Log.d("YouTubeRepo", "Falling back to yt-dlp bestaudio for $videoId")
-                    val request = com.yausername.youtubedl_android.YoutubeDLRequest(pageUrl)
+                    val request = ytDlpRequestFactory.create(pageUrl)
                     request.addOption("-f", "bestaudio")
                     request.addOption("--get-url")
                     val response = com.yausername.youtubedl_android.YoutubeDL.getInstance().execute(request)
@@ -340,7 +342,7 @@ class YouTubeRepository @Inject constructor(
         try {
             sourceMetrics.measure(sourceName) {
                 val url = "https://www.youtube.com/watch?v=$videoId"
-                val request = com.yausername.youtubedl_android.YoutubeDLRequest(url)
+                val request = ytDlpRequestFactory.create(url)
                 request.addOption("-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best")
                 request.addOption("--get-url")
                 val response = com.yausername.youtubedl_android.YoutubeDL.getInstance().execute(request)
@@ -369,7 +371,7 @@ class YouTubeRepository @Inject constructor(
         try {
             sourceMetrics.measure(sourceName) {
                 val url = "https://www.youtube.com/watch?v=$videoId"
-                val request = com.yausername.youtubedl_android.YoutubeDLRequest(url)
+                val request = ytDlpRequestFactory.create(url)
                 request.addOption("-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best")
                 request.addOption("--skip-download")
                 request.addOption("--no-playlist")

@@ -1201,6 +1201,12 @@
     <string name="settings_sounds_yt_enable_title">Enable YouTube features</string>
     <string name="settings_sounds_yt_on_subtitle">Shows YouTube sound search, imports, top hits, and video wallpaper results</string>
     <string name="settings_sounds_yt_off_subtitle">Hides YouTube browsing and blocks stream resolution</string>
+    <string name="settings_youtube_pot_provider_title">YouTube PO token provider</string>
+    <string name="settings_youtube_pot_provider_off">Optional advanced provider is not configured</string>
+    <string name="settings_youtube_pot_provider_on">HTTPS provider configured for yt-dlp</string>
+    <string name="settings_youtube_pot_provider_description">Optional: enter the HTTPS base URL of a self-hosted bgutil provider. Aura sends YouTube attestation data and the requested video binding to that server so yt-dlp can request short-lived playback tokens. Leave blank to use the standard extractor path.</string>
+    <string name="settings_youtube_pot_provider_url_label">Provider base URL</string>
+    <string name="settings_youtube_pot_provider_invalid">Use an HTTPS URL without credentials, a query, or a fragment.</string>
     <string name="settings_sounds_blocked_words_title">Blocked words</string>
     <string name="settings_sounds_blocked_words_subtitle">%1$d words filtered from YouTube results</string>
     <string name="settings_sounds_sources_title">Sound sources</string>

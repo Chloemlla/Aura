@@ -327,6 +327,15 @@
       "deletionPath": "Remove favorites/downloads, clear caches, disable the provider, or clear app data."
     },
     {
+      "endpointId": "youtube-pot-provider",
+      "dataTypes": ["YouTube attestation challenge", "Video-bound token context", "Provider response metadata"],
+      "collectionStatus": "featureDependentCollection",
+      "sharingStatus": "sharedWithSelectedProviders",
+      "userControl": "User must enter a credential-free HTTPS provider URL in Settings and can clear it at any time.",
+      "retention": "Aura does not persist returned proof-of-origin tokens; the selected provider controls its own server-side retention.",
+      "deletionPath": "Clear the provider URL, disable YouTube features, or clear app data; use the selected provider's controls for server-side records."
+    },
+    {
       "endpointId": "aura-collection-links",
       "dataTypes": ["Collection import links"],
       "collectionStatus": "notCollected",

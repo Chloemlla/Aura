@@ -43,9 +43,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.freevibe.R
+import com.freevibe.service.normalizeYouTubePoTokenProviderUrl
 
 @Composable
 internal fun SoundSettingsSection(
@@ -57,6 +59,7 @@ internal fun SoundSettingsSection(
     ytAlarmsQuery: String,
     ytBlockedWords: String,
     youtubeProviderEnabled: Boolean,
+    youtubePoTokenProviderUrl: String,
     ringtoneShuffleEnabled: Boolean,
     ringtoneShuffleIntervalHours: Long,
     alarmShuffleEnabled: Boolean,
@@ -68,6 +71,7 @@ internal fun SoundSettingsSection(
 ) {
     var showYtSoundEditor by remember { mutableStateOf(false) }
     var showYtBlockedEditor by remember { mutableStateOf(false) }
+    var showPoTokenProviderEditor by remember { mutableStateOf(false) }
     val ytDlpUpdateNotice = ytDlpUpdateFeedbackMessage(ytDlpUpdate)
 
     LaunchedEffect(ytDlpUpdate.completedStatus, ytDlpUpdate.error) {
@@ -125,6 +129,16 @@ internal fun SoundSettingsSection(
                     viewModel.updateYtDlp()
                 }
             },
+        )
+        SettingsItem(
+            icon = Icons.Default.SmartDisplay,
+            title = stringResource(R.string.settings_youtube_pot_provider_title),
+            subtitle = if (youtubePoTokenProviderUrl.isBlank()) {
+                stringResource(R.string.settings_youtube_pot_provider_off)
+            } else {
+                stringResource(R.string.settings_youtube_pot_provider_on)
+            },
+            onClick = { showPoTokenProviderEditor = true },
         )
         SettingsItem(
             icon = Icons.Default.Block,
@@ -209,6 +223,76 @@ internal fun SoundSettingsSection(
             onDismiss = { showYtBlockedEditor = false },
         )
     }
+    if (showPoTokenProviderEditor) {
+        YouTubePoTokenProviderDialog(
+            currentUrl = youtubePoTokenProviderUrl,
+            onSave = {
+                viewModel.setYoutubePoTokenProviderUrl(it)
+                showPoTokenProviderEditor = false
+            },
+            onDismiss = { showPoTokenProviderEditor = false },
+        )
+    }
+}
+
+@Composable
+private fun YouTubePoTokenProviderDialog(
+    currentUrl: String,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var value by remember(currentUrl) { mutableStateOf(currentUrl) }
+    var invalid by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_youtube_pot_provider_title)) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .imePadding(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    stringResource(R.string.settings_youtube_pot_provider_description),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = {
+                        value = it
+                        invalid = false
+                    },
+                    label = { Text(stringResource(R.string.settings_youtube_pot_provider_url_label)) },
+                    placeholder = { Text("https://pot.example.org") },
+                    supportingText = if (invalid) {
+                        { Text(stringResource(R.string.settings_youtube_pot_provider_invalid)) }
+                    } else null,
+                    isError = invalid,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Uri,
+                        imeAction = ImeAction.Done,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val normalized = normalizeYouTubePoTokenProviderUrl(value)
+                    if (normalized == null) {
+                        invalid = true
+                    } else {
+                        onSave(normalized)
+                    }
+                },
+            ) { Text(stringResource(R.string.common_save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } },
+    )
 }
 
 @Composable

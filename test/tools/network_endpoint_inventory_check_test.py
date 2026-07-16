@@ -22,7 +22,7 @@ class NetworkEndpointInventoryCheckTest(unittest.TestCase):
 
         self.assertEqual("networkEndpointInventory", result["policyKind"])
         self.assertEqual(1, result["schemaVersion"])
-        self.assertEqual(18, result["endpointCount"])
+        self.assertEqual(19, result["endpointCount"])
         self.assertIn("wallhaven.cc", result["scannedLiteralHosts"])
         self.assertIn("api-v2.soundcloud.com", result["scannedLiteralHosts"])
 

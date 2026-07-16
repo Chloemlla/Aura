@@ -198,6 +198,7 @@ class SettingsViewModel @Inject constructor(
     val ytAlarmsQuery = prefs.ytSoundQueryAlarms.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PreferencesManager.defaultAlarmQuery())
     val ytBlockedWords = prefs.ytSoundBlockedWords.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "compilation,mix,playlist,ranked,tier list,reaction,review,tutorial,how to,podcast,interview,live stream,part,episode")
     val youtubeProviderEnabled = prefs.youtubeProviderEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val youtubePoTokenProviderUrl = prefs.youtubePoTokenProviderUrl.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
     val videoFpsLimit = prefs.videoFpsLimit.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 30)
     val videoFpsOverlayEnabled = prefs.videoFpsOverlayEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val videoAutoBatterySaver = prefs.videoAutoBatterySaver.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -256,6 +257,7 @@ class SettingsViewModel @Inject constructor(
     fun setYtAlarmsQuery(q: String) = viewModelScope.launch { prefs.setYtSoundQueryAlarms(q) }
     fun setYtBlockedWords(w: String) = viewModelScope.launch { prefs.setYtSoundBlockedWords(w) }
     fun setYoutubeProviderEnabled(enabled: Boolean) = viewModelScope.launch { prefs.setYoutubeProviderEnabled(enabled) }
+    fun setYoutubePoTokenProviderUrl(url: String) = viewModelScope.launch { prefs.setYoutubePoTokenProviderUrl(url) }
 
     // #11: Wallpaper history
     val wallpaperHistory = historyManager.getRecent(20).stateIn(

@@ -401,6 +401,7 @@ fun SettingsScreen(
                 ytAlarmsQuery = ytAlarmsQuery,
                 ytBlockedWords = ytBlockedWords,
                 youtubeProviderEnabled = youtubeProviderEnabled,
+                youtubePoTokenProviderUrl = youtubePoTokenProviderUrl,
                 ringtoneShuffleEnabled = ringtoneShuffleEnabled,
                 ringtoneShuffleIntervalHours = ringtoneShuffleIntervalHours,
                 alarmShuffleEnabled = alarmShuffleEnabled,

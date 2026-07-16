@@ -286,6 +286,10 @@
       "disclosure": "YouTube search/extraction path for sounds and videos; provider switch available."
     },
     {
+      "id": "youtube-pot-provider",
+      "disclosure": "Optional user-selected HTTPS proof-of-origin token server for yt-dlp; disabled until the user configures a URL."
+    },
+    {
       "id": "aura-collection-links",
       "disclosure": "Local deep-link namespace for shared collection imports."
     },

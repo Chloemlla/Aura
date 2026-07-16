@@ -2,6 +2,15 @@
   "schemaVersion": 1,
   "entries": [
     {
+      "id": "bgutil-ytdlp-pot-provider",
+      "licenseId": "GPL-3.0",
+      "reviewNote": "Aura packages the official 1.3.1 plugin ZIP as an isolated yt-dlp plugin payload, pins its upstream SHA-256, and only activates it for a user-configured credential-free HTTPS provider URL.",
+      "sourceUrl": "https://github.com/Brainicism/bgutil-ytdlp-pot-provider/tree/1.3.1",
+      "target": "bgutil-ytdlp-pot-provider",
+      "targetType": "payload",
+      "usage": "Optional proof-of-origin token provider integration for yt-dlp YouTube stream resolution."
+    },
+    {
       "id": "firebase-android-sdk",
       "licenseId": "Apache-2.0",
       "reviewNote": "Firebase is used for community identity, database, storage, and app-check surfaces. Review Google/Firebase service terms and data-safety copy when Firebase coordinates change.",
@@ -85,8 +94,8 @@
     {
       "id": "yt-dlp-payload",
       "licenseId": "Unlicense plus ISC/MIT release-file components",
-      "reviewNote": "The library AAR embeds yt-dlp 2025.11.12 payload files. Review the upstream release, bundled components, and extractor-policy impact when the payload changes.",
-      "sourceUrl": "https://github.com/yt-dlp/yt-dlp/tree/2025.11.12",
+      "reviewNote": "Aura overrides the library AAR payload with the official yt-dlp 2026.07.04 release. Review the upstream release, bundled components, and extractor-policy impact when the payload changes.",
+      "sourceUrl": "https://github.com/yt-dlp/yt-dlp/tree/2026.07.04",
       "target": "yt-dlp",
       "targetType": "payload",
       "usage": "Extractor payload used by youtubedl-android to resolve media streams."

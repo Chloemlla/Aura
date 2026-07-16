@@ -40,6 +40,7 @@ internal data class SettingsScreenState(
     val ytAlarmsQuery: String,
     val ytBlockedWords: String,
     val youtubeProviderEnabled: Boolean,
+    val youtubePoTokenProviderUrl: String,
     val previewVolume: Float,
     val ringtoneShuffleEnabled: Boolean,
     val ringtoneShuffleIntervalHours: Long,
@@ -133,6 +134,7 @@ internal fun rememberSettingsScreenState(
     val ytAlarmsQuery by viewModel.ytAlarmsQuery.collectAsStateWithLifecycle()
     val ytBlockedWords by viewModel.ytBlockedWords.collectAsStateWithLifecycle()
     val youtubeProviderEnabled by viewModel.youtubeProviderEnabled.collectAsStateWithLifecycle()
+    val youtubePoTokenProviderUrl by viewModel.youtubePoTokenProviderUrl.collectAsStateWithLifecycle()
     val previewVolume by viewModel.previewVolume.collectAsStateWithLifecycle()
     val ringtoneShuffleEnabled by viewModel.ringtoneShuffleEnabled.collectAsStateWithLifecycle()
     val ringtoneShuffleIntervalHours by viewModel.ringtoneShuffleIntervalHours.collectAsStateWithLifecycle()
@@ -243,6 +245,7 @@ internal fun rememberSettingsScreenState(
         ytAlarmsQuery = ytAlarmsQuery,
         ytBlockedWords = ytBlockedWords,
         youtubeProviderEnabled = youtubeProviderEnabled,
+        youtubePoTokenProviderUrl = youtubePoTokenProviderUrl,
         previewVolume = previewVolume,
         ringtoneShuffleEnabled = ringtoneShuffleEnabled,
         ringtoneShuffleIntervalHours = ringtoneShuffleIntervalHours,

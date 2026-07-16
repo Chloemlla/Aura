@@ -55,6 +55,10 @@ and a no-OAuth Reddit RSS pipeline.
 - **Stabilized video preview surfaces**: feed playback now stops before the
   immersive player opens, and both players crop inside fixed SurfaceView bounds
   instead of resizing decoder output buffers after format discovery.
+- **Added an optional YouTube PO-token provider path**: Settings can point yt-dlp
+  at a credential-free HTTPS bgutil server. Aura packages the reviewed 1.3.1
+  provider plugin, verifies its release hash before activation, and keeps the
+  standard extractor path when no provider is configured.
 
 ## v6.35.1 (2026-07-15)
 

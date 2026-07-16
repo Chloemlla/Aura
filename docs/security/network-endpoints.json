@@ -285,6 +285,23 @@
       ]
     },
     {
+      "id": "youtube-pot-provider",
+      "hosts": ["user-configured provider host"],
+      "schemes": ["https"],
+      "surface": "Optional self-hosted bgutil proof-of-origin token provider",
+      "authLocation": "none; URLs containing credentials, query parameters, or fragments are rejected",
+      "dataSent": "YouTube attestation challenge, Innertube client context, proxy/TLS posture, and video-bound token context",
+      "mediaCached": "only the provider plugin ZIP is copied to app-private no-backup storage; returned short-lived tokens remain inside yt-dlp",
+      "rateLimitCachePolicy": "provider plugin maintains its own bounded short-lived token cache",
+      "fallbackBehavior": "unset or invalid configuration leaves the standard NewPipe/yt-dlp path active",
+      "killSwitch": "clear the provider URL or disable youtube_provider_enabled",
+      "releaseOwner": "user-configured",
+      "sourceFiles": [
+        "app/src/main/java/com/freevibe/service/YouTubeYtDlpRequestFactory.kt",
+        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsSoundSection.kt"
+      ]
+    },
+    {
       "id": "aura-collection-links",
       "hosts": ["aura.app"],
       "schemes": ["https"],

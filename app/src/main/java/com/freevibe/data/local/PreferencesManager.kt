@@ -304,12 +304,14 @@ class PreferencesManager @Inject constructor(
     val ytSoundQueryAlarms: Flow<String> = get(Keys.YT_SOUND_ALARMS, defaultAlarmQuery())
     val ytSoundBlockedWords: Flow<String> = get(Keys.YT_SOUND_BLOCKED, "compilation,mix,playlist,ranked,tier list,reaction,review,tutorial,how to,podcast,interview,live stream,part,episode")
     val youtubeProviderEnabled: Flow<Boolean> = get(Keys.YOUTUBE_PROVIDER_ENABLED, true)
+    val youtubePoTokenProviderUrl: Flow<String> = get(Keys.YOUTUBE_PO_TOKEN_PROVIDER_URL, "")
 
     suspend fun setYtSoundQueryRingtones(q: String) = set(Keys.YT_SOUND_RINGTONES, q)
     suspend fun setYtSoundQueryNotifications(q: String) = set(Keys.YT_SOUND_NOTIFICATIONS, q)
     suspend fun setYtSoundQueryAlarms(q: String) = set(Keys.YT_SOUND_ALARMS, q)
     suspend fun setYtSoundBlockedWords(words: String) = set(Keys.YT_SOUND_BLOCKED, words)
     suspend fun setYoutubeProviderEnabled(enabled: Boolean) = set(Keys.YOUTUBE_PROVIDER_ENABLED, enabled)
+    suspend fun setYoutubePoTokenProviderUrl(url: String) = set(Keys.YOUTUBE_PO_TOKEN_PROVIDER_URL, url)
 
     // ── Wallpaper scheduler ─────────────────────────────────────
 
@@ -517,6 +519,7 @@ class PreferencesManager @Inject constructor(
         val YT_SOUND_ALARMS = stringPreferencesKey("yt_sound_alarms")
         val YT_SOUND_BLOCKED = stringPreferencesKey("yt_sound_blocked")
         val YOUTUBE_PROVIDER_ENABLED = booleanPreferencesKey("youtube_provider_enabled")
+        val YOUTUBE_PO_TOKEN_PROVIDER_URL = stringPreferencesKey("youtube_po_token_provider_url")
         // Scheduler
         val SCHEDULER_ENABLED = booleanPreferencesKey("scheduler_enabled")
         val SCHEDULER_INTERVAL = longPreferencesKey("scheduler_interval_min")

@@ -22,6 +22,7 @@ import com.freevibe.service.VideoWallpaperSelectionResult
 import com.freevibe.service.VideoWallpaperStorage
 import com.freevibe.service.VideoPreviewCache
 import com.freevibe.service.YtDlpUpdateManager
+import com.freevibe.service.YouTubeYtDlpRequestFactory
 import com.freevibe.service.advertisedLengthExceeds
 import com.freevibe.service.copyStreamCapped
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -424,6 +425,7 @@ class VideoWallpapersViewModel @Inject constructor(
     private val videoWallpaperStorage: VideoWallpaperStorage,
     private val sourceMetrics: SourceMetrics,
     private val ytDlpUpdateManager: YtDlpUpdateManager,
+    private val ytDlpRequestFactory: YouTubeYtDlpRequestFactory,
     private val videoPreviewCache: VideoPreviewCache,
     val voteRepo: VoteRepository,
 ) : ViewModel() {
@@ -715,7 +717,7 @@ class VideoWallpapersViewModel @Inject constructor(
                         // YouTube: use yt-dlp for download
                         try {
                             val ytUrl = "https://www.youtube.com/watch?v=${item.videoId}"
-                            val request = com.yausername.youtubedl_android.YoutubeDLRequest(ytUrl)
+                            val request = ytDlpRequestFactory.create(ytUrl)
                             request.addOption("-f", "bestvideo[ext=mp4][height<=1080]/best[ext=mp4]/best")
                             request.addOption("-o", cacheFile.absolutePath)
                             request.addOption("--force-overwrites")
