@@ -63,6 +63,40 @@ class RedditRssParserTest {
     }
 
     @Test
+    fun `titles remain paired with their entries when non media posts are interleaved`() {
+        val entries = parseRedditRssMedia(
+            xml = """
+                <feed>
+                  <entry>
+                    <id>t3_first</id>
+                    <title>First loop</title>
+                    <content type="html">&lt;a href=&quot;https://i.redd.it/first.gif&quot;&gt;first&lt;/a&gt;</content>
+                  </entry>
+                  <entry>
+                    <id>t3_text</id>
+                    <title>Discussion without media</title>
+                    <content type="html">&lt;a href=&quot;https://www.reddit.com/r/Cinemagraphs/comments/text/post/&quot;&gt;text&lt;/a&gt;</content>
+                  </entry>
+                  <entry>
+                    <id>t3_second</id>
+                    <title>Second loop</title>
+                    <content type="html">&lt;a href=&quot;https://v.redd.it/second&quot;&gt;second&lt;/a&gt;</content>
+                  </entry>
+                </feed>
+            """.trimIndent(),
+            fallbackSubreddit = "Cinemagraphs",
+        )
+
+        assertEquals(
+            listOf(
+                Triple("first", "First loop", "https://i.redd.it/first.gif"),
+                Triple("second", "Second loop", "https://v.redd.it/second"),
+            ),
+            entries.map { Triple(it.id, it.title, it.mediaUrl) },
+        )
+    }
+
+    @Test
     fun `page cursor comes from final raw entry even when it has no direct media`() {
         val page = parseRedditRssPage(
             xml = """
