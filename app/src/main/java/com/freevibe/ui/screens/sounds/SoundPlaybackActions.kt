@@ -26,7 +26,6 @@ internal class SoundPlaybackActions(
     private val autoPreview: StateFlow<Boolean>,
     private val previewVolume: StateFlow<Float>,
     private val state: MutableStateFlow<SoundsUiState>,
-    private val topHits: MutableStateFlow<List<Sound>>,
     private val communityUploads: MutableStateFlow<List<Sound>>,
     private val previewReadyIds: MutableStateFlow<Set<String>>,
     private val playbackProgress: MutableStateFlow<Float>,
@@ -109,8 +108,7 @@ internal class SoundPlaybackActions(
 
     fun isInPreviewPrebufferWindow(soundKey: String): Boolean {
         val visibleFeed = state.value.sounds.take(FIRST_VISIBLE_PREVIEW_COUNT)
-        val visibleTopHits = topHits.value.take(FIRST_VISIBLE_PREVIEW_COUNT)
-        return (visibleFeed + visibleTopHits).any { it.stableKey() == soundKey }
+        return visibleFeed.any { it.stableKey() == soundKey }
     }
 
     fun cancelProgress() {
@@ -131,15 +129,6 @@ internal class SoundPlaybackActions(
                 }
             }
             if (refreshed == st.sounds) st else st.copy(sounds = refreshed)
-        }
-        topHits.update { hits ->
-            hits.map { existing ->
-                if (existing.stableKey() == targetKey && existing.previewUrl != previewUrl) {
-                    existing.copy(previewUrl = previewUrl)
-                } else {
-                    existing
-                }
-            }
         }
         communityUploads.update { uploads ->
             uploads.map { existing ->

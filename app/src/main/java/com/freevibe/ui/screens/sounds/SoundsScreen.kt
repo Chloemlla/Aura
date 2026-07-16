@@ -103,7 +103,6 @@ fun SoundsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val recentSearches by viewModel.recentSearches.collectAsStateWithLifecycle()
     val previewReadyIds by viewModel.previewReadyIds.collectAsStateWithLifecycle()
-    val topHits by viewModel.topHits.collectAsStateWithLifecycle()
     val playbackProgress by viewModel.playbackProgress.collectAsStateWithLifecycle()
     val youtubeProviderEnabled by viewModel.youtubeProviderEnabled.collectAsStateWithLifecycle()
     val communityProviderEnabled by viewModel.communityProviderEnabled.collectAsStateWithLifecycle()
@@ -138,22 +137,7 @@ fun SoundsScreen(
             state.sounds
         }
     }
-    val displayTopHits = remember(topHits, displaySounds, voteCounts, state.selectedTab, state.query, state.qualityFilter, communityProviderEnabled) {
-        when {
-            state.selectedTab == SoundTab.RINGTONES && state.query.isBlank() -> {
-                rankSounds(topHits, SoundTab.RINGTONES, state.qualityFilter).take(5)
-            }
-            communityProviderEnabled && state.selectedTab == SoundTab.COMMUNITY && state.query.isBlank() -> {
-                displaySounds
-                    .filter { (voteCounts[it.stableKey()] ?: 0) > 0 }
-                    .take(5)
-            }
-            else -> emptyList()
-        }
-    }
-    val contentSounds = remember(displayTopHits, displaySounds) {
-        (displayTopHits + displaySounds).distinctBy { it.stableKey() }
-    }
+    val contentSounds = displaySounds
     var searchQuery by remember { mutableStateOf("") }
     LaunchedEffect(state.query) { searchQuery = state.query }
     LaunchedEffect(youtubeProviderEnabled, communityProviderEnabled, state.selectedTab) {
@@ -395,7 +379,7 @@ fun SoundsScreen(
         state.applySuccess?.let { snackbarHostState.showSnackbar(it); viewModel.clearSuccess() }
     }
     LaunchedEffect(state.error) {
-        if (displaySounds.isNotEmpty() || displayTopHits.isNotEmpty()) {
+        if (displaySounds.isNotEmpty()) {
             state.error?.let {
                 nonBlockingWarning = it
                 snackbarHostState.showSnackbar(it)
@@ -654,7 +638,7 @@ fun SoundsScreen(
 
             // Content
             Box(modifier = Modifier.fillMaxSize()) {
-                if (state.error != null && displaySounds.isEmpty() && displayTopHits.isEmpty() && !state.isLoading && !state.isRefreshing) {
+                if (state.error != null && displaySounds.isEmpty() && !state.isLoading && !state.isRefreshing) {
                     AuraStateCard(
                         icon = Icons.Default.CloudOff,
                         title = stringResource(R.string.sounds_error_source_title, soundTabLabel(state.selectedTab)),

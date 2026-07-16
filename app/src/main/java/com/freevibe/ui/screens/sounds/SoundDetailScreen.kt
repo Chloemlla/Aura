@@ -77,7 +77,6 @@ fun SoundDetailScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val selectedSound by viewModel.selectedSound.collectAsStateWithLifecycle()
-    val topHits by viewModel.topHits.collectAsStateWithLifecycle()
     val useStackedActions = LocalDensity.current.fontScale >= 1.3f
     val targetSource = fallbackSound?.source
     val targetPreviewUrl = fallbackSound?.previewUrl?.takeIf { it.isNotBlank() }
@@ -107,7 +106,6 @@ fun SoundDetailScreen(
 
     val s = selectedSound?.takeIf { matchesSoundIdentity(it, soundId, targetSource, targetPreviewUrl, targetDownloadUrl) }
         ?: state.sounds.firstOrNull { matchesSoundIdentity(it, soundId, targetSource, targetPreviewUrl, targetDownloadUrl) }
-        ?: topHits.firstOrNull { matchesSoundIdentity(it, soundId, targetSource, targetPreviewUrl, targetDownloadUrl) }
         ?: resolvedSound
     if (s == null) {
         Box(

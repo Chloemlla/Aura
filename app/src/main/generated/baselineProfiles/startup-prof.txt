@@ -22268,7 +22268,6 @@ SPLcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;->-$$
 SPLcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;->-$$Nest$fgetprovideOkHttpClientProvider(Lcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;)Ldagger/internal/Provider;
 SPLcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;->-$$Nest$fgetprovidePexelsApiProvider(Lcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;)Ldagger/internal/Provider;
 SPLcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;->-$$Nest$fgetprovidePixabayApiProvider(Lcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;)Ldagger/internal/Provider;
-SPLcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;->-$$Nest$fgetprovideRedditApiProvider(Lcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;)Ldagger/internal/Provider;
 SPLcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;->-$$Nest$fgetprovideStabilityAiApiProvider(Lcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;)Ldagger/internal/Provider;
 SPLcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;->-$$Nest$fgetprovideWallhavenApiProvider(Lcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;)Ldagger/internal/Provider;
 SPLcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;->-$$Nest$fgetredditRepositoryProvider(Lcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;)Ldagger/internal/Provider;
@@ -23060,7 +23059,6 @@ SPLcom/freevibe/data/remote/pixabay/PixabayPhotoResponseJsonAdapter;-><clinit>()
 SPLcom/freevibe/data/remote/pixabay/PixabayPhotoResponseJsonAdapter;-><init>(Lcom/squareup/moshi/Moshi;)V
 SPLcom/freevibe/data/remote/pixabay/PixabayPhotoResponseJsonAdapter;->fromJson(Lcom/squareup/moshi/JsonReader;)Lcom/freevibe/data/remote/pixabay/PixabayPhotoResponse;
 SPLcom/freevibe/data/remote/pixabay/PixabayPhotoResponseJsonAdapter;->fromJson(Lcom/squareup/moshi/JsonReader;)Ljava/lang/Object;
-Lcom/freevibe/data/remote/reddit/RedditApi;
 Lcom/freevibe/data/remote/stability/StabilityAiApi;
 Lcom/freevibe/data/remote/wallhaven/WallhavenApi;
 Lcom/freevibe/data/remote/wallhaven/WallhavenApi$DefaultImpls;
@@ -23182,7 +23180,6 @@ Lcom/freevibe/data/repository/FirebaseCommunityCallableInvoker$$ExternalSyntheti
 SPLcom/freevibe/data/repository/FirebaseCommunityCallableInvoker$$ExternalSyntheticLambda0;-><init>()V
 Lcom/freevibe/data/repository/RedditRepository;
 SPLcom/freevibe/data/repository/RedditRepository;-><clinit>()V
-SPLcom/freevibe/data/repository/RedditRepository;-><init>(Lcom/freevibe/data/remote/reddit/RedditApi;Lcom/freevibe/service/SourceMetrics;Lcom/freevibe/data/local/PreferencesManager;)V
 Lcom/freevibe/data/repository/SearchHistoryRepository;
 SPLcom/freevibe/data/repository/SearchHistoryRepository;-><clinit>()V
 SPLcom/freevibe/data/repository/SearchHistoryRepository;-><init>(Lcom/freevibe/data/local/SearchHistoryDao;)V
@@ -23472,7 +23469,6 @@ SPLcom/freevibe/di/AppModule;->provideMoshi()Lcom/squareup/moshi/Moshi;
 SPLcom/freevibe/di/AppModule;->provideOkHttpClient()Lokhttp3/OkHttpClient;
 SPLcom/freevibe/di/AppModule;->providePexelsApi(Lokhttp3/OkHttpClient;Lcom/squareup/moshi/Moshi;)Lcom/freevibe/data/remote/pexels/PexelsApi;
 SPLcom/freevibe/di/AppModule;->providePixabayApi(Lokhttp3/OkHttpClient;Lcom/squareup/moshi/Moshi;)Lcom/freevibe/data/remote/pixabay/PixabayApi;
-SPLcom/freevibe/di/AppModule;->provideRedditApi(Lokhttp3/OkHttpClient;Lcom/squareup/moshi/Moshi;)Lcom/freevibe/data/remote/reddit/RedditApi;
 SPLcom/freevibe/di/AppModule;->provideSearchHistoryDao(Lcom/freevibe/data/local/FreeVibeDatabase;)Lcom/freevibe/data/local/SearchHistoryDao;
 SPLcom/freevibe/di/AppModule;->provideStabilityAiApi(Lokhttp3/OkHttpClient;)Lcom/freevibe/data/remote/stability/StabilityAiApi;
 SPLcom/freevibe/di/AppModule;->provideWallhavenApi(Lokhttp3/OkHttpClient;Lcom/squareup/moshi/Moshi;)Lcom/freevibe/data/remote/wallhaven/WallhavenApi;
@@ -23503,8 +23499,6 @@ Lcom/freevibe/di/AppModule_ProvidePexelsApiFactory;
 SPLcom/freevibe/di/AppModule_ProvidePexelsApiFactory;->providePexelsApi(Lokhttp3/OkHttpClient;Lcom/squareup/moshi/Moshi;)Lcom/freevibe/data/remote/pexels/PexelsApi;
 Lcom/freevibe/di/AppModule_ProvidePixabayApiFactory;
 SPLcom/freevibe/di/AppModule_ProvidePixabayApiFactory;->providePixabayApi(Lokhttp3/OkHttpClient;Lcom/squareup/moshi/Moshi;)Lcom/freevibe/data/remote/pixabay/PixabayApi;
-Lcom/freevibe/di/AppModule_ProvideRedditApiFactory;
-SPLcom/freevibe/di/AppModule_ProvideRedditApiFactory;->provideRedditApi(Lokhttp3/OkHttpClient;Lcom/squareup/moshi/Moshi;)Lcom/freevibe/data/remote/reddit/RedditApi;
 Lcom/freevibe/di/AppModule_ProvideSearchHistoryDaoFactory;
 SPLcom/freevibe/di/AppModule_ProvideSearchHistoryDaoFactory;->provideSearchHistoryDao(Lcom/freevibe/data/local/FreeVibeDatabase;)Lcom/freevibe/data/local/SearchHistoryDao;
 Lcom/freevibe/di/AppModule_ProvideStabilityAiApiFactory;
@@ -25046,7 +25040,6 @@ PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->access$getYtResolveSemaphore$
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->access$get_playbackProgress$p(Lcom/freevibe/ui/screens/sounds/SoundsViewModel;)Lkotlinx/coroutines/flow/MutableStateFlow;
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->access$get_previewReadyIds$p(Lcom/freevibe/ui/screens/sounds/SoundsViewModel;)Lkotlinx/coroutines/flow/MutableStateFlow;
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->access$get_state$p(Lcom/freevibe/ui/screens/sounds/SoundsViewModel;)Lkotlinx/coroutines/flow/MutableStateFlow;
-PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->access$get_topHits$p(Lcom/freevibe/ui/screens/sounds/SoundsViewModel;)Lkotlinx/coroutines/flow/MutableStateFlow;
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->access$isYouTubeProviderEnabled(Lcom/freevibe/ui/screens/sounds/SoundsViewModel;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->access$schedulePreviewPrebuffer(Lcom/freevibe/ui/screens/sounds/SoundsViewModel;Ljava/util/List;)V
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->access$tabDurationRange(Lcom/freevibe/ui/screens/sounds/SoundsViewModel;Lcom/freevibe/ui/screens/sounds/SoundsUiState;)Lkotlin/Pair;
@@ -25055,7 +25048,6 @@ PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->buildQueries(Lcom/freevibe/ui
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->cacheResolvedPreview(Lcom/freevibe/data/model/Sound;Ljava/lang/String;)Lcom/freevibe/data/model/Sound;
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->canOpenWriteSettings()Z
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->canWriteSettings()Z
-PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->fetchTopHits()V
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->getCommunityGuidelinesAccepted()Lkotlinx/coroutines/flow/StateFlow;
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->getCommunityProviderEnabled()Lkotlinx/coroutines/flow/StateFlow;
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->getHiddenIds()Lkotlinx/coroutines/flow/Flow;
@@ -25064,7 +25056,6 @@ PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->getPreviewReadyIds()Lkotlinx/
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->getRecentSearches()Lkotlinx/coroutines/flow/StateFlow;
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->getSeasonalTheme()Lcom/freevibe/service/SeasonalTheme;
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->getState()Lkotlinx/coroutines/flow/StateFlow;
-PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->getTopHits()Lkotlinx/coroutines/flow/StateFlow;
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->getYoutubeProviderEnabled()Lkotlinx/coroutines/flow/StateFlow;
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->isInPreviewPrebufferWindow(Ljava/lang/String;)Z
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel;->isYouTubeProviderEnabled(Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
@@ -25104,17 +25095,6 @@ PLcom/freevibe/ui/screens/sounds/SoundsViewModel$QuerySet;->getYtQueries()Ljava/
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel$WhenMappings;-><clinit>()V
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel$buildQueries$1;-><init>(Lcom/freevibe/ui/screens/sounds/SoundsViewModel;Lkotlin/coroutines/Continuation;)V
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel$buildQueries$1;->invokeSuspend(Ljava/lang/Object;)Ljava/lang/Object;
-PLcom/freevibe/ui/screens/sounds/SoundsViewModel$fetchTopHits$1;-><init>(Lcom/freevibe/ui/screens/sounds/SoundsViewModel;Lkotlin/coroutines/Continuation;)V
-PLcom/freevibe/ui/screens/sounds/SoundsViewModel$fetchTopHits$1;->create(Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Lkotlin/coroutines/Continuation;
-PLcom/freevibe/ui/screens/sounds/SoundsViewModel$fetchTopHits$1;->invokeSuspend(Ljava/lang/Object;)Ljava/lang/Object;
-PLcom/freevibe/ui/screens/sounds/SoundsViewModel$fetchTopHits$1$3;-><init>(Ljava/util/List;Lcom/freevibe/ui/screens/sounds/SoundsViewModel;Lkotlin/coroutines/Continuation;)V
-PLcom/freevibe/ui/screens/sounds/SoundsViewModel$fetchTopHits$1$3;->create(Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Lkotlin/coroutines/Continuation;
-PLcom/freevibe/ui/screens/sounds/SoundsViewModel$fetchTopHits$1$3;->invoke(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
-PLcom/freevibe/ui/screens/sounds/SoundsViewModel$fetchTopHits$1$3;->invoke(Lkotlinx/coroutines/CoroutineScope;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-PLcom/freevibe/ui/screens/sounds/SoundsViewModel$fetchTopHits$1$3;->invokeSuspend(Ljava/lang/Object;)Ljava/lang/Object;
-PLcom/freevibe/ui/screens/sounds/SoundsViewModel$fetchTopHits$1$3$1$1;-><init>(Lcom/freevibe/ui/screens/sounds/SoundsViewModel;Lcom/freevibe/data/model/Sound;Lkotlin/coroutines/Continuation;)V
-PLcom/freevibe/ui/screens/sounds/SoundsViewModel$fetchTopHits$1$3$1$1;->create(Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Lkotlin/coroutines/Continuation;
-PLcom/freevibe/ui/screens/sounds/SoundsViewModel$fetchTopHits$1$3$1$1;->invokeSuspend(Ljava/lang/Object;)Ljava/lang/Object;
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel$loadSounds$1;-><init>(Lcom/freevibe/ui/screens/sounds/SoundsViewModel;ZZLkotlin/coroutines/Continuation;)V
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel$loadSounds$1;->access$invokeSuspend$addUnique(Lcom/freevibe/ui/screens/sounds/SoundsViewModel;Ljava/util/concurrent/ConcurrentHashMap$KeySetView;Ljava/util/concurrent/ConcurrentHashMap$KeySetView;Ljava/lang/Object;Ljava/util/List;Lcom/freevibe/data/model/Sound;)Z
 PLcom/freevibe/ui/screens/sounds/SoundsViewModel$loadSounds$1;->access$invokeSuspend$flushToUi(Lcom/freevibe/ui/screens/sounds/SoundsViewModel;Ljava/lang/Object;Lcom/freevibe/ui/screens/sounds/SoundTab;ZLjava/util/List;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;

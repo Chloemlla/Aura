@@ -63,6 +63,10 @@ and a no-OAuth Reddit RSS pipeline.
   exponential fades run in the same sample-accurate FFmpeg pass, and MP3, OGG,
   Opus, WAV, FLAC, or M4A exports offer compatible bitrate choices before saving
   to Music/Aura.
+- **Removed obsolete sound and Reddit JSON plumbing**: the permanently empty
+  Top Hits flow no longer threads through sound playback, detail, selection, and
+  moderation code, while the retired Retrofit Reddit API, DTO mapper path, Hilt
+  provider, and stale baseline-profile symbols are gone.
 - **Hardened Android 16 background scheduling**: the checked ledger now covers all
   nine `CoroutineWorker` implementations and all 10 unique work names, rejects
   unaudited direct `JobScheduler` or long-running worker additions, and documents

@@ -23,7 +23,6 @@ import com.freevibe.data.remote.freesound.FreesoundV2Api
 import com.freevibe.data.remote.weather.OpenMeteoApi
 import com.freevibe.data.remote.pexels.PexelsApi
 import com.freevibe.data.remote.pixabay.PixabayApi
-import com.freevibe.data.remote.reddit.RedditApi
 import com.freevibe.data.remote.freesound.FreesoundApi
 import com.freevibe.data.remote.soundcloud.SoundCloudApi
 import com.freevibe.data.remote.wallhaven.WallhavenApi
@@ -112,16 +111,6 @@ object AppModule {
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
             .create(FreesoundV2Api::class.java)
-
-    @Provides
-    @Singleton
-    fun provideRedditApi(client: OkHttpClient, moshi: Moshi): RedditApi =
-        Retrofit.Builder()
-            .baseUrl(RedditApi.BASE_URL)
-            .client(client)
-            .addConverterFactory(MoshiConverterFactory.create(moshi))
-            .build()
-            .create(RedditApi::class.java)
 
     @Provides
     @Singleton

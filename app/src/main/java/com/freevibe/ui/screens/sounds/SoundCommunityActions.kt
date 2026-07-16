@@ -33,7 +33,6 @@ internal class SoundCommunityActions(
     private val communityProviderEnabled: StateFlow<Boolean>,
     private val communityGuidelinesAccepted: StateFlow<Boolean>,
     private val state: MutableStateFlow<SoundsUiState>,
-    private val topHits: MutableStateFlow<List<Sound>>,
     private val communityUploads: MutableStateFlow<List<Sound>>,
     private val scope: CoroutineScope,
     private val onStopIfPlaying: (Sound) -> Unit,
@@ -232,7 +231,6 @@ internal class SoundCommunityActions(
                 .onSuccess {
                     val key = sound.stableKey()
                     onStopIfPlaying(sound)
-                    topHits.update { hits -> hits.filterNot { it.stableKey() == key } }
                     state.update { s ->
                         s.copy(
                             sounds = s.sounds.filterNot { it.stableKey() == key },
@@ -300,7 +298,6 @@ internal class SoundCommunityActions(
             communityBlockRepo.blockUser(blockedUploaderId, CommunityBlockReason.OTHER)
                 .onSuccess {
                     onStopIfPlaying(sound)
-                    topHits.update { hits -> hits.filterNot { it.matchesCommunityUploader(blockedUploaderId) } }
                     communityUploads.update { uploads -> uploads.filterNot { it.matchesCommunityUploader(blockedUploaderId) } }
                     state.update { s ->
                         s.copy(

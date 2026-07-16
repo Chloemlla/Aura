@@ -6,7 +6,6 @@ import com.freevibe.data.remote.bing.BingImage
 import com.freevibe.data.remote.lemmy.LemmyPostView
 import com.freevibe.data.remote.nasa.NasaApodResponse
 import com.freevibe.data.remote.pixabay.PixabayPhoto
-import com.freevibe.data.remote.reddit.RedditPost
 import com.freevibe.data.remote.wallhaven.WallhavenWallpaper
 import com.freevibe.data.remote.wikimedia.WikimediaPotdImage
 
@@ -213,24 +212,6 @@ fun FavoriteEntity.toSound(): Sound {
 
 private fun String.isYouTubePageUrl(): Boolean =
     contains("youtube.com", ignoreCase = true) || contains("youtu.be", ignoreCase = true)
-
-// -- Reddit Post -> Wallpaper --
-
-fun RedditPost.toWallpaper(): Wallpaper {
-    val res = parsedResolution
-    return Wallpaper(
-        id = "rd_$id",
-        source = ContentSource.REDDIT,
-        thumbnailUrl = thumbUrl,
-        fullUrl = imageUrl,
-        width = res?.first ?: 0,
-        height = res?.second ?: 0,
-        category = subreddit,
-        tags = listOf(subreddit),
-        sourcePageUrl = "https://www.reddit.com$permalink",
-        uploaderName = author,
-    )
-}
 
 // -- Lemmy -> Wallpaper --
 

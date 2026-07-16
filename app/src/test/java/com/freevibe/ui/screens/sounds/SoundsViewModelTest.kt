@@ -170,7 +170,6 @@ class SoundsViewModelTest {
 
         val state = viewModel.state.value
         assertEquals(listOf("bundled_ring"), state.sounds.map { it.id })
-        assertTrue(viewModel.topHits.value.isEmpty())
         assertFalse(state.hasMore)
         coVerify(exactly = 0) { youtubeRepo.searchSounds(any(), any(), any(), any()) }
         coVerify(exactly = 0) { youtubeRepo.getAudioPreviewUrl(any()) }

@@ -14,7 +14,6 @@ internal class SoundSelectionResolver(
     private val favoritesRepo: FavoritesRepository,
     private val bundledContent: BundledContentProvider,
     private val state: StateFlow<SoundsUiState>,
-    private val topHits: StateFlow<List<Sound>>,
     private val communityUploads: StateFlow<List<Sound>>,
 ) {
     fun selectSound(sound: Sound) {
@@ -34,8 +33,6 @@ internal class SoundSelectionResolver(
         state.value.sounds.firstOrNull { matchesSoundIdentity(it, id, source, previewUrl, downloadUrl) }?.let { return it }
 
         communityUploads.value.firstOrNull { matchesSoundIdentity(it, id, source, previewUrl, downloadUrl) }?.let { return it }
-
-        topHits.value.firstOrNull { matchesSoundIdentity(it, id, source, previewUrl, downloadUrl) }?.let { return it }
 
         listOf(
             bundledContent.getRingtones(),

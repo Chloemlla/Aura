@@ -93,9 +93,6 @@ class SoundsViewModel @Inject constructor(
         .map { list -> list.map { it.query } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _topHits = MutableStateFlow<List<Sound>>(emptyList())
-    val topHits = _topHits.asStateFlow()
-
     private val _communityUploads = MutableStateFlow<List<Sound>>(emptyList())
     val communityUploads = _communityUploads.asStateFlow()
 
@@ -109,7 +106,6 @@ class SoundsViewModel @Inject constructor(
         communityProviderEnabled = communityProviderEnabled,
         communityGuidelinesAccepted = communityGuidelinesAccepted,
         state = _state,
-        topHits = _topHits,
         communityUploads = _communityUploads,
         scope = viewModelScope,
         onStopIfPlaying = ::stopIfPlaying,
@@ -128,7 +124,6 @@ class SoundsViewModel @Inject constructor(
         autoPreview = autoPreview,
         previewVolume = previewVolume,
         state = _state,
-        topHits = _topHits,
         communityUploads = _communityUploads,
         previewReadyIds = _previewReadyIds,
         playbackProgress = _playbackProgress,
@@ -216,7 +211,6 @@ class SoundsViewModel @Inject constructor(
         favoritesRepo = favoritesRepo,
         bundledContent = bundledContent,
         state = state,
-        topHits = topHits,
         communityUploads = communityUploads,
     )
 

@@ -5,7 +5,6 @@ import com.freevibe.data.remote.lemmy.LemmyPerson
 import com.freevibe.data.remote.lemmy.LemmyPost
 import com.freevibe.data.remote.lemmy.LemmyPostCounts
 import com.freevibe.data.remote.lemmy.LemmyPostView
-import com.freevibe.data.remote.reddit.RedditPost
 import com.freevibe.data.remote.wikimedia.WikimediaPotdImage
 import com.freevibe.data.remote.wikimedia.WikimediaText
 import com.freevibe.data.remote.wikimedia.WikimediaThumbnail
@@ -13,30 +12,6 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class MappersTest {
-
-    // ── RedditPost.toWallpaper ──
-
-    @Test
-    fun `RedditPost toWallpaper maps id with rd_ prefix`() {
-        val post = RedditPost(id = "abc123", title = "Sunset [3840x2160]", url = "https://i.redd.it/sunset.jpg",
-            subreddit = "wallpapers", author = "testuser", permalink = "/r/wallpapers/comments/abc123/sunset/")
-        val wp = post.toWallpaper()
-        assertEquals("rd_abc123", wp.id)
-        assertEquals(ContentSource.REDDIT, wp.source)
-        assertEquals(3840, wp.width)
-        assertEquals(2160, wp.height)
-        assertEquals("wallpapers", wp.category)
-        assertEquals("testuser", wp.uploaderName)
-        assertEquals("https://www.reddit.com/r/wallpapers/comments/abc123/sunset/", wp.sourcePageUrl)
-    }
-
-    @Test
-    fun `RedditPost toWallpaper with no resolution in title gives 0x0`() {
-        val post = RedditPost(id = "xyz", title = "Just a photo", url = "https://i.redd.it/photo.jpg")
-        val wp = post.toWallpaper()
-        assertEquals(0, wp.width)
-        assertEquals(0, wp.height)
-    }
 
     // ── Wallpaper.toFavoriteEntity ──
 
