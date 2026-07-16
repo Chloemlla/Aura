@@ -17,6 +17,16 @@
 
 ## What Makes Aura Different
 
+Aura is built as a local-first tool rather than an ad-and-credit marketplace:
+
+| Area | Aura behavior |
+|------|---------------|
+| **Advertising** | No ad SDK, sponsored placements, or cross-app tracking. |
+| **Account** | Browsing, downloading, editing, applying, and backing up content do not require an Aura account; community features use an anonymous app identity. |
+| **Credits and paywalls** | No Aura credit balance, subscription, or in-app paywall. Optional Stability AI generation uses the user's own provider key and may consume Stability credits. |
+| **AI-generated content** | Generation is off by default. Declared AI uploads are labeled, Aura-generated uploads are labeled automatically, and community feeds provide a Hide AI filter. |
+| **Offline library** | Downloads and offline favorites stay on the device for local use. Portable backups carry favorites, collections, searches, wallpaper packs, and sound profiles without exporting device-specific download paths. |
+
 - **Quality-ranked YouTube sounds** — ringtones, notifications, and alarms use intent-specific YouTube searches with tight duration windows and cleaner result filtering.
 - **Reddit-first discovery** — mobile wallpaper and motion communities lead the home feeds, with real cached Atom cursor pagination instead of a fixed recent slice.
 - **Video wallpapers from multiple sources** — browse Reddit live wallpapers/cinemagraphs first, followed by YouTube, Pixabay, and Pexels; import local videos/GIFs, then tune loop, crop, Fill, or Fit before applying.

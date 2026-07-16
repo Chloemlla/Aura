@@ -7,6 +7,9 @@ All notable changes to Aura will be documented in this file.
 Content-first discovery overhaul with persistent media feeds, swipe-first previews,
 and a no-OAuth Reddit RSS pipeline.
 
+- **Documented Aura's local-first model**: the README now states the app's
+  account-free core, lack of ads and internal credits, explicit AI labeling and
+  filtering, and device-local offline-library behavior in a factual comparison.
 - **Clarified Android developer-verification installs**: README install guidance
   now covers checksum verification, signature-safe ADB updates, and Android's
   one-time advanced flow. The distribution runbook records the decision to
