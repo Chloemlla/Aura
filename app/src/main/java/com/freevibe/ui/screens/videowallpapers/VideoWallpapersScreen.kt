@@ -901,10 +901,16 @@ private fun ImmersiveVideoPage(
     onApply: () -> Unit,
 ) {
     val context = LocalContext.current
+    val immersivePreviewDescription = stringResource(R.string.a11y_immersive_video_preview, item.title)
     val isAnimatedStream = streamUrl?.isAnimatedImageStream() == true
     var isBuffering by remember(item.id, streamUrl) { mutableStateOf(streamUrl != null && !isAnimatedStream) }
     var playbackFailed by remember(item.id, streamUrl) { mutableStateOf(false) }
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .semantics { contentDescription = immersivePreviewDescription },
+    ) {
         if (streamUrl != null && isActive) {
             if (isAnimatedStream) {
                 coil.compose.SubcomposeAsyncImage(
@@ -966,6 +972,7 @@ private fun ImmersiveVideoPage(
                         androidx.media3.ui.PlayerView(context).apply {
                             this.player = player
                             useController = false
+                            importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
                             // Let the codec crop into fixed view bounds. PlayerView zoom
                             // resizes its SurfaceView after format discovery, which can
                             // exhaust Qualcomm BufferQueues on large aspect-ratio changes.
@@ -1114,7 +1121,7 @@ private fun VideoCard(
     }
     val upvoteVideoLabel = stringResource(R.string.a11y_upvote_video_wallpaper)
     val hideVideoLabel = stringResource(R.string.a11y_hide_video_wallpaper)
-    val previewVideoLabel = stringResource(R.string.a11y_preview_video_wallpaper)
+    val openVideoPreviewLabel = stringResource(R.string.a11y_open_video_preview, item.title)
     val applyVideoLabel = stringResource(R.string.a11y_apply_video_wallpaper)
     val quickActionsLabel = stringResource(R.string.a11y_show_quick_actions)
     val applyingLabel = stringResource(R.string.a11y_applying)
@@ -1228,7 +1235,8 @@ private fun VideoCard(
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .clickable(onClickLabel = previewVideoLabel, onClick = onOpen),
+                    .clickable(onClickLabel = openVideoPreviewLabel, onClick = onOpen)
+                    .semantics { contentDescription = openVideoPreviewLabel },
             )
 
             if (item.duration > 0) {

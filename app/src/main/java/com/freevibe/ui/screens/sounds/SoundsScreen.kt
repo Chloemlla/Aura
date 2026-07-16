@@ -1097,6 +1097,7 @@ private fun SoundCard(
                 onLongClickLabel = quickActionsLabel,
             )
             .semantics {
+                contentDescription = openSoundDetailsLabel
                 stateDescription = soundStateDescription
                 customActions = cardActions
             },

@@ -69,6 +69,7 @@ class AccessibilitySemanticsContractTest {
                 path = "src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt",
                 tokens = listOf(
                     "customActions = cardActions",
+                    "contentDescription = openSoundDetailsLabel",
                     "progressBarRangeInfo = ProgressBarRangeInfo",
                     "onClick(label = playButtonDescription",
                     "stateDescription = voteStateDescription",
@@ -78,7 +79,10 @@ class AccessibilitySemanticsContractTest {
                 path = "src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersScreen.kt",
                 tokens = listOf(
                     "stateDescription = videoStateDescription",
-                    "clickable(onClickLabel = previewVideoLabel",
+                    "clickable(onClickLabel = openVideoPreviewLabel",
+                    "contentDescription = openVideoPreviewLabel",
+                    "contentDescription = immersivePreviewDescription",
+                    "IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS",
                     "onClick(label = applyVideoLabel",
                     "stateDescription = selectedDescription",
                 ),

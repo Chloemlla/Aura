@@ -100,7 +100,8 @@
     <string name="a11y_video_preview_ready">Preview ready</string>
     <string name="a11y_upvote_video_wallpaper">Upvote video wallpaper</string>
     <string name="a11y_hide_video_wallpaper">Hide video wallpaper</string>
-    <string name="a11y_preview_video_wallpaper">Preview video wallpaper</string>
+    <string name="a11y_open_video_preview">Open full-screen preview for %1$s</string>
+    <string name="a11y_immersive_video_preview">Previewing %1$s. Swipe up or down for another video</string>
     <string name="a11y_apply_video_wallpaper">Apply video wallpaper</string>
     <string name="a11y_applying">Applying</string>
     <string name="a11y_ready">Ready</string>

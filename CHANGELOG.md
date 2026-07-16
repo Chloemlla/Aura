@@ -43,6 +43,9 @@ and a no-OAuth Reddit RSS pipeline.
 - **Added generated widget previews**: Glance 1.2 now publishes a responsive,
   deterministic Aura widget preview to Android 15+ pickers once per app version,
   without loading account, network, or wallpaper-history data.
+- **Labeled media browse surfaces for TalkBack**: video browse cards, immersive
+  previews, and sound rows now announce the media title together with the action,
+  while embedded player internals stay out of the accessibility tree.
 - **Added a video wallpaper motion guard**: the existing automatic battery control
   now holds videos and GIFs on a static frame while Android Battery Saver is active,
   resumes the retained decoder when saver exits, and reports the state in Settings.
