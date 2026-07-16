@@ -56,6 +56,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -74,9 +75,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.freevibe.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImagePainter
-import coil.compose.SubcomposeAsyncImage
-import coil.compose.SubcomposeAsyncImageContent
+import coil3.compose.AsyncImagePainter
+import coil3.compose.SubcomposeAsyncImage
+import coil3.compose.SubcomposeAsyncImageContent
 import com.freevibe.data.model.GENERATED_CONTENT_REPORT_REASONS
 import com.freevibe.data.model.WallpaperTarget
 import com.freevibe.data.repository.AiStyle
@@ -581,7 +582,7 @@ fun AiWallpaperScreen(
                                 .clip(RoundedCornerShape(8.dp)),
                             contentScale = ContentScale.Crop,
                         ) {
-                            when (painter.state) {
+                            when (painter.state.collectAsState().value) {
                                 is AsyncImagePainter.State.Loading -> {
                                     ShimmerBox(
                                         modifier = Modifier.fillMaxSize(),

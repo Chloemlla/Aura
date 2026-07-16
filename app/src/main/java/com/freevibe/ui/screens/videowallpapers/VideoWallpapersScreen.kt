@@ -53,7 +53,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.SubcomposeAsyncImageContent
+import coil3.compose.SubcomposeAsyncImageContent
 import com.freevibe.R
 import com.freevibe.data.model.VideoProviderPolicyLinks
 import com.freevibe.data.model.VideoWallpaperAction
@@ -913,18 +913,18 @@ private fun ImmersiveVideoPage(
     ) {
         if (streamUrl != null && isActive) {
             if (isAnimatedStream) {
-                coil.compose.SubcomposeAsyncImage(
+                coil3.compose.SubcomposeAsyncImage(
                     model = streamUrl,
                     contentDescription = null,
                     contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    when (painter.state) {
-                        is coil.compose.AsyncImagePainter.State.Loading -> Box(
+                    when (painter.state.collectAsState().value) {
+                        is coil3.compose.AsyncImagePainter.State.Loading -> Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center,
                         ) { VideoPreviewLoadingIndicator() }
-                        is coil.compose.AsyncImagePainter.State.Error -> Box(
+                        is coil3.compose.AsyncImagePainter.State.Error -> Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center,
                         ) { VideoPreviewUnavailableIndicator() }
@@ -984,7 +984,7 @@ private fun ImmersiveVideoPage(
                 )
             }
         } else {
-            coil.compose.AsyncImage(
+            coil3.compose.AsyncImage(
                 model = item.thumbnailUrl,
                 contentDescription = null,
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
@@ -1142,7 +1142,7 @@ private fun VideoCard(
         Box {
             // ExoPlayer video or loading placeholder
             if (streamUrl != null && shouldPreview && streamUrl.isAnimatedImageStream()) {
-                coil.compose.AsyncImage(
+                coil3.compose.AsyncImage(
                     model = streamUrl,
                     contentDescription = null,
                     contentScale = androidx.compose.ui.layout.ContentScale.Crop,
@@ -1197,7 +1197,7 @@ private fun VideoCard(
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                     contentAlignment = Alignment.Center,
                 ) {
-                    coil.compose.AsyncImage(
+                    coil3.compose.AsyncImage(
                         model = item.thumbnailUrl,
                         contentDescription = null,
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop,

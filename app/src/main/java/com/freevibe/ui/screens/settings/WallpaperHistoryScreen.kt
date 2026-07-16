@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.freevibe.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import com.freevibe.data.model.WallpaperHistoryEntity
 import com.freevibe.ui.components.AuraStateCard
 import java.text.SimpleDateFormat

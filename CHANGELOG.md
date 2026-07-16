@@ -51,6 +51,9 @@ and a no-OAuth Reddit RSS pipeline.
   automation, including when periodic rotation is disabled.
 - **Refreshed paging, JSON, and QR dependencies**: Paging 3.3.6, Moshi 1.15.2,
   and ZXing 3.5.4 bring bounded bug fixes without changing Aura's public formats.
+- **Migrated the image stack to Coil 3.2 and Compose 1.8**: every image surface,
+  singleton cache, OkHttp fetcher, GIF decoder, and widget bitmap conversion now
+  uses Coil 3, aligned by the June 2025 Compose BOM.
 - **Added a video wallpaper motion guard**: the existing automatic battery control
   now holds videos and GIFs on a static frame while Android Battery Saver is active,
   resumes the retained decoder when saver exits, and reports the state in Settings.

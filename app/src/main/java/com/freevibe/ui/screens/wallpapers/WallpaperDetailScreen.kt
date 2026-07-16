@@ -58,11 +58,11 @@ import com.freevibe.ui.policy.communityBlockConfirmationCopy
 import com.freevibe.ui.policy.communityOwnerDeleteConfirmationCopy
 import com.freevibe.ui.launchLiveWallpaperPicker
 import com.freevibe.ui.util.openExternalUrl
-import coil.compose.AsyncImagePainter
-import coil.compose.SubcomposeAsyncImage
-import coil.compose.SubcomposeAsyncImageContent
-import coil.imageLoader
-import coil.request.ImageRequest
+import coil3.compose.AsyncImagePainter
+import coil3.compose.SubcomposeAsyncImage
+import coil3.compose.SubcomposeAsyncImageContent
+import coil3.imageLoader
+import coil3.request.ImageRequest
 import kotlinx.coroutines.flow.flowOf
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -830,7 +830,7 @@ private fun WallpaperImage(url: String, modifier: Modifier = Modifier) {
         contentScale = ContentScale.Crop,
         modifier = modifier,
     ) {
-        when (painter.state) {
+        when (painter.state.collectAsState().value) {
             is AsyncImagePainter.State.Loading -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(Modifier.size(40.dp), color = Color.White, strokeWidth = 3.dp)

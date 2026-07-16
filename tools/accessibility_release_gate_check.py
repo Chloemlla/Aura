@@ -123,8 +123,8 @@ def validate_accessibility_release_gate(repo_root: Path, policy_path: str) -> di
 
     version_catalog = read_text(repo_root / "gradle/libs.versions.toml")
     app_gradle = read_text(repo_root / "app/build.gradle.kts")
-    if 'compose-ui-test = "1.8.0"' not in version_catalog:
-        raise AccessibilityReleaseGateError("version catalog must pin Compose UI test artifacts to 1.8.0 or newer")
+    if 'compose-bom = "2025.06.00"' not in version_catalog:
+        raise AccessibilityReleaseGateError("version catalog must align Compose UI test artifacts with the June 2025 BOM or newer")
     for coordinate in required_dependencies:
         group, name = coordinate.split(":", 1)
         if group not in version_catalog or name not in version_catalog:
@@ -133,6 +133,8 @@ def validate_accessibility_release_gate(repo_root: Path, policy_path: str) -> di
         "libs.compose.ui.test.junit4",
         "libs.compose.ui.test.junit4.accessibility",
         "libs.compose.ui.test.manifest",
+        "testImplementation(platform(libs.compose.bom))",
+        "androidTestImplementation(platform(libs.compose.bom))",
     ):
         if term not in app_gradle:
             raise AccessibilityReleaseGateError(f"app/build.gradle.kts missing accessibility test dependency: {term}")

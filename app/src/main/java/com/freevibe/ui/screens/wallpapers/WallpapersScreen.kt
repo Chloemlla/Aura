@@ -52,9 +52,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImagePainter
-import coil.compose.SubcomposeAsyncImage
-import coil.compose.SubcomposeAsyncImageContent
+import coil3.compose.AsyncImagePainter
+import coil3.compose.SubcomposeAsyncImage
+import coil3.compose.SubcomposeAsyncImageContent
 import com.freevibe.R
 import com.freevibe.data.model.COMMUNITY_UPLOAD_LICENSES
 import com.freevibe.data.model.CommunityUploadRights
@@ -1242,7 +1242,7 @@ private fun WallpaperCard(
                     .fillMaxWidth()
                     .aspectRatio(aspectRatio.coerceIn(0.5f, 1.0f)),
             ) {
-                when (painter.state) {
+                when (painter.state.collectAsState().value) {
                     is AsyncImagePainter.State.Loading -> {
                         ShimmerBox(
                             modifier = Modifier.fillMaxSize(),

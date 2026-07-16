@@ -46,6 +46,21 @@ class AccessibilityReleaseGateCheckTest(unittest.TestCase):
             with self.assertRaises(AccessibilityReleaseGateError):
                 validate_accessibility_release_gate(repo, "docs/qa/accessibility-release-gate.json")
 
+    def test_rejects_compose_test_dependencies_without_supported_bom(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = copy_required_tree(Path(tmpdir))
+            catalog_path = repo / "gradle/libs.versions.toml"
+            catalog_path.write_text(
+                catalog_path.read_text(encoding="utf-8").replace(
+                    'compose-bom = "2025.06.00"',
+                    'compose-bom = "2024.12.01"',
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(AccessibilityReleaseGateError):
+                validate_accessibility_release_gate(repo, "docs/qa/accessibility-release-gate.json")
+
     def test_rejects_missing_executed_surface(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = copy_required_tree(Path(tmpdir))

@@ -3,7 +3,6 @@ package com.freevibe.widget
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
 import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -21,8 +20,11 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import coil.imageLoader
-import coil.request.ImageRequest
+import coil3.imageLoader
+import coil3.request.allowHardware
+import coil3.request.ImageRequest
+import coil3.request.SuccessResult
+import coil3.toBitmap
 import kotlinx.coroutines.flow.first
 import com.freevibe.data.model.WallpaperTarget
 import com.freevibe.data.repository.WallpaperRepository
@@ -125,8 +127,8 @@ class FreeVibeWidget : GlanceAppWidget() {
                 .size(WIDGET_BG_MAX_PX)
                 .allowHardware(false) // hardware bitmaps can't cross process boundaries
                 .build()
-            val result = context.imageLoader.execute(request)
-            (result.drawable as? BitmapDrawable)?.bitmap
+            val result = context.imageLoader.execute(request) as? SuccessResult ?: return null
+            result.image.toBitmap()
         } catch (_: Exception) {
             null
         }

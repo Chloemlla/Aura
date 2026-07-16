@@ -4,12 +4,14 @@ import android.app.Application
 import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
-import coil.ImageLoader
-import coil.ImageLoaderFactory
-import coil.disk.DiskCache
-import coil.decode.GifDecoder
-import coil.decode.ImageDecoderDecoder
-import coil.memory.MemoryCache
+import coil3.ImageLoader
+import coil3.SingletonImageLoader
+import coil3.disk.DiskCache
+import coil3.gif.AnimatedImageDecoder
+import coil3.gif.GifDecoder
+import coil3.memory.MemoryCache
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import coil3.request.crossfade
 import com.freevibe.data.local.WallpaperCacheManager
 import com.freevibe.service.NotificationChannels
 import com.freevibe.service.CrashDiagnosticsCollector
@@ -24,6 +26,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
+import okio.Path.Companion.toOkioPath
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -31,7 +34,7 @@ import java.util.Locale
 import javax.inject.Inject
 
 @HiltAndroidApp
-class FreeVibeApp : Application(), Configuration.Provider, ImageLoaderFactory {
+class FreeVibeApp : Application(), Configuration.Provider, SingletonImageLoader.Factory {
 
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
@@ -58,23 +61,23 @@ class FreeVibeApp : Application(), Configuration.Provider, ImageLoaderFactory {
             .setWorkerFactory(workerFactory)
             .build()
 
-    override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
-        .okHttpClient(okHttpClient)
+    override fun newImageLoader(context: android.content.Context): ImageLoader = ImageLoader.Builder(context)
         .components {
+            add(OkHttpNetworkFetcherFactory(callFactory = { okHttpClient.newBuilder().build() }))
             if (android.os.Build.VERSION.SDK_INT >= 28) {
-                add(ImageDecoderDecoder.Factory())
+                add(AnimatedImageDecoder.Factory())
             } else {
                 add(GifDecoder.Factory())
             }
         }
         .memoryCache {
-            MemoryCache.Builder(this)
-                .maxSizePercent(0.25) // 25% of available app memory
+            MemoryCache.Builder()
+                .maxSizePercent(context, 0.25) // 25% of available app memory
                 .build()
         }
         .diskCache {
             DiskCache.Builder()
-                .directory(File(cacheDir, "coil_cache"))
+                .directory(File(context.cacheDir, "coil_cache").toOkioPath())
                 .maxSizeBytes(256L * 1024 * 1024) // 256 MB — wallpaper app needs generous image cache
                 .build()
         }
