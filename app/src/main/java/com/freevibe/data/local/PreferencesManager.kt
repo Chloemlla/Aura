@@ -23,10 +23,73 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("freevibe_prefs")
+
+private const val LEGACY_REDDIT_RSS_PAGE_PREFIX = "reddit_rss_page_v2_"
+internal const val MAX_REDDIT_RSS_PAGE_METADATA_ENTRIES = 64
+private val REDDIT_RSS_CURSOR_TOKEN = Regex("[a-zA-Z0-9]{1,64}")
+
+internal data class RedditRssPageMetadataEntry(
+    val feedHash: Int,
+    val requestToken: String,
+    val nextCursor: String,
+)
+
+internal fun decodeRedditRssPageMetadata(raw: String?): List<RedditRssPageMetadataEntry> = raw
+    .orEmpty()
+    .lineSequence()
+    .mapNotNull { line ->
+        val fields = line.split('\t')
+        if (fields.size != 3) return@mapNotNull null
+        val feedHash = fields[0].toIntOrNull() ?: return@mapNotNull null
+        val requestToken = fields[1].takeIf { it == "root" || REDDIT_RSS_CURSOR_TOKEN.matches(it) }
+            ?: return@mapNotNull null
+        val nextCursor = fields[2].takeIf {
+            it == "__END__" ||
+                (it.startsWith("t3_") && REDDIT_RSS_CURSOR_TOKEN.matches(it.removePrefix("t3_")))
+        } ?: return@mapNotNull null
+        RedditRssPageMetadataEntry(feedHash, requestToken, nextCursor)
+    }
+    .toList()
+    .takeLast(MAX_REDDIT_RSS_PAGE_METADATA_ENTRIES)
+
+internal fun updateRedditRssPageMetadata(
+    raw: String?,
+    feedHash: Int,
+    requestAfter: String?,
+    nextCursor: String,
+): String {
+    val requestToken = requestAfter
+        ?.removePrefix("t3_")
+        ?.takeIf(REDDIT_RSS_CURSOR_TOKEN::matches)
+        ?: "root"
+    val normalizedNextCursor = nextCursor.trim().takeIf {
+        it == "__END__" ||
+            (it.startsWith("t3_") && REDDIT_RSS_CURSOR_TOKEN.matches(it.removePrefix("t3_")))
+    } ?: return decodeRedditRssPageMetadata(raw).encodeRedditRssPageMetadata()
+    return decodeRedditRssPageMetadata(raw)
+        .filterNot { it.feedHash == feedHash && it.requestToken == requestToken }
+        .plus(RedditRssPageMetadataEntry(feedHash, requestToken, normalizedNextCursor))
+        .takeLast(MAX_REDDIT_RSS_PAGE_METADATA_ENTRIES)
+        .encodeRedditRssPageMetadata()
+}
+
+internal fun removeLegacyRedditRssPageMetadata(preferences: MutablePreferences): Int {
+    val legacyKeys = preferences.asMap().keys
+        .filter { it.name.startsWith(LEGACY_REDDIT_RSS_PAGE_PREFIX) }
+    legacyKeys.forEach { key -> preferences.remove(key) }
+    return legacyKeys.size
+}
+
+private fun List<RedditRssPageMetadataEntry>.encodeRedditRssPageMetadata(): String =
+    joinToString("\n") { entry ->
+        "${entry.feedHash}\t${entry.requestToken}\t${entry.nextCursor}"
+    }
 
 @Singleton
 class PreferencesManager @Inject constructor(
@@ -54,6 +117,8 @@ class PreferencesManager @Inject constructor(
 
     private val dataStore = context.dataStore
     private val providerCredentialStore = ProviderCredentialStore(context)
+    private val redditRssMetadataMigrationMutex = Mutex()
+    @Volatile private var redditRssMetadataMigrated = false
     private val providerCredentialRevision = MutableStateFlow(0)
     private val _providerCredentialStorageUnavailable = MutableStateFlow(false)
     val providerCredentialStorageUnavailable: StateFlow<Boolean> =
@@ -278,10 +343,29 @@ class PreferencesManager @Inject constructor(
      * exact next cursor (or terminal marker) across process restarts.
      */
     suspend fun getRedditRssNextCursor(feedHash: Int, requestAfter: String?): String =
-        get(redditRssPageMetadataKey(feedHash, requestAfter), "").first()
+        afterRedditRssMetadataMigration {
+            val requestToken = requestAfter
+                ?.removePrefix("t3_")
+                ?.takeIf(REDDIT_RSS_CURSOR_TOKEN::matches)
+                ?: "root"
+            decodeRedditRssPageMetadata(get(Keys.REDDIT_RSS_PAGE_METADATA_V3, "").first())
+                .lastOrNull { it.feedHash == feedHash && it.requestToken == requestToken }
+                ?.nextCursor
+                .orEmpty()
+        }
 
-    suspend fun setRedditRssNextCursor(feedHash: Int, requestAfter: String?, nextCursor: String) =
-        set(redditRssPageMetadataKey(feedHash, requestAfter), nextCursor.trim())
+    suspend fun setRedditRssNextCursor(feedHash: Int, requestAfter: String?, nextCursor: String) {
+        afterRedditRssMetadataMigration {
+            dataStore.edit { preferences ->
+                preferences[Keys.REDDIT_RSS_PAGE_METADATA_V3] = updateRedditRssPageMetadata(
+                    raw = preferences[Keys.REDDIT_RSS_PAGE_METADATA_V3],
+                    feedHash = feedHash,
+                    requestAfter = requestAfter,
+                    nextCursor = nextCursor,
+                )
+            }
+        }
+    }
 
     suspend fun getRedditRssNextAllowedAtMs(): Long =
         get(Keys.REDDIT_RSS_NEXT_ALLOWED_AT_MS, 0L).first()
@@ -289,12 +373,16 @@ class PreferencesManager @Inject constructor(
     suspend fun setRedditRssNextAllowedAtMs(timestampMs: Long) =
         set(Keys.REDDIT_RSS_NEXT_ALLOWED_AT_MS, timestampMs.coerceAtLeast(0L))
 
-    private fun redditRssPageMetadataKey(feedHash: Int, requestAfter: String?): Preferences.Key<String> {
-        val requestToken = requestAfter
-            ?.removePrefix("t3_")
-            ?.takeIf { it.matches(Regex("[a-zA-Z0-9]+")) }
-            ?: "root"
-        return stringPreferencesKey("reddit_rss_page_v2_${feedHash}_$requestToken")
+    private suspend fun <T> afterRedditRssMetadataMigration(block: suspend () -> T): T {
+        if (!redditRssMetadataMigrated) {
+            redditRssMetadataMigrationMutex.withLock {
+                if (!redditRssMetadataMigrated) {
+                    dataStore.edit(::removeLegacyRedditRssPageMetadata)
+                    redditRssMetadataMigrated = true
+                }
+            }
+        }
+        return block()
     }
 
     // ── YouTube sound search ──────────────────────────────────────
@@ -513,6 +601,7 @@ class PreferencesManager @Inject constructor(
         val REDDIT_VIDEO_SUBS = stringPreferencesKey("reddit_video_subreddits")
         val REDDIT_PROVIDER_ENABLED = booleanPreferencesKey("reddit_provider_enabled")
         val REDDIT_RSS_NEXT_ALLOWED_AT_MS = longPreferencesKey("reddit_rss_next_allowed_at_ms")
+        val REDDIT_RSS_PAGE_METADATA_V3 = stringPreferencesKey("reddit_rss_page_metadata_v3")
         // YouTube sound search
         val YT_SOUND_RINGTONES = stringPreferencesKey("yt_sound_ringtones")
         val YT_SOUND_NOTIFICATIONS = stringPreferencesKey("yt_sound_notifications")

@@ -66,6 +66,9 @@ and a no-OAuth Reddit RSS pipeline.
 - **Updated Media3 from 1.5.1 to 1.8.0** across ExoPlayer, HLS, sessions, and
   player UI, retaining Aura's compileSdk 35 floor while taking the newer audio,
   video, scrubbing, and media-session reliability fixes.
+- **Bounded Reddit RSS pagination metadata**: page cursors now live in one
+  atomically updated 64-entry rolling value instead of permanent per-page DataStore
+  keys, and first use removes every legacy `reddit_rss_page_v2_*` key.
 
 ## v6.35.1 (2026-07-15)
 
