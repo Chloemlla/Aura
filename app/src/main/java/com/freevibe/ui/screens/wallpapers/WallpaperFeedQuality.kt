@@ -118,6 +118,7 @@ internal fun Wallpaper.cardAccessibilitySummary(
     add(hints.orientationLabel)
     if (hints.isAmoled) add("AMOLED friendly")
     if (hints.isIconSafe) add("icon-safe")
+    if (isAiGenerated == true) add("AI-generated")
     if (voteCount > 0) add("$voteCount upvotes")
     add(if (isFavorite) "saved to favorites" else "not saved")
 }.joinToString(", ")

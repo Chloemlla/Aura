@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,6 +67,7 @@ import com.freevibe.data.model.SoundActionDecision
 import com.freevibe.data.model.SoundLicenseCapabilities
 import com.freevibe.data.model.soundLicenseCapabilities
 import com.freevibe.data.model.stableKey
+import com.freevibe.data.model.shouldShowCommunityContent
 import com.freevibe.data.repository.matchesHiddenIds
 import com.freevibe.data.repository.YouTubeExtractionMode
 import com.freevibe.data.repository.displayName
@@ -107,6 +109,7 @@ fun SoundsScreen(
     val communityProviderEnabled by viewModel.communityProviderEnabled.collectAsStateWithLifecycle()
     val communityGuidelinesAccepted by viewModel.communityGuidelinesAccepted.collectAsStateWithLifecycle()
     val hiddenIds by viewModel.hiddenIds.collectAsStateWithLifecycle(initialValue = emptySet())
+    var hideAiGeneratedCommunity by rememberSaveable { mutableStateOf(false) }
     val communityVoteIds = remember(state.sounds, state.selectedTab, communityProviderEnabled) {
         if (communityProviderEnabled && state.selectedTab == SoundTab.COMMUNITY) {
             state.sounds.map { it.stableKey() }.distinct()
@@ -118,10 +121,18 @@ fun SoundsScreen(
         if (communityVoteIds.isEmpty()) flowOf(emptyMap<String, Int>()) else viewModel.voteRepo.getVoteCounts(communityVoteIds)
     }
     val voteCounts by communityVoteFlow.collectAsStateWithLifecycle(initialValue = emptyMap())
-    val displaySounds = remember(state.sounds, state.selectedTab, hiddenIds, voteCounts, communityProviderEnabled) {
+    val displaySounds = remember(
+        state.sounds,
+        state.selectedTab,
+        hiddenIds,
+        voteCounts,
+        communityProviderEnabled,
+        hideAiGeneratedCommunity,
+    ) {
         if (communityProviderEnabled && state.selectedTab == SoundTab.COMMUNITY) {
             state.sounds
                 .filter { !matchesHiddenIds(hiddenIds, it.stableKey(), it.id) }
+                .filter { shouldShowCommunityContent(it.isAiGenerated, hideAiGeneratedCommunity) }
                 .sortedByDescending { voteCounts[it.stableKey()] ?: 0 }
         } else {
             state.sounds
@@ -316,9 +327,9 @@ fun SoundsScreen(
         UploadDialog(
             isUploading = state.isUploading,
             uploadProgress = state.uploadProgress,
-            onUpload = { name, category, tags, rights ->
+            onUpload = { name, category, tags, rights, isAiGenerated ->
                 awaitingUploadResult = true
-                viewModel.uploadSound(uploadUri, name, category, tags, rights)
+                viewModel.uploadSound(uploadUri, name, category, tags, rights, isAiGenerated)
             },
             onDismiss = {
                 if (!state.isUploading) {
@@ -569,6 +580,17 @@ fun SoundsScreen(
                         }
                     },
                 )
+                if (state.selectedTab == SoundTab.COMMUNITY && communityProviderEnabled) {
+                    FilterChip(
+                        selected = hideAiGeneratedCommunity,
+                        onClick = { hideAiGeneratedCommunity = !hideAiGeneratedCommunity },
+                        label = { Text(stringResource(R.string.community_hide_ai_filter)) },
+                        leadingIcon = if (hideAiGeneratedCommunity) {
+                            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                        } else null,
+                        shape = RoundedCornerShape(8.dp),
+                    )
+                }
             }
 
             if (
@@ -1144,6 +1166,14 @@ private fun SoundCard(
                             color = sourceColor,
                             fontWeight = if (sound.source == ContentSource.BUNDLED) FontWeight.Bold else FontWeight.Medium,
                         )
+                        if (sound.isAiGenerated == true) {
+                            Text(
+                                stringResource(R.string.community_ai_generated_badge),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.tertiary,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
                         Text(
                             formatDuration(sound.duration),
                             style = MaterialTheme.typography.bodySmall,
@@ -1606,7 +1636,7 @@ private fun RecordingDialog(
 private fun UploadDialog(
     isUploading: Boolean,
     uploadProgress: Float,
-    onUpload: (name: String, category: String, tags: List<String>, rights: CommunityUploadRights) -> Unit,
+    onUpload: (name: String, category: String, tags: List<String>, rights: CommunityUploadRights, isAiGenerated: Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
@@ -1614,6 +1644,7 @@ private fun UploadDialog(
     var selectedLicense by remember { mutableStateOf(COMMUNITY_UPLOAD_LICENSES.first()) }
     var sourceUrl by remember { mutableStateOf("") }
     var rightsAttested by remember { mutableStateOf(false) }
+    var isAiGenerated by remember { mutableStateOf(false) }
     var tagsText by remember { mutableStateOf("") }
     val policyCopy = remember { communityUploadPolicyCopy(CommunityUploadPolicyKind.SOUND) }
     val ringtoneLabel = stringResource(R.string.sounds_upload_category_ringtone)
@@ -1645,6 +1676,28 @@ private fun UploadDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Checkbox(
+                        checked = isAiGenerated,
+                        onCheckedChange = { isAiGenerated = it },
+                        enabled = !isUploading,
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.community_ai_upload_declaration),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            stringResource(R.string.community_ai_upload_declaration_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 Text(stringResource(R.string.sounds_upload_category_label), style = MaterialTheme.typography.labelMedium)
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1736,6 +1789,7 @@ private fun UploadDialog(
                             rightsAttested = rightsAttested,
                             sourceUrl = sourceUrl.trim(),
                         ),
+                        isAiGenerated,
                     )
                 },
                 enabled = !isUploading && name.isNotBlank() && rightsAttested,

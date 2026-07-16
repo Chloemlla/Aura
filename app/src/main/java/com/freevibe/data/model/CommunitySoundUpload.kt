@@ -33,6 +33,7 @@ data class CommunitySoundUploadMetadataInput(
     val license: String,
     val rightsAttested: Boolean,
     val sourceUrl: String = "",
+    val isAiGenerated: Boolean = false,
 )
 
 fun buildCommunitySoundUploadCallablePayload(input: CommunitySoundUploadMetadataInput): Map<String, Any> {
@@ -68,6 +69,7 @@ fun buildCommunitySoundUploadCallablePayload(input: CommunitySoundUploadMetadata
         "license" to normalizedLicense,
         "rightsAttested" to true,
         "sourceUrl" to normalizeCommunitySourceUrl(input.sourceUrl),
+        "isAiGenerated" to input.isAiGenerated,
     )
 }
 

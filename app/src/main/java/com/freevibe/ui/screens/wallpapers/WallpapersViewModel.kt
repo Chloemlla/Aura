@@ -426,8 +426,14 @@ class WallpapersViewModel @Inject constructor(
     fun blockCommunityWallpaper(wallpaper: Wallpaper, onBlocked: () -> Unit = {}) = community.blockCommunityWallpaper(wallpaper, onBlocked)
     suspend fun canDeleteCommunityWallpaper(wallpaper: Wallpaper) = community.canDeleteCommunityWallpaper(wallpaper)
     fun deleteCommunityWallpaper(wallpaper: Wallpaper) = community.deleteCommunityWallpaper(wallpaper)
-    fun uploadCommunityWallpaper(localUri: Uri, name: String, category: String, tags: List<String>, rights: CommunityUploadRights) =
-        community.uploadCommunityWallpaper(localUri, name, category, tags, rights)
+    fun uploadCommunityWallpaper(
+        localUri: Uri,
+        name: String,
+        category: String,
+        tags: List<String>,
+        rights: CommunityUploadRights,
+        isAiGenerated: Boolean = false,
+    ) = community.uploadCommunityWallpaper(localUri, name, category, tags, rights, isAiGenerated)
 
     // -- Collections --
 

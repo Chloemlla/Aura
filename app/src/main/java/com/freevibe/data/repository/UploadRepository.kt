@@ -95,6 +95,7 @@ class UploadRepository @Inject constructor(
         category: String, // ringtone, notification, alarm
         tags: List<String>,
         rights: CommunityUploadRights,
+        isAiGenerated: Boolean = false,
         onProgress: (Float) -> Unit = {},
     ): Result<String> = try {
         if (!isCommunityProviderEnabled()) {
@@ -161,6 +162,7 @@ class UploadRepository @Inject constructor(
                 originalFileName = uploadInfo.originalFileName,
                 uploaderLabel = uploaderLabel,
                 rights = validatedRights,
+                isAiGenerated = isAiGenerated,
             )
             metadataSaved = true
 
@@ -296,6 +298,7 @@ class UploadRepository @Inject constructor(
                     uploaderName = uploaderLabel.ifBlank { uploaderUid.ifBlank { uploaderId }.take(8) },
                     sourcePageUrl = sourceUrl,
                     communityUploaderId = uploaderUid.ifBlank { uploaderId },
+                    isAiGenerated = child.child("isAiGenerated").getValue(Boolean::class.java),
                 )
             }.sortedByDescending { sound ->
                 votesByKey[sound.id.removePrefix("cu_")] ?: 0
@@ -350,6 +353,7 @@ class UploadRepository @Inject constructor(
         originalFileName: String,
         uploaderLabel: String,
         rights: CommunityUploadRights,
+        isAiGenerated: Boolean,
     ) {
         if (identityProvider.currentFirebaseUid().isNullOrBlank()) {
             throw IllegalStateException("Community upload service requires Firebase Auth")
@@ -368,6 +372,7 @@ class UploadRepository @Inject constructor(
                     license = rights.license,
                     rightsAttested = rights.rightsAttested,
                     sourceUrl = rights.sourceUrl,
+                    isAiGenerated = isAiGenerated,
                 ),
             )
             when {

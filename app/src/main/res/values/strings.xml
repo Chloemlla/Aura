@@ -1743,4 +1743,15 @@
     <string name="ai_feedback_key_required">Enter your Stability AI key to generate images.</string>
     <string name="ai_feedback_disclosure_required">Review and accept the generated wallpaper disclosure before generating.</string>
     <string name="ai_feedback_generation_in_progress">Generation already in progress. Wait for it to finish before starting another Stability request.</string>
+    <string name="community_ai_generated_badge">AI-generated</string>
+    <string name="community_hide_ai_filter">Hide AI</string>
+    <string name="community_ai_upload_declaration">Created with generative AI</string>
+    <string name="community_ai_upload_declaration_hint">Check this when AI generated or materially transformed the upload.</string>
+    <string name="ai_share_community">Share to community</string>
+    <string name="ai_share_community_unavailable">Enable Community and accept its guidelines in Settings to share.</string>
+    <string name="ai_share_community_auto_label">Aura will automatically label this wallpaper as AI-generated.</string>
+    <string name="ai_share_community_title">Share generated wallpaper</string>
+    <string name="ai_share_community_default_name">Generated wallpaper</string>
+    <string name="ai_share_community_complete">Generated wallpaper shared to Community</string>
+    <string name="ai_share_community_failed">Community upload failed: %1$s</string>
 </resources>

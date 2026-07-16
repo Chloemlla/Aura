@@ -1,11 +1,13 @@
 package com.freevibe.ui.screens.aigenerate
 
 import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.freevibe.R
 import com.freevibe.data.model.CommunityReportInput
 import com.freevibe.data.model.CommunityReportReason
+import com.freevibe.data.model.CommunityUploadRights
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.FavoriteEntity
 import com.freevibe.data.model.Wallpaper
@@ -15,6 +17,7 @@ import com.freevibe.data.repository.AiStyle
 import com.freevibe.data.repository.AiWallpaperRepository
 import com.freevibe.data.repository.CommunityReportRepository
 import com.freevibe.data.repository.FavoritesRepository
+import com.freevibe.data.repository.WallpaperUploadRepository
 import java.util.Locale
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.service.SourceMetrics
@@ -105,6 +108,9 @@ fun generatedWallpaperReportInput(
     uploaderName = "Aura generated wallpaper",
 )
 
+internal fun generatedWallpaperCommunityAiFlag(wallpaper: Wallpaper): Boolean =
+    wallpaper.source == ContentSource.AI_GENERATED || wallpaper.isAiGenerated == true
+
 private val GENERATED_WALLPAPER_SAFE_TAGS =
     setOf("ai-generated") + AiStyle.entries.mapNotNull { it.preset.takeIf(String::isNotBlank) }
 
@@ -136,6 +142,9 @@ data class AiWallpaperUiState(
     val error: String? = null,
     val sessionGenerationCount: Int = 0,
     val pendingDuplicateConfirmation: DuplicateGenerationConfirmation? = null,
+    val isUploadingToCommunity: Boolean = false,
+    val communityUploadProgress: Float = 0f,
+    val communityUploadComplete: Boolean = false,
 )
 
 @HiltViewModel
@@ -144,6 +153,7 @@ class AiWallpaperViewModel @Inject constructor(
     private val repo: AiWallpaperRepository,
     private val favoritesRepo: FavoritesRepository,
     private val reportRepo: CommunityReportRepository,
+    private val wallpaperUploadRepo: WallpaperUploadRepository,
     private val wallpaperApplier: WallpaperApplier,
     private val prefs: PreferencesManager,
     private val sourceMetrics: SourceMetrics,
@@ -169,6 +179,10 @@ class AiWallpaperViewModel @Inject constructor(
             PreferencesManager.DEFAULT_GENERATED_CONTENT_PROVIDER_ENABLED,
         )
     val generatedContentDisclosureAccepted: StateFlow<Boolean> = prefs.generatedContentDisclosureAccepted
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val communityProviderEnabled: StateFlow<Boolean> = prefs.communityProviderEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val communityGuidelinesAccepted: StateFlow<Boolean> = prefs.communityGuidelinesAccepted
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     fun setPrompt(p: String) {
@@ -363,6 +377,61 @@ class AiWallpaperViewModel @Inject constructor(
             favoritesRepo.add(generatedWallpaperFavoriteEntity(wallpaper))
             _state.update { it.copy(isSaved = true) }
         }
+    }
+
+    fun shareGeneratedWallpaper(
+        name: String,
+        category: String,
+        tags: List<String>,
+        rights: CommunityUploadRights,
+    ) {
+        val wallpaper = _state.value.result ?: return
+        if (_state.value.isUploadingToCommunity) return
+        viewModelScope.launch {
+            _state.update {
+                it.copy(
+                    isUploadingToCommunity = true,
+                    communityUploadProgress = 0f,
+                    communityUploadComplete = false,
+                    error = null,
+                )
+            }
+            wallpaperUploadRepo.uploadWallpaper(
+                localUri = Uri.parse(wallpaper.fullUrl),
+                name = name,
+                category = category,
+                tags = tags,
+                rights = rights,
+                isAiGenerated = generatedWallpaperCommunityAiFlag(wallpaper),
+                onProgress = { progress ->
+                    _state.update { state -> state.copy(communityUploadProgress = progress) }
+                },
+            ).onSuccess {
+                _state.update {
+                    it.copy(
+                        isUploadingToCommunity = false,
+                        communityUploadProgress = 0f,
+                        communityUploadComplete = true,
+                        applySuccess = context.getString(R.string.ai_share_community_complete),
+                    )
+                }
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(
+                        isUploadingToCommunity = false,
+                        communityUploadProgress = 0f,
+                        error = context.getString(
+                            R.string.ai_share_community_failed,
+                            error.message ?: context.getString(R.string.feedback_try_again),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    fun acknowledgeCommunityUpload() {
+        _state.update { it.copy(communityUploadComplete = false) }
     }
 
     fun reportGeneratedWallpaper(wallpaper: Wallpaper, reason: CommunityReportReason, note: String = "") {

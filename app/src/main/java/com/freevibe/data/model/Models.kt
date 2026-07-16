@@ -50,6 +50,7 @@ data class Wallpaper(
     val sourceAvailability: String = SOURCE_AVAILABILITY_AVAILABLE,
     val sourceAvailabilityReason: String = "",
     val communityUploaderId: String = "",
+    val isAiGenerated: Boolean? = null,
 )
 
 // -- Sound --
@@ -73,6 +74,7 @@ data class Sound(
     val sourceAvailability: String = SOURCE_AVAILABILITY_AVAILABLE,
     val sourceAvailabilityReason: String = "",
     val communityUploaderId: String = "",
+    val isAiGenerated: Boolean? = null,
 )
 
 @Immutable

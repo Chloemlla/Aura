@@ -44,7 +44,8 @@
         "license": { ".validate": "newData.val() === 'CC0' || newData.val() === 'CC BY' || newData.val() === 'CC BY-NC'" },
         "rightsAttested": { ".validate": "newData.val() === true" },
         "rightsAttestedAt": { ".validate": "newData.isNumber() && newData.val() > 0" },
-        "sourceUrl": { ".validate": "newData.isString() && newData.val().length <= 2048 && (newData.val() === '' || newData.val().beginsWith('https://'))" }
+        "sourceUrl": { ".validate": "newData.isString() && newData.val().length <= 2048 && (newData.val() === '' || newData.val().beginsWith('https://'))" },
+        "isAiGenerated": { ".validate": "newData.isBoolean()" }
       }
     },
     "community_wallpapers": {
@@ -58,7 +59,8 @@
         "license": { ".validate": "newData.val() === 'CC0' || newData.val() === 'CC BY' || newData.val() === 'CC BY-NC'" },
         "rightsAttested": { ".validate": "newData.val() === true" },
         "rightsAttestedAt": { ".validate": "newData.isNumber() && newData.val() > 0" },
-        "sourceUrl": { ".validate": "newData.isString() && newData.val().length <= 2048 && (newData.val() === '' || newData.val().beginsWith('https://'))" }
+        "sourceUrl": { ".validate": "newData.isString() && newData.val().length <= 2048 && (newData.val() === '' || newData.val().beginsWith('https://'))" },
+        "isAiGenerated": { ".validate": "newData.isBoolean()" }
       }
     },
     "owner_uploads": {

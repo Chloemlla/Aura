@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BrokenImage
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Key
@@ -151,6 +152,8 @@ fun AiWallpaperScreen(
     val apiKey by viewModel.stabilityAiKey.collectAsStateWithLifecycle()
     val generatedContentProviderEnabled by viewModel.generatedContentProviderEnabled.collectAsStateWithLifecycle()
     val generatedContentDisclosureAccepted by viewModel.generatedContentDisclosureAccepted.collectAsStateWithLifecycle()
+    val communityProviderEnabled by viewModel.communityProviderEnabled.collectAsStateWithLifecycle()
+    val communityGuidelinesAccepted by viewModel.communityGuidelinesAccepted.collectAsStateWithLifecycle()
 
     // NX-13: intercept back while a generation is in flight so the user can
     // cancel a request that's burning their Stability AI credit. Without this
@@ -167,11 +170,13 @@ fun AiWallpaperScreen(
     var showDisclosureDialog by remember { mutableStateOf(false) }
     var generateAfterDisclosure by remember { mutableStateOf(false) }
     var showGeneratedReportDialog by remember { mutableStateOf(false) }
+    var showCommunityUploadDialog by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state.result?.id) {
         showGeneratedReportDialog = false
+        showCommunityUploadDialog = false
     }
 
     LaunchedEffect(apiKey, generatedContentProviderEnabled) {
@@ -194,6 +199,26 @@ fun AiWallpaperScreen(
         state.error?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
+        }
+    }
+    LaunchedEffect(state.communityUploadComplete) {
+        if (state.communityUploadComplete) {
+            showCommunityUploadDialog = false
+            viewModel.acknowledgeCommunityUpload()
+        }
+    }
+
+    if (showCommunityUploadDialog) {
+        state.result?.let { wallpaper ->
+            GeneratedWallpaperCommunityUploadDialog(
+                initialTags = wallpaper.tags,
+                isUploading = state.isUploadingToCommunity,
+                uploadProgress = state.communityUploadProgress,
+                onUpload = viewModel::shareGeneratedWallpaper,
+                onDismiss = {
+                    if (!state.isUploadingToCommunity) showCommunityUploadDialog = false
+                },
+            )
         }
     }
 
@@ -650,6 +675,37 @@ fun AiWallpaperScreen(
                                     )
                                 }
                             }
+                        }
+
+                        OutlinedButton(
+                            onClick = { showCommunityUploadDialog = true },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                            enabled = communityProviderEnabled &&
+                                communityGuidelinesAccepted &&
+                                !state.isApplying &&
+                                !state.isUploadingToCommunity,
+                        ) {
+                            if (state.isUploadingToCommunity) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.CloudUpload,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.ai_share_community))
+                        }
+                        if (!communityProviderEnabled || !communityGuidelinesAccepted) {
+                            Text(
+                                stringResource(R.string.ai_share_community_unavailable),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
 
                         OutlinedButton(

@@ -109,6 +109,7 @@ class AiWallpaperRepository @Inject constructor(
                     category = "AI Generated",
                     tags = generatedWallpaperTags(style),
                     uploaderName = "AI",
+                    isAiGenerated = true,
                 ),
             )
         } catch (e: CancellationException) {

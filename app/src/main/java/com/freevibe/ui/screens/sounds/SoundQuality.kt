@@ -94,6 +94,7 @@ internal fun soundQualityScore(
 
 internal fun soundBadges(sound: Sound, tab: SoundTab): List<String> {
     val badges = mutableListOf<String>()
+    if (sound.isAiGenerated == true) badges += "AI-generated"
     badges += when (tab) {
         SoundTab.RINGTONES -> "Ringtone-ready"
         SoundTab.NOTIFICATIONS -> "Notification-ready"

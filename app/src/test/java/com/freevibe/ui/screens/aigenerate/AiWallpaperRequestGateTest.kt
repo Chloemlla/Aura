@@ -7,6 +7,7 @@ import com.freevibe.data.repository.AiStyle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AiWallpaperRequestGateTest {
@@ -164,5 +165,26 @@ class AiWallpaperRequestGateTest {
         assertEquals("ai-generated,photographic", favorite.tags)
         assertFalse(favorite.toString().contains("private"))
         assertFalse(favorite.toString().contains("bedroom"))
+    }
+
+    @Test
+    fun `generated wallpaper community uploads are always AI flagged`() {
+        val generated = Wallpaper(
+            id = "generated-1",
+            source = ContentSource.AI_GENERATED,
+            thumbnailUrl = "file:///cache/thumb.png",
+            fullUrl = "file:///cache/full.png",
+            width = 1024,
+            height = 1792,
+        )
+        val legacyCommunity = generated.copy(
+            id = "community-1",
+            source = ContentSource.COMMUNITY,
+            isAiGenerated = null,
+        )
+
+        assertTrue(generatedWallpaperCommunityAiFlag(generated))
+        assertFalse(generatedWallpaperCommunityAiFlag(legacyCommunity))
+        assertTrue(generatedWallpaperCommunityAiFlag(legacyCommunity.copy(isAiGenerated = true)))
     }
 }

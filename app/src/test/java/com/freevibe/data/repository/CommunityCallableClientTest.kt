@@ -253,6 +253,7 @@ class CommunityCallableClientTest {
                 license = "cc-by",
                 rightsAttested = true,
                 sourceUrl = "https://example.com/source",
+                isAiGenerated = false,
             ),
         )
 
@@ -274,6 +275,7 @@ class CommunityCallableClientTest {
         assertEquals("CC BY", payload["license"])
         assertEquals(true, payload["rightsAttested"])
         assertEquals("https://example.com/source", payload["sourceUrl"])
+        assertEquals(false, payload["isAiGenerated"])
         assertFalse(payload.containsKey("uploaderId"))
         assertFalse(payload.containsKey("uploaderUid"))
         assertFalse(payload.containsKey("uploadedAt"))
@@ -314,6 +316,7 @@ class CommunityCallableClientTest {
                 license = "attribution",
                 rightsAttested = true,
                 sourceUrl = "https://example.com/wall",
+                isAiGenerated = true,
             ),
         )
 
@@ -339,6 +342,7 @@ class CommunityCallableClientTest {
         assertEquals("CC BY", payload["license"])
         assertEquals(true, payload["rightsAttested"])
         assertEquals("https://example.com/wall", payload["sourceUrl"])
+        assertEquals(true, payload["isAiGenerated"])
         assertFalse(payload.containsKey("uploaderId"))
         assertFalse(payload.containsKey("uploaderUid"))
         assertFalse(payload.containsKey("uploadedAt"))

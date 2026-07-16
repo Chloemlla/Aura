@@ -103,6 +103,7 @@ class WallpaperUploadRepository @Inject constructor(
         category: String,
         tags: List<String>,
         rights: CommunityUploadRights,
+        isAiGenerated: Boolean = false,
         onProgress: (Float) -> Unit = {},
     ): Result<Wallpaper> = withContext(Dispatchers.IO) {
         try {
@@ -170,6 +171,7 @@ class WallpaperUploadRepository @Inject constructor(
                     originalFileName = uploadInfo.originalFileName,
                     uploaderLabel = uploaderLabel,
                     rights = validatedRights,
+                    isAiGenerated = isAiGenerated,
                 )
                 metadataSaved = true
 
@@ -189,6 +191,7 @@ class WallpaperUploadRepository @Inject constructor(
                         sourcePageUrl = validatedRights.sourceUrl,
                         license = validatedRights.license,
                         uploaderName = uploaderLabel,
+                        isAiGenerated = isAiGenerated,
                     ),
                 )
             } finally {
@@ -333,6 +336,7 @@ class WallpaperUploadRepository @Inject constructor(
         originalFileName: String,
         uploaderLabel: String,
         rights: CommunityUploadRights,
+        isAiGenerated: Boolean,
     ): String {
         if (identityProvider.currentFirebaseUid().isNullOrBlank()) {
             throw IllegalStateException("Community upload service requires Firebase Auth")
@@ -357,6 +361,7 @@ class WallpaperUploadRepository @Inject constructor(
                     license = rights.license,
                     rightsAttested = rights.rightsAttested,
                     sourceUrl = rights.sourceUrl,
+                    isAiGenerated = isAiGenerated,
                 ),
             )
             return when {
@@ -402,6 +407,7 @@ class WallpaperUploadRepository @Inject constructor(
             license = license,
             uploaderName = uploaderLabel.ifBlank { uploaderUid.ifBlank { uploaderId }.take(8) },
             communityUploaderId = uploaderUid.ifBlank { uploaderId },
+            isAiGenerated = child.child("isAiGenerated").getValue(Boolean::class.java),
         )
     }
 
@@ -455,16 +461,18 @@ class WallpaperUploadRepository @Inject constructor(
 
     private fun resolveUploadInfo(localUri: Uri, fallbackName: String): WallpaperUploadInfo {
         val resolver = context.contentResolver
-        val originalFileName = resolver.query(localUri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-            ?.use { cursor ->
-                if (cursor.moveToFirst()) cursor.getString(0) else null
-            }
+        val originalFileName = runCatching {
+            resolver.query(localUri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                }
+        }.getOrNull()
             ?: (localUri.lastPathSegment?.substringAfterLast('/') ?: fallbackName)
 
         val inferredExtension = originalFileName.substringAfterLast('.', "")
             .lowercase(java.util.Locale.ROOT)
             .takeIf { it.isNotBlank() }
-        val mimeType = resolver.getType(localUri)
+        val mimeType = runCatching { resolver.getType(localUri) }.getOrNull()
             ?.takeIf { it.isNotBlank() }
             ?.lowercase(java.util.Locale.ROOT)
             ?: inferredExtension

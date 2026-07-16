@@ -82,6 +82,7 @@ export interface CommunityWallpaperUploadPayload {
   readonly license: string;
   readonly rightsAttested: true;
   readonly sourceUrl: string;
+  readonly isAiGenerated: boolean | null;
   readonly uploaderKey: string;
 }
 
@@ -221,6 +222,7 @@ export function normalizeWallpaperUploadPayload(
     throwInvalid("rightsAttested", "Wallpaper upload rights must be confirmed.");
   }
   const sourceUrl = normalizeOptionalHttpsUrl(optionalString(payload, "sourceUrl"), "sourceUrl");
+  const isAiGenerated = optionalBoolean(payload, "isAiGenerated");
 
   return {
     name,
@@ -239,6 +241,7 @@ export function normalizeWallpaperUploadPayload(
     license,
     rightsAttested: true,
     sourceUrl,
+    isAiGenerated,
     uploaderKey,
   };
 }
@@ -457,6 +460,15 @@ function requiredBoolean(value: Record<string, unknown>, field: string): boolean
   return raw;
 }
 
+function optionalBoolean(value: Record<string, unknown>, field: string): boolean | null {
+  const raw = value[field];
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== "boolean") {
+    throwInvalid(field, `${field} must be a boolean when provided.`);
+  }
+  return raw;
+}
+
 function throwInvalid(field: string, message: string): never {
   throw new HttpsError("invalid-argument", message, { field });
 }
@@ -581,6 +593,7 @@ function buildWallpaperMetadata(
     rightsAttested: true,
     rightsAttestedAt: uploadedAt,
     sourceUrl: payload.sourceUrl,
+    ...(payload.isAiGenerated === null ? {} : { isAiGenerated: payload.isAiGenerated }),
     votes: 0,
   };
 }

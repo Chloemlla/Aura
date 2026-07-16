@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,6 +63,7 @@ import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Wallpaper
 import com.freevibe.data.model.favoriteIdentity
 import com.freevibe.data.model.stableKey
+import com.freevibe.data.model.shouldShowCommunityContent
 import com.freevibe.data.repository.matchesHiddenIds
 import com.freevibe.service.PhotoPickerCustomization
 import com.freevibe.ui.components.CompactSearchField
@@ -133,8 +135,16 @@ fun WallpapersScreen(
     val communityProviderEnabled by viewModel.communityProviderEnabled.collectAsStateWithLifecycle()
     val communityGuidelinesAccepted by viewModel.communityGuidelinesAccepted.collectAsStateWithLifecycle()
     val generatedContentProviderEnabled by viewModel.generatedContentProviderEnabled.collectAsStateWithLifecycle()
+    var hideAiGeneratedCommunity by rememberSaveable { mutableStateOf(false) }
+    val feedWallpapers = remember(state.wallpapers, state.selectedTab, hideAiGeneratedCommunity) {
+        if (state.selectedTab == WallpaperTab.COMMUNITY && hideAiGeneratedCommunity) {
+            state.wallpapers.filter { shouldShowCommunityContent(it.isAiGenerated, hideAiGenerated = true) }
+        } else {
+            state.wallpapers
+        }
+    }
     val visibleSections = remember(
-        state.wallpapers,
+        feedWallpapers,
         hiddenIds,
         topVoted,
         dailyPick,
@@ -143,7 +153,7 @@ fun WallpapersScreen(
         communityGuidelinesAccepted,
     ) {
         computeVisibleWallpaperSections(
-            wallpapers = state.wallpapers,
+            wallpapers = feedWallpapers,
             hiddenIds = hiddenIds,
             topVoted = if (communityProviderEnabled && communityGuidelinesAccepted) topVoted else emptyList(),
             dailyPick = dailyPick,
@@ -152,8 +162,8 @@ fun WallpapersScreen(
     }
 
     // Vote counts for visible wallpapers — use derivedStateOf to avoid recomputing on referential inequality
-    val wallpaperIds = remember(state.wallpapers, communityProviderEnabled, communityGuidelinesAccepted) {
-        if (communityProviderEnabled && communityGuidelinesAccepted) state.wallpapers.map { it.stableKey() } else emptyList()
+    val wallpaperIds = remember(feedWallpapers, communityProviderEnabled, communityGuidelinesAccepted) {
+        if (communityProviderEnabled && communityGuidelinesAccepted) feedWallpapers.map { it.stableKey() } else emptyList()
     }
     val voteCountsFlow = remember(wallpaperIds) {
         if (wallpaperIds.isNotEmpty()) {
@@ -297,7 +307,7 @@ fun WallpapersScreen(
         WallpaperUploadDialog(
             isUploading = state.isUploadingWallpaper,
             uploadProgress = state.wallpaperUploadProgress,
-            onUpload = { name, category, tags, rights ->
+            onUpload = { name, category, tags, rights, isAiGenerated ->
                 awaitingWallpaperUploadResult = true
                 selectedWallpaperUploadUri?.let { uri ->
                     viewModel.uploadCommunityWallpaper(
@@ -306,6 +316,7 @@ fun WallpapersScreen(
                         category = category,
                         tags = tags,
                         rights = rights,
+                        isAiGenerated = isAiGenerated,
                     )
                 }
             },
@@ -595,6 +606,17 @@ fun WallpapersScreen(
                         }
                     },
                 )
+                if (state.selectedTab == WallpaperTab.COMMUNITY && communityProviderEnabled) {
+                    FilterChip(
+                        selected = hideAiGeneratedCommunity,
+                        onClick = { hideAiGeneratedCommunity = !hideAiGeneratedCommunity },
+                        label = { Text(stringResource(R.string.community_hide_ai_filter)) },
+                        leadingIcon = if (hideAiGeneratedCommunity) {
+                            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                        } else null,
+                        shape = RoundedCornerShape(8.dp),
+                    )
+                }
                 if (
                     (state.selectedTab == WallpaperTab.DISCOVER && state.discoverFilter != WallpaperDiscoverFilter.FOR_YOU) ||
                     state.selectedColor != null ||
@@ -1264,6 +1286,23 @@ private fun WallpaperCard(
                     )
                 }
             }
+
+            if (wallpaper.isAiGenerated == true) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(8.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.94f),
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                ) {
+                    Text(
+                        stringResource(R.string.community_ai_generated_badge),
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
+                }
+            }
         }
     }
 }
@@ -1349,7 +1388,7 @@ private fun WallpaperStateCard(
 private fun WallpaperUploadDialog(
     isUploading: Boolean,
     uploadProgress: Float,
-    onUpload: (name: String, category: String, tags: List<String>, rights: CommunityUploadRights) -> Unit,
+    onUpload: (name: String, category: String, tags: List<String>, rights: CommunityUploadRights, isAiGenerated: Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
@@ -1357,6 +1396,7 @@ private fun WallpaperUploadDialog(
     var selectedLicense by remember { mutableStateOf(COMMUNITY_UPLOAD_LICENSES.first()) }
     var sourceUrl by remember { mutableStateOf("") }
     var rightsAttested by remember { mutableStateOf(false) }
+    var isAiGenerated by remember { mutableStateOf(false) }
     var tagsText by remember { mutableStateOf("") }
     val policyCopy = remember { communityUploadPolicyCopy(CommunityUploadPolicyKind.WALLPAPER) }
     val categories = listOf(
@@ -1393,6 +1433,28 @@ private fun WallpaperUploadDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Checkbox(
+                        checked = isAiGenerated,
+                        onCheckedChange = { isAiGenerated = it },
+                        enabled = !isUploading,
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.community_ai_upload_declaration),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            stringResource(R.string.community_ai_upload_declaration_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 Text(stringResource(R.string.feed_upload_category_label), style = MaterialTheme.typography.labelMedium)
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1484,6 +1546,7 @@ private fun WallpaperUploadDialog(
                             rightsAttested = rightsAttested,
                             sourceUrl = sourceUrl.trim(),
                         ),
+                        isAiGenerated,
                     )
                 },
                 enabled = !isUploading && name.isNotBlank() && rightsAttested,

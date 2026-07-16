@@ -45,6 +45,7 @@ data class CommunityWallpaperUploadMetadataInput(
     val license: String,
     val rightsAttested: Boolean,
     val sourceUrl: String = "",
+    val isAiGenerated: Boolean = false,
 )
 
 fun buildCommunityWallpaperUploadCallablePayload(input: CommunityWallpaperUploadMetadataInput): Map<String, Any> {
@@ -88,6 +89,7 @@ fun buildCommunityWallpaperUploadCallablePayload(input: CommunityWallpaperUpload
         "license" to normalizeCommunityUploadLicense(input.license),
         "rightsAttested" to true,
         "sourceUrl" to normalizeCommunitySourceUrl(input.sourceUrl),
+        "isAiGenerated" to input.isAiGenerated,
     )
 }
 

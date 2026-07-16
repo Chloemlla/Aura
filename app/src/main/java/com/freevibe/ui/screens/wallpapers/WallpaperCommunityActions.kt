@@ -149,6 +149,7 @@ internal class WallpaperCommunityActions(
         category: String,
         tags: List<String>,
         rights: CommunityUploadRights,
+        isAiGenerated: Boolean = false,
     ) {
         if (state.value.isUploadingWallpaper) return
         if (communityActionBlocked()) return
@@ -167,6 +168,7 @@ internal class WallpaperCommunityActions(
                 category = category,
                 tags = tags,
                 rights = rights,
+                isAiGenerated = isAiGenerated,
                 onProgress = { progress ->
                     state.update { s -> s.copy(wallpaperUploadProgress = progress) }
                 },

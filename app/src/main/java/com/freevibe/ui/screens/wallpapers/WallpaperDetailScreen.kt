@@ -441,6 +441,7 @@ fun WallpaperDetailScreen(
                         ) {
                             DetailInfoChip(hints.resolutionLabel)
                             DetailInfoChip(hints.orientationLabel)
+                            if (wp.isAiGenerated == true) DetailInfoChip(stringResource(R.string.community_ai_generated_badge))
                             if (wp.license.isNotBlank()) DetailInfoChip(wp.license)
                             if (hints.isAmoled) DetailInfoChip(stringResource(R.string.detail_chip_amoled_friendly))
                             if (hints.isIconSafe) DetailInfoChip(stringResource(R.string.detail_chip_icon_safe))

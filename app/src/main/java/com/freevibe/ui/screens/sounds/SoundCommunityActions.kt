@@ -177,6 +177,7 @@ internal class SoundCommunityActions(
         category: String,
         tags: List<String> = emptyList(),
         rights: CommunityUploadRights,
+        isAiGenerated: Boolean = false,
     ) {
         if (state.value.isUploading) return
         if (communityActionBlocked()) return
@@ -188,6 +189,7 @@ internal class SoundCommunityActions(
                 category = category,
                 tags = tags,
                 rights = rights,
+                isAiGenerated = isAiGenerated,
                 onProgress = { progress ->
                     state.update { it.copy(uploadProgress = progress) }
                 },

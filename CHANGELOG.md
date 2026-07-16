@@ -49,6 +49,9 @@ and a no-OAuth Reddit RSS pipeline.
 - **Made FOSS release builds reproducible**: an unsigned two-root verification lane
   now compares raw and signature-stripped APK digests, serializes release shrinking,
   and stabilizes Jackson's nondeterministic R8 class merge for IzzyOnDroid evidence.
+- **Labeled AI-generated community content**: new sound and wallpaper uploads carry
+  explicit AI disclosure metadata, generated wallpapers are auto-labeled when shared,
+  and both community feeds can hide declared AI content without hiding legacy uploads.
 - **Added day/night wallpaper scheduling**: auto-rotation can keep one source,
   switch between independently selected day and night sources at configurable
   clock boundaries, or follow the system light/dark theme. Phase sources and
