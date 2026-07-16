@@ -7,6 +7,8 @@ import androidx.work.Configuration
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
 import coil.memory.MemoryCache
 import com.freevibe.data.local.WallpaperCacheManager
 import com.freevibe.service.NotificationChannels
@@ -58,6 +60,13 @@ class FreeVibeApp : Application(), Configuration.Provider, ImageLoaderFactory {
 
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
         .okHttpClient(okHttpClient)
+        .components {
+            if (android.os.Build.VERSION.SDK_INT >= 28) {
+                add(ImageDecoderDecoder.Factory())
+            } else {
+                add(GifDecoder.Factory())
+            }
+        }
         .memoryCache {
             MemoryCache.Builder(this)
                 .maxSizePercent(0.25) // 25% of available app memory

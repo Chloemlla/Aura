@@ -2,9 +2,13 @@ package com.freevibe.service
 
 import android.content.ComponentName
 import android.content.Context
+import android.os.SystemClock
+import android.util.Log
+import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.freevibe.data.model.Sound
@@ -26,6 +30,7 @@ class AudioPlaybackManager @Inject constructor(
     @Volatile private var controller: MediaController? = null
     @Volatile private var stopped = false
     @Volatile private var connectionGeneration = 0
+    @Volatile private var playbackRequestedAtMs = 0L
 
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
@@ -42,6 +47,10 @@ class AudioPlaybackManager @Inject constructor(
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _isPlaying.value = isPlaying
+            if (isPlaying && com.freevibe.BuildConfig.DEBUG && playbackRequestedAtMs > 0L) {
+                Log.d("SoundPlayback", "Playback started in ${SystemClock.elapsedRealtime() - playbackRequestedAtMs}ms")
+                playbackRequestedAtMs = 0L
+            }
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -103,8 +112,10 @@ class AudioPlaybackManager @Inject constructor(
         }
     }
 
+    @OptIn(markerClass = [UnstableApi::class])
     fun play(sound: Sound, url: String, volume: Float = 1f) {
         stopped = false
+        playbackRequestedAtMs = SystemClock.elapsedRealtime()
         // Set synchronously: on the first play the controller connects asynchronously,
         // and callers keying progress loops on currentSoundId would otherwise see null
         // and bail before playback starts.
@@ -113,6 +124,7 @@ class AudioPlaybackManager @Inject constructor(
             val mediaItem = MediaItem.Builder()
                 .setUri(url)
                 .setMediaId(sound.stableKey())
+                .setCustomCacheKey(sound.stableKey())
                 .setMediaMetadata(
                     MediaMetadata.Builder()
                         .setTitle(sound.name)

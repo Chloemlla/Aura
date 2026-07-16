@@ -71,9 +71,14 @@ object AppModule {
             }
         }
         .addInterceptor { chain ->
-            val request = chain.request().newBuilder()
-                .header("User-Agent", "Aura/${com.freevibe.BuildConfig.VERSION_NAME} (Android; Open Source)")
-                .build()
+            val original = chain.request()
+            val request = if (original.header("User-Agent") == null) {
+                original.newBuilder()
+                    .header("User-Agent", "Aura/${com.freevibe.BuildConfig.VERSION_NAME} (Android; Open Source)")
+                    .build()
+            } else {
+                original
+            }
             chain.proceed(request)
         }
         // Bounded 429-aware retry for providers whose policy says Retry-After is safe to honor.

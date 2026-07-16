@@ -13,6 +13,37 @@ import org.junit.Test
 class WallpapersScreenSectionsTest {
 
     @Test
+    fun `paging waits for appended inventory to be laid out and latches empty pages`() {
+        assertFalse(
+            shouldRequestNextWallpaperPage(
+                isNearEnd = true,
+                isLoadingMore = false,
+                laidOutItemCount = 40,
+                visibleItemCount = 100,
+                lastRequestedItemCount = 40,
+            ),
+        )
+        assertFalse(
+            shouldRequestNextWallpaperPage(
+                isNearEnd = true,
+                isLoadingMore = false,
+                laidOutItemCount = 40,
+                visibleItemCount = 40,
+                lastRequestedItemCount = 40,
+            ),
+        )
+        assertTrue(
+            shouldRequestNextWallpaperPage(
+                isNearEnd = true,
+                isLoadingMore = false,
+                laidOutItemCount = 44,
+                visibleItemCount = 44,
+                lastRequestedItemCount = 40,
+            ),
+        )
+    }
+
+    @Test
     fun `visible sections hide featured duplicates from feed`() {
         val dailyPick = wallpaper("hero")
         val topVoted = listOf(
@@ -38,6 +69,33 @@ class WallpapersScreenSectionsTest {
         assertEquals(listOf("feed"), sections.feedWallpapers.map { it.id })
         assertEquals(listOf("hero", "top", "feed"), sections.pagerWallpapers.map { it.id })
         assertTrue(sections.hasRenderableContent)
+    }
+
+    @Test
+    fun `discover sections place every reddit item before other providers`() {
+        val sections = computeVisibleWallpaperSections(
+            wallpapers = listOf(
+                wallpaper("provider-feed", ContentSource.PEXELS),
+                wallpaper("reddit-one", ContentSource.REDDIT),
+                wallpaper("reddit-two", ContentSource.REDDIT),
+            ),
+            hiddenIds = emptySet(),
+            topVoted = listOf(
+                wallpaper("top-provider", ContentSource.WALLHAVEN) to 8,
+                wallpaper("top-reddit", ContentSource.REDDIT) to 7,
+            ),
+            dailyPick = wallpaper("daily-bing", ContentSource.BING),
+            isDiscoverTab = true,
+        )
+
+        assertEquals(
+            listOf("reddit-one", "reddit-two", "top-reddit"),
+            sections.pagerWallpapers.takeWhile { it.source == ContentSource.REDDIT }.map { it.id },
+        )
+        assertEquals(
+            listOf("daily-bing", "top-provider", "provider-feed"),
+            sections.pagerWallpapers.dropWhile { it.source == ContentSource.REDDIT }.map { it.id },
+        )
     }
 
     @Test

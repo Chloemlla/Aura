@@ -347,12 +347,12 @@ fun SoundDetailScreen(
         },
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             // Waveform with integrated play button
             Box(
-                modifier = Modifier.fillMaxWidth().height(80.dp).clip(RoundedCornerShape(8.dp)),
+                modifier = Modifier.fillMaxWidth().height(156.dp).clip(RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center,
             ) {
                 if (s.duration > 0) {
@@ -368,9 +368,8 @@ fun SoundDetailScreen(
                 // Play overlay
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
-                    contentColor = Color.White,
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                    color = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier
                         .size(52.dp)
                         .semantics {
@@ -384,7 +383,7 @@ fun SoundDetailScreen(
                         Icon(
                             if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                             contentDescription = null,
-                            tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(28.dp),
                         )
                     }
@@ -395,13 +394,11 @@ fun SoundDetailScreen(
             Text(s.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
 
             // Metadata row
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Surface(color = sourceColor.copy(alpha = 0.15f), shape = RoundedCornerShape(6.dp)) {
-                    Text(sourceLabel, Modifier.padding(horizontal = 8.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall, color = sourceColor)
-                }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(sourceLabel, style = MaterialTheme.typography.labelMedium, color = sourceColor)
                 Text(formatDuration(s.duration), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (showUploader) {
-                    Text(stringResource(R.string.sound_detail_by_creator, s.uploaderName), modifier = Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(stringResource(R.string.sound_detail_by_creator, s.uploaderName), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 val detailCodecBadge = remember(s) { formatSoundCodecBadge(s) }
                 if (detailCodecBadge != null) {
@@ -417,26 +414,40 @@ fun SoundDetailScreen(
                     Text(stringResource(R.string.sound_detail_sample_rate_khz, s.sampleRate / 1000), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (s.license.isNotEmpty()) {
-                    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(4.dp)) {
-                        Text(s.license, Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
-                    }
+                    Text(s.license, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                 }
             }
 
             if (detailBadges.isNotEmpty()) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    detailBadges.forEach { badge ->
-                        Surface(
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                            shape = RoundedCornerShape(8.dp),
-                        ) {
-                            Text(
-                                badge,
-                                Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
+                Text(
+                    detailBadges.joinToString(" • "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+
+            if (useStackedActions) {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ApplyButton(stringResource(R.string.editor_sound_apply_ringtone), Icons.Default.Call, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.fillMaxWidth().heightIn(min = 64.dp)) {
+                        runSoundAction(SoundAction.APPLY, applySoundTitle) { viewModel.applySound(s, ContentType.RINGTONE, confirmed = true) }
+                    }
+                    ApplyButton(stringResource(R.string.editor_sound_apply_notification), Icons.Default.Notifications, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.fillMaxWidth().heightIn(min = 64.dp)) {
+                        runSoundAction(SoundAction.APPLY, applySoundTitle) { viewModel.applySound(s, ContentType.NOTIFICATION, confirmed = true) }
+                    }
+                    ApplyButton(stringResource(R.string.editor_sound_apply_alarm), Icons.Default.Alarm, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.fillMaxWidth().heightIn(min = 64.dp)) {
+                        runSoundAction(SoundAction.APPLY, applySoundTitle) { viewModel.applySound(s, ContentType.ALARM, confirmed = true) }
+                    }
+                }
+            } else {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ApplyButton(stringResource(R.string.editor_sound_apply_ringtone), Icons.Default.Call, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.weight(1f)) {
+                        runSoundAction(SoundAction.APPLY, applySoundTitle) { viewModel.applySound(s, ContentType.RINGTONE, confirmed = true) }
+                    }
+                    ApplyButton(stringResource(R.string.editor_sound_apply_notification), Icons.Default.Notifications, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.weight(1f)) {
+                        runSoundAction(SoundAction.APPLY, applySoundTitle) { viewModel.applySound(s, ContentType.NOTIFICATION, confirmed = true) }
+                    }
+                    ApplyButton(stringResource(R.string.editor_sound_apply_alarm), Icons.Default.Alarm, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.weight(1f)) {
+                        runSoundAction(SoundAction.APPLY, applySoundTitle) { viewModel.applySound(s, ContentType.ALARM, confirmed = true) }
                     }
                 }
             }
@@ -446,7 +457,6 @@ fun SoundDetailScreen(
                     color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.58f),
                     contentColor = MaterialTheme.colorScheme.onErrorContainer,
                     shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.22f)),
                 ) {
                     Row(
                         Modifier.fillMaxWidth().padding(14.dp),
@@ -466,25 +476,21 @@ fun SoundDetailScreen(
             }
 
             if (policyMessages.isNotEmpty()) {
-                Surface(
-                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.52f),
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.22f)),
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Icon(Icons.Default.Policy, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
-                        Column(Modifier.weight(1f)) {
-                            Text(stringResource(R.string.sound_detail_source_policy), style = MaterialTheme.typography.labelLarge)
-                            Text(
-                                policyMessages.joinToString(" "),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
+                    Icon(Icons.Default.Policy, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.sound_detail_source_policy), style = MaterialTheme.typography.labelLarge)
+                        Text(
+                            policyMessages.joinToString(" "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }
@@ -493,11 +499,8 @@ fun SoundDetailScreen(
             if (s.tags.isNotEmpty()) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     s.tags.take(5).forEach { tag ->
-                        Surface(
-                            onClick = { onSearchTag(tag) },
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(8.dp),
-                        ) {
-                            Text(stringResource(R.string.sound_detail_tag, tag), Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        TextButton(onClick = { onSearchTag(tag) }) {
+                            Text(stringResource(R.string.sound_detail_tag, tag), style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
@@ -505,61 +508,27 @@ fun SoundDetailScreen(
 
             // Permission warning
             if (!canWriteSettings) {
-                Surface(
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f),
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.22f)),
-                ) {
-                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f),
-                            shape = RoundedCornerShape(8.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.Warning,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(10.dp).size(20.dp),
-                            )
-                        }
-                        Column(Modifier.weight(1f)) {
-                            Text(writeSettingsTitle, style = MaterialTheme.typography.labelLarge)
-                            Text(
-                                writeSettingsBody,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
+                Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(writeSettingsTitle, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
                         TextButton(onClick = ::openWriteSettings, enabled = canOpenWriteSettings) {
                             Text(openSettingsLabel)
                         }
                     }
-                }
-            }
-
-            if (useStackedActions) {
-                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ApplyButton(stringResource(R.string.editor_sound_apply_ringtone), Icons.Default.Call, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.fillMaxWidth()) {
-                        runSoundAction(SoundAction.APPLY, applySoundTitle) { viewModel.applySound(s, ContentType.RINGTONE, confirmed = true) }
-                    }
-                    ApplyButton(stringResource(R.string.editor_sound_apply_notification), Icons.Default.Notifications, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.fillMaxWidth()) {
-                        runSoundAction(SoundAction.APPLY, applySoundTitle) { viewModel.applySound(s, ContentType.NOTIFICATION, confirmed = true) }
-                    }
-                    ApplyButton(stringResource(R.string.editor_sound_apply_alarm), Icons.Default.Alarm, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.fillMaxWidth()) {
-                        runSoundAction(SoundAction.APPLY, applySoundTitle) { viewModel.applySound(s, ContentType.ALARM, confirmed = true) }
-                    }
-                }
-            } else {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ApplyButton(stringResource(R.string.editor_sound_apply_ringtone), Icons.Default.Call, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.weight(1f)) {
-                        runSoundAction(SoundAction.APPLY, applySoundTitle) { viewModel.applySound(s, ContentType.RINGTONE, confirmed = true) }
-                    }
-                    ApplyButton(stringResource(R.string.editor_sound_apply_notification), Icons.Default.Notifications, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.weight(1f)) {
-                        runSoundAction(SoundAction.APPLY, applySoundTitle) { viewModel.applySound(s, ContentType.NOTIFICATION, confirmed = true) }
-                    }
-                    ApplyButton(stringResource(R.string.editor_sound_apply_alarm), Icons.Default.Alarm, !state.isApplying && canWriteSettings && canApplySound, state.isApplying, Modifier.weight(1f)) {
-                        runSoundAction(SoundAction.APPLY, applySoundTitle) { viewModel.applySound(s, ContentType.ALARM, confirmed = true) }
-                    }
+                    Text(
+                        writeSettingsBody,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
 
@@ -694,7 +663,10 @@ private fun ApplyButton(text: String, icon: androidx.compose.ui.graphics.vector.
     Button(
         onClick = onClick, modifier = modifier.heightIn(min = 48.dp), enabled = enabled,
         shape = RoundedCornerShape(8.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = MaterialTheme.colorScheme.onSurface),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+        ),
     ) {
         if (isLoading) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
         else {
@@ -719,29 +691,20 @@ private fun SecondarySoundAction(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    Surface(
+    TextButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.heightIn(min = 64.dp),
+        modifier = modifier.heightIn(min = 48.dp),
         shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        contentColor = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (enabled) 0.28f else 0.14f)),
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 9.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(5.dp),
-        ) {
-            Icon(icon, contentDescription = label, modifier = Modifier.size(20.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-            )
-        }
+        Icon(icon, contentDescription = label, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

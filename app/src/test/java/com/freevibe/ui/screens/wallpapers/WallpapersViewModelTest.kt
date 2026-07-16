@@ -824,6 +824,7 @@ class WallpapersViewModelTest {
         wallpaperUploadRepoOverride: WallpaperUploadRepository? = null,
         aiWallpaperRepoOverride: AiWallpaperRepository? = null,
         wallhavenProviderEnabled: Boolean = true,
+        bingProviderEnabled: Boolean = true,
         redditProviderEnabled: Boolean = true,
         pexelsProviderEnabled: Boolean = true,
         pixabayProviderEnabled: Boolean = true,
@@ -848,6 +849,7 @@ class WallpapersViewModelTest {
         val prefs = mockk<PreferencesManager>()
         every { prefs.wallpaperGridColumns } returns flowOf(2)
         every { prefs.wallhavenProviderEnabled } returns flowOf(wallhavenProviderEnabled)
+        every { prefs.bingProviderEnabled } returns flowOf(bingProviderEnabled)
         every { prefs.redditProviderEnabled } returns flowOf(redditProviderEnabled)
         every { prefs.pexelsProviderEnabled } returns flowOf(pexelsProviderEnabled)
         every { prefs.pixabayProviderEnabled } returns flowOf(pixabayProviderEnabled)
@@ -919,8 +921,12 @@ class WallpapersViewModelTest {
         coEvery { wallpaperRepo.getWallpaperOfTheDay() } returns null
         coEvery { wallpaperRepo.findSimilar(any(), any()) } returns emptyWallpaperResult()
         coEvery { redditRepo.getDailyTopWallpaper() } returns null
-        every { redditRepo.resetPagination() } just runs
-        coEvery { redditRepo.getMultiSubreddit() } returns emptyWallpaperResult()
+        every { redditRepo.resetPagination(any()) } just runs
+        every { redditRepo.hasDeferredRequest() } returns false
+        coEvery { redditRepo.retryDelayMs() } returns 0L
+        coEvery {
+            redditRepo.getMultiSubreddit(subreddits = null, page = any())
+        } returns emptyWallpaperResult()
     }
 
     private fun emptyWallpaperResult() = SearchResult(

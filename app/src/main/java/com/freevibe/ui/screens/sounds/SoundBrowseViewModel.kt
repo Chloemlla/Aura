@@ -6,8 +6,11 @@ import com.freevibe.data.model.Sound
 import com.freevibe.data.model.stableKey
 import com.freevibe.data.repository.YouTubeRepository
 import com.freevibe.service.SourceMetrics
+import com.freevibe.service.SoundFeedCache
+import com.freevibe.service.soundFeedCacheKey
 import com.freevibe.util.rethrowIfCancelled
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -30,7 +33,6 @@ internal class SoundBrowseViewModel(
     private val state: MutableStateFlow<SoundsUiState>,
     private val scope: CoroutineScope,
     private val communityFeed: SoundCommunityFeed,
-    private val fetchTopHits: () -> Unit,
     private val nextFilterKey: () -> Int,
     private val communityDisabledMessage: () -> String,
     private val loadDefaultYouTube: (Boolean) -> Unit,
@@ -38,17 +40,18 @@ internal class SoundBrowseViewModel(
     private val cancelYouTubeLoad: () -> Unit,
     private val schedulePreviewPrebuffer: (List<Sound>) -> Unit,
     private val cacheResolvedPreview: (Sound, String) -> Sound,
+    private val soundFeedCache: SoundFeedCache,
 ) {
     private var loadJob: Job? = null
-    private val ytResolveSemaphore = Semaphore(6)
+    private val ytResolveSemaphore = Semaphore(4)
     private val titleBlocklist = Regex(
         "hindi|telugu|pack|trending|popular|\\bnew\\b|\\btop\\b|\\bbest\\b|timer|countdown|quiz|comparison|tutorial|how to|turn on|turn off|notification spam",
         RegexOption.IGNORE_CASE,
     )
 
     fun start() {
+        hydrateCachedFeed(state.value.selectedTab, state.value.query)
         loadSounds()
-        fetchTopHits()
     }
 
     fun cancel() {
@@ -107,6 +110,9 @@ internal class SoundBrowseViewModel(
                 isRefreshing = false,
                 searchReturnTab = if (tab == SoundTab.SEARCH) it.searchReturnTab else tab,
             )
+        }
+        if (tab !in setOf(SoundTab.COMMUNITY, SoundTab.YOUTUBE)) {
+            hydrateCachedFeed(tab, "")
         }
         when (tab) {
             SoundTab.COMMUNITY -> communityFeed.loadCommunityTab()
@@ -207,7 +213,6 @@ internal class SoundBrowseViewModel(
             else -> {
                 state.update { it.copy(isRefreshing = true, currentPage = 1, error = null) }
                 loadSounds(isRefresh = true)
-                if (tab == SoundTab.RINGTONES) fetchTopHits()
             }
         }
     }
@@ -262,7 +267,7 @@ internal class SoundBrowseViewModel(
                 return@launch
             }
             if (!isRefresh && !loadMore) {
-                state.update { it.copy(isLoading = true, error = null) }
+                state.update { it.copy(isLoading = it.sounds.isEmpty(), error = null) }
             } else if (loadMore) {
                 state.update { it.copy(isLoadingMore = true) }
             }
@@ -315,6 +320,7 @@ internal class SoundBrowseViewModel(
                     )
                 }
                 schedulePreviewPrebuffer(state.value.sounds)
+                persistFeed(state.value.sounds, loadTab, snapshot.query)
             }
 
             try {
@@ -342,7 +348,7 @@ internal class SoundBrowseViewModel(
                                     result.items.forEach { if (addUnique(it)) added = true }
                                     if (added) flushToUi()
 
-                                    result.items.forEach { yt ->
+                                    result.items.take(PREVIEW_RESOLVE_COUNT_PER_QUERY).forEach { yt ->
                                         launch {
                                             ytResolveSemaphore.acquire()
                                             try {
@@ -400,6 +406,7 @@ internal class SoundBrowseViewModel(
                     )
                 }
                 schedulePreviewPrebuffer(visibleSoundsAfterLoad)
+                persistFeed(visibleSoundsAfterLoad, loadTab, snapshot.query)
             } catch (e: Exception) {
                 e.rethrowIfCancelled()
                 state.update {
@@ -440,11 +447,37 @@ internal class SoundBrowseViewModel(
             )
         }
         schedulePreviewPrebuffer(fallbackSounds)
+        persistFeed(fallbackSounds, loadTab, state.value.query)
+    }
+
+    private fun hydrateCachedFeed(tab: SoundTab, query: String) {
+        val cached = soundFeedCache.read(soundFeedCacheKey(tab.name, query)) ?: return
+        cached.sounds.forEach { sound ->
+            if (sound.source == ContentSource.YOUTUBE && sound.previewUrl.isNotBlank()) {
+                sound.youtubeVideoId()?.let { videoId ->
+                    youtubeRepo.rememberAudioPreviewUrl(videoId, sound.previewUrl, cached.cachedAtMs)
+                }
+            }
+        }
+        val ranked = rankSounds(cached.sounds, tab, state.value.qualityFilter)
+        state.update { current ->
+            if (current.selectedTab != tab || current.query != query || current.sounds.isNotEmpty()) current
+            else current.copy(sounds = ranked, isLoading = false)
+        }
+        schedulePreviewPrebuffer(ranked)
+    }
+
+    private fun persistFeed(sounds: List<Sound>, tab: SoundTab, query: String) {
+        if (sounds.isEmpty()) return
+        scope.launch(Dispatchers.IO) {
+            soundFeedCache.write(soundFeedCacheKey(tab.name, query), sounds)
+        }
     }
 
     private companion object {
         const val SOURCE_YOUTUBE = "youtube"
         const val SOURCE_COMMUNITY = "community"
+        const val PREVIEW_RESOLVE_COUNT_PER_QUERY = 4
         val ACTIVE_SOUND_SOURCES = setOf(
             ContentSource.YOUTUBE,
             ContentSource.BUNDLED,

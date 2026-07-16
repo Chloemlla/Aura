@@ -1,0 +1,8 @@
+Aura 6.36.0 - content-first discovery
+
+- Restored no-OAuth Reddit RSS wallpaper and motion feeds with durable pagination and stale fallback.
+- Added persistent sound/video feeds, shared preview caching, and full-screen swipe discovery.
+- Simplified Wallpapers, Videos, Sounds, and Settings around primary content and actions.
+- Raised jackson-databind to the 2.18.9 security floor.
+
+Recent highlights: persistent Reddit wallpaper and motion feeds, full-screen swipe previews, warm sound/video relaunches, and clearer content-first controls.

@@ -6,11 +6,12 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.pager.VerticalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardActions
@@ -28,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -41,11 +43,16 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.MediaSource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.SubcomposeAsyncImageContent
 import com.freevibe.R
 import com.freevibe.data.model.VideoProviderPolicyLinks
 import com.freevibe.data.model.VideoWallpaperAction
@@ -64,14 +71,12 @@ import com.freevibe.service.normalizeVideoWallpaperScaleMode
 import com.freevibe.service.videoWallpaperMimeTypes
 import com.freevibe.ui.components.AuraStateAction
 import com.freevibe.ui.components.AuraStateCard
-import com.freevibe.ui.components.AuraScreenHeader
 import com.freevibe.ui.components.AuraSnackbarHost
 import com.freevibe.ui.components.AuraStatusAction
 import com.freevibe.ui.components.AuraStatusBanner
-import com.freevibe.ui.components.BrowseRail
-import com.freevibe.ui.components.BrowseRailItem
 import com.freevibe.ui.components.CompactSearchField
 import com.freevibe.ui.components.CountBadge
+import com.freevibe.ui.components.ShimmerBox
 import com.freevibe.ui.LiveWallpaperLaunchMode
 import com.freevibe.ui.launchLiveWallpaperPicker
 import com.freevibe.ui.util.openExternalUrl
@@ -104,6 +109,8 @@ data class VideoWallpaperItem(
     val isLandscape: Boolean get() = videoWidth > videoHeight
     val hasDimensions: Boolean get() = videoWidth > 0 && videoHeight > 0
 }
+
+private const val MIN_INITIAL_VIDEO_RESULTS = 24
 
 enum class OrientationFilter { ALL, PORTRAIT, LANDSCAPE }
 
@@ -227,7 +234,6 @@ internal suspend fun launchOrExportVideoWallpaper(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoWallpapersScreen(
-    onPreview: ((streamUrl: String, title: String) -> Unit)? = null,
     initialQuery: String? = null,
     viewModel: VideoWallpapersViewModel = hiltViewModel(),
 ) {
@@ -248,6 +254,9 @@ fun VideoWallpapersScreen(
     val visibleItems = remember(state.items, hiddenIds) {
         state.items.filterNot { isVideoWallpaperHidden(it, hiddenIds) }
     }
+    var immersiveVideoIndex by rememberSaveable { mutableIntStateOf(-1) }
+    var immersiveVideoItems by remember { mutableStateOf<List<VideoWallpaperItem>>(emptyList()) }
+    val previewMediaSourceFactory = remember(viewModel) { viewModel.previewMediaSourceFactory() }
     var showOrientationMenu by remember { mutableStateOf(false) }
     var showFiltersSheet by remember { mutableStateOf(false) }
     val videoFilterCount = remember(state.focusFilter) {
@@ -276,6 +285,8 @@ fun VideoWallpapersScreen(
     }
 
     var searchQuery by rememberSaveable(state.searchQuery) { mutableStateOf(state.searchQuery) }
+    var searchExpanded by rememberSaveable { mutableStateOf(false) }
+    var showQuickMenu by remember { mutableStateOf(false) }
     val videoNewestQuery = stringResource(R.string.browse_rail_video_newest_query)
     val focusManager = LocalFocusManager.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -289,6 +300,18 @@ fun VideoWallpapersScreen(
     LaunchedEffect(state.error, state.items.isNotEmpty()) {
         if (state.items.isNotEmpty()) {
             state.error?.let { snackbarHostState.showSnackbar(it); viewModel.clearError() }
+        }
+    }
+    LaunchedEffect(visibleItems.size, state.hasMore, state.isLoading, state.isLoadingMore, state.isRefreshing) {
+        if (
+            visibleItems.isNotEmpty() &&
+            visibleItems.size < MIN_INITIAL_VIDEO_RESULTS &&
+            state.hasMore &&
+            !state.isLoading &&
+            !state.isLoadingMore &&
+            !state.isRefreshing
+        ) {
+            viewModel.loadMore()
         }
     }
     LaunchedEffect(gallerySelectionResult) {
@@ -326,89 +349,35 @@ fun VideoWallpapersScreen(
         snackbarHost = { AuraSnackbarHost(snackbarHostState) },
     ) { scaffoldPadding ->
     Column(Modifier.fillMaxSize().padding(scaffoldPadding)) {
-        AuraScreenHeader(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 6.dp),
-            label = stringResource(R.string.video_wp_header_label),
-            icon = Icons.Default.SlowMotionVideo,
-            title = videoHeaderTitle(state.searchQuery, state.orientation),
-            subtitle = videoHeaderSubtitle(
-                query = state.searchQuery,
-                orientation = state.orientation,
-                resultCount = visibleItems.size,
-            ),
-            tint = MaterialTheme.colorScheme.secondary,
+                .padding(horizontal = 12.dp, vertical = 4.dp),
         ) {
-            CompactSearchField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = stringResource(R.string.video_wp_search_placeholder),
-                modifier = Modifier.fillMaxWidth(),
-                onClear = {
-                    searchQuery = ""
-                    viewModel.search("")
-                    focusManager.clearFocus()
-                },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = {
-                    viewModel.search(searchQuery)
-                    focusManager.clearFocus()
-                }),
-            )
-            Spacer(Modifier.height(8.dp))
-            BrowseRail(
-                items = listOf(
-                    BrowseRailItem(
-                        label = stringResource(R.string.browse_rail_popular),
-                        icon = Icons.Default.Explore,
-                        selected = state.searchQuery.isBlank(),
-                        onClick = {
-                            searchQuery = ""
-                            viewModel.search("")
-                        },
-                    ),
-                    BrowseRailItem(
-                        label = stringResource(R.string.browse_rail_newest),
-                        icon = Icons.Default.Schedule,
-                        selected = state.searchQuery == videoNewestQuery,
-                        onClick = {
-                            searchQuery = videoNewestQuery
-                            viewModel.search(videoNewestQuery)
-                        },
-                    ),
-                    BrowseRailItem(
-                        label = stringResource(R.string.browse_rail_categories),
-                        icon = Icons.Default.Category,
-                        onClick = { showFiltersSheet = true },
-                    ),
-                    BrowseRailItem(
-                        label = stringResource(R.string.browse_rail_local),
-                        icon = Icons.Default.FolderOpen,
-                        onClick = { galleryLauncher.launch(videoWallpaperMimeTypes()) },
-                    ),
-                ),
-            )
-            Spacer(Modifier.height(8.dp))
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                Text(
+                    text = stringResource(R.string.nav_videos),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.headlineSmall,
+                )
+                IconButton(onClick = { searchExpanded = !searchExpanded }) {
+                    Icon(Icons.Default.Search, contentDescription = stringResource(R.string.video_wp_search_placeholder))
+                }
                 Box {
-                    FilledTonalButton(
+                    IconButton(
                         onClick = { showOrientationMenu = true },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                        modifier = Modifier.heightIn(min = 48.dp),
-                        shape = RoundedCornerShape(8.dp),
                     ) {
-                        Icon(Icons.Default.CropPortrait, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(orientationLabel(state.orientation))
-                        Spacer(Modifier.width(4.dp))
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(
+                            when (state.orientation) {
+                                OrientationFilter.PORTRAIT -> Icons.Default.CropPortrait
+                                OrientationFilter.LANDSCAPE -> Icons.Default.CropLandscape
+                                OrientationFilter.ALL -> Icons.Default.CropFree
+                            },
+                            contentDescription = orientationLabel(state.orientation),
+                        )
                     }
                     DropdownMenu(
                         expanded = showOrientationMenu,
@@ -430,33 +399,73 @@ fun VideoWallpapersScreen(
                         }
                     }
                 }
-
-                OutlinedButton(
-                    onClick = { showFiltersSheet = true },
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                    modifier = Modifier.heightIn(min = 48.dp),
-                    shape = RoundedCornerShape(8.dp),
-                ) {
+                IconButton(onClick = { showFiltersSheet = true }) {
                     Box {
-                        Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.Tune, contentDescription = stringResource(R.string.video_wp_filters_label))
                         CountBadge(
                             count = videoFilterCount,
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .offset(x = 10.dp, y = (-8).dp),
+                                .offset(x = 9.dp, y = (-7).dp),
                         )
                     }
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (videoFilterCount > 0) videoFocusLabel(state.focusFilter) else stringResource(R.string.video_wp_filters_label))
                 }
+                Box {
+                    IconButton(onClick = { showQuickMenu = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.sounds_mode_more))
+                    }
+                    DropdownMenu(
+                        expanded = showQuickMenu,
+                        onDismissRequest = { showQuickMenu = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.browse_rail_popular)) },
+                            leadingIcon = { Icon(Icons.Default.Explore, contentDescription = null) },
+                            onClick = {
+                                showQuickMenu = false
+                                searchQuery = ""
+                                viewModel.search("")
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.browse_rail_newest)) },
+                            leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null) },
+                            onClick = {
+                                showQuickMenu = false
+                                searchQuery = videoNewestQuery
+                                viewModel.search(videoNewestQuery)
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.browse_rail_local)) },
+                            leadingIcon = { Icon(Icons.Default.FolderOpen, contentDescription = null) },
+                            onClick = {
+                                showQuickMenu = false
+                                galleryLauncher.launch(videoWallpaperMimeTypes())
+                            },
+                        )
+                    }
+                }
+            }
 
-                FilledTonalIconButton(
-                    onClick = { galleryLauncher.launch(videoWallpaperMimeTypes()) },
-                    modifier = Modifier.size(48.dp),
-                    shape = RoundedCornerShape(8.dp),
-                ) {
-                    Icon(Icons.Default.FolderOpen, stringResource(R.string.video_wp_gallery_cd), modifier = Modifier.size(16.dp))
-                }
+            if (searchExpanded || state.searchQuery.isNotBlank()) {
+                CompactSearchField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = stringResource(R.string.video_wp_search_placeholder),
+                    modifier = Modifier.fillMaxWidth(),
+                    onClear = {
+                        searchQuery = ""
+                        viewModel.search("")
+                        focusManager.clearFocus()
+                    },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = {
+                        viewModel.search(searchQuery)
+                        focusManager.clearFocus()
+                    }),
+                )
+                Spacer(Modifier.height(4.dp))
             }
         }
 
@@ -483,13 +492,28 @@ fun VideoWallpapersScreen(
         Box(Modifier.fillMaxSize()) {
             when {
                 (state.isLoading || state.isRefreshing) && state.items.isEmpty() -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        AuraStateCard(
-                            icon = Icons.Default.SlowMotionVideo,
-                            title = stringResource(R.string.video_wp_loading_title),
-                            description = stringResource(R.string.video_wp_loading_description),
-                            modifier = Modifier.padding(24.dp),
-                        )
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Text(
+                                stringResource(R.string.video_wp_loading_title),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        repeat(3) {
+                            ShimmerBox(
+                                modifier = Modifier.fillMaxWidth().height(228.dp),
+                                shape = RoundedCornerShape(8.dp),
+                            )
+                        }
                     }
                 }
                 state.error != null && state.items.isEmpty() -> {
@@ -536,7 +560,7 @@ fun VideoWallpapersScreen(
                                 lastVisible >= listState.layoutInfo.totalItemsCount - 3
                             }
                         }
-                        LaunchedEffect(shouldLoadMore) {
+                        LaunchedEffect(shouldLoadMore, visibleItems.size) {
                             if (shouldLoadMore && state.hasMore && !state.isLoadingMore) viewModel.loadMore()
                         }
 
@@ -582,15 +606,16 @@ fun VideoWallpapersScreen(
                                     val resolvedUrl = if (isResolved) viewModel.getStreamUrl(item.id) else null
                                     VideoCard(
                                         item = item,
-                                        orientation = state.orientation,
                                         streamUrl = resolvedUrl,
+                                        mediaSourceFactory = previewMediaSourceFactory,
                                         shouldPreview = item.id == activePreviewId,
                                         isApplying = state.isApplying == item.id,
                                         voteCount = voteCounts[item.id] ?: 0,
                                         onApply = { confirmItem = item },
-                                        onPreview = if (onPreview != null && !resolvedUrl.isNullOrBlank()) {
-                                            { onPreview(resolvedUrl, item.title) }
-                                        } else null,
+                                        onOpen = {
+                                            immersiveVideoItems = visibleItems.toList()
+                                            immersiveVideoIndex = immersiveVideoItems.indexOfFirst { it.id == item.id }
+                                        },
                                         onUpvote = { viewModel.upvote(item.id) },
                                         onDownvote = { viewModel.downvote(item.id) },
                                     )
@@ -608,6 +633,36 @@ fun VideoWallpapersScreen(
                 }
             }
         }
+    }
+
+    LaunchedEffect(visibleItems, immersiveVideoIndex) {
+        if (immersiveVideoIndex >= 0 && immersiveVideoItems.isNotEmpty()) {
+            val knownIds = immersiveVideoItems.mapTo(hashSetOf()) { it.id }
+            val additions = visibleItems.filterNot { it.id in knownIds }
+            if (additions.isNotEmpty()) immersiveVideoItems = immersiveVideoItems + additions
+        }
+    }
+
+    if (immersiveVideoIndex >= 0 && immersiveVideoItems.isNotEmpty()) {
+        VideoImmersivePager(
+            items = immersiveVideoItems,
+            initialPage = immersiveVideoIndex.coerceIn(0, immersiveVideoItems.lastIndex),
+            resolvedIds = resolvedIds,
+            mediaSourceFactory = previewMediaSourceFactory,
+            streamUrlFor = viewModel::getStreamUrl,
+            onResolve = viewModel::ensureStreamResolved,
+            onLoadMore = viewModel::loadMore,
+            isLoadingMore = state.isLoadingMore,
+            onApply = {
+                immersiveVideoIndex = -1
+                immersiveVideoItems = emptyList()
+                confirmItem = it
+            },
+            onDismiss = {
+                immersiveVideoIndex = -1
+                immersiveVideoItems = emptyList()
+            },
+        )
     }
 
     // Applying overlay
@@ -765,25 +820,287 @@ fun VideoWallpapersScreen(
 }
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun VideoImmersivePager(
+    items: List<VideoWallpaperItem>,
+    initialPage: Int,
+    resolvedIds: Set<String>,
+    mediaSourceFactory: MediaSource.Factory,
+    streamUrlFor: (String) -> String?,
+    onResolve: (VideoWallpaperItem) -> Unit,
+    onLoadMore: () -> Unit,
+    isLoadingMore: Boolean,
+    onApply: (VideoWallpaperItem) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
+    ) {
+        val pagerState = rememberPagerState(initialPage = initialPage) { items.size }
+        LaunchedEffect(pagerState.settledPage, items.size) {
+            items.getOrNull(pagerState.settledPage)?.let(onResolve)
+            items.getOrNull(pagerState.settledPage + 1)?.let(onResolve)
+            if (pagerState.settledPage >= items.lastIndex - 2) onLoadMore()
+        }
+
+        Box(Modifier.fillMaxSize().background(Color.Black)) {
+            VerticalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                beyondViewportPageCount = 1,
+                key = { page -> items[page].id },
+            ) { page ->
+                val item = items[page]
+                ImmersiveVideoPage(
+                    item = item,
+                    streamUrl = if (item.id in resolvedIds) streamUrlFor(item.id) else null,
+                    isActive = page == pagerState.currentPage,
+                    mediaSourceFactory = mediaSourceFactory,
+                    onApply = { onApply(item) },
+                )
+            }
+
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .statusBarsPadding()
+                    .padding(10.dp)
+                    .align(Alignment.TopStart)
+                    .background(Color.Black.copy(alpha = 0.48f), RoundedCornerShape(50)),
+            ) {
+                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.common_close), tint = Color.White)
+            }
+
+            if (isLoadingMore) {
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .padding(18.dp)
+                        .size(24.dp)
+                        .align(Alignment.BottomCenter),
+                    color = Color.White,
+                    strokeWidth = 2.dp,
+                )
+            }
+        }
+    }
+}
+
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+@Composable
+private fun ImmersiveVideoPage(
+    item: VideoWallpaperItem,
+    streamUrl: String?,
+    isActive: Boolean,
+    mediaSourceFactory: MediaSource.Factory,
+    onApply: () -> Unit,
+) {
+    val context = LocalContext.current
+    val isAnimatedStream = streamUrl?.isAnimatedImageStream() == true
+    var isBuffering by remember(item.id, streamUrl) { mutableStateOf(streamUrl != null && !isAnimatedStream) }
+    var playbackFailed by remember(item.id, streamUrl) { mutableStateOf(false) }
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        if (streamUrl != null && isActive) {
+            if (isAnimatedStream) {
+                coil.compose.SubcomposeAsyncImage(
+                    model = streamUrl,
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    when (painter.state) {
+                        is coil.compose.AsyncImagePainter.State.Loading -> Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) { VideoPreviewLoadingIndicator() }
+                        is coil.compose.AsyncImagePainter.State.Error -> Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) { VideoPreviewUnavailableIndicator() }
+                        else -> SubcomposeAsyncImageContent()
+                    }
+                }
+            } else {
+                val player = remember(item.id, streamUrl) {
+                    ExoPlayer.Builder(context)
+                        .setMediaSourceFactory(mediaSourceFactory)
+                        .build()
+                        .apply {
+                            setMediaItem(
+                                MediaItem.Builder()
+                                    .setUri(streamUrl)
+                                    .setCustomCacheKey(item.id)
+                                    .build(),
+                            )
+                            repeatMode = Player.REPEAT_MODE_ALL
+                            volume = 0f
+                            prepare()
+                            play()
+                        }
+                }
+                DisposableEffect(player) {
+                    val listener = object : Player.Listener {
+                        override fun onPlaybackStateChanged(playbackState: Int) {
+                            isBuffering = playbackState == Player.STATE_IDLE || playbackState == Player.STATE_BUFFERING
+                        }
+
+                        override fun onPlayerError(error: PlaybackException) {
+                            isBuffering = false
+                            playbackFailed = true
+                        }
+                    }
+                    player.addListener(listener)
+                    onDispose {
+                        player.removeListener(listener)
+                        player.release()
+                    }
+                }
+                AndroidView(
+                    factory = { context ->
+                        androidx.media3.ui.PlayerView(context).apply {
+                            this.player = player
+                            useController = false
+                            resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                            setShowBuffering(androidx.media3.ui.PlayerView.SHOW_BUFFERING_ALWAYS)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        } else {
+            coil.compose.AsyncImage(
+                model = item.thumbnailUrl,
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        if (isActive && streamUrl == null) {
+            VideoPreviewLoadingIndicator(Modifier.align(Alignment.Center))
+        } else if (isActive && playbackFailed) {
+            VideoPreviewUnavailableIndicator(Modifier.align(Alignment.Center))
+        } else if (isActive && isBuffering) {
+            VideoPreviewLoadingIndicator(Modifier.align(Alignment.Center))
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(240.dp)
+                .align(Alignment.BottomCenter)
+                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.92f)))),
+        )
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .navigationBarsPadding()
+                .padding(horizontal = 18.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                item.title,
+                style = MaterialTheme.typography.headlineSmall,
+                color = Color.White,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    listOfNotNull(
+                        item.source,
+                        item.duration.takeIf { it > 0 }?.let { "${it}s" },
+                    ).joinToString(" · "),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.72f),
+                )
+                Button(
+                    onClick = onApply,
+                    enabled = streamUrl != null && item.canUseVideoAction(VideoWallpaperAction.APPLY),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) {
+                    Icon(Icons.Default.Wallpaper, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.video_apply))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VideoPreviewLoadingIndicator(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        color = Color.Black.copy(alpha = 0.58f),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(28.dp),
+                color = Color.White,
+                strokeWidth = 2.dp,
+            )
+            Text(
+                text = stringResource(R.string.video_wp_preparing_preview),
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White,
+            )
+        }
+    }
+}
+
+@Composable
+private fun VideoPreviewUnavailableIndicator(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        color = Color.Black.copy(alpha = 0.62f),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Default.BrokenImage, contentDescription = null, tint = Color.White)
+            Text(
+                text = stringResource(R.string.video_wp_preview_unavailable),
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White,
+            )
+        }
+    }
+}
+
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 private fun VideoCard(
     item: VideoWallpaperItem,
-    orientation: OrientationFilter,
     streamUrl: String?,
+    mediaSourceFactory: MediaSource.Factory,
     shouldPreview: Boolean,
     isApplying: Boolean,
     voteCount: Int = 0,
     onApply: () -> Unit,
-    onPreview: (() -> Unit)? = null,
+    onOpen: () -> Unit,
     onUpvote: () -> Unit = {},
     onDownvote: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    val previewAspectRatio = item.previewAspectRatio()
-    val metadataBadges = remember(item, orientation) {
-        listOf(item.loopBadge(), item.batteryBadge(), item.fitBadge(orientation))
-    }
+    val feedPreviewHeight = 260.dp
+    var showItemActions by remember { mutableStateOf(false) }
+    val showUploader = item.uploaderName.isNotBlank() &&
+        !item.title.contains(item.uploaderName, ignoreCase = true)
     val videoStateDescription = when {
         isApplying -> stringResource(R.string.a11y_video_applying)
         shouldPreview && streamUrl != null -> stringResource(R.string.a11y_video_preview_playing)
@@ -794,6 +1111,7 @@ private fun VideoCard(
     val hideVideoLabel = stringResource(R.string.a11y_hide_video_wallpaper)
     val previewVideoLabel = stringResource(R.string.a11y_preview_video_wallpaper)
     val applyVideoLabel = stringResource(R.string.a11y_apply_video_wallpaper)
+    val quickActionsLabel = stringResource(R.string.a11y_show_quick_actions)
     val applyingLabel = stringResource(R.string.a11y_applying)
     val readyLabel = stringResource(R.string.a11y_ready)
     val voteStateDescription = stringResource(R.string.a11y_vote_count, voteCount)
@@ -808,14 +1126,30 @@ private fun VideoCard(
         },
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.24f)),
     ) {
         Box {
             // ExoPlayer video or loading placeholder
-            if (streamUrl != null && shouldPreview) {
+            if (streamUrl != null && shouldPreview && streamUrl.isAnimatedImageStream()) {
+                coil.compose.AsyncImage(
+                    model = streamUrl,
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(feedPreviewHeight)
+                        .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)),
+                )
+            } else if (streamUrl != null && shouldPreview) {
                 val exoPlayer = remember(streamUrl) {
-                    ExoPlayer.Builder(context).build().apply {
-                        setMediaItem(MediaItem.fromUri(streamUrl))
+                    ExoPlayer.Builder(context)
+                        .setMediaSourceFactory(mediaSourceFactory)
+                        .build().apply {
+                        setMediaItem(
+                            MediaItem.Builder()
+                                .setUri(streamUrl)
+                                .setCustomCacheKey(item.id)
+                                .build(),
+                        )
                         repeatMode = Player.REPEAT_MODE_ALL
                         volume = 0f
                         prepare()
@@ -832,12 +1166,13 @@ private fun VideoCard(
                         androidx.media3.ui.PlayerView(ctx).apply {
                             player = exoPlayer
                             useController = false
+                            resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                             setShowBuffering(androidx.media3.ui.PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
                         }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(previewAspectRatio)
+                        .height(feedPreviewHeight)
                         .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)),
                 )
             } else {
@@ -845,7 +1180,7 @@ private fun VideoCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(previewAspectRatio)
+                        .height(feedPreviewHeight)
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -884,123 +1219,72 @@ private fun VideoCard(
                 }
             }
 
-            // Duration + orientation badges
-            Row(
-                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                if (item.hasDimensions) {
-                    Surface(
-                        color = if (item.isLandscape) Color(0xFFFF6D00).copy(alpha = 0.85f) else Color(0xFF2979FF).copy(alpha = 0.85f),
-                        shape = RoundedCornerShape(4.dp),
-                    ) {
-                        Text(
-                            if (item.isPortrait) stringResource(R.string.video_wp_badge_portrait) else stringResource(R.string.video_wp_badge_landscape),
-                            Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall, color = Color.White,
-                        )
-                    }
-                }
-                if (item.duration > 0) {
-                    Surface(
-                        color = Color.Black.copy(alpha = 0.7f),
-                        shape = RoundedCornerShape(4.dp),
-                    ) {
-                        Text(stringResource(R.string.video_wp_duration_seconds, item.duration), Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, color = Color.White)
-                    }
-                }
-            }
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clickable(onClickLabel = previewVideoLabel, onClick = onOpen),
+            )
 
-            // Source badge
-            Surface(
-                color = when (item.source) {
-                    "Pexels" -> Color(0xFF05A081)
-                    "Pixabay" -> Color(0xFF00AB6C)
-                    "YouTube" -> Color(0xFFFF0000)
-                    "Reddit" -> Color(0xFFFF4500)
-                    "Klipy" -> Color(0xFFE040FB)
-                    else -> Color(0xFF7C5CFC)
-                }.copy(alpha = 0.85f),
-                shape = RoundedCornerShape(4.dp),
-                modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
-            ) {
-                Text(item.source, Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, color = Color.White)
+            if (item.duration > 0) {
+                Text(
+                    text = stringResource(R.string.video_wp_duration_seconds, item.duration),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(10.dp)
+                        .background(Color.Black.copy(alpha = 0.46f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White,
+                )
             }
         }
 
-        // Title + Vote + Apply button
+        // Identity and primary controls
         Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.Top,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Text(item.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(item.uploaderName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(6.dp))
-                androidx.compose.foundation.layout.FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    metadataBadges.forEach { badge ->
-                        Surface(
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                            shape = RoundedCornerShape(8.dp),
-                        ) {
-                            Text(
-                                badge,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                }
-            }
-            // Vote buttons
-            IconButton(
-                onClick = onUpvote,
-                modifier = Modifier
-                    .size(48.dp)
-                    .semantics {
-                        stateDescription = voteStateDescription
-                        onClick(label = upvoteVideoLabel, action = null)
-                    },
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.ThumbUp,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.primary,
+                Text(item.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (showUploader) {
+                    Text(
+                        item.uploaderName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
-                    if (voteCount > 0) Text(voteCount.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 2.dp))
                 }
             }
-            IconButton(
-                onClick = onDownvote,
-                modifier = Modifier
-                    .size(48.dp)
-                    .semantics { onClick(label = hideVideoLabel, action = null) },
-            ) {
-                Icon(
-                    Icons.Default.VisibilityOff,
-                    contentDescription = hideVideoLabel,
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (onPreview != null) {
+            Box {
                 IconButton(
-                    onClick = onPreview,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .semantics { onClick(label = previewVideoLabel, action = null) },
+                    onClick = { showItemActions = true },
+                    modifier = Modifier.size(48.dp),
                 ) {
-                    Icon(
-                        Icons.Default.Visibility,
-                        contentDescription = previewVideoLabel,
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.primary,
+                    Icon(Icons.Default.MoreVert, contentDescription = quickActionsLabel)
+                }
+                DropdownMenu(
+                    expanded = showItemActions,
+                    onDismissRequest = { showItemActions = false },
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(if (voteCount > 0) "$upvoteVideoLabel ($voteCount)" else upvoteVideoLabel)
+                        },
+                        leadingIcon = { Icon(Icons.Default.ThumbUp, contentDescription = null) },
+                        onClick = {
+                            showItemActions = false
+                            onUpvote()
+                        },
+                        modifier = Modifier.semantics { stateDescription = voteStateDescription },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(hideVideoLabel) },
+                        leadingIcon = { Icon(Icons.Default.VisibilityOff, contentDescription = null) },
+                        onClick = {
+                            showItemActions = false
+                            onDownvote()
+                        },
                     )
                 }
             }
@@ -1031,6 +1315,9 @@ private fun VideoCard(
         }
     }
 }
+
+private fun String.isAnimatedImageStream(): Boolean =
+    substringBefore('?').endsWith(".gif", ignoreCase = true)
 
 @Composable
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
@@ -1114,31 +1401,6 @@ private fun videoEmptyState(
         "No video wallpapers found",
         "Try another focus filter or switch the ${orientation.label()} view.",
     )
-}
-
-private fun videoHeaderTitle(
-    query: String,
-    orientation: OrientationFilter,
-): String = when {
-    query.isNotBlank() -> "Motion results for \"$query\""
-    orientation == OrientationFilter.PORTRAIT -> "Portrait motion wallpapers"
-    orientation == OrientationFilter.LANDSCAPE -> "Landscape clips, ready to fit"
-    else -> "Live wallpaper discovery"
-}
-
-private fun videoHeaderSubtitle(
-    query: String,
-    orientation: OrientationFilter,
-    resultCount: Int,
-): String = when {
-    query.isNotBlank() ->
-        "$resultCount result${if (resultCount == 1) "" else "s"} matched your motion wallpaper search."
-    resultCount > 0 && orientation == OrientationFilter.PORTRAIT ->
-        "$resultCount portrait-friendly clip${if (resultCount == 1) "" else "s"} with preview, crop, and apply controls."
-    resultCount > 0 ->
-        "$resultCount clip${if (resultCount == 1) "" else "s"} available. Use Fit or Crop before applying landscape media."
-    else ->
-        "Search sources or choose a local video/GIF when you already have the right loop."
 }
 
 private fun OrientationFilter.label(): String = when (this) {

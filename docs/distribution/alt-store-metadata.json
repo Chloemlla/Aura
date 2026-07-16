@@ -238,8 +238,8 @@
       "disclosure": "Photo/video provider; optional key defaults are blank for public releases."
     },
     {
-      "id": "reddit-json",
-      "disclosure": "Wallpaper/video discovery provider using public JSON endpoints and configured subreddits."
+      "id": "reddit-rss",
+      "disclosure": "Wallpaper/cinemagraph discovery using cached public Atom feeds with anonymous after-cursor pagination; no OAuth client ID is bundled."
     },
     {
       "id": "nasa-apod",

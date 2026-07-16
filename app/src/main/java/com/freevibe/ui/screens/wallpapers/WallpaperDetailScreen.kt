@@ -61,6 +61,8 @@ import com.freevibe.ui.util.openExternalUrl
 import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
+import coil.imageLoader
+import coil.request.ImageRequest
 import kotlinx.coroutines.flow.flowOf
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -171,7 +173,7 @@ fun WallpaperDetailScreen(
         return
     }
 
-    val pagerItems = remember(initialWp, sharedList, sharedListAnchorKey, hiddenIds) {
+    val pagerSeed = remember(initialWp, sharedList, sharedListAnchorKey, hiddenIds) {
         computeWallpaperPagerItems(
             currentWallpaper = initialWp,
             sharedWallpapers = sharedList,
@@ -179,7 +181,16 @@ fun WallpaperDetailScreen(
             sharedListAnchorKey = sharedListAnchorKey,
         )
     }
-    val wallpapers = pagerItems.wallpapers
+    var wallpapers by remember(detailIdentityKey) { mutableStateOf(pagerSeed.wallpapers) }
+
+    LaunchedEffect(pagerSeed.wallpapers, state.wallpapers, hiddenIds) {
+        val retained = wallpapers.filterNot { isWallpaperHidden(it, hiddenIds) }
+        val knownKeys = retained.mapTo(hashSetOf()) { it.stableKey() }
+        val additions = (pagerSeed.wallpapers + state.wallpapers)
+            .filterNot { isWallpaperHidden(it, hiddenIds) || it.stableKey() in knownKeys }
+            .distinctBy { it.stableKey() }
+        wallpapers = retained + additions
+    }
 
     if (wallpapers.isEmpty()) {
         LaunchedEffect(Unit) { onBack() }
@@ -187,10 +198,13 @@ fun WallpaperDetailScreen(
     }
 
     // Track which wallpaper the pager is currently showing
-    val initialPage = pagerItems.initialPage
+    val initialPage = wallpapers.indexOfFirst { it.stableKey() == initialWp.stableKey() }
+        .takeIf { it >= 0 }
+        ?: pagerSeed.initialPage.coerceIn(0, wallpapers.lastIndex)
     val pagerState = rememberPagerState(initialPage = initialPage) { wallpapers.size }
+    val context = LocalContext.current
 
-    LaunchedEffect(initialPage, wallpapers.size) {
+    LaunchedEffect(detailIdentityKey) {
         if (wallpapers.isNotEmpty()) {
             pagerState.scrollToPage(initialPage.coerceIn(0, wallpapers.lastIndex))
         }
@@ -209,6 +223,15 @@ fun WallpaperDetailScreen(
         wallpapers.getOrNull(pagerState.settledPage)?.let {
             viewModel.selectWallpaperOnly(it)
         }
+        (pagerState.settledPage..minOf(pagerState.settledPage + 2, wallpapers.lastIndex))
+            .mapNotNull(wallpapers::getOrNull)
+            .forEach { wallpaper ->
+                context.imageLoader.enqueue(
+                    ImageRequest.Builder(context)
+                        .data(wallpaper.fullUrl.ifBlank { wallpaper.thumbnailUrl })
+                        .build(),
+                )
+            }
         if (pagerState.settledPage >= wallpapers.size - 3) viewModel.loadMore()
     }
 
@@ -243,7 +266,6 @@ fun WallpaperDetailScreen(
         showDetailsPanel = false
     }
 
-    val context = LocalContext.current
     val parallaxDirectMessage = stringResource(R.string.settings_feedback_parallax_direct)
     val parallaxChooserMessage = stringResource(R.string.settings_feedback_parallax_chooser)
     val parallaxManualMessage = stringResource(R.string.settings_feedback_parallax_manual)
@@ -287,6 +309,8 @@ fun WallpaperDetailScreen(
                 VerticalPager(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize(),
+                    beyondViewportPageCount = 1,
+                    key = { page -> wallpapers[page].stableKey() },
                 ) { page ->
                     val pageOffset = (pagerState.currentPage - page + pagerState.currentPageOffsetFraction)
                     val pageUrl = wallpapers.getOrNull(page)?.fullUrl ?: wp.fullUrl
@@ -311,10 +335,11 @@ fun WallpaperDetailScreen(
                     .matchParentSize()
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.24f),
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.62f),
+                            colorStops = arrayOf(
+                                0f to Color.Black.copy(alpha = 0.18f),
+                                0.18f to Color.Transparent,
+                                0.68f to Color.Transparent,
+                                1f to Color.Black.copy(alpha = 0.46f),
                             ),
                         ),
                     ),
@@ -341,11 +366,7 @@ fun WallpaperDetailScreen(
                         if (wallpapers.size > 1) {
                             DetailOverlayPill(
                                 label = stringResource(R.string.detail_pager_position, pagerState.currentPage + 1, wallpapers.size),
-                                icon = Icons.Default.Collections,
                             )
-                        }
-                        if (wp.width > 0) {
-                            DetailOverlayPill(label = stringResource(R.string.detail_resolution, wp.width, wp.height))
                         }
                     }
                 }
@@ -656,29 +677,11 @@ fun WallpaperDetailScreen(
                     }
                     } else {
                         CompactWallpaperOverlayCard(
-                            wallpaper = wp,
                             isFavorite = isFavorite,
-                            voteCount = voteCount,
                             isApplying = state.isApplying,
                             onApplyClick = { showApplyOptions = true },
-                            onPreview = { onPreview(wp) },
                             onShowDetails = { showDetailsPanel = true },
                             onToggleFavorite = { viewModel.toggleFavorite(wp) },
-                            onDownload = { viewModel.downloadWallpaper(wp) },
-                            onFindSimilar = { onFindSimilar(wp) },
-                            onShare = {
-                                val shareUrl = if (sourceUnavailable) wp.fullUrl else wp.sourcePageUrl.ifEmpty { wp.fullUrl }
-                                if (shareUrl.isBlank()) return@CompactWallpaperOverlayCard
-                                val intent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, shareUrl)
-                                }
-                                try {
-                                    context.startActivity(Intent.createChooser(intent, shareWallpaperTitle))
-                                } catch (_: Exception) {}
-                            },
-                            onHide = if (communityProviderEnabled) ({ viewModel.downvote(wp.stableKey()) }) else null,
-                            onMore = { showMoreMenu = true },
                         )
                     }
                 }
@@ -847,152 +850,50 @@ private fun WallpaperImage(url: String, modifier: Modifier = Modifier) {
 
 @Composable
 private fun CompactWallpaperOverlayCard(
-    wallpaper: Wallpaper,
     isFavorite: Boolean,
-    voteCount: Int,
     isApplying: Boolean,
     onApplyClick: () -> Unit,
-    onPreview: () -> Unit,
     onShowDetails: () -> Unit,
     onToggleFavorite: () -> Unit,
-    onDownload: () -> Unit,
-    onFindSimilar: () -> Unit,
-    onShare: () -> Unit,
-    onHide: (() -> Unit)?,
-    onMore: () -> Unit,
 ) {
-    val actionsScroll = rememberScrollState()
-    GlassCard(
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-        highlightHeight = 72.dp,
-        shadowElevation = 2.dp,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SourceBadge(wallpaper.source.name)
-                    if (voteCount > 0) {
-                        DetailInfoChip(stringResource(R.string.detail_like_count, formatCompactCount(voteCount)))
-                    }
-                }
-                Text(
-                    text = wallpaperDetailTitle(wallpaper),
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = wallpaperDetailSubtitle(wallpaper),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            DetailTopIconButton(
-                icon = Icons.Default.MoreHoriz,
-                contentDescription = stringResource(R.string.detail_more_wallpaper_actions_cd),
-                onClick = onMore,
-            )
-        }
-
-        Spacer(Modifier.height(12.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Button(
-                onClick = onApplyClick,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp),
-                enabled = !isApplying,
-                shape = RoundedCornerShape(8.dp),
-            ) {
-                if (isApplying) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp,
-                    )
-                } else {
-                    Icon(Icons.Default.Wallpaper, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.detail_set))
-                }
-            }
-            FilledTonalButton(
-                onClick = onPreview,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp),
-                shape = RoundedCornerShape(8.dp),
-            ) {
-                Icon(Icons.Default.Visibility, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.detail_preview))
-            }
-        }
-
-        Spacer(Modifier.height(10.dp))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(actionsScroll),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            DetailActionPill(
-                icon = Icons.Default.Info,
-                label = stringResource(R.string.detail_details),
-                tint = MaterialTheme.colorScheme.secondary,
-                onClick = onShowDetails,
-            )
-            DetailActionPill(
+            DetailTopIconButton(
                 icon = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                label = if (isFavorite) stringResource(R.string.detail_saved) else stringResource(R.string.common_save),
-                tint = if (isFavorite) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondary,
+                contentDescription = if (isFavorite) stringResource(R.string.detail_saved) else stringResource(R.string.common_save),
                 onClick = onToggleFavorite,
             )
-            DetailActionPill(
-                icon = Icons.Default.Download,
-                label = stringResource(R.string.detail_download),
-                tint = MaterialTheme.colorScheme.primary,
-                onClick = onDownload,
+            DetailTopIconButton(
+                icon = Icons.Default.MoreHoriz,
+                contentDescription = stringResource(R.string.detail_more_wallpaper_actions_cd),
+                onClick = onShowDetails,
             )
-            if (!wallpaper.isSourceUnavailable()) {
-                DetailActionPill(
-                    icon = Icons.Default.ImageSearch,
-                    label = stringResource(R.string.detail_similar),
-                    tint = MaterialTheme.colorScheme.secondary,
-                    onClick = onFindSimilar,
+        }
+        Button(
+            onClick = onApplyClick,
+            modifier = Modifier
+                .widthIn(min = 104.dp)
+                .height(44.dp),
+            enabled = !isApplying,
+            shape = RoundedCornerShape(10.dp),
+        ) {
+            if (isApplying) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp,
                 )
-            }
-            DetailActionPill(
-                icon = Icons.Default.Share,
-                label = stringResource(R.string.common_share),
-                tint = MaterialTheme.colorScheme.primary,
-                onClick = onShare,
-            )
-            if (onHide != null) {
-                DetailActionPill(
-                    icon = Icons.Default.ThumbDown,
-                    label = stringResource(R.string.detail_hide),
-                    tint = MaterialTheme.colorScheme.error,
-                    onClick = onHide,
-                )
+            } else {
+                Icon(Icons.Default.Wallpaper, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.detail_set))
             }
         }
     }

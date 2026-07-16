@@ -76,10 +76,13 @@ class PreferencesManager @Inject constructor(
         DEFAULT_GENERATED_CONTENT_PROVIDER_ENABLED,
     )
     val generatedContentDisclosureAccepted: Flow<Boolean> = get(Keys.GENERATED_CONTENT_DISCLOSURE_ACCEPTED, false)
-    val wallhavenProviderEnabled: Flow<Boolean> = get(Keys.WALLHAVEN_PROVIDER_ENABLED, true)
-    val bingProviderEnabled: Flow<Boolean> = get(Keys.BING_PROVIDER_ENABLED, true)
-    val pexelsProviderEnabled: Flow<Boolean> = get(Keys.PEXELS_PROVIDER_ENABLED, true)
-    val pixabayProviderEnabled: Flow<Boolean> = get(Keys.PIXABAY_PROVIDER_ENABLED, true)
+    // Reddit is the only wallpaper image source enabled by default; every other provider
+    // (Wallhaven, Bing, Pexels, Pixabay) is opt-in via Settings > Wallpapers > Sources.
+    // Keeping them off by default keeps the default feed lean and low-bandwidth.
+    val wallhavenProviderEnabled: Flow<Boolean> = get(Keys.WALLHAVEN_PROVIDER_ENABLED, false)
+    val bingProviderEnabled: Flow<Boolean> = get(Keys.BING_PROVIDER_ENABLED, false)
+    val pexelsProviderEnabled: Flow<Boolean> = get(Keys.PEXELS_PROVIDER_ENABLED, false)
+    val pixabayProviderEnabled: Flow<Boolean> = get(Keys.PIXABAY_PROVIDER_ENABLED, false)
     val communityProviderEnabled: Flow<Boolean> =
         if (com.freevibe.BuildConfig.FOSS_BUILD) {
             MutableStateFlow(false)
@@ -130,7 +133,9 @@ class PreferencesManager @Inject constructor(
 
     val autoWallpaperEnabled: Flow<Boolean> = get(Keys.AUTO_WP_ENABLED, false)
     val autoWallpaperInterval: Flow<Long> = get(Keys.AUTO_WP_INTERVAL, 12L)
-    val autoWallpaperSource: Flow<String> = get(Keys.AUTO_WP_SOURCE, "wallhaven")
+    // Default rotation source follows the default-enabled provider (Reddit, normalized to the
+    // Reddit-first discover feed) so auto-rotation isn't wired to a source that's off by default.
+    val autoWallpaperSource: Flow<String> = get(Keys.AUTO_WP_SOURCE, "reddit")
     val autoWallpaperTarget: Flow<String> = get(Keys.AUTO_WP_TARGET, "BOTH")
     val localWallpaperFolderUri: Flow<String> = get(Keys.LOCAL_WALLPAPER_FOLDER_URI, "")
     /** Hold rotation until the device is plugged in (battery-friendly). */
@@ -253,13 +258,44 @@ class PreferencesManager @Inject constructor(
 
     // ── Reddit settings ───────────────────────────────────────────
 
-    val redditSubreddits: Flow<String> = get(Keys.REDDIT_SUBS, "wallpapers,MobileWallpaper,wallpaper,WQHD_Wallpaper,MinimalWallpaper,phonewallpapers,iWallpaper")
-    val redditVideoSubreddits: Flow<String> = get(Keys.REDDIT_VIDEO_SUBS, "livewallpapers,LiveWallpaper,Cinemagraphs,perfectloops")
-    val redditProviderEnabled: Flow<Boolean> = get(Keys.REDDIT_PROVIDER_ENABLED, false)
+    val redditSubreddits: Flow<String> = get(
+        Keys.REDDIT_SUBS,
+        "iWallpaper,Amoledbackgrounds,MobileWallpaper,AnimePhoneWallpapers,phonewallpapers,iphonewallpapers,mobilewallpapers,Verticalwallpapers,WQHD_Wallpaper,MinimalWallpaper,iphonexwallpapers",
+    )
+    val redditVideoSubreddits: Flow<String> = get(
+        Keys.REDDIT_VIDEO_SUBS,
+        "livewallpapers,Cinemagraphs,perfectloops,phonewallpapers,AnimatedPixelArt,LivingBackgrounds,wallpaperengine",
+    )
+    val redditProviderEnabled: Flow<Boolean> = get(Keys.REDDIT_PROVIDER_ENABLED, true)
 
     suspend fun setRedditSubreddits(subs: String) = set(Keys.REDDIT_SUBS, subs)
     suspend fun setRedditVideoSubreddits(subs: String) = set(Keys.REDDIT_VIDEO_SUBS, subs)
     suspend fun setRedditProviderEnabled(enabled: Boolean) = set(Keys.REDDIT_PROVIDER_ENABLED, enabled)
+
+    /**
+     * Persist Atom page metadata independently from usable wallpaper rows. The final raw Reddit
+     * entry can differ from the final accepted image, so the exact request cursor must own the
+     * exact next cursor (or terminal marker) across process restarts.
+     */
+    suspend fun getRedditRssNextCursor(feedHash: Int, requestAfter: String?): String =
+        get(redditRssPageMetadataKey(feedHash, requestAfter), "").first()
+
+    suspend fun setRedditRssNextCursor(feedHash: Int, requestAfter: String?, nextCursor: String) =
+        set(redditRssPageMetadataKey(feedHash, requestAfter), nextCursor.trim())
+
+    suspend fun getRedditRssNextAllowedAtMs(): Long =
+        get(Keys.REDDIT_RSS_NEXT_ALLOWED_AT_MS, 0L).first()
+
+    suspend fun setRedditRssNextAllowedAtMs(timestampMs: Long) =
+        set(Keys.REDDIT_RSS_NEXT_ALLOWED_AT_MS, timestampMs.coerceAtLeast(0L))
+
+    private fun redditRssPageMetadataKey(feedHash: Int, requestAfter: String?): Preferences.Key<String> {
+        val requestToken = requestAfter
+            ?.removePrefix("t3_")
+            ?.takeIf { it.matches(Regex("[a-zA-Z0-9]+")) }
+            ?: "root"
+        return stringPreferencesKey("reddit_rss_page_v2_${feedHash}_$requestToken")
+    }
 
     // ── YouTube sound search ──────────────────────────────────────
 
@@ -474,6 +510,7 @@ class PreferencesManager @Inject constructor(
         val REDDIT_SUBS = stringPreferencesKey("reddit_subreddits")
         val REDDIT_VIDEO_SUBS = stringPreferencesKey("reddit_video_subreddits")
         val REDDIT_PROVIDER_ENABLED = booleanPreferencesKey("reddit_provider_enabled")
+        val REDDIT_RSS_NEXT_ALLOWED_AT_MS = longPreferencesKey("reddit_rss_next_allowed_at_ms")
         // YouTube sound search
         val YT_SOUND_RINGTONES = stringPreferencesKey("yt_sound_ringtones")
         val YT_SOUND_NOTIFICATIONS = stringPreferencesKey("yt_sound_notifications")

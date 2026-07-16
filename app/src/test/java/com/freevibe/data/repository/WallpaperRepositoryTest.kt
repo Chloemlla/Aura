@@ -47,6 +47,43 @@ import java.net.UnknownHostException
 class WallpaperRepositoryTest {
 
     @Test
+    fun `warm discover cache prefers final reddit first home mix`() = runTest {
+        val cacheManager = mockk<WallpaperCacheManager>(relaxed = true)
+        val reddit = Wallpaper(
+            id = "reddit-home",
+            source = ContentSource.REDDIT,
+            thumbnailUrl = "https://i.redd.it/reddit-home.jpg",
+            fullUrl = "https://i.redd.it/reddit-home.jpg",
+            width = 1440,
+            height = 3200,
+        )
+        coEvery { cacheManager.getStaleCached("discover_home_v2_1") } returns listOf(reddit)
+
+        val cached = wallpaperRepository(cacheManager = cacheManager).getCachedDiscover(page = 1)
+
+        assertEquals(listOf(ContentSource.REDDIT), cached?.map { it.source })
+        coVerify(exactly = 0) { cacheManager.getStaleCached("discover_secondary_v2_1") }
+        coVerify(exactly = 0) { cacheManager.getStaleCached("discover_1") }
+    }
+
+    @Test
+    fun `discover themes rotate indefinitely instead of exhausting a fixed catalog`() {
+        assertEquals("minimal dark", discoverThemeForPage(1))
+        assertEquals("desert dunes", discoverThemeForPage(12))
+        assertEquals("minimal dark", discoverThemeForPage(13))
+        assertEquals("cinematic nature", discoverThemeForPage(14))
+    }
+
+    @Test
+    fun `discover provider pages advance only after every theme gets a fresh first page`() {
+        assertEquals(1, discoverSourcePageForPage(1))
+        assertEquals(1, discoverSourcePageForPage(12))
+        assertEquals(2, discoverSourcePageForPage(13))
+        assertEquals(2, discoverSourcePageForPage(24))
+        assertEquals(3, discoverSourcePageForPage(25))
+    }
+
+    @Test
     fun `mergeDiscoverResults keeps provider pagination instead of inferring from visible items`() {
         val merged = mergeDiscoverResults(
             results = listOf(

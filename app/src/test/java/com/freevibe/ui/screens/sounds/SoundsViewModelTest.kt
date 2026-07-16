@@ -167,7 +167,7 @@ class SoundsViewModelTest {
 
         val state = viewModel.state.value
         assertEquals(listOf("bundled_ring"), state.sounds.map { it.id })
-        assertEquals(listOf("bundled_ring"), viewModel.topHits.value.map { it.id })
+        assertTrue(viewModel.topHits.value.isEmpty())
         assertFalse(state.hasMore)
         coVerify(exactly = 0) { youtubeRepo.searchSounds(any(), any(), any(), any()) }
         coVerify(exactly = 0) { youtubeRepo.getAudioPreviewUrl(any()) }
@@ -514,7 +514,7 @@ class SoundsViewModelTest {
     }
 
     @Test
-    fun `initial load prebuffers first five provider preview urls`() = runTest(dispatcher) {
+    fun `initial load prebuffers first eight provider preview urls`() = runTest(dispatcher) {
         val youtubeRepo = mockk<YouTubeRepository>()
         val freesoundRepo = mockk<FreesoundRepository>()
         val freesoundV2Repo = mockk<FreesoundV2Repository>()
@@ -522,7 +522,7 @@ class SoundsViewModelTest {
         val ccMixterRepo = mockk<CcMixterRepository>()
         val soundCloudRepo = mockk<SoundCloudRepository>()
         val audioPreviewCache = mockk<AudioPreviewCache>()
-        val providerSounds = (1..6).map { index ->
+        val providerSounds = (1..9).map { index ->
             testSound("yt_$index", ContentSource.YOUTUBE, "Clean Tone $index")
         }
 
@@ -555,12 +555,12 @@ class SoundsViewModelTest {
         advanceUntilIdle()
 
         val readyIds = viewModel.previewReadyIds.value
-        providerSounds.take(5).forEach { sound ->
+        providerSounds.take(8).forEach { sound ->
             assertTrue(readyIds.contains(sound.stableKey()))
             coVerify(exactly = 1) { audioPreviewCache.prebuffer(match { it.id == sound.id }) }
         }
-        assertFalse(readyIds.contains(providerSounds[5].stableKey()))
-        coVerify(exactly = 0) { audioPreviewCache.prebuffer(match { it.id == providerSounds[5].id }) }
+        assertFalse(readyIds.contains(providerSounds[8].stableKey()))
+        coVerify(exactly = 0) { audioPreviewCache.prebuffer(match { it.id == providerSounds[8].id }) }
     }
 
     @Test

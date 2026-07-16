@@ -126,10 +126,10 @@ val providerNetworkPolicies = listOf(
         hostSuffixes = setOf("reddit.com"),
         maxBatchDownloadPerUserAction = 10,
         timeoutPolicy = "OkHttp connect/read/write timeouts",
-        backoffPolicy = "degraded-source cooldown after repeated failures",
-        cacheFallbackPolicy = "saved legacy records and cached wallpaper URLs",
+        backoffPolicy = "one cursor-paged combined RSS request at a time with a 60-second process cooldown",
+        cacheFallbackPolicy = "two-hour Room cache with stale fallback",
         disabledBehavior = "provider toggle blocks tab access",
-        quotaSummary = "Discontinued feed; saved legacy records only.",
+        quotaSummary = "Public Atom/RSS only; anonymous after-cursor pagination with no OAuth client ID or credential impersonation.",
     ),
     ProviderNetworkPolicy(
         source = ContentSource.NASA,

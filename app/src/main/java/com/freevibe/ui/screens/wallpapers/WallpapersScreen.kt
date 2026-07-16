@@ -58,11 +58,11 @@ import com.freevibe.R
 import com.freevibe.data.model.COMMUNITY_UPLOAD_LICENSES
 import com.freevibe.data.model.CommunityUploadRights
 import com.freevibe.data.model.FavoriteIdentity
+import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Wallpaper
 import com.freevibe.data.model.favoriteIdentity
 import com.freevibe.data.model.stableKey
 import com.freevibe.data.repository.matchesHiddenIds
-import com.freevibe.service.SeasonalTheme
 import com.freevibe.service.PhotoPickerCustomization
 import com.freevibe.ui.components.CompactSearchField
 import com.freevibe.ui.components.CommunityGuidelinesDialog
@@ -71,7 +71,6 @@ import com.freevibe.ui.components.CountBadge
 import com.freevibe.ui.components.DownloadProgressBar
 import com.freevibe.ui.components.EmbeddedImagePickerSheet
 import com.freevibe.ui.components.GlassCard
-import com.freevibe.ui.components.HighlightPill
 import com.freevibe.ui.components.SearchHistoryDropdown
 import com.freevibe.ui.components.ShimmerBox
 import com.freevibe.ui.components.ShimmerWallpaperGrid
@@ -128,6 +127,7 @@ fun WallpapersScreen(
     val topVoted by viewModel.topVoted.collectAsStateWithLifecycle()
     val hiddenIds by viewModel.hiddenIds.collectAsStateWithLifecycle()
     val wallhavenProviderEnabled by viewModel.wallhavenProviderEnabled.collectAsStateWithLifecycle()
+    val redditProviderEnabled by viewModel.redditProviderEnabled.collectAsStateWithLifecycle()
     val pexelsProviderEnabled by viewModel.pexelsProviderEnabled.collectAsStateWithLifecycle()
     val pixabayProviderEnabled by viewModel.pixabayProviderEnabled.collectAsStateWithLifecycle()
     val communityProviderEnabled by viewModel.communityProviderEnabled.collectAsStateWithLifecycle()
@@ -172,17 +172,20 @@ fun WallpapersScreen(
     var nonBlockingWarning by remember { mutableStateOf<String?>(null) }
     var nonBlockingWarningSource by remember { mutableStateOf<String?>(null) }
     var showSearchHistory by remember { mutableStateOf(false) }
+    var searchExpanded by remember { mutableStateOf(initialQuery?.isNotBlank() == true) }
     var showSourceMenu by remember { mutableStateOf(false) }
+    var showQuickActionsMenu by remember { mutableStateOf(false) }
     var showFiltersSheet by remember { mutableStateOf(false) }
     var showCommunityGuidelines by remember { mutableStateOf(false) }
     var showWallpaperUploadDialog by remember { mutableStateOf(false) }
     var showEmbeddedWallpaperPicker by remember { mutableStateOf(false) }
     var selectedWallpaperUploadUri by remember { mutableStateOf<Uri?>(null) }
     var awaitingWallpaperUploadResult by remember { mutableStateOf(false) }
-    LaunchedEffect(wallhavenProviderEnabled, pexelsProviderEnabled, pixabayProviderEnabled, communityProviderEnabled, state.selectedTab) {
+    LaunchedEffect(wallhavenProviderEnabled, redditProviderEnabled, pexelsProviderEnabled, pixabayProviderEnabled, communityProviderEnabled, state.selectedTab) {
         val disabledTab = when (state.selectedTab) {
+            WallpaperTab.NEWEST -> !wallhavenProviderEnabled && !pixabayProviderEnabled
             WallpaperTab.WALLHAVEN -> !wallhavenProviderEnabled
-            WallpaperTab.REDDIT -> true
+            WallpaperTab.REDDIT -> !redditProviderEnabled
             WallpaperTab.PEXELS -> !pexelsProviderEnabled
             WallpaperTab.PIXABAY -> !pixabayProviderEnabled
             WallpaperTab.COMMUNITY -> !communityProviderEnabled
@@ -264,7 +267,6 @@ fun WallpapersScreen(
     val adaptiveGridColumns = remember(gridColumns, isExpandedLayout) {
         if (isExpandedLayout) gridColumns.coerceAtLeast(3) else gridColumns
     }
-    val wallpaperNewestQuery = stringResource(R.string.browse_rail_wallpaper_newest_query)
 
     LaunchedEffect(initialQuery, initialColor, initialSimilarId, initialSimilarSource, initialSimilarFullUrl) {
         viewModel.handleRouteFilters(
@@ -348,6 +350,9 @@ fun WallpapersScreen(
                 WallpaperTab.entries.filter {
                     it != WallpaperTab.SEARCH || state.selectedTab == WallpaperTab.SEARCH
                 }.filter {
+                    // Newest is a rail tab, not a source; keep it out of the source dropdown.
+                    it != WallpaperTab.NEWEST
+                }.filter {
                     it != WallpaperTab.COLOR || state.selectedTab == WallpaperTab.COLOR
                 }.filter {
                     it != WallpaperTab.WALLHAVEN || wallhavenProviderEnabled || state.selectedTab == WallpaperTab.WALLHAVEN
@@ -359,54 +364,141 @@ fun WallpapersScreen(
                     it != WallpaperTab.COMMUNITY || communityProviderEnabled || state.selectedTab == WallpaperTab.COMMUNITY
                 }
             }
-            GlassCard(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 10.dp),
-                highlightHeight = 84.dp,
-                shadowElevation = 2.dp,
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
             ) {
-                HighlightPill(
-                    label = wallpaperHeaderEyebrow(
-                        tab = state.selectedTab,
-                        discoverFilter = state.discoverFilter,
-                    ),
-                    icon = wallpaperTabIcon(state.selectedTab),
-                    tint = if (state.selectedTab == WallpaperTab.DISCOVER) {
-                        MaterialTheme.colorScheme.secondary
-                    } else {
-                        MaterialTheme.colorScheme.primary
-                    },
-                )
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    text = wallpaperHeaderTitle(
-                        tab = state.selectedTab,
-                        query = state.query,
-                    ),
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = wallpaperHeaderSubtitle(
-                        tab = state.selectedTab,
-                        discoverFilter = state.discoverFilter,
-                        query = state.query,
-                        selectedColor = state.selectedColor,
-                        wallpaperCount = visibleSections.feedWallpapers.size,
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(12.dp))
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = wallpaperHeaderTitle(
+                            tab = state.selectedTab,
+                            query = state.query,
+                        ),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.headlineSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    IconButton(onClick = { searchExpanded = !searchExpanded }) {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = stringResource(R.string.wallpapers_search_placeholder),
+                        )
+                    }
+                    Box {
+                        IconButton(onClick = { showSourceMenu = true }) {
+                            Icon(
+                                wallpaperTabIcon(state.selectedTab),
+                                contentDescription = wallpaperTabLabel(state.selectedTab),
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showSourceMenu,
+                            onDismissRequest = { showSourceMenu = false },
+                        ) {
+                            visibleTabs.forEach { tab ->
+                                DropdownMenuItem(
+                                    text = { Text(wallpaperTabLabel(tab)) },
+                                    onClick = {
+                                        showSourceMenu = false
+                                        if (tab == WallpaperTab.COMMUNITY && communityProviderEnabled && !communityGuidelinesAccepted) {
+                                            showCommunityGuidelines = true
+                                        } else {
+                                            viewModel.selectTab(tab)
+                                        }
+                                    },
+                                    leadingIcon = {
+                                        Icon(wallpaperTabIcon(tab), contentDescription = null, modifier = Modifier.size(18.dp))
+                                    },
+                                    trailingIcon = {
+                                        if (state.selectedTab == tab) {
+                                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    IconButton(onClick = { showFiltersSheet = true }) {
+                        Box {
+                            Icon(
+                                Icons.Default.Tune,
+                                contentDescription = stringResource(R.string.wallpapers_filter_cd),
+                                tint = if (wallpaperFilterCount > 0 || state.selectedColor != null) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            )
+                            CountBadge(
+                                count = wallpaperFilterCount,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = 10.dp, y = (-8).dp),
+                            )
+                        }
+                    }
+                    Box {
+                        IconButton(onClick = { showQuickActionsMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.a11y_show_quick_actions))
+                        }
+                        DropdownMenu(
+                            expanded = showQuickActionsMenu,
+                            onDismissRequest = { showQuickActionsMenu = false },
+                        ) {
+                            if (communityProviderEnabled && state.selectedTab == WallpaperTab.COMMUNITY) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.wallpapers_fab_upload)) },
+                                    leadingIcon = { Icon(Icons.Default.Upload, contentDescription = null) },
+                                    onClick = {
+                                        showQuickActionsMenu = false
+                                        if (communityGuidelinesAccepted) launchWallpaperUploadPicker() else showCommunityGuidelines = true
+                                    },
+                                )
+                            }
+                            if (generatedContentProviderEnabled) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.feed_generate)) },
+                                    leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
+                                    onClick = { showQuickActionsMenu = false; onGenerateClick() },
+                                )
+                            }
+                            if (wallhavenProviderEnabled && state.selectedTab == WallpaperTab.DISCOVER) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.wallpapers_fab_theme_match)) },
+                                    leadingIcon = { Icon(Icons.Default.Palette, contentDescription = null) },
+                                    onClick = { showQuickActionsMenu = false; viewModel.matchMyTheme() },
+                                )
+                                if (eyeDropperAvailable) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.wallpapers_fab_pick_colour)) },
+                                        leadingIcon = { Icon(Icons.Default.Colorize, contentDescription = null) },
+                                        onClick = {
+                                            showQuickActionsMenu = false
+                                            val intent = android.content.Intent("android.intent.action.OPEN_EYE_DROPPER")
+                                            runCatching { eyeDropperLauncher.launch(intent) }
+                                        },
+                                    )
+                                }
+                            }
+                            if (wallhavenProviderEnabled) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.wallpapers_fab_surprise_me)) },
+                                    leadingIcon = { Icon(Icons.Default.Shuffle, contentDescription = null) },
+                                    onClick = { showQuickActionsMenu = false; viewModel.loadRandom() },
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (searchExpanded || state.selectedTab == WallpaperTab.SEARCH || searchQuery.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    Box(modifier = Modifier.fillMaxWidth()) {
                         CompactSearchField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it; showSearchHistory = it.isEmpty() },
@@ -448,137 +540,73 @@ fun WallpapersScreen(
                                 .padding(top = 42.dp),
                         )
                     }
-
-                    OutlinedIconButton(
-                        onClick = { showFiltersSheet = true },
-                        modifier = Modifier.size(48.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = IconButtonDefaults.outlinedIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.42f),
-                            contentColor = if (wallpaperFilterCount > 0 || state.selectedColor != null) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                        ),
-                        border = BorderStroke(
-                            1.dp,
-                            if (wallpaperFilterCount > 0 || state.selectedColor != null) {
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
-                            } else {
-                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-                            },
-                        ),
-                    ) {
-                        Box {
-                            Icon(Icons.Default.Tune, contentDescription = stringResource(R.string.wallpapers_filter_cd), modifier = Modifier.size(18.dp))
-                            CountBadge(
-                                count = wallpaperFilterCount,
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .offset(x = 10.dp, y = (-8).dp),
-                            )
-                        }
-                    }
                 }
 
                 Spacer(Modifier.height(8.dp))
+                // Newest/Categories/Collections only apply to the non-Reddit catalog, so in the
+                // default Reddit-only mode the rail collapses to Popular. Enabling any other source
+                // in Settings restores them (state.extendedBrowseSourcesEnabled flips reactively).
+                val popularLabel = stringResource(R.string.browse_rail_popular)
+                val newestLabel = stringResource(R.string.browse_rail_newest)
+                val categoriesLabel = stringResource(R.string.browse_rail_categories)
+                val collectionsLabel = stringResource(R.string.browse_rail_collections)
                 BrowseRail(
-                    items = listOf(
-                        BrowseRailItem(
-                            label = stringResource(R.string.browse_rail_popular),
-                            icon = Icons.Default.Explore,
-                            selected = state.selectedTab == WallpaperTab.DISCOVER &&
-                                state.discoverFilter == WallpaperDiscoverFilter.FOR_YOU &&
-                                state.query.isBlank(),
-                            onClick = {
-                                searchQuery = ""
-                                viewModel.selectTab(WallpaperTab.DISCOVER)
-                                viewModel.setDiscoverFilter(WallpaperDiscoverFilter.FOR_YOU)
-                            },
-                        ),
-                        BrowseRailItem(
-                            label = stringResource(R.string.browse_rail_newest),
-                            icon = Icons.Default.Schedule,
-                            selected = state.selectedTab == WallpaperTab.SEARCH && state.query == wallpaperNewestQuery,
-                            onClick = {
-                                searchQuery = wallpaperNewestQuery
-                                viewModel.search(wallpaperNewestQuery)
-                            },
-                        ),
-                        BrowseRailItem(
-                            label = stringResource(R.string.browse_rail_categories),
-                            icon = Icons.Default.Category,
-                            onClick = onCategoriesClick,
-                        ),
-                        BrowseRailItem(
-                            label = stringResource(R.string.browse_rail_collections),
-                            icon = Icons.Default.Folder,
-                            onClick = onCollectionsClick,
-                        ),
-                    ),
-                )
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box {
-                        FilledTonalButton(
-                            onClick = { showSourceMenu = true },
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                            modifier = Modifier.heightIn(min = 48.dp),
-                            shape = RoundedCornerShape(8.dp),
-                        ) {
-                            Icon(Icons.Default.Explore, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                wallpaperTabLabel(state.selectedTab),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
-                        }
-                        DropdownMenu(
-                            expanded = showSourceMenu,
-                            onDismissRequest = { showSourceMenu = false },
-                        ) {
-                            visibleTabs.forEach { tab ->
-                                DropdownMenuItem(
-                                    text = { Text(wallpaperTabLabel(tab)) },
+                    items = buildList {
+                        add(
+                            BrowseRailItem(
+                                label = popularLabel,
+                                icon = Icons.Default.Explore,
+                                selected = state.selectedTab == WallpaperTab.DISCOVER &&
+                                    state.discoverFilter == WallpaperDiscoverFilter.FOR_YOU &&
+                                    state.query.isBlank(),
+                                onClick = {
+                                    searchQuery = ""
+                                    viewModel.selectTab(WallpaperTab.DISCOVER)
+                                    viewModel.setDiscoverFilter(WallpaperDiscoverFilter.FOR_YOU)
+                                },
+                            ),
+                        )
+                        if (state.extendedBrowseSourcesEnabled) {
+                            add(
+                                BrowseRailItem(
+                                    label = newestLabel,
+                                    icon = Icons.Default.Schedule,
+                                    selected = state.selectedTab == WallpaperTab.NEWEST,
                                     onClick = {
-                                        showSourceMenu = false
-                                        if (tab == WallpaperTab.COMMUNITY && communityProviderEnabled && !communityGuidelinesAccepted) {
-                                            showCommunityGuidelines = true
-                                        } else {
-                                            viewModel.selectTab(tab)
-                                        }
+                                        searchQuery = ""
+                                        viewModel.selectTab(WallpaperTab.NEWEST)
                                     },
-                                    leadingIcon = {
-                                        if (state.selectedTab == tab) {
-                                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        }
-                                    },
-                                )
-                            }
+                                ),
+                            )
+                            add(
+                                BrowseRailItem(
+                                    label = categoriesLabel,
+                                    icon = Icons.Default.Category,
+                                    onClick = onCategoriesClick,
+                                ),
+                            )
+                            add(
+                                BrowseRailItem(
+                                    label = collectionsLabel,
+                                    icon = Icons.Default.Folder,
+                                    onClick = onCollectionsClick,
+                                ),
+                            )
                         }
-                    }
-                    if (generatedContentProviderEnabled) {
-                        FilledTonalButton(
-                            onClick = onGenerateClick,
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                            modifier = Modifier.heightIn(min = 48.dp),
-                            shape = RoundedCornerShape(8.dp),
-                        ) {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(stringResource(R.string.feed_generate), maxLines = 1)
-                        }
-                    }
+                    },
+                )
+                if (
+                    (state.selectedTab == WallpaperTab.DISCOVER && state.discoverFilter != WallpaperDiscoverFilter.FOR_YOU) ||
+                    state.selectedColor != null ||
+                    (state.selectedTab == WallpaperTab.WALLHAVEN && state.topRange != "1M")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                     if (state.selectedTab == WallpaperTab.DISCOVER && state.discoverFilter != WallpaperDiscoverFilter.FOR_YOU) {
                         AssistChip(
                             onClick = { viewModel.setDiscoverFilter(WallpaperDiscoverFilter.FOR_YOU) },
@@ -613,6 +641,7 @@ fun WallpapersScreen(
                             shape = RoundedCornerShape(8.dp),
                         )
                     }
+                    }
                 }
             }
 
@@ -642,21 +671,6 @@ fun WallpapersScreen(
                             nonBlockingWarning = null
                             nonBlockingWarningSource = null
                         },
-                    ),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                )
-            }
-
-            if (state.degradedSources.isNotEmpty() && nonBlockingWarning == null) {
-                AuraStatusBanner(
-                    icon = Icons.Default.CloudOff,
-                    title = stringResource(R.string.wallpapers_banner_degraded_title),
-                    message = stringResource(R.string.wallpapers_source_health_summary, state.degradedSources.sorted().joinToString(", ")),
-                    tone = MaterialTheme.colorScheme.tertiary,
-                    primaryAction = AuraStatusAction(
-                        label = stringResource(R.string.common_refresh),
-                        icon = Icons.Default.Refresh,
-                        onClick = { viewModel.refresh() },
                     ),
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 )
@@ -773,8 +787,11 @@ fun WallpapersScreen(
                             onRefresh = { viewModel.refresh() },
                         ) {
                             WallpaperGrid(
-                                dailyPick = visibleSections.dailyPick,
-                                wallpapers = visibleSections.feedWallpapers,
+                                // Featured cards are folded into the same content stream. The
+                                // section builder keeps every Reddit item ahead of Bing and the
+                                // other providers, so the home viewport starts with the source
+                                // people came here for instead of a decorative daily-pick slot.
+                                wallpapers = visibleSections.pagerWallpapers,
                                 isLoadingMore = state.isLoadingMore,
                                 columns = adaptiveGridColumns,
                                 onWallpaperClick = { wp ->
@@ -802,10 +819,6 @@ fun WallpapersScreen(
                                 },
                                 voteCounts = voteCounts,
                                 onLoadMore = { viewModel.loadMore() },
-                                onSearch = { query -> viewModel.search(query) },
-                                isDiscoverTab = state.selectedTab == WallpaperTab.DISCOVER,
-                                topVoted = visibleSections.topVoted,
-                                seasonalTheme = if (state.selectedTab == WallpaperTab.DISCOVER) viewModel.seasonalTheme else null,
                                 isExpandedLayout = isExpandedLayout,
                             )
                         }
@@ -821,28 +834,6 @@ fun WallpapersScreen(
                 .padding(horizontal = 16.dp, vertical = 20.dp),
         )
 
-        FloatingActionTray(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = if (isExpandedLayout) 24.dp else 80.dp),
-            showUpload = communityProviderEnabled && state.selectedTab == WallpaperTab.COMMUNITY,
-            showThemeMatch = wallhavenProviderEnabled && state.selectedTab == WallpaperTab.DISCOVER,
-            showEyeDropper = wallhavenProviderEnabled && eyeDropperAvailable && state.selectedTab == WallpaperTab.DISCOVER,
-            showSurprise = wallhavenProviderEnabled,
-            onUpload = {
-                if (communityGuidelinesAccepted) {
-                    launchWallpaperUploadPicker()
-                } else {
-                    showCommunityGuidelines = true
-                }
-            },
-            onThemeMatch = { viewModel.matchMyTheme() },
-            onEyeDropper = {
-                val intent = android.content.Intent("android.intent.action.OPEN_EYE_DROPPER")
-                runCatching { eyeDropperLauncher.launch(intent) }
-            },
-            onSurpriseMe = { viewModel.loadRandom() },
-        )
     }
 
     if (showFiltersSheet) {
@@ -1066,7 +1057,6 @@ private fun WallpaperGrid(
     wallpapers: List<Wallpaper>,
     isLoadingMore: Boolean,
     columns: Int = 2,
-    dailyPick: Wallpaper? = null,
     onWallpaperClick: (Wallpaper) -> Unit,
     onLongPress: ((Wallpaper) -> Unit)? = null,
     favoriteIdentities: Set<FavoriteIdentity> = emptySet(),
@@ -1075,10 +1065,6 @@ private fun WallpaperGrid(
     onDownvote: ((Wallpaper) -> Unit)? = null,
     voteCounts: Map<String, Int> = emptyMap(),
     onLoadMore: () -> Unit,
-    onSearch: ((String) -> Unit)? = null,
-    isDiscoverTab: Boolean = false,
-    topVoted: List<Pair<Wallpaper, Int>> = emptyList(),
-    seasonalTheme: SeasonalTheme? = null,
     isExpandedLayout: Boolean = false,
 ) {
     val gridState = rememberLazyStaggeredGridState()
@@ -1090,26 +1076,37 @@ private fun WallpaperGrid(
             lastVisible >= layoutInfo.totalItemsCount - 6
         }
     }
-
-    LaunchedEffect(shouldLoadMore) {
-        if (shouldLoadMore) onLoadMore()
+    val laidOutItemCount by remember {
+        derivedStateOf { gridState.layoutInfo.totalItemsCount }
     }
 
-    val topVotedIds by remember(topVoted, isDiscoverTab) {
-        derivedStateOf { if (isDiscoverTab) topVoted.map { it.first.stableKey() }.toSet() else emptySet() }
-    }
-    val visibleWallpapers by remember(wallpapers, hiddenIds, topVotedIds) {
+    val visibleWallpapers by remember(wallpapers, hiddenIds) {
         derivedStateOf {
             wallpapers
-                .filter { !isWallpaperHidden(it, hiddenIds) && it.stableKey() !in topVotedIds }
+                .filter { !isWallpaperHidden(it, hiddenIds) }
         }
     }
-    // Hoisted to derivedStateOf so the filter+take doesn't reallocate the list on every grid
-    // body recomposition (the grid body runs every time any parent state flips).
-    val visibleTopVoted by remember(topVoted, hiddenIds, isDiscoverTab) {
-        derivedStateOf {
-            if (!isDiscoverTab) emptyList()
-            else topVoted.filter { !isWallpaperHidden(it.first, hiddenIds) }.take(10)
+    val inventoryStartKey = visibleWallpapers.firstOrNull()?.stableKey()
+    var lastRequestedItemCount by remember(inventoryStartKey) { mutableIntStateOf(-1) }
+
+    // Wait until Compose has laid out the newly appended inventory before deciding
+    // that the viewport is still near the end. Without the layout-count guard, the
+    // old layout can remain "near end" for a frame and recursively consume dozens of
+    // provider pages. The item-count latch also prevents an empty/throttled response
+    // from becoming a retry loop; scrolling away and back explicitly re-arms it.
+    LaunchedEffect(shouldLoadMore, visibleWallpapers.size, laidOutItemCount, isLoadingMore) {
+        if (!shouldLoadMore) {
+            lastRequestedItemCount = -1
+        } else if (shouldRequestNextWallpaperPage(
+                isNearEnd = shouldLoadMore,
+                isLoadingMore = isLoadingMore,
+                laidOutItemCount = laidOutItemCount,
+                visibleItemCount = visibleWallpapers.size,
+                lastRequestedItemCount = lastRequestedItemCount,
+            )
+        ) {
+            lastRequestedItemCount = visibleWallpapers.size
+            onLoadMore()
         }
     }
 
@@ -1125,110 +1122,6 @@ private fun WallpaperGrid(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalItemSpacing = 8.dp,
     ) {
-        // Wallpaper of the Day — hero card with full image
-        if (dailyPick != null) {
-            item(span = StaggeredGridItemSpan.FullLine, key = "daily_pick") {
-                val pick = dailyPick
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onWallpaperClick(pick) },
-                    shape = RoundedCornerShape(8.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(148.dp),
-                    ) {
-                        SubcomposeAsyncImage(
-                            model = pick.fullUrl.ifEmpty { pick.thumbnailUrl },
-                            contentDescription = stringResource(R.string.wallpapers_daily_pick_cd),
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize(),
-                        ) {
-                            when (painter.state) {
-                                is AsyncImagePainter.State.Loading -> ShimmerBox(Modifier.fillMaxSize(), RoundedCornerShape(0.dp))
-                                else -> SubcomposeAsyncImageContent()
-                            }
-                        }
-                        // Gradient overlay
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f)),
-                                        startY = 44f,
-                                    ),
-                                ),
-                        )
-                        // Text overlay
-                        Column(
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .padding(12.dp),
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                Icon(Icons.Default.AutoAwesome, contentDescription = stringResource(R.string.wallpapers_daily_pick_featured_cd), Modifier.size(14.dp), tint = Color(0xFFFFD700))
-                                Text(stringResource(R.string.feed_wotd), style = MaterialTheme.typography.labelLarge, color = Color.White)
-                            }
-                            Text(
-                                pick.category.ifEmpty { stringResource(R.string.wallpapers_daily_pick_category_fallback) },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.7f),
-                            )
-                        }
-                        // Arrow
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.wallpapers_daily_pick_view_cd),
-                            tint = Color.White.copy(alpha = 0.8f),
-                            modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp).size(18.dp),
-                        )
-                    }
-                }
-            }
-        }
-
-        // Seasonal banner — shown in Discover when a seasonal theme is active
-        if (isDiscoverTab && seasonalTheme != null) {
-            item(span = StaggeredGridItemSpan.FullLine, key = "seasonal_banner") {
-                SeasonalBannerCard(
-                    theme = seasonalTheme,
-                    onClick = { onSearch?.invoke(seasonalTheme.wallpaperQuery) },
-                )
-            }
-        }
-
-        // Curated collections carousel (Discover tab only)
-        if (isDiscoverTab) {
-            item(span = StaggeredGridItemSpan.FullLine, key = "curated_collections") {
-                DiscoverCollectionsRow(onSearch = onSearch)
-            }
-
-        }
-
-        // Top upvoted wallpapers section (Discover only, from community votes across all tabs)
-        if (isDiscoverTab && visibleTopVoted.isNotEmpty()) {
-            visibleTopVoted.forEach { (wp, votes) ->
-                item(key = "top_${wp.stableKey()}") {
-                    val isFav = wp.favoriteIdentity() in favoriteIdentities
-                    WallpaperCard(
-                        wallpaper = wp,
-                        isFavorite = isFav,
-                        voteCount = votes,
-                        onClick = { onWallpaperClick(wp) },
-                        onFavoriteClick = onLongPress?.let { { it(wp) } },
-                        onLongPress = onDownvote?.let { { it(wp) } },
-                        onUpvote = onUpvote?.let { { it(wp.stableKey()) } },
-                    )
-                }
-            }
-        }
-
         items(visibleWallpapers, key = { it.stableKey() }, contentType = { "wallpaper_card" }) { wallpaper ->
             val isFav = wallpaper.favoriteIdentity() in favoriteIdentities
             WallpaperCard(
@@ -1277,14 +1170,6 @@ private fun WallpaperCard(
         wallpaper.width.toFloat() / wallpaper.height.toFloat()
     } else 0.67f
     val hints = wallpaper.qualityHints()
-    val amoledBadge = stringResource(R.string.wallpapers_card_badge_amoled)
-    val iconSafeBadge = stringResource(R.string.wallpapers_card_badge_icon_safe)
-    val badges = buildList {
-        add(hints.resolutionLabel)
-        add(hints.orientationLabel)
-        if (hints.isAmoled) add(amoledBadge)
-        if (hints.isIconSafe) add(iconSafeBadge)
-    }
     val openWallpaperLabel = stringResource(R.string.wallpapers_card_open_details)
     val applyWallpaperLabel = stringResource(R.string.wallpapers_card_show_actions)
     val favoriteWallpaperLabel = if (isFavorite) stringResource(R.string.wallpapers_card_remove_favorite) else stringResource(R.string.wallpapers_card_add_favorite)
@@ -1324,8 +1209,7 @@ private fun WallpaperCard(
             },
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Box {
             SubcomposeAsyncImage(
@@ -1355,91 +1239,6 @@ private fun WallpaperCard(
                 }
             }
 
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.06f),
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.52f),
-                            ),
-                        ),
-                    ),
-            )
-
-            // Bottom gradient with info
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f))
-                        )
-                    )
-                    .padding(6.dp),
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            SourceBadge(wallpaper.source.name)
-                            if (onUpvote != null && voteCount > 0) {
-                                Surface(
-                                    onClick = onUpvote,
-                                    color = Color.White.copy(alpha = 0.15f),
-                                    shape = RoundedCornerShape(8.dp),
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                    ) {
-                                        Icon(Icons.Default.ThumbUp, contentDescription = stringResource(R.string.wallpapers_card_upvotes_cd), Modifier.size(11.dp), tint = Color.White.copy(alpha = 0.9f))
-                                        Text(voteCount.toString(), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.9f))
-                                    }
-                                }
-                            }
-                        }
-                        if (wallpaper.category.isNotBlank()) {
-                            Text(
-                                wallpaper.category,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.72f),
-                                maxLines = 1,
-                            )
-                        }
-                    }
-
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        badges.take(4).forEach { badge ->
-                            Surface(
-                                color = Color.White.copy(alpha = 0.16f),
-                                shape = RoundedCornerShape(8.dp),
-                            ) {
-                                Text(
-                                    badge,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White.copy(alpha = 0.9f),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
             // Favorite heart overlay (top-right)
             if (onFavoriteClick != null) {
                 val heartScale by animateFloatAsState(
@@ -1451,15 +1250,14 @@ private fun WallpaperCard(
                     onClick = onFavoriteClick,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(8.dp)
+                        .padding(4.dp)
                         .size(48.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color.Black.copy(alpha = 0.2f)),
+                        .clip(RoundedCornerShape(24.dp)),
                 ) {
                     Icon(
                         if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = if (isFavorite) stringResource(R.string.wallpapers_card_remove_favorite_short) else stringResource(R.string.wallpapers_card_add_favorite_short),
-                        tint = if (isFavorite) MaterialTheme.colorScheme.tertiary else Color.White.copy(alpha = 0.7f),
+                        tint = if (isFavorite) MaterialTheme.colorScheme.tertiary else Color.White.copy(alpha = 0.86f),
                         modifier = Modifier
                             .size(20.dp)
                             .graphicsLayer { scaleX = heartScale; scaleY = heartScale },
@@ -1545,159 +1343,6 @@ private fun WallpaperStateCard(
         }
     }
 }
-
-@Composable
-private fun SeasonalBannerCard(
-    theme: SeasonalTheme,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val accentColor = Color(0xFFFFCA28) // warm amber-gold
-    Surface(
-        onClick = onClick,
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 2.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
-        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.36f)),
-        shadowElevation = 4.dp,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = accentColor.copy(alpha = 0.18f),
-                modifier = Modifier.size(44.dp),
-            ) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Default.Celebration,
-                        contentDescription = theme.label,
-                        modifier = Modifier.size(22.dp),
-                        tint = accentColor,
-                    )
-                }
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    theme.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    theme.subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = accentColor.copy(alpha = 0.14f),
-            ) {
-                Text(
-                    stringResource(R.string.wallpapers_seasonal_explore),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = accentColor,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun DiscoverCollectionsRow(
-    onSearch: ((String) -> Unit)?,
-) {
-    val collections = listOf(
-            DiscoverCollectionShortcut(stringResource(R.string.wallpapers_collection_amoled_title), stringResource(R.string.wallpapers_collection_amoled_desc), "amoled black dark", Icons.Default.DarkMode, Color(0xFF7F5AF0)),
-            DiscoverCollectionShortcut(stringResource(R.string.wallpapers_collection_minimal_title), stringResource(R.string.wallpapers_collection_minimal_desc), "minimal clean simple", Icons.Default.CropSquare, Color(0xFF3A86FF)),
-            DiscoverCollectionShortcut(stringResource(R.string.wallpapers_collection_nature_title), stringResource(R.string.wallpapers_collection_nature_desc), "nature landscape 4k", Icons.Default.Landscape, Color(0xFF43AA8B)),
-            DiscoverCollectionShortcut(stringResource(R.string.wallpapers_collection_cyberpunk_title), stringResource(R.string.wallpapers_collection_cyberpunk_desc), "cyberpunk neon city", Icons.Default.Bolt, Color(0xFFFF5D8F)),
-            DiscoverCollectionShortcut(stringResource(R.string.wallpapers_collection_space_title), stringResource(R.string.wallpapers_collection_space_desc), "space galaxy nebula", Icons.Default.Public, Color(0xFF8E9AAF)),
-            DiscoverCollectionShortcut(stringResource(R.string.wallpapers_collection_abstract_title), stringResource(R.string.wallpapers_collection_abstract_desc), "abstract colorful gradient", Icons.Default.AutoAwesome, Color(0xFFF4A261)),
-            DiscoverCollectionShortcut(stringResource(R.string.wallpapers_collection_anime_title), stringResource(R.string.wallpapers_collection_anime_desc), "anime art illustration", Icons.Default.Movie, Color(0xFFE76F51)),
-            DiscoverCollectionShortcut(stringResource(R.string.wallpapers_collection_ocean_title), stringResource(R.string.wallpapers_collection_ocean_desc), "ocean sea waves beach", Icons.Default.Water, Color(0xFF219EBC)),
-            DiscoverCollectionShortcut(stringResource(R.string.wallpapers_collection_mountains_title), stringResource(R.string.wallpapers_collection_mountains_desc), "mountain peak scenic", Icons.Default.Terrain, Color(0xFF6A994E)),
-            DiscoverCollectionShortcut(stringResource(R.string.wallpapers_collection_urban_title), stringResource(R.string.wallpapers_collection_urban_desc), "city skyline urban night", Icons.Default.LocationCity, Color(0xFF6D6875)),
-        )
-
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            stringResource(R.string.wallpapers_collections_title),
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(horizontal = 4.dp),
-        )
-        Text(
-            stringResource(R.string.wallpapers_collections_subtitle),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 4.dp),
-        )
-        androidx.compose.foundation.lazy.LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(horizontal = 2.dp),
-        ) {
-            items(collections.size) { index ->
-                val shortcut = collections[index]
-                Surface(
-                    onClick = { onSearch?.invoke(shortcut.query) },
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.36f)),
-                    shadowElevation = 2.dp,
-                    modifier = Modifier.width(176.dp),
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = shortcut.tint.copy(alpha = 0.14f),
-                        ) {
-                            Icon(
-                                imageVector = shortcut.icon,
-                                contentDescription = null,
-                                tint = shortcut.tint,
-                                modifier = Modifier
-                                    .padding(10.dp)
-                                    .size(18.dp),
-                            )
-                        }
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(shortcut.title, style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                shortcut.description,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                minLines = 2,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private data class DiscoverCollectionShortcut(
-    val title: String,
-    val description: String,
-    val query: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
-    val tint: Color,
-)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -1955,7 +1600,7 @@ private fun wallpaperHeaderTitle(
     tab: WallpaperTab,
     query: String,
 ): String = when (tab) {
-    WallpaperTab.DISCOVER -> stringResource(R.string.wallpapers_header_discover_title)
+    WallpaperTab.DISCOVER -> stringResource(R.string.nav_wallpapers)
     WallpaperTab.SEARCH -> if (query.isNotBlank()) stringResource(R.string.wallpapers_header_search_results_query, query) else stringResource(R.string.wallpapers_header_search_results)
     WallpaperTab.COLOR -> stringResource(R.string.wallpapers_header_browse_by_tone)
     WallpaperTab.COMMUNITY -> stringResource(R.string.wallpapers_header_community_title)
@@ -1988,6 +1633,7 @@ private fun wallpaperHeaderSubtitle(
     } else {
         stringResource(R.string.wallpapers_subtitle_color_default)
     }
+    WallpaperTab.NEWEST -> stringResource(R.string.wallpapers_subtitle_newest)
     WallpaperTab.WALLHAVEN -> stringResource(R.string.wallpapers_subtitle_wallhaven)
     WallpaperTab.PEXELS -> stringResource(R.string.wallpapers_subtitle_pexels)
     WallpaperTab.PIXABAY -> stringResource(R.string.wallpapers_subtitle_pixabay)
@@ -1997,6 +1643,7 @@ private fun wallpaperHeaderSubtitle(
 
 private fun wallpaperTabIcon(tab: WallpaperTab): androidx.compose.ui.graphics.vector.ImageVector = when (tab) {
     WallpaperTab.DISCOVER -> Icons.Default.Explore
+    WallpaperTab.NEWEST -> Icons.Default.Schedule
     WallpaperTab.PEXELS -> Icons.Default.PhotoLibrary
     WallpaperTab.PIXABAY -> Icons.Default.Collections
     WallpaperTab.REDDIT -> Icons.Default.Public
@@ -2010,6 +1657,7 @@ private fun wallpaperTabIcon(tab: WallpaperTab): androidx.compose.ui.graphics.ve
 private fun wallpaperTabLabel(tab: WallpaperTab): String =
     when (tab) {
         WallpaperTab.DISCOVER -> stringResource(R.string.wallpapers_tab_discover)
+        WallpaperTab.NEWEST -> stringResource(R.string.browse_rail_newest)
         WallpaperTab.PEXELS -> stringResource(R.string.wallpapers_tab_pexels)
         WallpaperTab.PIXABAY -> stringResource(R.string.wallpapers_tab_pixabay)
         WallpaperTab.REDDIT -> stringResource(R.string.wallpapers_tab_reddit)
@@ -2053,6 +1701,18 @@ internal data class VisibleWallpaperSections(
     val hasRenderableContent: Boolean,
 )
 
+internal fun shouldRequestNextWallpaperPage(
+    isNearEnd: Boolean,
+    isLoadingMore: Boolean,
+    laidOutItemCount: Int,
+    visibleItemCount: Int,
+    lastRequestedItemCount: Int,
+): Boolean =
+    isNearEnd &&
+        !isLoadingMore &&
+        laidOutItemCount >= visibleItemCount &&
+        lastRequestedItemCount != visibleItemCount
+
 internal data class WallpaperPagerItems(
     val wallpapers: List<Wallpaper>,
     val initialPage: Int,
@@ -2083,11 +1743,22 @@ internal fun computeVisibleWallpaperSections(
         .filter { !isWallpaperHidden(it, hiddenIds) }
         .distinctBy { it.stableKey() }
         .filterNot { it.stableKey() in featuredKeys }
-    val pagerWallpapers = buildList {
+    val featuredWallpapers = buildList {
         visibleDailyPick?.let(::add)
         addAll(visibleTopVoted.map { (wallpaper, _) -> wallpaper })
-        addAll(feedWallpapers)
     }.distinctBy { it.stableKey() }
+    val pagerWallpapers = if (isDiscoverTab) {
+        // Preserve ranking inside each group while making the source hierarchy
+        // unambiguous: every Reddit card precedes every non-Reddit feature/provider.
+        buildList {
+            addAll(feedWallpapers.filter { it.source == ContentSource.REDDIT })
+            addAll(featuredWallpapers.filter { it.source == ContentSource.REDDIT })
+            addAll(featuredWallpapers.filterNot { it.source == ContentSource.REDDIT })
+            addAll(feedWallpapers.filterNot { it.source == ContentSource.REDDIT })
+        }.distinctBy { it.stableKey() }
+    } else {
+        feedWallpapers
+    }
 
     return VisibleWallpaperSections(
         dailyPick = visibleDailyPick,

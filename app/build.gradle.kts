@@ -81,8 +81,8 @@ android {
         applicationId = "com.freevibe"
         minSdk = 26
         targetSdk = 35
-        versionCode = 135
-        versionName = "6.35.1"
+        versionCode = 136
+        versionName = "6.36.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -174,8 +174,8 @@ baselineProfile {
 
 dependencies {
     constraints {
-        implementation("com.fasterxml.jackson.core:jackson-databind:2.17.3") {
-            because("youtubedl-android 0.18.1 pulls jackson-databind 2.11.1, which has published CVEs")
+        implementation("com.fasterxml.jackson.core:jackson-databind:2.18.9") {
+            because("youtubedl-android 0.18.1 pulls jackson-databind 2.11.1; 2.18.9 is the security floor for the transitive runtime")
         }
         implementation("commons-io:commons-io:2.16.1") {
             because("youtubedl-android 0.18.1 pulls commons-io 2.5, which has published CVEs")
@@ -233,9 +233,11 @@ dependencies {
 
     // Image Loading
     implementation(libs.coil.compose)
+    implementation(libs.coil.gif)
 
     // Media Playback
     implementation(libs.media3.exoplayer)
+    implementation(libs.media3.exoplayer.hls)
     implementation(libs.media3.session)
     implementation(libs.media3.ui)
 

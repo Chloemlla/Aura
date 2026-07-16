@@ -39,6 +39,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.freevibe.R
 
@@ -59,27 +60,29 @@ internal fun SettingsSection(
         modifier = Modifier
             .fillMaxWidth()
             .widthIn(max = 760.dp)
-            .padding(top = 24.dp, start = 20.dp, end = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .padding(top = 16.dp, start = 16.dp, end = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 text = title,
                 modifier = Modifier.semantics { heading() },
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
             )
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             HorizontalDivider(
-                modifier = Modifier.padding(top = 4.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.22f),
+                modifier = Modifier.padding(top = 6.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f),
             )
         }
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+        Column(verticalArrangement = Arrangement.spacedBy(0.dp), content = content)
     }
 }
 
@@ -95,63 +98,52 @@ internal fun SettingsItem(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 76.dp)
+            .heightIn(min = 68.dp)
             .semantics(mergeDescendants = true) {
                 contentDescription = itemDescription
                 onClick(label = title, action = null)
             },
         onClick = onClick,
         enabled = enabled,
-        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.74f),
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f),
-        ),
-        shadowElevation = 1.dp,
+        color = Color.Transparent,
+        shape = RoundedCornerShape(0.dp),
+        shadowElevation = 0.dp,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Icon(
                     icon,
                     null,
                     tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier
-                        .padding(10.dp)
-                        .size(20.dp),
+                    modifier = Modifier.size(20.dp),
                 )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.68f),
-            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f),
-                    modifier = Modifier
-                        .padding(6.dp)
-                        .size(18.dp),
+                    modifier = Modifier.size(20.dp),
                 )
             }
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 40.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f),
+            )
         }
     }
 }
@@ -173,74 +165,51 @@ internal fun SettingsToggle(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 78.dp)
+            .heightIn(min = 68.dp)
             .semantics(mergeDescendants = true) {
                 contentDescription = toggleDescription
                 stateDescription = toggleStateDescription
                 onClick(label = toggleActionLabel, action = null)
             },
         onClick = { onCheckedChange(!checked) },
-        color = if (checked) {
-            MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.86f)
-        } else {
-            MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.74f)
-        },
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(
-            1.dp,
-            if (checked) MaterialTheme.colorScheme.primary.copy(alpha = 0.34f)
-            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f),
-        ),
-        shadowElevation = if (checked) 2.dp else 1.dp,
+        color = Color.Transparent,
+        shape = RoundedCornerShape(0.dp),
+        shadowElevation = 0.dp,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = if (checked) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-                } else {
-                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f)
-                },
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Icon(
                     icon,
                     null,
                     tint = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier
-                        .padding(10.dp)
-                        .size(20.dp),
+                    modifier = Modifier.size(20.dp),
                 )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(2.dp))
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = toggleStateDescription,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (checked) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 Switch(
                     checked = checked,
                     onCheckedChange = null,
                     colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary),
                 )
             }
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 40.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f),
+            )
         }
     }
 }
@@ -260,38 +229,27 @@ internal fun SettingsValueSlider(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 110.dp)
+            .heightIn(min = 96.dp)
             .semantics(mergeDescendants = false) {
                 contentDescription = description
             },
-        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.74f),
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f),
-        ),
-        shadowElevation = 1.dp,
+        color = Color.Transparent,
+        shape = RoundedCornerShape(0.dp),
+        shadowElevation = 0.dp,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(horizontal = 8.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
-            ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier
-                        .padding(10.dp)
-                        .size(20.dp),
-                )
-            }
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.size(20.dp),
+            )
             Column(modifier = Modifier.weight(1f)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -307,17 +265,11 @@ internal fun SettingsValueSlider(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.74f),
-                    ) {
-                        Text(
-                            valueLabel,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
+                    Text(
+                        valueLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
                 Slider(
                     value = value.coerceIn(valueRange.start, valueRange.endInclusive),

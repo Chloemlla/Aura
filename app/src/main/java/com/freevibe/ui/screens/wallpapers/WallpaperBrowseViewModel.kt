@@ -4,6 +4,7 @@ import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.local.WallpaperCacheManager
 import com.freevibe.data.model.COMMUNITY_GUIDELINES_REQUIRED_MESSAGE
 import com.freevibe.data.model.ContentSource
+import com.freevibe.data.model.SearchResult
 import com.freevibe.data.model.Wallpaper
 import com.freevibe.data.model.stableKey
 import com.freevibe.data.repository.RedditRepository
@@ -14,12 +15,37 @@ import com.freevibe.service.SourceMetrics
 import com.freevibe.service.WallpaperStyleLearningProfile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withTimeoutOrNull
+
+internal fun mergeRedditFirstHomeResults(
+    reddit: SearchResult<Wallpaper>?,
+    secondary: SearchResult<Wallpaper>,
+    page: Int,
+): SearchResult<Wallpaper> {
+    val items = buildList {
+        addAll(reddit?.items.orEmpty())
+        addAll(secondary.items)
+    }.distinctBy { it.stableKey() }
+    val knownTotal = listOfNotNull(
+        reddit?.totalCount?.takeIf { it >= 0 },
+        secondary.totalCount.takeIf { it >= 0 },
+    ).sum()
+    return SearchResult(
+        items = items,
+        totalCount = maxOf(knownTotal, items.size),
+        currentPage = page,
+        hasMore = reddit?.hasMore == true || secondary.hasMore,
+    )
+}
 
 internal class WallpaperBrowseViewModel(
     private val wallpaperRepo: WallpaperRepository,
@@ -30,6 +56,7 @@ internal class WallpaperBrowseViewModel(
     private val wallpaperUploadRepo: WallpaperUploadRepository,
     private val sourceMetrics: SourceMetrics,
     private val wallhavenProviderEnabled: StateFlow<Boolean>,
+    private val redditProviderEnabled: StateFlow<Boolean>,
     private val pexelsProviderEnabled: StateFlow<Boolean>,
     private val pixabayProviderEnabled: StateFlow<Boolean>,
     private val communityProviderEnabled: StateFlow<Boolean>,
@@ -40,6 +67,7 @@ internal class WallpaperBrowseViewModel(
     private val scope: CoroutineScope,
 ) {
     private var loadJob: Job? = null
+    private var redditRetryJob: Job? = null
 
     fun start() {
         fetchDailyPick()
@@ -49,10 +77,24 @@ internal class WallpaperBrowseViewModel(
                 state.update { s -> s.copy(degradedSources = sourceMetrics.degradedSources()) }
             }
         }
+        scope.launch {
+            // The Newest/Categories rail tabs are backed by searchAll(), which only queries
+            // Wallhaven + Pixabay. Bing (single daily image) and Pexels (curated-only) can enrich
+            // Discover but cannot serve those tabs, so gate the extra tabs on a searchable provider
+            // — otherwise enabling Bing alone shows tabs that return nothing.
+            combine(
+                wallhavenProviderEnabled,
+                pixabayProviderEnabled,
+            ) { wallhaven, pixabay -> wallhaven || pixabay }
+                .collect { searchableEnabled ->
+                    state.update { s -> s.copy(extendedBrowseSourcesEnabled = searchableEnabled) }
+                }
+        }
     }
 
     fun cancel() {
         loadJob?.cancel()
+        redditRetryJob?.cancel()
     }
 
     fun fetchTopVoted(seedWallpapers: List<Wallpaper> = emptyList()) {
@@ -131,7 +173,10 @@ internal class WallpaperBrowseViewModel(
             if (s.selectedTab == WallpaperTab.DISCOVER && !loadMore && !isRefresh) {
                 val cached = wallpaperRepo.getCachedDiscover(s.currentPage)
                 val visibleCached = cached
-                    ?.filter { it.source != ContentSource.WALLHAVEN || wallhavenProviderEnabled.value }
+                    ?.filter { wallpaper ->
+                        (wallpaper.source != ContentSource.WALLHAVEN || wallhavenProviderEnabled.value) &&
+                            (wallpaper.source != ContentSource.REDDIT || redditProviderEnabled.value)
+                    }
                     .orEmpty()
                 if (visibleCached.isNotEmpty()) {
                     val preferredResolution = prefs.preferredResolution.first()
@@ -189,17 +234,25 @@ internal class WallpaperBrowseViewModel(
                     return@launch
                 }
                 val result = when (currentTab) {
-                    WallpaperTab.DISCOVER -> wallpaperRepo.getDiscover(
+                    WallpaperTab.DISCOVER -> loadRedditFirstDiscover(
                         page = currentPage,
                         userStyles = userStyles,
                     )
+                    WallpaperTab.NEWEST -> wallpaperRepo.getNewest(currentPage)
                     WallpaperTab.PIXABAY -> wallpaperRepo.getPixabay(currentPage)
                     WallpaperTab.PEXELS -> wallpaperRepo.getPexelsCurated(currentPage)
-                    WallpaperTab.REDDIT -> redditRepo.getMultiSubreddit()
+                    WallpaperTab.REDDIT -> redditRepo.getMultiSubreddit(page = currentPage)
                     WallpaperTab.WALLHAVEN -> wallpaperRepo.getWallhaven(page = currentPage, topRange = state.value.topRange)
                     WallpaperTab.COMMUNITY -> wallpaperUploadRepo.getCommunityWallpapers()
                     WallpaperTab.SEARCH -> wallpaperRepo.searchAll(state.value.query, page = currentPage)
                     WallpaperTab.COLOR -> wallpaperRepo.searchByColor(state.value.selectedColor ?: "", currentPage)
+                }
+                if (
+                    currentTab == WallpaperTab.REDDIT &&
+                    result.hasMore &&
+                    (result.items.isEmpty() || redditRepo.hasDeferredRequest())
+                ) {
+                    scheduleRedditRetry(redditRepo.retryDelayMs())
                 }
                 val preferredResolution = prefs.preferredResolution.first()
                 val activeFilter = if (currentTab == WallpaperTab.DISCOVER) {
@@ -238,6 +291,11 @@ internal class WallpaperBrowseViewModel(
                 if (currentTab == WallpaperTab.DISCOVER && (!loadMore || topVoted.value.isEmpty())) {
                     fetchTopVoted(result.items)
                 }
+                if (currentTab == WallpaperTab.DISCOVER && result.items.isNotEmpty()) {
+                    // Persist the final Reddit-first mix, not only the secondary
+                    // repository page, so relaunches keep the desired source order.
+                    cacheManager.cache("discover_home_v2_$currentPage", result.items)
+                }
                 if (currentTab == WallpaperTab.COMMUNITY && result.items.isNotEmpty()) {
                     cacheManager.cache("community_wallpapers_$currentPage", result.items)
                 }
@@ -256,9 +314,77 @@ internal class WallpaperBrowseViewModel(
         }
     }
 
+    // The secondary discover mix (Wallhaven/Pexels/Pixabay/Bing plus curated NASA/Wikipedia/Lemmy
+    // extras) is only fetched when the user has opted into at least one non-Reddit provider.
+    // With the default (Reddit-only) source set, the home feed stays Reddit-only.
+    private suspend fun anySecondaryProviderEnabled(): Boolean =
+        wallhavenProviderEnabled.value ||
+            pexelsProviderEnabled.value ||
+            pixabayProviderEnabled.value ||
+            prefs.bingProviderEnabled.first()
+
+    private suspend fun loadRedditFirstDiscover(
+        page: Int,
+        userStyles: List<String>,
+    ): SearchResult<Wallpaper> = supervisorScope {
+        val secondary = if (anySecondaryProviderEnabled()) {
+            async { wallpaperRepo.getDiscover(page = page, userStyles = userStyles) }
+        } else {
+            null
+        }
+        val reddit = if (isRedditProviderEnabled()) {
+            async {
+                try {
+                    redditRepo.getMultiSubreddit(page = page)
+                } catch (error: Throwable) {
+                    if (error is kotlinx.coroutines.CancellationException) throw error
+                    null
+                }
+            }
+        } else {
+            null
+        }
+        val redditResult = reddit?.await()
+        if (
+            redditResult?.hasMore == true &&
+            (redditResult.items.isEmpty() || redditRepo.hasDeferredRequest())
+        ) {
+            scheduleRedditRetry(redditRepo.retryDelayMs())
+        }
+        mergeRedditFirstHomeResults(
+            reddit = redditResult,
+            secondary = secondary?.await() ?: SearchResult(
+                items = emptyList(),
+                totalCount = 0,
+                currentPage = page,
+                hasMore = false,
+            ),
+            page = page,
+        )
+    }
+
+    private fun scheduleRedditRetry(delayMs: Long) {
+        redditRetryJob?.cancel()
+        redditRetryJob = scope.launch {
+            delay(delayMs.coerceAtLeast(250L) + 100L)
+            val current = state.value
+            if (
+                current.selectedTab in setOf(WallpaperTab.DISCOVER, WallpaperTab.REDDIT) &&
+                current.hasMore &&
+                !current.isLoading &&
+                !current.isLoadingMore
+            ) {
+                // Retry the current overall page. Reddit owns an independent cursor,
+                // while duplicate secondary-provider rows are removed during merge.
+                loadWallpapers(loadMore = true)
+            }
+        }
+    }
+
     fun isProviderDisabledTab(tab: WallpaperTab): Boolean = when (tab) {
+        WallpaperTab.NEWEST -> !wallhavenProviderEnabled.value && !pixabayProviderEnabled.value
         WallpaperTab.WALLHAVEN -> !wallhavenProviderEnabled.value
-        WallpaperTab.REDDIT -> true
+        WallpaperTab.REDDIT -> !redditProviderEnabled.value
         WallpaperTab.PEXELS -> !pexelsProviderEnabled.value
         WallpaperTab.PIXABAY -> !pixabayProviderEnabled.value
         WallpaperTab.COMMUNITY -> !communityProviderEnabled.value || !communityGuidelinesAccepted.value
@@ -298,7 +424,7 @@ internal class WallpaperBrowseViewModel(
     suspend fun loadStyleLearningProfile(): WallpaperStyleLearningProfile =
         WallpaperStyleLearningProfile.parse(prefs.wallpaperStyleLearningJson.first())
 
-    private suspend fun isRedditProviderEnabled(): Boolean = false
+    private suspend fun isRedditProviderEnabled(): Boolean = prefs.redditProviderEnabled.first()
 
     private suspend fun isCommunityProviderEnabled(): Boolean =
         prefs.communityProviderEnabled.first() && prefs.communityGuidelinesAccepted.first()
@@ -330,7 +456,7 @@ internal class WallpaperBrowseViewModel(
         }
 
     private fun redditDisabledMessage(): String =
-        "Reddit source is discontinued. Saved Reddit items keep their metadata, but new Reddit feeds are off."
+        "Reddit RSS is disabled in Settings. Cached and saved wallpapers remain available."
 
     private fun wallhavenDisabledMessage(): String = "Wallhaven source is disabled in Settings"
 

@@ -55,7 +55,13 @@ internal fun rankWallpapers(
             )
         }
         .sortedByDescending { it.second }
-    return applyWallpaperQualityFloor(scored).map { it.first }
+    // Reddit is the primary discovery inventory. Rank quality within each tier,
+    // then keep the Reddit tier intact ahead of secondary providers. A hard quality
+    // floor used to discard most of each appended page and made the grid appear to
+    // stop around forty items; low-signal candidates now remain available later in
+    // the endless feed instead of silently disappearing.
+    val (reddit, secondary) = scored.partition { it.first.source == ContentSource.REDDIT }
+    return (reddit + secondary).map { it.first }
 }
 
 private fun dedupeWallpapers(
@@ -137,12 +143,15 @@ private fun wallpaperQualityScore(
     var score = 40
 
     score += when (wallpaper.source) {
+        ContentSource.REDDIT -> 80
         ContentSource.WALLHAVEN -> 18
         ContentSource.BING -> 16
         ContentSource.PEXELS -> 15
-        ContentSource.REDDIT -> 13
         ContentSource.PIXABAY -> 11
         else -> 8
+    }
+    if (wallpaper.source == ContentSource.REDDIT) {
+        score += wallpaper.redditMobileSourceBonus()
     }
     score += when {
         pixels >= 7_000_000L -> 26
@@ -177,16 +186,12 @@ private fun wallpaperQualityScore(
     return score
 }
 
-private fun applyWallpaperQualityFloor(
-    scored: List<Pair<Wallpaper, Int>>,
-): List<Pair<Wallpaper, Int>> {
-    if (scored.size < 5) return scored
-    val topScore = scored.first().second
-    val qualityFloor = max(54, topScore - 30)
-    val curated = scored.filterIndexed { index, (_, score) ->
-        index < 3 || score >= qualityFloor
-    }
-    return if (curated.size >= minOf(scored.size, 4)) curated else scored
+private fun Wallpaper.redditMobileSourceBonus(): Int {
+    val subreddit = tags.firstOrNull { !it.equals("reddit", ignoreCase = true) }
+        ?.lowercase(Locale.ROOT)
+        ?: return 0
+    val priority = REDDIT_MOBILE_SOURCE_PRIORITY.indexOf(subreddit)
+    return if (priority >= 0) (REDDIT_MOBILE_SOURCE_PRIORITY.size - priority) * 2 else 0
 }
 
 private fun Wallpaper.isPortraitPreferred(): Boolean = height > 0 && height >= width
@@ -216,6 +221,20 @@ private fun Wallpaper.isIconSafe(): Boolean {
 }
 
 private val WORD_SPLIT_REGEX = Regex("[^a-zA-Z0-9]+")
+
+private val REDDIT_MOBILE_SOURCE_PRIORITY = listOf(
+    "iwallpaper",
+    "amoledbackgrounds",
+    "mobilewallpaper",
+    "animephonewallpapers",
+    "phonewallpapers",
+    "iphonewallpapers",
+    "mobilewallpapers",
+    "verticalwallpapers",
+    "wqhd_wallpaper",
+    "minimalwallpaper",
+    "iphonexwallpapers",
+)
 
 private fun Wallpaper.searchableTerms(): List<String> =
     buildList {

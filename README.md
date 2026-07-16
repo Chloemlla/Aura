@@ -5,7 +5,7 @@
 
 <h1 align="center">Aura</h1>
 
-![Version](https://img.shields.io/badge/version-6.35.1-blue)
+![Version](https://img.shields.io/badge/version-6.36.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Android%208.0+-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.1.0-7F52FF?logo=kotlin&logoColor=white)
@@ -18,8 +18,9 @@
 ## What Makes Aura Different
 
 - **Quality-ranked YouTube sounds** — ringtones, notifications, and alarms use intent-specific YouTube searches with tight duration windows and cleaner result filtering.
-- **Video wallpapers from multiple sources** — browse Pexels, Pixabay, YouTube, and legacy saved Reddit items, import local videos/GIFs, then tune loop, crop, Fill, or Fit before applying.
-- **Multi-source personalization** — Wallhaven, Bing, Pexels, Pixabay, YouTube, legacy Reddit/Freesound attributions, and community uploads.
+- **Reddit-first discovery** — mobile wallpaper and motion communities lead the home feeds, with real cached Atom cursor pagination instead of a fixed recent slice.
+- **Video wallpapers from multiple sources** — browse Reddit live wallpapers/cinemagraphs first, followed by YouTube, Pixabay, and Pexels; import local videos/GIFs, then tune loop, crop, Fill, or Fit before applying.
+- **Multi-source personalization** — Reddit RSS, Wallhaven, Bing, Pexels, Pixabay, YouTube, legacy Freesound attributions, and community uploads.
 - **Instant startup** — Discover feed is cached locally. On subsequent launches wallpapers appear immediately while fresh results load in the background.
 - **Performance proof path** — Baseline Profile and Macrobenchmark tests cover startup, Wallpaper Detail, and the main media grids on a physical-device runner.
 - **5 bottom nav tabs** — Wallpapers, Videos, Sounds, Favorites, Settings.
@@ -104,7 +105,7 @@ battery, Doze, and WorkManager quota can still delay the wallpaper change.
 | [Wallhaven](https://wallhaven.cc) | 1M+ HD/4K wallpapers | None (optional key for NSFW) |
 | [Pexels](https://pexels.com) | Curated HD photos + videos | Built-in key |
 | [Pixabay](https://pixabay.com) | Editor's choice photos + videos | Built-in key |
-| [Reddit](https://reddit.com) | Legacy saved wallpaper/video attribution; public feeds are off by default after Reddit retired unauthenticated endpoints | None |
+| [Reddit](https://reddit.com) | Reddit-first mobile wallpapers, live wallpapers, and cinemagraphs via 100-entry public Atom pages with cursor pagination, a two-hour cache, and stale fallback | None |
 | [YouTube](https://youtube.com) | Video wallpapers + active sound feed via NewPipe + yt-dlp | None |
 | [Freesound](https://freesound.org) | Legacy sound attribution for older favorites | Built-in key |
 | Firebase | Community wallpaper/sound uploads + voting | Built-in |
@@ -116,7 +117,7 @@ Jetpack Compose UI (16+ screens, 5 bottom nav tabs)
   Wallpapers | Videos | Sounds | Favorites | Settings
   Editors | Collections | Downloads | Onboarding | Widget
 ViewModels (Hilt) + Cache Layer
-  Repos: Wallhaven, Pexels, Pixabay, Bing, Reddit legacy, YouTube, Freesound legacy,
+  Repos: Wallhaven, Pexels, Pixabay, Bing, Reddit RSS, YouTube, Freesound legacy,
          Collections
   Services: WallpaperApplier, SoundApplier, VideoWallpaperService,
             ParallaxWallpaperService, WeatherWallpaperService, DualWallpaperService,

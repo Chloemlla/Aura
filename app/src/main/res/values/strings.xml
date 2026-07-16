@@ -797,7 +797,9 @@
     <string name="sounds_banner_stale_title">Showing last good sound results</string>
     <string name="sounds_banner_stale_message">%1$s. Playback and saved results remain available while Aura refreshes.</string>
     <string name="sounds_banner_dismiss">Dismiss</string>
-    <string name="sounds_banner_degraded_title">Some sound sources are temporarily unavailable</string>
+    <string name="data_warning_title">Using mobile data</string>
+    <string name="data_warning_message">Aura streams and downloads wallpapers, video wallpapers, and sounds, which can use a lot of data. Connect to Wi-Fi to avoid using your mobile data plan.</string>
+    <string name="data_warning_dismiss">Got it</string>
     <string name="sounds_error_title">Sounds could not refresh</string>
     <string name="sounds_error_source_title">%1$s could not refresh</string>
     <string name="sounds_error_description">Aura could not refresh sound sources. Retry, or switch tabs to keep browsing saved picks.</string>
@@ -809,11 +811,6 @@
     <string name="sounds_empty_fallback">Try another source or adjust the quality filter.</string>
     <string name="sounds_empty_upload">Upload sound</string>
     <string name="sounds_empty_record">Record</string>
-    <string name="sounds_tophits_community_cd">Community picks</string>
-    <string name="sounds_tophits_trending_cd">Trending</string>
-    <string name="sounds_tophits_community_title">Community Picks</string>
-    <string name="sounds_tophits_trending_title">Top 5 This Week</string>
-    <string name="sounds_collections_title">Collections</string>
     <string name="sounds_collection_minimal_rings_title">Minimal Rings</string>
     <string name="sounds_collection_minimal_rings_body">Clean tones under 20s</string>
     <string name="sounds_collection_soft_chimes_title">Soft Chimes</string>
@@ -931,6 +928,8 @@
     <string name="video_wp_confirm_fill_landscape_crop">Fill crops landscape edges to avoid stretching. Use Crop for more control.</string>
     <string name="video_wp_confirm_fit_portrait">Fill uses the whole screen; Fit keeps the full frame visible.</string>
     <string name="video_wp_unavailable">Unavailable</string>
+    <string name="video_wp_preparing_preview">Preparing preview…</string>
+    <string name="video_wp_preview_unavailable">Preview unavailable</string>
     <string name="video_wp_badge_portrait">Portrait</string>
     <string name="video_wp_badge_landscape">Landscape</string>
     <string name="video_wp_provenance_title">Source and rights</string>
@@ -973,7 +972,7 @@
     <string name="settings_feedback_settings_unavailable">Android settings could not be opened on this device.</string>
     <string name="settings_feedback_oem_battery_open_failed">Could not open %1$s battery settings on this device.</string>
     <string name="settings_feedback_oem_battery_not_found">Could not find %1$s battery settings on this device.</string>
-    <string name="settings_feedback_reddit_discontinued">Reddit public feeds are no longer available in Aura.</string>
+    <string name="settings_feedback_reddit_discontinued">Reddit RSS is cached and refreshed sparingly to respect its public feed limits.</string>
     <string name="settings_feedback_backup_choose_folder">Choose a writable folder before enabling scheduled backups.</string>
     <string name="settings_feedback_diagnostics_failed">Could not build diagnostics</string>
     <string name="settings_feedback_diagnostics_copied">Diagnostics copied</string>
@@ -1045,8 +1044,10 @@
     <string name="settings_wp_style_no_preference">No style preference</string>
     <string name="settings_wp_style_learning_reset_title">Reset learned wallpaper taste</string>
     <string name="settings_wp_style_learning_reset_subtitle">%1$d local signals</string>
-    <string name="settings_wp_reddit_title">Reddit source discontinued</string>
-    <string name="settings_wp_reddit_subtitle">Public feeds are retired; saved Reddit wallpapers keep attribution and unavailable-source states</string>
+    <string name="settings_wp_reddit_title">Reddit wallpapers</string>
+    <string name="settings_wp_reddit_subtitle">Cached public RSS with post and creator attribution</string>
+    <string name="settings_wp_reddit_on_subtitle">Cached public RSS; no OAuth client ID required</string>
+    <string name="settings_wp_reddit_off_subtitle">Hides Reddit and makes no new feed requests</string>
     <string name="settings_wp_bing_title">Enable Bing Daily source</string>
     <string name="settings_wp_bing_on_subtitle">Adds Bing Image of the Day to Discover and rotations</string>
     <string name="settings_wp_bing_off_subtitle">Skips Bing daily-image calls and hides it from rotation pickers</string>
@@ -1595,9 +1596,10 @@
     <string name="wallpapers_subtitle_color_active">Explore wallpapers built around this tone, then jump back to Discover whenever you want a wider mix.</string>
     <string name="wallpapers_subtitle_color_default">Pick a tone to bias results toward a specific visual mood.</string>
     <string name="wallpapers_subtitle_wallhaven">High-signal artwork and photography with stronger filtering controls.</string>
+    <string name="wallpapers_subtitle_newest">The latest wallpapers from your enabled sources, freshest first.</string>
     <string name="wallpapers_subtitle_pexels">Clean photography and motion-friendly imagery from Pexels.</string>
     <string name="wallpapers_subtitle_pixabay">Free-use imagery with a broad catalog once your source is configured.</string>
-    <string name="wallpapers_subtitle_reddit">Saved legacy Reddit items keep attribution, but public feeds are discontinued.</string>
+    <string name="wallpapers_subtitle_reddit">Fresh public posts, cached for speed and rate-limit safety.</string>
     <string name="wallpapers_subtitle_community">User-uploaded phone-ready wallpapers with tags, colors, and community voting.</string>
     <string name="wallpapers_tab_discover">Discover</string>
     <string name="wallpapers_tab_pexels">Pexels</string>

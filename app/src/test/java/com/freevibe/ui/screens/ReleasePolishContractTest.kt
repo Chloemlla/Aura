@@ -278,27 +278,28 @@ class ReleasePolishContractTest {
     }
 
     @Test
-    fun `browse filter controls keep release touch targets and bounded shapes`() {
+    fun `browse filter controls keep release touch targets and quiet shapes`() {
+        val browseRailSource = File("src/main/java/com/freevibe/ui/components/BrowseRail.kt").readText()
         val wallpaperSource = File("src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt").readText()
-        val wallpaperModeBar = wallpaperSource.substringAfter("Spacer(Modifier.height(8.dp))").substringBefore("// Download progress")
         val wallpaperRefineSheet = wallpaperSource.substringAfter("private fun WallpaperFiltersSheet(").substringBefore("private fun ColorPickerRow(")
         val videoSource = File("src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersScreen.kt").readText()
-        val videoModeBar = videoSource.substringAfter("keyboardActions = KeyboardActions(onSearch = {").substringBefore("if (state.degradedSources.isNotEmpty())")
+        val videoToolbar = videoSource.substringAfter("Scaffold(").substringBefore("if (state.degradedSources.isNotEmpty())")
         val videoRefineSheet = videoSource.substringAfter("private fun VideoFiltersSheet(").substringBefore("private fun videoSourceHealthSummary(")
         val soundSource = File("src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt").readText()
-        val soundModeBar = soundSource.substringAfter("private fun SoundFilterButton(").substringBefore("private fun soundTabLabel(")
+        val soundModeBar = soundSource.substringAfter("private fun SoundModeBar(").substringBefore("// -- Sounds List --")
         val aiSource = File("src/main/java/com/freevibe/ui/screens/aigenerate/AiWallpaperScreen.kt").readText()
         val aiStylePicker = aiSource.substringAfter("// ── Style picker").substringBefore("// ── Generate button")
 
-        assertTrue(!wallpaperModeBar.contains("heightIn(min = 34.dp)"))
-        assertTrue(wallpaperModeBar.contains("heightIn(min = 48.dp)"))
-        assertTrue(wallpaperModeBar.contains("shape = RoundedCornerShape(8.dp)"))
+        assertTrue(!browseRailSource.contains("FilterChip("))
+        assertTrue(browseRailSource.contains("heightIn(min = 48.dp)"))
+        assertTrue(browseRailSource.contains("shape = RoundedCornerShape(0.dp)"))
         assertTrue(wallpaperRefineSheet.contains("shape = RoundedCornerShape(8.dp)"))
-        assertTrue(!videoModeBar.contains("heightIn(min = 34.dp)"))
-        assertTrue(videoModeBar.contains("heightIn(min = 48.dp)"))
-        assertTrue(videoModeBar.contains("shape = RoundedCornerShape(8.dp)"))
+        assertTrue(!videoToolbar.contains("heightIn(min = 34.dp)"))
+        assertTrue(videoToolbar.contains("heightIn(min = 48.dp)"))
+        assertTrue(videoToolbar.contains("IconButton(onClick = { searchExpanded = !searchExpanded })"))
         assertTrue(videoRefineSheet.contains("shape = RoundedCornerShape(8.dp)"))
-        assertTrue(soundModeBar.contains("shape = RoundedCornerShape(8.dp)"))
+        assertTrue(soundModeBar.contains("heightIn(min = 44.dp)"))
+        assertTrue(soundModeBar.contains("shape = RoundedCornerShape(0.dp)"))
         assertTrue(aiStylePicker.contains("shape = RoundedCornerShape(8.dp)"))
     }
 
@@ -339,6 +340,26 @@ class ReleasePolishContractTest {
 
         assertTrue(actionPill.contains("semantics(mergeDescendants = true)"))
         assertTrue(actionPill.contains("contentDescription = label"))
+    }
+
+    @Test
+    fun `media discovery keeps warm caches and vertical swipe viewers`() {
+        val videos = File("src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersScreen.kt").readText()
+        val videoModel = File("src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersViewModel.kt").readText()
+        val wallpaperDetail = File("src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperDetailScreen.kt").readText()
+        val playback = File("src/main/java/com/freevibe/service/AudioPlaybackManager.kt").readText()
+        val soundBrowse = File("src/main/java/com/freevibe/ui/screens/sounds/SoundBrowseViewModel.kt").readText()
+
+        assertTrue(videos.contains("private fun VideoImmersivePager("))
+        assertTrue(videos.contains("VerticalPager("))
+        assertTrue(videos.contains("beyondViewportPageCount = 1"))
+        assertTrue(videos.contains("setCustomCacheKey(item.id)"))
+        assertTrue(videoModel.contains("Warm feed ready:"))
+        assertTrue(videoModel.contains("VideoPreviewCache"))
+        assertTrue(wallpaperDetail.contains("VerticalPager("))
+        assertTrue(wallpaperDetail.contains("context.imageLoader.enqueue("))
+        assertTrue(playback.contains("setCustomCacheKey(sound.stableKey())"))
+        assertTrue(soundBrowse.contains("hydrateCachedFeed("))
     }
 
     @Test

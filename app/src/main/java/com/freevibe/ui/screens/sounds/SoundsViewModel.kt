@@ -26,6 +26,8 @@ import com.freevibe.service.SeasonalContentManager
 import com.freevibe.service.SelectedContentHolder
 import com.freevibe.service.SoundApplier
 import com.freevibe.service.SoundUrlResolver
+import com.freevibe.service.SoundFeedCache
+import com.freevibe.service.soundFeedCacheKey
 import com.freevibe.service.SourceMetrics
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -36,6 +38,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -62,6 +65,8 @@ class SoundsViewModel @Inject constructor(
     private val communityAudioRecorder: CommunityAudioRecorder,
     private val sourceMetrics: SourceMetrics,
 ) : ViewModel() {
+
+    private val soundFeedCache = SoundFeedCache(context)
 
     private val _state = MutableStateFlow(SoundsUiState())
     val state = _state.asStateFlow()
@@ -133,16 +138,14 @@ class SoundsViewModel @Inject constructor(
         },
         shouldRefreshYouTubePreview = ::shouldRefreshYouTubePreview,
         youtubeDisabledMessage = ::youtubeDisabledMessage,
-    )
-
-    internal val topHitsLoader: SoundTopHitsLoader = SoundTopHitsLoader(
-        youtubeRepo = youtubeRepo,
-        prefs = prefs,
-        bundledContent = bundledContent,
-        topHits = _topHits,
-        scope = viewModelScope,
-        schedulePreviewPrebuffer = playback::schedulePreviewPrebuffer,
-        cacheResolvedPreview = playback::cacheResolvedPreview,
+        persistFeed = { snapshot ->
+            viewModelScope.launch(Dispatchers.IO) {
+                soundFeedCache.write(
+                    soundFeedCacheKey(snapshot.selectedTab.name, snapshot.query),
+                    snapshot.sounds,
+                )
+            }
+        },
     )
 
     internal val youtubeActions: SoundYouTubeActions = SoundYouTubeActions(
@@ -185,7 +188,6 @@ class SoundsViewModel @Inject constructor(
         state = _state,
         scope = viewModelScope,
         communityFeed = communityFeed,
-        fetchTopHits = topHitsLoader::fetchTopHits,
         nextFilterKey = ::nextFilterKey,
         communityDisabledMessage = community::communityDisabledMessage,
         loadDefaultYouTube = ::loadDefaultYouTube,
@@ -193,6 +195,7 @@ class SoundsViewModel @Inject constructor(
         cancelYouTubeLoad = ::cancelYouTubeLoad,
         schedulePreviewPrebuffer = playback::schedulePreviewPrebuffer,
         cacheResolvedPreview = playback::cacheResolvedPreview,
+        soundFeedCache = soundFeedCache,
     )
 
     internal val applyActions: SoundApplyActions = SoundApplyActions(

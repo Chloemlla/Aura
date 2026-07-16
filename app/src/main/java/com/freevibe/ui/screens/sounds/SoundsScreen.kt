@@ -16,7 +16,6 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -25,7 +24,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -72,13 +70,10 @@ import com.freevibe.data.repository.matchesHiddenIds
 import com.freevibe.ui.components.AuraStateAction
 import com.freevibe.ui.components.AuraStateCard
 import com.freevibe.ui.components.AuraSnackbarHost
-import com.freevibe.ui.components.AuraScreenHeader
 import com.freevibe.ui.components.CompactSearchField
 import com.freevibe.ui.components.CommunityGuidelinesDialog
 import com.freevibe.ui.components.CountBadge
 import com.freevibe.ui.components.CommunityPolicyNotice
-import com.freevibe.ui.components.BrowseRail
-import com.freevibe.ui.components.BrowseRailItem
 import com.freevibe.ui.components.SearchHistoryDropdown
 import com.freevibe.ui.components.ShimmerSoundList
 import com.freevibe.ui.components.AuraStatusAction
@@ -143,6 +138,9 @@ fun SoundsScreen(
             else -> emptyList()
         }
     }
+    val contentSounds = remember(displayTopHits, displaySounds) {
+        (displayTopHits + displaySounds).distinctBy { it.stableKey() }
+    }
     var searchQuery by remember { mutableStateOf("") }
     LaunchedEffect(state.query) { searchQuery = state.query }
     LaunchedEffect(youtubeProviderEnabled, communityProviderEnabled, state.selectedTab) {
@@ -159,6 +157,8 @@ fun SoundsScreen(
         }
     }
     var showSearchHistory by remember { mutableStateOf(false) }
+    var searchExpanded by remember { mutableStateOf(false) }
+    var showQuickActionsMenu by remember { mutableStateOf(false) }
     var showCommunityGuidelines by remember { mutableStateOf(false) }
     var quickApplySound by remember { mutableStateOf<Sound?>(null) }
     var quickApplyActionInFlight by remember { mutableStateOf(false) }
@@ -198,20 +198,6 @@ fun SoundsScreen(
     val soundFilterCount = remember(state.qualityFilter) {
         if (state.qualityFilter != SoundQualityFilter.BEST) 1 else 0
     }
-    val railSoundTab = remember(state.selectedTab) {
-        if (state.selectedTab in coreSoundTabs) state.selectedTab else SoundTab.RINGTONES
-    }
-    val soundNewestQuery = stringResource(
-        when (railSoundTab) {
-            SoundTab.NOTIFICATIONS -> R.string.browse_rail_sound_newest_notification_query
-            SoundTab.ALARMS -> R.string.browse_rail_sound_newest_alarm_query
-            else -> R.string.browse_rail_sound_newest_ringtone_query
-        },
-    )
-    val soundCategoryCollection = remember(railSoundTab) {
-        soundCollectionsFor(railSoundTab).firstOrNull()
-    }
-
     // Upload state
     var showUploadDialog by remember { mutableStateOf(false) }
     var selectedAudioUri by remember { mutableStateOf<Uri?>(null) }
@@ -408,59 +394,6 @@ fun SoundsScreen(
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { AuraSnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                if (communityProviderEnabled && state.selectedTab == SoundTab.COMMUNITY) {
-                    SmallFloatingActionButton(
-                        onClick = startRecording,
-                        modifier = Modifier.size(48.dp),
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    ) {
-                        Icon(Icons.Default.Mic, stringResource(R.string.sounds_fab_record_community), modifier = Modifier.size(20.dp))
-                    }
-                }
-                if (communityProviderEnabled) {
-                    SmallFloatingActionButton(
-                        onClick = { uploadAudioPickerLauncher.launch("audio/*") },
-                        modifier = Modifier.size(48.dp),
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    ) {
-                        Icon(Icons.Default.Upload, stringResource(R.string.sounds_fab_upload_community), modifier = Modifier.size(20.dp))
-                    }
-                }
-                SmallFloatingActionButton(
-                    onClick = { createAudioPickerLauncher.launch("audio/*") },
-                    modifier = Modifier.size(48.dp),
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                ) {
-                    Icon(Icons.Default.ContentCut, stringResource(R.string.sounds_fab_create_from_music), modifier = Modifier.size(20.dp))
-                }
-                SmallFloatingActionButton(
-                    onClick = {
-                        if (state.isRecordingPersonal) {
-                            viewModel.stopPersonalRecording()
-                        } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                            viewModel.startPersonalRecording()
-                        } else {
-                            pendingPersonalRecording = true
-                            showRecordPermissionPrompt = true
-                        }
-                    },
-                    modifier = Modifier.size(48.dp),
-                    containerColor = if (state.isRecordingPersonal) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondaryContainer,
-                ) {
-                    Icon(
-                        if (state.isRecordingPersonal) Icons.Default.Stop else Icons.Default.Mic,
-                        stringResource(if (state.isRecordingPersonal) R.string.sounds_fab_stop_recording else R.string.sounds_fab_record_ringtone),
-                        modifier = Modifier.size(20.dp),
-                        tint = if (state.isRecordingPersonal) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onSecondaryContainer,
-                    )
-                }
-            }
-        },
     ) { scaffoldPadding ->
         Box(
             modifier = Modifier
@@ -477,25 +410,93 @@ fun SoundsScreen(
                 Modifier.fillMaxSize()
             },
         ) {
-            AuraScreenHeader(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                label = soundHeaderLabel(state.selectedTab),
-                icon = soundTabIcon(state.selectedTab),
-                title = soundHeaderTitle(state.selectedTab, state.query),
-                subtitle = soundHeaderSubtitle(
-                    tab = state.selectedTab,
-                    query = state.query,
-                    resultCount = displaySounds.size + displayTopHits.size,
-                ),
-                tint = if (isYouTubeTab) Color(0xFFFF6A5B) else MaterialTheme.colorScheme.secondary,
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
             ) {
-                Box {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                Row(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.nav_sounds),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                    IconButton(onClick = { searchExpanded = !searchExpanded }) {
+                        Icon(Icons.Default.Search, contentDescription = stringResource(R.string.sounds_search_generic))
+                    }
+                    IconButton(onClick = { showFiltersSheet = true }) {
+                        Box {
+                            Icon(Icons.Default.Tune, contentDescription = stringResource(R.string.sounds_filter_cd))
+                            CountBadge(
+                                count = soundFilterCount,
+                                modifier = Modifier.align(Alignment.TopEnd).offset(x = 9.dp, y = (-7).dp),
+                            )
+                        }
+                    }
+                    Box {
+                        IconButton(onClick = { showQuickActionsMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.sounds_mode_more))
+                        }
+                        DropdownMenu(
+                            expanded = showQuickActionsMenu,
+                            onDismissRequest = { showQuickActionsMenu = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.sounds_fab_create_from_music)) },
+                                leadingIcon = { Icon(Icons.Default.ContentCut, contentDescription = null) },
+                                onClick = {
+                                    showQuickActionsMenu = false
+                                    createAudioPickerLauncher.launch("audio/*")
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(if (state.isRecordingPersonal) R.string.sounds_fab_stop_recording else R.string.sounds_fab_record_ringtone)) },
+                                leadingIcon = { Icon(if (state.isRecordingPersonal) Icons.Default.Stop else Icons.Default.Mic, contentDescription = null) },
+                                onClick = {
+                                    showQuickActionsMenu = false
+                                    if (state.isRecordingPersonal) {
+                                        viewModel.stopPersonalRecording()
+                                    } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                        viewModel.startPersonalRecording()
+                                    } else {
+                                        pendingPersonalRecording = true
+                                        showRecordPermissionPrompt = true
+                                    }
+                                },
+                            )
+                            if (communityProviderEnabled) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.sounds_fab_upload_community)) },
+                                    leadingIcon = { Icon(Icons.Default.Upload, contentDescription = null) },
+                                    onClick = {
+                                        showQuickActionsMenu = false
+                                        uploadAudioPickerLauncher.launch("audio/*")
+                                    },
+                                )
+                            }
+                            if (communityProviderEnabled && state.selectedTab == SoundTab.COMMUNITY) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.sounds_fab_record_community)) },
+                                    leadingIcon = { Icon(Icons.Default.FiberManualRecord, contentDescription = null) },
+                                    onClick = {
+                                        showQuickActionsMenu = false
+                                        startRecording()
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (searchExpanded || state.selectedTab in setOf(SoundTab.SEARCH, SoundTab.YOUTUBE) || searchQuery.isNotBlank()) {
+                    Box {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         CompactSearchField(
@@ -534,10 +535,6 @@ fun SoundsScreen(
                                 focusManager.clearFocus()
                             }),
                         )
-                        SoundFilterButton(
-                            filterCount = soundFilterCount,
-                            onClick = { showFiltersSheet = true },
-                        )
                     }
                     SearchHistoryDropdown(
                         recentQueries = recentSearches,
@@ -554,50 +551,10 @@ fun SoundsScreen(
                             .fillMaxWidth()
                             .padding(top = 42.dp),
                     )
+                    }
+                    Spacer(Modifier.height(4.dp))
                 }
 
-                Spacer(Modifier.height(6.dp))
-                BrowseRail(
-                    items = listOf(
-                        BrowseRailItem(
-                            label = stringResource(R.string.browse_rail_popular),
-                            icon = Icons.Default.Explore,
-                            selected = state.selectedTab == railSoundTab && state.query.isBlank(),
-                            onClick = {
-                                searchQuery = ""
-                                viewModel.selectTab(railSoundTab)
-                            },
-                        ),
-                        BrowseRailItem(
-                            label = stringResource(R.string.browse_rail_newest),
-                            icon = Icons.Default.Schedule,
-                            selected = state.query == soundNewestQuery &&
-                                (state.selectedTab == SoundTab.SEARCH || state.selectedTab == SoundTab.YOUTUBE),
-                            onClick = {
-                                searchQuery = soundNewestQuery
-                                viewModel.search(soundNewestQuery)
-                            },
-                        ),
-                        BrowseRailItem(
-                            label = stringResource(R.string.browse_rail_categories),
-                            icon = Icons.Default.Category,
-                            selected = state.selectedTab == SoundTab.SEARCH &&
-                                soundCategoryCollection?.query == state.query,
-                            onClick = {
-                                soundCategoryCollection?.let { collection ->
-                                    searchQuery = collection.query
-                                    viewModel.search(collection.query)
-                                }
-                            },
-                        ),
-                        BrowseRailItem(
-                            label = stringResource(R.string.browse_rail_local),
-                            icon = Icons.Default.FolderOpen,
-                            onClick = { createAudioPickerLauncher.launch("audio/*") },
-                        ),
-                    ),
-                )
-                Spacer(Modifier.height(6.dp))
                 SoundModeBar(
                     selectedTab = state.selectedTab,
                     youtubeProviderEnabled = youtubeProviderEnabled,
@@ -632,21 +589,6 @@ fun SoundsScreen(
                 )
             }
 
-            if (state.degradedSources.isNotEmpty() && nonBlockingWarning == null) {
-                AuraStatusBanner(
-                    icon = Icons.Default.GraphicEq,
-                    title = stringResource(R.string.sounds_banner_degraded_title),
-                    message = soundSourceHealthSummary(state.degradedSources),
-                    tone = MaterialTheme.colorScheme.tertiary,
-                    primaryAction = AuraStatusAction(
-                        label = stringResource(R.string.common_refresh),
-                        icon = Icons.Default.Refresh,
-                        onClick = { viewModel.refresh() },
-                    ),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                )
-            }
-
             // Content
             Box(modifier = Modifier.fillMaxSize()) {
                 if (state.error != null && displaySounds.isEmpty() && displayTopHits.isEmpty() && !state.isLoading && !state.isRefreshing) {
@@ -672,7 +614,7 @@ fun SoundsScreen(
                 } else {
                     PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = { viewModel.refresh() }) {
                         SoundsList(
-                            sounds = displaySounds,
+                            sounds = contentSounds,
                             selectedTab = state.selectedTab,
                             query = state.query,
                             isLoading = state.isLoading,
@@ -688,25 +630,8 @@ fun SoundsScreen(
                             onPlayClick = { viewModel.togglePlayback(it) },
                             onLoadMore = { viewModel.loadMore() },
                             playbackProgress = playbackProgress,
-                            topHits = displayTopHits,
                             isExpandedLayout = isExpandedLayout,
                             voteCounts = voteCounts,
-                            collections = if (state.query.isBlank()) {
-                                val base = soundCollectionsFor(state.selectedTab)
-                                val seasonal = viewModel.seasonalTheme
-                                if (seasonal != null && base.isNotEmpty()) {
-                                    val seasonalSpec = SoundCollectionSpec(
-                                        title = seasonal.title,
-                                        subtitle = seasonal.subtitle,
-                                        query = seasonal.soundQuery,
-                                        tone = SoundCollectionTone.SEASONAL,
-                                    )
-                                    listOf(seasonalSpec) + base
-                                } else {
-                                    base
-                                }
-                            } else emptyList(),
-                            onCollectionClick = { collection -> viewModel.search(collection.query) },
                             onUploadClick = if (communityProviderEnabled) ({
                                 if (communityGuidelinesAccepted) {
                                     uploadAudioPickerLauncher.launch("audio/*")
@@ -798,64 +723,6 @@ private fun soundTabIcon(tab: SoundTab): androidx.compose.ui.graphics.vector.Ima
     SoundTab.SEARCH -> Icons.Default.Search
 }
 
-private fun soundHeaderLabel(tab: SoundTab): String = when (tab) {
-    SoundTab.RINGTONES -> "Ringtone studio"
-    SoundTab.NOTIFICATIONS -> "Notification sounds"
-    SoundTab.ALARMS -> "Alarm tones"
-    SoundTab.YOUTUBE -> "YouTube import"
-    SoundTab.COMMUNITY -> "Community library"
-    SoundTab.SEARCH -> "Sound search"
-}
-
-private fun soundHeaderTitle(tab: SoundTab, query: String): String = when {
-    tab == SoundTab.SEARCH && query.isNotBlank() -> "Results for \"$query\""
-    tab == SoundTab.YOUTUBE && query.isNotBlank() -> "YouTube results"
-    tab == SoundTab.YOUTUBE -> "Find sound from YouTube"
-    tab == SoundTab.COMMUNITY -> "Browse community sounds"
-    tab == SoundTab.NOTIFICATIONS -> "Short alerts that stay clear"
-    tab == SoundTab.ALARMS -> "Alarm tones with presence"
-    else -> "Ringtone-ready sounds"
-}
-
-private fun soundHeaderSubtitle(
-    tab: SoundTab,
-    query: String,
-    resultCount: Int,
-): String = when {
-    tab == SoundTab.YOUTUBE && query.isBlank() ->
-        "Paste a video URL or search for short clips Aura can preview, trim, and apply."
-    tab == SoundTab.COMMUNITY && resultCount == 0 ->
-        "Upload, record, or browse user-shared clips once community content is available."
-    tab == SoundTab.SEARCH && query.isNotBlank() ->
-        "$resultCount result${if (resultCount == 1) "" else "s"} matched your search."
-    resultCount > 0 ->
-        "$resultCount curated result${if (resultCount == 1) "" else "s"} ready to preview or apply."
-    else ->
-        "Preview, trim, download, or long-press a result for quick apply."
-}
-
-@Composable
-private fun SoundFilterButton(
-    filterCount: Int,
-    onClick: () -> Unit,
-) {
-    FilledTonalIconButton(
-        onClick = onClick,
-        modifier = Modifier.size(48.dp),
-        shape = RoundedCornerShape(8.dp),
-    ) {
-        Box {
-            Icon(Icons.Default.Tune, contentDescription = stringResource(R.string.sounds_filter_cd), modifier = Modifier.size(18.dp))
-            CountBadge(
-                count = filterCount,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = 10.dp, y = (-8).dp),
-            )
-        }
-    }
-}
-
 @Composable
 private fun SoundModeBar(
     selectedTab: SoundTab,
@@ -877,35 +744,65 @@ private fun SoundModeBar(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         coreSoundTabs.forEach { tab ->
-            FilterChip(
-                selected = selectedTab == tab,
+            val selected = selectedTab == tab
+            Surface(
                 onClick = { onSelectTab(tab) },
-                label = { Text(soundTabLabel(tab), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                shape = RoundedCornerShape(8.dp),
-            )
+                color = Color.Transparent,
+                shape = RoundedCornerShape(0.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .heightIn(min = 44.dp)
+                        .widthIn(min = 92.dp)
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        soundTabLabel(tab),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                    )
+                    if (selected) {
+                        Box(
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .height(2.dp)
+                                .background(MaterialTheme.colorScheme.primary),
+                        )
+                    }
+                }
+            }
         }
 
         if (secondaryTabs.isNotEmpty()) {
             Box {
-                FilterChip(
-                    selected = secondarySelected,
+                Surface(
                     onClick = { showMoreMenu = true },
-                    label = {
+                    color = Color.Transparent,
+                    shape = RoundedCornerShape(0.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.heightIn(min = 44.dp).padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Text(
                             if (secondarySelected) soundTabLabel(selectedTab) else stringResource(R.string.sounds_mode_more),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (secondarySelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                    },
-                    trailingIcon = {
                         Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
-                    },
-                    shape = RoundedCornerShape(8.dp),
-                )
+                    }
+                }
                 DropdownMenu(
                     expanded = showMoreMenu,
                     onDismissRequest = { showMoreMenu = false },
@@ -952,11 +849,8 @@ private fun SoundsList(
     onPlayClick: (Sound) -> Unit,
     onLoadMore: () -> Unit,
     playbackProgress: Float,
-    topHits: List<Sound>,
     isExpandedLayout: Boolean = false,
     voteCounts: Map<String, Int> = emptyMap(),
-    collections: List<SoundCollectionSpec>,
-    onCollectionClick: (SoundCollectionSpec) -> Unit,
     onUploadClick: (() -> Unit)? = null,
     onRecordClick: (() -> Unit)? = null,
     onUpvote: ((Sound) -> Unit)? = null,
@@ -984,66 +878,9 @@ private fun SoundsList(
         ),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        if (collections.isNotEmpty()) {
-            item(key = "sound_collections", contentType = "collections") {
-                SoundCollectionCarousel(
-                    collections = collections,
-                    onCollectionClick = onCollectionClick,
-                    modifier = Modifier.padding(bottom = 10.dp),
-                )
-            }
-        }
-
-        // Featured sound section for ringtones and ranked community uploads.
-        if (topHits.isNotEmpty()) {
-            item(key = "tophits_header", contentType = "header") {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(vertical = 6.dp),
-                ) {
-                    Icon(
-                        if (selectedTab == SoundTab.COMMUNITY) Icons.Default.Groups else Icons.AutoMirrored.Filled.TrendingUp,
-                        contentDescription = stringResource(if (selectedTab == SoundTab.COMMUNITY) R.string.sounds_tophits_community_cd else R.string.sounds_tophits_trending_cd),
-                        Modifier.size(20.dp),
-                        tint = if (selectedTab == SoundTab.COMMUNITY) MaterialTheme.colorScheme.primary else Color(0xFFFF4444),
-                    )
-                    Text(
-                        stringResource(if (selectedTab == SoundTab.COMMUNITY) R.string.sounds_tophits_community_title else R.string.sounds_tophits_trending_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            }
-            items(topHits, key = { "hit_${it.stableKey()}" }, contentType = { "sound_card" }) { sound ->
-                SoundCard(
-                    sound = sound,
-                    tab = if (selectedTab == SoundTab.COMMUNITY) SoundTab.COMMUNITY else SoundTab.RINGTONES,
-                    isPlaying = playingId == sound.stableKey(),
-                    isResolving = sound.stableKey() == resolvingId,
-                    isPreviewReady = sound.stableKey() in previewReadyIds,
-                    playbackProgress = if (playingId == sound.stableKey()) playbackProgress else 0f,
-                    voteCount = voteCounts[sound.stableKey()],
-                    onClick = { onSoundClick(sound) },
-                    onLongPress = { onLongPress(sound) },
-                    onPlayClick = { onPlayClick(sound) },
-                    onUpvote = onUpvote?.let { { it(sound) } },
-                    onDownvote = onDownvote?.let { { it(sound) } },
-                )
-            }
-            item(key = "tophits_divider", contentType = "divider") {
-                HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-            }
-        }
-
-        // Main list
-        val topHitIds = topHits.map { it.stableKey() }.toSet()
-        val filteredSounds = sounds.filter { it.stableKey() !in topHitIds }
-
-        items(filteredSounds, key = { it.stableKey() }, contentType = { "sound_card" }) { sound ->
+        items(sounds, key = { it.stableKey() }, contentType = { "sound_card" }) { sound ->
             SoundCard(
                 sound = sound,
-                tab = selectedTab,
                 isPlaying = playingId == sound.stableKey(),
                 isResolving = sound.stableKey() == resolvingId,
                 isPreviewReady = sound.stableKey() in previewReadyIds,
@@ -1058,24 +895,31 @@ private fun SoundsList(
         }
 
         // Loading spinner
-        if ((isLoading || isRefreshing) && sounds.isEmpty() && topHits.isEmpty()) {
+        if ((isLoading || isRefreshing) && sounds.isEmpty()) {
             item(key = "loading", contentType = "loading") {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    AuraStateCard(
-                        icon = Icons.Default.GraphicEq,
-                        title = stringResource(R.string.sounds_loading_title),
-                        description = stringResource(R.string.sounds_loading_description),
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Text(
+                            stringResource(R.string.sounds_loading_title),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     ShimmerSoundList(Modifier.fillMaxWidth())
                 }
             }
         }
 
         // Empty state
-        if (!isLoading && !isRefreshing && sounds.isEmpty() && topHits.isEmpty()) {
+        if (!isLoading && !isRefreshing && sounds.isEmpty()) {
             item(key = "empty") {
                 val (icon, title, supportingText) = soundsEmptyState(selectedTab, query)
                 AuraStateCard(
@@ -1143,123 +987,12 @@ private fun soundsEmptyState(
     )
 }
 
-@Composable
-private fun SoundCollectionCarousel(
-    collections: List<SoundCollectionSpec>,
-    onCollectionClick: (SoundCollectionSpec) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.padding(vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                Icons.Default.AutoAwesome,
-                contentDescription = stringResource(R.string.sounds_collections_title),
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Text(stringResource(R.string.sounds_collections_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        }
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(collections, key = { it.title.ifBlank { it.titleRes.toString() } }) { collection ->
-                SoundCollectionCard(
-                    collection = collection,
-                    onClick = { onCollectionClick(collection) },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SoundCollectionCard(
-    collection: SoundCollectionSpec,
-    onClick: () -> Unit,
-) {
-    val accent = collectionToneColor(collection.tone)
-    val title = if (collection.titleRes != 0) stringResource(collection.titleRes) else collection.title
-    val subtitle = if (collection.subtitleRes != 0) stringResource(collection.subtitleRes) else collection.subtitle
-    Surface(
-        onClick = onClick,
-        modifier = Modifier
-            .width(168.dp)
-            .height(104.dp),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.78f),
-        border = BorderStroke(1.dp, accent.copy(alpha = 0.26f)),
-        shadowElevation = 2.dp,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = accent.copy(alpha = 0.16f),
-                modifier = Modifier.size(40.dp),
-            ) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(
-                        collectionToneIcon(collection.tone),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = accent,
-                    )
-                }
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    title,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun collectionToneColor(tone: SoundCollectionTone): Color = when (tone) {
-    SoundCollectionTone.MINIMAL -> MaterialTheme.colorScheme.primary
-    SoundCollectionTone.CALM -> MaterialTheme.colorScheme.tertiary
-    SoundCollectionTone.RETRO -> Color(0xFFFFB74D)
-    SoundCollectionTone.NATURE -> Color(0xFF66BB6A)
-    SoundCollectionTone.PUNCHY -> Color(0xFFFF6B6B)
-    SoundCollectionTone.MELODIC -> Color(0xFF64B5F6)
-    SoundCollectionTone.SEASONAL -> Color(0xFFFFCA28) // amber-gold accent
-}
-
-private fun collectionToneIcon(tone: SoundCollectionTone): androidx.compose.ui.graphics.vector.ImageVector = when (tone) {
-    SoundCollectionTone.MINIMAL -> Icons.Default.RadioButtonUnchecked
-    SoundCollectionTone.CALM -> Icons.Default.Spa
-    SoundCollectionTone.RETRO -> Icons.Default.PhoneInTalk
-    SoundCollectionTone.NATURE -> Icons.Default.WaterDrop
-    SoundCollectionTone.PUNCHY -> Icons.Default.Bolt
-    SoundCollectionTone.MELODIC -> Icons.Default.GraphicEq
-    SoundCollectionTone.SEASONAL -> Icons.Default.Celebration
-}
-
 // -- Sound Card --
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SoundCard(
     sound: Sound,
-    tab: SoundTab,
     isPlaying: Boolean,
     isResolving: Boolean = false,
     isPreviewReady: Boolean = false,
@@ -1275,7 +1008,6 @@ private fun SoundCard(
         sound.uploaderName != "Unknown" &&
         !(sound.source == ContentSource.BUNDLED && sound.uploaderName == "Aura Picks")
     val (sourceLabel, sourceColor) = soundSourceTone(sound.source)
-    val badges = remember(sound, tab) { soundBadges(sound, tab) }
     val playPreviewLabel = stringResource(R.string.a11y_play_preview)
     val pausePreviewLabel = stringResource(R.string.a11y_pause_preview)
     val quickActionsLabel = stringResource(R.string.a11y_show_quick_actions)
@@ -1308,14 +1040,8 @@ private fun SoundCard(
         }
     }
     Surface(
-        color = if (isPlaying) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.34f) else MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f),
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(
-            1.dp,
-            if (isPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
-            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.24f),
-        ),
-        shadowElevation = if (isPlaying) 3.dp else 1.dp,
+        color = if (isPlaying) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.18f) else Color.Transparent,
+        shape = RoundedCornerShape(0.dp),
         modifier = Modifier
             .combinedClickable(
                 onClick = onClick,
@@ -1328,7 +1054,7 @@ private fun SoundCard(
                 customActions = cardActions
             },
     ) {
-        Column(Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = 12.dp)) {
+        Column(Modifier.fillMaxWidth().padding(vertical = 6.dp, horizontal = 8.dp)) {
             Row(
                 Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1338,17 +1064,13 @@ private fun SoundCard(
                 IconButton(
                     onClick = onPlayClick,
                     modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .size(44.dp)
                         .semantics {
                             contentDescription = playButtonDescription
                             stateDescription = soundStateDescription
                             onClick(label = playButtonDescription, action = null)
                         }
-                        .background(
-                            if (isPlaying) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surfaceContainerHigh
-                        ),
+                        .background(if (isPlaying) MaterialTheme.colorScheme.primary else Color.Transparent),
                 ) {
                     if (isResolving) {
                         CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
@@ -1370,21 +1092,17 @@ private fun SoundCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(2.dp))
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        // Source badge
-                        Surface(color = sourceColor.copy(alpha = 0.14f), shape = RoundedCornerShape(8.dp)) {
-                            Text(
-                                sourceLabel,
-                                Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = sourceColor,
-                                fontWeight = if (sound.source == ContentSource.BUNDLED) FontWeight.Bold else FontWeight.Medium,
-                            )
-                        }
+                        Text(
+                            sourceLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = sourceColor,
+                            fontWeight = if (sound.source == ContentSource.BUNDLED) FontWeight.Bold else FontWeight.Medium,
+                        )
                         Text(
                             formatDuration(sound.duration),
                             style = MaterialTheme.typography.bodySmall,
@@ -1398,20 +1116,6 @@ private fun SoundCard(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             )
                         }
-                        if (isPreviewReady) {
-                            Surface(
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-                                shape = RoundedCornerShape(8.dp),
-                            ) {
-                                Text(
-                                    stringResource(R.string.sounds_card_ready),
-                                    Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Medium,
-                                )
-                            }
-                        }
                         if (showUploader) {
                             Text(
                                 sound.uploaderName,
@@ -1421,24 +1125,6 @@ private fun SoundCard(
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f, fill = false),
                             )
-                        }
-                    }
-                    if (badges.isNotEmpty()) {
-                        Spacer(Modifier.height(6.dp))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            items(badges, key = { badge -> "${sound.stableKey()}_$badge" }) { badge ->
-                                Surface(
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                                    shape = RoundedCornerShape(8.dp),
-                                ) {
-                                    Text(
-                                        badge,
-                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                    )
-                                }
-                            }
                         }
                     }
                 }
@@ -1509,6 +1195,10 @@ private fun SoundCard(
                     }
                 }
             }
+            HorizontalDivider(
+                modifier = Modifier.padding(top = 8.dp, start = 54.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f),
+            )
         }
     }
 }
@@ -2059,9 +1749,4 @@ private fun formatRecordingElapsed(elapsedMs: Long): String {
     val minutes = totalSeconds / 60L
     val seconds = totalSeconds % 60L
     return "$minutes:${seconds.toString().padStart(2, '0')}"
-}
-
-private fun soundSourceHealthSummary(degradedSources: Set<String>): String {
-    val labels = degradedSources.sorted().joinToString(", ")
-    return "Limited source health right now: $labels"
 }

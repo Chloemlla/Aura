@@ -114,6 +114,33 @@ private const val SOURCE_PEXELS = "pexels"
 private const val SOURCE_PIXABAY = "pixabay"
 private const val SOURCE_WALLHAVEN = "wallhaven"
 
+private val DISCOVER_THEME_QUERIES = listOf(
+    "minimal dark",
+    "cinematic nature",
+    "neon city night",
+    "space galaxy",
+    "abstract gradient",
+    "ocean underwater",
+    "mountain fog",
+    "anime scenery",
+    "architecture geometry",
+    "flowers macro",
+    "rain window",
+    "desert dunes",
+)
+
+internal fun discoverThemeForPage(page: Int): String =
+    DISCOVER_THEME_QUERIES[(page - 1).coerceAtLeast(0) % DISCOVER_THEME_QUERIES.size]
+
+/**
+ * Each rotating theme gets page one before any theme advances to page two. Passing
+ * the global feed page directly to every provider made page 40 request page 40 of a
+ * query that had only appeared a few times, which prematurely exhausted otherwise
+ * deep catalogs.
+ */
+internal fun discoverSourcePageForPage(page: Int): Int =
+    ((page - 1).coerceAtLeast(0) / DISCOVER_THEME_QUERIES.size) + 1
+
 /**
  * Wallhaven purity bitfield: bit0=SFW, bit1=Sketchy, bit2=NSFW (string of three '0'/'1').
  * Wallhaven enforces: any non-SFW request requires an authenticated API key. Without a
@@ -187,15 +214,20 @@ class WallpaperRepository @Inject constructor(
         query: String = "",
         page: Int = 1,
         topRange: String = "1M",
+        sortingOverride: String? = null,
     ): SearchResult<Wallpaper> {
         if (!wallhavenProviderEnabled()) {
             sourceMetrics.recordDisabled(SOURCE_WALLHAVEN)
             return emptySourceResult(page)
         }
-        val cacheKey = if (query.isBlank()) "wallhaven_toplist_${topRange}_$page" else "wallhaven_search_${query.hashCode()}_$page"
+        val cacheKey = when {
+            sortingOverride != null -> "wallhaven_${sortingOverride}_$page"
+            query.isBlank() -> "wallhaven_toplist_${topRange}_$page"
+            else -> "wallhaven_search_${query.hashCode()}_$page"
+        }
         return withCacheFallback(cacheKey, ContentSource.WALLHAVEN) {
             sourceMetrics.measure(SOURCE_WALLHAVEN) {
-                val sorting = if (query.isBlank()) "toplist" else "relevance"
+                val sorting = sortingOverride ?: if (query.isBlank()) "toplist" else "relevance"
                 val apiKey = wallhavenApiKey()
                 val response = wallhavenApi.search(
                     query = query,
@@ -253,6 +285,34 @@ class WallpaperRepository @Inject constructor(
         val sources = listOf(
             async { loadSourceSafely { getWallhaven(query = query, page = page) } },
             async { loadSourceSafely { getPixabay(query = query, page = page) } },
+        )
+        val results = sources.awaitAll()
+        val bySource = results.filterNotNull().map { it.items.toMutableList() }
+        val combined = mutableListOf<Wallpaper>()
+        while (bySource.any { it.isNotEmpty() }) {
+            bySource.forEach { source ->
+                if (source.isNotEmpty()) {
+                    combined.add(source.removeAt(0))
+                }
+            }
+        }
+        SearchResult(
+            items = combined,
+            totalCount = results.filterNotNull().sumOf { it.totalCount },
+            currentPage = page,
+            hasMore = results.any { it?.hasMore == true },
+        )
+    }
+
+    /**
+     * Newest wallpapers across the searchable providers: Wallhaven sorted by date_added, plus
+     * Pixabay. Each provider self-gates on its enabled flag, so this returns whatever the user has
+     * opted into. Used by the Newest browse tab (which only appears when a searchable source is on).
+     */
+    suspend fun getNewest(page: Int = 1): SearchResult<Wallpaper> = supervisorScope {
+        val sources = listOf(
+            async { loadSourceSafely { getWallhaven(page = page, sortingOverride = "date_added") } },
+            async { loadSourceSafely { getPixabay(page = page) } },
         )
         val results = sources.awaitAll()
         val bySource = results.filterNotNull().map { it.items.toMutableList() }
@@ -593,24 +653,28 @@ class WallpaperRepository @Inject constructor(
 
     /** Return cached discover results if available (instant, no network) */
     suspend fun getCachedDiscover(page: Int = 1): List<Wallpaper>? {
-        return cacheManager.getStaleCached("discover_$page")
+        return cacheManager.getStaleCached("discover_home_v2_$page")
+            ?: cacheManager.getStaleCached("discover_secondary_v2_$page")
+            ?: cacheManager.getStaleCached("discover_$page")
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     suspend fun getDiscover(page: Int = 1, userStyles: List<String> = emptyList()): SearchResult<Wallpaper> =
         sourceMetrics.measure(SOURCE_DISCOVER) {
             supervisorScope {
+                val rotatingTheme = discoverThemeForPage(page)
+                val sourcePage = discoverSourcePageForPage(page)
                 val primarySources = mutableListOf(
-                    async { loadSourceSafely { getWallhaven(page = page) } },
-                    async { loadSourceSafely { getPixabay(page = page) } },
-                    async { loadSourceSafely { getPexelsCurated(page = page) } },
+                    async { loadSourceSafely { getWallhaven(query = rotatingTheme, page = sourcePage) } },
+                    async { loadSourceSafely { getPixabay(query = rotatingTheme, page = sourcePage) } },
+                    async { loadSourceSafely { getPexelsCurated(page = sourcePage) } },
                 )
                 if (userStyles.isNotEmpty()) {
                     val styleQuery = styleToWallhavenQuery(userStyles)
-                    primarySources.add(async { loadSourceSafely { getWallhaven(query = styleQuery, page = page) } })
+                    primarySources.add(async { loadSourceSafely { getWallhaven(query = styleQuery, page = sourcePage) } })
                     // Also bias Pexels and Pixabay by style
-                    primarySources.add(async { loadSourceSafely { getPixabay(query = styleQuery, page = page) } })
-                    primarySources.add(async { loadSourceSafely { getPexels(query = styleQuery, page = page) } })
+                    primarySources.add(async { loadSourceSafely { getPixabay(query = styleQuery, page = sourcePage) } })
+                    primarySources.add(async { loadSourceSafely { getPexels(query = styleQuery, page = sourcePage) } })
                 }
                 val secondarySources = listOf(
                     async { loadSourceSafely { getBingDaily(page = page) } },
@@ -657,7 +721,7 @@ class WallpaperRepository @Inject constructor(
 
                 // Cache combined discover result for instant startup next time
                 if (merged.items.isNotEmpty()) {
-                    cacheManager.cache("discover_$page", merged.items)
+                    cacheManager.cache("discover_secondary_v2_$page", merged.items)
                 }
 
                 merged

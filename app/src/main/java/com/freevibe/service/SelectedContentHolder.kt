@@ -5,6 +5,7 @@ import com.freevibe.data.model.Sound
 import com.freevibe.data.model.Wallpaper
 import com.freevibe.data.model.stableKey
 import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,15 +22,9 @@ import javax.inject.Singleton
  * Required because each NavBackStackEntry gets its own ViewModel instance via hiltViewModel(),
  * so list-screen and detail-screen ViewModels cannot share state directly.
  *
- * **NX-4 partial (rev4-impl):** the single selected wallpaper and selected sound now
- * persist across process death via a small SharedPreferences-backed JSON snapshot.
- * The pager-supporting `wallpaperList` is intentionally NOT persisted — it can be
- * huge, and on resume after process death the pager would restart at index 0
- * anyway. Anchor key is also reset on cold start; the detail screen handles the
- * "list lost" case by falling back to single-item display.
- *
- * Full sweep — moving to a nav-graph-scoped `SelectionViewModel` with
- * `SavedStateHandle` — remains queued as the wider refactor.
+ * The selected items and a bounded wallpaper pager window persist across process
+ * death so a warm relaunch can return to the same swipe context without retaining
+ * an unbounded discovery feed.
  */
 @Singleton
 class SelectedContentHolder @Inject constructor(
@@ -40,15 +35,22 @@ class SelectedContentHolder @Inject constructor(
     private val prefs by lazy { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
     private val wallpaperAdapter by lazy { moshi.adapter(Wallpaper::class.java) }
     private val soundAdapter by lazy { moshi.adapter(Sound::class.java) }
+    private val wallpaperListAdapter by lazy {
+        val type = Types.newParameterizedType(List::class.java, Wallpaper::class.java)
+        moshi.adapter<List<Wallpaper>>(type)
+    }
     private val persistScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _selectedWallpaper = MutableStateFlow<Wallpaper?>(loadWallpaper())
     val selectedWallpaper: StateFlow<Wallpaper?> = _selectedWallpaper.asStateFlow()
 
     /** Wallpaper list from the source screen, for pager in detail screen */
-    private val _wallpaperList = MutableStateFlow<List<Wallpaper>>(emptyList())
+    private val _wallpaperList = MutableStateFlow(loadWallpaperList())
     val wallpaperList: StateFlow<List<Wallpaper>> = _wallpaperList.asStateFlow()
-    private val _wallpaperListAnchorKey = MutableStateFlow<String?>(null)
+    private val _wallpaperListAnchorKey = MutableStateFlow(
+        prefs.getString(KEY_WALLPAPER_LIST_ANCHOR, null)
+            ?.takeIf { _wallpaperList.value.isNotEmpty() },
+    )
     val wallpaperListAnchorKey: StateFlow<String?> = _wallpaperListAnchorKey.asStateFlow()
 
     private val _selectedSound = MutableStateFlow<Sound?>(loadSound())
@@ -59,11 +61,15 @@ class SelectedContentHolder @Inject constructor(
         _selectedWallpaper.value = wallpaper
         persistWallpaper(wallpaper)
         if (wallpapers.isNotEmpty()) {
-            _wallpaperList.value = wallpapers
-            _wallpaperListAnchorKey.value = wallpaper.stableKey()
+            val anchorKey = wallpaper.stableKey()
+            val compactList = compactPagerWindow(wallpapers, anchorKey)
+            _wallpaperList.value = compactList
+            _wallpaperListAnchorKey.value = anchorKey
+            persistWallpaperList(compactList, anchorKey)
         } else {
             _wallpaperList.value = emptyList()
             _wallpaperListAnchorKey.value = null
+            persistWallpaperList(emptyList(), null)
         }
     }
 
@@ -73,6 +79,7 @@ class SelectedContentHolder @Inject constructor(
         persistWallpaper(wallpaper)
         _wallpaperList.value = emptyList()
         _wallpaperListAnchorKey.value = null
+        persistWallpaperList(emptyList(), null)
     }
 
     @Synchronized
@@ -95,6 +102,13 @@ class SelectedContentHolder @Inject constructor(
         prefs.getString(KEY_SOUND, null)?.let { soundAdapter.fromJson(it) }
     }.getOrNull()
 
+    private fun loadWallpaperList(): List<Wallpaper> = runCatching {
+        prefs.getString(KEY_WALLPAPER_LIST, null)
+            ?.let { wallpaperListAdapter.fromJson(it) }
+            .orEmpty()
+            .take(MAX_PERSISTED_WALLPAPERS)
+    }.getOrDefault(emptyList())
+
     private fun persistWallpaper(w: Wallpaper) {
         persistScope.launch {
             runCatching {
@@ -111,9 +125,36 @@ class SelectedContentHolder @Inject constructor(
         }
     }
 
+    private fun persistWallpaperList(wallpapers: List<Wallpaper>, anchorKey: String?) {
+        persistScope.launch {
+            runCatching {
+                prefs.edit().apply {
+                    if (wallpapers.isEmpty() || anchorKey == null) {
+                        remove(KEY_WALLPAPER_LIST)
+                        remove(KEY_WALLPAPER_LIST_ANCHOR)
+                    } else {
+                        putString(KEY_WALLPAPER_LIST, wallpaperListAdapter.toJson(wallpapers))
+                        putString(KEY_WALLPAPER_LIST_ANCHOR, anchorKey)
+                    }
+                }.apply()
+            }
+        }
+    }
+
+    private fun compactPagerWindow(wallpapers: List<Wallpaper>, anchorKey: String): List<Wallpaper> {
+        if (wallpapers.size <= MAX_PERSISTED_WALLPAPERS) return wallpapers
+        val anchorIndex = wallpapers.indexOfFirst { it.stableKey() == anchorKey }.coerceAtLeast(0)
+        val start = (anchorIndex - MAX_PERSISTED_WALLPAPERS / 2)
+            .coerceIn(0, wallpapers.size - MAX_PERSISTED_WALLPAPERS)
+        return wallpapers.subList(start, start + MAX_PERSISTED_WALLPAPERS)
+    }
+
     private companion object {
         const val PREFS_NAME = "freevibe_selected_content"
         const val KEY_WALLPAPER = "selected_wallpaper_json"
         const val KEY_SOUND = "selected_sound_json"
+        const val KEY_WALLPAPER_LIST = "selected_wallpaper_list_json"
+        const val KEY_WALLPAPER_LIST_ANCHOR = "selected_wallpaper_list_anchor"
+        const val MAX_PERSISTED_WALLPAPERS = 60
     }
 }

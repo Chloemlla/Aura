@@ -78,7 +78,7 @@ class AccessibilitySemanticsContractTest {
                 path = "src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersScreen.kt",
                 tokens = listOf(
                     "stateDescription = videoStateDescription",
-                    "onClick(label = previewVideoLabel",
+                    "clickable(onClickLabel = previewVideoLabel",
                     "onClick(label = applyVideoLabel",
                     "stateDescription = selectedDescription",
                 ),

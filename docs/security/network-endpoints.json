@@ -81,19 +81,19 @@
       ]
     },
     {
-      "id": "reddit-json",
-      "hosts": ["www.reddit.com", "i.redd.it", "i.imgur.com"],
+      "id": "reddit-rss",
+      "hosts": ["www.reddit.com", "i.redd.it", "v.redd.it", "preview.redd.it", "external-preview.redd.it"],
       "schemes": ["https"],
-      "surface": "Reddit wallpaper JSON and returned image URLs",
+      "surface": "Reddit public Atom wallpaper/cinemagraph feed and returned media URLs",
       "authLocation": "none",
-      "dataSent": "subreddit name, search query, sort, limit, after cursor, time range, and raw_json flag",
+      "dataSent": "combined subreddit path, sort, page limit, and anonymous after cursor; search filtering remains on-device",
       "mediaCached": "returned image URLs can be cached as wallpaper feed and offline media",
-      "rateLimitCachePolicy": "OkHttp connect/read/write timeouts and degraded-source cooldown after repeated failures",
-      "fallbackBehavior": "provider can be disabled by user; saved legacy records and cached wallpaper URLs remain available",
+      "rateLimitCachePolicy": "one combined cursor-paged request at a time, two-hour Room media cache, exact cursor-keyed page metadata, a persisted 60-second minimum cooldown with Retry-After support, and stale-cache fallback",
+      "fallbackBehavior": "provider can be disabled by user; cached and saved Reddit media remain available",
       "killSwitch": "reddit_provider_enabled",
       "releaseOwner": "maintainer",
       "sourceFiles": [
-        "app/src/main/java/com/freevibe/data/remote/reddit/RedditApi.kt",
+        "app/src/main/java/com/freevibe/data/repository/RedditRssParser.kt",
         "app/src/main/java/com/freevibe/data/repository/RedditRepository.kt"
       ]
     },

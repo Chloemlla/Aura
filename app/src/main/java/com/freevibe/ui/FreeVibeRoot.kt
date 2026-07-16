@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Brush
@@ -93,6 +94,11 @@ fun FreeVibeRoot(
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+
+    // Mobile-data warning: the browse tabs stream and download wallpapers, video wallpapers, and
+    // sounds. Warn once per app run while on a metered connection; dismissal sticks for the session.
+    val onMeteredConnection = com.freevibe.ui.components.rememberOnMeteredConnection()
+    var dataWarningDismissed by rememberSaveable { mutableStateOf(false) }
 
     // Handle deep-link navigation from widget or notification
     LaunchedEffect(navigationToken, initialNavigateTo, initialWallpaper?.id) {
@@ -207,30 +213,19 @@ fun FreeVibeRoot(
                                     androidx.compose.foundation.layout.WindowInsetsSides.Bottom,
                                 ),
                             )
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                            .background(MaterialTheme.colorScheme.surface),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                        NavigationBar(
+                            containerColor = MaterialTheme.colorScheme.surface,
                             contentColor = MaterialTheme.colorScheme.onSurface,
                             tonalElevation = 0.dp,
-                            shadowElevation = 3.dp,
-                            border = BorderStroke(
-                                1.dp,
-                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f),
-                            ),
+                            windowInsets = WindowInsets(0, 0, 0, 0),
+                            modifier = Modifier
+                                .height(64.dp)
+                                .padding(horizontal = 4.dp),
                         ) {
-                            NavigationBar(
-                                containerColor = Color.Transparent,
-                                contentColor = MaterialTheme.colorScheme.onSurface,
-                                tonalElevation = 0.dp,
-                                windowInsets = WindowInsets(0, 0, 0, 0),
-                                modifier = Modifier
-                                    .height(64.dp)
-                                    .padding(horizontal = 2.dp),
-                            ) {
-                                Screen.bottomNavItems.forEach { screen ->
+                            Screen.bottomNavItems.forEach { screen ->
                                     val selected = isBottomNavDestination(
                                         screen = screen,
                                         destination = currentDestination,
@@ -272,14 +267,24 @@ fun FreeVibeRoot(
                                             indicatorColor = Color.Transparent,
                                         ),
                                     )
-                                }
                             }
                         }
                     }
                 }
             },
         ) { padding ->
-            Row(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = padding.calculateTopPadding()),
+            ) {
+                if (showBottomBar && onMeteredConnection && !dataWarningDismissed) {
+                    com.freevibe.ui.components.MobileDataWarningBanner(
+                        onDismiss = { dataWarningDismissed = true },
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    )
+                }
+            Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 if (useNavigationRail) {
                     PrimaryNavigationRail(
                         currentDestination = currentDestination,
@@ -300,7 +305,6 @@ fun FreeVibeRoot(
                 startDestination = startRoute,
                 modifier = (if (useNavigationRail) Modifier.weight(1f).fillMaxHeight() else Modifier.fillMaxSize())
                     .padding(
-                        top = padding.calculateTopPadding(),
                         bottom = padding.calculateBottomPadding(),
                     ),
                 enterTransition = { fadeIn(tween(250, easing = androidx.compose.animation.core.FastOutSlowInEasing)) + slideInHorizontally(tween(300, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it / 5 } },
@@ -385,11 +389,6 @@ fun FreeVibeRoot(
             ) { backStackEntry ->
                 VideoWallpapersScreen(
                     initialQuery = backStackEntry.arguments?.getString("query")?.ifBlank { null },
-                    onPreview = { streamUrl, title ->
-                        navController.navigate(
-                            Screen.VideoWallpaperPreview.createRoute(streamUrl, title)
-                        ) { launchSingleTop = true }
-                    },
                 )
             }
             composable(
@@ -1060,6 +1059,7 @@ fun FreeVibeRoot(
                         navController.navigate(Screen.WallpaperDetail.createRoute(wallpaper)) { launchSingleTop = true }
                     },
                 )
+            }
             }
             }
             }

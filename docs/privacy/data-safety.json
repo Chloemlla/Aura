@@ -219,12 +219,12 @@
       "deletionPath": "Clear caches, remove downloads, disable the provider, or clear app data."
     },
     {
-      "endpointId": "reddit-json",
-      "dataTypes": ["Subreddit names", "Search queries", "Provider response metadata"],
+      "endpointId": "reddit-rss",
+      "dataTypes": ["Subreddit names", "Provider response metadata"],
       "collectionStatus": "featureDependentCollection",
       "sharingStatus": "sharedWithSelectedProviders",
-      "userControl": "Reddit source switch and subreddit settings.",
-      "retention": "Returned image URLs can be cached in feed and offline media paths.",
+      "userControl": "Reddit source switch and local cache cleanup; search filtering stays on-device.",
+      "retention": "Atom metadata is cached for two hours with stale fallback; media can be cached in feed and offline paths.",
       "deletionPath": "Clear caches, remove downloads, disable the provider, or clear app data."
     },
     {

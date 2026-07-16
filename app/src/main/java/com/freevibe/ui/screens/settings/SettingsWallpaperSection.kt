@@ -79,6 +79,7 @@ internal fun WallpaperRotationSettingsSection(
     userStyles: String,
     wallpaperStyleLearningSignalCount: Int,
     bingProviderEnabled: Boolean,
+    redditProviderEnabled: Boolean,
     wallhavenProviderEnabled: Boolean,
     pixabayProviderEnabled: Boolean,
     wallpaperHistoryCount: Int,
@@ -282,11 +283,16 @@ internal fun WallpaperRotationSettingsSection(
                 onClick = viewModel::resetWallpaperStyleLearning,
             )
         }
-        SettingsItem(
+        SettingsToggle(
             icon = Icons.Default.Forum,
             title = stringResource(R.string.settings_wp_reddit_title),
-            subtitle = stringResource(R.string.settings_wp_reddit_subtitle),
-            onClick = { onFeedback(context.getString(R.string.settings_feedback_reddit_discontinued)) },
+            subtitle = if (redditProviderEnabled) {
+                stringResource(R.string.settings_wp_reddit_on_subtitle)
+            } else {
+                stringResource(R.string.settings_wp_reddit_off_subtitle)
+            },
+            checked = redditProviderEnabled,
+            onCheckedChange = viewModel::setRedditProviderEnabled,
         )
         SettingsToggle(
             icon = Icons.Default.ImageSearch,

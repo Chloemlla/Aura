@@ -1,28 +1,71 @@
 package com.freevibe.data.repository
 
+import com.freevibe.BuildConfig
 import com.freevibe.data.local.PreferencesManager
+import com.freevibe.data.local.WallpaperCacheManager
+import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.SearchResult
 import com.freevibe.data.model.Wallpaper
-import com.freevibe.data.remote.reddit.RedditApi
-import com.freevibe.data.remote.toWallpaper
 import com.freevibe.service.SourceMetrics
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.IOException
+import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val SOURCE_REDDIT = "reddit"
+private const val REDDIT_RSS_COOLDOWN_MS = 60_000L
+private const val REDDIT_RSS_PAGE_SIZE = 100
+private const val REDDIT_END_CURSOR = "__END__"
+
+private data class RedditWallpaperPage(
+    val items: List<Wallpaper>,
+    val hasMore: Boolean,
+)
 
 @Singleton
 class RedditRepository @Inject constructor(
-    private val redditApi: RedditApi,
+    private val okHttpClient: OkHttpClient,
+    private val cacheManager: WallpaperCacheManager,
     private val sourceMetrics: SourceMetrics,
     private val prefs: PreferencesManager,
 ) {
-    // Per-subreddit pagination tokens (thread-safe)
-    private val afterTokens = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val requestMutex = Mutex()
+    private var lastNetworkAttemptAtMs = 0L
+    private val nextAfterByFeed = ConcurrentHashMap<String, String>()
+    private val deferredFeeds = ConcurrentHashMap.newKeySet<String>()
+    @Volatile private var forceRefreshRoot = false
+
+    private val redditWallpaperSubs = listOf(
+        "iWallpaper",
+        "Amoledbackgrounds",
+        "MobileWallpaper",
+        "AnimePhoneWallpapers",
+        "phonewallpapers",
+        "iphonewallpapers",
+        "mobilewallpapers",
+        "Verticalwallpapers",
+        "WQHD_Wallpaper",
+        "MinimalWallpaper",
+        "iphonexwallpapers",
+    )
+    private val legacyRedditWallpaperSubs = listOf(
+        "wallpapers",
+        "MobileWallpaper",
+        "wallpaper",
+        "WQHD_Wallpaper",
+        "MinimalWallpaper",
+        "phonewallpapers",
+        "iWallpaper",
+    )
 
     suspend fun getSubredditWallpapers(
         subreddit: String = "wallpapers",
@@ -30,31 +73,20 @@ class RedditRepository @Inject constructor(
         timeRange: String = "week",
         after: String? = null,
     ): SearchResult<Wallpaper> {
-        if (!isProviderEnabled()) {
-            sourceMetrics.recordDisabled(SOURCE_REDDIT)
-            return emptyWallpaperResult()
-        }
-        val response = sourceMetrics.measure(SOURCE_REDDIT) {
-            redditApi.getSubredditPosts(
-                subreddit = subreddit,
-                sort = sort,
-                timeRange = timeRange,
-                after = after ?: afterTokens[subreddit],
-            )
-        }
-        val nextAfter = response.data.after
-        if (nextAfter != null) afterTokens[subreddit] = nextAfter else afterTokens.remove(subreddit)
-
-        val wallpapers = response.data.children
-            .map { it.data }
-            .filter { it.isImage && !it.over18 }
-            .map { it.toWallpaper() }
-
+        if (!isProviderEnabled()) return providerDisabledResult()
+        val safeSubreddit = sanitizeSubreddit(subreddit)
+        if (safeSubreddit.isBlank()) return emptyWallpaperResult()
+        val items = loadRssWallpapers(
+            subreddits = listOf(safeSubreddit),
+            sort = sort,
+            timeRange = timeRange,
+            afterOverride = after,
+        )
         return SearchResult(
-            items = wallpapers,
-            totalCount = -1,   // Reddit doesn't provide total count
-            currentPage = 0,
-            hasMore = response.data.after != null,
+            items = items.items,
+            totalCount = -1,
+            currentPage = 1,
+            hasMore = items.hasMore,
         )
     }
 
@@ -63,102 +95,343 @@ class RedditRepository @Inject constructor(
         query: String,
         after: String? = null,
     ): SearchResult<Wallpaper> {
-        if (!isProviderEnabled()) {
-            sourceMetrics.recordDisabled(SOURCE_REDDIT)
-            return emptyWallpaperResult()
-        }
-        val response = sourceMetrics.measure(SOURCE_REDDIT) {
-            redditApi.searchSubreddit(
-                subreddit = subreddit,
-                query = query,
-                after = after,
-            )
-        }
-
-        val wallpapers = response.data.children
-            .map { it.data }
-            .filter { it.isImage && !it.over18 }
-            .map { it.toWallpaper() }
-
-        return SearchResult(
-            items = wallpapers,
-            totalCount = -1,
-            currentPage = 0,
-            hasMore = response.data.after != null,
+        val result = getSubredditWallpapers(
+            subreddit = subreddit,
+            sort = "top",
+            timeRange = "year",
+            after = after,
         )
+        if (query.isBlank()) return result
+        val terms = query.lowercase(Locale.ROOT)
+            .split(Regex("\\s+"))
+            .filter { it.isNotBlank() }
+        val filtered = result.items.filter { wallpaper ->
+            val searchable = buildString {
+                append(wallpaper.category)
+                append(' ')
+                append(wallpaper.tags.joinToString(" "))
+                append(' ')
+                append(wallpaper.uploaderName)
+            }.lowercase(Locale.ROOT)
+            terms.all(searchable::contains)
+        }
+        return result.copy(items = filtered, totalCount = -1)
     }
 
-    private val redditWallpaperSubs = listOf(
-        "wallpapers", "MobileWallpaper", "wallpaper", "WQHD_Wallpaper",
-        "MinimalWallpaper", "phonewallpapers", "iWallpaper",
-    )
-
-    /** Get combined wallpapers from multiple subreddits with pagination */
+    /**
+     * Reddit-first mobile inventory backed by the public Atom listing. Reddit omits a
+     * rel=next link, so [loadRssWallpapers] carries the last raw `t3_...` entry into
+     * the next request's `after` query parameter.
+     */
     suspend fun getMultiSubreddit(
-        subreddits: List<String> = redditWallpaperSubs,
-    ): SearchResult<Wallpaper> = coroutineScope {
-        if (!isProviderEnabled()) {
-            sourceMetrics.recordDisabled(SOURCE_REDDIT)
-            return@coroutineScope emptyWallpaperResult()
-        }
-        val results = subreddits.map { sub ->
-            async {
-                try {
-                    getSubredditWallpapers(sub, sort = "top", timeRange = "week")
-                } catch (e: Exception) {
-                    if (e is kotlinx.coroutines.CancellationException) throw e
-                    null
-                }
+        subreddits: List<String>? = null,
+        page: Int = 1,
+    ): SearchResult<Wallpaper> {
+        if (!isProviderEnabled()) return providerDisabledResult()
+        val configuredSubreddits = subreddits ?: prefs.redditSubreddits.first()
+            .split(',')
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .let { configured ->
+                val normalized = configured.map { it.lowercase(Locale.ROOT) }
+                val legacy = legacyRedditWallpaperSubs.map { it.lowercase(Locale.ROOT) }
+                if (configured.isEmpty() || normalized == legacy) redditWallpaperSubs else configured
             }
-        }.awaitAll().filterNotNull()
-
-        SearchResult(
-            items = results.flatMap { it.items }.distinctBy { it.id },
+        val safeSubreddits = configuredSubreddits.map(::sanitizeSubreddit)
+            .filter { it.isNotBlank() }
+            .distinct()
+            .take(12)
+        if (safeSubreddits.isEmpty()) return emptyWallpaperResult()
+        val safePage = page.coerceAtLeast(1)
+        val rssPage = loadRssWallpapers(
+            subreddits = safeSubreddits,
+            sort = "new",
+            timeRange = "all",
+            page = safePage,
+        )
+        return SearchResult(
+            items = rssPage.items,
             totalCount = -1,
-            currentPage = 0,
-            hasMore = results.any { it.hasMore },
+            currentPage = safePage,
+            hasMore = rssPage.hasMore,
         )
     }
 
-    /** Get today's single most-upvoted wallpaper across key subreddits */
     suspend fun getDailyTopWallpaper(): Wallpaper? {
         if (!isProviderEnabled()) {
             sourceMetrics.recordDisabled(SOURCE_REDDIT)
             return null
         }
-        val subs = listOf("wallpapers", "MobileWallpaper")
-        return subs.flatMap { sub ->
-            try {
-                sourceMetrics.measure(SOURCE_REDDIT) {
-                    redditApi.getSubredditPosts(
-                        subreddit = sub, sort = "top", timeRange = "day", limit = 5,
-                    )
-                }.data.children.map { it.data }
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                emptyList()
+        // Reuse the same first page as the home feed. This prevents a decorative
+        // daily-pick request from consuming Reddit's conservative request budget just
+        // before the content grid asks for its first page.
+        return getMultiSubreddit(page = 1).items.firstOrNull()
+    }
+
+    fun resetPagination(forceRefresh: Boolean = false) {
+        nextAfterByFeed.clear()
+        deferredFeeds.clear()
+        if (forceRefresh) forceRefreshRoot = true
+    }
+
+    fun hasDeferredRequest(): Boolean = deferredFeeds.isNotEmpty()
+
+    suspend fun retryDelayMs(): Long {
+        val persisted = prefs.getRedditRssNextAllowedAtMs()
+        val inProcess = lastNetworkAttemptAtMs + REDDIT_RSS_COOLDOWN_MS
+        return (maxOf(persisted, inProcess) - System.currentTimeMillis()).coerceAtLeast(0L)
+    }
+
+    private suspend fun loadRssWallpapers(
+        subreddits: List<String>,
+        sort: String,
+        timeRange: String,
+        page: Int = 1,
+        afterOverride: String? = null,
+    ): RedditWallpaperPage {
+        val normalizedSort = sort.lowercase(Locale.ROOT).takeIf { it in RSS_SORTS } ?: "top"
+        val normalizedTimeRange = timeRange.lowercase(Locale.ROOT).takeIf { it in RSS_TIME_RANGES } ?: "month"
+        val joinedSubreddits = subreddits.joinToString("+")
+        val safePage = page.coerceAtLeast(1)
+        val feedKey = "${joinedSubreddits.lowercase(Locale.ROOT)}|$normalizedSort|$normalizedTimeRange"
+        val normalizedOverride = afterOverride?.normalizeRedditAfter()
+        val requestAfter = when {
+            normalizedOverride != null -> normalizedOverride
+            safePage <= 1 -> null
+            else -> {
+                val next = nextAfterByFeed[feedKey]
+                    ?: prefs.getRedditRssNextCursor(feedKey.hashCode(), requestAfter = null)
+                        .takeIf { it.isNotBlank() }
+                when (next) {
+                    REDDIT_END_CURSOR -> {
+                        deferredFeeds.remove(feedKey)
+                        return RedditWallpaperPage(items = emptyList(), hasMore = false)
+                    }
+                    null -> return RedditWallpaperPage(items = emptyList(), hasMore = true)
+                    else -> next.normalizeRedditAfter()
+                        ?: return RedditWallpaperPage(items = emptyList(), hasMore = false)
+                }
             }
         }
-            .filter { it.isImage && !it.over18 }
-            .maxByOrNull { it.ups }
-            ?.let { post ->
-                val wp = post.toWallpaper()
-                // Enrich with upvote count in the category field for display
-                wp.copy(category = "${post.ups} upvotes on r/${post.subreddit}", favorites = post.ups)
+        val cacheKey = redditPageCacheKey(feedKey, requestAfter)
+        val staleBeforeFreshnessCheck = cacheManager.getStaleCached(cacheKey).orEmpty()
+        val cachedMetadata = prefs.getRedditRssNextCursor(feedKey.hashCode(), requestAfter)
+        val bypassFreshCache = normalizedOverride == null && safePage == 1 && forceRefreshRoot
+        if (!bypassFreshCache && cachedMetadata.isNotBlank()) {
+            cacheManager.getCached(cacheKey, ContentSource.REDDIT)?.let { cached ->
+                deferredFeeds.remove(feedKey)
+                rememberPageMetadata(feedKey, requestAfter, cachedMetadata)
+                return RedditWallpaperPage(items = cached, hasMore = cachedMetadata != REDDIT_END_CURSOR)
             }
+        }
+
+        return requestMutex.withLock {
+            val metadata = prefs.getRedditRssNextCursor(feedKey.hashCode(), requestAfter)
+            if (!bypassFreshCache && metadata.isNotBlank()) {
+                cacheManager.getCached(cacheKey, ContentSource.REDDIT)?.let { cached ->
+                    deferredFeeds.remove(feedKey)
+                    rememberPageMetadata(feedKey, requestAfter, metadata)
+                    return@withLock RedditWallpaperPage(items = cached, hasMore = metadata != REDDIT_END_CURSOR)
+                }
+            }
+            val stale = staleBeforeFreshnessCheck.ifEmpty { cacheManager.getStaleCached(cacheKey).orEmpty() }
+            val now = System.currentTimeMillis()
+            val nextAllowedAt = maxOf(
+                lastNetworkAttemptAtMs + REDDIT_RSS_COOLDOWN_MS,
+                prefs.getRedditRssNextAllowedAtMs(),
+            )
+            if (now < nextAllowedAt) {
+                deferredFeeds.add(feedKey)
+                if (metadata.isNotBlank()) rememberPageMetadata(feedKey, requestAfter, metadata)
+                return@withLock RedditWallpaperPage(
+                    items = stale,
+                    hasMore = metadata.ifBlank { null } != REDDIT_END_CURSOR,
+                )
+            }
+            deferredFeeds.remove(feedKey)
+            lastNetworkAttemptAtMs = now
+            prefs.setRedditRssNextAllowedAtMs(now + REDDIT_RSS_COOLDOWN_MS)
+            if (requestAfter == null) forceRefreshRoot = false
+
+            try {
+                val rssPage = sourceMetrics.measure(SOURCE_REDDIT) {
+                    fetchRss(
+                        url = redditRssUrl(
+                            subreddits = joinedSubreddits,
+                            sort = normalizedSort,
+                            timeRange = normalizedTimeRange,
+                            after = requestAfter,
+                            count = (safePage - 1) * REDDIT_RSS_PAGE_SIZE,
+                        ),
+                        fallbackSubreddit = subreddits.first(),
+                    )
+                }
+                val nextCursor = rssPage.nextAfter
+                    ?.takeIf { rssPage.rawEntryCount >= REDDIT_RSS_PAGE_SIZE }
+                    ?: REDDIT_END_CURSOR
+                prefs.setRedditRssNextCursor(feedKey.hashCode(), requestAfter, nextCursor)
+                rememberPageMetadata(feedKey, requestAfter, nextCursor)
+                val wallpapers = rssPage.entries
+                    .asSequence()
+                    .filterNot { it.isAnimated }
+                    .map(::toWallpaper)
+                    .distinctBy { it.id }
+                    .toList()
+                if (wallpapers.isNotEmpty()) {
+                    cacheManager.cache(cacheKey, wallpapers)
+                }
+                RedditWallpaperPage(
+                    items = wallpapers.ifEmpty { stale },
+                    hasMore = nextCursor != REDDIT_END_CURSOR,
+                )
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                if (error is RedditRateLimitException) {
+                    deferredFeeds.add(feedKey)
+                    prefs.setRedditRssNextAllowedAtMs(
+                        maxOf(
+                            prefs.getRedditRssNextAllowedAtMs(),
+                            System.currentTimeMillis() + error.retryAfterMs,
+                        ),
+                    )
+                }
+                if (stale.isNotEmpty()) {
+                    if (metadata.isNotBlank()) rememberPageMetadata(feedKey, requestAfter, metadata)
+                    RedditWallpaperPage(
+                        items = stale,
+                        hasMore = metadata.ifBlank { null } != REDDIT_END_CURSOR,
+                    )
+                } else if (error is RedditRateLimitException) {
+                    RedditWallpaperPage(items = emptyList(), hasMore = true)
+                } else {
+                    throw error
+                }
+            }
+        }
     }
 
-    fun resetPagination() {
-        afterTokens.clear()
+    private suspend fun fetchRss(
+        url: String,
+        fallbackSubreddit: String,
+    ): RedditRssPage = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(url)
+            .header(
+                "User-Agent",
+                "Aura/${BuildConfig.VERSION_NAME} open-source wallpaper reader",
+            )
+            .header("Accept", "application/atom+xml, application/xml;q=0.9")
+            .build()
+        okHttpClient.newCall(request).execute().use { response ->
+            if (response.code == 429) {
+                throw RedditRateLimitException(redditRetryAfterMs(response.headers))
+            }
+            if (!response.isSuccessful) throw IOException("Reddit RSS HTTP ${response.code}")
+            val xml = response.body?.string().orEmpty()
+            if (xml.isBlank()) throw IOException("Reddit RSS returned an empty feed")
+            parseRedditRssPage(xml, fallbackSubreddit)
+        }
     }
 
-    private suspend fun isProviderEnabled(): Boolean =
-        prefs.redditProviderEnabled.first()
+    private fun rememberPageMetadata(feedKey: String, requestAfter: String?, nextCursor: String) {
+        if (nextCursor == REDDIT_END_CURSOR || nextCursor.normalizeRedditAfter() != null) {
+            nextAfterByFeed.compute(feedKey) { _, activeCursor ->
+                advanceRedditCursor(activeCursor, requestAfter, nextCursor)
+            }
+        }
+    }
+
+    private fun redditPageCacheKey(feedKey: String, requestAfter: String?): String =
+        "reddit_rss_v4_${feedKey.hashCode()}_${requestAfter?.hashCode() ?: "root"}"
+
+    private fun toWallpaper(entry: RedditRssMediaEntry): Wallpaper {
+        val extension = entry.mediaUrl.substringBefore('?').substringAfterLast('.', "jpg").lowercase(Locale.ROOT)
+        return Wallpaper(
+            id = "rd_${entry.id}",
+            source = ContentSource.REDDIT,
+            thumbnailUrl = entry.thumbnailUrl,
+            fullUrl = entry.mediaUrl,
+            width = entry.width,
+            height = entry.height,
+            category = entry.title,
+            tags = listOf("reddit", entry.subreddit).filter { it.isNotBlank() },
+            fileType = extension,
+            sourcePageUrl = entry.sourcePageUrl,
+            license = "Reddit",
+            uploaderName = entry.author,
+        )
+    }
+
+    private suspend fun isProviderEnabled(): Boolean = prefs.redditProviderEnabled.first()
+
+    private fun providerDisabledResult(): SearchResult<Wallpaper> {
+        sourceMetrics.recordDisabled(SOURCE_REDDIT)
+        return emptyWallpaperResult()
+    }
 
     private fun emptyWallpaperResult() = SearchResult<Wallpaper>(
         items = emptyList(),
         totalCount = 0,
-        currentPage = 0,
+        currentPage = 1,
         hasMore = false,
     )
+
+    private fun sanitizeSubreddit(value: String): String = value
+        .removePrefix("r/")
+        .filter { it.isLetterOrDigit() || it == '_' }
+
+    private companion object {
+        val RSS_SORTS = setOf("hot", "new", "top", "controversial", "rising")
+        val RSS_TIME_RANGES = setOf("hour", "day", "week", "month", "year", "all")
+    }
+}
+
+internal fun redditRssUrl(
+    subreddits: String,
+    sort: String,
+    timeRange: String,
+    after: String? = null,
+    count: Int = 0,
+    limit: Int = REDDIT_RSS_PAGE_SIZE,
+): String {
+    val query = buildList {
+        add("limit=${limit.coerceIn(1, REDDIT_RSS_PAGE_SIZE)}")
+        if (sort == "top" || sort == "controversial") add("t=$timeRange")
+        after?.normalizeRedditAfter()?.let { cursor ->
+            add("count=${count.coerceAtLeast(0)}")
+            add("after=$cursor")
+        }
+    }.joinToString("&")
+    return "https://www.reddit.com/r/$subreddits/$sort/.rss?$query"
+}
+
+private fun String.normalizeRedditAfter(): String? = trim()
+    .takeIf { it.matches(Regex("t3_[a-zA-Z0-9]+")) }
+
+private class RedditRateLimitException(
+    val retryAfterMs: Long,
+) : IOException("Reddit RSS rate limit")
+
+internal fun redditRetryAfterMs(headers: okhttp3.Headers): Long {
+    val retryAfterMs = headers["Retry-After"]
+        ?.trim()
+        ?.toDoubleOrNull()
+        ?.times(1_000.0)
+        ?.toLong()
+    val resetMs = headers["X-Ratelimit-Reset"]
+        ?.trim()
+        ?.toDoubleOrNull()
+        ?.times(1_000.0)
+        ?.toLong()
+    return maxOf(retryAfterMs ?: 0L, resetMs ?: 0L, REDDIT_RSS_COOLDOWN_MS)
+}
+
+internal fun advanceRedditCursor(
+    activeCursor: String?,
+    requestAfter: String?,
+    responseNextCursor: String,
+): String = if (activeCursor == null || activeCursor == requestAfter) {
+    responseNextCursor
+} else {
+    activeCursor
 }

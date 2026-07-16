@@ -290,7 +290,7 @@ fun ShimmerSoundList(modifier: Modifier = Modifier) {
     }
 }
 
-// ── Glassmorphic Card ─────────────────────────────────────────────
+// ── Quiet grouped surface ─────────────────────────────────────────
 
 @Composable
 fun GlassCard(
@@ -303,45 +303,15 @@ fun GlassCard(
 ) {
     Surface(
         modifier = modifier,
-        color = Color.Transparent,
+        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f),
         shape = shape,
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.34f),
-        ),
         tonalElevation = 0.dp,
-        shadowElevation = shadowElevation,
+        shadowElevation = 0.dp,
     ) {
-        Box(
-            modifier = Modifier
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0.99f),
-                            MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.94f),
-                            MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.82f),
-                        ),
-                    ),
-                ),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(highlightHeight)
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.055f),
-                                Color.Transparent,
-                            ),
-                        ),
-                    ),
-            )
-            Column(
-                modifier = Modifier.padding(contentPadding),
-                content = content,
-            )
-        }
+        Column(
+            modifier = Modifier.padding(contentPadding),
+            content = content,
+        )
     }
 }
 
@@ -352,35 +322,28 @@ fun HighlightPill(
     icon: ImageVector? = null,
     tint: Color = MaterialTheme.colorScheme.primary,
 ) {
-    Surface(
-        modifier = modifier.clearAndSetSemantics {
+    Row(
+        modifier = modifier
+            .clearAndSetSemantics {
             contentDescription = label
-        },
-        shape = AuraControlShape,
-        color = tint.copy(alpha = 0.12f),
-        border = BorderStroke(1.dp, tint.copy(alpha = 0.2f)),
-    ) {
-        Row(
-            modifier = Modifier
-                .heightIn(min = 32.dp)
-                .padding(horizontal = 10.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (icon != null) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = tint,
-                    modifier = Modifier.size(14.dp),
-                )
             }
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = tint,
+            .heightIn(min = 28.dp),
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(15.dp),
             )
         }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = tint,
+        )
     }
 }
 
@@ -407,14 +370,11 @@ fun CompactSearchField(
             .semantics { contentDescription = placeholder },
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = if (isFocused) 0.92f else 0.72f),
         shape = shape,
-        border = BorderStroke(
-            1.dp,
-            if (isFocused) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.72f)
-            } else {
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.34f)
-            },
-        ),
+        border = if (isFocused) {
+            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.72f))
+        } else {
+            null
+        },
         tonalElevation = 0.dp,
     ) {
         Row(
@@ -489,31 +449,32 @@ fun AuraScreenHeader(
     contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    GlassCard(
-        modifier = modifier.fillMaxWidth(),
-        contentPadding = contentPadding,
-        highlightHeight = 64.dp,
-        shadowElevation = 2.dp,
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(contentPadding),
     ) {
         HighlightPill(
             label = label,
             icon = icon,
             tint = tint,
         )
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(6.dp))
         Text(
             text = title,
             modifier = Modifier.semantics { heading() },
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(2.dp))
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
         content()
     }
 }
@@ -544,21 +505,14 @@ fun SourceBadge(source: String, modifier: Modifier = Modifier) {
         else -> MaterialTheme.colorScheme.onSurfaceVariant to source
     }
 
-    Surface(
-        color = color.copy(alpha = 0.16f),
-        shape = AuraControlShape,
+    Text(
+        text = label,
         modifier = modifier.clearAndSetSemantics {
             contentDescription = label
         },
-        border = BorderStroke(1.dp, color.copy(alpha = 0.12f)),
-    ) {
-        Text(
-            label,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-            style = MaterialTheme.typography.labelMedium,
-            color = color,
-        )
-    }
+        style = MaterialTheme.typography.labelMedium,
+        color = color,
+    )
 }
 
 data class AuraStateAction(
@@ -592,31 +546,21 @@ fun AuraStatusBanner(
                 contentDescription = bannerContentDescription
                 liveRegion = LiveRegionMode.Polite
             },
-        shape = AuraCardShape,
-        color = tone.copy(alpha = 0.095f),
+        color = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        border = BorderStroke(1.dp, tone.copy(alpha = 0.22f)),
         tonalElevation = 0.dp,
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.Top,
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Surface(
-                shape = AuraIconTileShape,
-                color = tone.copy(alpha = 0.12f),
-                border = BorderStroke(1.dp, tone.copy(alpha = 0.18f)),
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = tone,
-                    modifier = Modifier
-                        .padding(9.dp)
-                        .size(20.dp),
-                )
-            }
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = tone,
+                modifier = Modifier.size(18.dp),
+            )
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -683,71 +627,67 @@ fun AuraStateCard(
     primaryAction: AuraStateAction? = null,
     secondaryAction: AuraStateAction? = null,
 ) {
-    GlassCard(
+    Surface(
         modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(18.dp),
-        highlightHeight = 76.dp,
-        shadowElevation = 2.dp,
+        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.58f),
+        shape = AuraCardShape,
+        tonalElevation = 0.dp,
     ) {
-        Surface(
-            shape = AuraIconTileShape,
-            color = tone.copy(alpha = 0.11f),
-            border = BorderStroke(1.dp, tone.copy(alpha = 0.2f)),
+        Column(
+            modifier = Modifier.padding(16.dp),
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = tone,
-                modifier = Modifier
-                    .padding(11.dp)
-                    .size(24.dp),
+                modifier = Modifier.size(22.dp),
             )
-        }
-        Spacer(Modifier.height(14.dp))
-        Text(
-            title,
-            modifier = Modifier.semantics { heading() },
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = description,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Start,
-        )
-        if (primaryAction != null || secondaryAction != null) {
-            Spacer(Modifier.height(16.dp))
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                primaryAction?.let { action ->
-                    Button(
-                        onClick = action.onClick,
-                        shape = AuraControlShape,
-                        modifier = Modifier
-                            .heightIn(min = AuraMinimumTouchTarget)
-                            .semantics { onClick(label = action.label, action = null) },
-                    ) {
-                        Icon(action.icon, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(action.label)
+            Spacer(Modifier.height(10.dp))
+            Text(
+                title,
+                modifier = Modifier.semantics { heading() },
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Start,
+            )
+            if (primaryAction != null || secondaryAction != null) {
+                Spacer(Modifier.height(12.dp))
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    primaryAction?.let { action ->
+                        Button(
+                            onClick = action.onClick,
+                            shape = AuraControlShape,
+                            modifier = Modifier
+                                .heightIn(min = AuraMinimumTouchTarget)
+                                .semantics { onClick(label = action.label, action = null) },
+                        ) {
+                            Icon(action.icon, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(action.label)
+                        }
                     }
-                }
-                secondaryAction?.let { action ->
-                    OutlinedButton(
-                        onClick = action.onClick,
-                        shape = AuraControlShape,
-                        modifier = Modifier
-                            .heightIn(min = AuraMinimumTouchTarget)
-                            .semantics { onClick(label = action.label, action = null) },
-                    ) {
-                        Icon(action.icon, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(action.label)
+                    secondaryAction?.let { action ->
+                        TextButton(
+                            onClick = action.onClick,
+                            shape = AuraControlShape,
+                            modifier = Modifier
+                                .heightIn(min = AuraMinimumTouchTarget)
+                                .semantics { onClick(label = action.label, action = null) },
+                        ) {
+                            Icon(action.icon, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(action.label)
+                        }
                     }
                 }
             }

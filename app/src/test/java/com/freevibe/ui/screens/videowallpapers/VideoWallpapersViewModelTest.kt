@@ -14,6 +14,7 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -25,15 +26,25 @@ import retrofit2.Response
 class VideoWallpapersViewModelTest {
 
     @Test
-    fun `resolveVideoLoadProgress stops pagination after three empty batches`() {
+    fun `resolveVideoLoadProgress keeps discovery open through a few empty batches then stops`() {
         val first = resolveVideoLoadProgress(previousEmptyLoadCount = 0, newItemCount = 0)
         val second = resolveVideoLoadProgress(previousEmptyLoadCount = first.emptyLoadCount, newItemCount = 0)
         val third = resolveVideoLoadProgress(previousEmptyLoadCount = second.emptyLoadCount, newItemCount = 0)
 
+        // Rotating queries mean a single empty batch is not the end, so early empties stay loadable.
         assertTrue(first.hasMore)
         assertTrue(second.hasMore)
-        assertFalse(third.hasMore)
+        assertTrue(third.hasMore)
         assertEquals(3, third.emptyLoadCount)
+
+        // ...but once the empty streak reaches the backstop, pagination must terminate so the
+        // auto-fill effect cannot spin loadMore forever on an exhausted/offline catalog.
+        val atLimit = resolveVideoLoadProgress(
+            previousEmptyLoadCount = MAX_CONSECUTIVE_EMPTY_VIDEO_LOADS - 1,
+            newItemCount = 0,
+        )
+        assertEquals(MAX_CONSECUTIVE_EMPTY_VIDEO_LOADS, atLimit.emptyLoadCount)
+        assertFalse(atLimit.hasMore)
     }
 
     @Test
@@ -106,10 +117,126 @@ class VideoWallpapersViewModelTest {
             PixabayVideoFetchSpec(query = "abstract loop", videoType = "animation", page = 2),
             resolvePixabayVideoFetchSpec(searchQuery = null, page = 2),
         )
+        assertEquals(30, resolvePixabayVideoFetchSpec(searchQuery = null, page = 2).perPage)
         assertEquals(
             PixabayVideoFetchSpec(query = "aurora", videoType = "all", page = 3),
             resolvePixabayVideoFetchSpec(searchQuery = "aurora", page = 3),
         )
+    }
+
+    @Test
+    fun `video feed cache keys separate orientation focus and search`() {
+        val portrait = videoFeedCacheKey("", OrientationFilter.PORTRAIT, VideoFocusFilter.BEST)
+        val landscape = videoFeedCacheKey("", OrientationFilter.LANDSCAPE, VideoFocusFilter.BEST)
+        val battery = videoFeedCacheKey("", OrientationFilter.PORTRAIT, VideoFocusFilter.LOW_BATTERY)
+        val search = videoFeedCacheKey("ocean", OrientationFilter.PORTRAIT, VideoFocusFilter.BEST)
+
+        assertNotEquals(portrait, landscape)
+        assertNotEquals(portrait, battery)
+        assertNotEquals(portrait, search)
+        assertTrue(portrait.startsWith("video_feed_v2_"))
+    }
+
+    @Test
+    fun `reddit motion feed groups preserve validated source priority`() {
+        val groups = resolveRedditMotionFeedGroups(
+            "livewallpapers,LiveWallpaper,Cinemagraphs,perfectloops,livewallpapers,not-valid!",
+        )
+
+        assertEquals(
+            listOf(
+                listOf("livewallpapers", "Cinemagraphs"),
+                listOf("perfectloops", "phonewallpapers"),
+                listOf("AnimatedPixelArt", "LivingBackgrounds"),
+                listOf("wallpaperengine"),
+            ),
+            groups.map { it.subreddits },
+        )
+    }
+
+    @Test
+    fun `reddit motion feed url requests one hundred and continues after t3 cursor`() {
+        val group = resolveRedditMotionFeedGroups("Cinemagraphs,perfectloops").single()
+        val after = redditAfterToken("rd_abc123")
+        val url = Request.Builder()
+            .url(redditRssMotionUrl(group, after))
+            .build()
+            .url
+
+        assertEquals("100", url.queryParameter("limit"))
+        assertEquals("100", url.queryParameter("count"))
+        assertEquals("t3_abc123", url.queryParameter("after"))
+        assertTrue(url.encodedPath.contains("Cinemagraphs+perfectloops"))
+        assertTrue(url.encodedPath.endsWith("/new/.rss"))
+
+        val deeperPage = Request.Builder()
+            .url(redditRssMotionUrl(group, after, count = 300))
+            .build()
+            .url
+        assertEquals("300", deeperPage.queryParameter("count"))
+    }
+
+    @Test
+    fun `bare reddit video urls resolve to public hls playlists`() {
+        assertEquals(
+            "https://v.redd.it/abc123/HLSPlaylist.m3u8",
+            redditPlayableMotionUrl("https://v.redd.it/abc123"),
+        )
+        assertEquals(
+            "https://i.redd.it/loop.gif",
+            redditPlayableMotionUrl("https://i.redd.it/loop.gif"),
+        )
+        assertTrue(isHlsMotionUrl("https://v.redd.it/abc123/HLSPlaylist.m3u8?source=fallback"))
+        assertFalse(isHlsMotionUrl("https://i.redd.it/loop.gif"))
+    }
+
+    @Test
+    fun `reddit motion cache keys separate feed groups and cursors`() {
+        val groups = resolveRedditMotionFeedGroups(
+            "livewallpapers,LiveWallpaper,Cinemagraphs,perfectloops",
+        )
+
+        val firstPage = redditRssMotionCacheKey(groups[0], after = null)
+        val continued = redditRssMotionCacheKey(groups[0], after = "t3_abc123")
+        val otherGroup = redditRssMotionCacheKey(groups[1], after = null)
+
+        assertNotEquals(firstPage, continued)
+        assertNotEquals(firstPage, otherGroup)
+        assertEquals("t3_abc123", redditAfterToken("t3_abc123"))
+        assertNull(redditAfterToken("not/a/post"))
+    }
+
+    @Test
+    fun `reddit motion selection skips exhausted groups without restarting them`() {
+        val groups = resolveRedditMotionFeedGroups(
+            "livewallpapers,Cinemagraphs,perfectloops,phonewallpapers",
+        )
+        val selection = selectRedditMotionFeed(
+            groups = groups,
+            startIndex = 0,
+            afters = mapOf(
+                groups[0].key to null,
+                groups[1].key to "t3_next",
+            ),
+        )
+
+        assertEquals(groups[1], selection?.group)
+        assertEquals("t3_next", selection?.after)
+        assertEquals(2, selection?.nextSubIndex)
+        assertNull(
+            selectRedditMotionFeed(
+                groups = groups,
+                startIndex = 0,
+                afters = groups.associate { it.key to null },
+            ),
+        )
+    }
+
+    @Test
+    fun `reddit motion page ends on short raw listing or missing cursor`() {
+        assertFalse(isRedditMotionPageExhausted(rawEntryCount = 100, nextAfter = "t3_next"))
+        assertTrue(isRedditMotionPageExhausted(rawEntryCount = 99, nextAfter = "t3_last"))
+        assertTrue(isRedditMotionPageExhausted(rawEntryCount = 100, nextAfter = null))
     }
 
     @Test
@@ -227,6 +354,37 @@ class VideoWallpapersViewModelTest {
                 ?.single()
                 ?.id,
         )
+    }
+
+    @Test
+    fun `reddit motion metadata uses shorter two hour freshness`() {
+        val encoded = encodePixabayVideoCache(
+            CachedPixabayVideoMetadata(
+                result = PixabayVideoMetadataResult(
+                    items = listOf(
+                        VideoWallpaperItem(
+                            id = "rd_abc123",
+                            title = "Cinemagraph",
+                            thumbnailUrl = "https://example.com/reddit.jpg",
+                            source = "Reddit",
+                        ),
+                    ),
+                    streamUrls = mapOf("rd_abc123" to "https://i.redd.it/loop.gif"),
+                ),
+                cachedAtMs = 1_000L,
+            ),
+        )
+        val afterRedditTtl = 1_000L + REDDIT_RSS_MOTION_CACHE_TTL_MS + 1L
+
+        assertNull(
+            decodePixabayVideoCache(
+                raw = encoded,
+                nowMs = afterRedditTtl,
+                requireFresh = true,
+                freshnessTtlMs = REDDIT_RSS_MOTION_CACHE_TTL_MS,
+            ),
+        )
+        assertNotNull(decodePixabayVideoCache(encoded, nowMs = afterRedditTtl, requireFresh = true))
     }
 
     @Test

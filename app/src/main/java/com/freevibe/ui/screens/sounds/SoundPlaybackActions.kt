@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
-private const val FIRST_VISIBLE_PREVIEW_COUNT = 5
+private const val FIRST_VISIBLE_PREVIEW_COUNT = 8
 
 internal class SoundPlaybackActions(
     private val audioPlaybackManager: AudioPlaybackManager,
@@ -34,6 +34,7 @@ internal class SoundPlaybackActions(
     private val resolveYouTubePreview: suspend (Sound) -> String?,
     private val shouldRefreshYouTubePreview: (Sound) -> Boolean,
     private val youtubeDisabledMessage: () -> String,
+    private val persistFeed: (SoundsUiState) -> Unit = {},
 ) {
     private var progressJob: Job? = null
     private val previewPrebufferInFlight = ConcurrentHashMap.newKeySet<String>()
@@ -156,6 +157,7 @@ internal class SoundPlaybackActions(
         }
 
         val refreshedSound = selectedContent.selectedSound.value?.takeIf { it.stableKey() == targetKey } ?: updatedSound
+        persistFeed(state.value)
         if (isInPreviewPrebufferWindow(targetKey)) {
             schedulePreviewPrebuffer(listOf(refreshedSound))
         }

@@ -13,12 +13,14 @@ import com.freevibe.data.remote.pixabay.PixabayVideo
 import com.freevibe.data.repository.YouTubeRepository
 import com.freevibe.data.repository.YouTubeVideoMetadata
 import com.freevibe.data.repository.VoteRepository
+import com.freevibe.data.repository.parseRedditRssPage
 import com.freevibe.data.repository.pixabayRateLimitBackoffMillis
 import com.freevibe.service.MAX_VIDEO_WALLPAPER_BYTES
 import com.freevibe.service.SourceMetrics
 import com.freevibe.service.VIDEO_WALLPAPER_SCALE_MODE_ZOOM
 import com.freevibe.service.VideoWallpaperSelectionResult
 import com.freevibe.service.VideoWallpaperStorage
+import com.freevibe.service.VideoPreviewCache
 import com.freevibe.service.YtDlpUpdateManager
 import com.freevibe.service.advertisedLengthExceeds
 import com.freevibe.service.copyStreamCapped
@@ -39,6 +41,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.schabi.newpipe.extractor.NewPipe
@@ -51,9 +54,12 @@ import java.util.Properties
 import javax.inject.Inject
 
 internal const val PIXABAY_VIDEO_CACHE_TTL_MS = 24 * 60 * 60 * 1000L
+internal const val REDDIT_RSS_MOTION_CACHE_TTL_MS = 2 * 60 * 60 * 1000L
 private const val PIXABAY_VIDEO_CACHE_PREFS = "freevibe_pixabay_video_cache"
 private const val PIXABAY_VIDEO_RATE_LIMITED_UNTIL_KEY = "pixabay_video_rate_limited_until_ms"
-private const val YOUTUBE_VIDEO_METADATA_PROBE_LIMIT = 12
+private const val YOUTUBE_VIDEO_METADATA_PROBE_LIMIT = 30
+private const val MAX_CACHED_VIDEO_FEED_ITEMS = 120
+internal const val MAX_CONSECUTIVE_EMPTY_VIDEO_LOADS = 4
 
 internal data class VideoLoadProgress(
     val hasMore: Boolean,
@@ -64,7 +70,7 @@ internal data class PixabayVideoFetchSpec(
     val query: String,
     val videoType: String,
     val page: Int,
-    val perPage: Int = 15,
+    val perPage: Int = 30,
 )
 
 internal data class PixabayVideoMetadataResult(
@@ -76,6 +82,130 @@ internal data class CachedPixabayVideoMetadata(
     val result: PixabayVideoMetadataResult,
     val cachedAtMs: Long,
 )
+
+internal data class RedditMotionFeedGroup(
+    val key: String,
+    val subreddits: List<String>,
+)
+
+private val LEGACY_REDDIT_MOTION_SUBREDDITS = listOf(
+    "livewallpapers", "LiveWallpaper", "Cinemagraphs", "perfectloops",
+)
+private val VALIDATED_REDDIT_MOTION_SUBREDDITS = listOf(
+    "livewallpapers",
+    "Cinemagraphs",
+    "perfectloops",
+    "phonewallpapers",
+    "AnimatedPixelArt",
+    "LivingBackgrounds",
+    "wallpaperengine",
+)
+
+private data class RedditRssMotionPage(
+    val result: PixabayVideoMetadataResult,
+    val groupKey: String,
+    val nextAfter: String?,
+    val exhausted: Boolean,
+)
+
+internal data class RedditMotionFeedSelection(
+    val group: RedditMotionFeedGroup,
+    val after: String?,
+    val count: Int,
+    val nextSubIndex: Int,
+)
+
+internal fun resolveRedditMotionFeedGroups(configuredSubreddits: String): List<RedditMotionFeedGroup> {
+    val configured = configuredSubreddits
+        .split(',')
+        .map { it.trim().removePrefix("r/") }
+        .filter { it.matches(Regex("[A-Za-z0-9_]{2,40}")) }
+        .distinctBy { it.lowercase(java.util.Locale.ROOT) }
+    val normalizedConfigured = configured.map { it.lowercase(java.util.Locale.ROOT) }
+    val normalizedLegacy = LEGACY_REDDIT_MOTION_SUBREDDITS.map { it.lowercase(java.util.Locale.ROOT) }
+    val subreddits = when {
+        configured.isEmpty() || normalizedConfigured == normalizedLegacy -> VALIDATED_REDDIT_MOTION_SUBREDDITS
+        else -> configured.filterNot { it.equals("LiveWallpaper", ignoreCase = true) }
+            .ifEmpty { VALIDATED_REDDIT_MOTION_SUBREDDITS }
+    }
+    return subreddits.chunked(2).mapIndexed { index, group ->
+        val signature = group.joinToString("+").lowercase(java.util.Locale.ROOT)
+        RedditMotionFeedGroup(
+            key = "group_${index}_${signature.hashCode()}",
+            subreddits = group,
+        )
+    }
+}
+
+internal fun redditAfterToken(rawId: String?): String? {
+    val postId = rawId
+        ?.removePrefix("rd_")
+        ?.removePrefix("t3_")
+        ?.trim()
+        ?.takeIf { it.matches(Regex("[A-Za-z0-9]+")) }
+        ?: return null
+    return "t3_$postId"
+}
+
+internal fun selectRedditMotionFeed(
+    groups: List<RedditMotionFeedGroup>,
+    startIndex: Int,
+    afters: Map<String, String?>,
+): RedditMotionFeedSelection? {
+    if (groups.isEmpty()) return null
+    val normalizedStart = startIndex.coerceAtLeast(0)
+    for (offset in groups.indices) {
+        val absoluteIndex = normalizedStart + offset
+        val group = groups[absoluteIndex % groups.size]
+        if (afters.containsKey(group.key) && afters[group.key] == null) continue
+        return RedditMotionFeedSelection(
+            group = group,
+            after = afters[group.key],
+            count = (absoluteIndex / groups.size) * 100,
+            nextSubIndex = absoluteIndex + 1,
+        )
+    }
+    return null
+}
+
+internal fun isRedditMotionPageExhausted(rawEntryCount: Int, nextAfter: String?): Boolean =
+    rawEntryCount < 100 || nextAfter == null
+
+internal fun redditRssMotionCacheKey(
+    group: RedditMotionFeedGroup,
+    after: String?,
+): String {
+    val cursor = after ?: "start"
+    return "reddit_rss_motion_v2_${group.key}_$cursor"
+}
+
+internal fun redditRssMotionUrl(
+    group: RedditMotionFeedGroup,
+    after: String?,
+    count: Int = if (after == null) 0 else 100,
+): String = "https://www.reddit.com/r/${group.subreddits.joinToString("+")}/new/.rss"
+    .toHttpUrl()
+    .newBuilder()
+    .addQueryParameter("limit", "100")
+    .apply {
+        after?.let {
+            addQueryParameter("count", count.coerceAtLeast(1).toString())
+            addQueryParameter("after", it)
+        }
+    }
+    .build()
+    .toString()
+
+internal fun redditPlayableMotionUrl(mediaUrl: String): String {
+    val bareVideo = Regex(
+        "^https://v\\.redd\\.it/([A-Za-z0-9]+)/?(?:\\?.*)?$",
+        RegexOption.IGNORE_CASE,
+    ).matchEntire(mediaUrl.trim()) ?: return mediaUrl
+    return "https://v.redd.it/${bareVideo.groupValues[1]}/HLSPlaylist.m3u8"
+}
+
+internal fun isHlsMotionUrl(url: String): Boolean =
+    url.substringBefore('?').endsWith(".m3u8", ignoreCase = true)
 
 internal data class YouTubeVideoSearchItem(
     val videoId: String,
@@ -94,7 +224,11 @@ internal fun resolveVideoLoadProgress(
 ): VideoLoadProgress {
     val emptyLoadCount = if (newItemCount == 0) previousEmptyLoadCount + 1 else 0
     return VideoLoadProgress(
-        hasMore = emptyLoadCount < 3,
+        // Discovery rotates through independent queries and paged providers, so a single
+        // empty batch is not the end of the catalog. But once several consecutive batches
+        // come back empty (all providers exhausted/disabled/offline) we stop, otherwise the
+        // screen's "auto-fill until MIN_INITIAL_VIDEO_RESULTS" effect spins loadMore forever.
+        hasMore = emptyLoadCount < MAX_CONSECUTIVE_EMPTY_VIDEO_LOADS,
         emptyLoadCount = emptyLoadCount,
     )
 }
@@ -130,6 +264,12 @@ internal fun resolvePixabayVideoFetchSpec(
 
 internal fun pixabayVideoCacheKey(spec: PixabayVideoFetchSpec): String =
     "pixabay_video_${spec.query.hashCode()}_${spec.videoType}_${spec.page}_${spec.perPage}"
+
+internal fun videoFeedCacheKey(
+    searchQuery: String,
+    orientation: OrientationFilter,
+    focusFilter: VideoFocusFilter,
+): String = "video_feed_v2_${searchQuery.trim().lowercase().hashCode()}_${orientation.name}_${focusFilter.name}"
 
 internal fun isPixabayVideoCacheFresh(cachedAtMs: Long, nowMs: Long): Boolean =
     cachedAtMs > 0 && nowMs - cachedAtMs <= PIXABAY_VIDEO_CACHE_TTL_MS
@@ -231,13 +371,14 @@ internal fun decodePixabayVideoCache(
     raw: String?,
     nowMs: Long,
     requireFresh: Boolean = true,
+    freshnessTtlMs: Long = PIXABAY_VIDEO_CACHE_TTL_MS,
 ): CachedPixabayVideoMetadata? {
     if (raw.isNullOrBlank()) return null
     return runCatching {
         val properties = Properties()
         properties.load(ByteArrayInputStream(raw.toByteArray(StandardCharsets.ISO_8859_1)))
         val cachedAtMs = properties.getProperty("cachedAtMs")?.toLongOrNull() ?: 0L
-        if (requireFresh && !isPixabayVideoCacheFresh(cachedAtMs, nowMs)) return null
+        if (requireFresh && (cachedAtMs <= 0 || nowMs - cachedAtMs > freshnessTtlMs)) return null
         val count = properties.getProperty("count")?.toIntOrNull()?.coerceAtLeast(0) ?: 0
         val items = mutableListOf<VideoWallpaperItem>()
         val urls = linkedMapOf<String, String>()
@@ -283,6 +424,7 @@ class VideoWallpapersViewModel @Inject constructor(
     private val videoWallpaperStorage: VideoWallpaperStorage,
     private val sourceMetrics: SourceMetrics,
     private val ytDlpUpdateManager: YtDlpUpdateManager,
+    private val videoPreviewCache: VideoPreviewCache,
     val voteRepo: VoteRepository,
 ) : ViewModel() {
 
@@ -312,6 +454,7 @@ class VideoWallpapersViewModel @Inject constructor(
             return evict
         }
     }.let { java.util.Collections.synchronizedMap(it) }
+    private val previewResolveInFlight = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     private val junkPatterns = listOf(
         "top \\d+", "\\d+ best", "how to", "tutorial", "review", "setup",
@@ -321,11 +464,10 @@ class VideoWallpapersViewModel @Inject constructor(
         "official", "trailer", "teaser", "behind the scenes",
         "i tested", "i tried", "i bought", "i found", "must have",
         "you need", "don.?t buy", "worth it", "honest",
-        "\\bmake\\b", "\\bfor\\b", "\\byour\\b",
+        "\\bmake\\b",
         "3d live", "app demo", "free download", "link in",
         "showing my", "on my phone", "on my android", "on my iphone",
         "samsung galaxy", "\\bios\\b", "\\bsettings\\b", "\\bidea\\b",
-        "\\bbackgrounds\\b",
     ).map { Regex(it, RegexOption.IGNORE_CASE) }
 
     private val youtubePortraitQueries = listOf(
@@ -333,26 +475,50 @@ class VideoWallpapersViewModel @Inject constructor(
         "AMOLED live wallpaper vertical phone loop",
         "vertical video wallpaper phone 4K loop",
         "live wallpaper android vertical abstract",
+        "vertical neon cyberpunk live wallpaper 4K",
+        "vertical space galaxy live wallpaper loop",
+        "vertical anime scenery live wallpaper loop",
+        "vertical nature rain live wallpaper 4K",
+        "vertical ocean waves live wallpaper loop",
+        "vertical dark AMOLED particles wallpaper",
+        "vertical city night live wallpaper loop",
+        "vertical relaxing ambient wallpaper 4K",
     )
     private val youtubeLandscapeQueries = listOf(
         "live wallpaper desktop 4K loop",
         "landscape live wallpaper widescreen loop",
         "cinematic background loop 4K",
         "nature landscape video wallpaper loop",
+        "space nebula live wallpaper 4K loop",
+        "cyberpunk city live wallpaper widescreen",
+        "anime scenery live wallpaper 4K loop",
+        "ambient rain window live wallpaper loop",
+        "ocean waves cinematic wallpaper loop 4K",
+        "dark AMOLED particles wallpaper loop",
+        "forest waterfall live wallpaper 4K",
+        "minimal abstract motion wallpaper loop",
     )
     private val youtubeAllQueries = listOf(
         "live wallpaper loop 4K",
         "AMOLED live wallpaper loop",
         "abstract video wallpaper loop",
         "live wallpaper android loop",
+        "space galaxy live wallpaper 4K loop",
+        "neon cyberpunk live wallpaper loop",
+        "anime scenery live wallpaper loop 4K",
+        "nature rain live wallpaper loop",
+        "ocean waves video wallpaper 4K",
+        "dark particles AMOLED live wallpaper",
+        "cinematic city night wallpaper loop",
+        "minimal ambient motion wallpaper loop",
     )
 
     private val pexelsQueries = listOf(
         "mobile wallpaper", "phone wallpaper", "abstract background",
         "nature loop", "neon lights", "space", "ocean waves",
+        "rain window", "city night", "forest waterfall", "ink motion",
+        "smoke", "particles", "underwater", "aurora",
     )
-
-    private val redditSubs = listOf("livewallpapers", "LiveWallpaper", "Cinemagraphs", "perfectloops")
 
     init { load() }
 
@@ -434,6 +600,37 @@ class VideoWallpapersViewModel @Inject constructor(
 
     fun getStreamUrl(id: String): String? = streamUrls[id]
 
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    fun previewMediaSourceFactory() = videoPreviewCache.mediaSourceFactory()
+
+    fun ensureStreamResolved(item: VideoWallpaperItem) {
+        val cachedUrl = streamUrls[item.id]
+        if (cachedUrl != null) {
+            prebufferPreview(item.id, cachedUrl)
+            return
+        }
+        if (item.source != "YouTube" || item.videoId.isBlank() || !previewResolveInFlight.add(item.id)) return
+        viewModelScope.launch {
+            try {
+                youtubeRepo.getVideoStreamUrl(item.videoId)?.let { url ->
+                    streamUrls[item.id] = url
+                    _resolvedIds.update { it + item.id }
+                    prebufferPreview(item.id, url)
+                }
+            } catch (e: Throwable) {
+                e.rethrowIfCancelled()
+            } finally {
+                previewResolveInFlight.remove(item.id)
+            }
+        }
+    }
+
+    private fun prebufferPreview(id: String, url: String) {
+        viewModelScope.launch {
+            runCatching { videoPreviewCache.prebuffer(id, url) }
+        }
+    }
+
     fun upvote(id: String) { viewModelScope.launch { voteRepo.upvote(id) } }
     fun downvote(id: String) { viewModelScope.launch { voteRepo.downvote(id) } }
     fun clearGallerySelectionResult() { _gallerySelectionResult.value = null }
@@ -484,8 +681,37 @@ class VideoWallpapersViewModel @Inject constructor(
                 }
 
                 if (com.freevibe.BuildConfig.DEBUG) Log.d("VideoWP", "Downloading video (source: ${item.source})...")
-                val file = videoWallpaperStorage.prepareDownloadedVideo(extension = "mp4") { cacheFile ->
-                    if (item.source == "YouTube" && item.videoId.isNotEmpty()) {
+                val downloadedExtension = when {
+                    videoUrl.substringBefore('?').endsWith(".gif", ignoreCase = true) -> "gif"
+                    videoUrl.substringBefore('?').endsWith(".webm", ignoreCase = true) -> "webm"
+                    else -> "mp4"
+                }
+                val file = videoWallpaperStorage.prepareDownloadedVideo(extension = downloadedExtension) { cacheFile ->
+                    if (isHlsMotionUrl(videoUrl)) {
+                        // A Reddit HLS URL is a playlist, not a video file. Let yt-dlp and
+                        // ffmpeg fetch its segments and produce a bounded MP4; raw-copying
+                        // the m3u8 bytes would create an invalid wallpaper file.
+                        val hlsOutput = java.io.File(cacheFile.parentFile, "${cacheFile.name}.hls.mp4")
+                        try {
+                            val request = com.yausername.youtubedl_android.YoutubeDLRequest(videoUrl)
+                            request.addOption("-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best")
+                            request.addOption("--merge-output-format", "mp4")
+                            request.addOption("--remux-video", "mp4")
+                            request.addOption("--no-playlist")
+                            request.addOption("--force-overwrites")
+                            request.addOption("-o", hlsOutput.absolutePath)
+                            com.yausername.youtubedl_android.YoutubeDL.getInstance().execute(request)
+                            if (!hlsOutput.exists()) throw java.io.IOException("HLS download did not produce an MP4")
+                            hlsOutput.copyTo(cacheFile, overwrite = true)
+                            ytDlpUpdateManager.recordExtractionSuccess()
+                        } catch (e: Exception) {
+                            if (e is kotlinx.coroutines.CancellationException) throw e
+                            ytDlpUpdateManager.recordExtractionFailure(e)
+                            throw e
+                        } finally {
+                            hlsOutput.delete()
+                        }
+                    } else if (item.source == "YouTube" && item.videoId.isNotEmpty()) {
                         // YouTube: use yt-dlp for download
                         try {
                             val ytUrl = "https://www.youtube.com/watch?v=${item.videoId}"
@@ -576,13 +802,37 @@ class VideoWallpapersViewModel @Inject constructor(
 
             val s = _state.value
             val searchQ = s.searchQuery.ifBlank { null }
+            if (!loadMore && !s.isRefreshing && s.items.isEmpty()) {
+                readPixabayVideoCache(
+                    cacheKey = videoFeedCacheKey(s.searchQuery, s.orientation, s.focusFilter),
+                    freshOnly = true,
+                )?.let { cachedFeed ->
+                    rememberPixabayVideoMetadata(cachedFeed)
+                    _state.update { current ->
+                        current.copy(items = cachedFeed.items, isLoading = false)
+                    }
+                    cachedFeed.items.take(2).forEach(::ensureStreamResolved)
+                    if (com.freevibe.BuildConfig.DEBUG) {
+                        Log.d("VideoWP", "Warm feed ready: ${cachedFeed.items.size} cached items")
+                    }
+                }
+            }
             val newItems = mutableListOf<VideoWallpaperItem>()
             val attemptedSources = java.util.Collections.synchronizedSet(mutableSetOf<String>())
             val failedSources = java.util.Collections.synchronizedSet(mutableSetOf<String>())
             val youtubeEnabled = prefs.youtubeProviderEnabled.first()
-            val redditEnabled = false
+            val redditEnabled = prefs.redditProviderEnabled.first()
             val pexelsEnabled = prefs.pexelsProviderEnabled.first()
             val pixabayEnabled = prefs.pixabayProviderEnabled.first()
+            val redditFeedGroups = resolveRedditMotionFeedGroups(
+                configuredSubreddits = if (redditEnabled) prefs.redditVideoSubreddits.first() else "",
+            )
+            val redditFeedSelection = selectRedditMotionFeed(
+                groups = redditFeedGroups,
+                startIndex = s.redditSubIndex,
+                afters = s.redditAfters,
+            )
+            var loadedRedditPage: RedditRssMotionPage? = null
 
             kotlinx.coroutines.supervisorScope {
                 // 1. Pexels
@@ -601,7 +851,7 @@ class VideoWallpapersViewModel @Inject constructor(
                             fallbackQueries = pexelsQueries,
                         )
                         val orientation = resolvePexelsOrientationParam(s.orientation)
-                        val response = pexelsApi.searchVideos(apiKey = key, query = query, orientation = orientation, perPage = 15, page = s.pexelsPage)
+                        val response = pexelsApi.searchVideos(apiKey = key, query = query, orientation = orientation, perPage = 30, page = s.pexelsPage)
                         response.videos.filter { it.duration in 5..120 }.mapNotNull { video ->
                             val file = video.videoFiles
                                 .filter { it.fileType == "video/mp4" || it.link.endsWith(".mp4") }
@@ -623,66 +873,35 @@ class VideoWallpapersViewModel @Inject constructor(
                     }
                 }
 
-                // 2. Reddit — one subreddit per load, rotating, with per-sub pagination
+                // 2. Reddit public Atom/RSS. Rotate small multi-subreddit feeds and retain
+                // a cursor per group so subsequent batches continue beyond the first page.
                 val redditJob = async(Dispatchers.IO) {
                     if (!redditEnabled) {
                         sourceMetrics.recordDisabled("reddit")
-                        return@async emptyList<VideoWallpaperItem>()
+                        return@async null
                     }
-                    val items = mutableListOf<VideoWallpaperItem>()
+                    val selection = redditFeedSelection ?: return@async null
                     attemptedSources += "Reddit"
-                    var redditReached = false
-                    // Load 2 subreddits per call for variety
-                    for (offset in 0..1) {
-                        val subIdx = (s.redditSubIndex + offset) % redditSubs.size
-                        val sub = redditSubs[subIdx]
-                        try {
-                            val after = s.redditAfters[sub]
-                            val query = if (searchQ != null) "search.json?q=${java.net.URLEncoder.encode(searchQ, "UTF-8")}&restrict_sr=on&sort=top&t=all&type=link&limit=25&raw_json=1" else "top.json?t=all&limit=25&raw_json=1"
-                            val url = "https://www.reddit.com/r/$sub/$query" + (if (after != null) "&after=$after" else "")
-                            val req = Request.Builder().url(url).header("User-Agent", "Aura/${com.freevibe.BuildConfig.VERSION_NAME} (Android; Open Source)").build()
-                            val body = okHttpClient.newCall(req).execute().use { resp ->
-                                if (!resp.isSuccessful) return@use null
-                                resp.body?.string()
-                            } ?: continue
-                            redditReached = true
-
-                            // Per-subreddit after token
-                            val afterToken = REDDIT_AFTER_REGEX.find(body)?.groupValues?.get(1)
-                            _state.update { it.copy(redditAfters = it.redditAfters + (sub to afterToken)) }
-
-                            // Extract video posts with dimensions (regexes hoisted to companion)
-
-                            val videos = REDDIT_VIDEO_REGEX.findAll(body).toList()
-                            val titles = REDDIT_TITLE_REGEX.findAll(body).toList()
-                            val upsList = REDDIT_UPS_REGEX.findAll(body).toList()
-                            val thumbList = REDDIT_THUMB_REGEX.findAll(body).map { it.groupValues[1].replace("&amp;", "&") }.toList()
-                            val widths = REDDIT_WIDTH_REGEX.findAll(body).map { it.groupValues[1].toIntOrNull() ?: 0 }.toList()
-                            val heights = REDDIT_HEIGHT_REGEX.findAll(body).map { it.groupValues[1].toIntOrNull() ?: 0 }.toList()
-
-                            for (i in videos.indices) {
-                                val videoUrl = videos[i].groupValues[1]
-                                val title = titles.getOrNull(i + 1)?.groupValues?.getOrNull(1) ?: "Video from r/$sub" // +1 to skip subreddit title
-                                val ups = upsList.getOrNull(i)?.groupValues?.getOrNull(1)?.toLongOrNull() ?: 0
-                                val thumb = thumbList.getOrNull(i) ?: ""
-                                val vw = widths.getOrNull(i) ?: 0
-                                val vh = heights.getOrNull(i) ?: 0
-
-                                if (junkPatterns.none { it.containsMatchIn(title) } && !title.contains("#")) {
-                                    val item = VideoWallpaperItem(id = "rd_${videoUrl.hashCode()}", title = title, thumbnailUrl = thumb, source = "Reddit", uploaderName = "r/$sub", popularity = ups, videoWidth = vw, videoHeight = vh, contentSource = com.freevibe.data.model.ContentSource.REDDIT, license = "Reddit", sourcePageUrl = "https://www.reddit.com/r/$sub/")
-                                    items.add(item)
-                                    streamUrls[item.id] = videoUrl.trimEnd('/') + "/DASH_720.mp4"
-                                    _resolvedIds.update { it + item.id }
-                                }
-                            }
-                        } catch (e: Throwable) {
-                            e.rethrowIfCancelled()
-                            if (com.freevibe.BuildConfig.DEBUG) Log.e("VideoWP", "Reddit $sub: ${e.message}")
-                            continue
-                        }
+                    try {
+                        val page = loadRedditRssMotionMetadata(
+                            group = selection.group,
+                            after = selection.after,
+                            count = selection.count,
+                        )
+                        rememberPixabayVideoMetadata(page.result)
+                        page.copy(
+                            result = page.result.copy(
+                                items = page.result.items.filter { item ->
+                                    searchQ.isNullOrBlank() || item.title.contains(searchQ, ignoreCase = true)
+                                },
+                            ),
+                        )
+                    } catch (e: Throwable) {
+                        e.rethrowIfCancelled()
+                        failedSources += "Reddit"
+                        if (com.freevibe.BuildConfig.DEBUG) Log.e("VideoWP", "Reddit RSS: ${e.message}")
+                        null
                     }
-                    if (!redditReached) failedSources += "Reddit"
-                    items
                 }
 
                 // 3. YouTube
@@ -773,9 +992,10 @@ class VideoWallpapersViewModel @Inject constructor(
                     }
                 }
 
+                loadedRedditPage = redditJob.await()
+                newItems.addAll(loadedRedditPage?.result?.items.orEmpty())
                 newItems.addAll(pexelsJob.await())
                 newItems.addAll(pixabayJob.await())
-                newItems.addAll(redditJob.await())
                 newItems.addAll(ytJob.await())
             }
 
@@ -828,13 +1048,25 @@ class VideoWallpapersViewModel @Inject constructor(
                     pexelsPage = if ("Pexels" !in sourceFailureSet && "Pexels" in attemptedSources) it.pexelsPage + 1 else it.pexelsPage,
                     pixabayPage = if ("Pixabay" !in sourceFailureSet && "Pixabay" in attemptedSources) it.pixabayPage + 1 else it.pixabayPage,
                     ytQueryIndex = if ("YouTube" !in sourceFailureSet && "YouTube" in attemptedSources) it.ytQueryIndex + 1 else it.ytQueryIndex,
-                    redditSubIndex = if ("Reddit" !in sourceFailureSet && "Reddit" in attemptedSources) it.redditSubIndex + 2 else it.redditSubIndex,
+                    redditSubIndex = if ("Reddit" !in sourceFailureSet && "Reddit" in attemptedSources) {
+                        redditFeedSelection?.nextSubIndex ?: it.redditSubIndex
+                    } else {
+                        it.redditSubIndex
+                    },
+                    redditAfters = loadedRedditPage?.let { page ->
+                        it.redditAfters + (page.groupKey to page.nextAfter.takeUnless { page.exhausted })
+                    } ?: it.redditAfters,
                     emptyLoadCount = loadProgress.emptyLoadCount,
                 )
             }
+            if (com.freevibe.BuildConfig.DEBUG) {
+                Log.d("VideoWP", "Feed ready: ${_state.value.items.size} items; batch=${mixed.size}; loadMore=$loadMore")
+            }
+            cacheVisibleVideoFeed(s)
+            _state.value.items.take(3).forEach(::ensureStreamResolved)
 
             // Pre-resolve YouTube URLs
-            mixed.filter { youtubeEnabled && it.source == "YouTube" && !streamUrls.containsKey(it.id) }.let { ytItems ->
+            mixed.filter { youtubeEnabled && it.source == "YouTube" && !streamUrls.containsKey(it.id) }.take(4).let { ytItems ->
                 val sem = Semaphore(5)
                 ytItems.forEach { item ->
                     launch {
@@ -895,14 +1127,105 @@ class VideoWallpapersViewModel @Inject constructor(
         }
     }
 
+    private suspend fun loadRedditRssMotionMetadata(
+        group: RedditMotionFeedGroup,
+        after: String?,
+        count: Int,
+    ): RedditRssMotionPage {
+        val cacheKey = redditRssMotionCacheKey(group, after)
+        readPixabayVideoCache(
+            cacheKey = cacheKey,
+            freshOnly = true,
+            freshnessTtlMs = REDDIT_RSS_MOTION_CACHE_TTL_MS,
+        )?.let { cached ->
+            return RedditRssMotionPage(
+                result = cached,
+                groupKey = group.key,
+                nextAfter = redditAfterToken(cached.items.lastOrNull()?.id),
+                exhausted = false,
+            )
+        }
+        return try {
+            val request = Request.Builder()
+                .url(redditRssMotionUrl(group, after, count))
+                .header(
+                    "User-Agent",
+                    "Aura/${com.freevibe.BuildConfig.VERSION_NAME} open-source wallpaper reader",
+                )
+                .header("Accept", "application/atom+xml, application/xml;q=0.9")
+                .build()
+            val rssPage = sourceMetrics.measure("reddit") {
+                okHttpClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) throw java.io.IOException("Reddit RSS HTTP ${response.code}")
+                    val xml = response.body?.string().orEmpty()
+                    if (xml.isBlank()) throw java.io.IOException("Reddit RSS returned an empty feed")
+                    parseRedditRssPage(xml, group.subreddits.first())
+                }
+            }
+            val urls = linkedMapOf<String, String>()
+            val items = rssPage.entries
+                .asSequence()
+                .filter { it.isAnimated }
+                .filter { entry -> junkPatterns.none { it.containsMatchIn(entry.title) } }
+                .map { entry ->
+                    val playbackUrl = redditPlayableMotionUrl(entry.mediaUrl)
+                    VideoWallpaperItem(
+                        id = "rd_${entry.id}",
+                        title = entry.title,
+                        thumbnailUrl = entry.thumbnailUrl,
+                        source = "Reddit",
+                        uploaderName = listOfNotNull(
+                            entry.author.takeIf { it.isNotBlank() }?.let { "u/$it" },
+                            entry.subreddit.takeIf { it.isNotBlank() }?.let { "r/$it" },
+                        ).joinToString(" · "),
+                        videoWidth = entry.width,
+                        videoHeight = entry.height,
+                        videoMimeType = when {
+                            playbackUrl.substringBefore('?').endsWith(".gif", true) -> "image/gif"
+                            playbackUrl.substringBefore('?').endsWith(".webm", true) -> "video/webm"
+                            playbackUrl.substringBefore('?').endsWith(".m3u8", true) -> "application/x-mpegURL"
+                            else -> "video/mp4"
+                        },
+                        contentSource = com.freevibe.data.model.ContentSource.REDDIT,
+                        license = "Reddit",
+                        sourcePageUrl = entry.sourcePageUrl,
+                    ).also { item -> urls[item.id] = playbackUrl }
+                }
+                .toList()
+            val result = PixabayVideoMetadataResult(items = items, streamUrls = urls)
+            if (result.items.isNotEmpty()) writePixabayVideoCache(cacheKey, result)
+            RedditRssMotionPage(
+                result = result,
+                groupKey = group.key,
+                nextAfter = rssPage.nextAfter,
+                exhausted = isRedditMotionPageExhausted(rssPage.rawEntryCount, rssPage.nextAfter),
+            )
+        } catch (e: Throwable) {
+            e.rethrowIfCancelled()
+            val stale = readPixabayVideoCache(
+                cacheKey = cacheKey,
+                freshOnly = false,
+                freshnessTtlMs = REDDIT_RSS_MOTION_CACHE_TTL_MS,
+            ) ?: throw e
+            RedditRssMotionPage(
+                result = stale,
+                groupKey = group.key,
+                nextAfter = redditAfterToken(stale.items.lastOrNull()?.id),
+                exhausted = false,
+            )
+        }
+    }
+
     private fun readPixabayVideoCache(
         cacheKey: String,
         freshOnly: Boolean,
+        freshnessTtlMs: Long = PIXABAY_VIDEO_CACHE_TTL_MS,
     ): PixabayVideoMetadataResult? {
         val cached = decodePixabayVideoCache(
             raw = pixabayVideoCachePrefs.getString(cacheKey, null),
             nowMs = System.currentTimeMillis(),
             requireFresh = freshOnly,
+            freshnessTtlMs = freshnessTtlMs,
         ) ?: return null
         return cached.result
     }
@@ -931,6 +1254,19 @@ class VideoWallpapersViewModel @Inject constructor(
         }
     }
 
+    private fun cacheVisibleVideoFeed(snapshot: VideoWallpapersState) {
+        val items = _state.value.items.take(MAX_CACHED_VIDEO_FEED_ITEMS)
+        val urls = items.mapNotNull { item -> streamUrls[item.id]?.let { item.id to it } }.toMap()
+        if (urls.isEmpty()) return
+        writePixabayVideoCache(
+            cacheKey = videoFeedCacheKey(snapshot.searchQuery, snapshot.orientation, snapshot.focusFilter),
+            result = PixabayVideoMetadataResult(
+                items = items.filter { it.id in urls },
+                streamUrls = urls,
+            ),
+        )
+    }
+
     private fun activePixabayVideoRateLimitUntilMs(): Long {
         val persisted = pixabayVideoCachePrefs.getLong(PIXABAY_VIDEO_RATE_LIMITED_UNTIL_KEY, 0L)
         pixabayVideoRateLimitedUntilMs = maxOf(pixabayVideoRateLimitedUntilMs, persisted)
@@ -945,14 +1281,4 @@ class VideoWallpapersViewModel @Inject constructor(
             .apply()
     }
 
-    companion object {
-        // Precompiled Reddit JSON parsing regexes — previously allocated per subreddit per fetch.
-        private val REDDIT_AFTER_REGEX = Regex(""""after"\s*:\s*"([^"]+)"""")
-        private val REDDIT_VIDEO_REGEX = Regex(""""fallback_url"\s*:\s*"(https://v\.redd\.it/[^"]+)"""")
-        private val REDDIT_TITLE_REGEX = Regex(""""title"\s*:\s*"([^"]{2,200})"""")
-        private val REDDIT_UPS_REGEX = Regex(""""ups"\s*:\s*(\d+)""")
-        private val REDDIT_THUMB_REGEX = Regex(""""thumbnail"\s*:\s*"(https://[^"]+)"""")
-        private val REDDIT_WIDTH_REGEX = Regex(""""reddit_video"\s*:\s*\{[^}]*"width"\s*:\s*(\d+)""")
-        private val REDDIT_HEIGHT_REGEX = Regex(""""reddit_video"\s*:\s*\{[^}]*"height"\s*:\s*(\d+)""")
-    }
 }

@@ -28,7 +28,6 @@ def test_sound_root_viewmodel_delegates_feature_state() -> None:
     for token in (
         "SoundBrowseViewModel(",
         "SoundBrowseQueries(",
-        "SoundTopHitsLoader(",
         "SoundCommunityFeed(",
         "SoundYouTubeActions(",
         "SoundPlaybackActions(",
@@ -51,7 +50,6 @@ def test_sound_feature_helpers_are_split_from_hilt_root() -> None:
     expected_files = (
         "SoundBrowseViewModel.kt",
         "SoundBrowseQueries.kt",
-        "SoundTopHitsLoader.kt",
         "SoundCommunityFeed.kt",
         "SoundYouTubeActions.kt",
         "SoundPlaybackActions.kt",
@@ -67,7 +65,6 @@ def test_sound_feature_helpers_are_split_from_hilt_root() -> None:
 
     browse = read(SOUNDS_PACKAGE / "SoundBrowseViewModel.kt")
     queries = read(SOUNDS_PACKAGE / "SoundBrowseQueries.kt")
-    top_hits = read(SOUNDS_PACKAGE / "SoundTopHitsLoader.kt")
     community_feed = read(SOUNDS_PACKAGE / "SoundCommunityFeed.kt")
     youtube = read(SOUNDS_PACKAGE / "SoundYouTubeActions.kt")
     state = read(SOUNDS_PACKAGE / "SoundsState.kt")
@@ -84,7 +81,6 @@ def test_sound_feature_helpers_are_split_from_hilt_root() -> None:
 
     assert "fun buildQueries(" in queries
     assert "fun bundledSoundsFor(" in queries
-    assert "fun fetchTopHits(" in top_hits
     assert "fun loadCommunityTab(" in community_feed
 
     for token in (

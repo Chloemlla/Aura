@@ -1,6 +1,7 @@
 package com.freevibe.ui.screens.wallpapers
 
 import com.freevibe.data.model.ContentSource
+import com.freevibe.data.model.SearchResult
 import com.freevibe.data.model.Wallpaper
 import com.freevibe.service.WallpaperStyleLearningProfile
 import com.freevibe.service.WallpaperStyleLearningSignal
@@ -114,7 +115,7 @@ class WallpaperFeedQualityTest {
     // and cannot be called from plain JUnit tests.
 
     @Test
-    fun `quality floor drops low signal wallpaper when stronger set exists`() {
+    fun `low signal wallpaper remains at the end instead of truncating endless inventory`() {
         val strongCandidates = listOf(
             wallpaper(
                 id = "strong_one",
@@ -172,8 +173,65 @@ class WallpaperFeedQualityTest {
             filter = WallpaperDiscoverFilter.FOR_YOU,
         )
 
-        assertEquals(4, ranked.size)
-        assertTrue(ranked.none { it.id == "weak_logo" })
+        assertEquals(5, ranked.size)
+        assertEquals("weak_logo", ranked.last().id)
+    }
+
+    @Test
+    fun `reddit inventory is an explicit first tier ahead of secondary providers`() {
+        val exceptionalSecondary = wallpaper(
+            id = "wallhaven_featured",
+            source = ContentSource.WALLHAVEN,
+            url = "https://example.com/featured.jpg",
+            width = 4320,
+            height = 7680,
+            tags = listOf("minimal", "amoled", "clean"),
+            colors = listOf("#000000"),
+            favorites = 50_000,
+        )
+        val reddit = wallpaper(
+            id = "reddit_mobile",
+            source = ContentSource.REDDIT,
+            url = "https://i.redd.it/mobile.jpg",
+            width = 0,
+            height = 0,
+            tags = listOf("reddit", "MobileWallpaper"),
+        )
+
+        val ranked = rankWallpapers(
+            wallpapers = listOf(exceptionalSecondary, reddit),
+            filter = WallpaperDiscoverFilter.FOR_YOU,
+        )
+
+        assertEquals(listOf("reddit_mobile", "wallhaven_featured"), ranked.map { it.id })
+    }
+
+    @Test
+    fun `home merge puts reddit first and preserves pagination from either tier`() {
+        val reddit = wallpaper(
+            id = "reddit_1",
+            source = ContentSource.REDDIT,
+            url = "https://i.redd.it/one.jpg",
+            width = 1440,
+            height = 3200,
+        )
+        val secondary = wallpaper(
+            id = "wallhaven_1",
+            source = ContentSource.WALLHAVEN,
+            url = "https://example.com/one.jpg",
+            width = 1440,
+            height = 3200,
+        )
+
+        val merged = mergeRedditFirstHomeResults(
+            reddit = SearchResult(listOf(reddit), -1, 3, true),
+            secondary = SearchResult(listOf(secondary), 200, 3, false),
+            page = 3,
+        )
+
+        assertEquals(listOf(ContentSource.REDDIT, ContentSource.WALLHAVEN), merged.items.map { it.source })
+        assertEquals(3, merged.currentPage)
+        assertTrue(merged.hasMore)
     }
 
     @Test

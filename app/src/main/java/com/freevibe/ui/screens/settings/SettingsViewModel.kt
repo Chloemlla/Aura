@@ -182,8 +182,12 @@ class SettingsViewModel @Inject constructor(
     val soundProfilesJson = prefs.soundProfilesJson.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
     val wallpaperPackEnabled = prefs.wallpaperPackEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val wallpaperPackJson = prefs.wallpaperPackJson.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
-    val redditSubs = prefs.redditSubreddits.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "wallpapers,MobileWallpaper,MinimalWallpaper")
-    val redditProviderEnabled = prefs.redditProviderEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val redditSubs = prefs.redditSubreddits.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        "iWallpaper,Amoledbackgrounds,MobileWallpaper,AnimePhoneWallpapers,phonewallpapers,iphonewallpapers,mobilewallpapers,Verticalwallpapers,WQHD_Wallpaper,MinimalWallpaper,iphonexwallpapers",
+    )
+    val redditProviderEnabled = prefs.redditProviderEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
     val preferredRes = prefs.preferredResolution.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
     val userStyles = prefs.userStyles.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
     val wallpaperStyleLearningSignalCount = prefs.wallpaperStyleLearningJson

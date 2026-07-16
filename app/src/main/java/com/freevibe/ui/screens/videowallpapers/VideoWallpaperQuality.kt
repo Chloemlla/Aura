@@ -28,13 +28,23 @@ internal fun rankVideoWallpapers(
         .toMutableMap()
     val mixed = mutableListOf<VideoWallpaperItem>()
     while (grouped.values.any { it.isNotEmpty() }) {
-        grouped.keys.sorted().forEach { key ->
+        REDDIT_FIRST_SOURCE_MIX.forEach { key ->
             grouped[key]?.let { sourceItems ->
                 if (sourceItems.isNotEmpty()) {
                     mixed += sourceItems.removeAt(0)
                 }
             }
         }
+        grouped.keys
+            .filterNot { it in REDDIT_FIRST_SOURCE_MIX_SET }
+            .sorted()
+            .forEach { key ->
+                grouped[key]?.let { sourceItems ->
+                    if (sourceItems.isNotEmpty()) {
+                        mixed += sourceItems.removeAt(0)
+                    }
+                }
+            }
     }
     return mixed
 }
@@ -91,7 +101,7 @@ private fun videoQualityScore(
     score += when (item.source) {
         "Pexels" -> 16
         "Pixabay" -> 15
-        "Reddit" -> 14
+        "Reddit" -> 28
         "YouTube" -> 12
         else -> 8
     }
@@ -140,8 +150,10 @@ private fun applyVideoQualityFloor(
     if (scored.size < 5) return scored
     val topScore = scored.first().second
     val qualityFloor = maxOf(50, topScore - 28)
-    val curated = scored.filterIndexed { index, (_, score) ->
-        index < 3 || score >= qualityFloor
+    val curated = scored.filterIndexed { index, (item, score) ->
+        // Reddit Atom entries often omit duration and dimensions. Those unknowns
+        // must not make the primary community inventory disappear at this stage.
+        index < 3 || item.source == "Reddit" || score >= qualityFloor
     }
     return if (curated.size >= minOf(scored.size, 4)) curated else scored
 }
@@ -180,3 +192,11 @@ private enum class BatteryTier { LOW, MEDIUM, HIGH }
 private val LOOP_TERMS = setOf(
     "loop", "cinemagraph", "ambient", "waves", "rain", "particles", "abstract", "clouds", "neon",
 )
+
+// Reddit is the primary community catalog. The repeated slots are intentional:
+// each pass starts with three Reddit items and gives Reddit five of eight known-
+// source positions while every enabled provider still gets exposure.
+private val REDDIT_FIRST_SOURCE_MIX = listOf(
+    "Reddit", "Reddit", "Reddit", "Pexels", "Reddit", "Pixabay", "Reddit", "YouTube",
+)
+private val REDDIT_FIRST_SOURCE_MIX_SET = REDDIT_FIRST_SOURCE_MIX.toSet()

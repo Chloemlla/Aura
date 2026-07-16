@@ -12,7 +12,7 @@ def assert_contains(source: str, expected: str, label: str) -> None:
     assert expected in source, f"{label} missing {expected}"
 
 
-def test_shared_browse_rail_keeps_release_chrome() -> None:
+def test_shared_browse_rail_uses_flat_touch_safe_tabs() -> None:
     source = read("app/src/main/java/com/freevibe/ui/components/BrowseRail.kt")
 
     for expected in (
@@ -20,31 +20,45 @@ def test_shared_browse_rail_keeps_release_chrome() -> None:
         "fun BrowseRail(",
         "horizontalScroll(rememberScrollState())",
         "heightIn(min = 48.dp)",
-        "shape = RoundedCornerShape(8.dp)",
-        "Icons.Default.Check",
+        "shape = RoundedCornerShape(0.dp)",
+        "MaterialTheme.colorScheme.primary",
     ):
         assert_contains(source, expected, "BrowseRail")
 
+    assert "FilterChip(" not in source
+    assert "Icons.Default.Check" not in source
 
-def test_primary_media_screens_expose_matching_browse_rails() -> None:
+
+def test_primary_media_screens_keep_only_the_navigation_they_need() -> None:
     screens = {
         "wallpapers": read("app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt"),
         "videos": read("app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersScreen.kt"),
         "sounds": read("app/src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt"),
     }
 
-    for name, source in screens.items():
-        for expected in (
-            "BrowseRail(",
-            "browse_rail_popular",
-            "browse_rail_newest",
-            "browse_rail_categories",
-        ):
-            assert_contains(source, expected, name)
+    for expected in (
+        "BrowseRail(",
+        "browse_rail_popular",
+        "browse_rail_newest",
+        "browse_rail_categories",
+        "browse_rail_collections",
+    ):
+        assert_contains(screens["wallpapers"], expected, "wallpapers")
 
-    assert_contains(screens["wallpapers"], "browse_rail_collections", "wallpapers")
-    assert_contains(screens["videos"], "browse_rail_local", "videos")
-    assert_contains(screens["sounds"], "browse_rail_local", "sounds")
+    assert "BrowseRail(" not in screens["videos"]
+    assert "BrowseRail(" not in screens["sounds"]
+    for expected in ("searchExpanded", "showQuickMenu", "browse_rail_local"):
+        assert_contains(screens["videos"], expected, "videos")
+    for expected in ("searchExpanded", "showQuickActionsMenu", "SoundModeBar("):
+        assert_contains(screens["sounds"], expected, "sounds")
+    for expected in ("MIN_INITIAL_VIDEO_RESULTS = 24", "CircularProgressIndicator", "ShimmerBox"):
+        assert_contains(screens["videos"], expected, "videos")
+    for expected in ("CircularProgressIndicator", "ShimmerSoundList"):
+        assert_contains(screens["sounds"], expected, "sounds")
+
+    assert "metadataBadges" not in screens["videos"]
+    assert "sounds_card_ready" not in screens["sounds"]
+    assert "badges.joinToString" not in screens["sounds"]
 
 
 def test_browse_rails_reuse_existing_category_collection_and_local_recovery_paths() -> None:
@@ -71,9 +85,17 @@ def test_browse_rails_reuse_existing_category_collection_and_local_recovery_path
         assert_contains(videos, expected, "videos")
 
     for expected in (
-        "soundCollectionsFor(railSoundTab).firstOrNull()",
         'createAudioPickerLauncher.launch("audio/*")',
         "secondaryAction = AuraStateAction(",
         "R.string.editor_sound_browse",
+        "contentSounds",
     ):
         assert_contains(sounds, expected, "sounds")
+    assert "Top 5 This Week" not in sounds
+    assert "SoundCollectionCarousel(" not in sounds
+    assert not (
+        ROOT
+        / "app/src/main/java/com/freevibe/ui/screens/sounds/SoundTopHitsLoader.kt"
+    ).exists()
+    assert_contains(videos, "VideoImmersivePager(", "videos")
+    assert_contains(videos, "VerticalPager(", "videos")

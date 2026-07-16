@@ -84,7 +84,7 @@ class WallpapersViewModel @Inject constructor(
     // #9: Grid columns preference
     val gridColumns = prefs.wallpaperGridColumns.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 2)
     val wallhavenProviderEnabled = prefs.wallhavenProviderEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
-    val redditProviderEnabled = prefs.redditProviderEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val redditProviderEnabled = prefs.redditProviderEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val pexelsProviderEnabled = prefs.pexelsProviderEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val pixabayProviderEnabled = prefs.pixabayProviderEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val communityProviderEnabled = prefs.communityProviderEnabled.stateIn(
@@ -124,6 +124,7 @@ class WallpapersViewModel @Inject constructor(
         wallpaperUploadRepo = wallpaperUploadRepo,
         sourceMetrics = sourceMetrics,
         wallhavenProviderEnabled = wallhavenProviderEnabled,
+        redditProviderEnabled = redditProviderEnabled,
         pexelsProviderEnabled = pexelsProviderEnabled,
         pixabayProviderEnabled = pixabayProviderEnabled,
         communityProviderEnabled = communityProviderEnabled,
@@ -352,7 +353,9 @@ class WallpapersViewModel @Inject constructor(
             return
         }
         _state.update { it.copy(isRefreshing = true, currentPage = 1, error = null, errorSource = null) }
-        if (tab == WallpaperTab.REDDIT) redditRepo.resetPagination()
+        if (tab == WallpaperTab.DISCOVER || tab == WallpaperTab.REDDIT) {
+            redditRepo.resetPagination(forceRefresh = true)
+        }
         browse.loadWallpapers(isRefresh = true)
     }
 

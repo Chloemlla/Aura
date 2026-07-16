@@ -2,6 +2,53 @@
 
 All notable changes to Aura will be documented in this file.
 
+## v6.36.0 (2026-07-16)
+
+Content-first discovery overhaul with persistent media feeds, swipe-first previews,
+and a no-OAuth Reddit RSS pipeline.
+
+- **Simplified the visual system across discovery, Settings, and Sounds**:
+  larger type, flatter grouped rows, underline-based tabs, compact headers,
+  on-demand search, consolidated overflow actions, quieter metadata, and a
+  waveform-first sound detail layout move primary controls higher in the
+  viewport while removing repeated borders and status pills.
+- **Made Videos and Sounds content-first**: removed the Video explainer and
+  secondary browse rail, removed the Sounds collection and "Top 5" sections,
+  shortened motion previews, and moved secondary actions into compact menus.
+  Video providers now request 30 items per page and automatically continue to
+  a 24-item initial target; animated progress and skeletons replace ambiguous
+  blank waits on both feeds.
+- **Warm media relaunches and swipe discovery**: sound feeds and fresh signed
+  preview URLs now persist across relaunches; audio prebuffer/playback share one
+  disk-cache key; NewPipe resolves preview and download audio before falling
+  back to yt-dlp; and playback starts with a 250 ms buffer target. Video feeds
+  render cached results before background refresh, video preview bytes use a
+  bounded disk cache, and tapping a video opens a full-screen vertical pager
+  that resolves the current and next item. Wallpaper pager context now survives
+  process death and prefetches adjacent full-resolution images.
+- **Restored Reddit without an OAuth client ID**: wallpaper and cinemagraph
+  discovery now uses one combined public Atom/RSS request at a time, 100-entry
+  pages carried forward with the last raw `t3_...` cursor, cursor-keyed persistent
+  page metadata, a rate-limit cooldown that survives relaunches, and stale/offline fallback. Reddit
+  is the first ranking tier on both wallpaper home feeds; direct-original mobile
+  communities replace landscape-heavy or dormant defaults, while preview-only
+  gallery thumbnails are excluded. Native `v.redd.it` posts resolve through the
+  bundled Media3 HLS playback module instead of being discarded. Aura
+  does not use the unofficial pattern found in several OSS clients that embeds
+  Reddit's own Android client ID. Direct GIFs animate in the video feed and
+  full-screen pager and can be applied as live wallpapers.
+- **Removed the finite wallpaper ceiling**: public Reddit Atom pages now load via
+  real `after` cursors, Discover rotates every theme through page one before
+  advancing provider pages, ranking no longer deletes the low-scoring tail of
+  each batch, and the near-end grid trigger re-arms when inventory grows.
+- **Made wallpaper preview image-first**: the vertical swipe pager now keeps only
+  Back, position, Set, Favorite, and More over the image. Full metadata and
+  secondary actions stay collapsed until the user asks for them, while the pager
+  appends newly loaded results without reordering the item currently on screen.
+- **Raised the Jackson security floor to 2.18.9**: yt-dlp's legacy transitive
+  Jackson 2.11.1 dependency now resolves to the patched 2.18.9 line, with the
+  resolved artifacts covered by Gradle SHA-256 dependency verification.
+
 ## v6.35.1 (2026-07-15)
 
 On-device QA pass on a Galaxy S22 Ultra (Android 16) following the v6.35.0 audit.
@@ -10,7 +57,6 @@ dark/light themes, sound preview first-play progress, universal search typing an
 provider handoff, whole-library export/import round-trip through SAF, wallpaper
 apply, and reboots with the weather live wallpaper active. A persistent logcat
 crash monitor during the session caught two P1s that only reproduce on-device:
-
 - **Fixed weather wallpaper crash loop on Android 16**: calling
   `setTouchEventsEnabled(true)` from `onSurfaceCreated` recurses on SDK 36 —
   the framework re-runs `updateSurface()`, which re-dispatches

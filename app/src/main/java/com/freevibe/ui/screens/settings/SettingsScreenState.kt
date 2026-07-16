@@ -77,6 +77,7 @@ internal data class SettingsScreenState(
     val generatedContentDisclosureAccepted: Boolean,
     val wallhavenProviderEnabled: Boolean,
     val bingProviderEnabled: Boolean,
+    val redditProviderEnabled: Boolean,
     val pexelsProviderEnabled: Boolean,
     val pixabayProviderEnabled: Boolean,
     val communityProviderEnabled: Boolean,
@@ -169,6 +170,7 @@ internal fun rememberSettingsScreenState(
     val generatedContentDisclosureAccepted by viewModel.generatedContentDisclosureAccepted.collectAsStateWithLifecycle()
     val wallhavenProviderEnabled by viewModel.wallhavenProviderEnabled.collectAsStateWithLifecycle()
     val bingProviderEnabled by viewModel.bingProviderEnabled.collectAsStateWithLifecycle()
+    val redditProviderEnabled by viewModel.redditProviderEnabled.collectAsStateWithLifecycle()
     val pexelsProviderEnabled by viewModel.pexelsProviderEnabled.collectAsStateWithLifecycle()
     val pixabayProviderEnabled by viewModel.pixabayProviderEnabled.collectAsStateWithLifecycle()
     val communityProviderEnabled by viewModel.communityProviderEnabled.collectAsStateWithLifecycle()
@@ -278,6 +280,7 @@ internal fun rememberSettingsScreenState(
         generatedContentDisclosureAccepted = generatedContentDisclosureAccepted,
         wallhavenProviderEnabled = wallhavenProviderEnabled,
         bingProviderEnabled = bingProviderEnabled,
+        redditProviderEnabled = redditProviderEnabled,
         pexelsProviderEnabled = pexelsProviderEnabled,
         pixabayProviderEnabled = pixabayProviderEnabled,
         communityProviderEnabled = communityProviderEnabled,

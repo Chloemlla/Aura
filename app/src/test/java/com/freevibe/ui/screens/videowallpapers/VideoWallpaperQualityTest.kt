@@ -98,6 +98,40 @@ class VideoWallpaperQualityTest {
         assertFalse(ranked.any { it.id == "portrait_one" })
     }
 
+    @Test
+    fun `reddit is first and dominant while quality remains ordered within source`() {
+        val reddit = (1..6).map { index ->
+            video(
+                id = "rd_$index",
+                source = "Reddit",
+                title = "Cinemagraph loop $index",
+                duration = 12,
+                popularity = index * 10_000L,
+                videoWidth = 1080,
+                videoHeight = 1920,
+            )
+        }
+        val alternatives = listOf(
+            video("px_1", "Pexels", "Abstract loop", 12, 40_000, 1080, 1920),
+            video("pb_1", "Pixabay", "Ambient loop", 12, 40_000, 1080, 1920),
+            video("yt_1", "YouTube", "Galaxy loop", 12, 40_000, 1080, 1920),
+        )
+
+        val ranked = rankVideoWallpapers(
+            items = alternatives + reddit,
+            filter = VideoFocusFilter.BEST,
+            orientation = OrientationFilter.PORTRAIT,
+        )
+
+        assertEquals(listOf("rd_6", "rd_5", "rd_4"), ranked.take(3).map { it.id })
+        assertEquals(5, ranked.take(8).count { it.source == "Reddit" })
+        assertTrue(
+            ranked.filter { it.source == "Reddit" }
+                .zipWithNext()
+                .all { (first, second) -> first.popularity >= second.popularity },
+        )
+    }
+
     private fun video(
         id: String,
         source: String,
