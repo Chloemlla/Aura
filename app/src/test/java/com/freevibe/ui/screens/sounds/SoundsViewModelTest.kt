@@ -508,11 +508,54 @@ class SoundsViewModelTest {
         )
         advanceUntilIdle()
 
-        viewModel.deleteCommunitySound(sound)
+        var deletionCompleted = false
+        viewModel.deleteCommunitySound(sound) { deletionCompleted = true }
         advanceUntilIdle()
 
         coVerify(exactly = 1) { uploadRepo.deleteSoundUpload(sound.id) }
         assertEquals("Upload deleted", viewModel.state.value.applySuccess)
+        assertTrue(deletionCompleted)
+    }
+
+    @Test
+    fun `deleteCommunitySound keeps detail open and reports failure`() = runTest(dispatcher) {
+        val youtubeRepo = mockk<YouTubeRepository>()
+        val freesoundRepo = mockk<FreesoundRepository>()
+        val freesoundV2Repo = mockk<FreesoundV2Repository>()
+        val audiusRepo = mockk<AudiusRepository>()
+        val ccMixterRepo = mockk<CcMixterRepository>()
+        val soundCloudRepo = mockk<SoundCloudRepository>()
+        val uploadRepo = mockk<UploadRepository>(relaxed = true)
+        val sound = testSound("cu_owner_sound", ContentSource.COMMUNITY, "Owner tone")
+
+        stubCommonDependencies(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+        )
+        coEvery { uploadRepo.deleteSoundUpload(sound.id) } returns Result.failure(IllegalStateException("Offline"))
+
+        val viewModel = createViewModel(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+            uploadRepoOverride = uploadRepo,
+        )
+        advanceUntilIdle()
+
+        var deletionCompleted = false
+        viewModel.deleteCommunitySound(sound) { deletionCompleted = true }
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { uploadRepo.deleteSoundUpload(sound.id) }
+        assertFalse(deletionCompleted)
+        assertEquals("Delete failed: Offline", viewModel.state.value.error)
     }
 
     @Test
@@ -1466,6 +1509,7 @@ class SoundsViewModelTest {
         every { context.getString(R.string.feedback_report_submitted) } returns "Report submitted"
         every { context.getString(R.string.feedback_creator_blocked) } returns "Creator blocked"
         every { context.getString(R.string.feedback_upload_deleted) } returns "Upload deleted"
+        every { context.getString(R.string.feedback_delete_failed, "Offline") } returns "Delete failed: Offline"
     }
 
     private fun stubCommonDependencies(

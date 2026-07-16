@@ -375,7 +375,8 @@ class SoundsViewModel @Inject constructor(
     ) = community.uploadSound(localUri, name, category, tags, rights, isAiGenerated)
 
     suspend fun canDeleteCommunitySound(sound: Sound): Boolean = community.canDeleteSound(sound)
-    fun deleteCommunitySound(sound: Sound) = community.deleteSound(sound)
+    fun deleteCommunitySound(sound: Sound, onDeleted: () -> Unit = {}) =
+        community.deleteSound(sound, onDeleted)
     fun reportSound(sound: Sound, reason: CommunityReportReason, note: String = "") =
         community.reportSound(sound, reason, note)
 

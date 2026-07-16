@@ -54,6 +54,9 @@ and a no-OAuth Reddit RSS pipeline.
 - **Migrated the image stack to Coil 3.2 and Compose 1.8**: every image surface,
   singleton cache, OkHttp fetcher, GIF decoder, and widget bitmap conversion now
   uses Coil 3, aligned by the June 2025 Compose BOM.
+- **Kept failed community-sound deletions actionable**: the detail screen now waits
+  for Firebase deletion to succeed before navigating back, so failures remain visible
+  and can be retried in place.
 - **Added a video wallpaper motion guard**: the existing automatic battery control
   now holds videos and GIFs on a static frame while Android Battery Saver is active,
   resumes the retained decoder when saver exits, and reports the state in Settings.

@@ -264,8 +264,7 @@ fun SoundDetailScreen(
                 TextButton(
                     onClick = {
                         showDeleteUploadDialog = false
-                        viewModel.deleteCommunitySound(s)
-                        onBack()
+                        viewModel.deleteCommunitySound(s, onDeleted = onBack)
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) {

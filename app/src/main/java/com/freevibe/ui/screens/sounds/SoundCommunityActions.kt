@@ -224,7 +224,7 @@ internal class SoundCommunityActions(
         return uploadRepo.canDeleteSoundUpload(sound.id)
     }
 
-    fun deleteSound(sound: Sound) {
+    fun deleteSound(sound: Sound, onDeleted: () -> Unit = {}) {
         if (communityActionBlocked()) return
         scope.launch {
             uploadRepo.deleteSoundUpload(sound.id)
@@ -237,6 +237,7 @@ internal class SoundCommunityActions(
                             applySuccess = context.getString(R.string.feedback_upload_deleted),
                         )
                     }
+                    onDeleted()
                 }
                 .onFailure { error ->
                     state.update {
