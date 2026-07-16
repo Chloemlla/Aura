@@ -45,6 +45,7 @@ REQUIRED_SOURCE_URLS = {
     "https://f-droid.org/en/docs/All_About_Descriptions_Graphics_and_Screenshots/",
     "https://izzyondroid.org/docs/general/YamlMetadata/",
     "https://apt.izzysoft.de/fdroid/index/apk",
+    "https://gitlab.com/IzzyOnDroid/repo/-/wikis/Reproducible-Builds",
 }
 
 
@@ -277,7 +278,12 @@ def validate_izzy_submission(policy: dict[str, Any]) -> None:
     if require_string(section.get("status"), "izzySubmission.status") != "ownerSubmissionRequired":
         raise AltStoreMetadataError("izzySubmission.status must remain ownerSubmissionRequired")
     notes = require_string_list(section.get("notes"), "izzySubmission.notes")
-    required_terms = ("signed GitHub Release APK", "anti-feature", "F-Droid mainline")
+    required_terms = (
+        "signed GitHub Release APK",
+        "anti-feature",
+        "F-Droid mainline",
+        "FOSS reproducibility",
+    )
     joined = "\n".join(notes)
     for term in required_terms:
         if term not in joined:

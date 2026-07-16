@@ -32,6 +32,10 @@ val requestedVariantTasks = requestedGradleTasks.filterNot { task ->
 }
 val buildingFossOnly = requestedVariantTasks.isNotEmpty() &&
     requestedVariantTasks.all { task -> task.contains("Foss", ignoreCase = true) }
+val reproducibleFossBuild = buildingFossOnly &&
+    providers.gradleProperty("aura.reproducibleFossBuild")
+        .orNull
+        ?.toBooleanStrictOrNull() == true
 
 if (!buildingFossOnly) {
     apply(plugin = "com.google.gms." + "google-services")
@@ -113,7 +117,10 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("release")
+            // Verification builders compare an unsigned FOSS artifact with the
+            // owner-signed release modulo its signature. Keeping this opt-in avoids
+            // local keystore inputs while preserving the normal signed release lane.
+            signingConfig = if (reproducibleFossBuild) null else signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

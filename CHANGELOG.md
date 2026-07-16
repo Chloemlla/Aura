@@ -46,6 +46,9 @@ and a no-OAuth Reddit RSS pipeline.
 - **Added a video wallpaper motion guard**: the existing automatic battery control
   now holds videos and GIFs on a static frame while Android Battery Saver is active,
   resumes the retained decoder when saver exits, and reports the state in Settings.
+- **Made FOSS release builds reproducible**: an unsigned two-root verification lane
+  now compares raw and signature-stripped APK digests, serializes release shrinking,
+  and stabilizes Jackson's nondeterministic R8 class merge for IzzyOnDroid evidence.
 - **Added day/night wallpaper scheduling**: auto-rotation can keep one source,
   switch between independently selected day and night sources at configurable
   clock boundaries, or follow the system light/dark theme. Phase sources and

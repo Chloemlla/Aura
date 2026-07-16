@@ -13,6 +13,7 @@
     "docs/privacy/data-safety.json",
     "docs/security/network-endpoints.json",
     "tools/fdroid_preflight.py",
+    "tools/foss_reproducibility_check.py",
     "fastlane/metadata/android/en-US/full_description.txt"
   ],
   "channels": [
@@ -304,6 +305,7 @@
       "Use the signed GitHub Release APK and checksum.",
       "Include anti-feature details at least in en-US.",
       "Disclose Firebase/Google Play services dependencies and remote provider network services.",
+      "Run the two-root FOSS reproducibility check and retain both APK digests before requesting reproducible-build adoption.",
       "Do not claim F-Droid mainline availability until release/source-build metadata and owner review pass."
     ]
   },
@@ -312,6 +314,7 @@
     "https://f-droid.org/en/docs/Anti-Features/",
     "https://f-droid.org/en/docs/All_About_Descriptions_Graphics_and_Screenshots/",
     "https://izzyondroid.org/docs/general/YamlMetadata/",
-    "https://apt.izzysoft.de/fdroid/index/apk"
+    "https://apt.izzysoft.de/fdroid/index/apk",
+    "https://gitlab.com/IzzyOnDroid/repo/-/wikis/Reproducible-Builds"
   ]
 }

@@ -35,3 +35,8 @@
 # Coroutines
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+
+# R8 can nondeterministically merge this abstract Jackson serializer, changing
+# its synthetic discriminator by one byte between otherwise identical builds.
+# Keep it shrinkable/obfuscatable but do not optimize or merge the class.
+-keep,allowshrinking,allowobfuscation class com.fasterxml.jackson.databind.ser.std.ToStringSerializerBase { *; }

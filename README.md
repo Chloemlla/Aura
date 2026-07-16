@@ -206,6 +206,18 @@ Debug builds include Android pseudolocales; the route screenshot gate covers com
 
 Copy `local.properties.example` to `local.properties` for local SDK, optional API keys, and release signing values. Public releases are built locally as signed, non-debuggable APK/AAB artifacts, verified with `apksigner`, checked against `SHA256SUMS.txt`, and uploaded to GitHub Releases for GitHub/Obtainium users. See [release signing docs](docs/distribution/release-signing.md), the [distribution channel strategy](docs/distribution/channel-strategy.md), [alternative-store disclosures](docs/distribution/alt-store-metadata.md), [release metadata consistency](docs/distribution/release-metadata-consistency.md), [SBOM readiness](docs/distribution/sbom-readiness.md), [store asset planning](docs/distribution/store-assets.md), [Android developer verification prep](docs/distribution/developer-verification.md), and [supply-chain verification](docs/distribution/supply-chain.md).
 
+To verify the FOSS release lane reproducibly, start from a clean checkout and run:
+
+```powershell
+python tools\foss_reproducibility_check.py --build-twice --output-dir build\reproducibility
+```
+
+The check copies only Git-tracked inputs into two isolated source roots, fixes the
+build epoch, disables release signing, serializes R8, and requires matching raw and
+signature-stripped archive evidence. The resulting APKs are verification artifacts,
+not public install packages. Existing independently built APKs can be compared with
+`--first-apk <path> --second-apk <path>`.
+
 ## Contributing
 
 Issues and PRs welcome. Please follow existing code style (Kotlin, Compose, Hilt patterns). For crashes or ANRs, use Settings > Diagnostics > Crash diagnostics bundle and paste it into the crash report template; see [crash diagnostics](docs/support/crash-diagnostics.md). For community identity deletion requests, use Settings > Community identity and the private request flow in [community account deletion requests](docs/support/community-account-deletion.md).
