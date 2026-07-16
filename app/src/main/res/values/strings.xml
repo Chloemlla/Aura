@@ -1052,6 +1052,12 @@
     <string name="settings_wp_reddit_subtitle">Cached public RSS with post and creator attribution</string>
     <string name="settings_wp_reddit_on_subtitle">Cached public RSS; no OAuth client ID required</string>
     <string name="settings_wp_reddit_off_subtitle">Hides Reddit and makes no new feed requests</string>
+    <string name="settings_wp_subreddits_title">Wallpaper communities</string>
+    <string name="settings_video_subreddits_title">Video communities</string>
+    <string name="settings_reddit_subreddits_summary">%1$d selected • tap to edit</string>
+    <string name="settings_reddit_subreddits_hint">Enter subreddit names separated by commas or new lines. The r/ prefix is optional. Leave the field empty to restore Aura\'s defaults.</string>
+    <string name="settings_reddit_subreddits_input_label">Subreddits</string>
+    <string name="settings_reddit_subreddits_error">Use 2–40 letters, numbers, or underscores per name, with no more than 12 communities.</string>
     <string name="settings_wp_bing_title">Enable Bing Daily source</string>
     <string name="settings_wp_bing_on_subtitle">Adds Bing Image of the Day to Discover and rotations</string>
     <string name="settings_wp_bing_off_subtitle">Skips Bing daily-image calls and hides it from rotation pickers</string>

@@ -5,6 +5,8 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.freevibe.R
+import com.freevibe.data.local.DEFAULT_REDDIT_VIDEO_SUBREDDITS
+import com.freevibe.data.local.DEFAULT_REDDIT_WALLPAPER_SUBREDDITS
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.local.SCHEDULER_DAY_NIGHT_MODE_SINGLE
 import com.freevibe.data.local.WallpaperCacheManager
@@ -197,7 +199,12 @@ class SettingsViewModel @Inject constructor(
     val redditSubs = prefs.redditSubreddits.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
-        "iWallpaper,Amoledbackgrounds,MobileWallpaper,AnimePhoneWallpapers,phonewallpapers,iphonewallpapers,mobilewallpapers,Verticalwallpapers,WQHD_Wallpaper,MinimalWallpaper,iphonexwallpapers",
+        DEFAULT_REDDIT_WALLPAPER_SUBREDDITS,
+    )
+    val redditVideoSubs = prefs.redditVideoSubreddits.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        DEFAULT_REDDIT_VIDEO_SUBREDDITS,
     )
     val redditProviderEnabled = prefs.redditProviderEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
     val preferredRes = prefs.preferredResolution.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
@@ -674,6 +681,9 @@ class SettingsViewModel @Inject constructor(
 
     fun setRedditSubs(subs: String) = viewModelScope.launch {
         prefs.setRedditSubreddits(subs)
+    }
+    fun setRedditVideoSubs(subs: String) = viewModelScope.launch {
+        prefs.setRedditVideoSubreddits(subs)
     }
     fun setRedditProviderEnabled(enabled: Boolean) = viewModelScope.launch { prefs.setRedditProviderEnabled(enabled) }
 

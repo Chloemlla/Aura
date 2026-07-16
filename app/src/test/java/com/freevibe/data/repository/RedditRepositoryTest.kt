@@ -77,7 +77,22 @@ class RedditRepositoryTest {
         assertTrue(harness.nextAllowedAtMs > System.currentTimeMillis())
     }
 
-    private class Harness(private val xml: String) {
+    @Test
+    fun `wallpaper feed honors configured subreddit list`() = runTest {
+        val harness = Harness(
+            xml = atomPage(directImages = 1),
+            configuredSubreddits = "CustomWalls,OLED_Portraits",
+        )
+
+        harness.repository().getMultiSubreddit(page = 1)
+
+        assertTrue(harness.requests.single().contains("/r/CustomWalls+OLED_Portraits/new/.rss"))
+    }
+
+    private class Harness(
+        private val xml: String,
+        configuredSubreddits: String = "iWallpaper",
+    ) {
         val requests = mutableListOf<String>()
         val cacheRows = mutableMapOf<String, List<Wallpaper>>()
         val pageMetadata = mutableMapOf<Pair<Int, String?>, String>()
@@ -85,7 +100,7 @@ class RedditRepositoryTest {
 
         private val preferences = mockk<PreferencesManager>().also { prefs ->
             every { prefs.redditProviderEnabled } returns flowOf(true)
-            every { prefs.redditSubreddits } returns flowOf("iWallpaper")
+            every { prefs.redditSubreddits } returns flowOf(configuredSubreddits)
             coEvery { prefs.getRedditRssNextCursor(any(), any()) } answers {
                 pageMetadata[firstArg<Int>() to secondArg<String?>()].orEmpty()
             }

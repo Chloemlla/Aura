@@ -524,6 +524,7 @@ class SettingsViewModelTest {
             every { prefs.wallpaperGridColumns } returns flowOf(2)
             every { prefs.soundPreviewVolume } returns flowOf(0.7f)
             every { prefs.redditSubreddits } returns flowOf("wallpapers")
+            every { prefs.redditVideoSubreddits } returns flowOf("Cinemagraphs")
             every { prefs.redditProviderEnabled } returns flowOf(true)
             every { prefs.preferredResolution } returns flowOf("")
             every { prefs.userStyles } returns flowOf("")

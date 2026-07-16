@@ -143,6 +143,7 @@ class VideoWallpapersViewModelTest {
         val groups = resolveRedditMotionFeedGroups(
             "livewallpapers,LiveWallpaper,Cinemagraphs,perfectloops,livewallpapers,not-valid!",
         )
+        val customGroups = resolveRedditMotionFeedGroups("CustomLoops,OLED_Motion,PixelCycles")
 
         assertEquals(
             listOf(
@@ -152,6 +153,10 @@ class VideoWallpapersViewModelTest {
                 listOf("wallpaperengine"),
             ),
             groups.map { it.subreddits },
+        )
+        assertEquals(
+            listOf(listOf("CustomLoops", "OLED_Motion"), listOf("PixelCycles")),
+            customGroups.map { it.subreddits },
         )
     }
 

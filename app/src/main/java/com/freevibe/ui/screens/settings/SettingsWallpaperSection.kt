@@ -80,6 +80,7 @@ internal fun WallpaperRotationSettingsSection(
     wallpaperStyleLearningSignalCount: Int,
     bingProviderEnabled: Boolean,
     redditProviderEnabled: Boolean,
+    redditSubreddits: String,
     wallhavenProviderEnabled: Boolean,
     pixabayProviderEnabled: Boolean,
     wallpaperHistoryCount: Int,
@@ -293,6 +294,11 @@ internal fun WallpaperRotationSettingsSection(
             },
             checked = redditProviderEnabled,
             onCheckedChange = viewModel::setRedditProviderEnabled,
+        )
+        RedditSubredditListEditor(
+            title = stringResource(R.string.settings_wp_subreddits_title),
+            configuredSubreddits = redditSubreddits,
+            onSave = viewModel::setRedditSubs,
         )
         SettingsToggle(
             icon = Icons.Default.ImageSearch,

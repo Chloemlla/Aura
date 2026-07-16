@@ -24,6 +24,7 @@ class ReleasePolishContractTest {
             "SettingsSmartLiveSection.kt",
             "SettingsSoundSection.kt",
             "SettingsVideoSection.kt",
+            "SettingsRedditSection.kt",
             "SettingsServicesSection.kt",
             "SettingsStorageSection.kt",
             "SettingsDiagnosticsSection.kt",
@@ -288,6 +289,22 @@ class ReleasePolishContractTest {
         assertTrue(blockedWordsDialog.contains(".verticalScroll(rememberScrollState())"))
         assertTrue(blockedWordsDialog.contains(".imePadding()"))
         assertTrue(blockedWordsDialog.contains("imeAction = ImeAction.Done"))
+    }
+
+    @Test
+    fun `settings exposes validated wallpaper and video subreddit editors`() {
+        val screen = settingsSource()
+        val preferences = File("src/main/java/com/freevibe/data/local/PreferencesManager.kt").readText()
+
+        assertTrue(screen.contains("redditSubreddits = redditSubreddits"))
+        assertTrue(screen.contains("redditVideoSubreddits = redditVideoSubreddits"))
+        assertTrue(screen.contains("RedditSubredditListEditor("))
+        assertTrue(screen.contains("viewModel::setRedditSubs"))
+        assertTrue(screen.contains("viewModel::setRedditVideoSubs"))
+        assertTrue(screen.contains("verticalScroll(rememberScrollState())"))
+        assertTrue(screen.contains("imePadding()"))
+        assertTrue(preferences.contains("normalizeRedditSubredditPreference"))
+        assertTrue(preferences.contains("MAX_CONFIGURED_SUBREDDITS"))
     }
 
     @Test

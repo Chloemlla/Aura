@@ -32,10 +32,50 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("f
 
 private const val LEGACY_REDDIT_RSS_PAGE_PREFIX = "reddit_rss_page_v2_"
 internal const val MAX_REDDIT_RSS_PAGE_METADATA_ENTRIES = 64
+internal const val MAX_CONFIGURED_SUBREDDITS = 12
+internal const val DEFAULT_REDDIT_WALLPAPER_SUBREDDITS =
+    "iWallpaper,Amoledbackgrounds,MobileWallpaper,AnimePhoneWallpapers,phonewallpapers," +
+        "iphonewallpapers,mobilewallpapers,Verticalwallpapers,WQHD_Wallpaper,MinimalWallpaper,iphonexwallpapers"
+internal const val DEFAULT_REDDIT_VIDEO_SUBREDDITS =
+    "livewallpapers,Cinemagraphs,perfectloops,phonewallpapers,AnimatedPixelArt,LivingBackgrounds,wallpaperengine"
 internal const val SCHEDULER_DAY_NIGHT_MODE_SINGLE = "single"
 internal const val SCHEDULER_DAY_NIGHT_MODE_CLOCK = "clock"
 internal const val SCHEDULER_DAY_NIGHT_MODE_SYSTEM_THEME = "system_theme"
 private val REDDIT_RSS_CURSOR_TOKEN = Regex("[a-zA-Z0-9]{1,64}")
+private val REDDIT_SUBREDDIT_NAME = Regex("[A-Za-z0-9_]{2,40}")
+
+internal data class RedditSubredditListValidation(
+    val subreddits: List<String>,
+    val invalidEntries: List<String>,
+    val exceedsLimit: Boolean,
+) {
+    val isValid: Boolean get() = invalidEntries.isEmpty() && !exceedsLimit
+    val normalized: String get() = subreddits.joinToString(",")
+}
+
+internal fun validateRedditSubredditList(raw: String): RedditSubredditListValidation {
+    val entries = raw
+        .split(Regex("[,\\r\\n]+"))
+        .map(String::trim)
+        .filter(String::isNotBlank)
+        .map { entry ->
+            if (entry.startsWith("r/", ignoreCase = true)) entry.drop(2) else entry
+        }
+    val invalidEntries = entries.filterNot(REDDIT_SUBREDDIT_NAME::matches).distinct()
+    val validEntries = entries
+        .filter(REDDIT_SUBREDDIT_NAME::matches)
+        .distinctBy { it.lowercase(java.util.Locale.ROOT) }
+    return RedditSubredditListValidation(
+        subreddits = validEntries.take(MAX_CONFIGURED_SUBREDDITS),
+        invalidEntries = invalidEntries,
+        exceedsLimit = validEntries.size > MAX_CONFIGURED_SUBREDDITS,
+    )
+}
+
+internal fun normalizeRedditSubredditPreference(raw: String, defaults: String): String {
+    val validation = validateRedditSubredditList(raw)
+    return validation.normalized.takeIf { validation.isValid && it.isNotBlank() } ?: defaults
+}
 
 internal data class RedditRssPageMetadataEntry(
     val feedHash: Int,
@@ -328,16 +368,22 @@ class PreferencesManager @Inject constructor(
 
     val redditSubreddits: Flow<String> = get(
         Keys.REDDIT_SUBS,
-        "iWallpaper,Amoledbackgrounds,MobileWallpaper,AnimePhoneWallpapers,phonewallpapers,iphonewallpapers,mobilewallpapers,Verticalwallpapers,WQHD_Wallpaper,MinimalWallpaper,iphonexwallpapers",
+        DEFAULT_REDDIT_WALLPAPER_SUBREDDITS,
     )
     val redditVideoSubreddits: Flow<String> = get(
         Keys.REDDIT_VIDEO_SUBS,
-        "livewallpapers,Cinemagraphs,perfectloops,phonewallpapers,AnimatedPixelArt,LivingBackgrounds,wallpaperengine",
+        DEFAULT_REDDIT_VIDEO_SUBREDDITS,
     )
     val redditProviderEnabled: Flow<Boolean> = get(Keys.REDDIT_PROVIDER_ENABLED, true)
 
-    suspend fun setRedditSubreddits(subs: String) = set(Keys.REDDIT_SUBS, subs)
-    suspend fun setRedditVideoSubreddits(subs: String) = set(Keys.REDDIT_VIDEO_SUBS, subs)
+    suspend fun setRedditSubreddits(subs: String) = set(
+        Keys.REDDIT_SUBS,
+        normalizeRedditSubredditPreference(subs, DEFAULT_REDDIT_WALLPAPER_SUBREDDITS),
+    )
+    suspend fun setRedditVideoSubreddits(subs: String) = set(
+        Keys.REDDIT_VIDEO_SUBS,
+        normalizeRedditSubredditPreference(subs, DEFAULT_REDDIT_VIDEO_SUBREDDITS),
+    )
     suspend fun setRedditProviderEnabled(enabled: Boolean) = set(Keys.REDDIT_PROVIDER_ENABLED, enabled)
 
     /**

@@ -25,6 +25,9 @@ and a no-OAuth Reddit RSS pipeline.
 - **Avoided ineffective video preview prebuffers**: the preview disk cache now
   accepts only progressive MP4/WebM URLs and skips HLS manifests, GIFs, local
   content, and unknown stream shapes before allocating a cache writer.
+- **Made Reddit wallpaper and video communities configurable**: Settings now
+  provides validated, keyboard-safe editors for both feeds, with bounded lists,
+  duplicate cleanup, optional `r/` prefixes, and automatic safe-default restore.
 - **Added day/night wallpaper scheduling**: auto-rotation can keep one source,
   switch between independently selected day and night sources at configurable
   clock boundaries, or follow the system light/dark theme. Phase sources and

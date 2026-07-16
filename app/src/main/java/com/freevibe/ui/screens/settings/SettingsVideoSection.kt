@@ -25,6 +25,7 @@ internal fun VideoSettingsSection(
     videoFpsOverlayEnabled: Boolean,
     videoAutoBatterySaver: Boolean,
     videoBatteryDashboard: VideoBatteryDashboardState,
+    redditVideoSubreddits: String,
 ) {
     var showFpsPicker by remember { mutableStateOf(false) }
 
@@ -35,6 +36,11 @@ internal fun VideoSettingsSection(
         VideoBatteryDashboardCard(
             state = videoBatteryDashboard,
             modifier = Modifier.fillMaxWidth(),
+        )
+        RedditSubredditListEditor(
+            title = stringResource(R.string.settings_video_subreddits_title),
+            configuredSubreddits = redditVideoSubreddits,
+            onSave = viewModel::setRedditVideoSubs,
         )
         SettingsToggle(
             icon = Icons.Default.BatteryChargingFull,
