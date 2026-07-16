@@ -32,6 +32,26 @@
       "releaseRisk": "Medium"
     },
     {
+      "id": "auto-backup-periodic",
+      "uniqueWorkName": "auto_backup",
+      "networkPosture": "notRequired",
+      "sourcePath": "app/src/main/java/com/freevibe/service/AutoBackupWorker.kt",
+      "requiredSourceTerms": [
+        "PeriodicWorkRequestBuilder<AutoBackupWorker>",
+        "setRequiresBatteryNotLow(true)",
+        "favoritesExporter.export"
+      ],
+      "settingsSourcePath": "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt",
+      "requiredSettingsTerms": [
+        "AutoBackupWorker.schedule",
+        "AutoBackupWorker.cancel"
+      ],
+      "meteredPolicy": "No network is used; backups write only to the user-selected Storage Access Framework destination.",
+      "dataSaverPolicy": "Data Saver does not affect local backup export; battery-not-low and destination access are the applicable gates.",
+      "privacySurface": "Backup content stays in the user-selected document tree and is never uploaded by this worker.",
+      "releaseRisk": "Low"
+    },
+    {
       "id": "daily-wallpaper-periodic",
       "uniqueWorkName": "daily_wallpaper",
       "networkPosture": "connected",
@@ -50,6 +70,86 @@
       "meteredPolicy": "Metered network is currently allowed for the small daily Bing or Wallhaven metadata and thumbnail fetch.",
       "dataSaverPolicy": "Settings diagnostics and support bundles read ConnectivityManager metered/Data Saver status and show action hints for restricted background data plus OEM battery recovery guidance.",
       "privacySurface": "Bing, Wallhaven, and notification behavior are covered by network endpoint and Data safety rows.",
+      "releaseRisk": "Medium"
+    },
+    {
+      "id": "ringtone-restoration-one-shot",
+      "uniqueWorkName": "ringtone_restoration",
+      "networkPosture": "notRequired",
+      "sourcePath": "app/src/main/java/com/freevibe/service/RingtoneRestorationReceiver.kt",
+      "requiredSourceTerms": [
+        "OneTimeWorkRequestBuilder<RingtoneRestorationWorker>",
+        "Intent.ACTION_BOOT_COMPLETED",
+        "RingtoneManager.setActualDefaultRingtoneUri"
+      ],
+      "settingsSourcePath": "app/src/main/java/com/freevibe/service/RingtoneRestorationReceiver.kt",
+      "requiredSettingsTerms": [
+        "Intent.ACTION_MY_PACKAGE_REPLACED",
+        "ExistingWorkPolicy.REPLACE"
+      ],
+      "meteredPolicy": "No network is used; restoration validates and reapplies persisted local content URIs.",
+      "dataSaverPolicy": "Data Saver does not affect boot-time ringtone restoration because it performs no remote request.",
+      "privacySurface": "Only local ringtone, notification, and alarm content URIs are read and applied.",
+      "releaseRisk": "Low"
+    },
+    {
+      "id": "ringtone-shuffle-periodic",
+      "uniqueWorkName": "ringtone_shuffle",
+      "networkPosture": "notRequired",
+      "sourcePath": "app/src/main/java/com/freevibe/service/RingtoneShuffleWorker.kt",
+      "requiredSourceTerms": [
+        "PeriodicWorkRequestBuilder<RingtoneShuffleWorker>",
+        "downloadDao.getByType(\"SOUND\")",
+        "RingtoneManager.setActualDefaultRingtoneUri"
+      ],
+      "settingsSourcePath": "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt",
+      "requiredSettingsTerms": [
+        "RingtoneShuffleWorker.schedule",
+        "RingtoneShuffleWorker.cancel"
+      ],
+      "meteredPolicy": "No network is used; shuffle candidates are existing local SOUND downloads.",
+      "dataSaverPolicy": "Data Saver does not affect local ringtone or alarm shuffle; WRITE_SETTINGS and local media availability are the applicable gates.",
+      "privacySurface": "The worker reads the local download database and applies a local media URI without uploading data.",
+      "releaseRisk": "Low"
+    },
+    {
+      "id": "sound-profile-periodic",
+      "uniqueWorkName": "sound_profile",
+      "networkPosture": "notRequired",
+      "sourcePath": "app/src/main/java/com/freevibe/service/SoundProfileManager.kt",
+      "requiredSourceTerms": [
+        "PeriodicWorkRequestBuilder<SoundProfileWorker>",
+        "parseProfiles",
+        "RingtoneManager.setActualDefaultRingtoneUri"
+      ],
+      "settingsSourcePath": "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt",
+      "requiredSettingsTerms": [
+        "SoundProfileWorker.schedule",
+        "SoundProfileWorker.cancel"
+      ],
+      "meteredPolicy": "No network is used; profiles contain persisted local sound URIs and clock windows.",
+      "dataSaverPolicy": "Data Saver does not affect time-based local sound profile application.",
+      "privacySurface": "Profile definitions and applied sound URIs remain local to Aura and Android system settings.",
+      "releaseRisk": "Low"
+    },
+    {
+      "id": "wallpaper-pack-periodic",
+      "uniqueWorkName": "wallpaper_pack",
+      "networkPosture": "notRequired",
+      "sourcePath": "app/src/main/java/com/freevibe/service/WallpaperPackManager.kt",
+      "requiredSourceTerms": [
+        "PeriodicWorkRequestBuilder<WallpaperPackWorker>",
+        "parsePack",
+        "wallpaperApplier.applyByLocator"
+      ],
+      "settingsSourcePath": "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt",
+      "requiredSettingsTerms": [
+        "WallpaperPackWorker.schedule",
+        "WallpaperPackWorker.cancel"
+      ],
+      "meteredPolicy": "No scheduler network constraint is declared because packs may contain local URIs; a user-selected remote locator can use the active metered network during apply.",
+      "dataSaverPolicy": "Local pack slots are unaffected; remote locators inherit platform Data Saver behavior and the next periodic run can recover after connectivity returns.",
+      "privacySurface": "The worker reads the local pack definition; only a user-selected remote wallpaper locator can contact its original host.",
       "releaseRisk": "Medium"
     },
     {

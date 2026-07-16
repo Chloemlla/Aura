@@ -169,6 +169,7 @@ class CrashDiagnosticsTextTest {
                         workInfoStatus = "ENQUEUED=1",
                         workInfoCount = 1,
                         maxRunAttemptCount = 2,
+                        stopReasonStatus = "QUOTA=1",
                         lastSuccessUtc = "2026-06-07T12:00:00Z",
                         lastFailureUtc = "2026-06-07T11:00:00Z",
                         lastErrorClass = "IOException",
@@ -188,6 +189,7 @@ class CrashDiagnosticsTextTest {
         assertTrue(section.contains("WorkInfo=ENQUEUED=1"))
         assertTrue(section.contains("records=1"))
         assertTrue(section.contains("maxAttempts=2"))
+        assertTrue(section.contains("stopReasons=QUOTA=1"))
         assertTrue(section.contains("lastResult=retry"))
         assertTrue(section.contains("lastSuccess=2026-06-07T12:00:00Z"))
         assertTrue(section.contains("lastFailure=2026-06-07T11:00:00Z"))

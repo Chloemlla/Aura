@@ -27,6 +27,28 @@ class BackgroundWorkDiagnosticsReaderTest {
     }
 
     @Test
+    fun summarizeWorkInfoStopReasonsOmitsActiveRecordsAndCountsStops() {
+        assertEquals(
+            "QUOTA=2, TIMEOUT=1",
+            summarizeWorkInfoStopReasons(
+                listOf(
+                    WorkInfo.STOP_REASON_NOT_STOPPED,
+                    WorkInfo.STOP_REASON_QUOTA,
+                    WorkInfo.STOP_REASON_TIMEOUT,
+                    WorkInfo.STOP_REASON_QUOTA,
+                ),
+            ),
+        )
+        assertEquals(null, summarizeWorkInfoStopReasons(listOf(WorkInfo.STOP_REASON_NOT_STOPPED)))
+    }
+
+    @Test
+    fun workInfoStopReasonLabelPreservesUnknownPlatformValues() {
+        assertEquals("BACKGROUND_RESTRICTION", workInfoStopReasonLabel(WorkInfo.STOP_REASON_BACKGROUND_RESTRICTION))
+        assertEquals("UNKNOWN(99)", workInfoStopReasonLabel(99))
+    }
+
+    @Test
     fun restrictBackgroundStatusLabelMapsConnectivityStatuses() {
         assertEquals(
             "disabled",

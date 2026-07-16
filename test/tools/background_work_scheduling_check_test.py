@@ -41,7 +41,9 @@ class BackgroundWorkSchedulingCheckTest(unittest.TestCase):
         result = validate_policy(REPO_ROOT, live_policy())
 
         self.assertEqual("ok", result["status"])
-        self.assertEqual(5, result["workItemCount"])
+        self.assertEqual(10, result["workItemCount"])
+        self.assertEqual(9, result["android16Audit"]["coroutineWorkerCount"])
+        self.assertEqual(0, result["android16Audit"]["directJobSchedulerApiCount"])
         self.assertIn("rotation_trigger_oneshot", result["uniqueWorkNames"])
 
     def test_rejects_missing_required_work_item(self) -> None:
@@ -77,6 +79,26 @@ class BackgroundWorkSchedulingCheckTest(unittest.TestCase):
 
         with self.assertRaises(BackgroundWorkSchedulingError):
             validate_policy(REPO_ROOT, policy)
+
+    def test_rejects_missing_android16_worker_coverage(self) -> None:
+        policy = live_policy()
+        policy["android16Audit"]["coroutineWorkerClasses"].remove("AutoBackupWorker")  # type: ignore[index]
+
+        with self.assertRaises(BackgroundWorkSchedulingError):
+            validate_policy(REPO_ROOT, policy)
+
+    def test_rejects_unreviewed_direct_job_scheduler_api(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            copy_required_tree(repo)
+            source = repo / "app/src/main/java/com/freevibe/service/AutoBackupWorker.kt"
+            source.write_text(
+                source.read_text(encoding="utf-8") + "\nimport android.app.job.JobScheduler\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(BackgroundWorkSchedulingError):
+                validate_policy(repo, live_policy())
 
     def test_rejects_missing_doc_source_url(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

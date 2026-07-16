@@ -40,7 +40,8 @@ class BackgroundWorkDeviceEvidenceCheckTest(unittest.TestCase):
         result = validate_policy(REPO_ROOT, live_policy())
 
         self.assertEqual("ok", result["status"])
-        self.assertEqual(5, result["scenarioCount"])
+        self.assertEqual(6, result["scenarioCount"])
+        self.assertTrue(result["android16QuotaScenarioReady"])
         self.assertIn("rotation_trigger_oneshot", result["coveredWorkNames"])
 
     def test_rejects_missing_required_scenario(self) -> None:
@@ -55,6 +56,17 @@ class BackgroundWorkDeviceEvidenceCheckTest(unittest.TestCase):
     def test_rejects_unknown_work_name(self) -> None:
         policy = copy.deepcopy(live_policy())
         policy["scenarios"][0]["coversWorkNames"].append("unknown_work")  # type: ignore[index]
+
+        with self.assertRaises(BackgroundWorkDeviceEvidenceError):
+            validate_policy(REPO_ROOT, policy)
+
+    def test_rejects_missing_android16_quota_override(self) -> None:
+        policy = copy.deepcopy(live_policy())
+        scenario = next(row for row in policy["scenarios"] if row["id"] == "android16-job-quota")  # type: ignore[index]
+        scenario["requiredCommands"] = [
+            command for command in scenario["requiredCommands"]
+            if "OVERRIDE_QUOTA_ENFORCEMENT_TO_FGS_JOBS" not in command
+        ]
 
         with self.assertRaises(BackgroundWorkDeviceEvidenceError):
             validate_policy(REPO_ROOT, policy)

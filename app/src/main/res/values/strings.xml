@@ -1343,6 +1343,7 @@
     <string name="settings_diag_receipt_found">Receipt found</string>
     <string name="settings_diag_receipt_missing">No receipt</string>
     <string name="settings_diag_background_record_summary">%1$d records - max attempts %2$d</string>
+    <string name="settings_diag_stop_reasons">Stop reasons: %1$s</string>
     <string name="settings_diag_last_result">Last result: %1$s</string>
     <string name="settings_diag_none">none</string>
     <string name="settings_diag_last_success_failure">Last success %1$s - last failure %2$s</string>

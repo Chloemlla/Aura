@@ -431,6 +431,7 @@ internal object CrashDiagnosticsText {
                         "WorkInfo=${row.workInfoStatus}; " +
                         "records=${row.workInfoCount}; " +
                         "maxAttempts=${row.maxRunAttemptCount ?: 0}; " +
+                        "stopReasons=${row.stopReasonStatus ?: "none"}; " +
                         "lastResult=${row.lastResult ?: "none"}; " +
                         "lastSuccess=${row.lastSuccessUtc ?: "none"}; " +
                         "lastFailure=${row.lastFailureUtc ?: "none"}; " +

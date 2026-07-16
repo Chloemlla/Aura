@@ -411,6 +411,13 @@ internal fun BackgroundWorkDiagnosticRow(row: BackgroundWorkStatusRow) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            row.stopReasonStatus?.let { stopReasons ->
+                Text(
+                    stringResource(R.string.settings_diag_stop_reasons, stopReasons),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary,
+                )
+            }
             row.lastResult?.let { result ->
                 Text(
                     stringResource(R.string.settings_diag_last_result, result),

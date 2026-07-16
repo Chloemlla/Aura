@@ -42,7 +42,8 @@ class BackgroundWorkNetworkCheckTest(unittest.TestCase):
         result = validate_policy(REPO_ROOT, live_policy())
 
         self.assertEqual("ok", result["status"])
-        self.assertEqual(5, result["postureRowCount"])
+        self.assertEqual(10, result["postureRowCount"])
+        self.assertIn("notRequired", result["networkPostures"])
         self.assertIn("unmetered", result["networkPostures"])
 
     def test_rejects_missing_scheduling_row(self) -> None:

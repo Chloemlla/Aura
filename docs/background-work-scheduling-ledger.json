@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "policyKind": "backgroundWorkSchedulingLedger",
-  "status": "ledgerReadySettingsPending",
+  "status": "android16QuotaAuditedDevicePending",
   "docsPath": "docs/background-work-scheduling-ledger.md",
   "requiredSettingsStatusFields": [
     "uniqueWorkName",
@@ -10,10 +10,38 @@
     "lastFailureUtc",
     "lastErrorClass",
     "currentWorkInfoState",
+    "stopReasonStatus",
     "constraints",
     "deferralReasons",
     "actionHint"
   ],
+  "android16Audit": {
+    "jobLifecycleOwner": "WorkManager",
+    "directJobSchedulerApisPresent": false,
+    "longRunningWorkersPresent": false,
+    "foregroundServiceConcurrentWorkNames": [
+      "rotation_trigger_oneshot"
+    ],
+    "coroutineWorkerClasses": [
+      "AuraOriginalsDownloader",
+      "AutoBackupWorker",
+      "AutoWallpaperWorker",
+      "DailyWallpaperWorker",
+      "RingtoneRestorationWorker",
+      "RingtoneShuffleWorker",
+      "SoundProfileWorker",
+      "WallpaperPackWorker",
+      "WeatherUpdateWorker"
+    ],
+    "findings": [
+      "All persistent jobs are owned by WorkManager; Aura does not retain JobParameters or implement JobService, so STOP_REASON_TIMEOUT_ABANDONED does not apply directly.",
+      "No CoroutineWorker calls setForeground or setForegroundAsync; Aura has no long-running WorkManager worker that consumes Android 16 quota through a worker-owned foreground service.",
+      "Ordinary and expedited WorkManager jobs consume quota when started while the app is TOP and while concurrent with a foreground service on Android 16.",
+      "RotationTriggerService can overlap rotation_trigger_oneshot; unique KEEP coalesces triggers and expedited quota exhaustion downgrades to ordinary work instead of dropping the request.",
+      "Every CoroutineWorker rethrows CancellationException so WorkManager can complete stop handling without abandoned in-process work.",
+      "Settings and support diagnostics expose WorkInfo stop reasons, including QUOTA, TIMEOUT, and BACKGROUND_RESTRICTION."
+    ]
+  },
   "workItems": [
     {
       "id": "auto-wallpaper-periodic",
@@ -62,6 +90,42 @@
       ]
     },
     {
+      "id": "auto-backup-periodic",
+      "uniqueWorkName": "auto_backup",
+      "workerClass": "AutoBackupWorker",
+      "sourcePath": "app/src/main/java/com/freevibe/service/AutoBackupWorker.kt",
+      "settingsSources": [
+        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt"
+      ],
+      "workKind": "periodic",
+      "enqueueApi": "enqueueUniquePeriodicWork",
+      "existingWorkPolicy": "ExistingPeriodicWorkPolicy.UPDATE",
+      "interval": "user-selected hours; minimum 1 hour",
+      "initialDelay": "none",
+      "constraints": [
+        "battery not low"
+      ],
+      "backoff": "exponential, 15 minutes",
+      "expedited": false,
+      "enabledSurface": "Settings automatic backup toggle, destination, interval, and retention controls",
+      "scheduleTrigger": "Enable automatic backup or change its destination, interval, or retention",
+      "cancelTrigger": "Disable automatic backup, disconnect its destination, or revoke its tree access",
+      "deferralReasons": [
+        "battery low",
+        "backup destination permission or tree unavailable",
+        "Android job quota or Doze/App Standby delay"
+      ],
+      "sourceTerms": [
+        "const val WORK_NAME = \"auto_backup\"",
+        "PeriodicWorkRequestBuilder<AutoBackupWorker>",
+        "intervalHours, TimeUnit.HOURS",
+        "ExistingPeriodicWorkPolicy.UPDATE",
+        "setRequiresBatteryNotLow(true)",
+        "setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)",
+        "CancellationException"
+      ]
+    },
+    {
       "id": "daily-wallpaper-periodic",
       "uniqueWorkName": "daily_wallpaper",
       "workerClass": "DailyWallpaperWorker",
@@ -97,6 +161,141 @@
         "ExistingPeriodicWorkPolicy.KEEP",
         "NetworkType.CONNECTED",
         "setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)"
+      ]
+    },
+    {
+      "id": "ringtone-restoration-one-shot",
+      "uniqueWorkName": "ringtone_restoration",
+      "workerClass": "RingtoneRestorationWorker",
+      "sourcePath": "app/src/main/java/com/freevibe/service/RingtoneRestorationReceiver.kt",
+      "settingsSources": [
+        "app/src/main/java/com/freevibe/service/RingtoneRestorationReceiver.kt"
+      ],
+      "workKind": "oneTime",
+      "enqueueApi": "enqueueUniqueWork",
+      "existingWorkPolicy": "ExistingWorkPolicy.REPLACE",
+      "interval": "not periodic",
+      "initialDelay": "none",
+      "constraints": [
+        "no explicit WorkManager constraints"
+      ],
+      "backoff": "not retried; restoration is best effort",
+      "expedited": false,
+      "enabledSurface": "BOOT_COMPLETED and MY_PACKAGE_REPLACED receivers when prior Aura sound URIs exist",
+      "scheduleTrigger": "Device boot or Aura package replacement",
+      "cancelTrigger": "A newer boot/package trigger replaces pending restoration work",
+      "deferralReasons": [
+        "Android job quota or boot-time scheduler pressure",
+        "saved content URI unavailable after boot"
+      ],
+      "sourceTerms": [
+        "const val WORK_NAME = \"ringtone_restoration\"",
+        "OneTimeWorkRequestBuilder<RingtoneRestorationWorker>",
+        "ExistingWorkPolicy.REPLACE",
+        "Intent.ACTION_BOOT_COMPLETED",
+        "CancellationException"
+      ]
+    },
+    {
+      "id": "ringtone-shuffle-periodic",
+      "uniqueWorkName": "ringtone_shuffle",
+      "workerClass": "RingtoneShuffleWorker",
+      "sourcePath": "app/src/main/java/com/freevibe/service/RingtoneShuffleWorker.kt",
+      "settingsSources": [
+        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt"
+      ],
+      "workKind": "periodic",
+      "enqueueApi": "enqueueUniquePeriodicWork",
+      "existingWorkPolicy": "ExistingPeriodicWorkPolicy.UPDATE",
+      "interval": "user-selected hours; minimum 1 hour",
+      "initialDelay": "none",
+      "constraints": [
+        "no explicit WorkManager constraints"
+      ],
+      "backoff": "exponential, 15 minutes",
+      "expedited": false,
+      "enabledSurface": "Settings ringtone and alarm shuffle controls",
+      "scheduleTrigger": "Enable ringtone or alarm shuffle or change its interval",
+      "cancelTrigger": "Disable both ringtone and alarm shuffle",
+      "deferralReasons": [
+        "WRITE_SETTINGS permission unavailable or no eligible downloaded sound",
+        "Android job quota or Doze/App Standby delay"
+      ],
+      "sourceTerms": [
+        "const val WORK_NAME = \"ringtone_shuffle\"",
+        "PeriodicWorkRequestBuilder<RingtoneShuffleWorker>",
+        "intervalHours.coerceAtLeast(1L)",
+        "ExistingPeriodicWorkPolicy.UPDATE",
+        "setBackoffCriteria",
+        "CancellationException"
+      ]
+    },
+    {
+      "id": "sound-profile-periodic",
+      "uniqueWorkName": "sound_profile",
+      "workerClass": "SoundProfileWorker",
+      "sourcePath": "app/src/main/java/com/freevibe/service/SoundProfileManager.kt",
+      "settingsSources": [
+        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt"
+      ],
+      "workKind": "periodic",
+      "enqueueApi": "enqueueUniquePeriodicWork",
+      "existingWorkPolicy": "ExistingPeriodicWorkPolicy.UPDATE",
+      "interval": "15 minutes",
+      "initialDelay": "none",
+      "constraints": [
+        "no explicit WorkManager constraints"
+      ],
+      "backoff": "exponential, 15 minutes",
+      "expedited": false,
+      "enabledSurface": "Settings time-based sound profiles",
+      "scheduleTrigger": "Enable sound profiles",
+      "cancelTrigger": "Disable sound profiles",
+      "deferralReasons": [
+        "WRITE_SETTINGS permission unavailable or no active profile",
+        "Android job quota or Doze/App Standby delay"
+      ],
+      "sourceTerms": [
+        "const val WORK_NAME = \"sound_profile\"",
+        "PeriodicWorkRequestBuilder<SoundProfileWorker>",
+        "15L, TimeUnit.MINUTES",
+        "ExistingPeriodicWorkPolicy.UPDATE",
+        "setBackoffCriteria",
+        "CancellationException"
+      ]
+    },
+    {
+      "id": "wallpaper-pack-periodic",
+      "uniqueWorkName": "wallpaper_pack",
+      "workerClass": "WallpaperPackWorker",
+      "sourcePath": "app/src/main/java/com/freevibe/service/WallpaperPackManager.kt",
+      "settingsSources": [
+        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt"
+      ],
+      "workKind": "periodic",
+      "enqueueApi": "enqueueUniquePeriodicWork",
+      "existingWorkPolicy": "ExistingPeriodicWorkPolicy.UPDATE",
+      "interval": "15 minutes",
+      "initialDelay": "none",
+      "constraints": [
+        "no explicit WorkManager constraints"
+      ],
+      "backoff": "exponential, 15 minutes",
+      "expedited": false,
+      "enabledSurface": "Settings 24-hour wallpaper pack controls",
+      "scheduleTrigger": "Enable a wallpaper pack",
+      "cancelTrigger": "Disable the wallpaper pack",
+      "deferralReasons": [
+        "no active pack or no slot for the current daypart",
+        "Android job quota or Doze/App Standby delay"
+      ],
+      "sourceTerms": [
+        "const val WORK_NAME = \"wallpaper_pack\"",
+        "PeriodicWorkRequestBuilder<WallpaperPackWorker>",
+        "15L, TimeUnit.MINUTES",
+        "ExistingPeriodicWorkPolicy.UPDATE",
+        "setBackoffCriteria",
+        "CancellationException"
       ]
     },
     {
@@ -166,7 +365,7 @@
         "Doze or App Standby maintenance window delay"
       ],
       "sourceTerms": [
-        "private const val UNIQUE_WORK_NAME = \"aura_originals_download\"",
+        "const val WORK_NAME = \"aura_originals_download\"",
         "OneTimeWorkRequestBuilder<AuraOriginalsDownloader>",
         "ExistingWorkPolicy.KEEP",
         "NetworkType.UNMETERED",
@@ -218,7 +417,10 @@
   "sourceUrls": [
     "https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work",
     "https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/manage-work",
+    "https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/observe",
+    "https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/long-running",
     "https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/states",
-    "https://developer.android.com/training/monitoring-device-state/doze-standby"
+    "https://developer.android.com/training/monitoring-device-state/doze-standby",
+    "https://developer.android.com/about/versions/16/behavior-changes-all"
   ]
 }

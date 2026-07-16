@@ -52,7 +52,7 @@ class AuraOriginalsDownloader @AssistedInject constructor(
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val result = runDownloadWork()
         receiptStore.recordWorkerResult(
-            uniqueWorkName = UNIQUE_WORK_NAME,
+            uniqueWorkName = WORK_NAME,
             resultClassName = result.javaClass.simpleName,
             retryReason = "Aura Originals download will retry because HTTPS download, size, hash, or file-write validation did not complete",
         )
@@ -213,7 +213,7 @@ class AuraOriginalsDownloader @AssistedInject constructor(
         private const val BUNDLE_DIRNAME = "aura_originals"
         private const val MAX_PER_FILE_BYTES = 5L * 1024L * 1024L // 5 MB per ringtone
         private const val MAX_TOTAL_BYTES = 80L * 1024L * 1024L // 80 MB total pack
-        private const val UNIQUE_WORK_NAME = "aura_originals_download"
+        const val WORK_NAME = "aura_originals_download"
 
         /** Bundled-content directory exposed to BundledContentProvider for local lookups. */
         fun bundleDir(context: Context): File = File(context.filesDir, BUNDLE_DIRNAME)
@@ -233,7 +233,7 @@ class AuraOriginalsDownloader @AssistedInject constructor(
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork(
-                UNIQUE_WORK_NAME,
+                WORK_NAME,
                 ExistingWorkPolicy.KEEP,
                 request,
             )

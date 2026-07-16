@@ -34,6 +34,7 @@ data class BackgroundWorkStatusRow(
     val workInfoStatus: String,
     val workInfoCount: Int = 0,
     val maxRunAttemptCount: Int? = null,
+    val stopReasonStatus: String? = null,
     val lastSuccessUtc: String? = null,
     val lastFailureUtc: String? = null,
     val lastErrorClass: String? = null,
@@ -98,6 +99,7 @@ class AndroidBackgroundWorkDiagnosticsReader @Inject constructor(
             workInfoStatus = summarizeWorkInfoStates(infos.map { it.state }),
             workInfoCount = infos.size,
             maxRunAttemptCount = infos.maxOfOrNull { it.runAttemptCount },
+            stopReasonStatus = summarizeWorkInfoStopReasons(infos.map { it.stopReason }),
             lastSuccessUtc = receipt.lastSuccessUtc,
             lastFailureUtc = receipt.lastFailureUtc,
             lastErrorClass = receipt.lastErrorClass,
@@ -149,10 +151,15 @@ class AndroidBackgroundWorkDiagnosticsReader @Inject constructor(
 
         val BACKGROUND_WORK_ITEMS = listOf(
             BackgroundWorkItem("Auto wallpaper rotation", AutoWallpaperWorker.WORK_NAME),
+            BackgroundWorkItem("Automatic backup", AutoBackupWorker.WORK_NAME),
             BackgroundWorkItem("Daily wallpaper notification", DailyWallpaperWorker.WORK_NAME),
+            BackgroundWorkItem("Ringtone restoration", RingtoneRestorationWorker.WORK_NAME),
+            BackgroundWorkItem("Ringtone shuffle", RingtoneShuffleWorker.WORK_NAME),
+            BackgroundWorkItem("Sound profile", SoundProfileWorker.WORK_NAME),
+            BackgroundWorkItem("Wallpaper pack", WallpaperPackWorker.WORK_NAME),
             BackgroundWorkItem("Weather wallpaper refresh", WeatherUpdateWorker.WORK_NAME),
-            BackgroundWorkItem("Aura Originals download", "aura_originals_download"),
-            BackgroundWorkItem("Rotation trigger one-shot", "rotation_trigger_oneshot"),
+            BackgroundWorkItem("Aura Originals download", AuraOriginalsDownloader.WORK_NAME),
+            BackgroundWorkItem("Rotation trigger one-shot", RotationTriggerService.WORK_NAME),
         )
     }
 }
@@ -165,6 +172,39 @@ internal fun summarizeWorkInfoStates(states: List<WorkInfo.State>): String {
         .toSortedMap()
         .entries
         .joinToString(", ") { (state, count) -> "$state=$count" }
+}
+
+internal fun summarizeWorkInfoStopReasons(reasons: List<Int>): String? {
+    val stopped = reasons.filter { it != WorkInfo.STOP_REASON_NOT_STOPPED }
+    if (stopped.isEmpty()) return null
+    return stopped
+        .map(::workInfoStopReasonLabel)
+        .groupingBy { it }
+        .eachCount()
+        .toSortedMap()
+        .entries
+        .joinToString(", ") { (reason, count) -> "$reason=$count" }
+}
+
+internal fun workInfoStopReasonLabel(reason: Int): String = when (reason) {
+    WorkInfo.STOP_REASON_FOREGROUND_SERVICE_TIMEOUT -> "FOREGROUND_SERVICE_TIMEOUT"
+    WorkInfo.STOP_REASON_UNKNOWN -> "UNKNOWN"
+    WorkInfo.STOP_REASON_CANCELLED_BY_APP -> "CANCELLED_BY_APP"
+    WorkInfo.STOP_REASON_PREEMPT -> "PREEMPT"
+    WorkInfo.STOP_REASON_TIMEOUT -> "TIMEOUT"
+    WorkInfo.STOP_REASON_DEVICE_STATE -> "DEVICE_STATE"
+    WorkInfo.STOP_REASON_CONSTRAINT_BATTERY_NOT_LOW -> "CONSTRAINT_BATTERY_NOT_LOW"
+    WorkInfo.STOP_REASON_CONSTRAINT_CHARGING -> "CONSTRAINT_CHARGING"
+    WorkInfo.STOP_REASON_CONSTRAINT_CONNECTIVITY -> "CONSTRAINT_CONNECTIVITY"
+    WorkInfo.STOP_REASON_CONSTRAINT_DEVICE_IDLE -> "CONSTRAINT_DEVICE_IDLE"
+    WorkInfo.STOP_REASON_CONSTRAINT_STORAGE_NOT_LOW -> "CONSTRAINT_STORAGE_NOT_LOW"
+    WorkInfo.STOP_REASON_QUOTA -> "QUOTA"
+    WorkInfo.STOP_REASON_BACKGROUND_RESTRICTION -> "BACKGROUND_RESTRICTION"
+    WorkInfo.STOP_REASON_APP_STANDBY -> "APP_STANDBY"
+    WorkInfo.STOP_REASON_USER -> "USER"
+    WorkInfo.STOP_REASON_SYSTEM_PROCESSING -> "SYSTEM_PROCESSING"
+    WorkInfo.STOP_REASON_ESTIMATED_APP_LAUNCH_TIME_CHANGED -> "ESTIMATED_APP_LAUNCH_TIME_CHANGED"
+    else -> "UNKNOWN($reason)"
 }
 
 internal fun restrictBackgroundStatusLabel(status: Int): String = when (status) {
@@ -286,7 +326,7 @@ private fun BackgroundWorkStatusRow.requiresUnmeteredNetwork(): Boolean =
         lastDeferralReason.orEmpty().contains("unmetered", ignoreCase = true) ||
         lastDeferralReason.orEmpty().contains("Wi-Fi", ignoreCase = true)
 
-private const val AURA_ORIGINALS_UNIQUE_WORK_NAME = "aura_originals_download"
+private const val AURA_ORIGINALS_UNIQUE_WORK_NAME = AuraOriginalsDownloader.WORK_NAME
 
 private val NETWORK_WORK_NAMES = setOf(
     AutoWallpaperWorker.WORK_NAME,

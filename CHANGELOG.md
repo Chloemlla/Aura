@@ -7,6 +7,13 @@ All notable changes to Aura will be documented in this file.
 Content-first discovery overhaul with persistent media feeds, swipe-first previews,
 and a no-OAuth Reddit RSS pipeline.
 
+- **Hardened Android 16 background scheduling**: the checked ledger now covers all
+  nine `CoroutineWorker` implementations and all 10 unique work names, rejects
+  unaudited direct `JobScheduler` or long-running worker additions, and documents
+  the one foreground-service-concurrent rotation path. Settings and copied support
+  diagnostics expose WorkManager stop reasons such as quota, timeout, background
+  restriction, and constraint stops; the device-evidence packet now includes the
+  Android 16 TOP/FGS quota compat-override capture and cleanup procedure.
 - **Simplified the visual system across discovery, Settings, and Sounds**:
   larger type, flatter grouped rows, underline-based tabs, compact headers,
   on-demand search, consolidated overflow actions, quieter metadata, and a

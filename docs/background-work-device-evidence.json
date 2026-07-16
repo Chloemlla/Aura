@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "policyKind": "backgroundWorkDeviceEvidence",
-  "status": "deviceEvidencePending",
+  "status": "android16PacketReadyDevicePending",
   "packageName": "com.freevibe",
   "appGradlePath": "app/build.gradle.kts",
   "schedulingLedgerPath": "docs/background-work-scheduling-ledger.json",
@@ -38,7 +38,12 @@
       "title": "Metered network and Data Saver state",
       "coversWorkNames": [
         "auto_wallpaper",
+        "auto_backup",
         "daily_wallpaper",
+        "ringtone_restoration",
+        "ringtone_shuffle",
+        "sound_profile",
+        "wallpaper_pack",
         "weather_update",
         "aura_originals_download",
         "rotation_trigger_oneshot"
@@ -64,6 +69,7 @@
       "title": "Low battery constraint state",
       "coversWorkNames": [
         "auto_wallpaper",
+        "auto_backup",
         "rotation_trigger_oneshot"
       ],
       "requiredCommands": [
@@ -88,7 +94,12 @@
       "title": "Doze and App Standby scheduling delay",
       "coversWorkNames": [
         "auto_wallpaper",
+        "auto_backup",
         "daily_wallpaper",
+        "ringtone_restoration",
+        "ringtone_shuffle",
+        "sound_profile",
+        "wallpaper_pack",
         "weather_update",
         "aura_originals_download",
         "rotation_trigger_oneshot"
@@ -109,6 +120,45 @@
       "expectedEvidence": [
         "Doze or restricted standby bucket state is visible in captured device state.",
         "Delayed WorkManager jobs are reconciled with the Settings background-work diagnostics copy."
+      ]
+    },
+    {
+      "id": "android16-job-quota",
+      "title": "Android 16 TOP-started and foreground-service-concurrent job quota",
+      "coversWorkNames": [
+        "auto_wallpaper",
+        "auto_backup",
+        "daily_wallpaper",
+        "ringtone_restoration",
+        "ringtone_shuffle",
+        "sound_profile",
+        "wallpaper_pack",
+        "weather_update",
+        "aura_originals_download",
+        "rotation_trigger_oneshot"
+      ],
+      "requiredCommands": [
+        "adb shell am compat enable OVERRIDE_QUOTA_ENFORCEMENT_TO_TOP_STARTED_JOBS com.freevibe",
+        "adb shell am compat enable OVERRIDE_QUOTA_ENFORCEMENT_TO_FGS_JOBS com.freevibe",
+        "adb shell am set-standby-bucket com.freevibe active",
+        "adb shell dumpsys jobscheduler com.freevibe",
+        "adb shell dumpsys activity services com.freevibe",
+        "adb shell am compat reset OVERRIDE_QUOTA_ENFORCEMENT_TO_TOP_STARTED_JOBS com.freevibe",
+        "adb shell am compat reset OVERRIDE_QUOTA_ENFORCEMENT_TO_FGS_JOBS com.freevibe"
+      ],
+      "requiredArtifacts": [
+        "artifacts/background-work-device-evidence/android16-quota-compat.txt",
+        "artifacts/background-work-device-evidence/android16-quota-jobscheduler.txt",
+        "artifacts/background-work-device-evidence/android16-quota-services.txt",
+        "artifacts/background-work-device-evidence/android16-quota-support-bundle.txt",
+        "artifacts/background-work-device-evidence/android16-quota-restore.txt",
+        "artifacts/background-work-device-evidence/android16-quota-notes.md"
+      ],
+      "expectedEvidence": [
+        "TOP-started and foreground-service-concurrent quota enforcement overrides are active before scheduler capture and reset afterward.",
+        "rotation_trigger_oneshot is correlated with RotationTriggerService state, unique KEEP coalescing, and non-expedited fallback under quota pressure.",
+        "Settings and the support bundle expose any QUOTA, TIMEOUT, BACKGROUND_RESTRICTION, or constraint WorkInfo stop reason for all audited unique work names.",
+        "No direct Aura JobService, retained JobParameters, or STOP_REASON_TIMEOUT_ABANDONED failure is present."
       ]
     },
     {
@@ -139,8 +189,11 @@
   "sourceUrls": [
     "https://developer.android.com/tools/adb",
     "https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work",
+    "https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/observe",
+    "https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/long-running",
     "https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/states",
     "https://developer.android.com/training/monitoring-device-state/doze-standby",
-    "https://developer.android.com/develop/connectivity/network-ops/data-saver"
+    "https://developer.android.com/develop/connectivity/network-ops/data-saver",
+    "https://developer.android.com/about/versions/16/behavior-changes-all"
   ]
 }

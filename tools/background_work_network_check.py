@@ -26,7 +26,7 @@ REQUIRED_SOURCE_URLS = {
     "https://developer.android.com/reference/androidx/work/NetworkType",
     "https://developer.android.com/reference/android/net/ConnectivityManager",
 }
-VALID_POSTURES = {"connected", "unmetered", "userSelectableConnectedOrUnmetered"}
+VALID_POSTURES = {"connected", "notRequired", "unmetered", "userSelectableConnectedOrUnmetered"}
 VALID_RELEASE_RISKS = {"Low", "Medium", "High"}
 
 

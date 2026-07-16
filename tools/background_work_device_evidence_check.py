@@ -11,20 +11,24 @@ from typing import Any
 
 
 EXPECTED_POLICY_KIND = "backgroundWorkDeviceEvidence"
-EXPECTED_STATUS = "deviceEvidencePending"
+EXPECTED_STATUS = "android16PacketReadyDevicePending"
 REQUIRED_SCENARIO_IDS = {
     "workmanager-baseline",
     "metered-data-saver",
     "low-battery-constraint",
     "doze-standby",
+    "android16-job-quota",
     "rotation-trigger-coalescing",
 }
 REQUIRED_SOURCE_URLS = {
     "https://developer.android.com/tools/adb",
     "https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work",
+    "https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/observe",
+    "https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/long-running",
     "https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/states",
     "https://developer.android.com/training/monitoring-device-state/doze-standby",
     "https://developer.android.com/develop/connectivity/network-ops/data-saver",
+    "https://developer.android.com/about/versions/16/behavior-changes-all",
 }
 
 
@@ -168,8 +172,8 @@ def validate_local_release_wiring(repo_root: Path) -> None:
 
 
 def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, object]:
-    if policy.get("schemaVersion") != 1:
-        raise BackgroundWorkDeviceEvidenceError("schemaVersion must be 1")
+    if policy.get("schemaVersion") != 2:
+        raise BackgroundWorkDeviceEvidenceError("schemaVersion must be 2")
     if policy.get("policyKind") != EXPECTED_POLICY_KIND:
         raise BackgroundWorkDeviceEvidenceError(f"policyKind must be {EXPECTED_POLICY_KIND}")
     if policy.get("status") != EXPECTED_STATUS:
@@ -189,6 +193,18 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, object
     if missing_ids:
         raise BackgroundWorkDeviceEvidenceError("scenarios missing required ids: " + ", ".join(missing_ids))
 
+    android16 = next(row for row in scenarios if row["id"] == "android16-job-quota")
+    android16_commands = "\n".join(android16["requiredCommands"])  # type: ignore[arg-type]
+    for term in (
+        "OVERRIDE_QUOTA_ENFORCEMENT_TO_TOP_STARTED_JOBS",
+        "OVERRIDE_QUOTA_ENFORCEMENT_TO_FGS_JOBS",
+        "am compat reset",
+        "dumpsys jobscheduler",
+        "dumpsys activity services",
+    ):
+        if term not in android16_commands:
+            raise BackgroundWorkDeviceEvidenceError(f"android16-job-quota missing command evidence: {term}")
+
     covered_work_names = {name for row in scenarios for name in row["coversWorkNames"]}  # type: ignore[union-attr]
     missing_work_names = sorted(known_work_names - covered_work_names)
     if missing_work_names:
@@ -202,6 +218,7 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, object
         "scenarioCount": len(scenarios),
         "coveredWorkNames": sorted(covered_work_names),
         "sourceUrlCount": source_url_count,
+        "android16QuotaScenarioReady": True,
     }
 
 

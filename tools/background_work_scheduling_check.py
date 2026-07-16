@@ -5,16 +5,22 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
 
 
 EXPECTED_POLICY_KIND = "backgroundWorkSchedulingLedger"
-EXPECTED_STATUS = "ledgerReadySettingsPending"
+EXPECTED_STATUS = "android16QuotaAuditedDevicePending"
 REQUIRED_WORK_IDS = {
+    "auto-backup-periodic",
     "auto-wallpaper-periodic",
     "daily-wallpaper-periodic",
+    "ringtone-restoration-one-shot",
+    "ringtone-shuffle-periodic",
+    "sound-profile-periodic",
+    "wallpaper-pack-periodic",
     "weather-update-periodic",
     "aura-originals-one-shot",
     "rotation-trigger-one-shot",
@@ -23,6 +29,7 @@ REQUIRED_DOC_TERMS = {
     "Background work scheduling ledger",
     "Current decision",
     "Scheduling matrix",
+    "Android 16 quota audit",
     "Deferral reasons",
     "Settings and support gaps",
     "Release gate",
@@ -41,8 +48,11 @@ REQUIRED_STATUS_FIELDS = {
 REQUIRED_SOURCE_URLS = {
     "https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work",
     "https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/manage-work",
+    "https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/observe",
+    "https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/long-running",
     "https://developer.android.com/develop/background-work/background-tasks/persistent/how-to/states",
     "https://developer.android.com/training/monitoring-device-state/doze-standby",
+    "https://developer.android.com/about/versions/16/behavior-changes-all",
 }
 VALID_WORK_KINDS = {"periodic", "oneTime"}
 
@@ -148,7 +158,99 @@ def validate_work_item(repo_root: Path, row: dict[str, Any], index: int) -> dict
         elif worker_class not in settings_text and unique_name not in settings_text and "enqueueAuraOriginalsDownload" not in settings_text:
             raise BackgroundWorkSchedulingError(f"{settings_source} missing scheduling reference for {row_id}")
 
-    return {"id": row_id, "uniqueWorkName": unique_name}
+    return {"id": row_id, "uniqueWorkName": unique_name, "workerClass": worker_class}
+
+
+def discover_coroutine_workers(repo_root: Path) -> dict[str, str]:
+    service_root = repo_root / "app/src/main/java/com/freevibe/service"
+    workers: dict[str, str] = {}
+    pattern = re.compile(
+        r"class\s+(\w+)\s+@AssistedInject\s+constructor\(.*?\)\s*:\s*CoroutineWorker\b",
+        re.DOTALL,
+    )
+    for path in service_root.rglob("*.kt"):
+        text = path.read_text(encoding="utf-8")
+        for worker_class in pattern.findall(text):
+            workers[worker_class] = path.relative_to(repo_root).as_posix()
+    if not workers:
+        raise BackgroundWorkSchedulingError("no CoroutineWorker implementations discovered")
+    return workers
+
+
+def validate_android16_audit(
+    repo_root: Path,
+    policy: dict[str, Any],
+    rows: list[dict[str, str]],
+) -> dict[str, object]:
+    audit = require_object(policy.get("android16Audit"), "android16Audit")
+    if require_string(audit.get("jobLifecycleOwner"), "android16Audit.jobLifecycleOwner") != "WorkManager":
+        raise BackgroundWorkSchedulingError("android16Audit.jobLifecycleOwner must be WorkManager")
+    if require_bool(audit.get("directJobSchedulerApisPresent"), "android16Audit.directJobSchedulerApisPresent"):
+        raise BackgroundWorkSchedulingError("direct JobScheduler work needs a separate JobParameters lifecycle audit")
+    if require_bool(audit.get("longRunningWorkersPresent"), "android16Audit.longRunningWorkersPresent"):
+        raise BackgroundWorkSchedulingError("long-running workers need an explicit Android 16 quota mitigation")
+
+    audited_workers = set(require_string_list(audit.get("coroutineWorkerClasses"), "android16Audit.coroutineWorkerClasses"))
+    discovered_workers = discover_coroutine_workers(repo_root)
+    if audited_workers != set(discovered_workers):
+        missing = sorted(set(discovered_workers) - audited_workers)
+        stale = sorted(audited_workers - set(discovered_workers))
+        raise BackgroundWorkSchedulingError(
+            f"android16Audit worker coverage drift; missing={missing}, stale={stale}",
+        )
+
+    ledger_workers = {row["workerClass"] for row in rows}
+    if ledger_workers != audited_workers:
+        missing = sorted(audited_workers - ledger_workers)
+        stale = sorted(ledger_workers - audited_workers)
+        raise BackgroundWorkSchedulingError(
+            f"workItems worker coverage drift; missing={missing}, stale={stale}",
+        )
+
+    source_texts = {
+        worker: read_text(repo_root, source_path, f"{worker} source")
+        for worker, source_path in discovered_workers.items()
+    }
+    missing_cancellation = sorted(
+        worker for worker, text in source_texts.items() if "CancellationException" not in text
+    )
+    if missing_cancellation:
+        raise BackgroundWorkSchedulingError(
+            "CoroutineWorkers missing cancellation propagation evidence: " + ", ".join(missing_cancellation),
+        )
+
+    app_source = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (repo_root / "app/src/main/java").rglob("*.kt")
+    )
+    if re.search(r"import\s+android\.app\.job\.(?:JobScheduler|JobService)\b", app_source):
+        raise BackgroundWorkSchedulingError("direct JobScheduler or JobService API found outside WorkManager")
+    if re.search(r"\.(?:setForeground|setForegroundAsync)\s*\(", "\n".join(source_texts.values())):
+        raise BackgroundWorkSchedulingError("long-running WorkManager worker found without quota audit update")
+
+    concurrent_names = set(
+        require_string_list(
+            audit.get("foregroundServiceConcurrentWorkNames"),
+            "android16Audit.foregroundServiceConcurrentWorkNames",
+        ),
+    )
+    if concurrent_names != {"rotation_trigger_oneshot"}:
+        raise BackgroundWorkSchedulingError("foreground-service concurrency audit must cover rotation_trigger_oneshot")
+    rotation_source = read_text(
+        repo_root,
+        "app/src/main/java/com/freevibe/service/RotationTriggerService.kt",
+        "rotation trigger service",
+    )
+    for term in ("startForeground(", "setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)"):
+        if term not in rotation_source:
+            raise BackgroundWorkSchedulingError(f"rotation trigger quota mitigation missing: {term}")
+    require_string_list(audit.get("findings"), "android16Audit.findings")
+    return {
+        "coroutineWorkerCount": len(discovered_workers),
+        "directJobSchedulerApiCount": 0,
+        "longRunningWorkerCount": 0,
+        "foregroundConcurrentWorkNames": sorted(concurrent_names),
+    }
 
 
 def validate_docs(repo_root: Path, policy: dict[str, Any], rows: list[dict[str, str]]) -> None:
@@ -193,8 +295,8 @@ def validate_local_release_wiring(repo_root: Path) -> None:
 
 
 def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, object]:
-    if policy.get("schemaVersion") != 1:
-        raise BackgroundWorkSchedulingError("schemaVersion must be 1")
+    if policy.get("schemaVersion") != 2:
+        raise BackgroundWorkSchedulingError("schemaVersion must be 2")
     if policy.get("policyKind") != EXPECTED_POLICY_KIND:
         raise BackgroundWorkSchedulingError(f"policyKind must be {EXPECTED_POLICY_KIND}")
     if policy.get("status") != EXPECTED_STATUS:
@@ -219,6 +321,7 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, object
     if missing_ids:
         raise BackgroundWorkSchedulingError("workItems missing required ids: " + ", ".join(missing_ids))
 
+    android16_audit = validate_android16_audit(repo_root, policy, rows)
     validate_docs(repo_root, policy, rows)
     source_url_count = validate_source_urls(policy)
     validate_local_release_wiring(repo_root)
@@ -228,6 +331,7 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, object
         "workItemCount": len(rows),
         "sourceUrlCount": source_url_count,
         "uniqueWorkNames": sorted(unique_names),
+        "android16Audit": android16_audit,
     }
 
 
