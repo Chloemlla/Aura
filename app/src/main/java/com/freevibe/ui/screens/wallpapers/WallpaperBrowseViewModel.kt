@@ -16,7 +16,6 @@ import com.freevibe.service.WallpaperStyleLearningProfile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -67,7 +66,14 @@ internal class WallpaperBrowseViewModel(
     private val scope: CoroutineScope,
 ) {
     private var loadJob: Job? = null
-    private var redditRetryJob: Job? = null
+    private val redditRetry = WallpaperRedditRetryCoordinator(
+        redditRepo = redditRepo,
+        prefs = prefs,
+        cacheManager = cacheManager,
+        state = state,
+        scope = scope,
+        categorizeError = ::categorizeError,
+    )
 
     fun start() {
         fetchDailyPick()
@@ -94,7 +100,7 @@ internal class WallpaperBrowseViewModel(
 
     fun cancel() {
         loadJob?.cancel()
-        redditRetryJob?.cancel()
+        redditRetry.cancel()
     }
 
     fun fetchTopVoted(seedWallpapers: List<Wallpaper> = emptyList()) {
@@ -252,7 +258,7 @@ internal class WallpaperBrowseViewModel(
                     result.hasMore &&
                     (result.items.isEmpty() || redditRepo.hasDeferredRequest())
                 ) {
-                    scheduleRedditRetry(redditRepo.retryDelayMs())
+                    redditRetry.schedule(redditRepo.retryDelayMs(), currentTab, currentPage)
                 }
                 val preferredResolution = prefs.preferredResolution.first()
                 val activeFilter = if (currentTab == WallpaperTab.DISCOVER) {
@@ -345,40 +351,24 @@ internal class WallpaperBrowseViewModel(
             null
         }
         val redditResult = reddit?.await()
+        val secondaryResult = secondary?.await() ?: SearchResult(
+            items = emptyList(),
+            totalCount = 0,
+            currentPage = page,
+            hasMore = false,
+        )
+        redditRetry.recordDiscoverSecondaryPage(page, secondaryResult.hasMore)
         if (
             redditResult?.hasMore == true &&
             (redditResult.items.isEmpty() || redditRepo.hasDeferredRequest())
         ) {
-            scheduleRedditRetry(redditRepo.retryDelayMs())
+            redditRetry.schedule(redditRepo.retryDelayMs(), WallpaperTab.DISCOVER, page)
         }
         mergeRedditFirstHomeResults(
             reddit = redditResult,
-            secondary = secondary?.await() ?: SearchResult(
-                items = emptyList(),
-                totalCount = 0,
-                currentPage = page,
-                hasMore = false,
-            ),
+            secondary = secondaryResult,
             page = page,
         )
-    }
-
-    private fun scheduleRedditRetry(delayMs: Long) {
-        redditRetryJob?.cancel()
-        redditRetryJob = scope.launch {
-            delay(delayMs.coerceAtLeast(250L) + 100L)
-            val current = state.value
-            if (
-                current.selectedTab in setOf(WallpaperTab.DISCOVER, WallpaperTab.REDDIT) &&
-                current.hasMore &&
-                !current.isLoading &&
-                !current.isLoadingMore
-            ) {
-                // Retry the current overall page. Reddit owns an independent cursor,
-                // while duplicate secondary-provider rows are removed during merge.
-                loadWallpapers(loadMore = true)
-            }
-        }
     }
 
     fun isProviderDisabledTab(tab: WallpaperTab): Boolean = when (tab) {

@@ -16,6 +16,9 @@ and a no-OAuth Reddit RSS pipeline.
   expired entries during writes, caps feed/search snapshots with least-recently
   used eviction, refreshes recency on reads, and is injected as the single Hilt
   instance used by Sounds instead of bypassing its singleton lock.
+- **Stopped Reddit cooldown retries from repeating every wallpaper provider**:
+  deferred RSS pages now retry only Reddit, merge into the current tab/page,
+  retain secondary pagination, and abandon stale retries after navigation.
 - **Added day/night wallpaper scheduling**: auto-rotation can keep one source,
   switch between independently selected day and night sources at configurable
   clock boundaries, or follow the system light/dark theme. Phase sources and

@@ -253,6 +253,49 @@ class WallpapersViewModelTest {
     }
 
     @Test
+    fun `reddit cooldown retry does not repeat discover provider fan out`() = runTest(dispatcher) {
+        val wallpaperRepo = mockk<WallpaperRepository>()
+        val redditRepo = mockk<RedditRepository>()
+        val cacheManager = mockk<WallpaperCacheManager>(relaxed = true)
+        val secondary = wallpaper(id = "wh_secondary", color = "#101820")
+        val reddit = wallpaper(
+            id = "reddit_retry",
+            color = "#202830",
+            source = ContentSource.REDDIT,
+        )
+
+        stubCommonDependencies(wallpaperRepo, redditRepo)
+        coEvery { cacheManager.getByIds(any()) } returns emptyList()
+        coEvery { wallpaperRepo.getDiscover(1, any()) } returns SearchResult(
+            items = listOf(secondary),
+            totalCount = 1,
+            currentPage = 1,
+            hasMore = false,
+        )
+        coEvery {
+            redditRepo.getMultiSubreddit(subreddits = null, page = 1)
+        } returnsMany listOf(
+            SearchResult(emptyList(), -1, 1, true),
+            SearchResult(listOf(reddit), -1, 1, false),
+        )
+        coEvery { redditRepo.retryDelayMs() } returns 0L
+
+        val viewModel = createViewModel(
+            wallpaperRepo = wallpaperRepo,
+            redditRepo = redditRepo,
+            cacheManagerOverride = cacheManager,
+        )
+
+        viewModel.handleRouteFilters(query = null, color = null, similarId = null)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { wallpaperRepo.getDiscover(1, any()) }
+        coVerify(exactly = 2) { redditRepo.getMultiSubreddit(subreddits = null, page = 1) }
+        assertEquals(listOf("reddit_retry", "wh_secondary"), viewModel.state.value.wallpapers.map { it.id })
+        assertEquals(false, viewModel.state.value.hasMore)
+    }
+
+    @Test
     fun `reddit disabled keeps daily pick on active sources and redirects reddit tab to discover`() = runTest(dispatcher) {
         val wallpaperRepo = mockk<WallpaperRepository>()
         val redditRepo = mockk<RedditRepository>()
