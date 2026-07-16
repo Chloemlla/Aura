@@ -63,6 +63,9 @@ and a no-OAuth Reddit RSS pipeline.
   audio now share a cancellation-safe NewPipe-to-yt-dlp policy. Sounds reports
   when the backup extractor is active and shows a specific "YouTube changed
   something" recovery state when neither engine can serve the request.
+- **Updated Media3 from 1.5.1 to 1.8.0** across ExoPlayer, HLS, sessions, and
+  player UI, retaining Aura's compileSdk 35 floor while taking the newer audio,
+  video, scrubbing, and media-session reliability fixes.
 
 ## v6.35.1 (2026-07-15)
 
