@@ -12,7 +12,8 @@ import com.freevibe.service.DepthPortraitComposer
 import com.freevibe.service.DepthPortraitOptions
 import com.freevibe.service.WallpaperApplier
 import com.freevibe.service.advertisedLengthExceeds
-import com.freevibe.service.decodeImageBytes
+import com.freevibe.service.MediaIngestionImageFlow
+import com.freevibe.service.decodeImageBytesForFlow
 import com.freevibe.service.readStreamCapped
 import dagger.hilt.android.lifecycle.HiltViewModel
 import okhttp3.OkHttpClient
@@ -474,8 +475,13 @@ class WallpaperEditorViewModel @Inject constructor(
                             throw Exception("Image too large to edit")
                         }
                         val bytes = readStreamCapped(body.byteStream(), MAX_EDIT_BYTES)
-                        decodeImageBytes(bytes, maxLongEdge = MAX_EDIT_LONG_EDGE)
-                            ?: throw Exception("Failed to decode image")
+                        decodeImageBytesForFlow(
+                            bytes = bytes,
+                            flow = MediaIngestionImageFlow.EDITOR,
+                            declaredMimeType = body.contentType()?.toString(),
+                            extension = url.substringBefore('?').substringAfterLast('.', missingDelimiterValue = ""),
+                            maxLongEdge = MAX_EDIT_LONG_EDGE,
+                        )
                     }
                 }
                 setSourceBitmap(bitmap)

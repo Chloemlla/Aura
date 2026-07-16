@@ -205,6 +205,7 @@ class AutoWallpaperWorker @AssistedInject constructor(
             target,
             darkenPercent = darkenPercent,
             nightVariant = nightVariant,
+            imageFlow = MediaIngestionImageFlow.AUTO_ROTATION,
         ).fold(
             onSuccess = {
                 historyManager.record(wallpaper, target)

@@ -38,11 +38,13 @@ class WallpaperApplier @Inject constructor(
         target: WallpaperTarget = WallpaperTarget.BOTH,
         cropRect: Rect? = null,
         nightVariant: Boolean = false,
+        imageFlow: MediaIngestionImageFlow = MediaIngestionImageFlow.LOCAL_APPLY,
     ): Result<Unit> = applyByLocator(
         locator = url,
         target = target,
         cropRect = cropRect,
         nightVariant = nightVariant,
+        imageFlow = imageFlow,
     )
 
     /**
@@ -57,9 +59,10 @@ class WallpaperApplier @Inject constructor(
         cropRect: Rect? = null,
         darkenPercent: Int = 0,
         nightVariant: Boolean = false,
+        imageFlow: MediaIngestionImageFlow = MediaIngestionImageFlow.LOCAL_APPLY,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            var bitmap = decodeFromLocator(locator)
+            var bitmap = decodeFromLocator(locator, imageFlow)
                 ?: throw IllegalStateException("Failed to decode wallpaper image")
             try {
                 if (darkenPercent > 0) {
@@ -234,37 +237,55 @@ class WallpaperApplier @Inject constructor(
      * Dispatch decode by scheme. Returns null on unknown scheme or decode failure.
      * Visible for tests (internal).
      */
-    internal suspend fun decodeFromLocator(locator: String): Bitmap? {
+    internal suspend fun decodeFromLocator(
+        locator: String,
+        imageFlow: MediaIngestionImageFlow = MediaIngestionImageFlow.LOCAL_APPLY,
+    ): Bitmap? {
         if (locator.isBlank()) return null
         return when {
             locator.startsWith("http://", ignoreCase = true) ||
                 locator.startsWith("https://", ignoreCase = true) ->
-                downloadBitmap(locator)
+                downloadBitmap(locator, imageFlow)
             locator.startsWith("content://", ignoreCase = true) ->
-                decodeFromContentUri(locator)
+                decodeFromContentUri(locator, imageFlow)
             locator.startsWith("file:", ignoreCase = true) -> {
                 // Both file:/path and file:///path produce a parseable Uri; decode the
                 // raw path so local wallpaper files share the same bounded image helper.
                 val path = android.net.Uri.parse(locator).path
-                if (path.isNullOrBlank()) null else decodeLocalPath(path)
+                if (path.isNullOrBlank()) null else decodeLocalPath(path, imageFlow)
             }
-            locator.startsWith("/") -> decodeLocalPath(locator)
+            locator.startsWith("/") -> decodeLocalPath(locator, imageFlow)
             else -> null
         }
     }
 
-    private suspend fun decodeFromContentUri(uri: String): Bitmap? = withContext(Dispatchers.IO) {
+    private suspend fun decodeFromContentUri(
+        uri: String,
+        imageFlow: MediaIngestionImageFlow,
+    ): Bitmap? = withContext(Dispatchers.IO) {
         val parsed = runCatching { android.net.Uri.parse(uri) }.getOrNull() ?: return@withContext null
-        decodeImageUri(context, parsed, maxLongEdge = targetWallpaperDecodeLongEdge())
+        decodeImageUriForFlow(
+            context = context,
+            uri = parsed,
+            flow = imageFlow,
+            maxLongEdge = targetWallpaperDecodeLongEdge(),
+        )
     }
 
-    private suspend fun decodeLocalPath(path: String): Bitmap? = withContext(Dispatchers.IO) {
+    private suspend fun decodeLocalPath(
+        path: String,
+        imageFlow: MediaIngestionImageFlow,
+    ): Bitmap? = withContext(Dispatchers.IO) {
         val file = java.io.File(path)
         if (!file.exists() || !file.canRead()) return@withContext null
         // Cap local files at MAX_WALLPAPER_BYTES — even if the file is on user storage we
         // don't want a runaway 200 MB PNG to wedge the WallpaperManager IPC.
         if (file.length() > MAX_WALLPAPER_BYTES) return@withContext null
-        decodeImageFile(file, maxLongEdge = targetWallpaperDecodeLongEdge())
+        decodeImageFileForFlow(
+            file = file,
+            flow = imageFlow,
+            maxLongEdge = targetWallpaperDecodeLongEdge(),
+        )
     }
 
     private fun targetWallpaperDecodeLongEdge(): Int {
@@ -272,7 +293,10 @@ class WallpaperApplier @Inject constructor(
         return (maxOf(metrics.widthPixels, metrics.heightPixels) * 2).coerceAtLeast(1)
     }
 
-    private suspend fun downloadBitmap(url: String): Bitmap? = withContext(Dispatchers.IO) {
+    private suspend fun downloadBitmap(
+        url: String,
+        imageFlow: MediaIngestionImageFlow,
+    ): Bitmap? = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url).build()
         val response = okHttpClient.newCall(request).execute()
         response.use { resp ->
@@ -292,8 +316,13 @@ class WallpaperApplier @Inject constructor(
             val bytes = readCapped(body.byteStream(), MAX_WALLPAPER_BYTES)
             if (bytes.isEmpty()) throw java.io.IOException("Empty response body")
 
-            decodeImageBytes(bytes, maxLongEdge = targetWallpaperDecodeLongEdge())
-                ?: throw java.io.IOException("Invalid image: could not decode wallpaper")
+            decodeImageBytesForFlow(
+                bytes = bytes,
+                flow = imageFlow,
+                declaredMimeType = body.contentType()?.toString(),
+                extension = url.substringBefore('?').substringAfterLast('.', missingDelimiterValue = ""),
+                maxLongEdge = targetWallpaperDecodeLongEdge(),
+            )
         }
     }
 

@@ -31,6 +31,9 @@ and a no-OAuth Reddit RSS pipeline.
 - **Added automatic dark/OLED wallpaper variants**: an optional setting now
   black-point-darkens manual and automated applies during system dark mode or a
   scheduler night window, then reapplies the exact original source in light mode.
+- **Enforced image format policy before local decodes**: apply, rotation, crop,
+  and editor paths now verify sniffed image bytes and surface format/Android
+  compatibility guidance instead of collapsing unsupported input into decode errors.
 - **Added day/night wallpaper scheduling**: auto-rotation can keep one source,
   switch between independently selected day and night sources at configurable
   clock boundaries, or follow the system light/dark theme. Phase sources and

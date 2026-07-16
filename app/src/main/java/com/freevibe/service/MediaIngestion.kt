@@ -21,6 +21,10 @@ class MediaIngestionLimitExceeded(
     message: String,
 ) : IOException(message)
 
+class MediaIngestionImageRejected(
+    message: String,
+) : IOException(message)
+
 internal fun advertisedLengthExceeds(
     contentLength: Long,
     maxBytes: Long,
@@ -67,7 +71,7 @@ internal data class SniffedMediaType(
     val extension: String,
 )
 
-internal enum class MediaIngestionImageFlow {
+enum class MediaIngestionImageFlow {
     AUTO_ROTATION,
     LOCAL_APPLY,
     EDITOR,
@@ -185,7 +189,11 @@ internal fun imageFormatSupportForFlow(
     }
     if (sdkInt < format.minSdk) {
         val message = if (format == IngestedImageFormat.AVIF) {
-            "AVIF images require Android 14 or newer so Aura can decode and scrub them safely."
+            if (flow == MediaIngestionImageFlow.COMMUNITY_WALLPAPER_UPLOAD) {
+                "AVIF images require Android 14 or newer so Aura can decode and scrub them safely."
+            } else {
+                "AVIF images require Android 14 or newer so Aura can decode them."
+            }
         } else {
             "${format.displayName} images are not supported on this Android version."
         }
@@ -227,6 +235,92 @@ internal fun acceptedImageFormatSummary(flow: MediaIngestionImageFlow): String =
     imageIngestionPolicy(flow).inputFormats
         .map { it.displayName }
         .toHumanList()
+
+internal fun imageFormatSupportForInput(
+    flow: MediaIngestionImageFlow,
+    header: ByteArray,
+    declaredMimeType: String? = null,
+    extension: String? = null,
+    sdkInt: Int = Build.VERSION.SDK_INT,
+): ImageFormatSupport {
+    val sniffed = sniffMediaType(header.take(MEDIA_SNIFF_BYTES).toByteArray())
+    val declared = declaredMimeType?.let(::normalizeMimeType).orEmpty()
+    val mimeType = when {
+        sniffed != null -> sniffed.mimeType
+        imageFormatForMimeType(declared) != null -> declared
+        declared.isNotBlank() && declared != "application/octet-stream" -> declared
+        !extension.isNullOrBlank() -> imageMimeTypeFromExtension(extension).orEmpty()
+        else -> ""
+    }
+    return imageFormatSupportForFlow(flow, mimeType, sdkInt)
+}
+
+internal fun requireImageFormatSupport(
+    flow: MediaIngestionImageFlow,
+    header: ByteArray,
+    declaredMimeType: String? = null,
+    extension: String? = null,
+    sdkInt: Int = Build.VERSION.SDK_INT,
+): ImageFormatSupport = imageFormatSupportForInput(
+    flow = flow,
+    header = header,
+    declaredMimeType = declaredMimeType,
+    extension = extension,
+    sdkInt = sdkInt,
+).also { support ->
+    if (!support.supported) throw MediaIngestionImageRejected(support.message)
+}
+
+internal fun decodeImageBytesForFlow(
+    bytes: ByteArray,
+    flow: MediaIngestionImageFlow,
+    declaredMimeType: String? = null,
+    extension: String? = null,
+    maxLongEdge: Int? = null,
+): Bitmap {
+    val support = requireImageFormatSupport(flow, bytes, declaredMimeType, extension)
+    return decodeImageBytes(bytes, maxLongEdge)
+        ?: throw MediaIngestionImageRejected(
+            "${support.format?.displayName ?: "Image"} image could not be decoded on this device.",
+        )
+}
+
+internal fun decodeImageUriForFlow(
+    context: Context,
+    uri: Uri,
+    flow: MediaIngestionImageFlow,
+    maxLongEdge: Int? = null,
+): Bitmap {
+    val header = context.contentResolver.openInputStream(uri)?.use(::readImageHeader) ?: byteArrayOf()
+    val extension = uri.lastPathSegment?.substringAfterLast('.', missingDelimiterValue = "")
+    val support = requireImageFormatSupport(
+        flow = flow,
+        header = header,
+        declaredMimeType = context.contentResolver.getType(uri),
+        extension = extension,
+    )
+    return decodeImageUri(context, uri, maxLongEdge)
+        ?: throw MediaIngestionImageRejected(
+            "${support.format?.displayName ?: "Image"} image could not be decoded on this device.",
+        )
+}
+
+internal fun decodeImageFileForFlow(
+    file: File,
+    flow: MediaIngestionImageFlow,
+    maxLongEdge: Int? = null,
+): Bitmap {
+    val header = FileInputStream(file).use(::readImageHeader)
+    val support = requireImageFormatSupport(
+        flow = flow,
+        header = header,
+        extension = file.extension,
+    )
+    return decodeImageFile(file, maxLongEdge)
+        ?: throw MediaIngestionImageRejected(
+            "${support.format?.displayName ?: "Image"} image could not be decoded on this device.",
+        )
+}
 
 internal fun decodeImageBytes(
     bytes: ByteArray,
@@ -348,6 +442,12 @@ private const val ANDROID_14_API = 34
 
 private fun normalizeMimeType(mimeType: String): String =
     mimeType.substringBefore(';').trim().lowercase(Locale.ROOT)
+
+private fun readImageHeader(input: InputStream): ByteArray {
+    val header = ByteArray(MEDIA_SNIFF_BYTES)
+    val read = input.read(header)
+    return if (read > 0) header.copyOf(read) else byteArrayOf()
+}
 
 private fun List<String>.toHumanList(): String =
     when (size) {

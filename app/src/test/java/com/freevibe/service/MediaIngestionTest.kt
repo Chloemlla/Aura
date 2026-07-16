@@ -121,6 +121,56 @@ class MediaIngestionTest {
     }
 
     @Test
+    fun `image flow validation trusts sniffed bytes over a misleading image declaration`() {
+        val support = imageFormatSupportForInput(
+            flow = MediaIngestionImageFlow.EDITOR,
+            header = "ID3 fake audio".toByteArray(),
+            declaredMimeType = "image/jpeg",
+            extension = "jpg",
+            sdkInt = 35,
+        )
+
+        assertFalse(support.supported)
+        assertThrows(MediaIngestionImageRejected::class.java) {
+            requireImageFormatSupport(
+                flow = MediaIngestionImageFlow.LOCAL_APPLY,
+                header = "ID3 fake audio".toByteArray(),
+                declaredMimeType = "image/jpeg",
+                extension = "jpg",
+                sdkInt = 35,
+            )
+        }
+    }
+
+    @Test
+    fun `image flow validation uses extension for generic providers`() {
+        val support = imageFormatSupportForInput(
+            flow = MediaIngestionImageFlow.AUTO_ROTATION,
+            header = byteArrayOf(),
+            declaredMimeType = "application/octet-stream",
+            extension = ".heic",
+            sdkInt = 26,
+        )
+
+        assertTrue(support.supported)
+        assertEquals(IngestedImageFormat.HEIF, support.format)
+    }
+
+    @Test
+    fun `local AVIF rejection explains Android requirement without upload scrub copy`() {
+        val support = imageFormatSupportForInput(
+            flow = MediaIngestionImageFlow.LOCAL_APPLY,
+            header = "....ftypavif".toByteArray(),
+            declaredMimeType = null,
+            sdkInt = 33,
+        )
+
+        assertFalse(support.supported)
+        assertTrue(support.message.contains("Android 14"))
+        assertFalse(support.message.contains("scrub"))
+    }
+
+    @Test
     fun `requireSniffedMediaFile rejects wrong media family`() {
         val file = File.createTempFile("aura", ".jpg").apply {
             writeText("<html>not an image</html>")

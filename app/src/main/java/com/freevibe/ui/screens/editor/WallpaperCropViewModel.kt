@@ -12,7 +12,8 @@ import com.freevibe.service.SmartCropCalculator
 import com.freevibe.service.SmartCropDetector
 import com.freevibe.service.WallpaperApplier
 import com.freevibe.service.advertisedLengthExceeds
-import com.freevibe.service.decodeImageBytes
+import com.freevibe.service.MediaIngestionImageFlow
+import com.freevibe.service.decodeImageBytesForFlow
 import com.freevibe.service.readStreamCapped
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -91,8 +92,13 @@ class WallpaperCropViewModel @Inject constructor(
                             throw Exception("Image too large to crop")
                         }
                         val bytes = readStreamCapped(body.byteStream(), MAX_CROP_BYTES)
-                        decodeImageBytes(bytes, maxLongEdge = MAX_CROP_LONG_EDGE)
-                            ?: throw Exception("Failed to decode image")
+                        decodeImageBytesForFlow(
+                            bytes = bytes,
+                            flow = MediaIngestionImageFlow.EDITOR,
+                            declaredMimeType = body.contentType()?.toString(),
+                            extension = url.substringBefore('?').substringAfterLast('.', missingDelimiterValue = ""),
+                            maxLongEdge = MAX_CROP_LONG_EDGE,
+                        )
                     }
                 }
                 _state.update { it.copy(bitmap = bitmap, isLoading = false) }
@@ -122,8 +128,13 @@ class WallpaperCropViewModel @Inject constructor(
                         ?: throw Exception("Could not open image")
                     stream.use {
                         val bytes = readStreamCapped(it, MAX_CROP_BYTES)
-                        decodeImageBytes(bytes, maxLongEdge = MAX_CROP_LONG_EDGE)
-                            ?: throw Exception("Failed to decode image")
+                        decodeImageBytesForFlow(
+                            bytes = bytes,
+                            flow = MediaIngestionImageFlow.EDITOR,
+                            declaredMimeType = appContext.contentResolver.getType(uri),
+                            extension = uri.lastPathSegment?.substringAfterLast('.', missingDelimiterValue = ""),
+                            maxLongEdge = MAX_CROP_LONG_EDGE,
+                        )
                     }
                 }
                 _state.update { it.copy(bitmap = bitmap, isLoading = false) }

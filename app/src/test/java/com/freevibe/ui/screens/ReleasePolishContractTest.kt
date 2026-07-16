@@ -239,6 +239,22 @@ class ReleasePolishContractTest {
     }
 
     @Test
+    fun `image ingestion policies guard apply rotation crop and editor decodes`() {
+        val applier = File("src/main/java/com/freevibe/service/WallpaperApplier.kt").readText()
+        val worker = File("src/main/java/com/freevibe/service/AutoWallpaperWorker.kt").readText()
+        val editor = File("src/main/java/com/freevibe/ui/screens/editor/WallpaperEditorViewModel.kt").readText()
+        val crop = File("src/main/java/com/freevibe/ui/screens/editor/WallpaperCropViewModel.kt").readText()
+
+        assertTrue(applier.contains("decodeImageBytesForFlow("))
+        assertTrue(applier.contains("decodeImageUriForFlow("))
+        assertTrue(applier.contains("decodeImageFileForFlow("))
+        assertTrue(applier.contains("MediaIngestionImageFlow.LOCAL_APPLY"))
+        assertTrue(worker.contains("imageFlow = MediaIngestionImageFlow.AUTO_ROTATION"))
+        assertTrue(editor.contains("flow = MediaIngestionImageFlow.EDITOR"))
+        assertTrue(crop.split("flow = MediaIngestionImageFlow.EDITOR").size >= 3)
+    }
+
+    @Test
     fun `settings viewmodel schedules and cancels local backup work`() {
         val source = File("src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt").readText()
         val backupSlice = source.substringAfter("fun setAutoBackupEnabled(").substringBefore("// T-6: Source diagnostics")
