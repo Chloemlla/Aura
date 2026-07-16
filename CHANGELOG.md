@@ -40,6 +40,9 @@ and a no-OAuth Reddit RSS pipeline.
 - **Recovered denied wallpaper-trigger starts**: Android background launches now
   persist unlock/screen-off service requests, alert the user that triggers are
   paused, and automatically re-arm them once Aura is visibly resumed.
+- **Added generated widget previews**: Glance 1.2 now publishes a responsive,
+  deterministic Aura widget preview to Android 15+ pickers once per app version,
+  without loading account, network, or wallpaper-history data.
 - **Added day/night wallpaper scheduling**: auto-rotation can keep one source,
   switch between independently selected day and night sources at configurable
   clock boundaries, or follow the system light/dark theme. Phase sources and

@@ -90,6 +90,7 @@ class FreeVibeApp : Application(), Configuration.Provider, ImageLoaderFactory {
         startSystemThemeListener()
         initYtDlp()
         enqueueAuraOriginalsDownload()
+        publishWidgetPreview()
         reconcileRotationTriggers()
     }
 
@@ -136,6 +137,17 @@ class FreeVibeApp : Application(), Configuration.Provider, ImageLoaderFactory {
         } catch (e: Exception) {
             // Must never crash app startup on a WorkManager queue failure.
             if (BuildConfig.DEBUG) Log.w("FreeVibeApp", "AuraOriginals enqueue failed: ${e.message}")
+        }
+    }
+
+    private fun publishWidgetPreview() {
+        appScope.launch {
+            try {
+                com.freevibe.widget.WidgetPreviewPublisher.publishIfNeeded(this@FreeVibeApp)
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                if (BuildConfig.DEBUG) Log.w("FreeVibeApp", "Widget preview publish failed", e)
+            }
         }
     }
 

@@ -182,7 +182,7 @@ Firebase RTDB (Community Voting + Uploads + Admin Moderation)
 | YouTube Search | NewPipe Extractor |
 | YouTube Streams | yt-dlp (youtubedl-android 0.18.1) |
 | Scheduling | WorkManager 2.11.2 |
-| Widget | Glance 1.1.1 |
+| Widget | Glance 1.2.0-rc01 |
 | Performance | Baseline Profile + Macrobenchmark 1.4.1 |
 | Min SDK | 26 (Android 8.0) |
 | Target SDK | 35 (Android 15) |

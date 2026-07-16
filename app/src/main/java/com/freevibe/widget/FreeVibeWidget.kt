@@ -62,6 +62,7 @@ class FreeVibeWidget : GlanceAppWidget() {
     }
 
     override val sizeMode = SizeMode.Responsive(setOf(SMALL, MEDIUM, LARGE))
+    override val previewSizeMode = SizeMode.Responsive(setOf(SMALL, MEDIUM, LARGE))
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val prefs = context.getSharedPreferences(WIDGET_PREFS, Context.MODE_PRIVATE)
@@ -95,6 +96,19 @@ class FreeVibeWidget : GlanceAppWidget() {
                 backgroundBitmap = bgBitmap,
                 primaryTint = tintVibrant,
                 accentTint = tintAccent,
+            )
+        }
+    }
+
+    override suspend fun providePreview(context: Context, widgetCategory: Int) {
+        provideContent {
+            WidgetContent(
+                size = LocalSize.current,
+                lastShuffleTime = 0L,
+                shuffleCount = 12,
+                backgroundBitmap = null,
+                primaryTint = Primary,
+                accentTint = Secondary,
             )
         }
     }
