@@ -2,11 +2,9 @@ package com.freevibe.service
 
 import android.content.Context
 import android.net.Uri
-import com.freevibe.data.local.DownloadDao
 import com.freevibe.data.local.FavoriteDao
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.local.SearchHistoryDao
-import com.freevibe.data.model.DownloadEntity
 import com.freevibe.data.model.FavoriteEntity
 import com.freevibe.data.model.SearchHistoryEntity
 import com.freevibe.data.repository.CollectionRepository
@@ -20,7 +18,7 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val LIBRARY_EXPORT_VERSION = 1
+private const val LIBRARY_EXPORT_VERSION = 2
 private const val MAX_IMPORT_SIZE_CHARS = 10_000_000
 private const val MAX_IMPORT_FAVORITES = 5_000
 private const val MAX_IMPORT_COLLECTIONS = 100
@@ -32,7 +30,6 @@ data class LibraryExportFile(
     val version: Int = LIBRARY_EXPORT_VERSION,
     val exportedAt: Long = 0,
     val favorites: List<FavoriteExportEntry> = emptyList(),
-    val downloads: List<DownloadExportEntry> = emptyList(),
     val collections: List<CollectionExportEntry> = emptyList(),
     val searchHistory: List<SearchHistoryExportEntry> = emptyList(),
     val wallpaperPackJson: String = "",
@@ -48,16 +45,6 @@ data class FavoriteExportEntry(
     val fullUrl: String = "",
     val name: String = "",
     val addedAt: Long = 0,
-)
-
-@JsonClass(generateAdapter = true)
-data class DownloadExportEntry(
-    val id: String,
-    val source: String,
-    val type: String,
-    val localPath: String = "",
-    val name: String = "",
-    val downloadedAt: Long = 0,
 )
 
 @JsonClass(generateAdapter = true)
@@ -87,7 +74,6 @@ data class SearchHistoryExportEntry(
 class LibraryExporter @Inject constructor(
     @ApplicationContext private val context: Context,
     private val favoriteDao: FavoriteDao,
-    private val downloadDao: DownloadDao,
     private val collectionRepo: CollectionRepository,
     private val searchHistoryDao: SearchHistoryDao,
     private val prefs: PreferencesManager,
@@ -98,7 +84,6 @@ class LibraryExporter @Inject constructor(
     suspend fun exportLibrary(outputUri: Uri): Result<Int> = withContext(Dispatchers.IO) {
         runCatching {
             val favorites = favoriteDao.getAll().first().map { it.toExportEntry() }
-            val downloads = downloadDao.getAll().first().map { it.toExportEntry() }
             val collections = exportCollections()
             val wallpaperSearches = searchHistoryDao.getRecent("WALLPAPER", 100).first()
             val soundSearches = searchHistoryDao.getRecent("SOUND", 100).first()
@@ -110,7 +95,6 @@ class LibraryExporter @Inject constructor(
                 version = LIBRARY_EXPORT_VERSION,
                 exportedAt = System.currentTimeMillis(),
                 favorites = favorites,
-                downloads = downloads,
                 collections = collections,
                 searchHistory = searchHistory,
                 wallpaperPackJson = wallpaperPack,
@@ -122,7 +106,7 @@ class LibraryExporter @Inject constructor(
                 out.write(json.toByteArray())
             } ?: throw IllegalStateException("Failed to open output stream")
 
-            favorites.size + downloads.size + collections.size + searchHistory.size
+            favorites.size + collections.size + searchHistory.size
         }.onFailure { it.rethrowIfCancelled() }
     }
 
@@ -154,9 +138,6 @@ class LibraryExporter @Inject constructor(
                 favoriteDao.insertAll(entities)
                 imported += entities.size
             }
-
-            // Downloads are intentionally NOT imported: their localPath rows point at
-            // files on the exporting device and would render as broken entries here.
 
             // Merge by name so re-importing the same backup doesn't duplicate
             // collections (favorites already dedupe at the DAO layer).
@@ -236,15 +217,6 @@ private fun FavoriteEntity.toExportEntry() = FavoriteExportEntry(
     fullUrl = fullUrl,
     name = name,
     addedAt = addedAt,
-)
-
-private fun DownloadEntity.toExportEntry() = DownloadExportEntry(
-    id = id,
-    source = source,
-    type = type,
-    localPath = localPath,
-    name = name,
-    downloadedAt = downloadedAt,
 )
 
 private fun SearchHistoryEntity.toExportEntry() = SearchHistoryExportEntry(
