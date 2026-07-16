@@ -33,6 +33,35 @@ class VideoBatteryProfileTest {
     }
 
     @Test
+    fun `system battery saver pauses and resumes the existing motion session`() {
+        assertEquals(
+            VideoMotionPowerSaveAction.PAUSE,
+            videoMotionPowerSaveAction(
+                wasPausedForPowerSave = false,
+                systemPowerSaveMode = true,
+                autoSaverEnabled = true,
+            ),
+        )
+        assertEquals(
+            VideoMotionPowerSaveAction.NONE,
+            videoMotionPowerSaveAction(
+                wasPausedForPowerSave = true,
+                systemPowerSaveMode = true,
+                autoSaverEnabled = true,
+            ),
+        )
+        assertEquals(
+            VideoMotionPowerSaveAction.RESUME,
+            videoMotionPowerSaveAction(
+                wasPausedForPowerSave = true,
+                systemPowerSaveMode = false,
+                autoSaverEnabled = true,
+            ),
+        )
+        assertFalse(shouldPauseVideoMotionForPowerSave(systemPowerSaveMode = true, autoSaverEnabled = false))
+    }
+
+    @Test
     fun `videoBatteryImpactSummary names active tradeoff`() {
         assertEquals(
             "Balanced - 30 FPS target",
@@ -50,6 +79,16 @@ class VideoBatteryProfileTest {
                 effectiveFps = 15,
                 fpsOverlayEnabled = false,
                 lowBatterySaverActive = true,
+            ),
+        )
+        assertEquals(
+            "System Battery Saver - static frame until saver exits",
+            videoBatteryImpactSummary(
+                requestedFps = 60,
+                effectiveFps = 60,
+                fpsOverlayEnabled = false,
+                lowBatterySaverActive = false,
+                motionPausedForPowerSave = true,
             ),
         )
     }

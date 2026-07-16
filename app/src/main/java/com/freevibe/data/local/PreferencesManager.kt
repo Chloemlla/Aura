@@ -1,6 +1,7 @@
 package com.freevibe.data.local
 
 import android.content.Context
+import android.content.Intent
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
@@ -8,6 +9,7 @@ import com.freevibe.data.model.COMMUNITY_GUIDELINES_VERSION
 import com.freevibe.data.model.hasAcceptedCommunityGuidelinesVersion
 import com.freevibe.service.AgslShaderGallery
 import com.freevibe.service.VIDEO_AUTO_BATTERY_SAVER_PREF
+import com.freevibe.service.VIDEO_AUTO_BATTERY_SAVER_CHANGED_ACTION
 import com.freevibe.service.VIDEO_FPS_LIMIT_PREF
 import com.freevibe.service.VIDEO_FPS_OVERLAY_PREF
 import com.freevibe.service.VIDEO_PLAYBACK_SPEED_PREF
@@ -529,6 +531,9 @@ class PreferencesManager @Inject constructor(
     suspend fun setVideoAutoBatterySaver(enabled: Boolean) {
         context.getSharedPreferences(VIDEO_PREFS_NAME, Context.MODE_PRIVATE)
             .edit().putBoolean(VIDEO_AUTO_BATTERY_SAVER_PREF, enabled).apply()
+        context.sendBroadcast(
+            Intent(VIDEO_AUTO_BATTERY_SAVER_CHANGED_ACTION).setPackage(context.packageName),
+        )
         set(Keys.VIDEO_AUTO_BATTERY_SAVER, enabled)
     }
 

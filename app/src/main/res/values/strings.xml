@@ -749,6 +749,7 @@
     <string name="settings_dialogs_battery_unknown">Unknown</string>
     <string name="settings_dialogs_battery_active">Active</string>
     <string name="settings_dialogs_battery_paused">Paused</string>
+    <string name="settings_dialogs_battery_static">Static frame</string>
     <string name="settings_dialogs_battery_no_heartbeat">No heartbeat</string>
     <string name="settings_dialogs_battery_gif">GIF</string>
     <string name="settings_dialogs_battery_video">Video</string>
@@ -760,6 +761,7 @@
     <string name="settings_dialogs_battery_target">Target</string>
     <string name="settings_dialogs_battery_fps">%1$d FPS</string>
     <string name="settings_dialogs_battery_auto_capped">Auto-capped</string>
+    <string name="settings_dialogs_battery_system_saver">System Battery Saver</string>
     <string name="settings_dialogs_battery_selected">Selected</string>
     <string name="settings_dialogs_battery_presentation">Presentation</string>
     <string name="settings_dialogs_battery_fit">Fit</string>
@@ -1251,9 +1253,9 @@
     <string name="settings_sounds_alarm_shuffle_title">Alarm sound shuffle</string>
     <string name="settings_sounds_alarm_shuffle_on_subtitle">Changes your alarm sound from downloaded sounds on the same schedule</string>
     <string name="settings_sounds_alarm_shuffle_off_subtitle">Periodically set a random downloaded sound as your alarm</string>
-    <string name="settings_video_battery_saver_title">Auto battery saver</string>
-    <string name="settings_video_battery_saver_on_subtitle">Caps video and GIF wallpapers at 15 FPS below 15%% battery</string>
-    <string name="settings_video_battery_saver_off_subtitle">Keep the selected FPS limit even when battery is low</string>
+    <string name="settings_video_battery_saver_title">Automatic motion guard</string>
+    <string name="settings_video_battery_saver_on_subtitle">Freezes motion during system Battery Saver and caps it at 15 FPS below 15%% battery</string>
+    <string name="settings_video_battery_saver_off_subtitle">Keep motion playing and use the selected FPS limit during battery-saving conditions</string>
     <string name="settings_video_fps_overlay_title">FPS overlay</string>
     <string name="settings_video_fps_overlay_on_subtitle">Show a small debug FPS readout on Canvas-rendered motion wallpapers</string>
     <string name="settings_video_fps_overlay_off_subtitle">Hidden unless you need to inspect frame pacing</string>

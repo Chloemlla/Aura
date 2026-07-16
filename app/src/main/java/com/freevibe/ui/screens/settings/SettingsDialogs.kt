@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import android.os.PowerManager
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -53,6 +54,7 @@ import com.freevibe.service.CommunityIdentitySummary
 import com.freevibe.service.VIDEO_STATS_PREFS_NAME
 import com.freevibe.service.effectiveVideoFpsLimit
 import com.freevibe.service.shouldUseVideoBatterySaver
+import com.freevibe.service.shouldPauseVideoMotionForPowerSave
 import com.freevibe.service.videoBatteryImpactSummary
 import com.freevibe.ui.components.GlassCard
 import com.freevibe.ui.components.HighlightPill
@@ -405,6 +407,8 @@ internal data class VideoBatteryDashboardState(
     val effectiveFps: Int,
     val fpsOverlayEnabled: Boolean,
     val lowBatterySaverActive: Boolean,
+    val systemPowerSaveMode: Boolean,
+    val motionPausedForPowerSave: Boolean,
     val scaleMode: String,
 )
 
@@ -466,6 +470,17 @@ private fun readVideoBatteryDashboardState(
     )
     val lowBatterySaverActive = localLowBatterySaver ||
         (serviceFresh && stats.getBoolean("low_battery_saver_active", false))
+    val localSystemPowerSaveMode = try {
+        context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
+    } catch (_: Exception) {
+        false
+    }
+    val systemPowerSaveMode = localSystemPowerSaveMode ||
+        (serviceFresh && stats.getBoolean("system_power_save_mode", false))
+    val motionPausedForPowerSave = shouldPauseVideoMotionForPowerSave(
+        systemPowerSaveMode = systemPowerSaveMode,
+        autoSaverEnabled = autoBatterySaverEnabled,
+    ) || (serviceFresh && stats.getBoolean("motion_paused_for_power_save", false))
     val effectiveFps = if (serviceFresh) {
         stats.getInt("effective_fps", effectiveVideoFpsLimit(statsRequestedFps, lowBatterySaverActive))
     } else {
@@ -481,6 +496,8 @@ private fun readVideoBatteryDashboardState(
         effectiveFps = effectiveFps,
         fpsOverlayEnabled = fpsOverlayEnabled,
         lowBatterySaverActive = lowBatterySaverActive,
+        systemPowerSaveMode = systemPowerSaveMode,
+        motionPausedForPowerSave = motionPausedForPowerSave,
         scaleMode = if (serviceFresh) stats.getString("scale_mode", "zoom") ?: "zoom" else "zoom",
     )
 }
@@ -516,6 +533,7 @@ internal fun VideoBatteryDashboardCard(
 ) {
     val batteryLabel = state.batteryPercent?.let { "$it%" } ?: stringResource(R.string.settings_dialogs_battery_unknown)
     val serviceLabel = when {
+        state.motionPausedForPowerSave -> stringResource(R.string.settings_dialogs_battery_static)
         state.serviceVisible -> stringResource(R.string.settings_dialogs_battery_active)
         state.serviceFresh -> stringResource(R.string.settings_dialogs_battery_paused)
         else -> stringResource(R.string.settings_dialogs_battery_no_heartbeat)
@@ -563,6 +581,7 @@ internal fun VideoBatteryDashboardCard(
                             effectiveFps = state.effectiveFps,
                             fpsOverlayEnabled = state.fpsOverlayEnabled,
                             lowBatterySaverActive = state.lowBatterySaverActive,
+                            motionPausedForPowerSave = state.motionPausedForPowerSave,
                         ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -576,7 +595,7 @@ internal fun VideoBatteryDashboardCard(
                         .fillMaxWidth()
                         .height(8.dp)
                         .clip(RoundedCornerShape(4.dp)),
-                    color = if (state.lowBatterySaverActive) {
+                    color = if (state.lowBatterySaverActive || state.motionPausedForPowerSave) {
                         MaterialTheme.colorScheme.error
                     } else {
                         MaterialTheme.colorScheme.primary
@@ -600,8 +619,16 @@ internal fun VideoBatteryDashboardCard(
                 )
                 VideoDashboardMetric(
                     label = stringResource(R.string.settings_dialogs_battery_target),
-                    value = stringResource(R.string.settings_dialogs_battery_fps, state.effectiveFps),
-                    detail = if (state.lowBatterySaverActive) stringResource(R.string.settings_dialogs_battery_auto_capped) else stringResource(R.string.settings_dialogs_battery_selected),
+                    value = if (state.motionPausedForPowerSave) {
+                        stringResource(R.string.settings_dialogs_battery_static)
+                    } else {
+                        stringResource(R.string.settings_dialogs_battery_fps, state.effectiveFps)
+                    },
+                    detail = when {
+                        state.motionPausedForPowerSave -> stringResource(R.string.settings_dialogs_battery_system_saver)
+                        state.lowBatterySaverActive -> stringResource(R.string.settings_dialogs_battery_auto_capped)
+                        else -> stringResource(R.string.settings_dialogs_battery_selected)
+                    },
                 )
                 VideoDashboardMetric(
                     label = stringResource(R.string.settings_dialogs_battery_presentation),

@@ -2,6 +2,8 @@
 
 package com.freevibe.service
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
@@ -12,6 +14,7 @@ import android.media.MediaPlayer
 import android.os.BatteryManager
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.os.SystemClock
 import android.service.wallpaper.WallpaperService
 import android.view.SurfaceHolder
@@ -30,6 +33,8 @@ private data class VideoPlaybackProfile(
     val batteryPercent: Int?,
     val isCharging: Boolean,
     val lowBatterySaverActive: Boolean,
+    val systemPowerSaveMode: Boolean,
+    val motionPausedForPowerSave: Boolean,
 )
 
 /**
@@ -54,6 +59,9 @@ class VideoWallpaperService : WallpaperService() {
         private var screenWidth = 0
         private var screenHeight = 0
         private var visible = false
+        private var powerSaveReceiverRegistered = false
+        private var systemPowerSaveMode = false
+        private var motionPausedForPowerSave = false
         private var activeMediaType = "none"
         private var activeProfile = VideoPlaybackProfile(
             requestedFps = 30,
@@ -61,7 +69,19 @@ class VideoWallpaperService : WallpaperService() {
             batteryPercent = null,
             isCharging = false,
             lowBatterySaverActive = false,
+            systemPowerSaveMode = false,
+            motionPausedForPowerSave = false,
         )
+        private val powerSaveReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (
+                    intent?.action == PowerManager.ACTION_POWER_SAVE_MODE_CHANGED ||
+                    intent?.action == VIDEO_AUTO_BATTERY_SAVER_CHANGED_ACTION
+                ) {
+                    reconcilePowerSavePause()
+                }
+            }
+        }
         private var telemetryRunnable: Runnable? = null
         private val telemetryHandler = Handler(Looper.getMainLooper())
         private val overlayBackgroundPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
@@ -117,7 +137,8 @@ class VideoWallpaperService : WallpaperService() {
             super.onSurfaceCreated(holder)
             currentHolder = holder
             resolveScreenSize()
-            refreshPlaybackProfile()
+            registerPowerSaveReceiver()
+            reconcilePowerSavePause()
             receiptStore.recordSurfaceCreated(LiveWallpaperReceiptStore.ENGINE_VIDEO, getVideoPath())
             initializePlayer(holder)
         }
@@ -126,6 +147,7 @@ class VideoWallpaperService : WallpaperService() {
             super.onSurfaceDestroyed(holder)
             currentHolder = null
             visible = false
+            unregisterPowerSaveReceiver()
             stopTelemetryHeartbeat()
             releasePlayback()
             receiptStore.recordSurfaceDestroyed(LiveWallpaperReceiptStore.ENGINE_VIDEO)
@@ -137,7 +159,7 @@ class VideoWallpaperService : WallpaperService() {
             this.visible = visible
             receiptStore.recordVisibilityChanged(LiveWallpaperReceiptStore.ENGINE_VIDEO, visible)
             if (visible) {
-                refreshPlaybackProfile()
+                reconcilePowerSavePause()
                 startTelemetryHeartbeat()
                 val path = getVideoPath()
                 if (path != null) {
@@ -155,7 +177,12 @@ class VideoWallpaperService : WallpaperService() {
                     return
                 }
                 try {
-                    mediaPlayer?.let { if (!it.isPlaying) { it.seekTo(0); it.start() } }
+                    mediaPlayer?.let {
+                        if (!it.isPlaying) {
+                            it.seekTo(0)
+                            if (!motionPausedForPowerSave) it.start()
+                        }
+                    }
                 } catch (_: Exception) {}
             } else {
                 stopTelemetryHeartbeat()
@@ -168,6 +195,7 @@ class VideoWallpaperService : WallpaperService() {
         override fun onDestroy() {
             super.onDestroy()
             visible = false
+            unregisterPowerSaveReceiver()
             stopTelemetryHeartbeat()
             releasePlayback()
             publishVideoTelemetry()
@@ -259,7 +287,11 @@ class VideoWallpaperService : WallpaperService() {
                             }
                         } catch (_: Exception) {}
                         try { mp.playbackParams = mp.playbackParams.setSpeed(speed) } catch (_: Exception) {}
-                        mp.start()
+                        if (visible && !motionPausedForPowerSave) {
+                            mp.start()
+                        } else {
+                            try { mp.seekTo(0) } catch (_: Exception) {}
+                        }
                     }
                     prepareAsync()
                 }
@@ -310,7 +342,11 @@ class VideoWallpaperService : WallpaperService() {
             gifSampleStartedAtMs = 0L
             gifFramesInSample = 0
             gifSampledFps = 0
-            resumeGifPlayback(holder)
+            if (motionPausedForPowerSave) {
+                drawGifFrame(holder)
+            } else {
+                resumeGifPlayback(holder)
+            }
 
             if (BuildConfig.DEBUG) {
                 android.util.Log.d(
@@ -322,7 +358,7 @@ class VideoWallpaperService : WallpaperService() {
 
         private fun resumeGifPlayback(holder: SurfaceHolder) {
             pauseGifPlayback()
-            if (gifMovie == null) return
+            if (gifMovie == null || !visible || motionPausedForPowerSave) return
             val frameRunnable = object : Runnable {
                 override fun run() {
                     if (gifMovie == null || currentHolder != holder) return
@@ -390,6 +426,80 @@ class VideoWallpaperService : WallpaperService() {
             mediaPlayer = null
         }
 
+        private fun registerPowerSaveReceiver() {
+            if (powerSaveReceiverRegistered) return
+            val filter = IntentFilter().apply {
+                addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED)
+                addAction(VIDEO_AUTO_BATTERY_SAVER_CHANGED_ACTION)
+            }
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    registerReceiver(powerSaveReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+                } else {
+                    @Suppress("DEPRECATION")
+                    registerReceiver(powerSaveReceiver, filter)
+                }
+                powerSaveReceiverRegistered = true
+            } catch (_: Exception) {
+            }
+        }
+
+        private fun unregisterPowerSaveReceiver() {
+            if (!powerSaveReceiverRegistered) return
+            try {
+                unregisterReceiver(powerSaveReceiver)
+            } catch (_: Exception) {
+            } finally {
+                powerSaveReceiverRegistered = false
+            }
+        }
+
+        private fun readSystemPowerSaveMode(): Boolean =
+            try {
+                getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
+            } catch (_: Exception) {
+                false
+            }
+
+        private fun reconcilePowerSavePause() {
+            val modeActive = readSystemPowerSaveMode()
+            val action = videoMotionPowerSaveAction(
+                wasPausedForPowerSave = motionPausedForPowerSave,
+                systemPowerSaveMode = modeActive,
+                autoSaverEnabled = isAutoBatterySaverEnabled(),
+            )
+            systemPowerSaveMode = modeActive
+            motionPausedForPowerSave = shouldPauseVideoMotionForPowerSave(
+                systemPowerSaveMode = modeActive,
+                autoSaverEnabled = isAutoBatterySaverEnabled(),
+            )
+
+            when (action) {
+                VideoMotionPowerSaveAction.PAUSE -> {
+                    pauseGifPlayback()
+                    try { mediaPlayer?.pause() } catch (_: Exception) {}
+                }
+                VideoMotionPowerSaveAction.RESUME -> {
+                    if (visible) {
+                        if (gifMovie != null) {
+                            currentHolder?.let { resumeGifPlayback(it) }
+                        } else try {
+                            mediaPlayer?.let { if (!it.isPlaying) it.start() }
+                        } catch (_: Exception) {
+                        }
+                    }
+                }
+                VideoMotionPowerSaveAction.NONE -> Unit
+            }
+            if (action != VideoMotionPowerSaveAction.NONE && BuildConfig.DEBUG) {
+                android.util.Log.d(
+                    "VideoWPService",
+                    "System Battery Saver transition=$action; decoder retained",
+                )
+            }
+            publishVideoTelemetry(refreshPlaybackProfile())
+        }
+
         private fun refreshPlaybackProfile(): VideoPlaybackProfile {
             val battery = readBatterySnapshot()
             val requestedFps = getRequestedFpsLimit()
@@ -404,6 +514,8 @@ class VideoWallpaperService : WallpaperService() {
                 batteryPercent = battery.percent,
                 isCharging = battery.isCharging,
                 lowBatterySaverActive = lowBatterySaverActive,
+                systemPowerSaveMode = systemPowerSaveMode,
+                motionPausedForPowerSave = motionPausedForPowerSave,
             )
             return activeProfile
         }
@@ -440,6 +552,8 @@ class VideoWallpaperService : WallpaperService() {
                 .putInt("requested_fps", profile.requestedFps)
                 .putInt("effective_fps", profile.effectiveFps)
                 .putBoolean("low_battery_saver_active", profile.lowBatterySaverActive)
+                .putBoolean("system_power_save_mode", profile.systemPowerSaveMode)
+                .putBoolean("motion_paused_for_power_save", profile.motionPausedForPowerSave)
                 .putBoolean("charging", profile.isCharging)
                 .putBoolean("fps_overlay_enabled", isFpsOverlayEnabled())
                 .putString("scale_mode", getScaleMode())
@@ -454,6 +568,7 @@ class VideoWallpaperService : WallpaperService() {
             stopTelemetryHeartbeat()
             val runnable = object : Runnable {
                 override fun run() {
+                    reconcilePowerSavePause()
                     currentHolder?.let { configureFrameRate(it) } ?: publishVideoTelemetry(refreshPlaybackProfile())
                     receiptStore.recordDraw(LiveWallpaperReceiptStore.ENGINE_VIDEO)
                     telemetryHandler.postDelayed(this, 30_000L)

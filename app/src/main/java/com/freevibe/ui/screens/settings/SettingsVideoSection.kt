@@ -72,6 +72,7 @@ internal fun VideoSettingsSection(
                 effectiveFps = videoBatteryDashboard.effectiveFps,
                 fpsOverlayEnabled = videoBatteryDashboard.fpsOverlayEnabled,
                 lowBatterySaverActive = videoBatteryDashboard.lowBatterySaverActive,
+                motionPausedForPowerSave = videoBatteryDashboard.motionPausedForPowerSave,
             ),
             onClick = { showFpsPicker = true },
         )
