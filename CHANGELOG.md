@@ -37,6 +37,9 @@ and a no-OAuth Reddit RSS pipeline.
 - **Localized action-layer feedback**: wallpaper apply/style, community sound,
   personal recording, and generated-wallpaper outcomes now resolve through app
   resources instead of embedding English messages inside ViewModels and delegates.
+- **Recovered denied wallpaper-trigger starts**: Android background launches now
+  persist unlock/screen-off service requests, alert the user that triggers are
+  paused, and automatically re-arm them once Aura is visibly resumed.
 - **Added day/night wallpaper scheduling**: auto-rotation can keep one source,
   switch between independently selected day and night sources at configurable
   clock boundaries, or follow the system light/dark theme. Phase sources and

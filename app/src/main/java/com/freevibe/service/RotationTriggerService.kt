@@ -54,6 +54,7 @@ class RotationTriggerService : Service() {
     override fun onCreate() {
         super.onCreate()
         startInForeground()
+        RotationTriggerRecovery.clear(this)
         registerTriggers()
     }
 
@@ -143,7 +144,8 @@ class RotationTriggerService : Service() {
 
         /**
          * Idempotent start: if any trigger is enabled, start (or update) the service;
-         * if both are disabled, stop it. Safe to call from any context.
+         * if both are disabled, stop it. A background-start denial is persisted and
+         * retried when the user next resumes Aura.
          */
         fun reconcile(context: Context, unlock: Boolean, screenOff: Boolean) {
             if (unlock || screenOff) {
@@ -151,12 +153,20 @@ class RotationTriggerService : Service() {
                     putExtra(EXTRA_UNLOCK, unlock)
                     putExtra(EXTRA_SCREEN_OFF, screenOff)
                 }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(intent)
-                } else {
-                    context.startService(intent)
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        context.startForegroundService(intent)
+                    } else {
+                        context.startService(intent)
+                    }
+                } catch (_: IllegalStateException) {
+                    // Android 8-11 use IllegalStateException for background FGS
+                    // denials; Android 12+ throws its ForegroundServiceStartNotAllowedException
+                    // subclass. Persist the exact request and make the degraded state visible.
+                    RotationTriggerRecovery.markPending(context, unlock, screenOff)
                 }
             } else {
+                RotationTriggerRecovery.clear(context)
                 context.stopService(Intent(context, RotationTriggerService::class.java))
             }
         }

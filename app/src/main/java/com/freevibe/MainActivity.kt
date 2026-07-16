@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Wallpaper
 import com.freevibe.service.RotationTriggerService
+import com.freevibe.service.RotationTriggerRecovery
 import com.freevibe.service.TaskerActionReceiver
 import com.freevibe.service.extractCollectionShareToken
 import com.freevibe.ui.FreeVibeRoot
@@ -233,6 +234,13 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         handleShortcutSideEffects(intent)
         launchNavigation = consumeLaunchNavigation(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // A visible activity is an Android 12+ foreground-service start exemption.
+        // Retry any trigger service request rejected during a background process start.
+        RotationTriggerRecovery.retryIfPending(this)
     }
 
     private fun handleShortcutSideEffects(intent: Intent?) {

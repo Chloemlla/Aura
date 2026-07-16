@@ -8,6 +8,7 @@ object NotificationChannels {
     const val MEDIA_PLAYBACK = "media_playback"
     const val DAILY_WALLPAPER = "daily_wallpaper"
     const val ROTATION_TRIGGERS = "aura_rotation_triggers"
+    const val ROTATION_RECOVERY = "aura_rotation_recovery"
 
     fun createAll(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
@@ -34,6 +35,13 @@ object NotificationChannels {
                 ).apply {
                     description = "Listens for unlock/screen-off to rotate the wallpaper."
                     setShowBadge(false)
+                },
+                NotificationChannel(
+                    ROTATION_RECOVERY,
+                    "Wallpaper trigger alerts",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = "Alerts when wallpaper triggers need Aura to be reopened."
                 },
             ),
         )
