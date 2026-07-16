@@ -184,7 +184,12 @@ class RotationTriggerService : Service() {
                 .build()
             val request = OneTimeWorkRequestBuilder<AutoWallpaperWorker>()
                 .setConstraints(constraints)
-                .setInputData(workDataOf(AutoWallpaperWorker.RECEIPT_WORK_NAME_KEY to WORK_NAME))
+                .setInputData(
+                    workDataOf(
+                        AutoWallpaperWorker.RECEIPT_WORK_NAME_KEY to WORK_NAME,
+                        AutoWallpaperWorker.TRIGGERED_ROTATION_KEY to true,
+                    ),
+                )
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork(

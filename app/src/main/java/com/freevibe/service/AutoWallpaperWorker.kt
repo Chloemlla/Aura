@@ -46,13 +46,12 @@ class AutoWallpaperWorker @AssistedInject constructor(
         return try {
             val schedulerEnabled = prefs.schedulerEnabled.first()
             val legacyEnabled = prefs.autoWallpaperEnabled.first()
+            val triggeredRotation = inputData.getBoolean(TRIGGERED_ROTATION_KEY, false)
 
-            val result = if (schedulerEnabled) {
-                doSchedulerWork()
-            } else if (legacyEnabled) {
-                doLegacyWork()
-            } else {
-                Result.success()
+            val result = when {
+                schedulerEnabled -> doSchedulerWork()
+                shouldRunLegacyRotation(schedulerEnabled, legacyEnabled, triggeredRotation) -> doLegacyWork()
+                else -> Result.success()
             }
             receiptStore.recordWorkerResult(
                 uniqueWorkName = receiptWorkName,
@@ -222,6 +221,7 @@ class AutoWallpaperWorker @AssistedInject constructor(
     companion object {
         const val WORK_NAME = "auto_wallpaper"
         const val RECEIPT_WORK_NAME_KEY = "receipt_work_name"
+        const val TRIGGERED_ROTATION_KEY = "triggered_rotation"
 
         /**
          * Schedule with minute-based intervals (minimum 15 min, WorkManager floor).
@@ -305,6 +305,12 @@ class AutoWallpaperWorker @AssistedInject constructor(
         }
     }
 }
+
+internal fun shouldRunLegacyRotation(
+    schedulerEnabled: Boolean,
+    legacyEnabled: Boolean,
+    triggeredRotation: Boolean,
+): Boolean = !schedulerEnabled && (legacyEnabled || triggeredRotation)
 
 /**
  * Pure builder for AutoWallpaper rotation constraints. Always sets

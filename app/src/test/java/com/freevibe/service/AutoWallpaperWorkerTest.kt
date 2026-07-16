@@ -16,6 +16,14 @@ import org.junit.Test
 class AutoWallpaperWorkerTest {
 
     @Test
+    fun `triggered one-shot uses saved legacy rotation when periodic rotation is off`() {
+        assertTrue(shouldRunLegacyRotation(schedulerEnabled = false, legacyEnabled = false, triggeredRotation = true))
+        assertTrue(shouldRunLegacyRotation(schedulerEnabled = false, legacyEnabled = true, triggeredRotation = false))
+        assertFalse(shouldRunLegacyRotation(schedulerEnabled = false, legacyEnabled = false, triggeredRotation = false))
+        assertFalse(shouldRunLegacyRotation(schedulerEnabled = true, legacyEnabled = true, triggeredRotation = true))
+    }
+
+    @Test
     fun `clock schedule swaps sources exactly at day and night boundaries`() {
         fun sourceAt(hour: Int) = resolveScheduledWallpaperSource(
             defaultSource = "discover",

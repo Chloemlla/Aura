@@ -109,6 +109,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Crop & Position** | Pinch-zoom with aspect ratio presets (9:16, 16:9, 1:1) |
 | **Collections** | Organize wallpapers into named folders with 2x2 cover previews |
 | **Home Widget** | Glance-based widget for quick shuffle with error feedback |
+| **Quick Settings Action** | Add “Next wallpaper” from the system tile editor for one-tap rotation, even while automatic rotation is off |
 | **Auto Wallpaper** | Rotation schedule with one source, clock-based day/night sources, or system light/dark theme matching |
 | **Shuffle FAB** | One-tap random wallpaper from current tab |
 | **Per-Contact Ringtones** | Assign custom ringtones to individual contacts |
@@ -134,6 +135,9 @@ one every 30 seconds, and records the last action plus the optional
 `com.freevibe.extra.CALLER_PACKAGE` diagnostic extra in Settings > Diagnostics.
 Broadcasts only enqueue the existing rotation worker, so charging, Wi-Fi, idle,
 battery, Doze, and WorkManager quota can still delay the wallpaper change.
+The same one-shot path powers the optional **Next wallpaper** Quick Settings
+tile. Add it from Android's tile editor; its active state mirrors automatic
+rotation, while tapping it still queues one wallpaper change when scheduling is off.
 
 ## Content Sources
 

@@ -15,6 +15,11 @@
     <string name="shortcut_downloads_short">Downloads</string>
     <string name="shortcut_downloads_long">Open downloads</string>
     <string name="shortcut_unavailable">Shortcut unavailable</string>
+    <string name="quick_settings_rotate_title">Next wallpaper</string>
+    <string name="quick_settings_rotate_enabled">Automatic rotation on</string>
+    <string name="quick_settings_rotate_disabled">Automatic rotation off</string>
+    <string name="quick_settings_rotate_queued">Wallpaper change queued</string>
+    <string name="quick_settings_rotate_description">Next wallpaper. %1$s</string>
     <string name="common_cancel">Cancel</string>
     <string name="common_close">Close</string>
     <string name="common_clear">Clear</string>
