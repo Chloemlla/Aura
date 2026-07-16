@@ -363,6 +363,16 @@ class ReleasePolishContractTest {
     }
 
     @Test
+    fun `video previews keep one fixed size surface active`() {
+        val videos = File("src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersScreen.kt").readText()
+
+        assertTrue(!videos.contains("RESIZE_MODE_ZOOM"))
+        assertTrue(Regex("RESIZE_MODE_FILL").findAll(videos).count() == 2)
+        assertTrue(Regex("VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING").findAll(videos).count() == 2)
+        assertTrue(videos.contains("shouldPreview = immersiveVideoIndex < 0 && item.id == activePreviewId"))
+    }
+
+    @Test
     fun `release ui avoids fully circular chrome backdrops`() {
         val uiFiles = listOf(
             "src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt",

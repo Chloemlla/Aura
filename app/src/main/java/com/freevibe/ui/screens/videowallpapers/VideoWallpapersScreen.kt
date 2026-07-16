@@ -46,6 +46,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -608,7 +609,7 @@ fun VideoWallpapersScreen(
                                         item = item,
                                         streamUrl = resolvedUrl,
                                         mediaSourceFactory = previewMediaSourceFactory,
-                                        shouldPreview = item.id == activePreviewId,
+                                        shouldPreview = immersiveVideoIndex < 0 && item.id == activePreviewId,
                                         isApplying = state.isApplying == item.id,
                                         voteCount = voteCounts[item.id] ?: 0,
                                         onApply = { confirmItem = item },
@@ -937,6 +938,7 @@ private fun ImmersiveVideoPage(
                                     .build(),
                             )
                             repeatMode = Player.REPEAT_MODE_ALL
+                            setVideoScalingMode(C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING)
                             volume = 0f
                             prepare()
                             play()
@@ -964,7 +966,10 @@ private fun ImmersiveVideoPage(
                         androidx.media3.ui.PlayerView(context).apply {
                             this.player = player
                             useController = false
-                            resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                            // Let the codec crop into fixed view bounds. PlayerView zoom
+                            // resizes its SurfaceView after format discovery, which can
+                            // exhaust Qualcomm BufferQueues on large aspect-ratio changes.
+                            resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
                             setShowBuffering(androidx.media3.ui.PlayerView.SHOW_BUFFERING_ALWAYS)
                         }
                     },
@@ -1151,6 +1156,7 @@ private fun VideoCard(
                                 .build(),
                         )
                         repeatMode = Player.REPEAT_MODE_ALL
+                        setVideoScalingMode(C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING)
                         volume = 0f
                         prepare()
                         play()
@@ -1166,7 +1172,7 @@ private fun VideoCard(
                         androidx.media3.ui.PlayerView(ctx).apply {
                             player = exoPlayer
                             useController = false
-                            resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                            resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
                             setShowBuffering(androidx.media3.ui.PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
                         }
                     },

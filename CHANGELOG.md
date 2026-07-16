@@ -52,6 +52,9 @@ and a no-OAuth Reddit RSS pipeline.
   extractor payload is the official 2026.07.04 release, pinned by SHA-256 and
   verified from the packaged resource; stable-channel updates now roll back if
   they fail to reach that security floor.
+- **Stabilized video preview surfaces**: feed playback now stops before the
+  immersive player opens, and both players crop inside fixed SurfaceView bounds
+  instead of resizing decoder output buffers after format discovery.
 
 ## v6.35.1 (2026-07-15)
 
