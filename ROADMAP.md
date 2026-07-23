@@ -57,16 +57,6 @@ Kotlin/AGP) are intentionally NOT listed here — they remain under the N-1 bloc
   Acceptance: file under ~500 lines; settings behavior unchanged; split gate added; tests green.
   Complexity: M
 
-- [ ] P2 — Add a Robolectric WorkManager rotation-reliability harness
-  Why: instrumentation coverage is 2 files; no automated proof that rotation re-arms after
-  reboot or defers under doze/metered — the exact failure class that dominates WallYou's
-  tracker. Testable without a device via WorkManagerTestInitHelper + TestDriver.
-  Evidence: WallYou reliability issues #230/#266/#239 https://github.com/you-apps/WallYou/issues ; app/src/main/java/com/freevibe/service/RotationTriggerRecovery.kt, AutoWallpaperWorker.kt, RotationTriggerService.kt.
-  Touches: app/src/test (new WorkManager test), possibly a testable seam in RotationTriggerRecovery
-  Acceptance: tests assert (a) BOOT_COMPLETED re-arms the periodic/one-shot rotation work and
-  (b) the UNMETERED constraint holds a metered run; run green under Robolectric.
-  Complexity: M
-
 #### P3
 
 - [ ] P3 — Resolve the four orphaned legacy sound repositories (wire as opt-in or delete)

@@ -4,6 +4,10 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Rotation reliability coverage**: added a WorkManager-integration test harness
+  (`AutoWallpaperWorkerSchedulingTest`, via `androidx.work:work-testing`) that verifies the
+  auto-wallpaper periodic work re-arms idempotently and that the Wi-Fi-only preference produces
+  an UNMETERED constraint — guarding the changer-stall/metered-fetch failure class.
 - **Undo when hiding a sound or video**: hiding a community sound or video now shows a snackbar
   with an Undo action (backed by `VoteRepository.undoDownvote`, mirroring the existing
   favorite-removal pattern), so an accidental Hide is recoverable instead of permanent.
