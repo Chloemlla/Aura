@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -251,6 +252,7 @@ fun SettingsScreen(
     }
 
     var settingsPermissionPrompt by remember { mutableStateOf<SettingsPermissionPrompt?>(null) }
+    var settingsSearchQuery by remember { mutableStateOf("") }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -311,7 +313,37 @@ fun SettingsScreen(
                     .padding(horizontal = 16.dp, vertical = 12.dp),
             )
 
-            WallpaperRotationSettingsSection(
+            OutlinedTextField(
+                value = settingsSearchQuery,
+                onValueChange = { settingsSearchQuery = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                label = { Text(stringResource(R.string.settings_search_hint)) },
+                singleLine = true,
+            )
+
+            val visibleSectionKeys = remember(settingsSearchQuery) {
+                SETTINGS_SEARCH_SECTIONS.filter { section ->
+                    settingsSectionMatchesQuery(
+                        settingsSearchQuery,
+                        context.getString(section.titleRes) + " " + context.getString(section.descriptionRes),
+                    )
+                }.map { it.key }.toSet()
+            }
+
+            if (visibleSectionKeys.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.settings_search_no_results, settingsSearchQuery.trim()),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 24.dp),
+                )
+            }
+
+            if (SettingsSectionKeys.WALLPAPERS in visibleSectionKeys) WallpaperRotationSettingsSection(
                 context = context,
                 viewModel = viewModel,
                 autoWpEnabled = autoWpEnabled,
@@ -354,7 +386,7 @@ fun SettingsScreen(
                 onFeedback = ::showSettingsFeedback,
             )
 
-            SchedulerSettingsSection(
+            if (SettingsSectionKeys.SCHEDULER in visibleSectionKeys) SchedulerSettingsSection(
                 context = context,
                 viewModel = viewModel,
                 schedulerEnabled = schedulerEnabled,
@@ -376,7 +408,7 @@ fun SettingsScreen(
                 onChooseLocalWallpaperFolder = ::chooseLocalWallpaperFolder,
             )
 
-            SettingsSectionAnchorTarget(Screen.Settings.BACKUP_SECTION, initialSection) {
+            if (SettingsSectionKeys.BACKUP in visibleSectionKeys) SettingsSectionAnchorTarget(Screen.Settings.BACKUP_SECTION, initialSection) {
                 BackupSettingsSection(
                     context = context,
                     viewModel = viewModel,
@@ -391,7 +423,7 @@ fun SettingsScreen(
                 )
             }
 
-            SmartLiveWallpaperSettingsSection(
+            if (SettingsSectionKeys.SMART in visibleSectionKeys) SmartLiveWallpaperSettingsSection(
                 context = context,
                 viewModel = viewModel,
                 dailyWallpaperEnabled = dailyWallpaperEnabled,
@@ -411,7 +443,7 @@ fun SettingsScreen(
                 onPermissionPrompt = { settingsPermissionPrompt = it },
             )
 
-            SoundSettingsSection(
+            if (SettingsSectionKeys.SOUNDS in visibleSectionKeys) SoundSettingsSection(
                 viewModel = viewModel,
                 autoPreview = autoPreview,
                 previewVolume = previewVolume,
@@ -431,7 +463,7 @@ fun SettingsScreen(
                 onFeedback = ::showSettingsFeedback,
             )
 
-            VideoSettingsSection(
+            if (SettingsSectionKeys.VIDEO in visibleSectionKeys) VideoSettingsSection(
                 viewModel = viewModel,
                 videoFpsLimit = videoFpsLimit,
                 videoFpsOverlayEnabled = videoFpsOverlayEnabled,
@@ -440,7 +472,7 @@ fun SettingsScreen(
                 redditVideoSubreddits = redditVideoSubreddits,
             )
 
-            ServicesCommunitySettingsSection(
+            if (SettingsSectionKeys.SERVICES in visibleSectionKeys) ServicesCommunitySettingsSection(
                 context = context,
                 viewModel = viewModel,
                 communityProviderEnabled = communityProviderEnabled,
@@ -469,13 +501,13 @@ fun SettingsScreen(
                 onFeedback = ::showSettingsFeedback,
             )
 
-            StorageSettingsSection(
+            if (SettingsSectionKeys.STORAGE in visibleSectionKeys) StorageSettingsSection(
                 viewModel = viewModel,
                 cacheUsage = cacheUsage,
                 onDownloadsClick = onDownloadsClick,
             )
 
-            DiagnosticsSettingsSection(
+            if (SettingsSectionKeys.DIAGNOSTICS in visibleSectionKeys) DiagnosticsSettingsSection(
                 context = context,
                 viewModel = viewModel,
                 diagnostics = diagnostics,
@@ -485,8 +517,8 @@ fun SettingsScreen(
                 onFeedback = ::showSettingsFeedback,
             )
 
-            PermissionsSettingsSection(context)
-            AboutSettingsSection(
+            if (SettingsSectionKeys.PERMISSIONS in visibleSectionKeys) PermissionsSettingsSection(context)
+            if (SettingsSectionKeys.ABOUT in visibleSectionKeys) AboutSettingsSection(
                 context = context,
                 onLicensesClick = onLicensesClick,
             )

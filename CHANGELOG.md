@@ -2,6 +2,12 @@
 
 All notable changes to Aura will be documented in this file.
 
+## Unreleased
+
+- **Settings search**: a search field at the top of Settings filters the section list by title
+  and description, so scroll-buried areas (Backup, Diagnostics, external services/API keys) are
+  reachable by keyword instead of scrolling.
+
 ## v6.37.0 (2026-07-23)
 
 - **Undo when removing from a collection**: long-press removal now offers an Undo action that

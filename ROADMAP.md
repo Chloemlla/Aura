@@ -77,12 +77,4 @@ architecture items above or the device-gated accessibility items in Roadmap_Bloc
 
 #### P3
 
-- [ ] P3 — Add settings search / jump-to-section
-  Why: Settings has 10+ domain sections and no search; Backup, Diagnostics, and API-key
-  management are scroll-buried despite existing section anchors.
-  Evidence: RESEARCH.md 2026-07-22; ui/screens/settings/SettingsSectionNavigation.kt (anchors exist, no search); no search field found under ui/screens/settings.
-  Touches: SettingsScreen top bar (search field), section-index/anchor scroll, string index of section titles
-  Acceptance: typing in a settings search field filters/jumps to matching sections; keyboard
-  and TalkBack usable; a test asserts a query scrolls to the right section.
-  Complexity: M
 

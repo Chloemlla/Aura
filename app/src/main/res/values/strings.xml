@@ -1014,6 +1014,8 @@
     <string name="settings_share_deletion_request_title">Share deletion request</string>
     <string name="settings_share_diagnostics_subject">Aura diagnostics bundle</string>
     <string name="settings_share_diagnostics_title">Share diagnostics</string>
+    <string name="settings_search_hint">Search settings</string>
+    <string name="settings_search_no_results">No settings match “%1$s”</string>
     <string name="settings_wallpapers_section_title">Wallpapers</string>
     <string name="settings_wallpapers_section_description">Tune discovery quality, density, and the overall look of your feed.</string>
     <string name="settings_scheduler_section_title">Wallpaper Scheduler</string>
