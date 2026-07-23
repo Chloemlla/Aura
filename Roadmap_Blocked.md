@@ -162,6 +162,19 @@ These items have code shipped but require Firebase Console access, production RT
 
 These items require adb-connected device or Android 17 emulator testing:
 
+- **P2 — Split VideoWallpapersViewModel into delegates (1318 lines)**
+  - The pure top-level helpers (feed parsing, cache codec, Reddit motion selection) are fully
+    covered by `VideoWallpapersViewModelTest` and could move safely. The blocker is the other
+    ~600 lines: `load()`, its per-source fetch orchestration, `streamUrls`/`_resolvedIds`
+    eviction, `loadJob` cancellation ownership, and the YouTube path that calls the static
+    `NewPipe.getService(...)` global. `VideoWallpapersViewModelTest` constructs no ViewModel and
+    exercises none of this, so a delegate extraction of the loader is verifiable only by "it
+    compiles" — no behavioral test would catch a wiring/loadJob/streaming regression, and this
+    is the exact video-streaming path the on-device audit flagged fragile (BufferQueue storm).
+  - Resume when the loader/streaming behavior can be exercised on a device/emulator (or once a
+    JVM harness can drive `load()` with mocked NewPipe + provider APIs), then extract verbatim
+    and confirm browse/apply/immersive paging on device.
+
 - **P1 — Android 16 job-quota device evidence**
   - Source audit, complete worker ledger, WorkInfo stop-reason diagnostics, and the Android 16 capture packet are implemented.
   - Remaining: capture TOP-started and foreground-service-concurrent quota behavior on a connected Android 16+ device, including compat overrides, jobscheduler/services output, copied support bundle, and override reset evidence.

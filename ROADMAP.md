@@ -40,15 +40,6 @@ Kotlin/AGP) are intentionally NOT listed here — they remain under the N-1 bloc
 
 #### P2
 
-- [ ] P2 — Split VideoWallpapersViewModel into delegates (1318 lines) per the CLAUDE.md pattern
-  Why: last ViewModel violating the <500-line delegate rule; the pattern (loadJob ownership,
-  lastApplied*Uri, timeout-as-failure) is easy to break in a monolith of this size.
-  Evidence: app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersViewModel.kt (1318 lines); precedent SoundBrowseViewModel / WallpaperSearchActions + test/tools/*_split_test.py gates.
-  Touches: ui/screens/videowallpapers/VideoWallpapersViewModel.kt + new delegate files, test/tools/ new split gate
-  Acceptance: file under ~500 lines; behavior unchanged (browse/apply/immersive paging); a
-  new Python split contract gate mirrors the existing ones; all tests green.
-  Complexity: M
-
 - [ ] P2 — Trim SettingsViewModel into feature-slice delegates (960 lines)
   Why: second-largest ViewModel; settings surface keeps growing (community feeds, rotation,
   diagnostics) and delegate ownership is where loadJob/state bugs hide.
