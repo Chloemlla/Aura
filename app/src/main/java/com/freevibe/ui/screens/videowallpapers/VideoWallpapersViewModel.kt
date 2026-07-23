@@ -644,6 +644,7 @@ class VideoWallpapersViewModel @Inject constructor(
 
     fun upvote(id: String) { viewModelScope.launch { voteRepo.upvote(id) } }
     fun downvote(id: String) { viewModelScope.launch { voteRepo.downvote(id) } }
+    fun undoDownvote(id: String) { viewModelScope.launch { voteRepo.undoDownvote(id) } }
     fun clearGallerySelectionResult() { _gallerySelectionResult.value = null }
 
     fun prepareGalleryVideoWallpaper(uri: android.net.Uri) {

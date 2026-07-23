@@ -312,6 +312,12 @@ class VoteRepository @Inject constructor(
             .edit().putStringSet("hidden_ids", updated).apply()
     }
 
+    /** Reverse a [downvote]: mirrors its admin/local branch so an accidental hide is undoable. */
+    suspend fun undoDownvote(contentId: String) {
+        if (!isCommunityAccessEnabled()) return
+        if (isAdmin) moderateUnhide(contentId) else unhideLocally(contentId)
+    }
+
     fun isHidden(contentId: String): Boolean =
         matchesHiddenIds(_localHiddenIds.value, contentId) ||
             matchesHiddenIds(_moderatedIds.value, contentId)

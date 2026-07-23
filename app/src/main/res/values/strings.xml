@@ -24,6 +24,8 @@
     <string name="common_close">Close</string>
     <string name="common_clear">Clear</string>
     <string name="load_more_indicator">Loading more…</string>
+    <string name="common_undo">Undo</string>
+    <string name="community_item_hidden">Hidden from this feed</string>
     <string name="common_refresh">Refresh</string>
     <string name="common_retry">Retry</string>
     <string name="common_retry_later">Try again in a moment.</string>

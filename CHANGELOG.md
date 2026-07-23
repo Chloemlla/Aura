@@ -4,6 +4,9 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Undo when hiding a sound or video**: hiding a community sound or video now shows a snackbar
+  with an Undo action (backed by `VoteRepository.undoDownvote`, mirroring the existing
+  favorite-removal pattern), so an accidental Hide is recoverable instead of permanent.
 - **Accessible pagination**: the load-more footer on the wallpaper, sound, and video lists now
   shows a "Loading more…" label with a polite live region (shared `LoadMoreIndicator`), so
   TalkBack announces progress and the fetch is distinguishable from a hung list.

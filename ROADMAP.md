@@ -104,15 +104,6 @@ architecture items above or the device-gated accessibility items in Roadmap_Bloc
 
 #### P2
 
-- [ ] P2 — Add undo to Hide/downvote for sounds and videos
-  Why: hiding a sound/video fires immediately with no reversal, unlike delete-favorite which
-  offers a snackbar undo; an accidental hide is unrecoverable from the UI.
-  Evidence: SoundsScreen.kt:693 (onDownvote); VideoWallpapersScreen.kt:1295-1299 (Hide DropdownMenuItem); undo precedent FavoritesScreen.kt:152-177.
-  Touches: sounds/video hide handlers + ViewModels (restore path), AuraSnackbarHost usage, strings.xml
-  Acceptance: hiding shows a snackbar with an Undo action that restores the item within the
-  window; a unit/UI test covers hide-then-undo.
-  Complexity: S
-
 - [ ] P2 — Persist partial-load errors with a retry affordance
   Why: when a list already has items and a refresh fails, the error appears only as a
   transient banner/snackbar and disappears, leaving no way to retry the failed refresh.

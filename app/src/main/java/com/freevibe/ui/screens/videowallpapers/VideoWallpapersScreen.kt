@@ -619,7 +619,18 @@ fun VideoWallpapersScreen(
                                             immersiveVideoIndex = immersiveVideoItems.indexOfFirst { it.id == item.id }
                                         },
                                         onUpvote = { viewModel.upvote(item.id) },
-                                        onDownvote = { viewModel.downvote(item.id) },
+                                        onDownvote = {
+                                            val hiddenId = item.id
+                                            viewModel.downvote(hiddenId)
+                                            scope.launch {
+                                                val result = snackbarHostState.showSnackbar(
+                                                    message = context.getString(R.string.community_item_hidden),
+                                                    actionLabel = context.getString(R.string.common_undo),
+                                                    duration = SnackbarDuration.Short,
+                                                )
+                                                if (result == SnackbarResult.ActionPerformed) viewModel.undoDownvote(hiddenId)
+                                            }
+                                        },
                                     )
                                 }
                                 if (state.isLoadingMore) {

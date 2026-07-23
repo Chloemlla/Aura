@@ -692,7 +692,18 @@ fun SoundsScreen(
                                 if (communityGuidelinesAccepted) viewModel.upvote(sound.stableKey()) else showCommunityGuidelines = true
                             }) else null,
                             onDownvote = if (communityProviderEnabled) ({ sound ->
-                                if (communityGuidelinesAccepted) viewModel.downvote(sound.stableKey()) else showCommunityGuidelines = true
+                                if (communityGuidelinesAccepted) {
+                                    val hiddenId = sound.stableKey()
+                                    viewModel.downvote(hiddenId)
+                                    scope.launch {
+                                        val result = snackbarHostState.showSnackbar(
+                                            message = context.getString(R.string.community_item_hidden),
+                                            actionLabel = context.getString(R.string.common_undo),
+                                            duration = SnackbarDuration.Short,
+                                        )
+                                        if (result == SnackbarResult.ActionPerformed) viewModel.undoDownvote(hiddenId)
+                                    }
+                                } else showCommunityGuidelines = true
                             }) else null,
                         )
                     }

@@ -308,6 +308,7 @@ class SoundsViewModel @Inject constructor(
 
     fun upvote(id: String) = community.upvote(id)
     fun downvote(id: String) = community.downvote(id)
+    fun undoDownvote(id: String) = community.undoDownvote(id)
 
     fun startCommunityRecording() = community.startRecording()
     fun stopCommunityRecording() = community.stopRecording()

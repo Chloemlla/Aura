@@ -98,6 +98,13 @@ internal class SoundCommunityActions(
         }
     }
 
+    fun undoDownvote(id: String) {
+        scope.launch {
+            try { voteRepo.undoDownvote(id) }
+            catch (e: Exception) { e.rethrowIfCancelled() }
+        }
+    }
+
     fun startRecording() {
         if (state.value.isRecordingUpload) return
         if (communityActionBlocked()) return
