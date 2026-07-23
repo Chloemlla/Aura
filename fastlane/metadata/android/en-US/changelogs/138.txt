@@ -1,0 +1,5 @@
+Aura 6.38.0 - find settings faster
+
+- Added a search field at the top of Settings that filters the section list by title and description, so Backup, Diagnostics, and external services/API keys are reachable by keyword instead of scrolling.
+
+Recent highlights: search-to-filter Settings sections, plus the v6.37.0 background image-cache cap, power-efficient video playback, and undoable hide/collection removal.

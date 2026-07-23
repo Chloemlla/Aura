@@ -1,5 +1,15 @@
 package com.freevibe.ui.screens.settings
 
+import android.content.Context
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.freevibe.R
 
 /**
@@ -50,4 +60,33 @@ internal fun settingsSectionMatchesQuery(query: String, haystack: String): Boole
     val trimmed = query.trim()
     if (trimmed.isEmpty()) return true
     return haystack.contains(trimmed, ignoreCase = true)
+}
+
+/** Keys of the sections whose title/description match [query] (all keys when blank). */
+internal fun visibleSettingsSectionKeys(context: Context, query: String): Set<String> =
+    SETTINGS_SEARCH_SECTIONS.filter { section ->
+        settingsSectionMatchesQuery(
+            query,
+            context.getString(section.titleRes) + " " + context.getString(section.descriptionRes),
+        )
+    }.mapTo(mutableSetOf()) { it.key }
+
+/** Settings search field plus the "no matches" message shown when [resultsEmpty]. */
+@Composable
+internal fun SettingsSearchBar(query: String, onQueryChange: (String) -> Unit, resultsEmpty: Boolean) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        label = { Text(stringResource(R.string.settings_search_hint)) },
+        singleLine = true,
+    )
+    if (resultsEmpty) {
+        Text(
+            text = stringResource(R.string.settings_search_no_results, query.trim()),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 24.dp),
+        )
+    }
 }

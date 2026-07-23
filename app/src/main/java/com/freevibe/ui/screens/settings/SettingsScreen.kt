@@ -21,7 +21,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -312,37 +311,8 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 12.dp),
             )
-
-            OutlinedTextField(
-                value = settingsSearchQuery,
-                onValueChange = { settingsSearchQuery = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                label = { Text(stringResource(R.string.settings_search_hint)) },
-                singleLine = true,
-            )
-
-            val visibleSectionKeys = remember(settingsSearchQuery) {
-                SETTINGS_SEARCH_SECTIONS.filter { section ->
-                    settingsSectionMatchesQuery(
-                        settingsSearchQuery,
-                        context.getString(section.titleRes) + " " + context.getString(section.descriptionRes),
-                    )
-                }.map { it.key }.toSet()
-            }
-
-            if (visibleSectionKeys.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.settings_search_no_results, settingsSearchQuery.trim()),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 24.dp),
-                )
-            }
-
+            val visibleSectionKeys = remember(settingsSearchQuery) { visibleSettingsSectionKeys(context, settingsSearchQuery) }
+            SettingsSearchBar(settingsSearchQuery, { settingsSearchQuery = it }, visibleSectionKeys.isEmpty())
             if (SettingsSectionKeys.WALLPAPERS in visibleSectionKeys) WallpaperRotationSettingsSection(
                 context = context,
                 viewModel = viewModel,

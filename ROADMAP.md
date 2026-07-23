@@ -6,7 +6,7 @@ physical-device validation, or toolchain gates belongs in `Roadmap_Blocked.md`.
 
 ## Current State
 
-- Version: v6.37.0 / versionCode 137.
+- Version: v6.38.0 / versionCode 138.
 - Stack: Kotlin 2.1.0, AGP 8.7.3, Gradle 8.12, Compose Material 3, Hilt, Room,
   WorkManager, Media3 1.9.4, Coil 3.4.0, Firebase, NewPipe Extractor, yt-dlp.
 - Distribution: local builds only. GitHub Actions workflows have been removed.

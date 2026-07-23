@@ -2,7 +2,7 @@
 Date: 2026-07-22 — replaces all prior research (previous pass: 2026-07-16, same v6.36.0 tree).
 
 ## Executive Summary
-Aura (`com.freevibe`, v6.37.0 / versionCode 137) is a mature, privacy-forward open-source
+Aura (`com.freevibe`, v6.38.0 / versionCode 138) is a mature, privacy-forward open-source
 Zedge alternative: multi-source wallpapers (Reddit-RSS-first, Wallhaven/Pexels/Pixabay/Bing
 opt-in), video + weather/AGSL live wallpapers, ML-Kit parallax/depth, YouTube-first
 ringtone/notification/alarm editing, scheduled rotation (interval + unlock/screen-off
