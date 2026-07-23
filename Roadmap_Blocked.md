@@ -230,6 +230,14 @@ These items require adb-connected device or Android 17 emulator testing:
 - **N-5 (remaining)** — Aura Originals bundled CC0 sound pack
   - Infrastructure + manifest schema shipped. Remaining: moderator review pass to curate 200-500 CC0 sound entries into `assets/aura_originals_manifest.json`.
 
+- **P3 — Fate of the four orphaned legacy sound repositories** (Freesound/Audius/CcMixter/SoundCloud)
+  - Blocker: these repository classes are confirmed orphaned (no references outside their own
+    packages), but CLAUDE.md records a deliberate owner decision to keep them "for old saved
+    metadata and future compatibility." Deleting them overrides that documented decision;
+    re-wiring one as an opt-in source is a product/scope call. Both directions need owner
+    judgment, not an autonomous edit. Resolve by either confirming deletion or picking a source
+    to re-wire, then move back to ROADMAP.md.
+
 ---
 
 ## Blocker: Dependent on Other Blocked Items

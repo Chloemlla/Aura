@@ -2,7 +2,7 @@
 
 All notable changes to Aura will be documented in this file.
 
-## Unreleased
+## v6.37.0 (2026-07-23)
 
 - **Undo when removing from a collection**: long-press removal now offers an Undo action that
   re-adds the wallpaper, matching the favorite-removal pattern.

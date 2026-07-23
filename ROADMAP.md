@@ -6,7 +6,7 @@ physical-device validation, or toolchain gates belongs in `Roadmap_Blocked.md`.
 
 ## Current State
 
-- Version: v6.36.0 / versionCode 136.
+- Version: v6.37.0 / versionCode 137.
 - Stack: Kotlin 2.1.0, AGP 8.7.3, Gradle 8.12, Compose Material 3, Hilt, Room,
   WorkManager, Media3 1.9.4, Coil 3.4.0, Firebase, NewPipe Extractor, yt-dlp.
 - Distribution: local builds only. GitHub Actions workflows have been removed.
@@ -58,16 +58,6 @@ Kotlin/AGP) are intentionally NOT listed here — they remain under the N-1 bloc
   Complexity: M
 
 #### P3
-
-- [ ] P3 — Resolve the four orphaned legacy sound repositories (wire as opt-in or delete)
-  Why: FreesoundRepository/AudiusRepository/CcMixterRepository/SoundCloudRepository are not
-  DI-wired or called; they are latent maintenance and imply source coverage that does not
-  exist. WallYou's breadth signal argues for re-wiring; the wedge argues for deletion.
-  Evidence: RESEARCH.md 2026-07-22; classes under app/src/main/java/com/freevibe/data/remote/* and repositories, only self-package references; CLAUDE.md notes them kept "for future compatibility" (design tension — flag before deleting).
-  Touches: data/remote/{freesound,audius,ccmixter,soundcloud}/*, matching repositories, DI, sound tab enum (if re-wiring)
-  Acceptance: either the repos are removed with tests/docs updated, or one is re-wired as an
-  opt-in sound source behind a setting with a passing integration test; no orphaned classes remain.
-  Complexity: M
 
 - [ ] P3 — Add Microsoft Spotlight + Picsum "picture of the day" wallpaper sources
   Why: cheap breadth parity with WallYou using free, keyless endpoints; low battery/privacy

@@ -1,0 +1,8 @@
+Aura 6.37.0 - efficiency and recovery
+
+- Upgraded the image pipeline to Coil 3.4.0 and shrink the bitmap cache while the app is backgrounded for lower off-screen memory.
+- Enabled Media3 1.9.4 dynamic scheduling on the video-wallpaper players for a more power-efficient playback loop.
+- Added an Undo action when hiding a community sound or video, and when removing a wallpaper from a collection.
+- Made the load-more footer announce progress to TalkBack with a visible "Loading more" label.
+
+Recent highlights: lower background memory use, more power-efficient video playback, undoable hide and collection removal, and an accessible load-more indicator.
