@@ -116,17 +116,19 @@ Top opportunities, priority order (all verified actionable at compileSdk 35 unle
   references). CLAUDE.md keeps them "for future compatibility." This is a standing decision to
   resolve: either re-wire them as opt-in sources (the WallYou breadth signal supports it) or
   delete them (they are latent maintenance + a false sense of source coverage).
-- Tooling is current-minus-one-major and the AGP 8.7→9.x jump is the single riskiest
-  migration in the stack (Gradle 9.5, R8, config-cache, built-in Kotlin). A safe intermediate
-  exists: Kotlin 2.4.10 + AGP 8.13.x + Gradle 8.x (AGP 8.13 supports Kotlin ≤2.3, R8 8.13.19)
-  reaches compileSdk 36 without crossing to AGP 9 — which would unblock the currently-blocked
-  OkHttp 5.4 and Room 2.8.x items. This refines the blocked N-1 item; stage the toolchain bump
-  on its own branch so a build regression is unambiguously attributable.
+- Tooling is current-minus-one-major; migrating the AGP 8.7.3 → 9.x jump is the single
+  riskiest step in the stack (Gradle 9.5, R8, config-cache, built-in Kotlin). A safe
+  intermediate to upgrade to targets Kotlin 2.4.10 + AGP 8.13.x + Gradle 8.x (which per
+  release notes requires Kotlin ≤ 2.3, R8 8.13.19) and would migrate to compileSdk 36 without
+  crossing to AGP 9 — which requires the full N-1 migration and would unblock the N-1-gated
+  OkHttp and Room upgrades. This refines the blocked N-1 item; stage the toolchain bump on its
+  own branch so a build regression is unambiguously attributable.
 - Low-risk, non-toolchain dependency wins available NOW at compileSdk 35 (all additive):
-  Coil 3.2.0 → 3.5.0 (minSdk 23; adds background memory-cache capping + in-flight request
-  dedupe), Media3 1.8.0 → 1.10.1 (Compose player composables, dynamic scheduling). Each must
-  pass `:app:checkFullDebugAarMetadata` at compileSdk 35 — if a target requires 36, it moves
-  under the blocked N-1 gate (this is exactly how OkHttp 5.4 was already found to require 36).
+  Coil 3.2.0 → 3.5.0 (which requires minSdk 23; adds background memory-cache capping +
+  in-flight request dedupe), Media3 1.8.0 → 1.10.1 (Compose player composables, dynamic
+  scheduling). Each must pass `:app:checkFullDebugAarMetadata` at compileSdk 35 — if a target
+  requires 36 it moves under the blocked N-1 gate (this is how OkHttp, which needs the upgrade
+  to compileSdk 36, was already found blocked until that toolchain migration).
 - i18n: single `values/` dir + generated pseudolocales (`en_XA`, `ar_XB`) with Roborazzi
   goldens and a release gate; real locales are intentionally deferred (CLAUDE.md). VM-layer
   feedback i18n is already covered by prior work. No action beyond keeping the gate green.
