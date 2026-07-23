@@ -29,6 +29,8 @@ Top opportunities, priority order (all verified actionable at compileSdk 35 unle
 6. Decide the fate of the 4 orphaned legacy sound repositories (wire as opt-in sources or delete).
 7. Parity source breadth: Microsoft Spotlight + Picsum "picture of the day" (trivial free APIs).
 8. Clock/date wallpaper overlay (Paperize #533) — niche, opt-in.
+9. UX-quality fixes (2026-07-22 screen audit): label + add semantics to load-more spinners;
+   add undo to hide/downvote; make partial-load errors persistent with retry; settings search.
 
 ## Product Map
 - Core workflows: browse/search/apply wallpapers (Reddit-first, others opt-in); apply video &
@@ -130,6 +132,29 @@ Top opportunities, priority order (all verified actionable at compileSdk 35 unle
   feedback i18n is already covered by prior work. No action beyond keeping the gate green.
 - Test/docs gaps: unit + contract-gate coverage is strong; instrumentation and on-device
   playback/background-work coverage is the weak axis (much already tracked as device-blocked).
+
+### UX & State Handling (2026-07-22 screen audit)
+Overall UX quality is high — most lists have explicit empty/loading/error composables
+(`AuraStateCard`/`WallpaperStateCard` + shimmer), a real 6-step onboarding
+(`ui/screens/onboarding/OnboardingScreen.kt`), centralized strings, and broad accessibility
+(`contentDescription`, `heading()`, `liveRegion`, 48dp targets, waveform semantics). Verified
+residual gaps worth fixing:
+- Load-more pagination shows a bare `CircularProgressIndicator` with no text and no semantics
+  (`WallpapersScreen.kt:1169`, `SoundsScreen.kt:~997`, `VideoWallpapersScreen.kt:~627`) — a
+  screen reader announces nothing and sighted users can't distinguish "fetching" from "hung".
+- Hide/downvote fires immediately with no undo (`SoundsScreen.kt:693`,
+  `VideoWallpapersScreen.kt:1295-1299`), unlike delete-favorite which has a snackbar undo
+  (`FavoritesScreen.kt:152-177`). A reversible soft-hide should offer undo, not vanish silently.
+- Partial-load errors are transient: when a list already has items and a refresh fails, the
+  error surfaces only as a disappearing banner (`WallpapersScreen.kt:296-305`,
+  `SoundsScreen.kt:381-389`) with no lingering retry affordance.
+- Settings has no search and 10+ domain sections; Backup, Diagnostics, and API-key management
+  are scroll-buried despite existing section anchors (`SettingsSectionNavigation.kt`).
+- "Removed from collection" shows a toast (`CollectionsScreen.kt:421`) but no undo, unlike the
+  favorite-removal path — a small consistency gap.
+- Not gaps (verified handled): Downloads has an explicit empty state
+  (`DownloadsScreen.kt:116-121`); metered/wifi-only and screen-off rotation triggers exist
+  (see above).
 
 ## Rejected Ideas
 - Screen-off rotation trigger as new work (Paperize #126) — already shipped

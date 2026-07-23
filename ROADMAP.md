@@ -129,3 +129,57 @@ Kotlin/AGP) are intentionally NOT listed here — they remain under the N-1 bloc
   Acceptance: an opt-in overlay renders time/date on the wallpaper with position/format
   options; off by default; screenshot/Roborazzi coverage for the overlay state.
   Complexity: L
+
+### 2026-07-22 UX pass
+
+Added from the in-app screen audit recorded in RESEARCH.md (2026-07-22, "UX & State
+Handling"). Verified against the committed v6.36.0 tree; none duplicate the dependency/
+architecture items above or the device-gated accessibility items in Roadmap_Blocked.md.
+
+#### P2
+
+- [ ] P2 — Label and add semantics to load-more / pagination progress indicators
+  Why: load-more shows a bare CircularProgressIndicator with no text and no semantics, so
+  screen readers announce nothing and sighted users can't tell "fetching" from "hung".
+  Evidence: app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt:1169; SoundsScreen.kt (~997); VideoWallpapersScreen.kt (~627).
+  Touches: the three load-more Box composables; shared loading component if extracted; strings.xml
+  Acceptance: each load-more indicator shows a "Loading more…" label and carries a
+  contentDescription/liveRegion so TalkBack announces progress; existing screen tests updated.
+  Complexity: S
+
+- [ ] P2 — Add undo to Hide/downvote for sounds and videos
+  Why: hiding a sound/video fires immediately with no reversal, unlike delete-favorite which
+  offers a snackbar undo; an accidental hide is unrecoverable from the UI.
+  Evidence: SoundsScreen.kt:693 (onDownvote); VideoWallpapersScreen.kt:1295-1299 (Hide DropdownMenuItem); undo precedent FavoritesScreen.kt:152-177.
+  Touches: sounds/video hide handlers + ViewModels (restore path), AuraSnackbarHost usage, strings.xml
+  Acceptance: hiding shows a snackbar with an Undo action that restores the item within the
+  window; a unit/UI test covers hide-then-undo.
+  Complexity: S
+
+- [ ] P2 — Persist partial-load errors with a retry affordance
+  Why: when a list already has items and a refresh fails, the error appears only as a
+  transient banner/snackbar and disappears, leaving no way to retry the failed refresh.
+  Evidence: WallpapersScreen.kt:296-305; SoundsScreen.kt:381-389 (AuraStatusBanner transient path).
+  Touches: wallpapers/sounds/video error-surface composables, ViewModel error state retention
+  Acceptance: a partial-load failure keeps a persistent inline banner with Retry until the
+  next successful refresh or dismissal; message names the failed source; test covers it.
+  Complexity: M
+
+#### P3
+
+- [ ] P3 — Add settings search / jump-to-section
+  Why: Settings has 10+ domain sections and no search; Backup, Diagnostics, and API-key
+  management are scroll-buried despite existing section anchors.
+  Evidence: RESEARCH.md 2026-07-22; ui/screens/settings/SettingsSectionNavigation.kt (anchors exist, no search); no search field found under ui/screens/settings.
+  Touches: SettingsScreen top bar (search field), section-index/anchor scroll, string index of section titles
+  Acceptance: typing in a settings search field filters/jumps to matching sections; keyboard
+  and TalkBack usable; a test asserts a query scrolls to the right section.
+  Complexity: M
+
+- [ ] P3 — Add undo to "removed from collection"
+  Why: removing a wallpaper from a collection shows a toast but no undo, inconsistent with the
+  favorite-removal undo pattern.
+  Evidence: CollectionsScreen.kt:421 (collections_removed snackbar, no action); undo precedent FavoritesScreen.kt.
+  Touches: CollectionsScreen removal handler + ViewModel restore path, strings.xml
+  Acceptance: removal snackbar offers Undo that re-adds the item to the collection; test covers it.
+  Complexity: S
