@@ -188,6 +188,10 @@ class CollectionsViewModel @Inject constructor(
         viewModelScope.launch { collectionRepo.removeWallpaper(collectionId, item.toWallpaper()) }
     }
 
+    fun addItem(collectionId: Long, item: WallpaperCollectionItemEntity) {
+        viewModelScope.launch { collectionRepo.addWallpaper(collectionId, item.toWallpaper()) }
+    }
+
     fun renameCollection(id: Long, name: String) {
         viewModelScope.launch { collectionRepo.rename(id, name) }
     }
@@ -418,7 +422,14 @@ fun CollectionsScreen(
                                         val cid = selectedCollectionId ?: return@combinedClickable
                                         viewModel.removeItem(cid, item)
                                         scope.launch {
-                                            snackbarHostState.showSnackbar(context.getString(R.string.collections_removed))
+                                            val result = snackbarHostState.showSnackbar(
+                                                message = context.getString(R.string.collections_removed),
+                                                actionLabel = context.getString(R.string.common_undo),
+                                                duration = SnackbarDuration.Short,
+                                            )
+                                            if (result == SnackbarResult.ActionPerformed) {
+                                                viewModel.addItem(cid, item)
+                                            }
                                         }
                                     },
                                 ),

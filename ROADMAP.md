@@ -94,15 +94,6 @@ architecture items above or the device-gated accessibility items in Roadmap_Bloc
 
 #### P2
 
-- [ ] P2 — Persist partial-load errors with a retry affordance
-  Why: when a list already has items and a refresh fails, the error appears only as a
-  transient banner/snackbar and disappears, leaving no way to retry the failed refresh.
-  Evidence: WallpapersScreen.kt:296-305; SoundsScreen.kt:381-389 (AuraStatusBanner transient path).
-  Touches: wallpapers/sounds/video error-surface composables, ViewModel error state retention
-  Acceptance: a partial-load failure keeps a persistent inline banner with Retry until the
-  next successful refresh or dismissal; message names the failed source; test covers it.
-  Complexity: M
-
 #### P3
 
 - [ ] P3 — Add settings search / jump-to-section
@@ -114,10 +105,3 @@ architecture items above or the device-gated accessibility items in Roadmap_Bloc
   and TalkBack usable; a test asserts a query scrolls to the right section.
   Complexity: M
 
-- [ ] P3 — Add undo to "removed from collection"
-  Why: removing a wallpaper from a collection shows a toast but no undo, inconsistent with the
-  favorite-removal undo pattern.
-  Evidence: CollectionsScreen.kt:421 (collections_removed snackbar, no action); undo precedent FavoritesScreen.kt.
-  Touches: CollectionsScreen removal handler + ViewModel restore path, strings.xml
-  Acceptance: removal snackbar offers Undo that re-adds the item to the collection; test covers it.
-  Complexity: S

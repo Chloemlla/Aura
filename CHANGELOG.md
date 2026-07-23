@@ -4,6 +4,8 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Undo when removing from a collection**: long-press removal now offers an Undo action that
+  re-adds the wallpaper, matching the favorite-removal pattern.
 - **Rotation reliability coverage**: added a WorkManager-integration test harness
   (`AutoWallpaperWorkerSchedulingTest`, via `androidx.work:work-testing`) that verifies the
   auto-wallpaper periodic work re-arms idempotently and that the Wi-Fi-only preference produces
