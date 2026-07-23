@@ -67,6 +67,7 @@ import com.freevibe.data.model.shouldShowCommunityContent
 import com.freevibe.data.repository.matchesHiddenIds
 import com.freevibe.service.PhotoPickerCustomization
 import com.freevibe.ui.components.CompactSearchField
+import com.freevibe.ui.components.LoadMoreIndicator
 import com.freevibe.ui.components.CommunityGuidelinesDialog
 import com.freevibe.ui.components.CommunityPolicyNotice
 import com.freevibe.ui.components.CountBadge
@@ -1160,17 +1161,7 @@ private fun WallpaperGrid(
 
         if (isLoadingMore) {
             item(span = StaggeredGridItemSpan.FullLine, key = "loading_more") {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp,
-                    )
-                }
+                LoadMoreIndicator()
             }
         }
     }

@@ -72,6 +72,7 @@ import com.freevibe.data.repository.matchesHiddenIds
 import com.freevibe.data.repository.YouTubeExtractionMode
 import com.freevibe.data.repository.displayName
 import com.freevibe.ui.components.AuraStateAction
+import com.freevibe.ui.components.LoadMoreIndicator
 import com.freevibe.ui.components.AuraStateCard
 import com.freevibe.ui.components.AuraSnackbarHost
 import com.freevibe.ui.components.CompactSearchField
@@ -994,9 +995,7 @@ private fun SoundsList(
         // Load more spinner
         if (isLoadingMore) {
             item(key = "loading_more", contentType = "loading") {
-                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-                }
+                LoadMoreIndicator()
             }
         }
 

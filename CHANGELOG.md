@@ -4,6 +4,10 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Accessible pagination**: the load-more footer on the wallpaper, sound, and video lists now
+  shows a "Loading more…" label with a polite live region (shared `LoadMoreIndicator`), so
+  TalkBack announces progress and the fetch is distinguishable from a hung list.
+
 - **Coil 3.2.0 → 3.4.0**: upgraded the image pipeline and enabled
   `memoryCacheMaxSizePercentWhileInBackground` (15%) so the bitmap cache shrinks while the app
   is backgrounded — lower off-screen RAM for a wallpaper app. (3.5.0 requires compileSdk 36 →

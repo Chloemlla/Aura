@@ -57,15 +57,6 @@ Kotlin/AGP) are intentionally NOT listed here — they remain under the N-1 bloc
   Acceptance: file under ~500 lines; settings behavior unchanged; split gate added; tests green.
   Complexity: M
 
-- [ ] P2 — Validate user-entered subreddit names in community feed config
-  Why: v6.36.0 lets users add feed subreddits in Settings with no format/existence check; a
-  malformed name silently produces an empty feed with no user feedback.
-  Evidence: RESEARCH.md 2026-07-22 (reconnaissance); Reddit feed config off Settings/SoundsViewModel; RedditRssParser fetch path.
-  Touches: settings subreddit-config input, Reddit repository/validator, string resources
-  Acceptance: invalid subreddit format is rejected inline with localized copy; a valid name
-  round-trips; unit test covers accept/reject cases.
-  Complexity: S
-
 - [ ] P2 — Add a Robolectric WorkManager rotation-reliability harness
   Why: instrumentation coverage is 2 files; no automated proof that rotation re-arms after
   reboot or defers under doze/metered — the exact failure class that dominates WallYou's
@@ -112,15 +103,6 @@ Handling"). Verified against the committed v6.36.0 tree; none duplicate the depe
 architecture items above or the device-gated accessibility items in Roadmap_Blocked.md.
 
 #### P2
-
-- [ ] P2 — Label and add semantics to load-more / pagination progress indicators
-  Why: load-more shows a bare CircularProgressIndicator with no text and no semantics, so
-  screen readers announce nothing and sighted users can't tell "fetching" from "hung".
-  Evidence: app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt:1169; SoundsScreen.kt (~997); VideoWallpapersScreen.kt (~627).
-  Touches: the three load-more Box composables; shared loading component if extracted; strings.xml
-  Acceptance: each load-more indicator shows a "Loading more…" label and carries a
-  contentDescription/liveRegion so TalkBack announces progress; existing screen tests updated.
-  Complexity: S
 
 - [ ] P2 — Add undo to Hide/downvote for sounds and videos
   Why: hiding a sound/video fires immediately with no reversal, unlike delete-favorite which

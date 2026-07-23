@@ -49,6 +49,40 @@ private val AuraControlShape = RoundedCornerShape(8.dp)
 private val AuraIconTileShape = RoundedCornerShape(8.dp)
 private val AuraMinimumTouchTarget = 48.dp
 
+/**
+ * Pagination footer shown while the next page loads. Unlike a bare spinner it carries a
+ * visible "Loading more…" label and a polite live region, so TalkBack announces progress and
+ * sighted users can tell a fetch in progress from a hung list.
+ */
+@Composable
+fun LoadMoreIndicator(modifier: Modifier = Modifier) {
+    val label = stringResource(R.string.load_more_indicator)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .semantics {
+                liveRegion = LiveRegionMode.Polite
+                contentDescription = label
+            },
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier
+                .size(20.dp)
+                .clearAndSetSemantics {},
+            strokeWidth = 2.dp,
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
 // ── Feedback Chrome ────────────────────────────────────────────────
 
 @Composable

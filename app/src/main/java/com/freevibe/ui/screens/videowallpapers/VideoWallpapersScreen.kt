@@ -71,6 +71,7 @@ import com.freevibe.service.copyStreamCapped
 import com.freevibe.service.normalizeVideoWallpaperScaleMode
 import com.freevibe.service.videoWallpaperMimeTypes
 import com.freevibe.ui.components.AuraStateAction
+import com.freevibe.ui.components.LoadMoreIndicator
 import com.freevibe.ui.components.AuraStateCard
 import com.freevibe.ui.components.AuraSnackbarHost
 import com.freevibe.ui.components.AuraStatusAction
@@ -623,9 +624,7 @@ fun VideoWallpapersScreen(
                                 }
                                 if (state.isLoadingMore) {
                                     item {
-                                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                            CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-                                        }
+                                        LoadMoreIndicator()
                                     }
                                 }
                             }
