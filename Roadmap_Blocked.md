@@ -8,6 +8,16 @@
 
 ---
 
+## Blocker: Unreleased External Dependency
+
+- **P2 — Firebase BoM 34.13.0 -> 34.16.0 (full flavor)**
+  - Blocker: Firebase's official Android release notes currently publish BoM 34.15.0;
+    the requested 34.16.0 release does not exist yet.
+  - Resume when 34.16.0 is published, then run the full-flavor build and community-path
+    tests while confirming the FOSS flavor remains unaffected.
+
+---
+
 ## Blocker: N-1 Toolchain Upgrade (AGP 9 / Gradle 9 / Kotlin 2.3)
 
 N-1 itself is the largest single gate. Until it lands, these items cannot proceed:
@@ -24,6 +34,13 @@ N-1 itself is the largest single gate. Until it lands, these items cannot procee
 
 - **P2 — Direct Android 17 API cleanup for shipped bridges** (Cycle 10)
   - EyeDropper and Photo Picker 9:16 shipped through reflection; direct API needs compileSdk 37.
+
+- **P2 — OkHttp 5.3.2 -> 5.4.0**
+  - Blocker: `com.squareup.okhttp3:okhttp-android:5.4.0` requires compileSdk 36 or later,
+    while Aura is on compileSdk 35 and AGP 8.7.3 (whose supported maximum is 35).
+  - Evidence: `:app:checkFullDebugAarMetadata` fails on the dependency's published AAR
+    metadata before compilation. Resume with N-1, then re-run RateLimitInterceptor,
+    redirect, Full/FOSS build, and dependency-verification checks.
 
 - **P2 — Video wallpaper playlists and per-video behavior profiles** (Cycle 1)
   - Depends on NX-1 GL/AGSL/ExoPlayer engine migration, which itself depends on N-1.
@@ -51,6 +68,14 @@ N-1 itself is the largest single gate. Until it lands, these items cannot procee
 ## Blocker: Firebase Console / Owner Actions
 
 These items have code shipped but require Firebase Console access, production RTDB access, or owner-only actions to complete:
+
+- **P1 — Register Aura for Android developer verification**
+  - Install guidance and the register-vs-abstain decision record are complete in
+    `docs/distribution/developer-verification.md`.
+  - Remaining: the release owner must complete identity verification in Android
+    Developer Console, register `com.freevibe`, prove ownership with the existing
+    release signing key, and confirm the package/key status before changing release
+    notes from `owner-confirmation-required`.
 
 - **N-2 (remaining)** — Firebase BoM 34 + Custom Claims admin path
   - Code + rules shipped. Remaining: deploy `database.rules.json` + grant Custom Claims to existing admins in Firebase Console.
@@ -122,6 +147,30 @@ These items have code shipped but require Firebase Console access, production RT
 ## Blocker: Physical Device / Emulator
 
 These items require adb-connected device or Android 17 emulator testing:
+
+- **P1 — Android 16 job-quota device evidence**
+  - Source audit, complete worker ledger, WorkInfo stop-reason diagnostics, and the Android 16 capture packet are implemented.
+  - Remaining: capture TOP-started and foreground-service-concurrent quota behavior on a connected Android 16+ device, including compat overrides, jobscheduler/services output, copied support bundle, and override reset evidence.
+
+- **P0 — yt-dlp stable-channel live extraction validation**
+  - The official 2026.07.04 payload, SHA-256 policy gate, packaged-APK proof, minimum-version guard, and rollback/validation unit tests shipped in v6.36.0.
+  - Remaining: exercise the stable update plus a real YouTube extraction on an installable device build and confirm Settings reports the validated active version.
+  - Blocker: the connected phone has Aura signed by a different key, so installing this build would require uninstalling the user's app/data; foreground device automation is not permitted during this session.
+
+- **P1 — YouTube PO-token live-provider validation**
+  - The reviewed bgutil 1.3.1 plugin, SHA-256 install guard, credential-free HTTPS provider setting, yt-dlp request options, explicit extractor failover, and degraded Sounds state shipped in v6.36.0.
+  - Remaining: configure a reachable self-hosted HTTPS bgutil endpoint and prove search/playback on a video that fails without a PO token.
+  - Blocker: no external provider endpoint is configured, and the connected phone has Aura signed by a different key; replacing it would require uninstalling the user's app/data.
+
+- **P1 — Video SurfaceView BufferQueue device validation**
+  - Saved Android 16 logs identified PlayerView zoom resizing a decoded 1280x720 stream to a 4117x2316 SurfaceView, followed by Qualcomm output-port configuration failures and two concurrent BufferQueue timeout streams. v6.36.0 now keeps both surfaces at fixed view bounds, moves crop scaling into the codec, and stops the feed player before immersive playback begins.
+  - Remaining: capture two minutes of Videos feed and immersive playback logcat on an installable device build and confirm there is no sustained `dequeueBuffer` timeout or codec-config failure stream.
+  - Blocker: the connected phone has Aura signed by a different key, so installing this build would require uninstalling the user's app/data; foreground device automation is not permitted during this session.
+
+- **P1 — Media3 1.8.0 playback device validation**
+  - ExoPlayer, HLS, sessions, and UI dependencies resolve and build against compileSdk 35, with the full JVM, lint, APK, and Roborazzi matrix green.
+  - Remaining: smoke sound playback, video preview, immersive paging, HLS playback, and video wallpaper apply on an installable device build.
+  - Blocker: the connected phone has Aura signed by a different key, so installing this build would require uninstalling the user's app/data; foreground device automation is not permitted during this session.
 
 - **P1 — Baseline Profile + Macrobenchmark** (Cycle 1)
   - Harness shipped 2026-06-04. Remaining: physical-device profile generation + metrics comparison.
