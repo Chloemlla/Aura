@@ -132,7 +132,7 @@ fun VideoCropScreen(
     }
 
     val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
+        ExoPlayer.Builder(context).experimentalSetDynamicSchedulingEnabled(true).build().apply {
             setMediaItem(MediaItem.fromUri(videoUrl))
             repeatMode = Player.REPEAT_MODE_ALL
             volume = 0f

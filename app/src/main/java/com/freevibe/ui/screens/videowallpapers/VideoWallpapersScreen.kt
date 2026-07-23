@@ -935,6 +935,7 @@ private fun ImmersiveVideoPage(
                 val player = remember(item.id, streamUrl) {
                     ExoPlayer.Builder(context)
                         .setMediaSourceFactory(mediaSourceFactory)
+                        .experimentalSetDynamicSchedulingEnabled(true)
                         .build()
                         .apply {
                             setMediaItem(
@@ -1155,6 +1156,7 @@ private fun VideoCard(
                 val exoPlayer = remember(streamUrl) {
                     ExoPlayer.Builder(context)
                         .setMediaSourceFactory(mediaSourceFactory)
+                        .experimentalSetDynamicSchedulingEnabled(true)
                         .build().apply {
                         setMediaItem(
                             MediaItem.Builder()

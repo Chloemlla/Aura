@@ -2,6 +2,16 @@
 
 All notable changes to Aura will be documented in this file.
 
+## Unreleased
+
+- **Coil 3.2.0 → 3.4.0**: upgraded the image pipeline and enabled
+  `memoryCacheMaxSizePercentWhileInBackground` (15%) so the bitmap cache shrinks while the app
+  is backgrounded — lower off-screen RAM for a wallpaper app. (3.5.0 requires compileSdk 36 →
+  blocked on N-1.)
+- **Media3 1.8.0 → 1.9.4**: enabled `experimentalSetDynamicSchedulingEnabled(true)` on the
+  video-wallpaper ExoPlayer players (feed, immersive, preview, crop) for a more power-efficient
+  playback loop. (1.10.1 requires compileSdk 36 → blocked on N-1.)
+
 ## v6.36.0 (2026-07-16)
 
 Content-first discovery overhaul with persistent media feeds, swipe-first previews,

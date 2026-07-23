@@ -21,8 +21,8 @@ two remaining god-object refactors** — not new features, most of which would s
 "no battery drain / no privacy surface" promise users switch to Aura for.
 
 Top opportunities, priority order (all verified actionable at compileSdk 35 unless noted):
-1. Coil 3.2.0 → 3.5.0 + enable background memory-cache capping (`memoryCacheMaxSizePercentWhileInBackground`) — direct background-RAM win for a wallpaper app.
-2. Media3 1.8.0 → 1.10.1 + `experimentalSetDynamicSchedulingEnabled()` — power-efficient video-wallpaper playback loop.
+1. Coil 3.4.0 ships background memory-cache capping (`memoryCacheMaxSizePercentWhileInBackground`) — direct background-RAM win; the upgrade to 3.5.0 requires compileSdk 36 (N-1).
+2. Media3 1.9.4 ships `experimentalSetDynamicSchedulingEnabled()` on the video players — power-efficient playback loop; the upgrade to 1.10.1 requires compileSdk 36 (N-1).
 3. Split `VideoWallpapersViewModel` (1318 lines) and trim `SettingsViewModel` (960) per the established delegate pattern — the last two god-objects.
 4. Robolectric WorkManager rotation-reliability harness (reboot re-arm, doze deferral) — closes the biggest test gap without a device; pre-empts the failure class that dominates WallYou's tracker.
 5. Validate user-entered subreddit names in community feed config (currently unchecked).
@@ -45,7 +45,7 @@ Top opportunities, priority order (all verified actionable at compileSdk 35 unle
   (Firebase/ML Kit) + foss flavors; local builds only (GitHub Actions removed 2026-06-26);
   F-Droid mainline blocked by Firebase in the full flavor.
 - Key integrations: ~14 remote providers (docs/security/network-endpoints.json), NewPipe
-  Extractor + youtubedl-android (yt-dlp 2026.07.04, bgutil PO-token provider), Media3 1.8.0,
+  Extractor + youtubedl-android (yt-dlp 2026.07.04, bgutil PO-token provider), Media3 1.9.4,
   Room 2.7.2 schema v14, WorkManager 2.11.2, Glance 1.2.0-rc01 widget, Open-Meteo, Stability
   AI (optional key).
 
@@ -123,12 +123,12 @@ Top opportunities, priority order (all verified actionable at compileSdk 35 unle
   crossing to AGP 9 — which requires the full N-1 migration and would unblock the N-1-gated
   OkHttp and Room upgrades. This refines the blocked N-1 item; stage the toolchain bump on its
   own branch so a build regression is unambiguously attributable.
-- Low-risk, non-toolchain dependency wins available NOW at compileSdk 35 (all additive):
-  Coil 3.2.0 → 3.5.0 (which requires minSdk 23; adds background memory-cache capping +
-  in-flight request dedupe), Media3 1.8.0 → 1.10.1 (Compose player composables, dynamic
-  scheduling). Each must pass `:app:checkFullDebugAarMetadata` at compileSdk 35 — if a target
-  requires 36 it moves under the blocked N-1 gate (this is how OkHttp, which needs the upgrade
-  to compileSdk 36, was already found blocked until that toolchain migration).
+- Low-risk, non-toolchain dependency wins taken at compileSdk 35: Coil 3.4.0 (background
+  memory-cache capping + in-flight request dedupe) and Media3 1.9.4 (dynamic scheduling on the
+  video players) are the compileSdk-35 ceilings and are now shipped. Upgrading further, to
+  Coil 3.5.0 and Media3 1.10.1, is blocked until the N-1 toolchain (both require compileSdk 36,
+  verified via `:app:checkFullDebugAarMetadata`) — the same gate that, until then, blocks the
+  OkHttp 5.4 upgrade, which likewise needs compileSdk 36.
 - i18n: single `values/` dir + generated pseudolocales (`en_XA`, `ar_XB`) with Roborazzi
   goldens and a release gate; real locales are intentionally deferred (CLAUDE.md). VM-layer
   feedback i18n is already covered by prior work. No action beyond keeping the gate green.

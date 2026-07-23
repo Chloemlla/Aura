@@ -190,7 +190,7 @@ Firebase RTDB (Community Voting + Uploads + Admin Moderation)
 | Database | Room 2.7.2 |
 | Network | Retrofit 3.0.0 + OkHttp 5.3.2 |
 | JSON | Moshi + KSP codegen |
-| Images | Coil 3.2.0 with OkHttp network loading and GIF support |
+| Images | Coil 3.4.0 with OkHttp network loading and GIF support |
 | Audio/Video | Media3 ExoPlayer |
 | ML | ML Kit Selfie Segmentation |
 | YouTube Search | NewPipe Extractor |

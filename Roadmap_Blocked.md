@@ -42,6 +42,20 @@ N-1 itself is the largest single gate. Until it lands, these items cannot procee
     metadata before compilation. Resume with N-1, then re-run RateLimitInterceptor,
     redirect, Full/FOSS build, and dependency-verification checks.
 
+- **P1 — Coil 3.4.0 -> 3.5.0**
+  - Blocker: `io.coil-kt.coil3:coil-*:3.5.0` requires compileSdk 36 (AGP 8.7.3 max is 35).
+  - Evidence: `:app:checkFullDebugAarMetadata` lists coil-android/coil-compose/coil-gif/
+    coil-network-okhttp 3.5.0 as requiring compileSdk >= 36. Aura shipped Coil 3.4.0 (the
+    compileSdk-35 ceiling) with `memoryCacheMaxSizePercentWhileInBackground` enabled; resume
+    the 3.5.0 bump after N-1 (3.5.0 also makes that background-cap API stable).
+
+- **P1 — Media3 1.9.4 -> 1.10.1**
+  - Blocker: `androidx.media3:*:1.10.1` requires compileSdk 36 (AGP 8.7.3 max is 35).
+  - Evidence: `:app:checkFullDebugAarMetadata` lists media3-exoplayer/-ui/-session/-common
+    1.10.1 as requiring compileSdk >= 36. Aura shipped Media3 1.9.4 (the compileSdk-35 ceiling)
+    with `experimentalSetDynamicSchedulingEnabled(true)` on the video players; resume the
+    1.10.1 bump (Compose player composables) after N-1.
+
 - **P2 — Video wallpaper playlists and per-video behavior profiles** (Cycle 1)
   - Depends on NX-1 GL/AGSL/ExoPlayer engine migration, which itself depends on N-1.
 

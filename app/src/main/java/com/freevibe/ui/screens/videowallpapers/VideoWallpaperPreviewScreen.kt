@@ -59,7 +59,7 @@ fun VideoWallpaperPreviewScreen(
 
     // Dedicated ExoPlayer for this screen. Cleaned up on composition exit.
     val exoPlayer = remember(streamUrl) {
-        ExoPlayer.Builder(context).build().apply {
+        ExoPlayer.Builder(context).experimentalSetDynamicSchedulingEnabled(true).build().apply {
             setMediaItem(MediaItem.fromUri(Uri.parse(streamUrl)))
             repeatMode = Player.REPEAT_MODE_ONE
             volume = 0f // Wallpapers are muted

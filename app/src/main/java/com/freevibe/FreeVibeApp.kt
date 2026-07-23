@@ -11,6 +11,8 @@ import coil3.gif.AnimatedImageDecoder
 import coil3.gif.GifDecoder
 import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import coil3.annotation.ExperimentalCoilApi
+import coil3.memoryCacheMaxSizePercentWhileInBackground
 import coil3.request.crossfade
 import com.freevibe.data.local.WallpaperCacheManager
 import com.freevibe.service.NotificationChannels
@@ -61,6 +63,7 @@ class FreeVibeApp : Application(), Configuration.Provider, SingletonImageLoader.
             .setWorkerFactory(workerFactory)
             .build()
 
+    @OptIn(ExperimentalCoilApi::class)
     override fun newImageLoader(context: android.content.Context): ImageLoader = ImageLoader.Builder(context)
         .components {
             add(OkHttpNetworkFetcherFactory(callFactory = { okHttpClient.newBuilder().build() }))
@@ -75,6 +78,9 @@ class FreeVibeApp : Application(), Configuration.Provider, SingletonImageLoader.
                 .maxSizePercent(context, 0.25) // 25% of available app memory
                 .build()
         }
+        // Shrink the bitmap cache to 15% of its max while backgrounded so a wallpaper app
+        // that holds many large images does not retain foreground-sized RAM off-screen.
+        .memoryCacheMaxSizePercentWhileInBackground(0.15)
         .diskCache {
             DiskCache.Builder()
                 .directory(File(context.cacheDir, "coil_cache").toOkioPath())
