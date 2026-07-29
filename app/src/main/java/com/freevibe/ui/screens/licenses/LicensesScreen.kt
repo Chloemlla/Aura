@@ -18,6 +18,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.freevibe.R
+import com.freevibe.data.legal.ProviderBuild
+import com.freevibe.data.legal.ProviderChannel
+import com.freevibe.data.legal.disclosureStatus
+import com.freevibe.data.legal.providerCapability
 import com.freevibe.data.legal.providerDisclosures
 import com.freevibe.ui.components.CompactSearchField
 import com.freevibe.ui.util.openExternalUrl
@@ -82,11 +86,26 @@ internal val releaseNoticeLinks = listOf(
 )
 
 private val contentSources = providerDisclosures.map { disclosure ->
+    // The lifecycle label comes from the capability registry rather than the
+    // disclosure's own copy, so what users read here cannot drift away from what
+    // the runtime is actually allowed to fetch.
+    val capability = providerCapability(disclosure.source)
+    val availability = buildList {
+        if (!capability.availableIn(ProviderBuild.FOSS)) add("full builds only")
+        if (!capability.availableOn(ProviderChannel.PLAY)) add("not shipped on Play")
+    }.joinToString(", ")
     OssLicense(
         name = disclosure.displayName,
         url = disclosure.termsUrl,
         license = disclosure.licenseSummary,
-        description = "${disclosure.status.label} - ${disclosure.content}. ${disclosure.storeDisclosure}",
+        description = buildString {
+            append(capability.lifecycle.disclosureStatus().label)
+            append(" - ")
+            append(disclosure.content)
+            append(". ")
+            append(disclosure.storeDisclosure)
+            if (availability.isNotEmpty()) append(" ($availability)")
+        },
     )
 }
 

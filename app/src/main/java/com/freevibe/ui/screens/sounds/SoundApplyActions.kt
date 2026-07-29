@@ -6,6 +6,7 @@ import com.freevibe.data.model.SoundAction
 import com.freevibe.data.model.SoundActionDecision
 import com.freevibe.data.model.favoriteIdentity
 import com.freevibe.data.model.soundLicenseCapabilities
+import com.freevibe.data.model.isSourceUnavailable
 import com.freevibe.data.model.sourceUnavailableReasonForFailure
 import com.freevibe.data.model.stableKey
 import com.freevibe.data.remote.toFavoriteEntity
@@ -63,6 +64,7 @@ internal class SoundApplyActions(
                         ContentType.ALARM -> "alarm sound"
                         else -> "sound"
                     }
+                    clearSoundSourceUnavailableAfterSuccess(sound)
                     state.update { it.copy(isApplying = false, applySuccess = "Set as $label") }
                 }
                 .onFailure { e ->
@@ -89,7 +91,10 @@ internal class SoundApplyActions(
                 type = currentDownloadType(),
                 source = sound.source.name,
             ).fold(
-                onSuccess = { state.update { it.copy(applySuccess = "Download started") } },
+                onSuccess = {
+                    clearSoundSourceUnavailableAfterSuccess(sound)
+                    state.update { it.copy(applySuccess = "Download started") }
+                },
                 onFailure = { error ->
                     markSoundSourceUnavailableIfRemoved(sound, error)
                     state.update { it.copy(error = error.message) }
@@ -132,10 +137,20 @@ internal class SoundApplyActions(
         }
     }
 
+    /**
+     * Persist an unavailable state only when the remote item is genuinely gone.
+     * A 403, a throttle, or a timeout is about this attempt, not the item.
+     */
     private suspend fun markSoundSourceUnavailableIfRemoved(sound: Sound, failure: Throwable) {
         sourceUnavailableReasonForFailure(sound.source, failure)?.let { reason ->
             favoritesRepo.markSourceUnavailable(sound.favoriteIdentity(), reason)
         }
+    }
+
+    /** A success proves the source works again, so clear any recorded state. */
+    private suspend fun clearSoundSourceUnavailableAfterSuccess(sound: Sound) {
+        if (!sound.isSourceUnavailable()) return
+        favoritesRepo.clearSourceUnavailable(sound.favoriteIdentity())
     }
 }
 

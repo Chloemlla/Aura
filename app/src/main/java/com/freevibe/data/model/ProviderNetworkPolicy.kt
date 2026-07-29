@@ -1,5 +1,7 @@
 package com.freevibe.data.model
 
+import com.freevibe.data.legal.ProviderCapability
+import com.freevibe.data.legal.providerCapability
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
@@ -48,8 +50,31 @@ data class ProviderNetworkPolicy(
     fun allowsBatchDownload(count: Int): Boolean =
         count.coerceAtLeast(0) <= maxBatchDownloadPerUserAction
 
+    /** Registry entry backing this source. See `ProviderCapability`. */
+    val capability: ProviderCapability
+        get() = providerCapability(source)
+
+    /**
+     * The registry's view of this source, rendered for diagnostics so support
+     * bundles report the same lifecycle/build/channel facts the release gates
+     * enforce rather than a second, hand-maintained description.
+     */
+    val capabilitySummary: String
+        get() = capability.let { entry ->
+            listOf(
+                "lifecycle ${entry.lifecycle.name.lowercase(Locale.ROOT)}",
+                "builds ${entry.builds.map { it.name.lowercase(Locale.ROOT) }.sorted().joinToString("+")}",
+                "channels ${entry.channels.map { it.name.lowercase(Locale.ROOT) }.sorted().joinToString("+")}",
+                "config ${entry.configuration.name.lowercase(Locale.ROOT)}",
+                "permission ${entry.permission.name.lowercase(Locale.ROOT)}",
+                "default ${if (entry.enabledByDefault) "on" else "off"}",
+                "kill switch ${entry.killSwitchKey ?: "none"}",
+            ).joinToString(" / ")
+        }
+
     val diagnosticSummary: String
         get() = listOf(
+            capabilitySummary,
             "timeout $timeoutPolicy",
             "backoff $backoffPolicy",
             "fallback $cacheFallbackPolicy",
@@ -106,8 +131,8 @@ val providerNetworkPolicies = listOf(
         timeoutPolicy = "OkHttp connect/read/write timeouts",
         backoffPolicy = "degraded-source cooldown after repeated failures",
         cacheFallbackPolicy = "daily enhancement skipped; saved items remain",
-        disabledBehavior = "hidden from active source lists",
-        quotaSummary = "Legacy restored records only; no active automatic fetching.",
+        disabledBehavior = "Discover omits the daily featured image; saved items remain",
+        quotaSummary = "One featured-image request per Discover refresh under the shared secondary-source budget.",
     ),
     ProviderNetworkPolicy(
         source = ContentSource.INTERNET_ARCHIVE,

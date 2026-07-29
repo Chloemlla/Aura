@@ -8,6 +8,7 @@ import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Wallpaper
 import com.freevibe.data.model.WallpaperTarget
 import com.freevibe.data.model.favoriteIdentity
+import com.freevibe.data.model.isSourceUnavailable
 import com.freevibe.data.model.sourceUnavailableReasonForFailure
 import com.freevibe.data.model.stableKey
 import com.freevibe.data.remote.toFavoriteEntity
@@ -57,6 +58,7 @@ internal class WallpaperApplyActions(
                 nightVariant = shouldApplyNightVariant(),
             )
                 .onSuccess {
+                    clearSourceUnavailableAfterSuccess(wallpaper)
                     onStyleSignal(wallpaper, WallpaperStyleLearningSignal.APPLIED)
                     historyManager.record(wallpaper, target)
                     prefs.setLastNightVariantWallpaper(wallpaper.fullUrl, target.name)
@@ -177,7 +179,9 @@ internal class WallpaperApplyActions(
                 url = wallpaper.fullUrl,
                 fileName = buildWallpaperDownloadFileName(wallpaper, ext),
                 source = wallpaper.source.name,
-            ).onFailure { error ->
+            ).onSuccess {
+                clearSourceUnavailableAfterSuccess(wallpaper)
+            }.onFailure { error ->
                 markSourceUnavailableIfRemoved(wallpaper, error)
                 state.update { it.copy(error = error.message) }
             }
@@ -222,10 +226,24 @@ internal class WallpaperApplyActions(
 
     fun isFavorite(wallpaper: Wallpaper): Flow<Boolean> = favoritesRepo.isFavorite(wallpaper.favoriteIdentity())
 
+    /**
+     * Persist an unavailable state only when the remote item is genuinely gone.
+     * A 403, a throttle, or a timeout is about this attempt, not the item, and
+     * must never permanently disable a saved wallpaper.
+     */
     private suspend fun markSourceUnavailableIfRemoved(wallpaper: Wallpaper, failure: Throwable) {
         sourceUnavailableReasonForFailure(wallpaper.source, failure)?.let { reason ->
             favoritesRepo.markSourceUnavailable(wallpaper.favoriteIdentity(), reason)
         }
+    }
+
+    /**
+     * A successful fetch is proof the source works again, so any previously
+     * recorded unavailable state is cleared.
+     */
+    private suspend fun clearSourceUnavailableAfterSuccess(wallpaper: Wallpaper) {
+        if (!wallpaper.isSourceUnavailable()) return
+        favoritesRepo.clearSourceUnavailable(wallpaper.favoriteIdentity())
     }
 }
 
