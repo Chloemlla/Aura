@@ -73,7 +73,14 @@ data class EditorState(
     val success: String? = null,
     val error: String? = null,
     val qualityWarning: String? = null,
-)
+) {
+    /**
+     * True once a decoded source exists. Apply, export, and parallax all read the
+     * source bitmap, so their controls must wait for this rather than firing into
+     * a null bitmap while a URL is still downloading.
+     */
+    val isSourceReady: Boolean get() = originalBitmap != null
+}
 
 private data class FilterRenderResult(
     val bitmap: Bitmap,
@@ -90,6 +97,15 @@ class WallpaperEditorViewModel @Inject constructor(
     private val _state = MutableStateFlow(EditorState())
     val state = _state.asStateFlow()
     private var filterJob: kotlinx.coroutines.Job? = null
+    private var loadJob: kotlinx.coroutines.Job? = null
+
+    /**
+     * Ownership token for the in-flight source load. Cancellation alone is not
+     * enough: a load that has already left the cancellable suspension point can
+     * still return, and without this an older URL's decoded bitmap would overwrite
+     * a newer source the user has since chosen.
+     */
+    private var loadToken = 0L
     private var loadedWallpaperKey: String? = null
     private var nextOverlayId = 1L
     private val overlayUndoStack = ArrayDeque<List<WallpaperOverlayLayer>>()
@@ -120,6 +136,10 @@ class WallpaperEditorViewModel @Inject constructor(
                 qualityWarning = null,
             )
         }
+        // Filter sliders moved before the source arrived were recorded in state but
+        // could not render; replay them now so the preview matches the controls
+        // instead of silently showing an unfiltered image.
+        applyFilters()
     }
 
     fun updateBrightness(value: Float) {
@@ -169,6 +189,7 @@ class WallpaperEditorViewModel @Inject constructor(
 
     override fun onCleared() {
         filterJob?.cancel()
+        loadJob?.cancel()
         super.onCleared()
     }
 
@@ -434,7 +455,9 @@ class WallpaperEditorViewModel @Inject constructor(
     }
 
     private fun loadFromUrl(url: String) {
-        viewModelScope.launch {
+        loadJob?.cancel()
+        val token = ++loadToken
+        loadJob = viewModelScope.launch {
             _state.update {
                 it.copy(
                     originalBitmap = null,
@@ -484,10 +507,17 @@ class WallpaperEditorViewModel @Inject constructor(
                         )
                     }
                 }
+                if (token != loadToken) {
+                    // A newer source took ownership while this one decoded. Drop the
+                    // result and release its pixels instead of clobbering the new state.
+                    bitmap.recycle()
+                    return@launch
+                }
                 setSourceBitmap(bitmap)
                 _state.update { it.copy(isLoadingImage = false) }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
+                if (token != loadToken) return@launch
                 _state.update { it.copy(isLoadingImage = false, error = e.message ?: "Failed to load image") }
             }
         }

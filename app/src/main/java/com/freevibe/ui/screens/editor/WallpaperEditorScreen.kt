@@ -406,22 +406,25 @@ fun WallpaperEditorScreen(
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                // Apply reads the source bitmap, so it must wait for the decode to
+                // finish rather than firing while the URL is still downloading.
+                val canApply = state.isSourceReady && !state.isApplying
                 OutlinedButton(
                     onClick = { viewModel.apply(WallpaperTarget.HOME) },
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                    enabled = !state.isApplying,
+                    enabled = canApply,
                     shape = RoundedCornerShape(8.dp),
                 ) { Text(stringResource(R.string.common_home)) }
                 OutlinedButton(
                     onClick = { viewModel.apply(WallpaperTarget.LOCK) },
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                    enabled = !state.isApplying,
+                    enabled = canApply,
                     shape = RoundedCornerShape(8.dp),
                 ) { Text(stringResource(R.string.common_lock)) }
                 Button(
                     onClick = { viewModel.apply(WallpaperTarget.BOTH) },
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                    enabled = !state.isApplying,
+                    enabled = canApply,
                     shape = RoundedCornerShape(8.dp),
                 ) {
                     if (state.isApplying) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -590,7 +593,7 @@ private fun WallpaperLayerControls(
     state: EditorState,
     viewModel: WallpaperEditorViewModel,
 ) {
-    val enabled = state.originalBitmap != null && !state.isApplying && !state.isExporting && !state.isPreparingParallax
+    val enabled = state.isSourceReady && !state.isApplying && !state.isExporting && !state.isPreparingParallax
     val selectedLayer = state.overlayLayers.firstOrNull { it.id == state.selectedOverlayId }
     val colorOptions = listOf(
         0xFFFFFFFF.toInt(),
@@ -834,7 +837,7 @@ private fun DepthPortraitControls(
     state: EditorState,
     viewModel: WallpaperEditorViewModel,
 ) {
-    val enabled = state.originalBitmap != null &&
+    val enabled = state.isSourceReady &&
         !state.isDepthProcessing &&
         !state.isExporting &&
         !state.isPreparingParallax
