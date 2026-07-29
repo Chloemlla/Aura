@@ -1,0 +1,3 @@
+Aura v6.40.0
+
+Recent highlights: Cross-engine live-wallpaper lifecycle soak harness; live wallpapers no longer accumulate decode threads; parallax frees its layers with the surface.

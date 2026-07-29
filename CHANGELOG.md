@@ -2,6 +2,29 @@
 
 All notable changes to Aura will be documented in this file.
 
+## v6.40.0 (2026-07-29)
+
+- **Fix: live wallpapers no longer pile up decode threads** — the weather and parallax engines both
+  start a wallpaper decode from `onSurfaceCreated` *and* `onSurfaceChanged`, each on a bare thread
+  with no coordination, so every surface churn (rotation, unlock, launcher restart, preview
+  teardown) started another full-screen decode alongside the ones still running — inside a process
+  that is never restarted. Decodes are now serialized per engine with at most one waiting behind
+  the one running, since a third request would only produce the state the waiting one is about to.
+
+- **Fix: parallax frees its layers when the surface goes away** — the engine held up to four
+  full-screen bitmaps and a native ML Kit segmentation client until the engine itself was
+  destroyed, even though a destroyed surface cannot draw any of it. They are now released with the
+  surface and rebuilt on the next one, and the accelerometer listener is registered and released
+  exactly once instead of relying on repeated unregister calls.
+
+- **New: cross-engine live-wallpaper lifecycle soak harness** — video, GIF, weather, and parallax
+  are driven through repeated surface create/change/destroy, visibility, battery-saver,
+  unlock, and file-replacement cycles, and each engine now reports what it holds (players, posted
+  callbacks, sensor listeners, receivers, decoded bitmaps, segmenters, decode threads) straight
+  from its own state. The soak asserts nothing survives `onDestroy` and that peak usage stays
+  within what one engine can hold at once, so anything accumulating per cycle fails. The same
+  scenario script runs on the JVM and, for real decoders and real sensors, on an emulator.
+
 ## v6.39.0 (2026-07-29)
 
 - **Fix: offline favorites render offline** — wallpaper favorites are cached to a managed local
