@@ -35,6 +35,8 @@ import com.freevibe.service.ThemePackRecipeManager
 import com.freevibe.service.VideoWallpaperSelectionResult
 import com.freevibe.service.VideoWallpaperStorage
 import com.freevibe.service.WallpaperApplier
+import com.freevibe.service.LibraryImportOutcome
+import com.freevibe.service.LibraryImportSkipReason
 import com.freevibe.service.WallpaperHistoryManager
 import com.freevibe.service.WallpaperStyleLearningProfile
 import com.freevibe.service.YtDlpUpdateManager
@@ -572,6 +574,34 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Deterministic, human-readable summary of what a restore skipped. Ordered by
+     * reason so the same backup always produces the same report, and always says
+     * out loud when device-local assets could not come across.
+     */
+    private fun libraryImportReport(outcome: LibraryImportOutcome): List<String> {
+        if (outcome.skipped.isEmpty()) return emptyList()
+        return outcome.skipped
+            .groupBy { it.reason }
+            .toSortedMap(compareBy { it.ordinal })
+            .map { (reason, rows) ->
+                val examples = rows.map { it.label }.distinct().sorted().take(3).joinToString(", ")
+                val suffix = if (rows.size > 3) context.getString(R.string.settings_library_import_more) else ""
+                context.getString(
+                    when (reason) {
+                        LibraryImportSkipReason.INVALID -> R.string.settings_library_import_skipped_invalid
+                        LibraryImportSkipReason.NON_PORTABLE -> R.string.settings_library_import_skipped_non_portable
+                        LibraryImportSkipReason.DUPLICATE -> R.string.settings_library_import_skipped_duplicate
+                        LibraryImportSkipReason.OVER_LIMIT -> R.string.settings_library_import_skipped_over_limit
+                        LibraryImportSkipReason.DROPPED_BY_MIGRATION ->
+                            R.string.settings_library_import_skipped_migration
+                    },
+                    rows.size,
+                    examples + suffix,
+                )
+            }
+    }
+
     fun clearThemePackTransferNotice() {
         _themePackTransfer.update { it.copy(message = null, error = null, instructions = emptyList()) }
     }
@@ -609,11 +639,12 @@ class SettingsViewModel @Inject constructor(
             _themePackTransfer.value = ThemePackTransferState(inProgress = true)
             val result = libraryExporter.importLibrary(uri)
             _themePackTransfer.value = result.fold(
-                onSuccess = { count ->
+                onSuccess = { outcome ->
                     ThemePackTransferState(
                         message = context.resources.getQuantityString(
-                            R.plurals.settings_library_import_done, count, count,
+                            R.plurals.settings_library_import_done, outcome.written, outcome.written,
                         ),
+                        instructions = libraryImportReport(outcome),
                     )
                 },
                 onFailure = { error ->

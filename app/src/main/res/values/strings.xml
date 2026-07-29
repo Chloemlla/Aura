@@ -1735,6 +1735,12 @@
         <item quantity="other">Library imported: %1$d items</item>
     </plurals>
     <string name="settings_library_import_failed">Library import failed: %1$s</string>
+    <string name="settings_library_import_more">, and more</string>
+    <string name="settings_library_import_skipped_invalid">Skipped %1$d unreadable entries (%2$s).</string>
+    <string name="settings_library_import_skipped_non_portable">%1$d items point at files that only exist on the device that made this backup, so they were not restored (%2$s).</string>
+    <string name="settings_library_import_skipped_duplicate">Skipped %1$d items already in your library (%2$s).</string>
+    <string name="settings_library_import_skipped_over_limit">Skipped %1$d items past the per-section import limit (%2$s).</string>
+    <string name="settings_library_import_skipped_migration">%1$d downloads from an older backup format were not restored; downloads stay on the device that made them (%2$s).</string>
 
     <!-- Global apply/undo feedback (FreeVibeRoot snackbar) -->
     <string name="apply_feedback_undo">Undo</string>

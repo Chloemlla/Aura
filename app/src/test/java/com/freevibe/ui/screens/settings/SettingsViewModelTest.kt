@@ -494,7 +494,13 @@ class SettingsViewModelTest {
             themePackRecipeManager = themePackRecipeManager,
             libraryExporter = mockk<com.freevibe.service.LibraryExporter>().also {
                 coEvery { it.exportLibrary(any()) } returns Result.success(0)
-                coEvery { it.importLibrary(any()) } returns Result.success(0)
+                coEvery { it.importLibrary(any()) } returns Result.success(
+                    com.freevibe.service.LibraryImportOutcome(
+                        sourceVersion = 2,
+                        written = 0,
+                        skipped = emptyList(),
+                    ),
+                )
             },
             aiWallpaperRepository = mockk<com.freevibe.data.repository.AiWallpaperRepository>().also {
                 coEvery { it.auditGeneratedAssets() } returns
