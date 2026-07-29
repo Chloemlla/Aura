@@ -196,6 +196,13 @@ dependencies {
         implementation("commons-io:commons-io:2.16.1") {
             because("youtubedl-android 0.18.1 pulls commons-io 2.5, which has published CVEs")
         }
+        implementation("org.apache.commons:commons-compress:1.28.0") {
+            because(
+                "youtubedl-android 0.18.1 resolves commons-compress 1.12, which has published " +
+                    "archive-expansion DoS advisories; 1.28.0 is the reviewed floor and keeps the " +
+                    "ZipFile/ZipArchiveInputStream API youtubedl-common's ZipUtils binds to"
+            )
+        }
     }
 
     // Core library desugaring — required by NewPipeExtractor on API < 33 so

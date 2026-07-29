@@ -29,6 +29,19 @@ private const val THEME_PACK_MANIFEST_ENTRY = "theme-pack.json"
 private const val THEME_PACK_MAX_MANIFEST_CHARS = 1_000_000
 private const val THEME_PACK_MAX_ASSET_BYTES = 64L * 1024L * 1024L
 private const val THEME_PACK_MAX_TOTAL_ASSET_BYTES = 128L * 1024L * 1024L
+private const val THEME_PACK_MAX_ENTRIES = 512
+
+/**
+ * Bounds for the only untrusted archive Aura expands. A theme pack is one
+ * manifest plus a handful of wallpaper/sound assets, so 512 entries is already
+ * generous; anything past it is a malformed or hostile pack.
+ */
+internal val THEME_PACK_EXTRACTION_LIMITS = ArchiveExtractionLimits(
+    maxEntries = THEME_PACK_MAX_ENTRIES,
+    maxEntryBytes = THEME_PACK_MAX_ASSET_BYTES,
+    maxTotalBytes = THEME_PACK_MAX_TOTAL_ASSET_BYTES,
+    maxCompressionRatio = 200L,
+)
 private const val WIDGET_PREFS = "freevibe_widget"
 private const val LIVE_WALLPAPER_PREFS = "freevibe_live_wp"
 
@@ -562,47 +575,11 @@ class ThemePackRecipeManager @Inject constructor(
         }
     }
 
-    private fun readZipThemePack(zip: ZipInputStream): ImportedThemePack {
-        val importDir = File(context.filesDir, "theme_packs/import-${System.currentTimeMillis()}")
-        importDir.mkdirs()
-        try {
-            val assetsByKey = mutableMapOf<String, String>()
-            var manifest: String? = null
-            var totalAssetBytes = 0L
-            var entry = zip.nextEntry
-            while (entry != null) {
-                val name = entry.name
-                when {
-                    entry.isDirectory -> Unit
-                    name == THEME_PACK_MANIFEST_ENTRY -> {
-                        manifest = zip.reader(Charsets.UTF_8).readTextCapped(THEME_PACK_MAX_MANIFEST_CHARS)
-                    }
-                    name.startsWith("assets/") && !name.contains("..") -> {
-                        // Hash-prefix the flattened name: assets/a/x.png and assets/b/x.png
-                        // must map to distinct files, not silently overwrite each other.
-                        val safeName = "${shortHash(name)}_${name.substringAfterLast('/').take(60)}"
-                        val target = File(importDir, safeName)
-                        val bytes = copyZipEntryCapped(zip, target, THEME_PACK_MAX_ASSET_BYTES)
-                        totalAssetBytes += bytes
-                        if (totalAssetBytes > THEME_PACK_MAX_TOTAL_ASSET_BYTES) {
-                            throw IOException("Theme pack assets exceed import limit")
-                        }
-                        assetsByKey[name] = target.absolutePath
-                    }
-                }
-                zip.closeEntry()
-                entry = zip.nextEntry
-            }
-            val recipe = parseThemePackRecipe(manifest.orEmpty())
-                ?: throw IllegalStateException("Theme pack manifest missing or invalid")
-            return ImportedThemePack(recipe = recipe, assetsByKey = assetsByKey, importDir = importDir)
-        } catch (e: Throwable) {
-            // A failed import (bad manifest, oversize assets, IO error) must not orphan
-            // up to 128 MB of extracted assets in filesDir — nothing else cleans it.
-            runCatching { importDir.deleteRecursively() }
-            throw e
-        }
-    }
+    private fun readZipThemePack(zip: ZipInputStream): ImportedThemePack =
+        extractThemePackArchive(
+            zip = zip,
+            importDir = File(context.filesDir, "theme_packs/import-${System.currentTimeMillis()}"),
+        )
 
     private fun prepareAssets(references: List<ThemePackMediaReference>): List<PreparedThemeAsset> {
         val tempDir = File(context.cacheDir, "theme-pack-export").apply { mkdirs() }
@@ -707,38 +684,6 @@ class ThemePackRecipeManager @Inject constructor(
             shortcuts.size +
             if (widget != ThemePackWidgetState()) 1 else 0
 
-    private fun copyZipEntryCapped(zip: ZipInputStream, target: File, maxBytes: Long): Long {
-        var copied = 0L
-        target.outputStream().use { output ->
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            while (true) {
-                val read = zip.read(buffer)
-                if (read == -1) break
-                copied += read
-                if (copied > maxBytes) {
-                    target.delete()
-                    throw IOException("Theme pack asset exceeds import limit")
-                }
-                output.write(buffer, 0, read)
-            }
-        }
-        return copied
-    }
-
-    private fun java.io.Reader.readTextCapped(maxChars: Int): String {
-        val builder = StringBuilder()
-        val buffer = CharArray(DEFAULT_BUFFER_SIZE)
-        while (true) {
-            val read = read(buffer)
-            if (read == -1) break
-            builder.append(buffer, 0, read)
-            if (builder.length > maxChars) {
-                throw IOException("Theme pack manifest is too large")
-            }
-        }
-        return builder.toString()
-    }
-
     private fun isLocalLocator(locator: String): Boolean =
         when (schemeOf(locator)) {
             null, "content", "file" -> locator.isNotBlank()
@@ -791,11 +736,7 @@ class ThemePackRecipeManager @Inject constructor(
             .ifBlank { "asset" }
             .take(48)
 
-    private fun shortHash(value: String): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-            .digest(value.toByteArray(Charsets.UTF_8))
-        return digest.take(6).joinToString("") { "%02x".format(it) }
-    }
+    private fun shortHash(value: String): String = themePackShortHash(value)
 
     private data class PreparedThemeAsset(
         val reference: ThemePackMediaReference,
@@ -804,9 +745,106 @@ class ThemePackRecipeManager @Inject constructor(
         val byteCount: Long,
     )
 
-    private data class ImportedThemePack(
-        val recipe: ThemePackRecipe,
-        val assetsByKey: Map<String, String>,
-        val importDir: File? = null,
-    )
+}
+
+internal data class ImportedThemePack(
+    val recipe: ThemePackRecipe,
+    val assetsByKey: Map<String, String>,
+    val importDir: File? = null,
+)
+
+/**
+ * Expands a theme-pack zip into [importDir] under [THEME_PACK_EXTRACTION_LIMITS].
+ *
+ * Split out of [ThemePackRecipeManager] so the hostile-archive paths (traversal,
+ * entry floods, oversize entries, zip bombs) can be exercised as plain JVM tests
+ * against real archives instead of only through a device import.
+ *
+ * On any failure the whole staging directory is removed — a rejected pack must
+ * not leave partially expanded assets behind.
+ */
+internal fun extractThemePackArchive(zip: ZipInputStream, importDir: File): ImportedThemePack {
+    importDir.mkdirs()
+    try {
+        val assetsByKey = mutableMapOf<String, String>()
+        var manifest: String? = null
+        val guard = ArchiveExtractionGuard.newSession(THEME_PACK_EXTRACTION_LIMITS)
+        var entry = zip.nextEntry
+        while (entry != null) {
+            val name = entry.name
+            // Every entry counts, including directories and ignored names, so a pack
+            // cannot burn the entry budget on entries the branches below skip.
+            guard.beginEntry(name)
+            when {
+                entry.isDirectory -> Unit
+                name == THEME_PACK_MANIFEST_ENTRY -> {
+                    manifest = zip.reader(Charsets.UTF_8).readTextCapped(THEME_PACK_MAX_MANIFEST_CHARS)
+                }
+                name.startsWith("assets/") -> {
+                    // Hash-prefix the flattened name: assets/a/x.png and assets/b/x.png
+                    // must map to distinct files, not silently overwrite each other.
+                    val safeName = "${themePackShortHash(name)}_${name.substringAfterLast('/').take(60)}"
+                    val target = File(importDir, safeName)
+                    val bytes = copyZipEntryCapped(zip, target, guard.remainingEntryBudget()) {
+                        target.delete()
+                        guard.failEntryTooLarge()
+                    }
+                    // ZipInputStream backfills the compressed size once the entry
+                    // body (and any data descriptor) has been consumed.
+                    guard.commitEntry(expandedBytes = bytes, compressedBytes = entry.compressedSize)
+                    assetsByKey[name] = target.absolutePath
+                }
+            }
+            zip.closeEntry()
+            entry = zip.nextEntry
+        }
+        val recipe = parseThemePackRecipe(manifest.orEmpty())
+            ?: throw IllegalStateException("Theme pack manifest missing or invalid")
+        return ImportedThemePack(recipe = recipe, assetsByKey = assetsByKey, importDir = importDir)
+    } catch (e: Throwable) {
+        // A failed import (bad manifest, oversize assets, IO error) must not orphan
+        // up to 128 MB of extracted assets in filesDir — nothing else cleans it.
+        runCatching { importDir.deleteRecursively() }
+        throw e
+    }
+}
+
+private inline fun copyZipEntryCapped(
+    zip: ZipInputStream,
+    target: File,
+    maxBytes: Long,
+    onOverflow: () -> Nothing,
+): Long {
+    var copied = 0L
+    target.outputStream().use { output ->
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        while (true) {
+            val read = zip.read(buffer)
+            if (read == -1) break
+            copied += read
+            if (copied > maxBytes) onOverflow()
+            output.write(buffer, 0, read)
+        }
+    }
+    return copied
+}
+
+private fun java.io.Reader.readTextCapped(maxChars: Int): String {
+    val builder = StringBuilder()
+    val buffer = CharArray(DEFAULT_BUFFER_SIZE)
+    while (true) {
+        val read = read(buffer)
+        if (read == -1) break
+        builder.append(buffer, 0, read)
+        if (builder.length > maxChars) {
+            throw IOException("Theme pack manifest is too large")
+        }
+    }
+    return builder.toString()
+}
+
+internal fun themePackShortHash(value: String): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+        .digest(value.toByteArray(Charsets.UTF_8))
+    return digest.take(6).joinToString("") { "%02x".format(it) }
 }
