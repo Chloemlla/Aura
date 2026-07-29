@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from tools.manifest_consistency_check import validate_manifest_consistency
+from tools.release_manifest import read_manifest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -92,7 +93,11 @@ class ManifestConsistencyCheckTest(unittest.TestCase):
 
         self.assertEqual("ok", result["status"])
         self.assertEqual([], result["stale_claims"])
-        self.assertEqual("6.38.0", result["manifest_versions"]["versionname"])
+        # Derived from the release manifest, not restated.
+        self.assertEqual(
+            read_manifest(REPO_ROOT)["versionName"],
+            result["manifest_versions"]["versionname"],
+        )
         self.assertEqual("22", result["manifest_versions"]["node"])
 
     def test_rejects_stale_readme_current_state_claim(self) -> None:

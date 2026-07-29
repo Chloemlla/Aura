@@ -2,6 +2,100 @@
 
 All notable changes to Aura will be documented in this file.
 
+## v6.39.0 (2026-07-29)
+
+- **Release truth comes from one manifest** — versionName, versionCode, and the Room schema
+  version are read from `app/build.gradle.kts` and `Database.kt`, and the README badge, the
+  release-metadata policy JSON, and the Fastlane changelog are generated from them by
+  `tools/release_manifest.py`. The two release gates that had the version hardcoded now derive
+  it, so a bump can no longer leave four artifacts stale; the YouTube store-risk check is
+  mandatory and fails closed if the capability registry ever puts YouTube on the Play channel
+  without recorded owner-approved evidence.
+
+- **Fix: video wallpapers recover from silent decoder death** — the engine had no error
+  listener, no progress watchdog, and no rebuild budget, so a decoder that died across an OEM
+  sleep/wake cycle left a frozen wallpaper until the video was re-picked. Prepare errors,
+  runtime errors, and a player that reports "playing" while its position stays frozen now all
+  route through a bounded recovery policy: rebuilds back off exponentially (1s to 30s), resume
+  at the position where playback stopped rather than restarting, stop after four attempts, and
+  on exhaustion hold the last rendered frame instead of entering a restart loop. Every
+  transition is recorded as a diagnostic receipt, and a long healthy run restores the budget.
+
+- **Fix: wallpaper editor source-loading races** — Apply stayed enabled while the image was
+  still downloading, filter sliders moved before the decode finished were recorded but never
+  rendered, and an older URL's decoded bitmap could land on top of a newer source because loads
+  had no ownership. Loads now cancel and carry an ownership token, so a stale success is dropped
+  and its bitmap recycled and a stale failure cannot raise an error for a source the user has
+  replaced; Apply, export, and parallax wait for a decoded source; and pending filter parameters
+  replay as soon as the source lands.
+
+- **Fix: Sound detail readability at default font scale** — on a 411x891 phone the four
+  secondary actions shared one row and ellipsized "Contact", while the source-policy and
+  permission explanations were capped at two lines and cut mid-sentence. The action row now
+  reflows to a 2x2 grid from the real available width (not just font scale), and the policy and
+  permission copy wrap in full. Source badge colors gained per-theme tones so every provider —
+  YouTube red was ~4.0:1 on white — now meets the WCAG 2.2 4.5:1 normal-text target on both the
+  light and AMOLED surfaces, verified by a contrast test over every `ContentSource`.
+
+- **Fix: a transient 403 no longer permanently disables a saved item** — any failure mentioning
+  403 was treated as proof the source was gone, so a refused or throttled request stuck a
+  permanent "unavailable" badge on a wallpaper or sound that was fine. Failures are now
+  classified: only an explicit removal or a 404/410 is permanent; 401/403/408/429/5xx, timeouts,
+  and transport errors are transient and persist nothing. A later successful apply or download
+  clears any previously recorded unavailable state.
+- **Provider capability registry** — lifecycle, build flavor, distribution channel,
+  configuration, permission, health, attribution, default state, kill switch, and network
+  endpoints now live once per content source in `ProviderCapability`. A contract gate fails the
+  build when the disclosure list, runtime-control list, or endpoint manifest disagrees with it,
+  or when an impossible combination appears (a legacy source that can still fetch, an active
+  networked source with no declared endpoint, a credential- or permission-gated source shipped
+  enabled). The gate immediately caught Wikimedia Commons being documented as a dormant legacy
+  source while `WallpaperRepository` fetched its Picture of the Day on every Discover refresh;
+  its disclosure, runtime control, and network policy now say so. Diagnostics and the licenses
+  screen render the registry rather than a second hand-maintained description.
+
+- **Fix: whole-library restore is versioned, atomic, and honest about what it dropped** —
+  import previously ignored the payload version, wrote favourites, collections, search history,
+  and preference blobs one after another, and silently discarded every `file://`/`content://`
+  locator, so one failure could leave a half-merged library and a device transfer could quietly
+  lose AI-generated and local items. Restore now parses, version-checks, migrates, and validates
+  the whole payload into a plan *before* the first write; v1 payloads are migrated explicitly
+  (their `downloads` section is reported, not dropped); payloads with a missing, corrupt, or
+  future version are refused outright; all database writes run in one Room transaction with the
+  two preference blobs rolled back on failure, so an error leaves the pre-import state intact;
+  and the result now reports every skipped row grouped by reason — invalid, non-portable,
+  duplicate, over-limit, dropped-by-migration — instead of a bare count.
+
+- **Fix: generated wallpapers are deleted only after the last reference goes** — pruning past
+  the 50-file cap, and unfavouriting, deleted the PNG outright, so a generated wallpaper that
+  was still in a collection, in history, pinned to a day/night slot, or used by a 24H wallpaper
+  pack turned into a broken card or a rotation that silently stopped working. A new
+  `GeneratedAssetReferenceIndex` checks favourites, collections, history, the wallpaper cache,
+  downloads, day/night slots, the last night-variant locator, and wallpaper-pack slots (across
+  all three legal locator spellings) before anything is deleted; referenced files no longer
+  count against the cap, orphan cleanup can only ever touch Aura's own managed directory, and
+  Settings › Storage now reports in-use, reclaimable, and stale-reference counts.
+
+- **Security: one automation gate for every exported entry point** — `MainActivity` is exported
+  and accepted the `ROTATE_NOW` / `SHUFFLE_NOW` actions directly, enqueueing rotation work
+  without the opt-in consent and 30-second throttle that `TaskerActionReceiver` applies. Both
+  surfaces now route through a shared `ExternalAutomationDispatcher`, so a disabled, malformed,
+  or rate-limited request enqueues nothing from either path, an accepted one enqueues exactly
+  once, ordinary launcher shortcuts are untouched, and diagnostics record which entry point the
+  request arrived on.
+- **Security: bounded archive extraction** — theme-pack import now runs through a shared
+  `ArchiveExtractionGuard` that rejects path traversal, absolute/UNC/drive-letter names, control
+  characters, link entries, entry floods (512 max), oversize entries, oversize archives, and
+  entries expanding past a 200:1 compression ratio, deleting the staging directory on any
+  failure.
+- **Security: commons-compress 1.28.0** — `youtubedl-android` 0.18.1 resolved commons-compress
+  1.12, which carries published archive-expansion DoS advisories. A dependency constraint now
+  pins the reviewed 1.28.0 release (binary-compatible with the `ZipFile` /
+  `ZipArchiveInputStream` API `youtubedl-common`'s `ZipUtils` binds to) across full and FOSS
+  builds, and the dependency notice lock was regenerated from the real `fullRelease` graph
+  (303 dependency records / 309 notice sections; it had drifted against a pre-flavor `release`
+  variant).
+
 ## v6.38.1 (2026-07-29)
 
 - **Fix: YouTube ringtones failed with "not audio" (#44)**: YouTube frequently serves audio as

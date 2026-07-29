@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tools.release_manifest import read_manifest
 from tools.release_metadata_consistency_check import (
     ReleaseMetadataConsistencyError,
     validate_policy,
@@ -37,8 +38,11 @@ class ReleaseMetadataConsistencyCheckTest(unittest.TestCase):
 
         self.assertEqual("ok", result["status"])
         self.assertEqual("com.freevibe", result["packageName"])
-        self.assertEqual("6.38.0", result["versionName"])
-        self.assertEqual(138, result["versionCode"])
+        # Derived from the release manifest, not restated: a hardcoded literal
+        # here is exactly the stale fixture this gate is supposed to catch.
+        manifest = read_manifest(REPO_ROOT)
+        self.assertEqual(manifest["versionName"], result["versionName"])
+        self.assertEqual(manifest["versionCode"], result["versionCode"])
 
     def test_rejects_version_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

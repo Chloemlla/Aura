@@ -1,0 +1,6 @@
+Aura v6.39.0
+
+Security: one automation gate for every exported entry point, bounded archive extraction on commons-compress 1.28.0, generated wallpapers deleted only after the last reference, versioned and atomic library restore, a single-source provider capability registry, and transient 403s that no longer permanently disable saved items.
+Fixes: Sound detail no longer truncates its actions or policy text, wallpaper editor source-loading races are closed, and video wallpapers now self-heal from silent decoder death.
+
+Recent highlights: hardened exported automation and archive handling, reference-safe generated wallpapers, atomic library restore, and self-healing video wallpapers.

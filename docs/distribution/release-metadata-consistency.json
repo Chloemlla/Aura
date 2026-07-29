@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "policyKind": "releaseMetadataConsistency",
   "packageName": "com.freevibe",
-  "versionName": "6.38.0",
-  "versionCode": 138,
+  "versionName": "6.39.0",
+  "versionCode": 140,
   "docsPath": "docs/distribution/release-metadata-consistency.md",
   "metadataRoot": "fastlane/metadata/android/en-US",
   "privacyPolicyUrl": "https://github.com/SysAdminDoc/Aura/blob/main/docs/privacy/privacy-policy.md",
@@ -46,6 +46,7 @@
     "docs/distribution/supply-chain.md"
   ],
   "requiredPreflightCommands": [
+    "tools/release_manifest.py",
     "tools/store_metadata_preflight.py",
     "tools/store_asset_pipeline_check.py",
     "tools/privacy_policy_link_check.py",
