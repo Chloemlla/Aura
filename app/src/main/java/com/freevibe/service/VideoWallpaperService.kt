@@ -96,6 +96,11 @@ class VideoWallpaperService : WallpaperService() {
         private var gifSampleStartedAtMs = 0L
         private var gifFramesInSample = 0
         private var gifSampledFps = 0
+        private var recoveryState = VideoWallpaperRecovery.reset()
+        private var pendingRebuild: Runnable? = null
+        private var watchdogRunnable: Runnable? = null
+        private val recoveryHandler = Handler(Looper.getMainLooper())
+        private var pendingResumePositionMs = 0
 
         private fun getPrefs() = getSharedPreferences("freevibe_live_wp", MODE_PRIVATE)
         private fun getRuntimePrefs() = getSharedPreferences(VIDEO_PREFS_NAME, MODE_PRIVATE)
@@ -149,6 +154,8 @@ class VideoWallpaperService : WallpaperService() {
             visible = false
             unregisterPowerSaveReceiver()
             stopTelemetryHeartbeat()
+            stopPlaybackWatchdog()
+            cancelPendingRebuild()
             releasePlayback()
             receiptStore.recordSurfaceDestroyed(LiveWallpaperReceiptStore.ENGINE_VIDEO)
             publishVideoTelemetry()
@@ -197,16 +204,26 @@ class VideoWallpaperService : WallpaperService() {
             visible = false
             unregisterPowerSaveReceiver()
             stopTelemetryHeartbeat()
+            stopPlaybackWatchdog()
+            cancelPendingRebuild()
             releasePlayback()
             publishVideoTelemetry()
         }
 
         private fun initializePlayer(holder: SurfaceHolder) {
+            cancelPendingRebuild()
+            stopPlaybackWatchdog()
             releasePlayback()
             val path = getVideoPath() ?: return
             val file = File(path)
             if (!file.exists()) return
             try {
+                if (path != lastPath || file.lastModified() != lastModified) {
+                    // A different medium is a fresh start, not a continuation of the
+                    // previous file's failures, so it gets a full recovery budget.
+                    recoveryState = VideoWallpaperRecovery.reset()
+                    pendingResumePositionMs = 0
+                }
                 lastModified = file.lastModified()
                 lastPath = path
                 if (file.extension.equals("gif", ignoreCase = true)) {
@@ -287,11 +304,28 @@ class VideoWallpaperService : WallpaperService() {
                             }
                         } catch (_: Exception) {}
                         try { mp.playbackParams = mp.playbackParams.setSpeed(speed) } catch (_: Exception) {}
+                        // A rebuild resumes where the dead player stopped, so recovery
+                        // is not visible to the user as a restart from the first frame.
+                        val resumeMs = pendingResumePositionMs
+                        pendingResumePositionMs = 0
+                        if (resumeMs > 0) {
+                            try { mp.seekTo(resumeMs) } catch (_: Exception) {}
+                        }
                         if (visible && !motionPausedForPowerSave) {
                             mp.start()
-                        } else {
+                        } else if (resumeMs <= 0) {
                             try { mp.seekTo(0) } catch (_: Exception) {}
                         }
+                        startPlaybackWatchdog()
+                    }
+                    setOnErrorListener { _, what, extra ->
+                        // Returning true claims the error so MediaPlayer does not also
+                        // fire onCompletion for a player we are about to discard.
+                        handlePlaybackFailure(
+                            VideoPlaybackFailure.RUNTIME_ERROR,
+                            "MediaPlayer error what=" + what + " extra=" + extra,
+                        )
+                        true
                     }
                     prepareAsync()
                 }
@@ -300,9 +334,113 @@ class VideoWallpaperService : WallpaperService() {
                     "Playing ${videoW}x${videoH} on ${sw}x${sh} screen, mode=$scaleMode, path=$path")
             } catch (e: Exception) {
                 if (BuildConfig.DEBUG) android.util.Log.e("VideoWPService", "Init failed: ${e.message}")
-                receiptStore.recordError(LiveWallpaperReceiptStore.ENGINE_VIDEO, "${e.javaClass.simpleName}: ${e.message}")
-                releasePlayback()
+                handlePlaybackFailure(
+                    VideoPlaybackFailure.PREPARE_ERROR,
+                    "${e.javaClass.simpleName}: ${e.message}",
+                )
             }
+        }
+
+        /**
+         * Applies the bounded recovery policy to a playback failure.
+         *
+         * Prepare errors, runtime errors, and a frozen-but-"playing" player all land
+         * here. Rebuilds back off exponentially and stop after
+         * [VideoWallpaperRecovery.MAX_ATTEMPTS], at which point the surface keeps its
+         * last rendered frame instead of entering a restart loop.
+         */
+        private fun handlePlaybackFailure(failure: VideoPlaybackFailure, detail: String) {
+            stopPlaybackWatchdog()
+            val positionMs = runCatching { mediaPlayer?.currentPosition ?: 0 }.getOrDefault(0)
+            releasePlayback()
+            receiptStore.recordError(
+                LiveWallpaperReceiptStore.ENGINE_VIDEO,
+                "${failure.name}: $detail",
+            )
+            val (next, decision) = VideoWallpaperRecovery.onFailure(
+                state = recoveryState,
+                failure = failure,
+                positionMs = positionMs,
+                nowMs = System.currentTimeMillis(),
+            )
+            recoveryState = next
+            when (decision) {
+                is VideoRecoveryDecision.Rebuild -> {
+                    receiptStore.recordRecovery(
+                        LiveWallpaperReceiptStore.ENGINE_VIDEO,
+                        "rebuild attempt ${decision.attempt} in ${decision.delayMs}ms",
+                    )
+                    scheduleRebuild(decision)
+                }
+                VideoRecoveryDecision.Fallback -> {
+                    // Leave the last frame on the surface: a still image beats a loop
+                    // that keeps waking the decoder and never settles.
+                    receiptStore.recordRecovery(
+                        LiveWallpaperReceiptStore.ENGINE_VIDEO,
+                        "exhausted after ${VideoWallpaperRecovery.MAX_ATTEMPTS} attempts; holding last frame",
+                    )
+                }
+            }
+        }
+
+        private fun scheduleRebuild(decision: VideoRecoveryDecision.Rebuild) {
+            cancelPendingRebuild()
+            pendingResumePositionMs = decision.resumePositionMs
+            val runnable = Runnable {
+                pendingRebuild = null
+                val holder = currentHolder ?: return@Runnable
+                initializePlayer(holder)
+            }
+            pendingRebuild = runnable
+            recoveryHandler.postDelayed(runnable, decision.delayMs)
+        }
+
+        private fun cancelPendingRebuild() {
+            pendingRebuild?.let { recoveryHandler.removeCallbacks(it) }
+            pendingRebuild = null
+        }
+
+        /**
+         * Watches playback position while visible. Decoder death after an OEM
+         * sleep/wake cycle produces no error callback at all - the position simply
+         * stops advancing - so polling is the only way to notice.
+         */
+        private fun startPlaybackWatchdog() {
+            stopPlaybackWatchdog()
+            val runnable = object : Runnable {
+                override fun run() {
+                    val player = mediaPlayer
+                    if (player == null) {
+                        watchdogRunnable = null
+                        return
+                    }
+                    val positionMs = runCatching { player.currentPosition }.getOrDefault(0)
+                    val isPlaying = runCatching { player.isPlaying }.getOrDefault(false)
+                    val (next, stalled) = VideoWallpaperRecovery.onWatchdogSample(
+                        state = recoveryState,
+                        positionMs = positionMs,
+                        isPlaying = isPlaying && visible && !motionPausedForPowerSave,
+                        nowMs = System.currentTimeMillis(),
+                    )
+                    recoveryState = next
+                    if (stalled) {
+                        watchdogRunnable = null
+                        handlePlaybackFailure(
+                            VideoPlaybackFailure.PROGRESS_STALLED,
+                            "position frozen at ${positionMs}ms",
+                        )
+                        return
+                    }
+                    recoveryHandler.postDelayed(this, VideoWallpaperRecovery.WATCHDOG_INTERVAL_MS)
+                }
+            }
+            watchdogRunnable = runnable
+            recoveryHandler.postDelayed(runnable, VideoWallpaperRecovery.WATCHDOG_INTERVAL_MS)
+        }
+
+        private fun stopPlaybackWatchdog() {
+            watchdogRunnable?.let { recoveryHandler.removeCallbacks(it) }
+            watchdogRunnable = null
         }
 
         private fun configureSurface(holder: SurfaceHolder): Pair<Int, Int> {
@@ -420,6 +558,7 @@ class VideoWallpaperService : WallpaperService() {
             activeMediaType = "none"
             mediaPlayer?.apply {
                 try { setOnPreparedListener(null) } catch (_: Exception) {}
+                try { setOnErrorListener(null) } catch (_: Exception) {}
                 try { if (isPlaying) stop() } catch (_: Exception) {}
                 try { release() } catch (_: Exception) {}
             }
