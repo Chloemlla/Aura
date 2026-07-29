@@ -4,6 +4,15 @@ All notable changes to Aura will be documented in this file.
 
 ## v6.39.0 (2026-07-29)
 
+- **Fix: every wallpaper apply commits through one coordinator** — browsing recorded history,
+  undo, style learning, the night-variant locator, and feedback, while the editor, crop, and AI
+  screens called `WallpaperApplier` directly and skipped all of it, so a wallpaper applied from
+  the editor never appeared in history and could not be undone. Each surface now declares a
+  persistence policy (browse / derived output / background) and commits through
+  `WallpaperApplyCoordinator`: nothing is written unless the system call succeeded, each effect
+  happens exactly once, and cancellation or failure leaves no history row, no stale locator, and
+  no false success.
+
 - **Deleting downloads and collections is now undoable** — a downloaded file was destroyed the
   moment you tapped delete, and a whole collection vanished outright, even though removing a
   single item from a collection already offered Undo. Deleting a download now moves its file

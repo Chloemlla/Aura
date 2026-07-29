@@ -941,6 +941,7 @@ class WallpapersViewModelTest {
             colorExtractor = mockk(relaxed = true),
             cacheManager = cacheManager,
             applyFeedbackBus = mockk(relaxed = true),
+            applyCoordinator = mockk(relaxed = true),
             voteRepo = voteRepo,
             reportRepo = reportRepoOverride ?: mockk<CommunityReportRepository>(relaxed = true),
             communityBlockRepo = communityBlockRepoOverride ?: mockk<CommunityBlockRepository>(relaxed = true),

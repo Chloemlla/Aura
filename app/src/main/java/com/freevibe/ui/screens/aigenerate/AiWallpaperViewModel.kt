@@ -22,6 +22,7 @@ import java.util.Locale
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.service.SourceMetrics
 import com.freevibe.service.WallpaperApplier
+import com.freevibe.service.WallpaperApplyPolicy
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
@@ -151,6 +152,7 @@ data class AiWallpaperUiState(
 class AiWallpaperViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repo: AiWallpaperRepository,
+    private val applyCoordinator: com.freevibe.service.WallpaperApplyCoordinator,
     private val favoritesRepo: FavoritesRepository,
     private val reportRepo: CommunityReportRepository,
     private val wallpaperUploadRepo: WallpaperUploadRepository,
@@ -340,21 +342,16 @@ class AiWallpaperViewModel @Inject constructor(
             // all happen on the IO dispatcher inside the applier (the prior version decoded the
             // full-resolution PNG on the Main coroutine context — a 3-4 MB PNG → ~10 MB bitmap
             // synchronously on the UI thread). applyByLocator handles file:// URIs natively.
-            wallpaperApplier.applyByLocator(wallpaper.fullUrl, target)
-                .onSuccess {
-                    val labelRes = when (target) {
-                        WallpaperTarget.HOME -> R.string.apply_target_home
-                        WallpaperTarget.LOCK -> R.string.apply_target_lock
-                        WallpaperTarget.BOTH -> R.string.apply_target_both
-                    }
+            // Routed through the coordinator so a generated wallpaper lands in
+            // history and can be undone, exactly like a browsed one.
+            applyCoordinator.apply(
+                wallpaper = wallpaper,
+                target = target,
+                policy = WallpaperApplyPolicy.DERIVED,
+            ) { wallpaperApplier.applyByLocator(wallpaper.fullUrl, target) }
+                .onSuccess { receipt ->
                     _state.update {
-                        it.copy(
-                            isApplying = false,
-                            applySuccess = context.getString(
-                                R.string.apply_feedback_applied_to,
-                                context.getString(labelRes),
-                            ),
-                        )
+                        it.copy(isApplying = false, applySuccess = receipt.feedbackMessage)
                     }
                 }
                 .onFailure { e ->

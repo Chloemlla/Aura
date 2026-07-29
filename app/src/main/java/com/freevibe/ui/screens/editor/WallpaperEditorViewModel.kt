@@ -10,6 +10,8 @@ import com.freevibe.service.DepthBackgroundStyle
 import com.freevibe.service.DepthFrameStyle
 import com.freevibe.service.DepthPortraitComposer
 import com.freevibe.service.DepthPortraitOptions
+import com.freevibe.service.WallpaperApplyCoordinator
+import com.freevibe.service.WallpaperApplyPolicy
 import com.freevibe.service.WallpaperApplier
 import com.freevibe.service.advertisedLengthExceeds
 import com.freevibe.service.MediaIngestionImageFlow
@@ -92,7 +94,20 @@ class WallpaperEditorViewModel @Inject constructor(
     private val wallpaperApplier: WallpaperApplier,
     private val depthPortraitComposer: DepthPortraitComposer,
     private val okHttpClient: OkHttpClient,
+    private val applyCoordinator: WallpaperApplyCoordinator,
 ) : ViewModel() {
+
+    /**
+     * Identity for the edited output. The editor works on a bitmap, so the source
+     * wallpaper it was loaded from is what history records; when the editor was
+     * opened on a raw bitmap there is nothing to record and history is skipped.
+     */
+    private var editedWallpaper: Wallpaper? = null
+
+    /** Remembers which wallpaper the current edit session started from. */
+    fun setEditedWallpaperIdentity(wallpaper: Wallpaper?) {
+        editedWallpaper = wallpaper
+    }
 
     private val _state = MutableStateFlow(EditorState())
     val state = _state.asStateFlow()
@@ -111,6 +126,7 @@ class WallpaperEditorViewModel @Inject constructor(
     private val overlayUndoStack = ArrayDeque<List<WallpaperOverlayLayer>>()
 
     fun loadWallpaper(wallpaper: Wallpaper): Boolean {
+        editedWallpaper = wallpaper
         val currentState = _state.value
         val wallpaperKey = wallpaper.stableKey()
         if (loadedWallpaperKey == wallpaperKey && (currentState.originalBitmap != null || currentState.isLoadingImage)) {
@@ -231,8 +247,18 @@ class WallpaperEditorViewModel @Inject constructor(
                 return@launch
             }
             try {
-                wallpaperApplier.applyFromBitmap(bitmap, target)
-                    .onSuccess { _state.update { it.copy(isApplying = false, success = "Applied") } }
+                // Edited output goes through the coordinator so it lands in history
+                // and can be undone, exactly like an unedited apply.
+                applyCoordinator.apply(
+                    wallpaper = editedWallpaper,
+                    target = target,
+                    policy = WallpaperApplyPolicy.DERIVED,
+                ) { wallpaperApplier.applyFromBitmap(bitmap, target) }
+                    .onSuccess { receipt ->
+                        _state.update {
+                            it.copy(isApplying = false, success = receipt.feedbackMessage ?: "Applied")
+                        }
+                    }
                     .onFailure { e -> _state.update { it.copy(isApplying = false, error = e.message) } }
             } finally {
                 recycleRenderedBitmap(bitmap, snapshot)

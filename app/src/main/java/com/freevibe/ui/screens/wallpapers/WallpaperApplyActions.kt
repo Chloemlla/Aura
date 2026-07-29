@@ -19,6 +19,8 @@ import com.freevibe.service.ApplyFeedbackEvent
 import com.freevibe.service.DownloadManager
 import com.freevibe.service.DualWallpaperService
 import com.freevibe.service.OfflineFavoritesManager
+import com.freevibe.service.WallpaperApplyCoordinator
+import com.freevibe.service.WallpaperApplyPolicy
 import com.freevibe.service.WallpaperApplier
 import com.freevibe.service.WallpaperHistoryManager
 import com.freevibe.service.WallpaperStyleLearningSignal
@@ -42,6 +44,7 @@ internal class WallpaperApplyActions(
     private val offlineFavorites: OfflineFavoritesManager,
     private val aiWallpaperRepository: AiWallpaperRepository,
     private val applyFeedbackBus: ApplyFeedbackBus,
+    private val applyCoordinator: WallpaperApplyCoordinator,
     private val state: MutableStateFlow<WallpapersUiState>,
     private val scope: CoroutineScope,
     private val onStyleSignal: suspend (Wallpaper, WallpaperStyleLearningSignal) -> Unit = { _, _ -> },
@@ -52,34 +55,25 @@ internal class WallpaperApplyActions(
     fun applyWallpaper(wallpaper: Wallpaper, target: WallpaperTarget) {
         scope.launch {
             state.update { it.copy(isApplying = true, applySuccess = null) }
-            wallpaperApplier.applyFromUrl(
-                wallpaper.fullUrl,
-                target,
-                nightVariant = shouldApplyNightVariant(),
-            )
+            // History, undo, night-variant, style learning, and feedback all commit
+            // in the coordinator so this path cannot drift from the editor/crop/AI
+            // ones. Feedback goes through the global bus only - also setting
+            // applySuccess stacks a second snackbar (seen on-device).
+            applyCoordinator.apply(
+                wallpaper = wallpaper,
+                target = target,
+                policy = WallpaperApplyPolicy.BROWSE,
+                onStyleSignal = { onStyleSignal(it, WallpaperStyleLearningSignal.APPLIED) },
+            ) {
+                wallpaperApplier.applyFromUrl(
+                    wallpaper.fullUrl,
+                    target,
+                    nightVariant = shouldApplyNightVariant(),
+                )
+            }
                 .onSuccess {
                     clearSourceUnavailableAfterSuccess(wallpaper)
-                    onStyleSignal(wallpaper, WallpaperStyleLearningSignal.APPLIED)
-                    historyManager.record(wallpaper, target)
-                    prefs.setLastNightVariantWallpaper(wallpaper.fullUrl, target.name)
-                    val undoTarget = historyManager.previousSnapshot()
-                    val labelRes = when (target) {
-                        WallpaperTarget.HOME -> R.string.apply_target_home
-                        WallpaperTarget.LOCK -> R.string.apply_target_lock
-                        WallpaperTarget.BOTH -> R.string.apply_target_both
-                    }
-                    // Feedback goes through the global bus only — setting applySuccess
-                    // too stacks a second snackbar on top of the bus one (seen on-device).
                     state.update { it.copy(isApplying = false) }
-                    applyFeedbackBus.post(
-                        ApplyFeedbackEvent(
-                            message = context.getString(
-                                R.string.apply_feedback_applied_to,
-                                context.getString(labelRes),
-                            ),
-                            undoTarget = undoTarget,
-                        )
-                    )
                 }
                 .onFailure { e ->
                     markSourceUnavailableIfRemoved(wallpaper, e)
@@ -126,10 +120,15 @@ internal class WallpaperApplyActions(
     fun applySplitCrop(wallpaper: Wallpaper) {
         scope.launch {
             state.update { it.copy(isApplying = true, applySuccess = null) }
-            dualWallpaperService.applySplitCrop(wallpaper)
+            // Split crop keeps its own success copy but commits through the same
+            // coordinator, so it records history and can be undone like any apply.
+            applyCoordinator.apply(
+                wallpaper = wallpaper,
+                target = WallpaperTarget.BOTH,
+                policy = WallpaperApplyPolicy.BROWSE.copy(postFeedback = false),
+                onStyleSignal = { onStyleSignal(it, WallpaperStyleLearningSignal.APPLIED) },
+            ) { dualWallpaperService.applySplitCrop(wallpaper) }
                 .onSuccess {
-                    onStyleSignal(wallpaper, WallpaperStyleLearningSignal.APPLIED)
-                    historyManager.record(wallpaper, WallpaperTarget.BOTH)
                     state.update {
                         it.copy(
                             isApplying = false,

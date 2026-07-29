@@ -10,6 +10,8 @@ import com.freevibe.data.model.WallpaperTarget
 import com.freevibe.data.model.stableKey
 import com.freevibe.service.SmartCropCalculator
 import com.freevibe.service.SmartCropDetector
+import com.freevibe.service.WallpaperApplyCoordinator
+import com.freevibe.service.WallpaperApplyPolicy
 import com.freevibe.service.WallpaperApplier
 import com.freevibe.service.advertisedLengthExceeds
 import com.freevibe.service.MediaIngestionImageFlow
@@ -45,13 +47,21 @@ class WallpaperCropViewModel @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val smartCropDetector: SmartCropDetector,
     @ApplicationContext private val appContext: Context,
+    private val applyCoordinator: WallpaperApplyCoordinator,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CropState())
     val state = _state.asStateFlow()
     private var loadedWallpaperKey: String? = null
 
+    /**
+     * Identity for the cropped output: the wallpaper the crop was loaded from is
+     * what history records, so a crop can be undone like any other apply.
+     */
+    private var croppedWallpaper: Wallpaper? = null
+
     fun loadWallpaper(wallpaper: Wallpaper): Boolean {
+        croppedWallpaper = wallpaper
         val currentState = _state.value
         val wallpaperKey = wallpaper.stableKey()
         if (loadedWallpaperKey == wallpaperKey && (currentState.bitmap != null || currentState.isLoading)) {
@@ -168,10 +178,18 @@ class WallpaperCropViewModel @Inject constructor(
                 cropped = withContext(Dispatchers.Default) {
                     cropBitmap(bmp, s.scale, s.offsetX, s.offsetY, viewportWidth, viewportHeight)
                 }
-                wallpaperApplier.applyFromBitmap(cropped, target)
-                    .onSuccess {
+                // Cropped output goes through the coordinator so it lands in history
+                // and can be undone, exactly like an uncropped apply.
+                applyCoordinator.apply(
+                    wallpaper = croppedWallpaper,
+                    target = target,
+                    policy = WallpaperApplyPolicy.DERIVED,
+                ) { wallpaperApplier.applyFromBitmap(cropped, target) }
+                    .onSuccess { receipt ->
                         cropped.recycle()
-                        _state.update { it.copy(isApplying = false, success = "Applied") }
+                        _state.update {
+                            it.copy(isApplying = false, success = receipt.feedbackMessage ?: "Applied")
+                        }
                     }
                     .onFailure { e ->
                         cropped.recycle()

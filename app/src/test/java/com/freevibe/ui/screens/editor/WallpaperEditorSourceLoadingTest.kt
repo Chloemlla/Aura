@@ -46,6 +46,7 @@ class WallpaperEditorSourceLoadingTest {
             wallpaperApplier = mockk<WallpaperApplier>(relaxed = true),
             depthPortraitComposer = mockk<DepthPortraitComposer>(relaxed = true),
             okHttpClient = mockk(relaxed = true),
+            applyCoordinator = mockk(relaxed = true),
         )
     }
 

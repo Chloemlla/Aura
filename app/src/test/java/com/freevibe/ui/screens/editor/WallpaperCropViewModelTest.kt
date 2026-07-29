@@ -29,6 +29,7 @@ class WallpaperCropViewModelTest {
             wallpaperApplier = mockk(relaxed = true),
             okHttpClient = mockk(relaxed = true),
             smartCropDetector = mockk<SmartCropDetector>(relaxed = true),
+            applyCoordinator = mockk(relaxed = true),
             appContext = mockk(relaxed = true),
         )
     }

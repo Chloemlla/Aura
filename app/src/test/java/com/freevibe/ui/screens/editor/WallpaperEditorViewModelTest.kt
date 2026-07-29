@@ -38,6 +38,7 @@ class WallpaperEditorViewModelTest {
             wallpaperApplier = wallpaperApplier,
             depthPortraitComposer = depthPortraitComposer,
             okHttpClient = mockk(relaxed = true),
+            applyCoordinator = mockk(relaxed = true),
         )
     }
 
