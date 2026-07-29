@@ -4,6 +4,12 @@ All notable changes to Aura will be documented in this file.
 
 ## v6.39.0 (2026-07-29)
 
+- **Fix: offline favorites render offline** — wallpaper favorites are cached to a managed local
+  file when saved, but the grid still requested the remote thumbnail, so airplane mode or a cold
+  image cache showed broken cards over bytes already on disk. The grid now prefers the existing
+  local file (no second copy), falling back to the remote URL when it has been evicted; sound
+  favorites are unaffected.
+
 - **Fix: every wallpaper apply commits through one coordinator** — browsing recorded history,
   undo, style learning, the night-variant locator, and feedback, while the editor, crop, and AI
   screens called `WallpaperApplier` directly and skipped all of it, so a wallpaper applied from

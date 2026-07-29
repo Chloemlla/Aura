@@ -451,7 +451,9 @@ fun FavoritesScreen(
                                 ) {
                                     Box {
                                         AsyncImage(
-                                            model = fav.thumbnailUrl,
+                                            // Prefer the managed offline copy so the grid
+                                            // still renders with no network.
+                                            model = favoriteThumbnailModel(fav),
                                             contentDescription = null,
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier.fillMaxWidth().aspectRatio(0.67f),
