@@ -26,6 +26,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -77,7 +78,17 @@ fun SoundDetailScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val selectedSound by viewModel.selectedSound.collectAsStateWithLifecycle()
-    val useStackedActions = LocalDensity.current.fontScale >= 1.3f
+    val fontScale = LocalDensity.current.fontScale
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+    // A 411dp phone at default font scale cannot fit four labelled secondary
+    // actions in one row: "Contact" ellipsized. Decide from real width, not just
+    // font scale, so the default case reflows instead of truncating.
+    val useStackedActions = shouldStackSoundActions(
+        availableWidthDp = screenWidthDp - SOUND_DETAIL_HORIZONTAL_PADDING_DP * 2,
+        itemCount = 4,
+        minItemWidthDp = SOUND_SECONDARY_ACTION_MIN_WIDTH_DP,
+        fontScale = fontScale,
+    )
     val targetSource = fallbackSound?.source
     val targetPreviewUrl = fallbackSound?.previewUrl?.takeIf { it.isNotBlank() }
     val targetDownloadUrl = fallbackSound?.downloadUrl?.takeIf { it.isNotBlank() }
@@ -145,7 +156,9 @@ fun SoundDetailScreen(
         s.uploaderName != "Unknown" &&
         !(s.source == ContentSource.BUNDLED && s.uploaderName == "Aura Picks")
     val detailBadges = remember(s, state.selectedTab) { soundBadges(s, state.selectedTab) }
-    val (sourceLabel, sourceColor) = soundSourceTone(s.source)
+    val sourceTone = soundSourceTone(s.source)
+    val sourceLabel = sourceTone.label
+    val sourceColor = sourceTone.colorForSurface()
     val sourceUnavailable = s.isSourceUnavailable()
     val licenseCapabilities = remember(s) { s.soundLicenseCapabilities() }
     var pendingSoundAction by remember(s.stableKey()) { mutableStateOf<PendingSoundAction?>(null) }
@@ -481,12 +494,12 @@ fun SoundDetailScreen(
                     Icon(Icons.Default.Policy, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.sound_detail_source_policy), style = MaterialTheme.typography.labelLarge)
+                        // Source policy is a rights statement; truncating it hides the
+                        // condition the user is agreeing to, so it always wraps in full.
                         Text(
                             policyMessages.joinToString(" "),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
@@ -519,12 +532,12 @@ fun SoundDetailScreen(
                             Text(openSettingsLabel)
                         }
                     }
+                    // Permission copy explains why apply is blocked; it must stay readable
+                    // in full rather than ellipsizing mid-sentence.
                     Text(
                         writeSettingsBody,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }

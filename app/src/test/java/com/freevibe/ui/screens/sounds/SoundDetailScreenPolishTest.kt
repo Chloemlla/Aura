@@ -11,7 +11,13 @@ class SoundDetailScreenPolishTest {
     fun `sound detail actions adapt for large font scale`() {
         val source = File("src/main/java/com/freevibe/ui/screens/sounds/SoundDetailScreen.kt").readText()
 
-        assertTrue(source.contains("LocalDensity.current.fontScale >= 1.3f"))
+        // The stacking rule moved into the pure shouldStackSoundActions helper so it
+        // can also react to available width, not just font scale.
+        val layout = File("src/main/java/com/freevibe/ui/screens/sounds/SoundActionLayout.kt").readText()
+        assertTrue(layout.contains("SOUND_ACTION_STACK_FONT_SCALE = 1.3f"))
+        assertTrue(layout.contains("fontScale >= SOUND_ACTION_STACK_FONT_SCALE"))
+        assertTrue(source.contains("LocalDensity.current.fontScale"))
+        assertTrue(source.contains("shouldStackSoundActions("))
         assertTrue(source.contains("val useStackedActions"))
         assertTrue(source.contains("maxItemsInEachRow = 2"))
         assertTrue(source.contains("heightIn(min = 48.dp)"))
