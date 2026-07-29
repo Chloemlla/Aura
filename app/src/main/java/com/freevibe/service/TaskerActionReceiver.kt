@@ -37,14 +37,11 @@ import android.content.Intent
 class TaskerActionReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        when (intent.action) {
-            ACTION_ROTATE_NOW, ACTION_SHUFFLE_NOW -> {
-                val decision = ExternalAutomationGate.evaluate(context, intent)
-                if (decision.accepted) {
-                    RotationTriggerService.enqueueRotation(context)
-                }
-            }
-        }
+        ExternalAutomationDispatcher.dispatch(
+            context = context,
+            intent = intent,
+            entryPoint = ExternalAutomationDispatcher.ENTRY_POINT_RECEIVER,
+        )
     }
 
     companion object {

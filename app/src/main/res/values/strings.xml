@@ -205,6 +205,8 @@
     <string name="settings_external_automation_action_shuffle">shuffle</string>
     <string name="settings_external_automation_action_unsupported">unsupported</string>
     <string name="settings_external_automation_caller_missing">not provided</string>
+    <string name="settings_external_automation_entry_receiver">broadcast</string>
+    <string name="settings_external_automation_entry_activity">app launch</string>
     <string name="settings_diagnostics_policy">Policy: %1$s</string>
     <string name="settings_ytdlp_update_title">Update YouTube extractor</string>
     <string name="settings_ytdlp_update_disabled">Enable YouTube features before updating the extractor</string>
@@ -1378,6 +1380,7 @@
     <string name="settings_diag_metric_rate_limit">Rate limit</string>
     <string name="settings_diag_metric_last_action">Last action</string>
     <string name="settings_diag_metric_caller">Caller</string>
+    <string name="settings_diag_metric_entry_point">Entry point</string>
     <string name="settings_diag_metric_rows">Rows</string>
     <string name="settings_diag_metric_receipts">Receipts</string>
     <string name="settings_diag_metric_network">Network</string>

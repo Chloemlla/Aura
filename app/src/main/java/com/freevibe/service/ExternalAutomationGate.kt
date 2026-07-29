@@ -13,6 +13,7 @@ data class ExternalAutomationDiagnostics(
     val enabled: Boolean = false,
     val lastAction: String = "",
     val lastCallerPackage: String = "",
+    val lastEntryPoint: String = "",
     val lastAcceptedAtMs: Long = 0L,
     val lastRejectedAtMs: Long = 0L,
     val lastRejectedReason: String = "",
@@ -27,13 +28,22 @@ object ExternalAutomationGate {
     private const val KEY_ENABLED = "enabled"
     private const val KEY_LAST_ACTION = "last_action"
     private const val KEY_LAST_CALLER_PACKAGE = "last_caller_package"
+    private const val KEY_LAST_ENTRY_POINT = "last_entry_point"
     private const val KEY_LAST_ACCEPTED_AT_MS = "last_accepted_at_ms"
     private const val KEY_LAST_REJECTED_AT_MS = "last_rejected_at_ms"
     private const val KEY_LAST_REJECTED_REASON = "last_rejected_reason"
 
+    /**
+     * Applies the opt-in + throttle policy and records diagnostics.
+     *
+     * Prefer [ExternalAutomationDispatcher.dispatch]; it is the only caller that
+     * also enqueues the accepted work, so every exported entry point behaves the
+     * same way.
+     */
     fun evaluate(
         context: Context,
         intent: Intent,
+        entryPoint: String,
         nowMs: Long = System.currentTimeMillis(),
     ): ExternalAutomationDecision {
         val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -49,6 +59,7 @@ object ExternalAutomationGate {
         prefs.edit()
             .putString(KEY_LAST_ACTION, action)
             .putString(KEY_LAST_CALLER_PACKAGE, callerPackage)
+            .putString(KEY_LAST_ENTRY_POINT, sanitizeEntryPoint(entryPoint))
             .apply {
                 if (decision.accepted) {
                     putLong(KEY_LAST_ACCEPTED_AT_MS, nowMs)
@@ -75,6 +86,7 @@ object ExternalAutomationGate {
             enabled = prefs.getBoolean(KEY_ENABLED, false),
             lastAction = prefs.getString(KEY_LAST_ACTION, "").orEmpty(),
             lastCallerPackage = prefs.getString(KEY_LAST_CALLER_PACKAGE, "").orEmpty(),
+            lastEntryPoint = prefs.getString(KEY_LAST_ENTRY_POINT, "").orEmpty(),
             lastAcceptedAtMs = prefs.getLong(KEY_LAST_ACCEPTED_AT_MS, 0L),
             lastRejectedAtMs = prefs.getLong(KEY_LAST_REJECTED_AT_MS, 0L),
             lastRejectedReason = prefs.getString(KEY_LAST_REJECTED_REASON, "").orEmpty(),
@@ -108,6 +120,14 @@ object ExternalAutomationGate {
     fun isSupportedAction(action: String?): Boolean =
         action == TaskerActionReceiver.ACTION_ROTATE_NOW ||
             action == TaskerActionReceiver.ACTION_SHUFFLE_NOW
+
+    fun sanitizeEntryPoint(raw: String?): String =
+        when (raw) {
+            ExternalAutomationDispatcher.ENTRY_POINT_RECEIVER,
+            ExternalAutomationDispatcher.ENTRY_POINT_ACTIVITY,
+            -> raw
+            else -> ""
+        }
 
     fun sanitizeCallerPackage(raw: String?): String {
         val trimmed = raw.orEmpty().trim()

@@ -2,6 +2,7 @@ package com.freevibe
 
 import android.os.Bundle
 import com.freevibe.data.model.ContentSource
+import com.freevibe.service.ExternalAutomationGate
 import com.freevibe.service.TaskerActionReceiver
 import com.freevibe.ui.navigation.Screen
 import org.junit.Assert.assertEquals
@@ -55,11 +56,13 @@ class MainActivityLaunchNavigationTest {
 
     @Test
     fun `rotation shortcut detection only accepts rotation actions`() {
-        assertTrue(isRotationShortcutAction(TaskerActionReceiver.ACTION_SHUFFLE_NOW))
-        assertTrue(isRotationShortcutAction(TaskerActionReceiver.ACTION_ROTATE_NOW))
-        assertFalse(isRotationShortcutAction(ACTION_SHORTCUT_SEARCH))
-        assertFalse(isRotationShortcutAction(ACTION_SHORTCUT_DOWNLOADS))
-        assertFalse(isRotationShortcutAction(null))
+        // The activity no longer keeps its own copy of this predicate; it shares the
+        // gate's definition so the exported activity and receiver cannot drift.
+        assertTrue(ExternalAutomationGate.isSupportedAction(TaskerActionReceiver.ACTION_SHUFFLE_NOW))
+        assertTrue(ExternalAutomationGate.isSupportedAction(TaskerActionReceiver.ACTION_ROTATE_NOW))
+        assertFalse(ExternalAutomationGate.isSupportedAction(ACTION_SHORTCUT_SEARCH))
+        assertFalse(ExternalAutomationGate.isSupportedAction(ACTION_SHORTCUT_DOWNLOADS))
+        assertFalse(ExternalAutomationGate.isSupportedAction(null))
     }
 
     @Test

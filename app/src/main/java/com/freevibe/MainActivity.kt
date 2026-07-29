@@ -16,7 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Wallpaper
-import com.freevibe.service.RotationTriggerService
+import com.freevibe.service.ExternalAutomationDispatcher
 import com.freevibe.service.RotationTriggerRecovery
 import com.freevibe.service.TaskerActionReceiver
 import com.freevibe.service.extractCollectionShareToken
@@ -64,10 +64,6 @@ internal fun routeForShortcutAction(action: String?): String? =
         ACTION_SHORTCUT_DOWNLOADS -> Screen.Downloads.route
         else -> null
     }
-
-internal fun isRotationShortcutAction(action: String?): Boolean =
-    action == TaskerActionReceiver.ACTION_SHUFFLE_NOW ||
-        action == TaskerActionReceiver.ACTION_ROTATE_NOW
 
 internal fun buildLaunchNavigation(
     route: String? = null,
@@ -243,9 +239,18 @@ class MainActivity : ComponentActivity() {
         RotationTriggerRecovery.retryIfPending(this)
     }
 
+    /**
+     * MainActivity is exported, so an automation app (or `am start`) can reach the
+     * same rotate/shuffle actions the exported receiver exposes. Route them through
+     * the shared dispatcher so the opt-in consent and 30s throttle apply here too;
+     * ordinary launcher shortcuts short-circuit inside the dispatcher and enqueue
+     * nothing.
+     */
     private fun handleShortcutSideEffects(intent: Intent?) {
-        if (isRotationShortcutAction(intent?.action)) {
-            RotationTriggerService.enqueueRotation(this)
-        }
+        ExternalAutomationDispatcher.dispatch(
+            context = this,
+            intent = intent,
+            entryPoint = ExternalAutomationDispatcher.ENTRY_POINT_ACTIVITY,
+        )
     }
 }

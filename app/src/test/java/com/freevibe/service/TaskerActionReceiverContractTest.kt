@@ -1,6 +1,7 @@
 package com.freevibe.service
 
 import java.io.File
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -16,13 +17,57 @@ class TaskerActionReceiverContractTest {
     @Test
     fun `exported automation receiver gates actions before enqueueing rotation`() {
         val source = File("src/main/java/com/freevibe/service/TaskerActionReceiver.kt").readText()
-        val gateIndex = source.indexOf("ExternalAutomationGate.evaluate(context, intent)")
-        val enqueueIndex = source.indexOf("RotationTriggerService.enqueueRotation(context)")
 
-        assertTrue("receiver must evaluate the opt-in gate", gateIndex >= 0)
-        assertTrue("receiver must still enqueue accepted rotation work", enqueueIndex >= 0)
+        assertTrue(
+            "receiver must route through the shared dispatcher",
+            source.contains("ExternalAutomationDispatcher.dispatch("),
+        )
+        assertTrue(
+            "receiver must tag its entry point",
+            source.contains("ExternalAutomationDispatcher.ENTRY_POINT_RECEIVER"),
+        )
+        assertFalse(
+            "receiver must not enqueue rotation work outside the dispatcher",
+            source.contains("RotationTriggerService.enqueueRotation"),
+        )
+    }
+
+    @Test
+    fun `exported activity shares the automation gate instead of bypassing it`() {
+        val source = File("src/main/java/com/freevibe/MainActivity.kt").readText()
+
+        assertTrue(
+            "activity must route rotate or shuffle launches through the shared dispatcher",
+            source.contains("ExternalAutomationDispatcher.dispatch("),
+        )
+        assertTrue(
+            "activity must tag its entry point",
+            source.contains("ExternalAutomationDispatcher.ENTRY_POINT_ACTIVITY"),
+        )
+        assertFalse(
+            "activity must not enqueue rotation work outside the dispatcher",
+            source.contains("RotationTriggerService.enqueueRotation"),
+        )
+        assertTrue(
+            "the activity must gate both the cold-start and onNewIntent paths",
+            Regex("handleShortcutSideEffects\\(intent\\)").findAll(source).count() >= 2,
+        )
+    }
+
+    @Test
+    fun `only the dispatcher may enqueue rotation for automation intents`() {
+        val dispatcher = File("src/main/java/com/freevibe/service/ExternalAutomationDispatcher.kt").readText()
+        val gateIndex = dispatcher.indexOf("ExternalAutomationGate.evaluate(")
+        val enqueueIndex = dispatcher.indexOf("enqueueRotation(context)")
+
+        assertTrue("dispatcher must evaluate the opt-in gate", gateIndex >= 0)
+        assertTrue("dispatcher must enqueue accepted rotation work", enqueueIndex >= 0)
         assertTrue("gate must run before rotation enqueue", gateIndex < enqueueIndex)
-        assertTrue(source.contains("if (decision.accepted)"))
+        assertTrue(dispatcher.contains("if (decision.accepted)"))
+        assertTrue(
+            "dispatcher must reject non-automation intents before writing diagnostics",
+            dispatcher.contains("!ExternalAutomationGate.isSupportedAction(intent.action)"),
+        )
     }
 
     @Test

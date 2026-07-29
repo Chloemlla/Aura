@@ -44,6 +44,7 @@ import com.freevibe.service.COMMUNITY_DELETION_REQUEST_SUBJECT
 import com.freevibe.service.CommunityIdentitySummary
 import com.freevibe.service.CrashDiagnosticsSummary
 import com.freevibe.service.ExternalAutomationDiagnostics
+import com.freevibe.service.ExternalAutomationDispatcher
 import com.freevibe.service.SourceMetrics
 import com.freevibe.service.YtDlpUpdateStatus
 import com.freevibe.service.communityDeletionRequestBody
@@ -136,6 +137,15 @@ internal fun externalAutomationCallerLabel(callerPackage: String): String =
     callerPackage.ifBlank { stringResource(R.string.settings_external_automation_caller_missing) }.let { label ->
         if (label.length <= 28) label else "${label.take(25)}..."
     }
+
+@Composable
+internal fun externalAutomationEntryPointLabel(entryPoint: String): String = when (entryPoint) {
+    ExternalAutomationDispatcher.ENTRY_POINT_RECEIVER ->
+        stringResource(R.string.settings_external_automation_entry_receiver)
+    ExternalAutomationDispatcher.ENTRY_POINT_ACTIVITY ->
+        stringResource(R.string.settings_external_automation_entry_activity)
+    else -> stringResource(R.string.settings_diag_none)
+}
 
 @Composable
 internal fun meteredNetworkLabel(activeNetworkMetered: Boolean?): String = when (activeNetworkMetered) {
@@ -283,6 +293,11 @@ internal fun ExternalAutomationDiagnosticsSummary(status: ExternalAutomationDiag
         DiagnosticMetricPill(
             stringResource(R.string.settings_diag_metric_caller),
             externalAutomationCallerLabel(status.lastCallerPackage),
+            MaterialTheme.colorScheme.tertiary,
+        )
+        DiagnosticMetricPill(
+            stringResource(R.string.settings_diag_metric_entry_point),
+            externalAutomationEntryPointLabel(status.lastEntryPoint),
             MaterialTheme.colorScheme.tertiary,
         )
     }
