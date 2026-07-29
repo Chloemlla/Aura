@@ -38,7 +38,7 @@ class ParallaxWallpaperService : WallpaperService() {
 
     override fun onCreateEngine(): Engine = ParallaxEngine()
 
-    inner class ParallaxEngine : Engine(), SensorEventListener {
+    inner class ParallaxEngine : Engine(), SensorEventListener, LiveWallpaperResourceReporter {
 
         private val receiptStore by lazy { LiveWallpaperReceiptStore.create(this@ParallaxWallpaperService) }
         private var sensorManager: SensorManager? = null
@@ -75,6 +75,11 @@ class ParallaxWallpaperService : WallpaperService() {
 
         private var lastDrawReceiptMs = 0L
         private val drawRunner = Runnable { draw() }
+        // Every post/removal of drawRunner goes through postDraw/cancelDraw, so
+        // this flag cannot drift from what the Handler actually holds.
+        private var drawScheduled = false
+        private var sensorRegistered = false
+        private val mediaLoader = LiveWallpaperMediaLoader("aura-parallax-loader")
 
         private fun getPrefs() = getSharedPreferences("freevibe_parallax", MODE_PRIVATE)
         private fun getImagePath(): String? = getPrefs().getString("image_path", null)
@@ -141,38 +146,58 @@ class ParallaxWallpaperService : WallpaperService() {
                 scheduleDraw()
             } else {
                 unregisterSensor()
-                handler.removeCallbacks(drawRunner)
+                cancelDraw()
             }
         }
 
         override fun onSurfaceDestroyed(holder: SurfaceHolder) {
             super.onSurfaceDestroyed(holder)
             visible = false
-            handler.removeCallbacks(drawRunner)
+            cancelDraw()
             unregisterSensor()
+            // The surface is gone, so nothing can draw these layers or consume
+            // this segmenter. Holding them until onDestroy kept a full-screen set
+            // of bitmaps plus a native ML Kit client alive across every
+            // surface-destroy the platform performs (rotation, unlock, preview
+            // teardown), which on a process that lives for days is a real leak.
+            releaseSegmenter()
+            recycleBitmaps()
             receiptStore.recordSurfaceDestroyed(LiveWallpaperReceiptStore.ENGINE_PARALLAX)
         }
 
         override fun onDestroy() {
             super.onDestroy()
             destroyed = true
-            handler.removeCallbacks(drawRunner)
+            cancelDraw()
             unregisterSensor()
-            activeSegmenter?.close()
-            activeSegmenter = null
+            mediaLoader.shutdown()
+            releaseSegmenter()
             recycleBitmaps()
         }
 
         // -- Sensor --
 
         private fun registerSensor() {
-            accelerometer?.let {
-                sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
-            }
+            if (sensorRegistered) return
+            val sensor = accelerometer ?: return
+            val registered = sensorManager
+                ?.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME) == true
+            sensorRegistered = registered
         }
 
         private fun unregisterSensor() {
+            if (!sensorRegistered) return
             sensorManager?.unregisterListener(this)
+            sensorRegistered = false
+        }
+
+        private fun releaseSegmenter() {
+            val segmenter = synchronized(bitmapLock) {
+                val current = activeSegmenter
+                activeSegmenter = null
+                current
+            }
+            try { segmenter?.close() } catch (_: Exception) {}
         }
 
         override fun onSensorChanged(event: SensorEvent) {
@@ -195,13 +220,13 @@ class ParallaxWallpaperService : WallpaperService() {
 
         private fun loadImage() {
             val path = getImagePath() ?: return
-            Thread {
+            mediaLoader.request {
                 try {
                     val file = java.io.File(path)
-                    if (!file.exists()) return@Thread
+                    if (!file.exists()) return@request
                     val (targetWidth, targetHeight) = resolveDecodeTarget()
                     val bmp = BitmapSampling.decodeSampledBitmap(path, targetWidth, targetHeight)
-                        ?: return@Thread
+                        ?: return@request
                     handler.post {
                         if (destroyed) { bmp.recycle(); return@post }
                         synchronized(bitmapLock) {
@@ -215,7 +240,7 @@ class ParallaxWallpaperService : WallpaperService() {
                 } catch (e: Exception) {
                     if (BuildConfig.DEBUG) android.util.Log.e("ParallaxWP", "Load failed: ${e.message}")
                 }
-            }.start()
+            }
         }
 
         private fun resolveDecodeTarget(): Pair<Int, Int> {
@@ -405,11 +430,43 @@ class ParallaxWallpaperService : WallpaperService() {
         // -- Drawing --
 
         private fun scheduleDraw() {
-            handler.removeCallbacks(drawRunner)
-            if (visible) handler.post(drawRunner)
+            cancelDraw()
+            if (visible) postDraw(0L)
         }
 
+        /** The single door for posting the render loop, so accounting stays exact. */
+        private fun postDraw(delayMs: Long) {
+            handler.removeCallbacks(drawRunner)
+            handler.postDelayed(drawRunner, delayMs)
+            drawScheduled = true
+        }
+
+        /** The single door for cancelling the render loop. */
+        private fun cancelDraw() {
+            handler.removeCallbacks(drawRunner)
+            drawScheduled = false
+        }
+
+        /**
+         * Parallax is the heaviest engine: a sensor listener, a render callback,
+         * up to four full-screen bitmaps, a native segmentation client, and a
+         * decode thread. Each is engine-scoped and must be gone with the surface.
+         */
+        override fun resourceSnapshot(): LiveWallpaperResourceSnapshot =
+            LiveWallpaperResourceSnapshot(
+                engine = LiveWallpaperReceiptStore.ENGINE_PARALLAX,
+                frameCallbacks = if (drawScheduled) 1 else 0,
+                sensorListeners = if (sensorRegistered) 1 else 0,
+                imageBuffers = synchronized(bitmapLock) {
+                    listOf(originalBitmap, backgroundLayer, foregroundLayer, fallbackBitmap)
+                        .count { it != null && !it.isRecycled }
+                },
+                segmenters = if (activeSegmenter != null) 1 else 0,
+                loaderThreads = mediaLoader.outstanding,
+            )
+
         private fun draw() {
+            drawScheduled = false
             if (!visible) return
             val holder = surfaceHolder
             var canvas: Canvas? = null
@@ -459,7 +516,7 @@ class ParallaxWallpaperService : WallpaperService() {
                 receiptStore.recordDraw(LiveWallpaperReceiptStore.ENGINE_PARALLAX)
             }
             if (visible) {
-                handler.postDelayed(drawRunner, frameInterval)
+                postDraw(frameInterval)
             }
         }
 

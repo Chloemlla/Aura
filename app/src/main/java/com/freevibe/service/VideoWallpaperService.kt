@@ -46,7 +46,7 @@ class VideoWallpaperService : WallpaperService() {
 
     override fun onCreateEngine(): Engine = VideoEngine()
 
-    inner class VideoEngine : Engine() {
+    inner class VideoEngine : Engine(), LiveWallpaperResourceReporter {
         private val receiptStore by lazy { LiveWallpaperReceiptStore.create(this@VideoWallpaperService) }
         private var mediaPlayer: MediaPlayer? = null
         private var gifMovie: Movie? = null
@@ -551,6 +551,24 @@ class VideoWallpaperService : WallpaperService() {
                 try { holder.unlockCanvasAndPost(canvas) } catch (_: Exception) {}
             }
         }
+
+        /**
+         * Video and GIF hold a decoder, up to four posted Runnables, and a power
+         * save receiver. Every one of them is engine-scoped, so all of them must
+         * be gone once the surface is.
+         */
+        override fun resourceSnapshot(): LiveWallpaperResourceSnapshot =
+            LiveWallpaperResourceSnapshot(
+                engine = LiveWallpaperReceiptStore.ENGINE_VIDEO,
+                players = (if (mediaPlayer != null) 1 else 0) + (if (gifMovie != null) 1 else 0),
+                frameCallbacks = listOf(
+                    gifFrameRunnable,
+                    telemetryRunnable,
+                    watchdogRunnable,
+                    pendingRebuild,
+                ).count { it != null },
+                broadcastReceivers = if (powerSaveReceiverRegistered) 1 else 0,
+            )
 
         private fun releasePlayback() {
             pauseGifPlayback()

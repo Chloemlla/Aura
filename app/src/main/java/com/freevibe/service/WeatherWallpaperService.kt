@@ -24,7 +24,7 @@ class WeatherWallpaperService : WallpaperService() {
 
     override fun onCreateEngine(): Engine = WeatherEngine()
 
-    inner class WeatherEngine : Engine() {
+    inner class WeatherEngine : Engine(), LiveWallpaperResourceReporter {
         private val receiptStore by lazy { LiveWallpaperReceiptStore.create(this@WeatherWallpaperService) }
         private var renderer: WeatherParticleRenderer? = null
         private var vfxRenderer: VfxParticleRenderer? = null
@@ -58,9 +58,13 @@ class WeatherWallpaperService : WallpaperService() {
 
         private var lastDrawReceiptMs = 0L
         private val drawRunner = Runnable { draw() }
+        // Every post/removal of drawRunner goes through postDraw/cancelDraw, so
+        // this flag cannot drift from what the Handler actually holds.
+        private var drawScheduled = false
+        private val mediaLoader = LiveWallpaperMediaLoader("aura-weather-loader")
         private fun weatherPrefs() = getSharedPreferences("freevibe_weather_wp", MODE_PRIVATE)
         private val dimming = LiveWallpaperDimming(
-            onRevealChanged = { if (visible) handler.post(drawRunner) },
+            onRevealChanged = { if (visible) postDraw(0L) },
         )
 
         override fun onCreate(surfaceHolder: SurfaceHolder) {
@@ -113,7 +117,7 @@ class WeatherWallpaperService : WallpaperService() {
                 loadDimmingFromPrefs()
                 scheduleDraw()
             } else {
-                handler.removeCallbacks(drawRunner)
+                cancelDraw()
             }
         }
 
@@ -133,14 +137,15 @@ class WeatherWallpaperService : WallpaperService() {
         override fun onSurfaceDestroyed(holder: SurfaceHolder) {
             super.onSurfaceDestroyed(holder)
             visible = false
-            handler.removeCallbacks(drawRunner)
+            cancelDraw()
             receiptStore.recordSurfaceDestroyed(LiveWallpaperReceiptStore.ENGINE_WEATHER)
         }
 
         override fun onDestroy() {
             super.onDestroy()
             destroyed = true
-            handler.removeCallbacks(drawRunner)
+            cancelDraw()
+            mediaLoader.shutdown()
             synchronized(bitmapLock) {
                 if (scaledBitmap !== wallpaperBitmap) scaledBitmap?.recycle()
                 wallpaperBitmap?.recycle()
@@ -153,13 +158,13 @@ class WeatherWallpaperService : WallpaperService() {
         private fun loadWallpaperBitmap() {
             val prefs = weatherPrefs()
             val path = prefs.getString("wallpaper_path", null) ?: return
-            Thread {
+            mediaLoader.request {
                 try {
                     val file = java.io.File(path)
-                    if (!file.exists()) return@Thread
+                    if (!file.exists()) return@request
                     val (targetWidth, targetHeight) = resolveDecodeTarget()
                     val bmp = BitmapSampling.decodeSampledBitmap(path, targetWidth, targetHeight)
-                        ?: return@Thread
+                        ?: return@request
                     handler.post {
                         if (destroyed) { bmp.recycle(); return@post }
                         synchronized(bitmapLock) {
@@ -184,7 +189,7 @@ class WeatherWallpaperService : WallpaperService() {
                         }
                     }
                 } catch (_: Exception) {}
-            }.start()
+            }
         }
 
         private fun resolveDecodeTarget(): Pair<Int, Int> {
@@ -325,13 +330,43 @@ class WeatherWallpaperService : WallpaperService() {
         }
 
         private fun scheduleDraw() {
-            handler.removeCallbacks(drawRunner)
-            if (visible) {
-                handler.post(drawRunner)
-            }
+            cancelDraw()
+            if (visible) postDraw(0L)
         }
 
+        /** The single door for posting the render loop, so accounting stays exact. */
+        private fun postDraw(delayMs: Long) {
+            handler.removeCallbacks(drawRunner)
+            handler.postDelayed(drawRunner, delayMs)
+            drawScheduled = true
+        }
+
+        /** The single door for cancelling the render loop. */
+        private fun cancelDraw() {
+            handler.removeCallbacks(drawRunner)
+            drawScheduled = false
+        }
+
+        /**
+         * Weather holds a render callback, two decoded bitmaps, and a decode
+         * thread while it loads. The surface can be destroyed mid-decode, so the
+         * loader count is what proves the engine is not accumulating threads
+         * across repeated create/destroy cycles.
+         */
+        override fun resourceSnapshot(): LiveWallpaperResourceSnapshot =
+            LiveWallpaperResourceSnapshot(
+                engine = LiveWallpaperReceiptStore.ENGINE_WEATHER,
+                frameCallbacks = if (drawScheduled) 1 else 0,
+                imageBuffers = synchronized(bitmapLock) {
+                    val scaled = scaledBitmap
+                    (if (wallpaperBitmap != null) 1 else 0) +
+                        (if (scaled != null && scaled !== wallpaperBitmap) 1 else 0)
+                },
+                loaderThreads = mediaLoader.outstanding,
+            )
+
         private fun draw() {
+            drawScheduled = false
             if (!visible) return
             val holder = surfaceHolder
             var canvas: Canvas? = null
@@ -369,13 +404,13 @@ class WeatherWallpaperService : WallpaperService() {
                 receiptStore.recordDraw(LiveWallpaperReceiptStore.ENGINE_WEATHER)
             }
             if (visible && !reducedMotion) {
-                handler.postDelayed(drawRunner, frameInterval)
+                postDraw(frameInterval)
             } else if (visible && dimEnabled && dimming.isRevealing) {
                 // Reduced-motion mode has no self-rescheduling frame loop, so the
                 // re-dim frame at reveal expiry must be scheduled here, AFTER the
                 // touch handler's scheduleDraw() (which removes pending callbacks)
                 // has already run — scheduling it from onTouchEvent gets cancelled.
-                handler.postDelayed(drawRunner, LiveWallpaperDimming.REVEAL_DURATION_MS + 50L)
+                postDraw(LiveWallpaperDimming.REVEAL_DURATION_MS + 50L)
             }
         }
 
