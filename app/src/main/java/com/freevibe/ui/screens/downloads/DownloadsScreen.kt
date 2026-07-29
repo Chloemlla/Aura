@@ -156,7 +156,24 @@ fun DownloadsScreen(
                                     scope.launch { snackbarHostState.showSnackbar(cannotOpenMessage) }
                                 }
                             },
-                            onDelete = { viewModel.deleteDownload(download.id) },
+                            onDelete = {
+                                // Deletion stages the file rather than destroying it, so
+                                // Undo can restore both the row and its bytes.
+                                viewModel.deleteDownload(download.id)
+                                scope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = context.getString(
+                                            R.string.downloads_deleted,
+                                            download.name.ifBlank { download.id },
+                                        ),
+                                        actionLabel = context.getString(R.string.common_undo),
+                                        duration = SnackbarDuration.Short,
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        viewModel.restoreDownload(download.id)
+                                    }
+                                }
+                            },
                         )
                     }
                 }

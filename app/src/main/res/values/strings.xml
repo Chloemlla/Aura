@@ -473,6 +473,8 @@
     <string name="collections_list_empty_title">No collections yet</string>
     <string name="collections_list_empty_body">Use collections to group wallpapers by mood, room, season, or setup.</string>
     <string name="collections_removed">Removed from collection</string>
+    <string name="collections_deleted">Deleted \"%1$s\"</string>
+    <string name="downloads_deleted">Deleted \"%1$s\"</string>
     <string name="collections_link_copied">Collection link copied</string>
     <string name="collections_import_title">Import collection</string>
     <string name="collections_import_body">Paste an Aura collection link, open a shared JSON file, or scan a QR image.</string>

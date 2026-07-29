@@ -4,6 +4,13 @@ All notable changes to Aura will be documented in this file.
 
 ## v6.39.0 (2026-07-29)
 
+- **Deleting downloads and collections is now undoable** — a downloaded file was destroyed the
+  moment you tapped delete, and a whole collection vanished outright, even though removing a
+  single item from a collection already offered Undo. Deleting a download now moves its file
+  into a bounded staging area (100 entries, 24-hour retention) and keeps its row, so Undo
+  restores both; a `content://` MediaStore entry is only released at purge time. Deleting a
+  collection returns a snapshot that restores the collection and every membership row.
+
 - **Release truth comes from one manifest** — versionName, versionCode, and the Room schema
   version are read from `app/build.gradle.kts` and `Database.kt`, and the README badge, the
   release-metadata policy JSON, and the Fastlane changelog are generated from them by

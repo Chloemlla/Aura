@@ -42,6 +42,7 @@ class DownloadManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val okHttpClient: OkHttpClient,
     private val downloadDao: DownloadDao,
+    private val downloadTrash: DownloadTrash,
 ) {
     private val _activeDownloads = MutableStateFlow<Map<String, DownloadProgress>>(emptyMap())
     val activeDownloads: StateFlow<Map<String, DownloadProgress>> = _activeDownloads.asStateFlow()
@@ -287,20 +288,116 @@ class DownloadManager @Inject constructor(
         _activeDownloads.update { it - id }
     }
 
+    /**
+     * Moves a download into the staged trash instead of destroying it.
+     *
+     * A managed local file is moved into the trash staging directory and a
+     * `content://` locator is simply retained, so [restoreDownload] can put the
+     * row and its bytes back. Nothing is actually destroyed until
+     * [purgeExpiredTrash] runs past [DELETION_RETENTION_MS].
+     */
     suspend fun deleteDownload(id: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val existing = downloadDao.getById(id)
-            existing?.localPath
-                ?.takeIf { it.isNotBlank() }
-                ?.let(::deleteStoredContent)
+            if (existing == null) {
+                clearCompleted(id)
+                return@withContext Result.success(Unit)
+            }
+            val stagedPath = stageForTrash(existing)
+            downloadTrash.add(
+                TrashedDownload(
+                    id = existing.id,
+                    source = existing.source,
+                    type = existing.type,
+                    name = existing.name,
+                    localPath = existing.localPath,
+                    downloadedAt = existing.downloadedAt,
+                    stagedPath = stagedPath,
+                    deletedAtMs = System.currentTimeMillis(),
+                ),
+            )
             downloadDao.deleteById(id)
             clearCompleted(id)
+            purgeExpiredTrashInternal()
             Result.success(Unit)
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             Result.failure(e)
         }
     }
+
+    /**
+     * Puts a trashed download back, file included.
+     *
+     * @return true when the row was restored. A file that vanished from staging
+     *   (external cleanup, storage pressure) still restores its metadata so the
+     *   entry is visible and reports its own missing source rather than silently
+     *   disappearing.
+     */
+    suspend fun restoreDownload(id: String): Boolean = withContext(Dispatchers.IO) {
+        val entry = downloadTrash.take(id) ?: return@withContext false
+        val staged = entry.stagedPath.takeIf { it.isNotBlank() }?.let(::File)
+        if (staged != null && staged.exists()) {
+            val target = resolveManagedLocalDeletionTarget(entry.localPath.removePrefix("file://"))
+            if (target != null) {
+                runCatching {
+                    target.parentFile?.mkdirs()
+                    if (!staged.renameTo(target)) {
+                        staged.copyTo(target, overwrite = true)
+                        staged.delete()
+                    }
+                }
+            }
+        }
+        downloadDao.insert(entry.toEntity())
+        true
+    }
+
+    /** Destroys trash entries past the retention window. */
+    suspend fun purgeExpiredTrash(): Int = withContext(Dispatchers.IO) {
+        purgeExpiredTrashInternal()
+    }
+
+    private fun purgeExpiredTrashInternal(): Int {
+        val expired = downloadTrash.purgeExpired(System.currentTimeMillis())
+        expired.forEach { entry ->
+            // Staged files are already gone; a content:// locator is only released
+            // now, which is what makes the retention window restorable.
+            if (entry.stagedPath.isBlank() && entry.localPath.isNotBlank()) {
+                runCatching { deleteStoredContent(entry.localPath) }
+            }
+        }
+        return expired.size
+    }
+
+    /**
+     * Moves a managed local file into the trash staging directory.
+     *
+     * @return the staged path, or blank when the locator is not a managed local
+     *   file (a `content://` MediaStore row is retained in place instead).
+     */
+    private fun stageForTrash(entity: DownloadEntity): String {
+        val raw = entity.localPath.takeIf { it.isNotBlank() } ?: return ""
+        val uri = runCatching { Uri.parse(raw) }.getOrNull()
+        if (uri != null && uri.scheme.equals("content", ignoreCase = true)) return ""
+        val source = resolveManagedLocalDeletionTarget(uri?.path ?: raw) ?: return ""
+        if (!source.exists()) return ""
+        val target = File(downloadTrash.stagingDir, "${sanitizeTrashName(entity.id)}_${source.name}")
+        return runCatching {
+            target.parentFile?.mkdirs()
+            if (!source.renameTo(target)) {
+                source.copyTo(target, overwrite = true)
+                source.delete()
+            }
+            target.absolutePath
+        }.getOrDefault("")
+    }
+
+    private fun sanitizeTrashName(raw: String): String =
+        raw.map { if (it.isLetterOrDigit() || it == '-' || it == '_') it else '-' }
+            .joinToString("")
+            .take(64)
+            .ifBlank { "download" }
 
     private fun updateProgress(id: String, progress: DownloadProgress) {
         _activeDownloads.update { it + (id to progress) }

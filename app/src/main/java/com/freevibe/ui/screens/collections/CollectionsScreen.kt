@@ -49,6 +49,7 @@ import com.freevibe.service.CollectionExporter
 import com.freevibe.service.CollectionImportResult
 import com.freevibe.service.PhotoPickerCustomization
 import com.freevibe.service.SelectedContentHolder
+import com.freevibe.service.DeletedCollectionSnapshot
 import com.freevibe.ui.components.AuraSnackbarHost
 import com.freevibe.ui.components.AuraStateCard
 import com.freevibe.ui.components.EmbeddedImagePickerSheet
@@ -177,11 +178,22 @@ class CollectionsViewModel @Inject constructor(
         )
     }
 
-    fun deleteCollection(id: Long) {
+    /**
+     * Deletes a collection and hands back the snapshot needed to undo it.
+     *
+     * Removing one item already offered Undo while deleting the whole collection
+     * was immediate and total; [onDeleted] lets the caller offer the same escape.
+     */
+    fun deleteCollection(id: Long, onDeleted: (DeletedCollectionSnapshot?) -> Unit = {}) {
         viewModelScope.launch {
-            collectionRepo.delete(id)
+            val snapshot = collectionRepo.deleteWithSnapshot(id)
             _selectedCollectionId.value = null
+            onDeleted(snapshot)
         }
+    }
+
+    fun restoreCollection(snapshot: DeletedCollectionSnapshot) {
+        viewModelScope.launch { collectionRepo.restore(snapshot) }
     }
 
     fun removeItem(collectionId: Long, item: WallpaperCollectionItemEntity) {
@@ -366,7 +378,22 @@ fun CollectionsScreen(
                                     text = { Text(stringResource(R.string.collections_delete)) },
                                     onClick = {
                                         showMenu = false
-                                        viewModel.deleteCollection(selectedCollection.collectionId)
+                                        viewModel.deleteCollection(selectedCollection.collectionId) { snapshot ->
+                                            if (snapshot == null) return@deleteCollection
+                                            scope.launch {
+                                                val result = snackbarHostState.showSnackbar(
+                                                    message = context.getString(
+                                                        R.string.collections_deleted,
+                                                        snapshot.collection.name,
+                                                    ),
+                                                    actionLabel = context.getString(R.string.common_undo),
+                                                    duration = SnackbarDuration.Short,
+                                                )
+                                                if (result == SnackbarResult.ActionPerformed) {
+                                                    viewModel.restoreCollection(snapshot)
+                                                }
+                                            }
+                                        }
                                     },
                                     leadingIcon = { Icon(Icons.Default.Delete, null) },
                                 )

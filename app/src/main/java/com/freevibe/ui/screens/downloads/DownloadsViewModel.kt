@@ -23,6 +23,9 @@ class DownloadsViewModel @Inject constructor(
     val activeDownloads = downloadManager.activeDownloads
 
     fun deleteDownload(id: String) = viewModelScope.launch { downloadManager.deleteDownload(id) }
+
+    /** Puts a staged download back, file included, from the Undo action. */
+    fun restoreDownload(id: String) = viewModelScope.launch { downloadManager.restoreDownload(id) }
     fun dismissActive(id: String) = downloadManager.clearCompleted(id)
     fun markSourceUnavailable(id: String, reason: String? = null) = viewModelScope.launch {
         downloadDao.updateSourceAvailability(
