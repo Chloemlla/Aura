@@ -183,6 +183,56 @@ class MediaIngestionTest {
     }
 
     @Test
+    fun `sniffMediaType recognises the EBML header used by WebM audio`() {
+        // Real EBML/Matroska header bytes as emitted by YouTube's Opus-in-WebM audio streams.
+        val header = byteArrayOf(
+            0x1A.toByte(), 0x45.toByte(), 0xDF.toByte(), 0xA3.toByte(),
+            0x9F.toByte(), 0x42.toByte(), 0x86.toByte(), 0x81.toByte(),
+            0x01.toByte(), 0x42.toByte(), 0xF7.toByte(), 0x81.toByte(),
+            0x01.toByte(), 0x42.toByte(), 0xF2.toByte(), 0x81.toByte(),
+        )
+
+        val sniffed = sniffMediaType(header)
+
+        assertEquals(MediaFamily.CONTAINER, sniffed?.family)
+        assertEquals("webm", sniffed?.extension)
+    }
+
+    @Test
+    fun `WebM audio downloads are accepted as sounds`() {
+        // Issue #44: applying a YouTube ringtone failed with
+        // "Sound content type could not be verified" because WebM had no signature.
+        val file = File.createTempFile("aura", ".webm").apply {
+            writeBytes(
+                byteArrayOf(
+                    0x1A.toByte(), 0x45.toByte(), 0xDF.toByte(), 0xA3.toByte(),
+                    0x9F.toByte(), 0x42.toByte(), 0x86.toByte(), 0x81.toByte(),
+                    0x01.toByte(), 0x42.toByte(), 0xF7.toByte(), 0x81.toByte(),
+                ),
+            )
+            deleteOnExit()
+        }
+
+        val sniffed = requireSniffedMediaFile(file, MediaFamily.AUDIO, "Sound")
+
+        assertEquals(MediaFamily.AUDIO, sniffed.family)
+        assertEquals("audio/webm", sniffed.mimeType)
+        assertEquals("ringtone.webm", normalizeMediaFileName("ringtone.mp3", sniffed))
+    }
+
+    @Test
+    fun `WebM is still rejected where an image is required`() {
+        val file = File.createTempFile("aura", ".webm").apply {
+            writeBytes(byteArrayOf(0x1A.toByte(), 0x45.toByte(), 0xDF.toByte(), 0xA3.toByte(), 0x9F.toByte()))
+            deleteOnExit()
+        }
+
+        assertThrows(java.io.IOException::class.java) {
+            requireSniffedMediaFile(file, MediaFamily.IMAGE, "Wallpaper")
+        }
+    }
+
+    @Test
     fun `normalizeMediaFileName replaces misleading extension`() {
         val name = normalizeMediaFileName(
             "wallpaper.jpg",

@@ -63,6 +63,17 @@ internal fun readStreamCapped(
 internal enum class MediaFamily {
     IMAGE,
     AUDIO,
+
+    /**
+     * A container whose payload cannot be told apart from the file header alone.
+     *
+     * Matroska/WebM is the case that matters: the EBML header identifies the container
+     * but says nothing about whether the tracks inside are audio, video or both, and the
+     * 64-byte sniff window is far too small to walk the track entries. YouTube audio-only
+     * streams (Opus in WebM) land here, so a container must be accepted wherever the
+     * caller already knows what it asked for.
+     */
+    CONTAINER,
 }
 
 internal data class SniffedMediaType(
@@ -386,6 +397,13 @@ internal fun sniffMediaType(header: ByteArray): SniffedMediaType? {
     if (header.asciiAt(0, "fLaC")) {
         return SniffedMediaType(MediaFamily.AUDIO, "audio/flac", "flac")
     }
+    if (header.startsWith(0x1A, 0x45, 0xDF, 0xA3)) {
+        // EBML — Matroska/WebM. YouTube's audio-only streams are frequently Opus in WebM
+        // (NewPipe explicitly falls back to WEBMA/WEBMA_OPUS when M4A is unavailable), and
+        // with no signature here every one of those downloads failed with
+        // "Sound content type could not be verified" (issue #44).
+        return SniffedMediaType(MediaFamily.CONTAINER, "video/webm", "webm")
+    }
     if (header.asciiAt(4, "ftyp")) {
         return sniffFtypBrand(header)
     }
@@ -421,10 +439,28 @@ internal fun requireSniffedMediaFile(
 ): SniffedMediaType {
     val sniffed = sniffMediaFile(file)
         ?: throw IOException("$label content type could not be verified")
+    if (sniffed.family == MediaFamily.CONTAINER) {
+        // The header proves the container but not the track layout, and the caller already
+        // knows which one it requested. Resolve to the expected family's MIME type rather
+        // than rejecting a perfectly playable file.
+        return resolveContainerFor(sniffed, expectedFamily, label)
+    }
     if (sniffed.family != expectedFamily) {
         throw IOException("$label content type mismatch: expected ${expectedFamily.name.lowercase(Locale.ROOT)}")
     }
     return sniffed
+}
+
+private fun resolveContainerFor(
+    sniffed: SniffedMediaType,
+    expectedFamily: MediaFamily,
+    label: String,
+): SniffedMediaType = when (expectedFamily) {
+    MediaFamily.AUDIO -> sniffed.copy(family = MediaFamily.AUDIO, mimeType = "audio/${sniffed.extension}")
+    MediaFamily.IMAGE ->
+        // No still-image format sniffs as a container, so this is a genuine mismatch.
+        throw IOException("$label content type mismatch: expected ${expectedFamily.name.lowercase(Locale.ROOT)}")
+    MediaFamily.CONTAINER -> sniffed
 }
 
 internal fun normalizeMediaFileName(
