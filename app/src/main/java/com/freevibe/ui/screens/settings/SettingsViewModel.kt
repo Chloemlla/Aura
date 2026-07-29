@@ -12,6 +12,7 @@ import com.freevibe.data.local.SCHEDULER_DAY_NIGHT_MODE_SINGLE
 import com.freevibe.data.local.WallpaperCacheManager
 import com.freevibe.data.model.WallpaperCollectionEntity
 import com.freevibe.data.repository.CollectionRepository
+import com.freevibe.data.repository.GeneratedAssetAudit
 import com.freevibe.data.repository.CommunityBlockRepository
 import com.freevibe.data.repository.VoteRepository
 import com.freevibe.di.IoDispatcher
@@ -106,6 +107,7 @@ class SettingsViewModel @Inject constructor(
     private val ytDlpUpdateManager: YtDlpUpdateManager,
     private val themePackRecipeManager: ThemePackRecipeManager,
     private val libraryExporter: com.freevibe.service.LibraryExporter,
+    private val aiWallpaperRepository: com.freevibe.data.repository.AiWallpaperRepository,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
@@ -305,12 +307,25 @@ class SettingsViewModel @Inject constructor(
     val ytDlpUpdate = _ytDlpUpdate.asStateFlow()
     private val _themePackTransfer = MutableStateFlow(ThemePackTransferState())
     val themePackTransfer = _themePackTransfer.asStateFlow()
+    private val _generatedAssets = MutableStateFlow(GeneratedAssetAudit())
+    val generatedAssets: StateFlow<GeneratedAssetAudit> = _generatedAssets.asStateFlow()
 
     init {
         refreshCacheUsage()
         refreshCrashDiagnostics()
         refreshBackgroundWorkDiagnostics()
         refreshExternalAutomationDiagnostics()
+        refreshGeneratedAssetAudit()
+    }
+
+    /**
+     * Recount generated-wallpaper files against the stores that reference them, so
+     * Storage can show what is pinned, what is prunable, and how many references
+     * now point at a file that is gone.
+     */
+    fun refreshGeneratedAssetAudit() = viewModelScope.launch {
+        _generatedAssets.value = runCatching { aiWallpaperRepository.auditGeneratedAssets() }
+            .getOrDefault(GeneratedAssetAudit())
     }
 
     fun setAutoWallpaper(enabled: Boolean) = viewModelScope.launch {

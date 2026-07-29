@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.freevibe.data.model.WallpaperHistoryEntity
 import com.freevibe.data.repository.CommunityBlockedUser
+import com.freevibe.data.repository.GeneratedAssetAudit
 import com.freevibe.service.BackgroundWorkDiagnostics
 import com.freevibe.service.CommunityIdentitySummary
 import com.freevibe.service.CrashDiagnosticsSummary
@@ -101,6 +102,7 @@ internal data class SettingsScreenState(
     val videoFpsOverlayEnabled: Boolean,
     val videoAutoBatterySaver: Boolean,
     val cacheUsage: CacheUsageState,
+    val generatedAssets: GeneratedAssetAudit,
     val diagnostics: List<SourceMetrics.SourceStats>,
     val crashDiagnostics: CrashDiagnosticsSummary,
     val backgroundWorkDiagnostics: BackgroundWorkDiagnostics,
@@ -203,6 +205,7 @@ internal fun rememberSettingsScreenState(
     val videoFpsOverlayEnabled by viewModel.videoFpsOverlayEnabled.collectAsStateWithLifecycle()
     val videoAutoBatterySaver by viewModel.videoAutoBatterySaver.collectAsStateWithLifecycle()
     val cacheUsage by viewModel.cacheUsage.collectAsStateWithLifecycle()
+    val generatedAssets by viewModel.generatedAssets.collectAsStateWithLifecycle()
     val diagnostics by viewModel.diagnostics.collectAsStateWithLifecycle()
     val crashDiagnostics by viewModel.crashDiagnostics.collectAsStateWithLifecycle()
     val backgroundWorkDiagnostics by viewModel.backgroundWorkDiagnostics.collectAsStateWithLifecycle()
@@ -322,6 +325,7 @@ internal fun rememberSettingsScreenState(
         videoFpsOverlayEnabled = videoFpsOverlayEnabled,
         videoAutoBatterySaver = videoAutoBatterySaver,
         cacheUsage = cacheUsage,
+        generatedAssets = generatedAssets,
         diagnostics = diagnostics,
         crashDiagnostics = crashDiagnostics,
         backgroundWorkDiagnostics = backgroundWorkDiagnostics,

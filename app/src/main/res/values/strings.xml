@@ -1361,6 +1361,10 @@
     <string name="settings_storage_downloads_title">Downloads</string>
     <string name="settings_storage_downloads_subtitle">Review wallpapers, sounds, and videos saved by Aura</string>
     <string name="settings_storage_free_up_title">Free up storage</string>
+    <string name="settings_storage_generated_title">Generated wallpapers</string>
+    <string name="settings_storage_generated_empty">No generated wallpapers stored</string>
+    <string name="settings_storage_generated_summary">%1$d in use, %2$d free to reclaim</string>
+    <string name="settings_storage_generated_stale">%1$d reference(s) point at a missing file.</string>
     <!-- Storage cache formatters -->
     <string name="settings_storage_cache_usage">Using %1$s of temp files and offline saves</string>
     <string name="settings_storage_cache_usage_with_feed">Using %1$s of temp files and offline saves + wallpaper feed cache</string>

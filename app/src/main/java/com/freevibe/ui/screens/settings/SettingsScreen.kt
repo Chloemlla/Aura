@@ -474,6 +474,7 @@ fun SettingsScreen(
             if (SettingsSectionKeys.STORAGE in visibleSectionKeys) StorageSettingsSection(
                 viewModel = viewModel,
                 cacheUsage = cacheUsage,
+                generatedAssets = generatedAssets,
                 onDownloadsClick = onDownloadsClick,
             )
 
@@ -488,10 +489,9 @@ fun SettingsScreen(
             )
 
             if (SettingsSectionKeys.PERMISSIONS in visibleSectionKeys) PermissionsSettingsSection(context)
-            if (SettingsSectionKeys.ABOUT in visibleSectionKeys) AboutSettingsSection(
-                context = context,
-                onLicensesClick = onLicensesClick,
-            )
+            if (SettingsSectionKeys.ABOUT in visibleSectionKeys) {
+                AboutSettingsSection(context = context, onLicensesClick = onLicensesClick)
+            }
             Spacer(Modifier.height(24.dp))
         }
     }

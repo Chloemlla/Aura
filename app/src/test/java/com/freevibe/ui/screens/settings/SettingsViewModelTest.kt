@@ -496,6 +496,10 @@ class SettingsViewModelTest {
                 coEvery { it.exportLibrary(any()) } returns Result.success(0)
                 coEvery { it.importLibrary(any()) } returns Result.success(0)
             },
+            aiWallpaperRepository = mockk<com.freevibe.data.repository.AiWallpaperRepository>().also {
+                coEvery { it.auditGeneratedAssets() } returns
+                    com.freevibe.data.repository.GeneratedAssetAudit()
+            },
             ioDispatcher = dispatcher,
         )
     }

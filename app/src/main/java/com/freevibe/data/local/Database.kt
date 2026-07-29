@@ -88,6 +88,13 @@ interface FavoriteDao {
 
     @Query("SELECT COUNT(*) FROM favorites")
     fun count(): Flow<Int>
+
+    /** Reference count for a managed local asset. See `GeneratedAssetReferenceIndex`. */
+    @Query(
+        "SELECT COUNT(*) FROM favorites WHERE fullUrl IN (:locators) " +
+            "OR thumbnailUrl IN (:locators) OR offlinePath IN (:locators)"
+    )
+    suspend fun countReferencingLocators(locators: List<String>): Int
 }
 
 // -- Download DAO --
@@ -118,6 +125,10 @@ interface DownloadDao {
 
     @Query("UPDATE downloads SET localPath = :path WHERE id = :id")
     suspend fun updateLocalPath(id: String, path: String)
+
+    /** Reference count for a managed local asset. See `GeneratedAssetReferenceIndex`. */
+    @Query("SELECT COUNT(*) FROM downloads WHERE localPath IN (:locators)")
+    suspend fun countReferencingLocators(locators: List<String>): Int
 }
 
 // -- Search History DAO --
@@ -178,6 +189,13 @@ interface WallpaperCacheDao {
 
     @Query("SELECT COUNT(*) FROM wallpaper_cache")
     suspend fun countEntries(): Int
+
+    /** Reference count for a managed local asset. See `GeneratedAssetReferenceIndex`. */
+    @Query(
+        "SELECT COUNT(*) FROM wallpaper_cache WHERE fullUrl IN (:locators) " +
+            "OR thumbnailUrl IN (:locators)"
+    )
+    suspend fun countReferencingLocators(locators: List<String>): Int
 }
 
 // -- Wallpaper History DAO (#11) --
@@ -199,6 +217,17 @@ interface WallpaperHistoryDao {
 
     @Query("DELETE FROM wallpaper_history")
     suspend fun clearAll()
+
+    /** Reference count for a managed local asset. See `GeneratedAssetReferenceIndex`. */
+    @Query(
+        "SELECT COUNT(*) FROM wallpaper_history WHERE fullUrl IN (:locators) " +
+            "OR thumbnailUrl IN (:locators)"
+    )
+    suspend fun countReferencingLocators(locators: List<String>): Int
+
+    /** Wallpaper ids recorded in history, used to resolve day/night slot ids. */
+    @Query("SELECT COUNT(*) FROM wallpaper_history WHERE wallpaperId = :wallpaperId")
+    suspend fun countByWallpaperId(wallpaperId: String): Int
 }
 
 // -- Wallpaper Collections DAO --
@@ -250,4 +279,11 @@ interface CollectionDao {
 
     @Query("UPDATE wallpaper_collections SET name = :name WHERE collectionId = :collectionId")
     suspend fun renameCollection(collectionId: Long, name: String)
+
+    /** Reference count for a managed local asset. See `GeneratedAssetReferenceIndex`. */
+    @Query(
+        "SELECT COUNT(*) FROM wallpaper_collection_items WHERE fullUrl IN (:locators) " +
+            "OR thumbnailUrl IN (:locators)"
+    )
+    suspend fun countReferencingLocators(locators: List<String>): Int
 }
