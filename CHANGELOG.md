@@ -2,6 +2,16 @@
 
 All notable changes to Aura will be documented in this file.
 
+## v6.38.1 (2026-07-29)
+
+- **Fix: YouTube ringtones failed with "not audio" (#44)**: YouTube frequently serves audio as
+  Opus in a WebM container, whose EBML signature the media sniffer did not recognize, so valid
+  downloads were rejected before they could be applied. WebM is now sniffed as a container and
+  resolved to `audio/webm` in audio flows.
+- **Build: release lint** — disabled the `NullSafeMutableLiveData` lint check, whose detector
+  crashes under the pinned AGP 8.7.3 / Kotlin 2.1.0 toolchain and blocked release builds; the
+  app uses StateFlow, so the check had nothing to inspect.
+
 ## v6.38.0 (2026-07-23)
 
 - **Settings search**: a search field at the top of Settings filters the section list by title

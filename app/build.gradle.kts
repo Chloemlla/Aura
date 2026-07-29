@@ -85,8 +85,8 @@ android {
         applicationId = "com.freevibe"
         minSdk = 26
         targetSdk = 35
-        versionCode = 138
-        versionName = "6.38.0"
+        versionCode = 139
+        versionName = "6.38.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -151,6 +151,15 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    lint {
+        // lintVitalAnalyzeFullRelease crashes inside AndroidX's NonNullableMutableLiveDataDetector
+        // ("Found class org.jetbrains.kotlin.analysis.api.resolution.KaCallableMemberCall, but
+        // interface was expected") on this AGP 8.7.3 / Kotlin 2.1.0 pin — a lint/analysis-api
+        // incompatibility, not app code. The app uses StateFlow throughout, so the LiveData
+        // nullability check has nothing to inspect here anyway.
+        disable += "NullSafeMutableLiveData"
     }
 
     packaging {
