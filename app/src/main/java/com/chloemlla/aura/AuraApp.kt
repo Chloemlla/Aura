@@ -128,6 +128,8 @@ class AuraApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
                     reportMessage = getString(R.string.crash_report_message),
                 ),
             )
+        }.onFailure { e ->
+            Log.e("AuraApp", "LumenCrash.install() failed", e)
         }
     }
 

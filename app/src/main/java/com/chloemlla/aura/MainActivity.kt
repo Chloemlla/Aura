@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -216,9 +217,28 @@ class MainActivity : ComponentActivity() {
         } else {
             null
         }
-        setContent {
-            FreeVibeTheme {
-                LumenCrashGate {
+        runCatching {
+            setContent {
+                FreeVibeTheme {
+                    LumenCrashGate {
+                        Surface(
+                            modifier = Modifier.fillMaxSize(),
+                            color = MaterialTheme.colorScheme.background,
+                        ) {
+                            FreeVibeRoot(
+                                initialNavigateTo = launchNavigation?.route,
+                                initialWallpaper = launchNavigation?.wallpaper,
+                                navigationToken = launchNavigation?.token ?: 0L,
+                            )
+                        }
+                    }
+                }
+            }
+        }.onFailure { e ->
+            Log.e("MainActivity", "setContent with LumenCrashGate failed", e)
+            // Fallback: render without crash gate
+            setContent {
+                FreeVibeTheme {
                     Surface(
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background,
