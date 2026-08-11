@@ -15,6 +15,16 @@ All notable changes to Aura will be documented in this file.
   parsing) and `body-parser` 1.20.5 (GHSA-v422-hmwv-36x6, request size enforcement silently
   disabled by an invalid `limit`). `protobufjs` was held at the vulnerable version by an override
   originally added *as* a security pin.
+- **Fix: every documentation link in README and the app now resolves** — `.gitignore` excluded
+  all markdown except README, so none of `docs/` was ever published. All 11 documentation links
+  in README returned 404, as did the privacy policy that Settings > About opens. The 50
+  documents README, the app, and the release gates reference are now tracked; the 162-file
+  factory-loop research archive stays local, and agent working notes remain untracked.
+- **New gate: links are checked against what is published, not what is on disk** —
+  `tools/published_state.py` adds tracked-in-git and tag-exists predicates, and
+  `tools/docs_link_check.py` walks every `docs/*.md` link in README and app source and fails
+  when one would 404. The privacy policy gate now uses the same predicate, so it can no longer
+  report `ok` for a document nobody can open.
 - **Privacy: community voting no longer touches the network before you opt in** —
   `VoteRepository` attached a Firebase Realtime Database moderation listener from its `init`
   block with no consent check, while every other entry point in the class gates on

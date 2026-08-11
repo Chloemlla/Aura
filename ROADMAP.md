@@ -73,13 +73,6 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
   Acceptance: v6.40.0 is tagged and released with the signed universal APK and `SHA256SUMS.txt`; a gate fails when `versionName` in `app/build.gradle.kts` has no matching git tag and published release.
   Complexity: S
 
-- [ ] P0 — Publish the documentation the app and README link to
-  Why: `.gitignore` excludes all markdown except README, so `git ls-files docs/` returns zero `.md` files; all 11 `docs/*.md` links in README 404, and Settings > About > Privacy policy opens a confirmed HTTP 404. A reachable privacy policy is a hard blocker for IzzyOnDroid, F-Droid, and Accrescent.
-  Evidence: `.gitignore:34-35`; `README.md:66,87,221,237`; `SettingsPermissionsAboutSection.kt:30`; `docs/privacy/privacy-policy-link.json`; `curl` → 404 on the raw URL.
-  Touches: `.gitignore`, `docs/**` tracking, `tools/privacy_policy_link_check.py`.
-  Acceptance: privacy, distribution, legal, and support docs referenced by README or app code are tracked and resolve on `main`; agent working notes (`CLAUDE.md`, `CODEX_CHANGELOG.md`, `AUTONOMOUS-LOOP-STATE.md`) stay untracked; the privacy gate fails when its published URL does not resolve.
-  Complexity: S
-
 ### P1
 
 - [ ] P1 — Make release gates assert published state, not the working tree

@@ -9,6 +9,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
+if __package__ in (None, ""):
+    # Executed as `python tools/privacy_policy_link_check.py`, where only tools/ is on
+    # sys.path. Tests import this as `tools.privacy_policy_link_check`, where it is not.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from tools.published_state import PublishedStateError, assert_tracked
+
 
 CHECK_COMMAND = "python3 tools/privacy_policy_link_check.py"
 
@@ -105,6 +112,14 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
     fastlane_path = require_string(policy.get("fastlaneFullDescription"), "fastlaneFullDescription")
     readme_path = require_string(policy.get("readme"), "readme")
     release_dry_run_path = require_string(policy.get("releaseDryRunDoc"), "releaseDryRunDoc")
+
+    # Content checks below only prove the file is correct locally. The app opens the
+    # public URL, so the document must also be published — an untracked policy passes
+    # every content assertion and still 404s for every user.
+    try:
+        assert_tracked(repo_root, policy_doc_path, "privacy policy")
+    except PublishedStateError as exc:
+        raise PrivacyPolicyLinkError(str(exc)) from exc
 
     policy_text = read_text(repo_root, policy_doc_path, "privacy policy")
     settings_text = read_settings_privacy_surface(repo_root, settings_screen_path)
