@@ -43,3 +43,4 @@
 
 # Lumen Crash SDK
 -keep class com.chloemlla.lumen.crash.** { *; }
+-dontwarn com.chloemlla.lumen.crash.**

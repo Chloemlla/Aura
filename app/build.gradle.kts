@@ -3,7 +3,7 @@ import java.util.Properties
 
 // Lumen Crash SDK version resolution: resolved version (from CI fetch) > version file > "latest" sentinel
 val lumenCrashSdkVersion: String =
-    readVersionFile(rootProject.file("../lumen-crash.resolved.version"))
+    readVersionFile(rootProject.file("lumen-crash.resolved.version"))
         ?: readVersionFile(rootProject.file("lumen-crash.version"))
             ?.takeUnless { it.equals("latest", ignoreCase = true) }
         ?: error(
