@@ -135,8 +135,8 @@ Aura exposes two optional broadcast actions for Tasker, MacroDroid, adb, and
 Termux users:
 
 ```text
-com.freevibe.action.ROTATE_NOW
-com.freevibe.action.SHUFFLE_NOW
+com.chloemlla.aura.action.ROTATE_NOW
+com.chloemlla.aura.action.SHUFFLE_NOW
 ```
 
 Enable them in Settings > Wallpaper rotation > External automation before

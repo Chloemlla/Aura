@@ -364,7 +364,7 @@ class CrashDiagnosticsCollector @Inject constructor(
 internal object CrashDiagnosticsText {
     private val crashHeaderRegex = Regex("""--- Crash at (.+?) on thread .+? ---""")
     private val appPrivatePathRegex = Regex(
-        """(?:/data/(?:user/\d+/|data/)com\.freevibe|/storage/emulated/\d+/Android/data/com\.freevibe)[^\s)'">]*""",
+        """(?:/data/(?:user/\d+/|data/)com\.chloemlla\.aura|/storage/emulated/\d+/Android/data/com\.chloemlla\.aura)[^\s)'">]*""",
     )
     private val fileUriRegex = Regex("""file://[^\s)'">]+""")
 
