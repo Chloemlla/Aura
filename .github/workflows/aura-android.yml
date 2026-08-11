@@ -122,6 +122,16 @@ jobs:
             gradle assembleFullRelease --no-daemon
           fi
 
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: aura-android-build-apk
+          path: |
+            app/build/outputs/apk/full/release/*.apk
+            app/build/outputs/apk/full/debug/*.apk
+          if-no-files-found: warn
+          retention-days: 14
+
   verify:
     name: Android Gradle verification
     runs-on: ubuntu-latest
@@ -157,6 +167,14 @@ jobs:
         # -Paura.reproducibleFossBuild=true keeps the release variant (R8, resource
         # shrinking) but drops the signing config, so verification needs no keystore.
         run: gradle assembleFossRelease -Paura.reproducibleFossBuild=true --no-daemon
+
+      - name: Upload FOSS APK artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: aura-android-foss-apk
+          path: app/build/outputs/apk/foss/release/*.apk
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload verification reports
         if: always()
