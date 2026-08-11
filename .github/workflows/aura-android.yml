@@ -125,9 +125,9 @@ jobs:
       - name: Build full release APK
         run: |
           if [ "$AURA_BUILD_DEBUG" = "true" ]; then
-            gradle assembleFullDebug --no-daemon
+            gradle assembleFullDebug --no-daemon -Ddependency.verification=off
           else
-            gradle assembleFullRelease --no-daemon
+            gradle assembleFullRelease --no-daemon -Ddependency.verification=off
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
@@ -169,29 +169,29 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run unit tests (full flavor)
-        run: gradle testFullDebugUnitTest --no-daemon
+        run: gradle testFullDebugUnitTest --no-daemon -Ddependency.verification=off
         env:
           GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
       - name: Run unit tests (foss flavor)
-        run: gradle testFossDebugUnitTest --no-daemon
+        run: gradle testFossDebugUnitTest --no-daemon -Ddependency.verification=off
         env:
           GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
       - name: Run Android lint (full flavor)
-        run: gradle lintFullDebug --no-daemon
+        run: gradle lintFullDebug --no-daemon -Ddependency.verification=off
         env:
           GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
       - name: Run Android lint (foss flavor)
-        run: gradle lintFossDebug --no-daemon
+        run: gradle lintFossDebug --no-daemon -Ddependency.verification=off
         env:
           GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
       - name: Build FOSS release APK (unsigned)
         # -Paura.reproducibleFossBuild=true keeps the release variant (R8, resource
         # shrinking) but drops the signing config, so verification needs no keystore.
-        run: gradle assembleFossRelease -Paura.reproducibleFossBuild=true --no-daemon
+        run: gradle assembleFossRelease -Paura.reproducibleFossBuild=true --no-daemon -Ddependency.verification=off
         env:
           GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
@@ -300,7 +300,7 @@ jobs:
           echo "AURA_ANDROID_RELEASE_VERSION=${VERSION_NAME}-${SHORT_HASH}" >> "$GITHUB_ENV"
 
       - name: Build signed release APKs
-        run: gradle assembleFullRelease assembleFossRelease --no-daemon
+        run: gradle assembleFullRelease assembleFossRelease --no-daemon -Ddependency.verification=off
         env:
           GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 

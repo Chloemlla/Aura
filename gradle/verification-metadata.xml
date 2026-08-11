@@ -12,6 +12,8 @@
          <trust group="com.google.guava" name="guava-parent" version="33.4.8-jre"/>
          <trust group="org.junit" name="junit-bom" version="5.11.4"/>
          <trust group="org.junit" name="junit-bom" version="5.13.1"/>
+         <trust group="com.chloemlla.lumen" name="lumen-crash"/>
+         <trust group="com.chloemlla.lumen" name="lumen-crash-core"/>
       </trusted-artifacts>
    </configuration>
    <components>
