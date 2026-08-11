@@ -1,22 +1,21 @@
 {
   "project_info": {
-    "project_number": "741398780719",
-    "project_id": "aura-1b494",
-    "storage_bucket": "aura-1b494.firebasestorage.app",
-    "firebase_url": "https://aura-1b494-default-rtdb.firebaseio.com"
+    "project_number": "135876593175",
+    "project_id": "chloemlla-aura",
+    "storage_bucket": "chloemlla-aura.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:741398780719:android:1e2333fa31df6c7d285fda",
+        "mobilesdk_app_id": "1:135876593175:android:d54c9c43a9988774c7be52",
         "android_client_info": {
-          "package_name": "com.freevibe"
+          "package_name": "com.chloemlla.aura"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDwoCs_LGOWdvc8QBBX9ChPsZb4tX93lBk"
+          "current_key": "AIzaSyAOvT-mELcLusUnxDSAsLnk1ZOB3g7qSdg"
         }
       ],
       "services": {
