@@ -77,9 +77,9 @@ class WallpaperHistoryManager @Inject constructor(
         // "current" wallpaper. Swallow errors — the widget is a nice-to-have, a failure
         // here shouldn't surface to the apply path.
         try {
-            with(com.chloemlla.aura.widget.FreeVibeWidget()) {
+            with(com.chloemlla.aura.widget.AuraWidget()) {
                 androidx.glance.appwidget.GlanceAppWidgetManager(context)
-                    .getGlanceIds(com.chloemlla.aura.widget.FreeVibeWidget::class.java)
+                    .getGlanceIds(com.chloemlla.aura.widget.AuraWidget::class.java)
                     .forEach { id -> update(context, id) }
             }
         } catch (e: Throwable) {

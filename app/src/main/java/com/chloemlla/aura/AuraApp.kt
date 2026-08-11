@@ -143,12 +143,12 @@ class AuraApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
     private fun reconcileRotationTriggers() {
         appScope.launch {
             try {
-                val prefs = com.chloemlla.aura.data.local.PreferencesManager(this@FreeVibeApp)
+                val prefs = com.chloemlla.aura.data.local.PreferencesManager(this@AuraApp)
                 val unlock = prefs.rotateOnUnlock.first()
                 val screenOff = prefs.rotateOnScreenOff.first()
                 if (unlock || screenOff) {
                     com.chloemlla.aura.service.RotationTriggerService.reconcile(
-                        this@FreeVibeApp, unlock = unlock, screenOff = screenOff,
+                        this@AuraApp, unlock = unlock, screenOff = screenOff,
                     )
                 }
             } catch (e: Exception) {
@@ -175,7 +175,7 @@ class AuraApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
     private fun publishWidgetPreview() {
         appScope.launch {
             try {
-                com.chloemlla.aura.widget.WidgetPreviewPublisher.publishIfNeeded(this@FreeVibeApp)
+                com.chloemlla.aura.widget.WidgetPreviewPublisher.publishIfNeeded(this@AuraApp)
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 if (BuildConfig.DEBUG) Log.w("FreeVibeApp", "Widget preview publish failed", e)
@@ -186,7 +186,7 @@ class AuraApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
     private fun initYtDlp() {
         appScope.launch {
             try {
-                com.yausername.youtubedl_android.YoutubeDL.getInstance().init(this@FreeVibeApp)
+                com.yausername.youtubedl_android.YoutubeDL.getInstance().init(this@AuraApp)
                 if (BuildConfig.DEBUG) Log.d("AuraApp", "yt-dlp initialized")
             } catch (e: Throwable) {
                 // Must catch CancellationException-as-Throwable here? Throwable catches it, but

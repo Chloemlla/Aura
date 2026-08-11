@@ -43,7 +43,7 @@ import androidx.media3.common.C
 import com.chloemlla.aura.service.FfmpegDownloader
 import com.chloemlla.aura.service.FfmpegDownloaderEntryPoint
 import com.chloemlla.aura.service.ClashProxyHolder
-import dagger.hilt.EntryPointAccessors
+import dagger.hilt.android.EntryPointAccessors
 import java.io.File
 import java.io.IOException
 import java.net.Proxy
