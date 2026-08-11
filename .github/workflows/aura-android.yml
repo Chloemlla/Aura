@@ -40,7 +40,7 @@ permissions:
 
 jobs:
   build:
-    name: Build full release APK
+    name: Build full debug APK (verify)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -67,8 +67,8 @@ jobs:
           echo "AURA_SHORT_HASH=${SHORT_HASH}" >> "$GITHUB_ENV"
           echo "AURA_ANDROID_RELEASE_VERSION=${VERSION_NAME}-${SHORT_HASH}" >> "$GITHUB_ENV"
 
-      - name: Build full release APK
-        run: gradle assembleFullRelease --no-daemon
+      - name: Build full debug APK
+        run: gradle assembleFullDebug --no-daemon
 
   verify:
     name: Android Gradle verification

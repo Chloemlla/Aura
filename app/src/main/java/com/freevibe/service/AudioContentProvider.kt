@@ -12,6 +12,7 @@ import android.os.ParcelFileDescriptor
 import android.util.Log
 import com.freevibe.data.model.Sound
 import com.freevibe.data.model.stableKey
+import dagger.hilt.EntryPoint
 import dagger.hilt.EntryPoints
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
@@ -204,6 +205,7 @@ class AudioContentProvider : ContentProvider() {
     }
 }
 
+@EntryPoint
 @InstallIn(SingletonComponent::class)
 interface AudioContentProviderEntryPoint {
     fun bundledContentProvider(): BundledContentProvider
