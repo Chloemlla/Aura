@@ -40,7 +40,7 @@ permissions:
 
 jobs:
   build:
-    name: Build full debug APK (verify)
+    name: Build full release APK
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -67,8 +67,60 @@ jobs:
           echo "AURA_SHORT_HASH=${SHORT_HASH}" >> "$GITHUB_ENV"
           echo "AURA_ANDROID_RELEASE_VERSION=${VERSION_NAME}-${SHORT_HASH}" >> "$GITHUB_ENV"
 
-      - name: Build full debug APK
-        run: gradle assembleFullDebug --no-daemon
+      - name: Validate release secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          missing_secrets=()
+          for secret_name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!secret_name}" ]; then
+              missing_secrets+=("$secret_name")
+            fi
+          done
+
+          if [ "${#missing_secrets[@]}" -gt 0 ]; then
+            for secret_name in "${missing_secrets[@]}"; do
+              echo "::warning::$secret_name repository secret is not set; will build unsigned debug APK"
+            done
+          fi
+
+      - name: Prepare release signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "No signing secrets, building debug variant instead"
+            echo "AURA_BUILD_DEBUG=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          keystore_file="$RUNNER_TEMP/aura-release.jks"
+          if ! printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore_file"; then
+            echo "::error::KEYSTORE_BASE64 is not valid base64."
+            echo "AURA_BUILD_DEBUG=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          cat >> local.properties <<PROPS
+          signing.keystore.path=$keystore_file
+          signing.keystore.password=$KEYSTORE_PASSWORD
+          signing.key.alias=$KEY_ALIAS
+          signing.key.password=$KEY_PASSWORD
+          PROPS
+
+      - name: Build full release APK
+        run: |
+          if [ "$AURA_BUILD_DEBUG" = "true" ]; then
+            gradle assembleFullDebug --no-daemon
+          else
+            gradle assembleFullRelease --no-daemon
+          fi
 
   verify:
     name: Android Gradle verification
