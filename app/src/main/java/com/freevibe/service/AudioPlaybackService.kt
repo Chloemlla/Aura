@@ -110,7 +110,7 @@ class AudioPlaybackService : MediaLibraryService() {
             params: MediaLibraryService.LibraryParams?,
         ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
             val children: ImmutableList<MediaItem> = when (parentId) {
-                ROOT_ID -> ImmutableList.of(
+                ROOT_ID -> ImmutableList.of<MediaItem>(
                     browseableCategory("Ringtones", CATEGORY_RINGTONE, "Curated melodic ringtones"),
                     browseableCategory("Notifications", CATEGORY_NOTIFICATION, "Short, crisp notification sounds"),
                     browseableCategory("Alarms", CATEGORY_ALARM, "Attention-getting alarm sounds"),
@@ -119,13 +119,13 @@ class AudioPlaybackService : MediaLibraryService() {
                 )
                 CATEGORY_RINGTONE -> bundledContentProvider.getRingtones()
                     .map { it.toMediaItem() }
-                    .let(ImmutableList::copyOf)
+                    .let { ImmutableList.copyOf<MediaItem>(it) }
                 CATEGORY_NOTIFICATION -> bundledContentProvider.getNotifications()
                     .map { it.toMediaItem() }
-                    .let(ImmutableList::copyOf)
+                    .let { ImmutableList.copyOf<MediaItem>(it) }
                 CATEGORY_ALARM -> bundledContentProvider.getAlarms()
                     .map { it.toMediaItem() }
-                    .let(ImmutableList::copyOf)
+                    .let { ImmutableList.copyOf<MediaItem>(it) }
                 CATEGORY_FAVORITES -> runBlocking { favoritesRepository.getSounds().first() }
                     .mapNotNull { favorite ->
                         val source = runCatching {
@@ -141,10 +141,10 @@ class AudioPlaybackService : MediaLibraryService() {
                             uploaderName = favorite.uploaderName ?: "",
                         ).toMediaItem()
                     }
-                    .let(ImmutableList::copyOf)
+                    .let { ImmutableList.copyOf<MediaItem>(it) }
                 CATEGORY_AURA_PICKS -> allBundledSounds()
                     .map { it.toMediaItem() }
-                    .let(ImmutableList::copyOf)
+                    .let { ImmutableList.copyOf<MediaItem>(it) }
                 else -> return Futures.immediateFuture(
                     LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE),
                 )
