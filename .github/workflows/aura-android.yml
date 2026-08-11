@@ -39,8 +39,8 @@ permissions:
   contents: read
 
 jobs:
-  verify:
-    name: Android Gradle verification
+  build:
+    name: Build full release APK
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -67,6 +67,28 @@ jobs:
           echo "AURA_SHORT_HASH=${SHORT_HASH}" >> "$GITHUB_ENV"
           echo "AURA_ANDROID_RELEASE_VERSION=${VERSION_NAME}-${SHORT_HASH}" >> "$GITHUB_ENV"
 
+      - name: Build full release APK
+        run: gradle assembleFullRelease --no-daemon
+
+  verify:
+    name: Android Gradle verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+
+      - name: Set up Java 17
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520
+        with:
+          distribution: zulu
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+          cache-cleanup: on-success
+
       - name: Run unit tests (full flavor)
         run: gradle testFullDebugUnitTest --no-daemon
 
@@ -79,11 +101,8 @@ jobs:
       - name: Run Android lint (foss flavor)
         run: gradle lintFossDebug --no-daemon
 
-      - name: Build FOSS release APK for verification
+      - name: Build FOSS release APK
         run: gradle assembleFossRelease --no-daemon
-
-      - name: Build full release APK for verification
-        run: gradle assembleFullRelease --no-daemon
 
       - name: Upload verification reports
         if: always()
@@ -99,7 +118,7 @@ jobs:
 
   release:
     name: Android signed release
-    needs: verify
+    needs: build
     if: >-
       github.event_name != 'pull_request' &&
       github.ref == 'refs/heads/main' &&
