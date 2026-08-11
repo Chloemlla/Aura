@@ -5,7 +5,7 @@
   "services": [
     {
       "class": "com.freevibe.service.AudioPlaybackService",
-      "type": "MediaSessionService",
+      "type": "MediaLibraryService (extends MediaSessionService)",
       "foregroundServiceType": "mediaPlayback",
       "manifestPermission": "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
       "notificationChannel": "media_playback",

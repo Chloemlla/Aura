@@ -151,7 +151,11 @@
                 android:resource="@xml/parallax_wallpaper" />
         </service>
 
-        <!-- Audio Playback Service (MediaSession) -->
+        <!-- Audio Playback Service (MediaLibraryService) — also provides
+             MediaBrowser-compatible library browsing for Android Auto/wearables.
+             External apps can browse categories (ringtones, notifications, alarms,
+             favorites, all Aura Picks) and initiate playback through the
+             MediaBrowserCompat API. -->
         <service
             android:name=".service.AudioPlaybackService"
             android:exported="true"
@@ -210,6 +214,24 @@
             </intent-filter>
         </receiver>
 
+        <!-- External Audio Intent Receiver — allows third-party apps to trigger
+             audio playback via simple broadcast intents:
+             - com.freevibe.action.PLAY_SOUND (with SOUND_ID extra)
+             - com.freevibe.action.PLAY_RANDOM (with optional CATEGORY extra)
+             - com.freevibe.action.STOP_PLAYBACK
+             - com.freevibe.action.SET_VOLUME (with VOLUME extra) -->
+        <receiver
+            android:name=".service.ExternalAudioIntentReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="com.freevibe.action.PLAY_SOUND" />
+                <action android:name="com.freevibe.action.PLAY_RANDOM" />
+                <action android:name="com.freevibe.action.STOP_PLAYBACK" />
+                <action android:name="com.freevibe.action.SET_VOLUME" />
+            </intent-filter>
+        </receiver>
+
         <!-- Home Screen Widget -->
         <receiver
             android:name=".widget.FreeVibeWidgetReceiver"
@@ -227,6 +249,19 @@
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
             android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- Audio Content Provider — serves bundled sound files to third-party apps
+             via content:// URIs (e.g. content://com.freevibe.audioprovider/sound/SOUND::BUNDLED::bundled_ringtone_01).
+             External apps read audio streams through ContentResolver.openFileDescriptor(). -->
+        <provider
+            android:name=".service.AudioContentProvider"
+            android:authorities="${applicationId}.audioprovider"
+            android:exported="true"
             android:grantUriPermissions="true">
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"

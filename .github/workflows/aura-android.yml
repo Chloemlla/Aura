@@ -42,9 +42,6 @@ jobs:
   verify:
     name: Android Gradle verification
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: app
     steps:
       - name: Checkout repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
@@ -113,9 +110,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    defaults:
-      run:
-        working-directory: app
     steps:
       - name: Checkout repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
@@ -166,7 +160,7 @@ jobs:
           # Write root local.properties so the build reads CI signing credentials.
           # app/build.gradle.kts loads signing props from rootProject.file("local.properties")
           # and resolves storeFile relative to the app/ directory.
-          cat >> ../local.properties <<PROPS
+          cat >> local.properties <<PROPS
           signing.keystore.path=$keystore_file
           signing.keystore.password=${{ secrets.KEYSTORE_PASSWORD }}
           signing.key.alias=${{ secrets.KEY_ALIAS }}
