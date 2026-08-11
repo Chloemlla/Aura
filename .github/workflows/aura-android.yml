@@ -59,7 +59,7 @@ jobs:
           cache-cleanup: on-success
 
       - name: Ensure Gradle wrapper is executable
-        run: chmod +x ./gradlew
+        run: chmod +x ../gradlew
 
       - name: Read app version
         run: |
@@ -168,7 +168,7 @@ jobs:
           PROPS
 
       - name: Ensure Gradle wrapper is executable
-        run: chmod +x ./gradlew
+        run: chmod +x ../gradlew
 
       - name: Read app version
         run: |

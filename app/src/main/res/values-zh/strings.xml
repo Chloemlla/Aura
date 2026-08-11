@@ -983,7 +983,7 @@
     <string name="video_wp_category_neon">霓虹</string>
     <string name="video_wp_category_ocean">海洋</string>
     <string name="video_wp_category_fire">火焰</string>
-    <string name="video_wp_category_cinemagraph">Cinemagraph</string>
+    <string name="video_wp_category_cinemagraph">动态摄影</string>
     <string name="video_wp_category_scifi">科幻</string>
     <string name="video_wp_category_rain">雨</string>
     <string name="video_wp_category_clouds">云</string>
@@ -1095,7 +1095,7 @@
     <string name="settings_video_subreddits_title">视频社区</string>
     <string name="settings_reddit_subreddits_summary">已选择 %1$d 个 • 点击编辑</string>
     <string name="settings_reddit_subreddits_hint">输入以逗号或换行分隔的 subreddit 名称。r/ 前缀可选。留空可恢复 Aura 的默认设置。</string>
-    <string name="settings_reddit_subreddits_input_label">Subreddits</string>
+    <string name="settings_reddit_subreddits_input_label">子版块</string>
     <string name="settings_reddit_subreddits_error">每个名称使用 2–40 个字母、数字或下划线，且社区数量不超过 12 个。</string>
     <string name="settings_wp_bing_title">启用 Bing 每日来源</string>
     <string name="settings_wp_bing_on_subtitle">将 Bing 每日图片添加到发现和轮换中</string>

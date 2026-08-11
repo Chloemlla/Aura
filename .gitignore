@@ -40,3 +40,5 @@ AGENTS.md
 .ai/
 PROJECT_CONTEXT.md
 CONTINUATION_PROMPT.md
+setup-android-signing.ps1
+Aura-release.jks
