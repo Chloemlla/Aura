@@ -6,11 +6,9 @@ import android.content.Context
 import android.os.Build
 import com.chloemlla.aura.BuildConfig
 import com.chloemlla.aura.data.local.PreferencesManager
+import com.chloemlla.lumen.crash.LumenCrash
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
-import java.io.File
-import java.io.PrintWriter
-import java.io.StringWriter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -43,13 +41,12 @@ class CrashDiagnosticsCollector @Inject constructor(
     private val liveWallpaperReceiptStore: LiveWallpaperReceiptStore,
 ) {
     fun readSummary(): CrashDiagnosticsSummary {
-        val logFile = crashLogFile()
-        if (!logFile.exists() || logFile.length() <= 0L) return CrashDiagnosticsSummary()
-        val raw = runCatching { logFile.readText(Charsets.UTF_8) }.getOrDefault("")
+        val report = LumenCrash.loadPendingReportSafely()
+        if (report == null) return CrashDiagnosticsSummary()
         return CrashDiagnosticsSummary(
-            lastCrashAt = CrashDiagnosticsText.parseLastCrashAt(raw),
-            crashLogBytes = logFile.length(),
-            hasCrashLog = raw.isNotBlank(),
+            lastCrashAt = report.crashedAtText,
+            crashLogBytes = report.stackTrace.length.toLong(),
+            hasCrashLog = true,
         )
     }
 
@@ -175,12 +172,15 @@ class CrashDiagnosticsCollector @Inject constructor(
         }
     }
 
-    private fun crashLogFile(): File = File(context.filesDir, CRASH_LOG_FILE_NAME)
-
     private fun sanitizedCrashLogTail(): String {
-        val logFile = crashLogFile()
-        if (!logFile.exists() || logFile.length() <= 0L) return ""
-        val raw = runCatching { logFile.readText(Charsets.UTF_8) }.getOrDefault("")
+        val report = LumenCrash.loadPendingReportSafely() ?: return ""
+        val raw = buildString {
+            appendLine("--- Crash at ${report.crashedAtText} on thread ${report.threadName} ---")
+            appendLine("Exception: ${report.exceptionType}")
+            appendLine("Root cause: ${report.rootCause}")
+            appendLine()
+            appendLine(report.stackTrace)
+        }
         return CrashDiagnosticsText.sanitize(
             raw = CrashDiagnosticsText.tail(raw, MAX_CRASH_LOG_CHARS),
             appPaths = appPrivatePaths(),
@@ -348,7 +348,6 @@ class CrashDiagnosticsCollector @Inject constructor(
     }
 
     companion object {
-        const val CRASH_LOG_FILE_NAME = "crash.log"
         private const val MAX_CRASH_LOG_CHARS = 16_000
         private const val MAX_SOURCE_HEALTH_ROWS = 8
         private const val WEATHER_WALLPAPER_PREFS = "freevibe_weather_wp"
@@ -362,20 +361,10 @@ class CrashDiagnosticsCollector @Inject constructor(
 }
 
 internal object CrashDiagnosticsText {
-    private val crashHeaderRegex = Regex("""--- Crash at (.+?) on thread .+? ---""")
     private val appPrivatePathRegex = Regex(
         """(?:/data/(?:user/\d+/|data/)com\.chloemlla\.aura|/storage/emulated/\d+/Android/data/com\.chloemlla\.aura)[^\s)'">]*""",
     )
     private val fileUriRegex = Regex("""file://[^\s)'">]+""")
-
-    fun formatCrashEntry(timestampLabel: String, threadName: String, throwable: Throwable): String {
-        val sw = StringWriter()
-        throwable.printStackTrace(PrintWriter(sw))
-        return "--- Crash at $timestampLabel on thread $threadName ---\n$sw\n"
-    }
-
-    fun parseLastCrashAt(raw: String): String? =
-        crashHeaderRegex.findAll(raw).lastOrNull()?.groupValues?.getOrNull(1)
 
     fun tail(raw: String, maxChars: Int): String {
         if (raw.length <= maxChars) return raw.trimEnd()

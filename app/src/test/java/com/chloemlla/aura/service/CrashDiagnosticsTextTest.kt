@@ -1,31 +1,10 @@
 package com.chloemlla.aura.service
 
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CrashDiagnosticsTextTest {
-
-    @Test
-    fun parseLastCrashAtReadsNewestSyntheticCrashEntry() {
-        val first = CrashDiagnosticsText.formatCrashEntry(
-            timestampLabel = "2026-06-04 08:10:00",
-            threadName = "main",
-            throwable = IllegalStateException("first crash"),
-        )
-        val second = CrashDiagnosticsText.formatCrashEntry(
-            timestampLabel = "2026-06-04 08:45:00",
-            threadName = "DefaultDispatcher-worker-1",
-            throwable = RuntimeException("newest crash"),
-        )
-
-        val raw = first + second
-
-        assertEquals("2026-06-04 08:45:00", CrashDiagnosticsText.parseLastCrashAt(raw))
-        assertTrue(raw.contains("RuntimeException"))
-        assertTrue(raw.contains("DefaultDispatcher-worker-1"))
-    }
 
     @Test
     fun sanitizeRedactsSecretsTokensAndPrivatePaths() {

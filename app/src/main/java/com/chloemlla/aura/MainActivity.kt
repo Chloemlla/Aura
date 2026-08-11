@@ -25,6 +25,7 @@ import com.chloemlla.aura.ui.FreeVibeRoot
 import com.chloemlla.aura.ui.navigation.Screen
 import com.chloemlla.aura.ui.theme.FreeVibeTheme
 import com.chloemlla.aura.util.LocaleHelper
+import com.chloemlla.lumen.crash.ui.LumenCrashGate
 import dagger.hilt.android.AndroidEntryPoint
 
 internal data class LaunchNavigation(
@@ -217,15 +218,17 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             FreeVibeTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background,
-                ) {
-                    FreeVibeRoot(
-                        initialNavigateTo = launchNavigation?.route,
-                        initialWallpaper = launchNavigation?.wallpaper,
-                        navigationToken = launchNavigation?.token ?: 0L,
-                    )
+                LumenCrashGate {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background,
+                    ) {
+                        FreeVibeRoot(
+                            initialNavigateTo = launchNavigation?.route,
+                            initialWallpaper = launchNavigation?.wallpaper,
+                            navigationToken = launchNavigation?.token ?: 0L,
+                        )
+                    }
                 }
             }
         }

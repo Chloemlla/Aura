@@ -1809,4 +1809,9 @@
     <string name="ai_share_community_default_name">生成的壁纸</string>
     <string name="ai_share_community_complete">生成的壁纸已分享到社区</string>
     <string name="ai_share_community_failed">社区上传失败：%1$s</string>
+
+    <!-- Lumen Crash SDK 集成 -->
+    <string name="crash_report_title">崩溃报告已保存</string>
+    <string name="crash_report_message">Aura 从崩溃中恢复。请在继续前查看、复制或分享此报告。</string>
+    <string name="crash_report_share_subject">Aura 崩溃报告</string>
 </resources>

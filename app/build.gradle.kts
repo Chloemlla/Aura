@@ -1,6 +1,21 @@
 import java.net.URL
 import java.util.Properties
 
+// Lumen Crash SDK version resolution: resolved version (from CI fetch) > version file > "latest" sentinel
+val lumenCrashSdkVersion: String =
+    readVersionFile(rootProject.file("../lumen-crash.resolved.version"))
+        ?: readVersionFile(rootProject.file("lumen-crash.version"))
+            ?.takeUnless { it.equals("latest", ignoreCase = true) }
+        ?: error(
+            "lumen-crash SDK version is unresolved. " +
+                "Run .github/scripts/fetch-lumen-crash-sdk.py or create lumen-crash.version."
+        )
+
+fun readVersionFile(file: java.io.File): String? {
+    if (!file.exists()) return null
+    return file.readText().trim().ifBlank { null }
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -101,6 +116,7 @@ android {
         buildConfigField("String", "FREESOUND_API_KEY", "\"${localProps.getProperty("freesound.api.key", "")}\"")
         buildConfigField("String", "SOUNDCLOUD_CLIENT_ID", "\"${localProps.getProperty("soundcloud.client.id", "")}\"")
         buildConfigField("String", "STABILITY_AI_KEY", "\"${localProps.getProperty("stability.ai.key", "")}\"")
+        buildConfigField("String", "SHORT_HASH", "\"${localProps.getProperty("short.hash", System.getenv("AURA_SHORT_HASH") ?: "unknown")}\"")
     }
 
     flavorDimensions += "distribution"
@@ -376,6 +392,10 @@ dependencies {
     // ModuleInstallClient lets us proactively download the unbundled segmenter
     // model so parallax wallpapers don't fail silently on first apply.
     add("fullImplementation", "com.google.android.gms:play-services-base:18.5.0")
+
+    // Lumen Crash SDK — crash reporting, ANR detection, startup hang watchdog,
+    // and adaptive Compose crash report UI. Replaces the old custom crash.log handler.
+    implementation("com.chloemlla.lumen:lumen-crash:$lumenCrashSdkVersion")
 }
 
 // Build-time yt-dlp download: fetch the latest stable yt-dlp zipapp from GitHub

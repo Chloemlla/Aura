@@ -58,6 +58,12 @@ jobs:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
           cache-cleanup: on-success
 
+      - name: Resolve lumen-crash SDK version
+        run: |
+          python .github/scripts/fetch-lumen-crash-sdk.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Read app version
         run: |
           VERSION_NAME="6.40.0.${GITHUB_RUN_NUMBER}"
@@ -151,6 +157,12 @@ jobs:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
           cache-cleanup: on-success
 
+      - name: Resolve lumen-crash SDK version
+        run: |
+          python .github/scripts/fetch-lumen-crash-sdk.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run unit tests (full flavor)
         run: gradle testFullDebugUnitTest --no-daemon
 
@@ -213,6 +225,12 @@ jobs:
         with:
           cache-read-only: false
           cache-cleanup: on-success
+
+      - name: Resolve lumen-crash SDK version
+        run: |
+          python .github/scripts/fetch-lumen-crash-sdk.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Validate release secrets
         env:

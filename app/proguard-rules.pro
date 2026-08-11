@@ -40,3 +40,6 @@
 # its synthetic discriminator by one byte between otherwise identical builds.
 # Keep it shrinkable/obfuscatable but do not optimize or merge the class.
 -keep,allowshrinking,allowobfuscation class com.fasterxml.jackson.databind.ser.std.ToStringSerializerBase { *; }
+
+# Lumen Crash SDK
+-keep class com.chloemlla.lumen.crash.** { *; }

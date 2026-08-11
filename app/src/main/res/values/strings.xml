@@ -1809,4 +1809,9 @@
     <string name="ai_share_community_default_name">Generated wallpaper</string>
     <string name="ai_share_community_complete">Generated wallpaper shared to Community</string>
     <string name="ai_share_community_failed">Community upload failed: %1$s</string>
+
+    <!-- Lumen Crash SDK integration -->
+    <string name="crash_report_title">Crash report saved</string>
+    <string name="crash_report_message">Aura recovered from a crash. Review, copy, or share this report before continuing.</string>
+    <string name="crash_report_share_subject">Aura crash report</string>
 </resources>

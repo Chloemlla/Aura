@@ -17,13 +17,13 @@ import coil3.memoryCacheMaxSizePercentWhileInBackground
 import coil3.request.crossfade
 import com.chloemlla.aura.data.local.WallpaperCacheManager
 import com.chloemlla.aura.service.NotificationChannels
-import com.chloemlla.aura.service.CrashDiagnosticsCollector
-import com.chloemlla.aura.service.CrashDiagnosticsText
 import com.chloemlla.aura.service.AppCheckInstaller
 import com.chloemlla.aura.service.ClashProxyManager
 import com.chloemlla.aura.service.OfflineFavoritesManager
 import com.chloemlla.aura.service.PathBackedRecordReconciler
 import com.chloemlla.aura.util.LocaleHelper
+import com.chloemlla.lumen.crash.LumenCrash
+import com.chloemlla.lumen.crash.LumenCrashConfig
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,9 +33,6 @@ import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okio.Path.Companion.toOkioPath
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -66,6 +63,7 @@ class AuraApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
 
     override fun attachBaseContext(base: Context) {
         super.attachBaseContext(LocaleHelper.wrapContext(base))
+        installLumenCrashSdk()
     }
 
     override val workManagerConfiguration: Configuration
@@ -102,7 +100,7 @@ class AuraApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
 
     override fun onCreate() {
         super.onCreate()
-        setupCrashLogging()
+        installLumenCrashSdk() // idempotent via isInstalled() check
         installAppCheck()
         NotificationChannels.createAll(this)
         evictStaleCaches()
@@ -112,6 +110,25 @@ class AuraApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
         enqueueAuraOriginalsDownload()
         publishWidgetPreview()
         reconcileRotationTriggers()
+    }
+
+    private fun installLumenCrashSdk() {
+        if (LumenCrash.isInstalled()) return
+        runCatching {
+            LumenCrash.install(
+                this,
+                LumenCrashConfig(
+                    appDisplayName = getString(R.string.app_name),
+                    versionName = BuildConfig.VERSION_NAME,
+                    versionCode = BuildConfig.VERSION_CODE,
+                    commitHash = BuildConfig.SHORT_HASH,
+                    fileProviderAuthority = "${packageName}.fileprovider",
+                    shareSubject = getString(R.string.crash_report_share_subject),
+                    reportTitle = getString(R.string.crash_report_title),
+                    reportMessage = getString(R.string.crash_report_message),
+                ),
+            )
+        }
     }
 
     private fun startClashProxy() {
@@ -194,37 +211,6 @@ class AuraApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
                 // rethrow: init-failure of yt-dlp should degrade the YouTube tab, not kill the app.
                 if (BuildConfig.DEBUG) Log.e("AuraApp", "yt-dlp init failed: ${e.message}")
             }
-        }
-    }
-
-
-    private fun setupCrashLogging() {
-        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
-        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            try {
-                val logFile = File(filesDir, CrashDiagnosticsCollector.CRASH_LOG_FILE_NAME)
-                val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
-                logFile.appendText(
-                    CrashDiagnosticsText.formatCrashEntry(timestamp, thread.name, throwable),
-                    Charsets.UTF_8,
-                )
-                // Keep log file reasonable (max 500KB) — trim tail without full read
-                if (logFile.length() > 512_000) {
-                    try {
-                        java.io.RandomAccessFile(logFile, "r").use { raf ->
-                            val keepBytes = 256_000
-                            val skipTo = raf.length() - keepBytes
-                            raf.seek(skipTo.coerceAtLeast(0))
-                            val tail = ByteArray(keepBytes.coerceAtMost(raf.length().toInt()))
-                            raf.readFully(tail)
-                            logFile.writeBytes(tail)
-                        }
-                    } catch (_: Exception) {}
-                }
-            } catch (_: Exception) {
-                // Don't let crash logging itself crash
-            }
-            defaultHandler?.uncaughtException(thread, throwable)
         }
     }
 
