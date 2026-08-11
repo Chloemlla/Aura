@@ -58,9 +58,6 @@ jobs:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
           cache-cleanup: on-success
 
-      - name: Ensure Gradle wrapper is executable
-        run: chmod +x ./gradlew
-
       - name: Read app version
         run: |
           VERSION_NAME="6.40.0.${GITHUB_RUN_NUMBER}"
@@ -71,22 +68,22 @@ jobs:
           echo "AURA_ANDROID_RELEASE_VERSION=${VERSION_NAME}-${SHORT_HASH}" >> "$GITHUB_ENV"
 
       - name: Run unit tests (full flavor)
-        run: ./gradlew testFullDebugUnitTest --no-daemon
+        run: gradle testFullDebugUnitTest --no-daemon
 
       - name: Run unit tests (foss flavor)
-        run: ./gradlew testFossDebugUnitTest --no-daemon
+        run: gradle testFossDebugUnitTest --no-daemon
 
       - name: Run Android lint (full flavor)
-        run: ./gradlew lintFullDebug --no-daemon
+        run: gradle lintFullDebug --no-daemon
 
       - name: Run Android lint (foss flavor)
-        run: ./gradlew lintFossDebug --no-daemon
+        run: gradle lintFossDebug --no-daemon
 
       - name: Build FOSS release APK for verification
-        run: ./gradlew assembleFossRelease --no-daemon
+        run: gradle assembleFossRelease --no-daemon
 
       - name: Build full release APK for verification
-        run: ./gradlew assembleFullRelease --no-daemon
+        run: gradle assembleFullRelease --no-daemon
 
       - name: Upload verification reports
         if: always()
@@ -167,9 +164,6 @@ jobs:
           signing.key.password=${{ secrets.KEY_PASSWORD }}
           PROPS
 
-      - name: Ensure Gradle wrapper is executable
-        run: chmod +x ./gradlew
-
       - name: Read app version
         run: |
           VERSION_NAME="6.40.0.${GITHUB_RUN_NUMBER}"
@@ -180,7 +174,7 @@ jobs:
           echo "AURA_ANDROID_RELEASE_VERSION=${VERSION_NAME}-${SHORT_HASH}" >> "$GITHUB_ENV"
 
       - name: Build signed release APKs
-        run: ./gradlew assembleFullRelease assembleFossRelease --no-daemon
+        run: gradle assembleFullRelease assembleFossRelease --no-daemon
 
       - name: Prepare release assets
         run: |
