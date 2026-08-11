@@ -146,7 +146,7 @@ class AudioPlaybackService : MediaLibraryService() {
                     .map { it.toMediaItem() }
                     .let { ImmutableList.copyOf<MediaItem>(it) }
                 else -> return Futures.immediateFuture(
-                    LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE),
+                    LibraryResult.ofError(SessionError.ERROR_BAD_VALUE),
                 )
             }
             return Futures.immediateFuture(LibraryResult.ofItemList(children, /* params = */ null))
@@ -163,7 +163,7 @@ class AudioPlaybackService : MediaLibraryService() {
                 if (match != null) {
                     LibraryResult.ofItem(match.toMediaItem(), /* params = */ null)
                 } else {
-                    LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE)
+                    LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
                 },
             )
         }
