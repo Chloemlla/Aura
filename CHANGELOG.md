@@ -4,12 +4,21 @@ All notable changes to Aura will be documented in this file.
 
 ## v6.41.0 (2026-08-10)
 
-- **Fix: the JVM unit test suite could not compile** — `ProviderCapabilityContractTest` used
-  `groupingBy` inside a backtick-named test function. `groupingBy` emits an anonymous `Grouping`
-  class that inherits the enclosing function name, producing a class file whose name contains
-  spaces, and Kotlin 2.1.0's `GeneratedJvmClass` cannot read it back. `compileFullDebugUnitTestKotlin`
-  aborted with `Couldn't load KotlinClass`, so no unit test ran at all. Switched to `groupBy`,
-  which returns a map directly and emits no anonymous class.
+- **Fix: the JVM unit test suite could not compile** — `groupingBy` emits an anonymous
+  `Grouping` class carrying no Kotlin metadata, and Kotlin 2.1.0's incremental compiler asserts
+  when it reads that class back (`Couldn't load KotlinClass`). In `app/src/test` this was fatal:
+  `compileFullDebugUnitTestKotlin` aborted, so no unit test in the project could run. The two
+  uses in `BackgroundWorkDiagnosticsReader` were survivable but silently forced a full
+  non-incremental recompile on every build while still reporting `BUILD SUCCESSFUL`. All three
+  now use `groupBy`, and `tools/kotlin_toolchain_hazard_check.py` fails the build if the
+  construct returns.
+- **Fix: source files no longer carry bytes that hide them from tooling** — a raw NUL byte in
+  `AuraOriginalsDownloader.kt` made ripgrep report `binary file matches` and refuse to display
+  the file; the line it concealed was the path-traversal guard. Repaired that byte, three U+FFFD
+  replacement characters in `VoteRepository.kt`, and the line endings of 54 files. A new
+  `.gitattributes` pins tracked text to LF — 14 files had mixed endings, including two that
+  release gates hash — and `tools/source_byte_hygiene_check.py` now rejects NUL bytes, U+FFFD,
+  invalid UTF-8, and stray carriage returns across all 784 tracked text files.
 - **Security: patched two live advisories in the community backend** — `functions` resolved
   `protobufjs` 7.6.4 (GHSA-j3f2-48v5-ccww, denial of service via infinite loop in `.proto` option
   parsing) and `body-parser` 1.20.5 (GHSA-v422-hmwv-36x6, request size enforcement silently

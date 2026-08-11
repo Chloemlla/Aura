@@ -90,13 +90,6 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
   Acceptance: release output is per-ABI plus a universal APK, and the arm64-v8a artifact is under 30 MB; `native_alignment_check.py` verifies the *declared* ABI set against the APK and fails on any mismatch in either direction, instead of skipping non-64-bit libraries; `obtainium.json`'s `autoApkFilterByArch` is confirmed against the split asset names; `docs/distribution/native-alignment.json` no longer claims `releaseWorkflowEnforced` for a workflow that does not exist.
   Complexity: M
 
-- [ ] P1 — Add `.gitattributes` and a source-byte hygiene gate
-  Why: a raw NUL byte in the path-traversal guard makes ripgrep report "binary file matches" and hide that file from every modern search tool; `git ls-files --eol` shows 14 tracked files with mixed line endings and 3 CRLF-in-index, two of which are the hash/lock files the reproducibility and license gates consume.
-  Evidence: `AuraOriginalsDownloader.kt` offset 11170 (NUL inside a char literal); `VoteRepository.kt` 3× U+FFFD; `git ls-files --eol` (14 `w/mixed`, incl. `build.gradle.kts`, `settings.gradle.kts`, `DatabaseMigrations.kt`; `i/crlf` incl. `gradle/verification-metadata.xml`, `docs/legal/dependency-notices.lock.json`); CLAUDE.md already records tooling flipping LF→CRLF.
-  Touches: new `.gitattributes`, one-time renormalization, new `tools/source_byte_hygiene_check.py` + test.
-  Acceptance: `.gitattributes` pins LF for text and marks binaries; the gate rejects NUL bytes, U+FFFD, invalid UTF-8, and mixed line endings; the NUL becomes `'\u0000'`; `git ls-files --eol` reports no mixed or unexpected CRLF entries.
-  Complexity: S
-
 - [ ] P1 — Split the N-1 blocker: AGP 8.9 + compileSdk 36 at targetSdk 35
   Why: `Roadmap_Blocked.md` blocks Media3, Coil, and OkHttp on the full AGP 9 / Gradle 9 / Kotlin 2.3 upgrade, but compileSdk 36 with targetSdk 35 is legal, triggers no Android 16 behavior change, and needs only an AGP 8.9.x-class bump on the current Gradle 8.12.1 / JDK 17 / Kotlin 2.1.0 stack. AGP 8.8+ is also the floor for the R8 core-count determinism fix any reproducibility claim depends on. **[Likely]** — the exact minimum AGP minor is the acceptance test.
   Evidence: `Roadmap_Blocked.md:39-58` ("AGP 8.7.3 max is 35") and `:32-33` (already cites AGP 8.9.0-rc01); `app/build.gradle.kts:73,87`; Media3 1.10.1+/Coil 3.5.0 `minCompileSdk 36`.

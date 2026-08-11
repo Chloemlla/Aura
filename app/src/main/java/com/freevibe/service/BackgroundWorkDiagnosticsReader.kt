@@ -166,9 +166,12 @@ class AndroidBackgroundWorkDiagnosticsReader @Inject constructor(
 
 internal fun summarizeWorkInfoStates(states: List<WorkInfo.State>): String {
     if (states.isEmpty()) return "No WorkInfo records"
+    // groupBy, not groupingBy: groupingBy emits an anonymous Grouping class with no Kotlin
+    // metadata, and Kotlin 2.1.0's incremental compiler asserts when it reads that class
+    // back ("Couldn't load KotlinClass"), forcing a full non-incremental recompile.
     return states
-        .groupingBy { it.name }
-        .eachCount()
+        .groupBy { it.name }
+        .mapValues { (_, group) -> group.size }
         .toSortedMap()
         .entries
         .joinToString(", ") { (state, count) -> "$state=$count" }
@@ -179,8 +182,8 @@ internal fun summarizeWorkInfoStopReasons(reasons: List<Int>): String? {
     if (stopped.isEmpty()) return null
     return stopped
         .map(::workInfoStopReasonLabel)
-        .groupingBy { it }
-        .eachCount()
+        .groupBy { it }
+        .mapValues { (_, group) -> group.size }
         .toSortedMap()
         .entries
         .joinToString(", ") { (reason, count) -> "$reason=$count" }
