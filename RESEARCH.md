@@ -233,8 +233,7 @@ is currently under-invested relative to the wallpaper side.
   render from the managed local file (v6.40.0) and Room migrations v1→v16 are complete and
   registered with no destructive fallback; *multi-user and plugin ABI* — rejected or blocked
   (NX-5); *mobile* — Android is the product. No duplicate was added for any of these.
-- **Distribution readiness.** `fastlane/metadata/android/en-US/changelogs/` stops at `8.txt`
-  against versionCode 141, and there is no `images/` directory — IzzyOnDroid requires icon and
+- **Distribution readiness.** `fastlane/metadata/android/en-US/` has no `images/` directory — IzzyOnDroid requires icon and
   screenshots in-repo. The `foss` flavor stubs only `com/google/*`; **Stability AI is not
   stripped** (`STABILITY_AI_KEY` is an unconditional `defaultConfig` field), which collides
   head-on with IzzyOnDroid's stated policy against apps for accessing generative-AI platforms.

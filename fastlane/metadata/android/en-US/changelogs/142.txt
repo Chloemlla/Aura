@@ -1,0 +1,3 @@
+Aura v6.41.0
+
+Recent highlights: community voting no longer connects to Firebase before you enable community features; live wallpaper settings apply reliably instead of keeping the previous value; two denial-of-service advisories patched in the community backend; in-app and README documentation links now resolve, including the privacy policy.

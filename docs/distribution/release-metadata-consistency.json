@@ -1,11 +1,8 @@
 {
-  "schemaVersion": 1,
-  "policyKind": "releaseMetadataConsistency",
-  "packageName": "com.freevibe",
-  "versionName": "6.40.0",
-  "versionCode": 141,
   "docsPath": "docs/distribution/release-metadata-consistency.md",
   "metadataRoot": "fastlane/metadata/android/en-US",
+  "packageName": "com.freevibe",
+  "policyKind": "releaseMetadataConsistency",
   "privacyPolicyUrl": "https://github.com/SysAdminDoc/Aura/blob/main/docs/privacy/privacy-policy.md",
   "requiredEvidencePaths": [
     "app/build.gradle.kts",
@@ -35,16 +32,6 @@
     "docs/distribution/release-signing.md",
     "docs/distribution/supply-chain.md"
   ],
-  "requiredReadmeLinks": [
-    "docs/privacy/privacy-policy.md",
-    "docs/distribution/release-signing.md",
-    "docs/distribution/channel-strategy.md",
-    "docs/distribution/alt-store-metadata.md",
-    "docs/distribution/sbom-readiness.md",
-    "docs/distribution/store-assets.md",
-    "docs/distribution/developer-verification.md",
-    "docs/distribution/supply-chain.md"
-  ],
   "requiredPreflightCommands": [
     "tools/release_manifest.py",
     "tools/store_metadata_preflight.py",
@@ -61,6 +48,16 @@
     "tools/alt_store_metadata_check.py",
     "tools/sbom_readiness_check.py",
     "tools/release_artifact_bundle_check.py"
+  ],
+  "requiredReadmeLinks": [
+    "docs/privacy/privacy-policy.md",
+    "docs/distribution/release-signing.md",
+    "docs/distribution/channel-strategy.md",
+    "docs/distribution/alt-store-metadata.md",
+    "docs/distribution/sbom-readiness.md",
+    "docs/distribution/store-assets.md",
+    "docs/distribution/developer-verification.md",
+    "docs/distribution/supply-chain.md"
   ],
   "requiredReleaseArtifacts": [
     "Aura-vX.Y.Z-versionCode-N-universal-release.apk",
@@ -79,6 +76,7 @@
     "aab-keytool.txt",
     "PLAY-APP-SIGNING-OWNER-STEPS.txt"
   ],
+  "schemaVersion": 1,
   "sourceUrls": [
     "https://developer.android.com/guide/app-bundle",
     "https://developer.android.com/studio/publish/app-signing",
@@ -89,5 +87,7 @@
     "https://docs.fastlane.tools/actions/supply/",
     "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases",
     "https://f-droid.org/en/docs/All_About_Descriptions_Graphics_and_Screenshots/"
-  ]
+  ],
+  "versionCode": 142,
+  "versionName": "6.41.0"
 }

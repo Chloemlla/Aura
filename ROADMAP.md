@@ -90,6 +90,13 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
   Acceptance: release output is per-ABI plus a universal APK, and the arm64-v8a artifact is under 30 MB; `native_alignment_check.py` verifies the *declared* ABI set against the APK and fails on any mismatch in either direction, instead of skipping non-64-bit libraries; `obtainium.json`'s `autoApkFilterByArch` is confirmed against the split asset names; `docs/distribution/native-alignment.json` no longer claims `releaseWorkflowEnforced` for a workflow that does not exist.
   Complexity: M
 
+- [ ] P1 — Restore Android Lint, which cannot complete a run
+  Why: `:app:lintAnalyzeFullDebug` aborts. Three Compose lint detectors each throw `IncompatibleClassChangeError` — `RememberInCompositionDetector` (reached from `FrequentlyChangingValueDetector`) and `AutoboxingStateCreationDetector` — so the whole run dies and none of the other checks report. No app source appears in any stack; it is a binary incompatibility between the Compose BOM 2025.06.00 lint artifacts and the AGP 8.7.3 lint API, the same class as the already-documented `NullSafeMutableLiveData` crash. Disabling detectors individually was tried and is whack-a-mole.
+  Evidence: `app/build.gradle.kts:156-163` (existing workaround for the same failure class); crash stacks from `./gradlew :app:lintAnalyzeFullDebug --no-daemon`. Pre-existing: not introduced by any source change in this cycle, and not verified against the base commit because a clean lint run is what is broken.
+  Touches: `gradle/libs.versions.toml` (Compose BOM / AGP), `app/build.gradle.kts` lint block.
+  Acceptance: `./gradlew :app:lintFullDebug` completes and reports findings rather than aborting, with no blanket detector disables beyond the documented ones; the Definition-of-Done lint step is executable again. Most likely resolved by the AGP/compileSdk 36 bump below — verify there first.
+  Complexity: M
+
 - [ ] P1 — Split the N-1 blocker: AGP 8.9 + compileSdk 36 at targetSdk 35
   Why: `Roadmap_Blocked.md` blocks Media3, Coil, and OkHttp on the full AGP 9 / Gradle 9 / Kotlin 2.3 upgrade, but compileSdk 36 with targetSdk 35 is legal, triggers no Android 16 behavior change, and needs only an AGP 8.9.x-class bump on the current Gradle 8.12.1 / JDK 17 / Kotlin 2.1.0 stack. AGP 8.8+ is also the floor for the R8 core-count determinism fix any reproducibility claim depends on. **[Likely]** — the exact minimum AGP minor is the acceptance test.
   Evidence: `Roadmap_Blocked.md:39-58` ("AGP 8.7.3 max is 35") and `:32-33` (already cites AGP 8.9.0-rc01); `app/build.gradle.kts:73,87`; Media3 1.10.1+/Coil 3.5.0 `minCompileSdk 36`.
@@ -184,11 +191,11 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
   Acceptance: schema version, versionName, versionCode, and tab/navigation claims in README are checked against the manifest; the gate fails on drift; the current Room v14 claims are corrected to v16.
   Complexity: S
 
-- [ ] P2 — Bring fastlane metadata up to the shipped version
-  Why: `changelogs/` stops at `8.txt` against versionCode 141 and there is no `images/` directory, so the IzzyOnDroid metadata requirement cannot be met even before screenshots exist.
-  Evidence: `fastlane/metadata/android/en-US/changelogs/` (highest `8.txt`); no `images/`; IzzyOnDroid App Inclusion Policy. The screenshot/feature-graphic capture itself stays blocked in `Roadmap_Blocked.md`.
-  Touches: `fastlane/metadata/android/en-US/**`, `tools/store_metadata_preflight.py`, release checklist.
-  Acceptance: a changelog exists for the current versionCode and is generated from CHANGELOG at release time; the icon is in place; the preflight fails when the current versionCode has no changelog entry.
+- [ ] P2 — Add the fastlane store images IzzyOnDroid requires
+  Why: `fastlane/metadata/android/en-US/` has no `images/` directory, so there is no icon, phone screenshot, or feature graphic for a store listing to consume. (Changelogs are current — an earlier claim that they stopped at versionCode 8 was a lexical-sort artifact; 22 exist, through 141.)
+  Evidence: `ls fastlane/metadata/android/en-US/` returns only `changelogs/`, `full_description.txt`, `short_description.txt`, `title.txt`; IzzyOnDroid App Inclusion Policy requires in-repo Fastlane metadata with icon and screenshots. Screenshot capture itself stays blocked in `Roadmap_Blocked.md`.
+  Touches: `fastlane/metadata/android/en-US/images/**`, `tools/store_metadata_preflight.py`.
+  Acceptance: `images/icon.png` and at least four `images/phoneScreenshots/` entries exist at the required dimensions, and the preflight fails when the icon or screenshot set is absent.
   Complexity: S
 
 - [ ] P2 — Close the residual manifest and intent hardening gaps
