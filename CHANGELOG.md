@@ -2,6 +2,25 @@
 
 All notable changes to Aura will be documented in this file.
 
+## v6.41.0 (2026-08-10)
+
+- **Fix: the JVM unit test suite could not compile** — `ProviderCapabilityContractTest` used
+  `groupingBy` inside a backtick-named test function. `groupingBy` emits an anonymous `Grouping`
+  class that inherits the enclosing function name, producing a class file whose name contains
+  spaces, and Kotlin 2.1.0's `GeneratedJvmClass` cannot read it back. `compileFullDebugUnitTestKotlin`
+  aborted with `Couldn't load KotlinClass`, so no unit test ran at all. Switched to `groupBy`,
+  which returns a map directly and emits no anonymous class.
+- **Security: patched two live advisories in the community backend** — `functions` resolved
+  `protobufjs` 7.6.4 (GHSA-j3f2-48v5-ccww, denial of service via infinite loop in `.proto` option
+  parsing) and `body-parser` 1.20.5 (GHSA-v422-hmwv-36x6, request size enforcement silently
+  disabled by an invalid `limit`). `protobufjs` was held at the vulnerable version by an override
+  originally added *as* a security pin.
+- **New gate: npm overrides cannot silently rot** — `tools/npm_override_policy_check.py` and
+  `docs/security/npm-override-policy.json` record the advisory floor behind every pin and fail
+  when the manifest or the resolved lockfile drops below it, when a shipped override is not
+  policed, when a pin uses a range operator instead of an exact version, or when an entry cites
+  no advisory.
+
 ## v6.40.0 (2026-07-29)
 
 - **Fix: live wallpapers no longer pile up decode threads** — the weather and parallax engines both
