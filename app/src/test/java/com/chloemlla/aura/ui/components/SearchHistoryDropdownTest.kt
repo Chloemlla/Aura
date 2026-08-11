@@ -9,7 +9,7 @@ class SearchHistoryDropdownTest {
 
     @Test
     fun `recent search actions are resource backed`() {
-        val source = File("src/main/java/com/freevibe/ui/components/SearchHistoryDropdown.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/ui/components/SearchHistoryDropdown.kt").readText()
         val strings = File("src/main/res/values/strings.xml").readText()
 
         listOf(

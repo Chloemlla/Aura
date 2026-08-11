@@ -86,8 +86,8 @@ class CollectionExporterTest {
 
     @Test
     fun `collection import uses DAO transaction boundary`() {
-        val exporter = File("src/main/java/com/freevibe/service/CollectionExporter.kt").readText()
-        val database = File("src/main/java/com/freevibe/data/local/Database.kt").readText()
+        val exporter = File("src/main/java/com/chloemlla/aura/service/CollectionExporter.kt").readText()
+        val database = File("src/main/java/com/chloemlla/aura/data/local/Database.kt").readText()
 
         assertTrue(exporter.contains("collectionDao.importCollection("))
         assertTrue(exporter.contains("itemCount = importItems.size"))

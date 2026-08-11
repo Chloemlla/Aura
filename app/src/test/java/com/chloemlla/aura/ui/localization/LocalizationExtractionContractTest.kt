@@ -12,7 +12,7 @@ class LocalizationExtractionContractTest {
         val strings = File("src/main/res/values/strings.xml").readText()
         val expectations = listOf(
             SourceExpectation(
-                path = "src/main/java/com/freevibe/ui/components/CommunityGuidelinesDialog.kt",
+                path = "src/main/java/com/chloemlla/aura/ui/components/CommunityGuidelinesDialog.kt",
                 requiredResourceNames = listOf(
                     "community_guidelines_intro",
                     "community_guidelines_retention_note",
@@ -28,7 +28,7 @@ class LocalizationExtractionContractTest {
                 ),
             ),
             SourceExpectation(
-                path = "src/main/java/com/freevibe/ui/components/CommunityReportDialog.kt",
+                path = "src/main/java/com/chloemlla/aura/ui/components/CommunityReportDialog.kt",
                 requiredResourceNames = listOf(
                     "community_report_reason_prompt",
                     "community_report_details_optional",

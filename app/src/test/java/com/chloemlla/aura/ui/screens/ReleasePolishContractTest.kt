@@ -7,7 +7,7 @@ import org.junit.Test
 class ReleasePolishContractTest {
 
     private fun settingsSource(): String =
-        File("src/main/java/com/freevibe/ui/screens/settings")
+        File("src/main/java/com/chloemlla/aura/ui/screens/settings")
             .walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
             .sortedBy { it.name }
@@ -15,7 +15,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `settings screen root is feature decomposed`() {
-        val settingsDir = File("src/main/java/com/freevibe/ui/screens/settings")
+        val settingsDir = File("src/main/java/com/chloemlla/aura/ui/screens/settings")
         val rootLineCount = settingsDir.resolve("SettingsScreen.kt").readLines().size
         val featureFiles = listOf(
             "SettingsWallpaperSection.kt",
@@ -39,7 +39,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `compact search field does not consume unconstrained vertical space`() {
-        val source = File("src/main/java/com/freevibe/ui/components/SharedComponents.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/ui/components/SharedComponents.kt").readText()
         val searchField = source.substringAfter("fun CompactSearchField(").substringBefore("// ── Source Badge")
 
         assertTrue(searchField.contains(".fillMaxWidth()"))
@@ -49,7 +49,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `settings overview active setup is a complete sentence`() {
-        val source = File("src/main/java/com/freevibe/ui/screens/settings/SettingsDialogs.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsDialogs.kt").readText()
         val overview = source.substringAfter("internal fun SettingsOverviewCard(")
 
         assertTrue(
@@ -61,7 +61,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `settings toggle exposes one labeled accessibility target`() {
-        val source = File("src/main/java/com/freevibe/ui/screens/settings/SettingsComponents.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsComponents.kt").readText()
         val toggle = source.substringAfter("internal fun SettingsToggle(").substringBefore("internal fun SettingsValueSlider(")
 
         assertTrue(toggle.contains("semantics(mergeDescendants = true)"))
@@ -73,7 +73,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `community report dialog is scrollable and ime aware`() {
-        val source = File("src/main/java/com/freevibe/ui/components/CommunityReportDialog.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/ui/components/CommunityReportDialog.kt").readText()
 
         assertTrue(source.contains("verticalScroll(rememberScrollState())"))
         assertTrue(source.contains("imePadding()"))
@@ -82,7 +82,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `sound upload dialog wraps chips and avoids keyboard occlusion`() {
-        val source = File("src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsScreen.kt").readText()
         val uploadDialog = source.substringAfter("private fun UploadDialog(")
 
         assertTrue(uploadDialog.contains("verticalScroll(scrollState)"))
@@ -93,8 +93,8 @@ class ReleasePolishContractTest {
 
     @Test
     fun `sounds expose explicit youtube extractor fallback and outage states`() {
-        val screen = File("src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt").readText()
-        val state = File("src/main/java/com/freevibe/ui/screens/sounds/SoundsState.kt").readText()
+        val screen = File("src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsScreen.kt").readText()
+        val state = File("src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsState.kt").readText()
         val strings = File("src/main/res/values/strings.xml").readText()
 
         assertTrue(screen.contains("YouTubeExtractionMode.BACKUP_ACTIVE"))
@@ -106,7 +106,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `wallpaper upload dialog remains usable on compact ime screens`() {
-        val source = File("src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpapersScreen.kt").readText()
         val uploadDialog = source.substringAfter("private fun WallpaperUploadDialog(")
 
         assertTrue(uploadDialog.contains("verticalScroll(scrollState)"))
@@ -117,7 +117,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `creator profile edit dialog is scrollable and keyboard aware`() {
-        val source = File("src/main/java/com/freevibe/ui/screens/community/CreatorProfileScreen.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/community/CreatorProfileScreen.kt").readText()
         val dialog = source.substringAfter("private fun CreatorProfileEditDialog(").substringBefore("private fun CreatorMetric(")
 
         assertTrue(dialog.contains("verticalScroll(rememberScrollState())"))
@@ -128,7 +128,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `contact picker selected contact state can scroll on compact screens`() {
-        val source = File("src/main/java/com/freevibe/ui/screens/sounds/ContactPickerScreen.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/sounds/ContactPickerScreen.kt").readText()
         val selectedState = source.substringAfter("state.selectedContact ?: return@Scaffold").substringBefore("ContactAssignmentCard(")
 
         assertTrue(selectedState.contains(".weight(1f)"))
@@ -138,9 +138,9 @@ class ReleasePolishContractTest {
 
     @Test
     fun `settings radio dialogs expose full row touch targets`() {
-        val components = File("src/main/java/com/freevibe/ui/screens/settings/SettingsComponents.kt").readText()
+        val components = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsComponents.kt").readText()
         val radioRow = components.substringAfter("internal fun SettingsRadioOptionRow(").substringBefore("internal fun SettingsMetric(")
-        val source = File("src/main/java/com/freevibe/ui/screens/settings/SettingsDialogs.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsDialogs.kt").readText()
         val intervalDialog = source.substringAfter("internal fun IntervalPickerDialog(").substringBefore("internal fun WallpaperSlotPickerDialog(")
         val sourceDialog = source.substringAfter("internal fun SourcePickerDialog(")
 
@@ -154,7 +154,7 @@ class ReleasePolishContractTest {
     @Test
     fun `settings feedback uses aura snackbar chrome instead of raw toasts`() {
         val screen = settingsSource()
-        val diagnostics = File("src/main/java/com/freevibe/ui/screens/settings/DiagnosticsComponents.kt").readText()
+        val diagnostics = File("src/main/java/com/chloemlla/aura/ui/screens/settings/DiagnosticsComponents.kt").readText()
 
         assertTrue(screen.contains("snackbarHost = { AuraSnackbarHost(snackbarHostState) }"))
         assertTrue(screen.contains("fun showSettingsFeedback(message: String)"))
@@ -165,9 +165,9 @@ class ReleasePolishContractTest {
 
     @Test
     fun `settings source diagnostics expose fallback and retry guidance`() {
-        val diagnostics = File("src/main/java/com/freevibe/ui/screens/settings/DiagnosticsComponents.kt").readText()
-        val sourceMetrics = File("src/main/java/com/freevibe/service/SourceMetrics.kt").readText()
-        val viewModel = File("src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt").readText()
+        val diagnostics = File("src/main/java/com/chloemlla/aura/ui/screens/settings/DiagnosticsComponents.kt").readText()
+        val sourceMetrics = File("src/main/java/com/chloemlla/aura/service/SourceMetrics.kt").readText()
+        val viewModel = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsViewModel.kt").readText()
 
         assertTrue(diagnostics.contains("settings_diag_source_last_activity"))
         assertTrue(diagnostics.contains("settings_diag_source_fallback_status"))
@@ -197,7 +197,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `favorites empty states expose restore action instead of a dead end`() {
-        val source = File("src/main/java/com/freevibe/ui/screens/favorites/FavoritesScreen.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/favorites/FavoritesScreen.kt").readText()
 
         assertTrue(source.contains("favorites_empty_wallpapers_title") || source.contains("No favorite wallpapers yet"))
         assertTrue(source.contains("favorites_empty_sounds_title") || source.contains("No favorite sounds yet"))
@@ -227,9 +227,9 @@ class ReleasePolishContractTest {
 
     @Test
     fun `night variant preserves the original locator across theme transitions`() {
-        val worker = File("src/main/java/com/freevibe/service/AutoWallpaperWorker.kt").readText()
-        val listener = File("src/main/java/com/freevibe/service/SystemThemeListener.kt").readText()
-        val applier = File("src/main/java/com/freevibe/service/WallpaperApplier.kt").readText()
+        val worker = File("src/main/java/com/chloemlla/aura/service/AutoWallpaperWorker.kt").readText()
+        val listener = File("src/main/java/com/chloemlla/aura/service/SystemThemeListener.kt").readText()
+        val applier = File("src/main/java/com/chloemlla/aura/service/WallpaperApplier.kt").readText()
 
         assertTrue(worker.contains("shouldUseNightWallpaperVariant("))
         assertTrue(worker.contains("setLastNightVariantWallpaper("))
@@ -240,10 +240,10 @@ class ReleasePolishContractTest {
 
     @Test
     fun `image ingestion policies guard apply rotation crop and editor decodes`() {
-        val applier = File("src/main/java/com/freevibe/service/WallpaperApplier.kt").readText()
-        val worker = File("src/main/java/com/freevibe/service/AutoWallpaperWorker.kt").readText()
-        val editor = File("src/main/java/com/freevibe/ui/screens/editor/WallpaperEditorViewModel.kt").readText()
-        val crop = File("src/main/java/com/freevibe/ui/screens/editor/WallpaperCropViewModel.kt").readText()
+        val applier = File("src/main/java/com/chloemlla/aura/service/WallpaperApplier.kt").readText()
+        val worker = File("src/main/java/com/chloemlla/aura/service/AutoWallpaperWorker.kt").readText()
+        val editor = File("src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperEditorViewModel.kt").readText()
+        val crop = File("src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperCropViewModel.kt").readText()
 
         assertTrue(applier.contains("decodeImageBytesForFlow("))
         assertTrue(applier.contains("decodeImageUriForFlow("))
@@ -257,11 +257,11 @@ class ReleasePolishContractTest {
     @Test
     fun `viewmodel feedback is resolved through application resources`() {
         val feedbackFiles = listOf(
-            "src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperApplyActions.kt",
-            "src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperStyleActions.kt",
-            "src/main/java/com/freevibe/ui/screens/sounds/SoundCommunityActions.kt",
-            "src/main/java/com/freevibe/ui/screens/sounds/SoundsViewModel.kt",
-            "src/main/java/com/freevibe/ui/screens/aigenerate/AiWallpaperViewModel.kt",
+            "src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperApplyActions.kt",
+            "src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperStyleActions.kt",
+            "src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundCommunityActions.kt",
+            "src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsViewModel.kt",
+            "src/main/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperViewModel.kt",
         ).map { File(it).readText() }
         val source = feedbackFiles.joinToString("\n")
 
@@ -279,7 +279,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `settings viewmodel schedules and cancels local backup work`() {
-        val source = File("src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsViewModel.kt").readText()
         val backupSlice = source.substringAfter("fun setAutoBackupEnabled(").substringBefore("// T-6: Source diagnostics")
 
         assertTrue(source.contains("val autoBackupEnabled = prefs.autoBackupEnabled.stateIn"))
@@ -295,7 +295,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `settings folder grants are released when replaced or cleared`() {
-        val source = File("src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsViewModel.kt").readText()
 
         assertTrue(source.contains("private fun releasePersistedUriPermission(uriString: String, flags: Int)"))
         assertTrue(source.contains("prefs.localWallpaperFolderUri.first().trim()"))
@@ -317,7 +317,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `auto backup worker clamps persisted retention before pruning`() {
-        val source = File("src/main/java/com/freevibe/service/AutoBackupWorker.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/service/AutoBackupWorker.kt").readText()
 
         assertTrue(source.contains("prefs.autoBackupKeepCount.first().coerceAtLeast(1)"))
         assertTrue(source.contains("val safeKeepCount = keepCount.coerceAtLeast(1)"))
@@ -327,8 +327,8 @@ class ReleasePolishContractTest {
 
     @Test
     fun `settings credential and youtube edit dialogs avoid ime occlusion`() {
-        val servicesSource = File("src/main/java/com/freevibe/ui/screens/settings/SettingsServicesSection.kt").readText()
-        val soundSource = File("src/main/java/com/freevibe/ui/screens/settings/SettingsSoundSection.kt").readText()
+        val servicesSource = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsServicesSection.kt").readText()
+        val soundSource = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsSoundSection.kt").readText()
         val apiDialog = servicesSource.substringAfter("private fun ProviderApiKeyDialog(")
         val ytQueriesDialog = soundSource.substringAfter("private fun YouTubeSoundQueriesDialog(").substringBefore("private fun YouTubeBlockedWordsDialog(")
         val blockedWordsDialog = soundSource.substringAfter("private fun YouTubeBlockedWordsDialog(")
@@ -348,7 +348,7 @@ class ReleasePolishContractTest {
     @Test
     fun `settings exposes validated wallpaper and video subreddit editors`() {
         val screen = settingsSource()
-        val preferences = File("src/main/java/com/freevibe/data/local/PreferencesManager.kt").readText()
+        val preferences = File("src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt").readText()
 
         assertTrue(screen.contains("redditSubreddits = redditSubreddits"))
         assertTrue(screen.contains("redditVideoSubreddits = redditVideoSubreddits"))
@@ -363,15 +363,15 @@ class ReleasePolishContractTest {
 
     @Test
     fun `browse filter controls keep release touch targets and quiet shapes`() {
-        val browseRailSource = File("src/main/java/com/freevibe/ui/components/BrowseRail.kt").readText()
-        val wallpaperSource = File("src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt").readText()
+        val browseRailSource = File("src/main/java/com/chloemlla/aura/ui/components/BrowseRail.kt").readText()
+        val wallpaperSource = File("src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpapersScreen.kt").readText()
         val wallpaperRefineSheet = wallpaperSource.substringAfter("private fun WallpaperFiltersSheet(").substringBefore("private fun ColorPickerRow(")
-        val videoSource = File("src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersScreen.kt").readText()
+        val videoSource = File("src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersScreen.kt").readText()
         val videoToolbar = videoSource.substringAfter("Scaffold(").substringBefore("if (state.degradedSources.isNotEmpty())")
         val videoRefineSheet = videoSource.substringAfter("private fun VideoFiltersSheet(").substringBefore("private fun videoSourceHealthSummary(")
-        val soundSource = File("src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt").readText()
+        val soundSource = File("src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsScreen.kt").readText()
         val soundModeBar = soundSource.substringAfter("private fun SoundModeBar(").substringBefore("// -- Sounds List --")
-        val aiSource = File("src/main/java/com/freevibe/ui/screens/aigenerate/AiWallpaperScreen.kt").readText()
+        val aiSource = File("src/main/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperScreen.kt").readText()
         val aiStylePicker = aiSource.substringAfter("// ── Style picker").substringBefore("// ── Generate button")
 
         assertTrue(!browseRailSource.contains("FilterChip("))
@@ -389,8 +389,8 @@ class ReleasePolishContractTest {
 
     @Test
     fun `long disclosure dialogs keep policy copy scrollable on compact screens`() {
-        val guidelines = File("src/main/java/com/freevibe/ui/components/CommunityGuidelinesDialog.kt").readText()
-        val aiDisclosure = File("src/main/java/com/freevibe/ui/screens/aigenerate/AiWallpaperScreen.kt")
+        val guidelines = File("src/main/java/com/chloemlla/aura/ui/components/CommunityGuidelinesDialog.kt").readText()
+        val aiDisclosure = File("src/main/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperScreen.kt")
             .readText()
             .substringAfter("fun GeneratedWallpaperDisclosureDialog(")
             .substringBefore("@OptIn(")
@@ -403,10 +403,10 @@ class ReleasePolishContractTest {
 
     @Test
     fun `collection import and picker forms avoid compact ime occlusion`() {
-        val collections = File("src/main/java/com/freevibe/ui/screens/collections/CollectionsScreen.kt").readText()
+        val collections = File("src/main/java/com/chloemlla/aura/ui/screens/collections/CollectionsScreen.kt").readText()
         val importSheet = collections.substringAfter("private fun ImportCollectionSheet(").substringBefore("private fun CollectionQrDialog(")
         val qrDialog = collections.substringAfter("private fun CollectionQrDialog(").substringBefore("private fun WallpaperCollectionItemEntity.toWallpaper")
-        val detail = File("src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperDetailScreen.kt").readText()
+        val detail = File("src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperDetailScreen.kt").readText()
         val pickerSheet = detail.substringAfter("private fun CollectionPickerSheet(").substringBefore("internal fun wallpaperDetailTitle(")
 
         assertTrue(importSheet.contains(".verticalScroll(rememberScrollState())"))
@@ -419,7 +419,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `wallpaper detail horizontal action chips keep labels when clipped`() {
-        val source = File("src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperDetailScreen.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperDetailScreen.kt").readText()
         val actionPill = source.substringAfter("private fun DetailActionPill(").substringBefore("@OptIn(ExperimentalMaterial3Api::class)")
 
         assertTrue(actionPill.contains("semantics(mergeDescendants = true)"))
@@ -428,11 +428,11 @@ class ReleasePolishContractTest {
 
     @Test
     fun `media discovery keeps warm caches and vertical swipe viewers`() {
-        val videos = File("src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersScreen.kt").readText()
-        val videoModel = File("src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersViewModel.kt").readText()
-        val wallpaperDetail = File("src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperDetailScreen.kt").readText()
-        val playback = File("src/main/java/com/freevibe/service/AudioPlaybackManager.kt").readText()
-        val soundBrowse = File("src/main/java/com/freevibe/ui/screens/sounds/SoundBrowseViewModel.kt").readText()
+        val videos = File("src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersScreen.kt").readText()
+        val videoModel = File("src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersViewModel.kt").readText()
+        val wallpaperDetail = File("src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperDetailScreen.kt").readText()
+        val playback = File("src/main/java/com/chloemlla/aura/service/AudioPlaybackManager.kt").readText()
+        val soundBrowse = File("src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundBrowseViewModel.kt").readText()
 
         assertTrue(videos.contains("private fun VideoImmersivePager("))
         assertTrue(videos.contains("VerticalPager("))
@@ -448,7 +448,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `video previews keep one fixed size surface active`() {
-        val videos = File("src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersScreen.kt").readText()
+        val videos = File("src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersScreen.kt").readText()
 
         assertTrue(!videos.contains("RESIZE_MODE_ZOOM"))
         assertTrue(Regex("RESIZE_MODE_FILL").findAll(videos).count() == 2)
@@ -459,12 +459,12 @@ class ReleasePolishContractTest {
     @Test
     fun `release ui avoids fully circular chrome backdrops`() {
         val uiFiles = listOf(
-            "src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt",
-            "src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperDetailScreen.kt",
-            "src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperPreviewScreen.kt",
-            "src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpaperPreviewScreen.kt",
-            "src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersScreen.kt",
-            "src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt",
+            "src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpapersScreen.kt",
+            "src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperDetailScreen.kt",
+            "src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperPreviewScreen.kt",
+            "src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpaperPreviewScreen.kt",
+            "src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersScreen.kt",
+            "src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsScreen.kt",
         )
 
         uiFiles.forEach { path ->

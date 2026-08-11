@@ -8,7 +8,7 @@ import org.junit.Test
 class LibraryHubContractTest {
     @Test
     fun `library screen links all local library surfaces`() {
-        val source = File("src/main/java/com/freevibe/ui/screens/library/LibraryScreen.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/library/LibraryScreen.kt").readText()
 
         listOf(
             "onSearchClick",
@@ -32,8 +32,8 @@ class LibraryHubContractTest {
 
     @Test
     fun `library route owns existing local child destinations`() {
-        val root = File("src/main/java/com/freevibe/ui/FreeVibeRoot.kt").readText()
-        val screen = File("src/main/java/com/freevibe/ui/navigation/Screen.kt").readText()
+        val root = File("src/main/java/com/chloemlla/aura/ui/FreeVibeRoot.kt").readText()
+        val screen = File("src/main/java/com/chloemlla/aura/ui/navigation/Screen.kt").readText()
 
         assertTrue(screen.contains("data object Library"))
         assertTrue(screen.contains("data object UniversalSearch"))
@@ -49,9 +49,9 @@ class LibraryHubContractTest {
 
     @Test
     fun `backup row anchors the settings backup section`() {
-        val root = File("src/main/java/com/freevibe/ui/FreeVibeRoot.kt").readText()
-        val settings = File("src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt").readText()
-        val anchor = File("src/main/java/com/freevibe/ui/screens/settings/SettingsSectionNavigation.kt").readText()
+        val root = File("src/main/java/com/chloemlla/aura/ui/FreeVibeRoot.kt").readText()
+        val settings = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt").readText()
+        val anchor = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsSectionNavigation.kt").readText()
 
         assertTrue(root.contains("Screen.Settings.createRoute(Screen.Settings.BACKUP_SECTION)"))
         assertTrue(root.contains("route = Screen.Settings.destinationPattern"))

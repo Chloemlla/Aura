@@ -11,8 +11,8 @@ class CoilMigrationContractTest {
     fun `image pipeline is fully migrated to Coil 3`() {
         val catalog = File("../gradle/libs.versions.toml").readText()
         val appBuild = File("build.gradle.kts").readText()
-        val app = File("src/main/java/com/freevibe/FreeVibeApp.kt").readText()
-        val widget = File("src/main/java/com/freevibe/widget/FreeVibeWidget.kt").readText()
+        val app = File("src/main/java/com/chloemlla/aura/AuraApp.kt").readText()
+        val widget = File("src/main/java/com/chloemlla/aura/widget/AuraWidget.kt").readText()
         val mainSources = File("src/main/java")
             .walkTopDown()
             .filter { it.isFile && it.extension == "kt" }

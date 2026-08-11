@@ -113,7 +113,7 @@ class WallpaperEditorSourceLoadingTest {
 
     @Test
     fun `url loads carry an ownership token so a stale result cannot win`() {
-        val source = File("src/main/java/com/freevibe/ui/screens/editor/WallpaperEditorViewModel.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperEditorViewModel.kt").readText()
 
         assertTrue("a load must be cancellable", source.contains("loadJob?.cancel()"))
         assertTrue("each load must claim ownership", source.contains("val token = ++loadToken"))
@@ -134,7 +134,7 @@ class WallpaperEditorSourceLoadingTest {
 
     @Test
     fun `apply controls in the screen require a ready source`() {
-        val screen = File("src/main/java/com/freevibe/ui/screens/editor/WallpaperEditorScreen.kt").readText()
+        val screen = File("src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperEditorScreen.kt").readText()
 
         assertTrue(
             "apply must be gated on a decoded source",

@@ -196,10 +196,10 @@ class WallpaperApplyCoordinatorTest {
     @Test
     fun `every apply surface declares a policy instead of hand-rolling side effects`() {
         val surfaces = listOf(
-            "src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperApplyActions.kt",
-            "src/main/java/com/freevibe/ui/screens/editor/WallpaperEditorViewModel.kt",
-            "src/main/java/com/freevibe/ui/screens/editor/WallpaperCropViewModel.kt",
-            "src/main/java/com/freevibe/ui/screens/aigenerate/AiWallpaperViewModel.kt",
+            "src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperApplyActions.kt",
+            "src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperEditorViewModel.kt",
+            "src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperCropViewModel.kt",
+            "src/main/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperViewModel.kt",
         )
         surfaces.forEach { relative ->
             val source = File(relative).readText()

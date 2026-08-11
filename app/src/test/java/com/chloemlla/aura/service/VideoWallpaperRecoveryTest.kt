@@ -212,7 +212,7 @@ class VideoWallpaperRecoveryTest {
 
     @Test
     fun `the video engine wires the error listener watchdog and bounded rebuild`() {
-        val source = File("src/main/java/com/freevibe/service/VideoWallpaperService.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/service/VideoWallpaperService.kt").readText()
 
         assertTrue("the engine must listen for runtime errors", source.contains("setOnErrorListener {"))
         assertTrue(

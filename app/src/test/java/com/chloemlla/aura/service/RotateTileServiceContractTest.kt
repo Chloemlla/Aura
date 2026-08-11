@@ -17,8 +17,8 @@ class RotateTileServiceContractTest {
     @Test
     fun `tile is system bound and reuses the one-shot rotation path`() {
         val manifest = File("src/main/AndroidManifest.xml").readText()
-        val tile = File("src/main/java/com/freevibe/service/RotateTileService.kt").readText()
-        val trigger = File("src/main/java/com/freevibe/service/RotationTriggerService.kt").readText()
+        val tile = File("src/main/java/com/chloemlla/aura/service/RotateTileService.kt").readText()
+        val trigger = File("src/main/java/com/chloemlla/aura/service/RotationTriggerService.kt").readText()
 
         assertTrue(manifest.contains("android:name=\".service.RotateTileService\""))
         assertTrue(manifest.contains("android.permission.BIND_QUICK_SETTINGS_TILE"))

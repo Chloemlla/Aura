@@ -17,7 +17,7 @@ class ContactPermissionContractTest {
 
     @Test
     fun `contact assignment uses system picker and write-only runtime permission`() {
-        val screen = File("src/main/java/com/freevibe/ui/screens/sounds/ContactPickerScreen.kt").readText()
+        val screen = File("src/main/java/com/chloemlla/aura/ui/screens/sounds/ContactPickerScreen.kt").readText()
 
         assertTrue(screen.contains("Intent.ACTION_PICK"))
         assertTrue(screen.contains("ContactsContract.Contacts.CONTENT_URI"))

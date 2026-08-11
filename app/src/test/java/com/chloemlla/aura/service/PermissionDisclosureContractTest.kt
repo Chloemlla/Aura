@@ -8,7 +8,7 @@ import org.junit.Test
 class PermissionDisclosureContractTest {
 
     private fun settingsSource(): String =
-        File("src/main/java/com/freevibe/ui/screens/settings")
+        File("src/main/java/com/chloemlla/aura/ui/screens/settings")
             .walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
             .sortedBy { it.name }
@@ -16,7 +16,7 @@ class PermissionDisclosureContractTest {
 
     @Test
     fun `recording requests microphone only after prominent rationale`() {
-        val screen = File("src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt").readText()
+        val screen = File("src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsScreen.kt").readText()
         val strings = File("src/main/res/values/strings.xml").readText()
 
         assertTrue(screen.contains("showRecordPermissionPrompt"))

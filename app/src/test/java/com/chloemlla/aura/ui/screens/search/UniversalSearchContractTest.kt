@@ -7,8 +7,8 @@ import org.junit.Test
 class UniversalSearchContractTest {
     @Test
     fun `universal search keeps history local and provider handoffs labeled`() {
-        val screen = File("src/main/java/com/freevibe/ui/screens/search/UniversalSearchScreen.kt").readText()
-        val repository = File("src/main/java/com/freevibe/data/repository/SearchHistoryRepository.kt").readText()
+        val screen = File("src/main/java/com/chloemlla/aura/ui/screens/search/UniversalSearchScreen.kt").readText()
+        val repository = File("src/main/java/com/chloemlla/aura/data/repository/SearchHistoryRepository.kt").readText()
 
         listOf(
             "getRecentUniversalSearches",
@@ -25,8 +25,8 @@ class UniversalSearchContractTest {
 
     @Test
     fun `root navigation exposes universal search and provider query routes`() {
-        val root = File("src/main/java/com/freevibe/ui/FreeVibeRoot.kt").readText()
-        val screen = File("src/main/java/com/freevibe/ui/navigation/Screen.kt").readText()
+        val root = File("src/main/java/com/chloemlla/aura/ui/FreeVibeRoot.kt").readText()
+        val screen = File("src/main/java/com/chloemlla/aura/ui/navigation/Screen.kt").readText()
 
         listOf(
             "Screen.UniversalSearch.destinationPattern",

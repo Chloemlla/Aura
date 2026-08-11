@@ -103,9 +103,9 @@ class PathBackedRecordReconcilerTest {
 
     @Test
     fun `startup and UI contracts keep missing files visible`() {
-        val app = File("src/main/java/com/freevibe/FreeVibeApp.kt").readText()
-        val database = File("src/main/java/com/freevibe/data/local/Database.kt").readText()
-        val downloads = File("src/main/java/com/freevibe/ui/screens/downloads/DownloadsScreen.kt").readText()
+        val app = File("src/main/java/com/chloemlla/aura/AuraApp.kt").readText()
+        val database = File("src/main/java/com/chloemlla/aura/data/local/Database.kt").readText()
+        val downloads = File("src/main/java/com/chloemlla/aura/ui/screens/downloads/DownloadsScreen.kt").readText()
 
         assertTrue(app.contains("lateinit var pathBackedRecordReconciler"))
         assertTrue(app.contains("pathBackedRecordReconciler.reconcile()"))

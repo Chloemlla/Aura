@@ -10,7 +10,7 @@ class AccessibilitySemanticsContractTest {
     fun `custom component semantics matrix stays covered`() {
         val matrix = listOf(
             SemanticsRequirement(
-                path = "src/main/java/com/freevibe/ui/components/SharedComponents.kt",
+                path = "src/main/java/com/chloemlla/aura/ui/components/SharedComponents.kt",
                 tokens = listOf(
                     "fun DownloadProgressBar",
                     "progressBarRangeInfo = ProgressBarRangeInfo",
@@ -27,7 +27,7 @@ class AccessibilitySemanticsContractTest {
                 ),
             ),
             SemanticsRequirement(
-                path = "src/main/java/com/freevibe/ui/screens/downloads/DownloadsScreen.kt",
+                path = "src/main/java/com/chloemlla/aura/ui/screens/downloads/DownloadsScreen.kt",
                 tokens = listOf(
                     "fun downloadHistorySummary",
                     "progressBarRangeInfo = ProgressBarRangeInfo",
@@ -36,7 +36,7 @@ class AccessibilitySemanticsContractTest {
                 ),
             ),
             SemanticsRequirement(
-                path = "src/main/java/com/freevibe/ui/screens/favorites/FavoritesScreen.kt",
+                path = "src/main/java/com/chloemlla/aura/ui/screens/favorites/FavoritesScreen.kt",
                 tokens = listOf(
                     "fun favoriteWallpaperSummary",
                     "fun favoritesBatchProgressSummary",
@@ -45,7 +45,7 @@ class AccessibilitySemanticsContractTest {
                 ),
             ),
             SemanticsRequirement(
-                path = "src/main/java/com/freevibe/ui/screens/settings/SettingsComponents.kt",
+                path = "src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsComponents.kt",
                 tokens = listOf(
                     "internal fun SettingsSection",
                     "heading()",
@@ -58,7 +58,7 @@ class AccessibilitySemanticsContractTest {
                 ),
             ),
             SemanticsRequirement(
-                path = "src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt",
+                path = "src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpapersScreen.kt",
                 tokens = listOf(
                     "customActions = cardActions",
                     "stateDescription = if (selectedColor == hex)",
@@ -66,7 +66,7 @@ class AccessibilitySemanticsContractTest {
                 ),
             ),
             SemanticsRequirement(
-                path = "src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt",
+                path = "src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsScreen.kt",
                 tokens = listOf(
                     "customActions = cardActions",
                     "contentDescription = openSoundDetailsLabel",
@@ -76,7 +76,7 @@ class AccessibilitySemanticsContractTest {
                 ),
             ),
             SemanticsRequirement(
-                path = "src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersScreen.kt",
+                path = "src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersScreen.kt",
                 tokens = listOf(
                     "stateDescription = videoStateDescription",
                     "clickable(onClickLabel = openVideoPreviewLabel",
@@ -88,7 +88,7 @@ class AccessibilitySemanticsContractTest {
                 ),
             ),
             SemanticsRequirement(
-                path = "src/main/java/com/freevibe/ui/screens/editor/SoundEditorScreen.kt",
+                path = "src/main/java/com/chloemlla/aura/ui/screens/editor/SoundEditorScreen.kt",
                 tokens = listOf(
                     "progressBarRangeInfo = ProgressBarRangeInfo",
                     "stateDescription = waveformState",

@@ -8,7 +8,7 @@ import org.junit.Test
 class TaskerActionReceiverContractTest {
 
     private fun settingsSource(): String =
-        File("src/main/java/com/freevibe/ui/screens/settings")
+        File("src/main/java/com/chloemlla/aura/ui/screens/settings")
             .walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
             .sortedBy { it.name }
@@ -16,7 +16,7 @@ class TaskerActionReceiverContractTest {
 
     @Test
     fun `exported automation receiver gates actions before enqueueing rotation`() {
-        val source = File("src/main/java/com/freevibe/service/TaskerActionReceiver.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/service/TaskerActionReceiver.kt").readText()
 
         assertTrue(
             "receiver must route through the shared dispatcher",
@@ -34,7 +34,7 @@ class TaskerActionReceiverContractTest {
 
     @Test
     fun `exported activity shares the automation gate instead of bypassing it`() {
-        val source = File("src/main/java/com/freevibe/MainActivity.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/MainActivity.kt").readText()
 
         assertTrue(
             "activity must route rotate or shuffle launches through the shared dispatcher",
@@ -56,7 +56,7 @@ class TaskerActionReceiverContractTest {
 
     @Test
     fun `only the dispatcher may enqueue rotation for automation intents`() {
-        val dispatcher = File("src/main/java/com/freevibe/service/ExternalAutomationDispatcher.kt").readText()
+        val dispatcher = File("src/main/java/com/chloemlla/aura/service/ExternalAutomationDispatcher.kt").readText()
         val gateIndex = dispatcher.indexOf("ExternalAutomationGate.evaluate(")
         val enqueueIndex = dispatcher.indexOf("enqueueRotation(context)")
 
@@ -83,7 +83,7 @@ class TaskerActionReceiverContractTest {
     @Test
     fun `settings exposes automation consent and diagnostics`() {
         val screen = settingsSource()
-        val viewModel = File("src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt").readText()
+        val viewModel = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsViewModel.kt").readText()
 
         assertTrue(screen.contains("settings_external_automation_title"))
         assertTrue(screen.contains("externalAutomationSubtitle(externalAutomationDiagnostics)"))
