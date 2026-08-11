@@ -42,7 +42,7 @@ class ProviderCapabilityContractTest {
 
         assertEquals(
             "duplicate registry entries: " +
-                sources.groupingBy { it }.eachCount().filterValues { it > 1 }.keys,
+                sources.groupBy { it }.filterValues { it.size > 1 }.keys,
             sources.size,
             sources.toSet().size,
         )
