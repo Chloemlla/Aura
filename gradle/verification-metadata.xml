@@ -3,12 +3,12 @@
    <configuration>
       <verify-metadata>true</verify-metadata>
       <verify-signatures>false</verify-signatures>
+      <trusted-artifacts>
+         <trust group="org.jetbrains.kotlin" name="kotlin-reflect" version="2.3.21"/>
+         <trust group="org.jetbrains.kotlin" name="kotlin-stdlib" version="2.3.21"/>
+         <trust group="org.jetbrains.kotlin" name="kotlin-stdlib-common" version="2.3.21"/>
+      </trusted-artifacts>
    </configuration>
-   <trusted-artifacts>
-      <trust group="org.jetbrains.kotlin" name="kotlin-reflect" version="2.3.21"/>
-      <trust group="org.jetbrains.kotlin" name="kotlin-stdlib" version="2.3.21"/>
-      <trust group="org.jetbrains.kotlin" name="kotlin-stdlib-common" version="2.3.21"/>
-   </trusted-artifacts>
    <components>
       <component group="androidx.activity" name="activity" version="1.0.0">
          <artifact name="activity-1.0.0.pom">
