@@ -654,8 +654,6 @@ private fun extractTimelineFrames(
     }
 }
 
-}
-
 private suspend fun cropVideoConstrained(
     context: Context,
     ffmpegDownloader: FfmpegDownloader,
