@@ -183,6 +183,10 @@ android {
         // analysis-api incompatibility as above.
         disable += "FrequentlyChangingValue"
         disable += "RememberInComposition"
+        // AutoboxingStateCreationDetector crashes with IncompatibleClassChangeError
+        // on this AGP 8.7.3 / Kotlin 2.1.0 pin — same analysis-api incompatibility
+        // as the other disabled detectors above.
+        disable += "AutoboxingStateCreation"
     }
 
     packaging {
