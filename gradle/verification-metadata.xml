@@ -14,6 +14,7 @@
          <trust group="org.junit" name="junit-bom" version="5.13.1"/>
          <trust group="com.chloemlla.lumen" name="lumen-crash"/>
          <trust group="com.chloemlla.lumen" name="lumen-crash-core"/>
+         <trust group="com.android.application" name="com.android.application.gradle.plugin"/>
          <trust group="androidx.activity" name="activity"/>
          <trust group="androidx.activity" name="activity-compose"/>
          <trust group="androidx.activity" name="activity-ktx"/>
