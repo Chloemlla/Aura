@@ -101,8 +101,10 @@ jobs:
       - name: Run Android lint (foss flavor)
         run: gradle lintFossDebug --no-daemon
 
-      - name: Build FOSS release APK
-        run: gradle assembleFossRelease --no-daemon
+      - name: Build FOSS release APK (unsigned)
+        # -Paura.reproducibleFossBuild=true keeps the release variant (R8, resource
+        # shrinking) but drops the signing config, so verification needs no keystore.
+        run: gradle assembleFossRelease -Paura.reproducibleFossBuild=true --no-daemon
 
       - name: Upload verification reports
         if: always()
