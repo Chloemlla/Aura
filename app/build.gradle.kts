@@ -86,7 +86,7 @@ val localProps = Properties().apply {
 
 android {
     namespace = "com.chloemlla.aura"
-    compileSdk = 35
+    compileSdk = 36
 
     signingConfigs {
         create("release") {
@@ -100,7 +100,7 @@ android {
     defaultConfig {
         applicationId = "com.chloemlla.aura"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 141
         versionName = "6.40.0"
 
