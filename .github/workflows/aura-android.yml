@@ -63,6 +63,7 @@ jobs:
         run: |
           python .github/scripts/fetch-lumen-crash-sdk.py
         env:
+          LUMEN_CRASH_READ_PACKAGES_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Read app version
@@ -128,6 +129,8 @@ jobs:
           else
             gradle assembleFullRelease --no-daemon
           fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -162,24 +165,35 @@ jobs:
         run: |
           python .github/scripts/fetch-lumen-crash-sdk.py
         env:
+          LUMEN_CRASH_READ_PACKAGES_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run unit tests (full flavor)
         run: gradle testFullDebugUnitTest --no-daemon
+        env:
+          GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
       - name: Run unit tests (foss flavor)
         run: gradle testFossDebugUnitTest --no-daemon
+        env:
+          GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
       - name: Run Android lint (full flavor)
         run: gradle lintFullDebug --no-daemon
+        env:
+          GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
       - name: Run Android lint (foss flavor)
         run: gradle lintFossDebug --no-daemon
+        env:
+          GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
       - name: Build FOSS release APK (unsigned)
         # -Paura.reproducibleFossBuild=true keeps the release variant (R8, resource
         # shrinking) but drops the signing config, so verification needs no keystore.
         run: gradle assembleFossRelease -Paura.reproducibleFossBuild=true --no-daemon
+        env:
+          GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
       - name: Upload FOSS APK artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -232,6 +246,7 @@ jobs:
         run: |
           python .github/scripts/fetch-lumen-crash-sdk.py
         env:
+          LUMEN_CRASH_READ_PACKAGES_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Validate release secrets
@@ -286,6 +301,8 @@ jobs:
 
       - name: Build signed release APKs
         run: gradle assembleFullRelease assembleFossRelease --no-daemon
+        env:
+          GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
       - name: Prepare release assets
         run: |
