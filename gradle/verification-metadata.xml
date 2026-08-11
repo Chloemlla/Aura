@@ -7,6 +7,9 @@
          <trust group="org.jetbrains.kotlin" name="kotlin-reflect" version="2.3.21"/>
          <trust group="org.jetbrains.kotlin" name="kotlin-stdlib" version="2.3.21"/>
          <trust group="org.jetbrains.kotlin" name="kotlin-stdlib-common" version="2.3.21"/>
+         <trust group="com.fasterxml.jackson" name="jackson-base" version="2.18.9"/>
+         <trust group="org.junit" name="junit-bom" version="5.11.4"/>
+         <trust group="org.junit" name="junit-bom" version="5.13.1"/>
       </trusted-artifacts>
    </configuration>
    <components>
