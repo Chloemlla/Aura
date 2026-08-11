@@ -67,7 +67,9 @@ class SourceByteHygieneCheckTest(unittest.TestCase):
         self.assertIn("ripgrep", str(ctx.exception))
 
     def test_rejects_a_replacement_character(self) -> None:
-        root = self._repo_with("src/Note.kt", "// broken � comment\n".encode("utf-8"))
+        # Built from the code point so this test file does not itself trip the gate.
+        payload = ("// broken " + chr(0xFFFD) + " comment" + chr(10)).encode("utf-8")
+        root = self._repo_with("src/Note.kt", payload)
 
         with self.assertRaises(SourceByteHygieneError) as ctx:
             validate_source_bytes(root)

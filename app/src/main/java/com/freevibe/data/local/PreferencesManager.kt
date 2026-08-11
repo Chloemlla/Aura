@@ -7,7 +7,13 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.freevibe.data.model.COMMUNITY_GUIDELINES_VERSION
 import com.freevibe.data.model.hasAcceptedCommunityGuidelinesVersion
+import com.freevibe.service.ADAPTIVE_TINT_ENABLED_PREF
+import com.freevibe.service.ADAPTIVE_TINT_INTENSITY_PREF
 import com.freevibe.service.AgslShaderGallery
+import com.freevibe.service.LIVE_WALLPAPER_DIM_ENABLED_PREF
+import com.freevibe.service.LIVE_WALLPAPER_SHADER_PRESET_PREF
+import com.freevibe.service.REDUCE_ANIMATIONS_PREF
+import com.freevibe.service.WEATHER_WALLPAPER_PREFS_NAME
 import com.freevibe.service.VIDEO_AUTO_BATTERY_SAVER_PREF
 import com.freevibe.service.VIDEO_AUTO_BATTERY_SAVER_CHANGED_ACTION
 import com.freevibe.service.VIDEO_FPS_LIMIT_PREF
@@ -345,7 +351,10 @@ class PreferencesManager @Inject constructor(
 
     // Live wallpaper dimming
     val liveWallpaperDimEnabled: Flow<Boolean> = get(Keys.LIVE_WALLPAPER_DIM_ENABLED, false)
-    suspend fun setLiveWallpaperDimEnabled(v: Boolean) = set(Keys.LIVE_WALLPAPER_DIM_ENABLED, v)
+    suspend fun setLiveWallpaperDimEnabled(v: Boolean) {
+        writeLiveWallpaperFlag(LIVE_WALLPAPER_DIM_ENABLED_PREF, v)
+        set(Keys.LIVE_WALLPAPER_DIM_ENABLED, v)
+    }
 
     val lastAppliedRingtoneUri: kotlinx.coroutines.flow.Flow<String> = get(Keys.LAST_APPLIED_RINGTONE_URI, "")
     suspend fun setLastAppliedRingtoneUri(uri: String) = set(Keys.LAST_APPLIED_RINGTONE_URI, uri)
@@ -551,15 +560,41 @@ class PreferencesManager @Inject constructor(
         AgslShaderGallery.NONE_ID,
     ).map(AgslShaderGallery::sanitizeId)
 
-    suspend fun setAdaptiveTintEnabled(enabled: Boolean) = set(Keys.ADAPTIVE_TINT, enabled)
-    suspend fun setAdaptiveTintIntensity(intensity: Float) = set(Keys.ADAPTIVE_TINT_INTENSITY, intensity)
+    // WeatherWallpaperService reads these keys from SharedPreferences only, so the SP write
+    // must land first. These bridges used to live in SettingsViewModel and wrote DataStore
+    // first: leaving Settings cancelled viewModelScope between the two writes, so the live
+    // wallpaper kept the old value permanently while the toggle read as changed.
+    suspend fun setAdaptiveTintEnabled(enabled: Boolean) {
+        writeLiveWallpaperFlag(ADAPTIVE_TINT_ENABLED_PREF, enabled)
+        set(Keys.ADAPTIVE_TINT, enabled)
+    }
+
+    suspend fun setAdaptiveTintIntensity(intensity: Float) {
+        weatherWallpaperPrefs().edit().putFloat(ADAPTIVE_TINT_INTENSITY_PREF, intensity).apply()
+        set(Keys.ADAPTIVE_TINT_INTENSITY, intensity)
+    }
+
     suspend fun setWeatherEffectsEnabled(enabled: Boolean) = set(Keys.WEATHER_EFFECTS, enabled)
-    suspend fun setReduceAnimations(enabled: Boolean) = set(Keys.REDUCE_ANIMATIONS, enabled)
+
+    suspend fun setReduceAnimations(enabled: Boolean) {
+        writeLiveWallpaperFlag(REDUCE_ANIMATIONS_PREF, enabled)
+        set(Keys.REDUCE_ANIMATIONS, enabled)
+    }
     suspend fun setDarkModeAutoSwitch(enabled: Boolean) = set(Keys.DARK_MODE_SWITCH, enabled)
     suspend fun setDarkModeWallpaperId(id: String) = set(Keys.DARK_WALLPAPER_ID, id)
     suspend fun setLightModeWallpaperId(id: String) = set(Keys.LIGHT_WALLPAPER_ID, id)
-    suspend fun setLiveWallpaperShaderPreset(id: String) =
-        set(Keys.LIVE_WALLPAPER_SHADER_PRESET, AgslShaderGallery.sanitizeId(id))
+    suspend fun setLiveWallpaperShaderPreset(id: String) {
+        val sanitized = AgslShaderGallery.sanitizeId(id)
+        weatherWallpaperPrefs().edit().putString(LIVE_WALLPAPER_SHADER_PRESET_PREF, sanitized).apply()
+        set(Keys.LIVE_WALLPAPER_SHADER_PRESET, sanitized)
+    }
+
+    private fun weatherWallpaperPrefs() =
+        context.getSharedPreferences(WEATHER_WALLPAPER_PREFS_NAME, Context.MODE_PRIVATE)
+
+    private fun writeLiveWallpaperFlag(key: String, enabled: Boolean) {
+        weatherWallpaperPrefs().edit().putBoolean(key, enabled).apply()
+    }
 
     // ── Personalization ──────────────────────────────────────────
 

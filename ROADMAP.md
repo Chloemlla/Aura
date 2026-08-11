@@ -119,11 +119,11 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
   Acceptance: each engine returns `WallpaperColors` derived from the current frame or source bitmap, recomputed on source change and not per frame; a setting suppresses publication for users who do not want launcher recoloring; the soak harness asserts no extra bitmap retention.
   Complexity: M
 
-- [ ] P1 — Fix Settings preference write ordering and gate it
-  Why: five DataStore→SharedPreferences bridges write in the opposite order to the rule codified with rationale in `PreferencesManager`, and the consumers read SharedPreferences only — so leaving Settings mid-write strands the live wallpaper on the old value while the toggle reads as changed.
-  Evidence: `SettingsViewModel.kt:928-932,933-938,939-943,944-948,959-964` vs `PreferencesManager.kt:510-517`; consumers at `WeatherWallpaperService.kt:204,230,256,261`.
-  Touches: `PreferencesManager.kt`, `SettingsViewModel.kt`, new contract gate + test.
-  Acceptance: every SharedPreferences bridge lives in `PreferencesManager` and writes SharedPreferences first; a gate forbids `getSharedPreferences` in `ui/screens/settings/`; a cancellation test proves the runtime value survives.
+- [ ] P2 — Move the last three SharedPreferences writes out of the settings UI
+  Why: `SettingsScreen.kt` and `SettingsSmartLiveSection.kt` still write `freevibe_weather_wp` directly from composables, bypassing `PreferencesManager`; these are single-store writes so they do not have the ordering defect, but they keep runtime state outside the data layer where the write-order gate cannot see it.
+  Evidence: `SettingsScreen.kt:85` (`daily_wallpaper_enabled`); `SettingsSmartLiveSection.kt:445` (`vfx_effect`), `:482` (`touch_effect_strength`); `tools/preference_write_order_check.py` currently asserts only that `SettingsViewModel` is clean.
+  Touches: `PreferencesManager.kt`, `SettingsScreen.kt`, `SettingsSmartLiveSection.kt`, `tools/preference_write_order_check.py`.
+  Acceptance: those three keys are written through `PreferencesManager`; the gate forbids `getSharedPreferences` writes anywhere under `ui/screens/settings/`, and a test proves it fails when one is reintroduced.
   Complexity: S
 
 - [ ] P1 — Stop the wallpaper editor orphaning bitmaps and losing composed state

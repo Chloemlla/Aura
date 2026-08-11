@@ -28,7 +28,9 @@ import sys
 from pathlib import Path
 
 
-REPLACEMENT_CHARACTER = "�"
+# Constructed from the code point on purpose: embedding the literal would make this
+# file trip its own check, and self-exempting a detector is how detectors go blind.
+REPLACEMENT_CHARACTER = chr(0xFFFD)
 
 # Line endings are a per-path contract: .gitattributes pins Windows batch to
 # CRLF because cmd.exe can mis-parse LF continuation lines.

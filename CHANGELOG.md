@@ -34,6 +34,13 @@ All notable changes to Aura will be documented in this file.
   `tools/docs_link_check.py` walks every `docs/*.md` link in README and app source and fails
   when one would 404. The privacy policy gate now uses the same predicate, so it can no longer
   report `ok` for a document nobody can open.
+- **Fix: live-wallpaper settings no longer strand on the old value** — five Settings toggles
+  (reduce animations, adaptive tint, tint intensity, live-wallpaper dimming, shader preset)
+  wrote DataStore before the SharedPreferences bridge the wallpaper engines actually read.
+  Backing out of Settings cancelled the coroutine between the two writes, leaving the live
+  wallpaper on the old value permanently while the toggle read as changed. All five bridges
+  moved into `PreferencesManager`, which already codified the correct order for the video
+  settings, and `tools/preference_write_order_check.py` now holds all nine bridges to it.
 - **Privacy: community voting no longer touches the network before you opt in** —
   `VoteRepository` attached a Firebase Realtime Database moderation listener from its `init`
   block with no consent check, while every other entry point in the class gates on
