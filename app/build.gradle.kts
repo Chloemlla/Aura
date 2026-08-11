@@ -69,12 +69,12 @@ val localProps = Properties().apply {
 }
 
 android {
-    namespace = "com.freevibe"
+    namespace = "com.chloemlla.aura"
     compileSdk = 35
 
     signingConfigs {
         create("release") {
-            storeFile = file(localProps.getProperty("signing.keystore.path", "../freevibe.jks"))
+            storeFile = file(localProps.getProperty("signing.keystore.path", "../aura.jks"))
             storePassword = localProps.getProperty("signing.keystore.password", "")
             keyAlias = localProps.getProperty("signing.key.alias", "")
             keyPassword = localProps.getProperty("signing.key.password", "")
@@ -82,13 +82,17 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.freevibe"
+        applicationId = "com.chloemlla.aura"
         minSdk = 26
         targetSdk = 35
         versionCode = 141
         versionName = "6.40.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Only ship English and Chinese localized resources from libraries (Firebase,
+        // Play Services, AndroidX, etc.) — these ship 80+ translations by default.
+        resConfigs("en", "zh")
 
         // API keys — defaults baked in, user can override via settings
         buildConfigField("String", "PEXELS_API_KEY", "\"${localProps.getProperty("pexels.api.key", "")}\"")
@@ -128,6 +132,19 @@ android {
         }
     }
 
+    // Split APKs by ABI so each architecture ships only its own native libraries,
+    // dramatically reducing per-APK download size. arm64-v8a covers ~95% of modern
+    // Android devices; armeabi-v7a and x86_64 are included for legacy + emulator
+    // compatibility. No universal APK — users get the exact variant they need.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86_64")
+            isUniversalApk = false
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -160,9 +177,11 @@ android {
         // incompatibility, not app code. The app uses StateFlow throughout, so the LiveData
         // nullability check has nothing to inspect here anyway.
         disable += "NullSafeMutableLiveData"
-        // FrequentlyChangingValueDetector crashes with IncompatibleClassChangeError on
-        // Kotlin 2.3.21 — same class of AGP/lint analysis-api incompatibility as above.
+        // FrequentlyChangingValueDetector and RememberInCompositionDetector both crash
+        // with IncompatibleClassChangeError on Kotlin 2.3.21 — same class of AGP/lint
+        // analysis-api incompatibility as above.
         disable += "FrequentlyChangingValue"
+        disable += "RememberInComposition"
     }
 
     packaging {
@@ -341,7 +360,6 @@ dependencies {
 
     // yt-dlp for Android (YouTube stream URL extraction)
     implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
-    implementation("io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1")
 
     // ML Kit Subject Segmentation — API 24+, multi-subject, unbundled (the model
     // is downloaded on first use via Google Play services). Roadmap N-3.
@@ -353,4 +371,40 @@ dependencies {
     // ModuleInstallClient lets us proactively download the unbundled segmenter
     // model so parallax wallpapers don't fail silently on first apply.
     add("fullImplementation", "com.google.android.gms:play-services-base:18.5.0")
+}
+
+// Build-time yt-dlp download: fetch the latest stable yt-dlp zipapp from GitHub
+// so the bundled version is always fresh (inspired by Seal's approach).
+val downloadYtDlp by tasks.registering {
+    val ytdlpFile = layout.projectDirectory.file("src/main/res/raw/ytdlp")
+    val versionFile = layout.projectDirectory.file("ytdlp.version")
+    // Only re-download if the raw resource doesn't exist yet
+    outputs.file(ytdlpFile)
+    outputs.file(versionFile)
+    doLast {
+        val url = java.net.URI("https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp").toURL()
+        val dest = ytdlpFile.asFile
+        logger.lifecycle("Downloading latest yt-dlp from $url ...")
+        url.openStream().use { input ->
+            dest.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+        // Try to extract version from the downloaded file
+        try {
+            val version = dest.readLines().firstOrNull { it.startsWith("__version__") }
+                ?.substringAfter("=")?.trim()?.removeSurrounding("'", "'")?.removeSurrounding("\"", "\"")
+                ?: "unknown"
+            versionFile.asFile.writeText(version)
+            logger.lifecycle("yt-dlp version: $version")
+        } catch (_: Exception) {
+            logger.lifecycle("yt-dlp: downloaded (version unknown)")
+        }
+    }
+}
+
+// Wire the yt-dlp download to run before any mergeResources task so the
+// resource is available when the APK is packaged.
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Resources") }.configureEach {
+    dependsOn(downloadYtDlp)
 }
