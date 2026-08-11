@@ -32,21 +32,21 @@ def write_release_fixture(release_dir: Path) -> tuple[str, str]:
         "GOOGLE-OSS-RAW-INPUTS.zip": "raw",
         "NATIVE-COMPLIANCE.md": "native",
         "NATIVE-ALIGNMENT.json": (
-            '{"status":"ok","policyKind":"nativePageAlignment","packageName":"com.freevibe",'
+            '{"status":"ok","policyKind":"nativePageAlignment","packageName":"com.chloemlla.aura",'
             '"requiredLoadSegmentAlignmentBytes":16384,"checked64BitLoadSegments":2,'
             '"seen64BitAbis":["arm64-v8a","x86_64"]}'
         ),
         "apksigner.txt": "Signer #1 certificate SHA-256 digest: apk-cert",
-        "aapt-badging.txt": "package: name='com.freevibe'",
+        "aapt-badging.txt": "package: name='com.chloemlla.aura'",
         "aab-manifest.txt": (
-            'manifest package="com.freevibe" android:versionCode="133" '
+            'manifest package="com.chloemlla.aura" android:versionCode="133" '
             'android:versionName="6.34.6"'
         ),
         "bundletool-validate.txt": f"bundletool validate passed: {aab_name}",
         "aab-jarsigner.txt": "jar verified.",
         "aab-keytool.txt": "Certificate fingerprints:\n\t SHA256: upload-cert",
         "PLAY-APP-SIGNING-OWNER-STEPS.txt": (
-            "Play App Signing owner-confirmation-required for com.freevibe. "
+            "Play App Signing owner-confirmation-required for com.chloemlla.aura. "
             "Open Play Console App integrity, compare upload key and app signing key."
         ),
     }
@@ -85,7 +85,7 @@ Signed release artifacts:
 - Build type: release, android:debuggable=false
 
 Android developer verification:
-- Package: com.freevibe
+- Package: com.chloemlla.aura
 """,
     )
     return apk_name, aab_name

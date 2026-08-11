@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "policyKind": "storeAssetPipeline",
   "status": "capturePending",
-  "packageName": "com.freevibe",
+  "packageName": "com.chloemlla.aura",
   "docsPath": "docs/distribution/store-assets.md",
   "metadataRoot": "fastlane/metadata/android/en-US",
   "assetModeCommand": "tools/store_metadata_preflight.py --repo-root . --require-assets --min-phone-screenshots 4",

@@ -47,10 +47,15 @@
         <package android:name="com.miui.powerkeeper" />
         <package android:name="com.huawei.systemmanager" />
         <package android:name="com.asus.mobilemanager" />
+        <!-- Clash Meta for Android variants (proxy compatibility) -->
+        <package android:name="com.github.metacubex.clash" />
+        <package android:name="com.github.kr328.clash" />
+        <package android:name="com.clash.meta" />
+        <package android:name="com.clash.alpha" />
     </queries>
 
     <application
-        android:name=".FreeVibeApp"
+        android:name=".AuraApp"
         android:allowBackup="true"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -60,7 +65,7 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
-        android:theme="@style/Theme.FreeVibe"
+        android:theme="@style/Theme.Aura"
         android:usesCleartextTraffic="false"
         tools:targetApi="35">
 
@@ -71,7 +76,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.FreeVibe">
+            android:theme="@style/Theme.Aura">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -200,8 +205,8 @@
             android:name=".service.TaskerActionReceiver"
             android:exported="true">
             <intent-filter>
-                <action android:name="com.freevibe.action.ROTATE_NOW" />
-                <action android:name="com.freevibe.action.SHUFFLE_NOW" />
+                <action android:name="com.chloemlla.aura.action.ROTATE_NOW" />
+                <action android:name="com.chloemlla.aura.action.SHUFFLE_NOW" />
             </intent-filter>
         </receiver>
 
@@ -216,32 +221,32 @@
 
         <!-- External Audio Intent Receiver — allows third-party apps to trigger
              audio playback via simple broadcast intents:
-             - com.freevibe.action.PLAY_SOUND (with SOUND_ID extra)
-             - com.freevibe.action.PLAY_RANDOM (with optional CATEGORY extra)
-             - com.freevibe.action.STOP_PLAYBACK
-             - com.freevibe.action.SET_VOLUME (with VOLUME extra) -->
+             - com.chloemlla.aura.action.PLAY_SOUND (with SOUND_ID extra)
+             - com.chloemlla.aura.action.PLAY_RANDOM (with optional CATEGORY extra)
+             - com.chloemlla.aura.action.STOP_PLAYBACK
+             - com.chloemlla.aura.action.SET_VOLUME (with VOLUME extra) -->
         <receiver
             android:name=".service.ExternalAudioIntentReceiver"
             android:exported="true"
             android:enabled="true">
             <intent-filter>
-                <action android:name="com.freevibe.action.PLAY_SOUND" />
-                <action android:name="com.freevibe.action.PLAY_RANDOM" />
-                <action android:name="com.freevibe.action.STOP_PLAYBACK" />
-                <action android:name="com.freevibe.action.SET_VOLUME" />
+                <action android:name="com.chloemlla.aura.action.PLAY_SOUND" />
+                <action android:name="com.chloemlla.aura.action.PLAY_RANDOM" />
+                <action android:name="com.chloemlla.aura.action.STOP_PLAYBACK" />
+                <action android:name="com.chloemlla.aura.action.SET_VOLUME" />
             </intent-filter>
         </receiver>
 
         <!-- Home Screen Widget -->
         <receiver
-            android:name=".widget.FreeVibeWidgetReceiver"
+            android:name=".widget.AuraWidgetReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/freevibe_widget_info" />
+                android:resource="@xml/aura_widget_info" />
         </receiver>
 
         <!-- FileProvider for sharing files with system apps -->
@@ -256,7 +261,7 @@
         </provider>
 
         <!-- Audio Content Provider — serves bundled sound files to third-party apps
-             via content:// URIs (e.g. content://com.freevibe.audioprovider/sound/SOUND::BUNDLED::bundled_ringtone_01).
+             via content:// URIs (e.g. content://com.chloemlla.aura.audioprovider/sound/SOUND::BUNDLED::bundled_ringtone_01).
              External apps read audio streams through ContentResolver.openFileDescriptor(). -->
         <provider
             android:name=".service.AudioContentProvider"

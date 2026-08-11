@@ -37,7 +37,7 @@ class ReleaseMetadataConsistencyCheckTest(unittest.TestCase):
         result = validate_policy(REPO_ROOT, live_policy())
 
         self.assertEqual("ok", result["status"])
-        self.assertEqual("com.freevibe", result["packageName"])
+        self.assertEqual("com.chloemlla.aura", result["packageName"])
         # Derived from the release manifest, not restated: a hardcoded literal
         # here is exactly the stale fixture this gate is supposed to catch.
         manifest = read_manifest(REPO_ROOT)

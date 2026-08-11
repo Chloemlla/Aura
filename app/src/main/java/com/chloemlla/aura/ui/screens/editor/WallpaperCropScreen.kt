@@ -1,0 +1,333 @@
+package com.chloemlla.aura.ui.screens.editor
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.chloemlla.aura.R
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.chloemlla.aura.data.model.Wallpaper
+import com.chloemlla.aura.data.model.WallpaperTarget
+import com.chloemlla.aura.ui.components.AuraSnackbarHost
+import com.chloemlla.aura.ui.components.AuraStateAction
+import com.chloemlla.aura.ui.components.AuraStateCard
+import kotlinx.coroutines.launch
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WallpaperCropScreen(
+    wallpaperId: String,
+    fallbackWallpaper: Wallpaper? = null,
+    onBack: () -> Unit,
+    recoveryViewModel: com.chloemlla.aura.ui.screens.wallpapers.WallpapersViewModel = hiltViewModel(),
+    viewModel: WallpaperCropViewModel = hiltViewModel(),
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    var viewportSize by remember { mutableStateOf(IntSize.Zero) }
+    val cropIdentityKey = remember(wallpaperId, fallbackWallpaper?.source, fallbackWallpaper?.fullUrl) {
+        listOf(
+            wallpaperId,
+            fallbackWallpaper?.source?.name.orEmpty(),
+            fallbackWallpaper?.fullUrl.orEmpty(),
+        ).joinToString("|")
+    }
+    var selectionResolved by remember(cropIdentityKey) { mutableStateOf<Boolean?>(null) }
+
+    // Gesture state — survives configuration changes
+    var scale by rememberSaveable { mutableFloatStateOf(1f) }
+    var offsetX by rememberSaveable { mutableFloatStateOf(0f) }
+    var offsetY by rememberSaveable { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(state.success) {
+        state.success?.let { snackbarHostState.showSnackbar(it); viewModel.clearMessages() }
+    }
+    LaunchedEffect(state.error) {
+        state.error?.let {
+            snackbarHostState.showSnackbar(context.getString(R.string.common_error_format, it))
+            viewModel.clearMessages()
+        }
+    }
+    LaunchedEffect(wallpaperId, fallbackWallpaper?.source, fallbackWallpaper?.fullUrl) {
+        scale = 1f
+        offsetX = 0f
+        offsetY = 0f
+        val wallpaper = fallbackWallpaper?.let {
+            recoveryViewModel.resolveWallpaper(
+                id = wallpaperId,
+                source = it.source,
+                fullUrl = it.fullUrl,
+            ) ?: it
+        } ?: recoveryViewModel.resolveWallpaper(wallpaperId)
+        selectionResolved = wallpaper?.let { viewModel.loadWallpaper(it) } ?: false
+    }
+
+    Scaffold(
+        snackbarHost = { AuraSnackbarHost(snackbarHostState) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.editor_crop_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.common_back))
+                    }
+                },
+                actions = {
+                    TextButton(onClick = {
+                        scale = 1f; offsetX = 0f; offsetY = 0f
+                        viewModel.resetTransform()
+                    }) {
+                        Text(stringResource(R.string.common_reset), color = MaterialTheme.colorScheme.primary)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+            )
+        },
+    ) { padding ->
+        if (selectionResolved == null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(strokeWidth = 2.dp)
+                    Spacer(Modifier.height(12.dp))
+                    Text(stringResource(R.string.editor_crop_loading), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            return@Scaffold
+        }
+
+        if (selectionResolved == false) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(20.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                AuraStateCard(
+                    icon = Icons.Default.BrokenImage,
+                    title = stringResource(R.string.editor_crop_unavailable_title),
+                    description = stringResource(R.string.editor_crop_unavailable_body),
+                    tone = MaterialTheme.colorScheme.tertiary,
+                    primaryAction = AuraStateAction(stringResource(R.string.editor_crop_unavailable_action), Icons.AutoMirrored.Filled.ArrowBack, onBack),
+                )
+            }
+            return@Scaffold
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
+            // Crop viewport
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .background(Color.Black)
+                    .clipToBounds()
+                    .onSizeChanged { viewportSize = it }
+                    .pointerInput(Unit) {
+                        detectTransformGestures { _, pan, zoom, _ ->
+                            scale = (scale * zoom).coerceIn(0.5f, 5f)
+                            offsetX += pan.x
+                            offsetY += pan.y
+                            viewModel.updateTransform(scale, offsetX, offsetY)
+                        }
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                state.bitmap?.let { bitmap ->
+                    androidx.compose.foundation.Image(
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = stringResource(R.string.editor_crop_image_cd),
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer(
+                                scaleX = scale,
+                                scaleY = scale,
+                                translationX = offsetX,
+                                translationY = offsetY,
+                            ),
+                    )
+                }
+
+                // Screen overlay guides
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                )
+
+                if (state.isLoading) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
+            }
+
+            // Zoom info + aspect ratio presets
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(R.string.editor_crop_gesture_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    String.format(java.util.Locale.ROOT, "%.0f%%", scale * 100),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+
+            // Aspect ratio quick presets + Smart Crop (NX-3)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FilterChip(
+                    selected = false,
+                    enabled = !state.smartCropInProgress && state.bitmap != null && viewportSize != IntSize.Zero,
+                    onClick = {
+                        if (viewportSize == IntSize.Zero) return@FilterChip
+                        scope.launch {
+                            val t = viewModel.applySmartCrop(viewportSize.width, viewportSize.height)
+                            if (t != null) {
+                                scale = t.scale
+                                offsetX = t.offsetX
+                                offsetY = t.offsetY
+                            }
+                        }
+                    },
+                    leadingIcon = {
+                        if (state.smartCropInProgress) {
+                            CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 1.5.dp)
+                        } else {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(14.dp))
+                        }
+                    },
+                    label = {
+                        Text(
+                            stringResource(if (state.smartCropInProgress) R.string.editor_crop_detecting else R.string.editor_crop_smart_crop),
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.heightIn(min = 40.dp),
+                )
+                val presets = listOf("Free" to null, "9:16" to (9f / 16f), "16:9" to (16f / 9f), "1:1" to 1f)
+                presets.forEach { (label, ratio) ->
+                    FilterChip(
+                        selected = false,
+                        onClick = {
+                            val bitmap = state.bitmap
+                            if (ratio != null && bitmap != null && viewportSize != IntSize.Zero) {
+                                val vpW = viewportSize.width.toFloat()
+                                val vpH = viewportSize.height.toFloat()
+                                val vpRatio = vpW / vpH
+                                // Scale so the target aspect ratio fills the viewport
+                                val fitScale = if (bitmap.width.toFloat() / bitmap.height > vpRatio) {
+                                    vpH / bitmap.height // image wider than viewport → fit height
+                                } else {
+                                    vpW / bitmap.width // image taller → fit width
+                                }
+                                val targetScale = if (ratio < vpRatio) {
+                                    // Target is taller than viewport: need to show less width → zoom in
+                                    (vpW / ratio) / (bitmap.height * fitScale)
+                                } else {
+                                    // Target is wider: need to show less height → zoom in
+                                    (vpH * ratio) / (bitmap.width * fitScale)
+                                }
+                                scale = targetScale.coerceIn(0.5f, 5f)
+                                offsetX = 0f
+                                offsetY = 0f
+                                viewModel.updateTransform(scale, offsetX, offsetY)
+                            } else {
+                                scale = 1f; offsetX = 0f; offsetY = 0f
+                                viewModel.resetTransform()
+                            }
+                        },
+                        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.heightIn(min = 40.dp),
+                    )
+                }
+            }
+
+            // Apply buttons
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        viewModel.applyCropped(WallpaperTarget.HOME, viewportSize.width, viewportSize.height)
+                    },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                    enabled = !state.isApplying && state.bitmap != null,
+                    shape = RoundedCornerShape(8.dp),
+                ) { Text(stringResource(R.string.common_home)) }
+                OutlinedButton(
+                    onClick = {
+                        viewModel.applyCropped(WallpaperTarget.LOCK, viewportSize.width, viewportSize.height)
+                    },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                    enabled = !state.isApplying && state.bitmap != null,
+                    shape = RoundedCornerShape(8.dp),
+                ) { Text(stringResource(R.string.common_lock)) }
+                Button(
+                    onClick = {
+                        viewModel.applyCropped(WallpaperTarget.BOTH, viewportSize.width, viewportSize.height)
+                    },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                    enabled = !state.isApplying && state.bitmap != null,
+                    shape = RoundedCornerShape(8.dp),
+                ) {
+                    if (state.isApplying) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else Text(stringResource(R.string.common_both))
+                }
+            }
+        }
+    }
+}

@@ -50,7 +50,7 @@ class StoreMetadataPreflightTest(unittest.TestCase):
             '''
 android {
     defaultConfig {
-        applicationId = "com.freevibe"
+        applicationId = "com.chloemlla.aura"
         versionCode = 112
         versionName = "6.31.1"
     }

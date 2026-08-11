@@ -265,7 +265,7 @@ def validate_bundle(
             "Play App Signing owner steps:",
             "Local build receipt:",
             "Build type: release, android:debuggable=false",
-            "Package: com.freevibe",
+            "Package: com.chloemlla.aura",
         ]
         for fragment in required_note_fragments:
             if fragment not in release_notes:
@@ -305,11 +305,11 @@ def validate_bundle(
     except FileNotFoundError as exc:
         errors.append(str(exc))
 
-    errors.extend(validate_native_alignment(release_dir / "NATIVE-ALIGNMENT.json", package_name="com.freevibe"))
+    errors.extend(validate_native_alignment(release_dir / "NATIVE-ALIGNMENT.json", package_name="com.chloemlla.aura"))
     errors.extend(
         validate_aab_manifest(
             release_dir / "aab-manifest.txt",
-            package_name="com.freevibe",
+            package_name="com.chloemlla.aura",
             version_name=version_name,
             version_code=version_code,
         )
@@ -320,7 +320,7 @@ def validate_bundle(
             jarsigner_path=release_dir / "aab-jarsigner.txt",
             keytool_path=release_dir / "aab-keytool.txt",
             owner_steps_path=release_dir / "PLAY-APP-SIGNING-OWNER-STEPS.txt",
-            package_name="com.freevibe",
+            package_name="com.chloemlla.aura",
         )
     )
 

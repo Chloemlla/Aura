@@ -1,0 +1,43 @@
+package com.chloemlla.aura.service
+
+import java.io.File
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class CoilMigrationContractTest {
+
+    @Test
+    fun `image pipeline is fully migrated to Coil 3`() {
+        val catalog = File("../gradle/libs.versions.toml").readText()
+        val appBuild = File("build.gradle.kts").readText()
+        val app = File("src/main/java/com/freevibe/FreeVibeApp.kt").readText()
+        val widget = File("src/main/java/com/freevibe/widget/FreeVibeWidget.kt").readText()
+        val mainSources = File("src/main/java")
+            .walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .joinToString("\n") { it.readText() }
+
+        assertTrue(catalog.contains("coil = \"3.4.0\""))
+        assertTrue(catalog.contains("group = \"io.coil-kt.coil3\""))
+        assertTrue(catalog.contains("coil-network-okhttp"))
+        assertTrue(appBuild.contains("implementation(libs.coil.network.okhttp)"))
+        assertFalse(mainSources.contains("import coil."))
+        assertTrue(app.contains("SingletonImageLoader.Factory"))
+        assertTrue(app.contains("OkHttpNetworkFetcherFactory"))
+        assertTrue(app.contains("AnimatedImageDecoder.Factory()"))
+        assertTrue(widget.contains("as? SuccessResult"))
+        assertTrue(widget.contains("result.image.toBitmap()"))
+    }
+
+    @Test
+    fun `Compose 1_8 dependencies are aligned by the June 2025 BOM`() {
+        val catalog = File("../gradle/libs.versions.toml").readText()
+        val appBuild = File("build.gradle.kts").readText()
+
+        assertTrue(catalog.contains("compose-bom = \"2025.06.00\""))
+        assertFalse(catalog.contains("compose-ui-test ="))
+        assertFalse(catalog.contains("material3 = \""))
+        assertTrue(appBuild.split("platform(libs.compose.bom)").size - 1 >= 3)
+    }
+}

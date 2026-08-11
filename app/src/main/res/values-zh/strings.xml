@@ -190,7 +190,7 @@
     <string name="settings_weather_effects_subtitle">使用 Open-Meteo 获取大致位置；Aura 会存储四舍五入到两位小数的坐标，并在禁用时清除它们。</string>
     <string name="settings_external_automation_title">外部自动化</string>
     <string name="settings_external_automation_dialog_body">在启用此开关之前，Tasker、MacroDroid、adb 和 Termux 广播会被忽略。已接受的广播限制为每 %1$s 一次轮换。</string>
-    <string name="settings_external_automation_public_contract">公共操作：com.freevibe.action.ROTATE_NOW 和 com.freevibe.action.SHUFFLE_NOW。可选的诊断附加信息：com.freevibe.extra.CALLER_PACKAGE。</string>
+    <string name="settings_external_automation_public_contract">公共操作：com.chloemlla.aura.action.ROTATE_NOW 和 com.chloemlla.aura.action.SHUFFLE_NOW。可选的诊断附加信息：com.chloemlla.aura.extra.CALLER_PACKAGE。</string>
     <string name="settings_external_automation_last_accepted">上次接受：%1$s</string>
     <string name="settings_external_automation_last_rejected">上次拒绝：%1$s（%2$s）</string>
     <!-- External automation subtitle formatters -->

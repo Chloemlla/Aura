@@ -4,7 +4,7 @@
   "manifestVersion": "v6.31.1",
   "services": [
     {
-      "class": "com.freevibe.service.AudioPlaybackService",
+      "class": "com.chloemlla.aura.service.AudioPlaybackService",
       "type": "MediaLibraryService (extends MediaSessionService)",
       "foregroundServiceType": "mediaPlayback",
       "manifestPermission": "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
@@ -28,7 +28,7 @@
       ]
     },
     {
-      "class": "com.freevibe.service.RotationTriggerService",
+      "class": "com.chloemlla.aura.service.RotationTriggerService",
       "type": "Service",
       "foregroundServiceType": "specialUse",
       "foregroundServiceSubtype": "wallpaper_rotation_triggers",

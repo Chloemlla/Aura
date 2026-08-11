@@ -29,7 +29,7 @@ def minimal_policy() -> dict[str, object]:
     return {
         "schemaVersion": 1,
         "policyKind": "playAppContentPacket",
-        "packageName": "com.freevibe",
+        "packageName": "com.chloemlla.aura",
         "playSubmissionStatus": "ownerActionRequired",
         "docsPath": "docs/distribution/play-app-content.md",
         "requiredEvidencePaths": [
@@ -141,7 +141,7 @@ def minimal_policy() -> dict[str, object]:
 
 def seed_repo(repo: Path) -> Path:
     policy = minimal_policy()
-    write(repo / "app/build.gradle.kts", 'android { defaultConfig { applicationId = "com.freevibe" } }\n')
+    write(repo / "app/build.gradle.kts", 'android { defaultConfig { applicationId = "com.chloemlla.aura" } }\n')
     write(repo / "app/src/main/AndroidManifest.xml", "<manifest />\n")
     write(
         repo / "fastlane/metadata/android/en-US/full_description.txt",
@@ -191,7 +191,7 @@ class PlayAppContentPacketCheckTest(unittest.TestCase):
         result = validate_policy(REPO_ROOT, live_policy())
 
         self.assertEqual("ok", result["status"])
-        self.assertEqual("com.freevibe", result["packageName"])
+        self.assertEqual("com.chloemlla.aura", result["packageName"])
         self.assertGreaterEqual(result["ownerActionCount"], 1)
         self.assertGreaterEqual(result["sensitivePermissionCount"], 1)
 

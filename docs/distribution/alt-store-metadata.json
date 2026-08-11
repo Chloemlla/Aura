@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "policyKind": "altStoreDisclosureMatrix",
-  "packageName": "com.freevibe",
+  "packageName": "com.chloemlla.aura",
   "docsPath": "docs/distribution/alt-store-metadata.md",
   "decision": "full-build-for-github-obtainium-izzy-foss-boundary-ready",
   "requiredEvidencePaths": [

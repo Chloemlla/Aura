@@ -9,4 +9,4 @@ Recent highlights:
 - Community wallpaper + sound uploads with voting and moderation.
 - Smart Crop centers the wallpaper on the detected subject before applying.
 - Rotate on every unlock or pre-stage on screen-off via RotationTriggerService (opt-in).
-- Tasker / MacroDroid hook: com.freevibe.action.ROTATE_NOW broadcast.
+- Tasker / MacroDroid hook: com.chloemlla.aura.action.ROTATE_NOW broadcast.

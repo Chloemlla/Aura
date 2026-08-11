@@ -11,7 +11,7 @@ soundcloud.client.id=
 stability.ai.key=
 
 # Required only for signed release builds.
-signing.keystore.path=../freevibe.jks
+signing.keystore.path=../aura.jks
 signing.keystore.password=
 signing.key.alias=
 signing.key.password=

@@ -27,6 +27,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "FreeVibe"
+rootProject.name = "Aura"
 include(":app")
 include(":baselineprofile")

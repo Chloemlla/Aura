@@ -22,7 +22,7 @@ class RoomSchemaHistoryCheckTest(unittest.TestCase):
     def test_rejects_missing_latest_schema(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = copy_required_tree(Path(tmpdir))
-            (repo / "app/schemas/com.freevibe.data.local.FreeVibeDatabase/16.json").unlink()
+            (repo / "app/schemas/com.chloemlla.aura.data.local.FreeVibeDatabase/16.json").unlink()
 
             with self.assertRaises(RoomSchemaHistoryError):
                 validate_room_schema_history(repo)
@@ -65,8 +65,8 @@ def copy_required_tree(destination: Path) -> Path:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
 
-    source_schema_dir = REPO_ROOT / "app/schemas/com.freevibe.data.local.FreeVibeDatabase"
-    target_schema_dir = destination / "app/schemas/com.freevibe.data.local.FreeVibeDatabase"
+    source_schema_dir = REPO_ROOT / "app/schemas/com.chloemlla.aura.data.local.FreeVibeDatabase"
+    target_schema_dir = destination / "app/schemas/com.chloemlla.aura.data.local.FreeVibeDatabase"
     target_schema_dir.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(source_schema_dir, target_schema_dir)
     return destination

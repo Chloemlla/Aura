@@ -47,7 +47,7 @@
         "assertion": "Wallpaper editor recovery"
       }
     ],
-    "verifyCommand": "./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.freevibe.ui.accessibility.AccessibilityReleaseGateTest"
+    "verifyCommand": "./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.chloemlla.aura.ui.accessibility.AccessibilityReleaseGateTest"
   },
   "manualScenarios": [
     {

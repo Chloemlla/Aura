@@ -1,0 +1,108 @@
+package com.chloemlla.aura.ui.screens.settings
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BatteryChargingFull
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.chloemlla.aura.R
+import com.chloemlla.aura.service.videoBatteryImpactSummary
+
+@Composable
+internal fun VideoSettingsSection(
+    viewModel: SettingsViewModel,
+    videoFpsLimit: Int,
+    videoFpsOverlayEnabled: Boolean,
+    videoAutoBatterySaver: Boolean,
+    videoBatteryDashboard: VideoBatteryDashboardState,
+    redditVideoSubreddits: String,
+) {
+    var showFpsPicker by remember { mutableStateOf(false) }
+
+    SettingsSection(
+        title = stringResource(R.string.settings_video_section_title),
+        description = stringResource(R.string.settings_video_section_description),
+    ) {
+        VideoBatteryDashboardCard(
+            state = videoBatteryDashboard,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        RedditSubredditListEditor(
+            title = stringResource(R.string.settings_video_subreddits_title),
+            configuredSubreddits = redditVideoSubreddits,
+            onSave = viewModel::setRedditVideoSubs,
+        )
+        SettingsToggle(
+            icon = Icons.Default.BatteryChargingFull,
+            title = stringResource(R.string.settings_video_battery_saver_title),
+            subtitle = if (videoAutoBatterySaver) {
+                stringResource(R.string.settings_video_battery_saver_on_subtitle)
+            } else {
+                stringResource(R.string.settings_video_battery_saver_off_subtitle)
+            },
+            checked = videoAutoBatterySaver,
+            onCheckedChange = viewModel::setVideoAutoBatterySaver,
+        )
+        SettingsToggle(
+            icon = Icons.Default.Speed,
+            title = stringResource(R.string.settings_video_fps_overlay_title),
+            subtitle = if (videoFpsOverlayEnabled) {
+                stringResource(R.string.settings_video_fps_overlay_on_subtitle)
+            } else {
+                stringResource(R.string.settings_video_fps_overlay_off_subtitle)
+            },
+            checked = videoFpsOverlayEnabled,
+            onCheckedChange = viewModel::setVideoFpsOverlayEnabled,
+        )
+        SettingsItem(
+            icon = Icons.Default.Speed,
+            title = stringResource(R.string.settings_video_fps_limit_title),
+            subtitle = videoBatteryImpactSummary(
+                requestedFps = videoBatteryDashboard.requestedFps,
+                effectiveFps = videoBatteryDashboard.effectiveFps,
+                fpsOverlayEnabled = videoBatteryDashboard.fpsOverlayEnabled,
+                lowBatterySaverActive = videoBatteryDashboard.lowBatterySaverActive,
+                motionPausedForPowerSave = videoBatteryDashboard.motionPausedForPowerSave,
+            ),
+            onClick = { showFpsPicker = true },
+        )
+    }
+
+    if (showFpsPicker) {
+        AlertDialog(
+            onDismissRequest = { showFpsPicker = false },
+            title = { Text(stringResource(R.string.settings_video_fps_dialog_title)) },
+            text = {
+                Column {
+                    listOf(
+                        15 to stringResource(R.string.settings_video_fps_15),
+                        30 to stringResource(R.string.settings_video_fps_30),
+                        60 to stringResource(R.string.settings_video_fps_60),
+                    ).forEach { (fps, label) ->
+                        SettingsRadioOptionRow(
+                            label = label,
+                            selected = videoFpsLimit == fps,
+                            onClick = {
+                                viewModel.setVideoFpsLimit(fps)
+                                showFpsPicker = false
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showFpsPicker = false }) { Text(stringResource(R.string.common_cancel)) }
+            },
+        )
+    }
+}

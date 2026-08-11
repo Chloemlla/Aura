@@ -40,7 +40,7 @@ class AltStoreMetadataCheckTest(unittest.TestCase):
         result = validate_policy(REPO_ROOT, live_policy())
 
         self.assertEqual("ok", result["status"])
-        self.assertEqual("com.freevibe", result["packageName"])
+        self.assertEqual("com.chloemlla.aura", result["packageName"])
         self.assertEqual(13, result["permissionCount"])
         self.assertEqual(19, result["networkServiceCount"])
 

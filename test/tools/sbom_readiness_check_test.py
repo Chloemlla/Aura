@@ -37,7 +37,7 @@ class SbomReadinessCheckTest(unittest.TestCase):
         result = validate_policy(REPO_ROOT, live_policy())
 
         self.assertEqual("ok", result["status"])
-        self.assertEqual("com.freevibe", result["packageName"])
+        self.assertEqual("com.chloemlla.aura", result["packageName"])
         self.assertEqual("deferredUntilN1ToolchainUpgrade", result["decision"])
         self.assertEqual(3, result["futureSbomArtifactCount"])
 

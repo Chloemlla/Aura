@@ -1,0 +1,82 @@
+package com.chloemlla.aura.service
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.media.RingtoneManager
+import android.net.Uri
+import androidx.hilt.work.HiltWorker
+import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.WorkerParameters
+import com.chloemlla.aura.data.local.PreferencesManager
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
+
+/**
+ * Restores Aura-applied ringtone/notification/alarm sounds after a reboot or app
+ * update (some OEM updates reset sound URIs to defaults).
+ *
+ * The receiver only enqueues [RingtoneRestorationWorker] and returns. The previous
+ * goAsync() + coroutine design did DataStore and ContentResolver reads under the
+ * broadcast deadline, which ANR'd on-device (Android 16, post-boot CPU pressure):
+ * BOOT_COMPLETED work must not race a ~10s timer against boot-time disk contention.
+ */
+class RingtoneRestorationReceiver : BroadcastReceiver() {
+
+    override fun onReceive(context: Context, intent: Intent?) {
+        if (intent?.action != Intent.ACTION_BOOT_COMPLETED &&
+            intent?.action != Intent.ACTION_MY_PACKAGE_REPLACED
+        ) return
+
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            RingtoneRestorationWorker.WORK_NAME,
+            ExistingWorkPolicy.REPLACE,
+            OneTimeWorkRequestBuilder<RingtoneRestorationWorker>().build(),
+        )
+    }
+}
+
+@HiltWorker
+class RingtoneRestorationWorker @AssistedInject constructor(
+    @Assisted appContext: Context,
+    @Assisted workerParams: WorkerParameters,
+    private val prefs: PreferencesManager,
+) : CoroutineWorker(appContext, workerParams) {
+
+    override suspend fun doWork(): Result {
+        return try {
+            restoreIfNeeded(RingtoneManager.TYPE_RINGTONE, prefs.lastAppliedRingtoneUri.first())
+            restoreIfNeeded(RingtoneManager.TYPE_NOTIFICATION, prefs.lastAppliedNotificationUri.first())
+            restoreIfNeeded(RingtoneManager.TYPE_ALARM, prefs.lastAppliedAlarmUri.first())
+            Result.success()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            // Restoration is best-effort; a missing provider right after boot is not
+            // worth a retry storm.
+            Result.success()
+        }
+    }
+
+    private fun restoreIfNeeded(type: Int, lastAppliedUri: String) {
+        if (lastAppliedUri.isBlank()) return
+        val expected = Uri.parse(lastAppliedUri)
+        val current = RingtoneManager.getActualDefaultRingtoneUri(applicationContext, type)
+        if (current != expected) {
+            try {
+                applicationContext.contentResolver.openInputStream(expected)?.close()
+                    ?: return
+                RingtoneManager.setActualDefaultRingtoneUri(applicationContext, type, expected)
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    companion object {
+        const val WORK_NAME = "ringtone_restoration"
+    }
+}

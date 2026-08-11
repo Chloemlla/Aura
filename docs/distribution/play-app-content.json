@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "policyKind": "playAppContentPacket",
-  "packageName": "com.freevibe",
+  "packageName": "com.chloemlla.aura",
   "playSubmissionStatus": "ownerActionRequired",
   "docsPath": "docs/distribution/play-app-content.md",
   "requiredEvidencePaths": [

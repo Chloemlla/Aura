@@ -63,7 +63,7 @@ def validate_room_schema_history(
 
     current_version = current_database_version(database_source)
     schema_versions = exported_schema_versions(
-        repo_root / "app/schemas/com.freevibe.data.local.FreeVibeDatabase"
+        repo_root / "app/schemas/com.chloemlla.aura.data.local.FreeVibeDatabase"
     )
     require_contiguous(schema_versions, "exported schema versions")
     if schema_versions[0] != supported_export_start:

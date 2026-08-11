@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "policyKind": "nativePageAlignment",
   "status": "releaseWorkflowEnforced",
-  "packageName": "com.freevibe",
+  "packageName": "com.chloemlla.aura",
   "requiredLoadSegmentAlignmentBytes": 16384,
   "require64BitOnly": true,
   "required64BitAbis": [

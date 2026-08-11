@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "policyKind": "backgroundWorkDeviceEvidence",
   "status": "android16PacketReadyDevicePending",
-  "packageName": "com.freevibe",
+  "packageName": "com.chloemlla.aura",
   "appGradlePath": "app/build.gradle.kts",
   "schedulingLedgerPath": "docs/background-work-scheduling-ledger.json",
   "artifactDirectory": "artifacts/background-work-device-evidence",
@@ -18,9 +18,9 @@
         "rotation_trigger_oneshot"
       ],
       "requiredCommands": [
-        "adb shell dumpsys jobscheduler com.freevibe",
-        "adb shell dumpsys activity services com.freevibe",
-        "adb shell dumpsys package com.freevibe"
+        "adb shell dumpsys jobscheduler com.chloemlla.aura",
+        "adb shell dumpsys activity services com.chloemlla.aura",
+        "adb shell dumpsys package com.chloemlla.aura"
       ],
       "requiredArtifacts": [
         "artifacts/background-work-device-evidence/workmanager-baseline-jobscheduler.txt",
@@ -51,7 +51,7 @@
       "requiredCommands": [
         "adb shell dumpsys connectivity",
         "adb shell dumpsys netpolicy",
-        "adb shell dumpsys jobscheduler com.freevibe"
+        "adb shell dumpsys jobscheduler com.chloemlla.aura"
       ],
       "requiredArtifacts": [
         "artifacts/background-work-device-evidence/metered-data-saver-connectivity.txt",
@@ -76,7 +76,7 @@
         "adb shell dumpsys battery",
         "adb shell cmd battery unplug",
         "adb shell cmd battery set level 10",
-        "adb shell dumpsys jobscheduler com.freevibe"
+        "adb shell dumpsys jobscheduler com.chloemlla.aura"
       ],
       "requiredArtifacts": [
         "artifacts/background-work-device-evidence/low-battery-battery.txt",
@@ -108,8 +108,8 @@
         "adb shell dumpsys deviceidle",
         "adb shell dumpsys battery unplug",
         "adb shell dumpsys deviceidle force-idle",
-        "adb shell am set-standby-bucket com.freevibe restricted",
-        "adb shell dumpsys jobscheduler com.freevibe"
+        "adb shell am set-standby-bucket com.chloemlla.aura restricted",
+        "adb shell dumpsys jobscheduler com.chloemlla.aura"
       ],
       "requiredArtifacts": [
         "artifacts/background-work-device-evidence/doze-standby-deviceidle.txt",
@@ -138,13 +138,13 @@
         "rotation_trigger_oneshot"
       ],
       "requiredCommands": [
-        "adb shell am compat enable OVERRIDE_QUOTA_ENFORCEMENT_TO_TOP_STARTED_JOBS com.freevibe",
-        "adb shell am compat enable OVERRIDE_QUOTA_ENFORCEMENT_TO_FGS_JOBS com.freevibe",
-        "adb shell am set-standby-bucket com.freevibe active",
-        "adb shell dumpsys jobscheduler com.freevibe",
-        "adb shell dumpsys activity services com.freevibe",
-        "adb shell am compat reset OVERRIDE_QUOTA_ENFORCEMENT_TO_TOP_STARTED_JOBS com.freevibe",
-        "adb shell am compat reset OVERRIDE_QUOTA_ENFORCEMENT_TO_FGS_JOBS com.freevibe"
+        "adb shell am compat enable OVERRIDE_QUOTA_ENFORCEMENT_TO_TOP_STARTED_JOBS com.chloemlla.aura",
+        "adb shell am compat enable OVERRIDE_QUOTA_ENFORCEMENT_TO_FGS_JOBS com.chloemlla.aura",
+        "adb shell am set-standby-bucket com.chloemlla.aura active",
+        "adb shell dumpsys jobscheduler com.chloemlla.aura",
+        "adb shell dumpsys activity services com.chloemlla.aura",
+        "adb shell am compat reset OVERRIDE_QUOTA_ENFORCEMENT_TO_TOP_STARTED_JOBS com.chloemlla.aura",
+        "adb shell am compat reset OVERRIDE_QUOTA_ENFORCEMENT_TO_FGS_JOBS com.chloemlla.aura"
       ],
       "requiredArtifacts": [
         "artifacts/background-work-device-evidence/android16-quota-compat.txt",
@@ -169,10 +169,10 @@
         "auto_wallpaper"
       ],
       "requiredCommands": [
-        "adb shell am broadcast -a com.freevibe.action.ROTATE_NOW -p com.freevibe",
-        "adb shell am broadcast -a com.freevibe.action.SHUFFLE_NOW -p com.freevibe",
-        "adb shell dumpsys jobscheduler com.freevibe",
-        "adb shell dumpsys activity services com.freevibe"
+        "adb shell am broadcast -a com.chloemlla.aura.action.ROTATE_NOW -p com.chloemlla.aura",
+        "adb shell am broadcast -a com.chloemlla.aura.action.SHUFFLE_NOW -p com.chloemlla.aura",
+        "adb shell dumpsys jobscheduler com.chloemlla.aura",
+        "adb shell dumpsys activity services com.chloemlla.aura"
       ],
       "requiredArtifacts": [
         "artifacts/background-work-device-evidence/rotation-trigger-broadcasts.txt",

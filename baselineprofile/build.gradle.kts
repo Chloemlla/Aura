@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.freevibe.benchmark"
+    namespace = "com.chloemlla.aura.benchmark"
     compileSdk = 35
     targetProjectPath = ":app"
     experimentalProperties["android.experimental.self-instrumenting"] = true

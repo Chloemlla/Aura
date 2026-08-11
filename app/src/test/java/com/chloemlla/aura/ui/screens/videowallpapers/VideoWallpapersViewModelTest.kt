@@ -1,0 +1,577 @@
+package com.chloemlla.aura.ui.screens.videowallpapers
+
+import com.chloemlla.aura.data.remote.pixabay.PixabayVideo
+import com.chloemlla.aura.data.remote.pixabay.PixabayVideoFile
+import com.chloemlla.aura.data.remote.pixabay.PixabayVideoFiles
+import com.chloemlla.aura.data.repository.parseRedditRssPage
+import com.chloemlla.aura.data.repository.YouTubeVideoMetadata
+import com.chloemlla.aura.data.repository.sanitizeVoteKey
+import com.chloemlla.aura.util.rethrowIfCancelled
+import kotlinx.coroutines.CancellationException
+import okhttp3.Headers
+import okhttp3.Protocol
+import okhttp3.Request
+import okhttp3.ResponseBody.Companion.toResponseBody
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
+import org.junit.Test
+import retrofit2.HttpException
+import retrofit2.Response
+
+class VideoWallpapersViewModelTest {
+
+    @Test
+    fun `resolveVideoLoadProgress keeps discovery open through a few empty batches then stops`() {
+        val first = resolveVideoLoadProgress(previousEmptyLoadCount = 0, newItemCount = 0)
+        val second = resolveVideoLoadProgress(previousEmptyLoadCount = first.emptyLoadCount, newItemCount = 0)
+        val third = resolveVideoLoadProgress(previousEmptyLoadCount = second.emptyLoadCount, newItemCount = 0)
+
+        // Rotating queries mean a single empty batch is not the end, so early empties stay loadable.
+        assertTrue(first.hasMore)
+        assertTrue(second.hasMore)
+        assertTrue(third.hasMore)
+        assertEquals(3, third.emptyLoadCount)
+
+        // ...but once the empty streak reaches the backstop, pagination must terminate so the
+        // auto-fill effect cannot spin loadMore forever on an exhausted/offline catalog.
+        val atLimit = resolveVideoLoadProgress(
+            previousEmptyLoadCount = MAX_CONSECUTIVE_EMPTY_VIDEO_LOADS - 1,
+            newItemCount = 0,
+        )
+        assertEquals(MAX_CONSECUTIVE_EMPTY_VIDEO_LOADS, atLimit.emptyLoadCount)
+        assertFalse(atLimit.hasMore)
+    }
+
+    @Test
+    fun `resolveVideoLoadProgress resets empty streak after new results`() {
+        val progress = resolveVideoLoadProgress(previousEmptyLoadCount = 2, newItemCount = 4)
+
+        assertTrue(progress.hasMore)
+        assertEquals(0, progress.emptyLoadCount)
+    }
+
+    @Test
+    fun `resolvePexelsVideoQuery starts from first fallback query on page one`() {
+        val query = resolvePexelsVideoQuery(
+            page = 1,
+            searchQuery = null,
+            fallbackQueries = listOf("mobile wallpaper", "phone wallpaper", "abstract background"),
+        )
+
+        assertEquals("mobile wallpaper", query)
+    }
+
+    @Test
+    fun `resolvePexelsOrientationParam omits orientation for all mode`() {
+        assertNull(resolvePexelsOrientationParam(OrientationFilter.ALL))
+        assertEquals("portrait", resolvePexelsOrientationParam(OrientationFilter.PORTRAIT))
+        assertEquals("landscape", resolvePexelsOrientationParam(OrientationFilter.LANDSCAPE))
+    }
+
+    @Test
+    fun `keepPexelsVideosAsEnhancement drops pexels-only batches`() {
+        val items = keepPexelsVideosAsEnhancement(
+            listOf(
+                VideoWallpaperItem(
+                    id = "px_1",
+                    title = "by Mira",
+                    thumbnailUrl = "https://example.com/px.jpg",
+                    source = "Pexels",
+                ),
+            ),
+        )
+
+        assertTrue(items.isEmpty())
+    }
+
+    @Test
+    fun `keepPexelsVideosAsEnhancement keeps pexels when fallback sources are present`() {
+        val items = keepPexelsVideosAsEnhancement(
+            listOf(
+                VideoWallpaperItem(
+                    id = "px_1",
+                    title = "by Mira",
+                    thumbnailUrl = "https://example.com/px.jpg",
+                    source = "Pexels",
+                ),
+                VideoWallpaperItem(
+                    id = "pbv_1",
+                    title = "Aurora loop",
+                    thumbnailUrl = "https://example.com/pb.jpg",
+                    source = "Pixabay",
+                ),
+            ),
+        )
+
+        assertEquals(listOf("Pexels", "Pixabay"), items.map { it.source })
+    }
+
+    @Test
+    fun `resolvePixabayVideoFetchSpec uses animation catalog when no search query exists`() {
+        assertEquals(
+            PixabayVideoFetchSpec(query = "abstract loop", videoType = "animation", page = 2),
+            resolvePixabayVideoFetchSpec(searchQuery = null, page = 2),
+        )
+        assertEquals(30, resolvePixabayVideoFetchSpec(searchQuery = null, page = 2).perPage)
+        assertEquals(
+            PixabayVideoFetchSpec(query = "aurora", videoType = "all", page = 3),
+            resolvePixabayVideoFetchSpec(searchQuery = "aurora", page = 3),
+        )
+    }
+
+    @Test
+    fun `video feed cache keys separate orientation focus and search`() {
+        val portrait = videoFeedCacheKey("", OrientationFilter.PORTRAIT, VideoFocusFilter.BEST)
+        val landscape = videoFeedCacheKey("", OrientationFilter.LANDSCAPE, VideoFocusFilter.BEST)
+        val battery = videoFeedCacheKey("", OrientationFilter.PORTRAIT, VideoFocusFilter.LOW_BATTERY)
+        val search = videoFeedCacheKey("ocean", OrientationFilter.PORTRAIT, VideoFocusFilter.BEST)
+
+        assertNotEquals(portrait, landscape)
+        assertNotEquals(portrait, battery)
+        assertNotEquals(portrait, search)
+        assertTrue(portrait.startsWith("video_feed_v2_"))
+    }
+
+    @Test
+    fun `reddit motion feed groups preserve validated source priority`() {
+        val groups = resolveRedditMotionFeedGroups(
+            "livewallpapers,LiveWallpaper,Cinemagraphs,perfectloops,livewallpapers,not-valid!",
+        )
+        val customGroups = resolveRedditMotionFeedGroups("CustomLoops,OLED_Motion,PixelCycles")
+
+        assertEquals(
+            listOf(
+                listOf("livewallpapers", "Cinemagraphs"),
+                listOf("perfectloops", "phonewallpapers"),
+                listOf("AnimatedPixelArt", "LivingBackgrounds"),
+                listOf("wallpaperengine"),
+            ),
+            groups.map { it.subreddits },
+        )
+        assertEquals(
+            listOf(listOf("CustomLoops", "OLED_Motion"), listOf("PixelCycles")),
+            customGroups.map { it.subreddits },
+        )
+    }
+
+    @Test
+    fun `reddit motion feed url requests one hundred and continues after t3 cursor`() {
+        val group = resolveRedditMotionFeedGroups("Cinemagraphs,perfectloops").single()
+        val after = redditAfterToken("rd_abc123")
+        val url = Request.Builder()
+            .url(redditRssMotionUrl(group, after))
+            .build()
+            .url
+
+        assertEquals("100", url.queryParameter("limit"))
+        assertEquals("100", url.queryParameter("count"))
+        assertEquals("t3_abc123", url.queryParameter("after"))
+        assertTrue(url.encodedPath.contains("Cinemagraphs+perfectloops"))
+        assertTrue(url.encodedPath.endsWith("/new/.rss"))
+
+        val deeperPage = Request.Builder()
+            .url(redditRssMotionUrl(group, after, count = 300))
+            .build()
+            .url
+        assertEquals("300", deeperPage.queryParameter("count"))
+    }
+
+    @Test
+    fun `bare reddit video urls resolve to public hls playlists`() {
+        assertEquals(
+            "https://v.redd.it/abc123/HLSPlaylist.m3u8",
+            redditPlayableMotionUrl("https://v.redd.it/abc123"),
+        )
+        assertEquals(
+            "https://i.redd.it/loop.gif",
+            redditPlayableMotionUrl("https://i.redd.it/loop.gif"),
+        )
+        assertTrue(isHlsMotionUrl("https://v.redd.it/abc123/HLSPlaylist.m3u8?source=fallback"))
+        assertFalse(isHlsMotionUrl("https://i.redd.it/loop.gif"))
+    }
+
+    @Test
+    fun `reddit motion cache keys separate feed groups and cursors`() {
+        val groups = resolveRedditMotionFeedGroups(
+            "livewallpapers,LiveWallpaper,Cinemagraphs,perfectloops",
+        )
+
+        val firstPage = redditRssMotionCacheKey(groups[0], after = null)
+        val continued = redditRssMotionCacheKey(groups[0], after = "t3_abc123")
+        val otherGroup = redditRssMotionCacheKey(groups[1], after = null)
+
+        assertNotEquals(firstPage, continued)
+        assertNotEquals(firstPage, otherGroup)
+        assertEquals("t3_abc123", redditAfterToken("t3_abc123"))
+        assertNull(redditAfterToken("not/a/post"))
+    }
+
+    @Test
+    fun `reddit motion selection skips exhausted groups without restarting them`() {
+        val groups = resolveRedditMotionFeedGroups(
+            "livewallpapers,Cinemagraphs,perfectloops,phonewallpapers",
+        )
+        val selection = selectRedditMotionFeed(
+            groups = groups,
+            startIndex = 0,
+            afters = mapOf(
+                groups[0].key to null,
+                groups[1].key to "t3_next",
+            ),
+        )
+
+        assertEquals(groups[1], selection?.group)
+        assertEquals("t3_next", selection?.after)
+        assertEquals(2, selection?.nextSubIndex)
+        assertNull(
+            selectRedditMotionFeed(
+                groups = groups,
+                startIndex = 0,
+                afters = groups.associate { it.key to null },
+            ),
+        )
+    }
+
+    @Test
+    fun `reddit motion page ends on short raw listing or missing cursor`() {
+        assertFalse(isRedditMotionPageExhausted(rawEntryCount = 100, nextAfter = "t3_next"))
+        assertTrue(isRedditMotionPageExhausted(rawEntryCount = 99, nextAfter = "t3_last"))
+        assertTrue(isRedditMotionPageExhausted(rawEntryCount = 100, nextAfter = null))
+    }
+
+    @Test
+    fun `mapPixabayVideosToMetadata filters unsuitable videos and stores stream urls`() {
+        val result = mapPixabayVideosToMetadata(
+            listOf(
+                pixabayVideo(id = 1, duration = 12, mediumUrl = "https://cdn.example.com/one.mp4"),
+                pixabayVideo(id = 2, duration = 90, mediumUrl = "https://cdn.example.com/two.mp4"),
+                pixabayVideo(id = 3, duration = 10, mediumUrl = ""),
+            ),
+        )
+
+        assertEquals(listOf("pbv_1"), result.items.map { it.id })
+        assertEquals("https://cdn.example.com/one.mp4", result.streamUrls["pbv_1"])
+        assertEquals("Pixabay", result.items.first().source)
+        assertEquals(720, result.items.first().videoHeight)
+    }
+
+    @Test
+    fun `youtube mapper does not use thumbnail dimensions as video dimensions`() {
+        val item = mapYouTubeVideoSearchItem(
+            item = youtubeSearchItem(
+                thumbnailWidth = 1280,
+                thumbnailHeight = 720,
+            ),
+            metadata = null,
+        )
+
+        assertFalse(item.hasDimensions)
+        assertEquals(0, item.videoWidth)
+        assertEquals(0, item.videoHeight)
+        assertEquals("Unknown video dimensions · 16s", item.videoTechnicalSummary())
+    }
+
+    @Test
+    fun `youtube mapper stores probed metadata when available`() {
+        val item = mapYouTubeVideoSearchItem(
+            item = youtubeSearchItem(duration = 45),
+            metadata = YouTubeVideoMetadata(
+                width = 1080,
+                height = 1920,
+                rotationDegrees = 90,
+                durationSeconds = 12,
+                mimeType = "video/mp4",
+                videoCodec = "avc1.640028",
+            ),
+        )
+
+        assertTrue(item.hasDimensions)
+        assertEquals(1080, item.videoWidth)
+        assertEquals(1920, item.videoHeight)
+        assertEquals(90, item.videoRotationDegrees)
+        assertEquals(12L, item.duration)
+        assertEquals("1080x1920 (Portrait) · 0.56:1 · 12s · rotated 90deg · avc1.640028 · video/mp4", item.videoTechnicalSummary())
+    }
+
+    @Test
+    fun `pixabay video cache round trips fresh metadata`() {
+        val result = PixabayVideoMetadataResult(
+            items = listOf(
+                VideoWallpaperItem(
+                    id = "pbv_42",
+                    title = "aurora loop",
+                    thumbnailUrl = "https://example.com/thumb.jpg",
+                    source = "Pixabay",
+                    duration = 14,
+                    uploaderName = "maker",
+                    popularity = 99,
+                    videoWidth = 1080,
+                    videoHeight = 1920,
+                ),
+            ),
+            streamUrls = mapOf("pbv_42" to "https://example.com/video.mp4"),
+        )
+        val encoded = encodePixabayVideoCache(
+            CachedPixabayVideoMetadata(
+                result = result,
+                cachedAtMs = 1_000L,
+            ),
+        )
+
+        val decoded = decodePixabayVideoCache(encoded, nowMs = 2_000L)
+
+        assertNotNull(decoded)
+        assertEquals(result.items, decoded!!.result.items)
+        assertEquals(result.streamUrls, decoded.result.streamUrls)
+    }
+
+    @Test
+    fun `pixabay video cache rejects expired fresh reads but allows stale fallback`() {
+        val encoded = encodePixabayVideoCache(
+            CachedPixabayVideoMetadata(
+                result = PixabayVideoMetadataResult(
+                    items = listOf(
+                        VideoWallpaperItem(
+                            id = "pbv_stale",
+                            title = "stale",
+                            thumbnailUrl = "https://example.com/stale.jpg",
+                            source = "Pixabay",
+                        ),
+                    ),
+                    streamUrls = mapOf("pbv_stale" to "https://example.com/stale.mp4"),
+                ),
+                cachedAtMs = 1_000L,
+            ),
+        )
+        val expiredNow = 1_000L + PIXABAY_VIDEO_CACHE_TTL_MS + 1L
+
+        assertNull(decodePixabayVideoCache(encoded, nowMs = expiredNow, requireFresh = true))
+        assertEquals(
+            "pbv_stale",
+            decodePixabayVideoCache(encoded, nowMs = expiredNow, requireFresh = false)
+                ?.result
+                ?.items
+                ?.single()
+                ?.id,
+        )
+    }
+
+    @Test
+    fun `reddit motion metadata uses shorter two hour freshness`() {
+        val encoded = encodePixabayVideoCache(
+            CachedPixabayVideoMetadata(
+                result = PixabayVideoMetadataResult(
+                    items = listOf(
+                        VideoWallpaperItem(
+                            id = "rd_abc123",
+                            title = "Cinemagraph",
+                            thumbnailUrl = "https://example.com/reddit.jpg",
+                            source = "Reddit",
+                        ),
+                    ),
+                    streamUrls = mapOf("rd_abc123" to "https://i.redd.it/loop.gif"),
+                ),
+                cachedAtMs = 1_000L,
+            ),
+        )
+        val afterRedditTtl = 1_000L + REDDIT_RSS_MOTION_CACHE_TTL_MS + 1L
+
+        assertNull(
+            decodePixabayVideoCache(
+                raw = encoded,
+                nowMs = afterRedditTtl,
+                requireFresh = true,
+                freshnessTtlMs = REDDIT_RSS_MOTION_CACHE_TTL_MS,
+            ),
+        )
+        assertNotNull(decodePixabayVideoCache(encoded, nowMs = afterRedditTtl, requireFresh = true))
+    }
+
+    @Test
+    fun `reddit motion cache preserves raw cursor when atom tail is non media`() {
+        val xml = buildString {
+            append("<feed>")
+            append(
+                """
+                <entry>
+                  <id>t3_motion</id>
+                  <title>Loop</title>
+                  <content type="html">&lt;a href=&quot;https://i.redd.it/motion.gif&quot;&gt;loop&lt;/a&gt;</content>
+                </entry>
+                """.trimIndent(),
+            )
+            repeat(99) { index ->
+                append("<entry><id>t3_text$index</id><title>Text tail $index</title></entry>")
+            }
+            append("</feed>")
+        }
+        val rssPage = parseRedditRssPage(xml, "Cinemagraphs")
+        val result = PixabayVideoMetadataResult(
+            items = listOf(
+                VideoWallpaperItem(
+                    id = "rd_motion",
+                    title = "Loop",
+                    thumbnailUrl = "https://example.com/motion.jpg",
+                    source = "Reddit",
+                ),
+            ),
+            streamUrls = mapOf("rd_motion" to "https://i.redd.it/motion.gif"),
+        )
+
+        val decoded = decodePixabayVideoCache(
+            raw = encodePixabayVideoCache(
+                CachedPixabayVideoMetadata(
+                    result = result,
+                    cachedAtMs = 1_000L,
+                    nextAfter = rssPage.nextAfter,
+                    pageExhausted = isRedditMotionPageExhausted(rssPage.rawEntryCount, rssPage.nextAfter),
+                ),
+            ),
+            nowMs = 2_000L,
+        )
+
+        assertEquals(100, rssPage.rawEntryCount)
+        assertEquals("t3_text98", decoded?.nextAfter)
+        assertEquals(false, decoded?.pageExhausted)
+        assertEquals("rd_motion", decoded?.result?.items?.single()?.id)
+    }
+
+    @Test
+    fun `pixabay video rate-limit backoff reads retry headers`() {
+        assertEquals(11_000L, pixabayVideoRateLimitBackoffMillis(http429("Retry-After" to "11")))
+        assertEquals(5_000L, pixabayVideoRateLimitBackoffMillis(http429("X-RateLimit-Reset" to "5")))
+        assertNull(pixabayVideoRateLimitBackoffMillis(IllegalStateException("not rate limited")))
+    }
+
+    @Test
+    fun `rethrowIfCancelled rethrows cancellation exceptions`() {
+        val expected = CancellationException("cancelled")
+
+        try {
+            expected.rethrowIfCancelled()
+            fail("Expected cancellation to be rethrown")
+        } catch (actual: CancellationException) {
+            assertSame(expected, actual)
+        }
+    }
+
+    @Test
+    fun `rethrowIfCancelled ignores ordinary failures`() {
+        IllegalStateException("boom").rethrowIfCancelled()
+    }
+
+    @Test
+    fun `isVideoWallpaperHidden matches sanitized moderation ids`() {
+        val item = VideoWallpaperItem(
+            id = "reddit/post/42",
+            title = "Aurora",
+            thumbnailUrl = "https://example.com/thumb.jpg",
+            source = "Reddit",
+        )
+
+        assertTrue(
+            isVideoWallpaperHidden(
+                item = item,
+                hiddenIds = setOf(sanitizeVoteKey(item.id)),
+            )
+        )
+    }
+
+    @Test
+    fun `resolveVideoLoopRange preserves requested range when valid`() {
+        val range = resolveVideoLoopRange(
+            durationMs = 20_000,
+            startFraction = 0.25f,
+            endFraction = 0.75f,
+        )
+
+        assertEquals(5_000, range.startMs)
+        assertEquals(15_000, range.endMs)
+        assertEquals(10_000, range.durationMs)
+    }
+
+    @Test
+    fun `resolveVideoLoopRange expands short selections to minimum loop`() {
+        val range = resolveVideoLoopRange(
+            durationMs = 10_000,
+            startFraction = 0.5f,
+            endFraction = 0.55f,
+        )
+
+        assertEquals(5_000, range.startMs)
+        assertEquals(7_000, range.endMs)
+        assertEquals(2_000, range.durationMs)
+    }
+
+    @Test
+    fun `videoTrimArgs formats ffmpeg time arguments`() {
+        assertEquals(
+            listOf("-ss", "1.250", "-t", "3.500"),
+            videoTrimArgs(loopStartMs = 1_250, loopEndMs = 4_750),
+        )
+        assertEquals(emptyList<String>(), videoTrimArgs(loopStartMs = 2_000, loopEndMs = 2_000))
+    }
+
+    @Test
+    fun `timelineFrameTimes spreads bounded frame samples across duration`() {
+        assertEquals(
+            listOf(0L, 2_000L, 4_000L, 6_000L),
+            timelineFrameTimes(durationMs = 6_001L, frameCount = 4),
+        )
+        assertEquals(emptyList<Long>(), timelineFrameTimes(durationMs = 0L, frameCount = 4))
+        assertEquals(6, timelineFrameTimes(durationMs = 60_000L, frameCount = 20).size)
+    }
+
+    private fun pixabayVideo(
+        id: Long,
+        duration: Int,
+        mediumUrl: String,
+    ) = PixabayVideo(
+        id = id,
+        tags = "aurora, loop, amoled",
+        duration = duration,
+        pictureId = "picture$id",
+        videos = PixabayVideoFiles(
+            medium = PixabayVideoFile(
+                url = mediumUrl,
+                width = 1280,
+                height = 720,
+            ),
+        ),
+        views = 123,
+        user = "Pixabay maker",
+    )
+
+    private fun youtubeSearchItem(
+        thumbnailWidth: Int = 0,
+        thumbnailHeight: Int = 0,
+        duration: Long = 16,
+    ) = YouTubeVideoSearchItem(
+        videoId = "abc123",
+        title = "Aurora loop",
+        thumbnailUrl = "https://img.youtube.com/vi/abc123/maxresdefault.jpg",
+        thumbnailWidth = thumbnailWidth,
+        thumbnailHeight = thumbnailHeight,
+        duration = duration,
+        uploaderName = "Channel",
+        viewCount = 12_000,
+    )
+
+    private fun http429(vararg headers: Pair<String, String>): HttpException {
+        val headerPairs = headers.flatMap { listOf(it.first, it.second) }.toTypedArray()
+        val rawResponse = okhttp3.Response.Builder()
+            .request(Request.Builder().url("https://pixabay.com/api/videos/").build())
+            .protocol(Protocol.HTTP_1_1)
+            .code(429)
+            .message("Too Many Requests")
+            .headers(Headers.headersOf(*headerPairs))
+            .build()
+        return HttpException(Response.error<Any>("".toResponseBody(null), rawResponse))
+    }
+}

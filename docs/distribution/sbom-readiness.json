@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "policyKind": "sbomReadiness",
   "status": "deferredUntilN1ToolchainUpgrade",
-  "packageName": "com.freevibe",
+  "packageName": "com.chloemlla.aura",
   "docsPath": "docs/distribution/sbom-readiness.md",
   "currentEvidencePaths": [
     "gradle/verification-metadata.xml",

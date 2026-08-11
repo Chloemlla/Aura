@@ -1,0 +1,245 @@
+package com.chloemlla.aura.data.repository
+
+import com.chloemlla.aura.data.local.PreferencesManager
+import com.chloemlla.aura.data.model.COMMUNITY_GUIDELINES_REQUIRED_MESSAGE
+import com.chloemlla.aura.data.model.CommunityBlockReason
+import com.chloemlla.aura.util.rethrowIfCancelled
+import com.chloemlla.aura.data.model.CommunityUserBlockInput
+import com.chloemlla.aura.data.model.normalizeCommunityBlockedUserIds
+import com.chloemlla.aura.data.model.sanitizeCommunityOwnerKey
+import com.chloemlla.aura.service.CommunityIdentityProvider
+import com.chloemlla.aura.service.SourceMetrics
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+
+private const val SOURCE_COMMUNITY = "community"
+
+data class CommunityBlockedUser(
+    val userId: String,
+    val reason: CommunityBlockReason,
+    val createdAt: Long,
+)
+
+@Singleton
+class CommunityBlockRepository @Inject constructor(
+    private val identityProvider: CommunityIdentityProvider,
+    private val prefs: PreferencesManager,
+    private val sourceMetrics: SourceMetrics,
+    private val callableClient: CommunityCallableClient,
+) {
+    private val database by lazy {
+        try { FirebaseDatabase.getInstance().reference } catch (_: Exception) { null }
+    }
+
+    fun blockedUserIds(): Flow<Set<String>> = flow {
+        if (!isCommunityProviderEnabled()) {
+            sourceMetrics.recordDisabled(SOURCE_COMMUNITY)
+            emit(emptySet())
+            return@flow
+        }
+        val currentUid = identityProvider.currentFirebaseUid()
+        if (currentUid.isNullOrBlank()) {
+            emit(emptySet())
+            return@flow
+        }
+        val db = database
+        if (db == null) {
+            emit(emptySet())
+            return@flow
+        }
+        emitAll(observeBlockedUserIds(sanitizeCommunityOwnerKey(currentUid)))
+    }
+
+    fun blockedUsers(): Flow<List<CommunityBlockedUser>> = flow {
+        if (!isCommunityProviderEnabled()) {
+            sourceMetrics.recordDisabled(SOURCE_COMMUNITY)
+            emit(emptyList())
+            return@flow
+        }
+        val currentUid = identityProvider.currentFirebaseUid()
+        if (currentUid.isNullOrBlank()) {
+            emit(emptyList())
+            return@flow
+        }
+        val db = database
+        if (db == null) {
+            emit(emptyList())
+            return@flow
+        }
+        emitAll(observeBlockedUsers(sanitizeCommunityOwnerKey(currentUid)))
+    }
+
+    suspend fun blockedUserIdsOnce(): Set<String> = withContext(Dispatchers.IO) {
+        try {
+            if (!isCommunityProviderEnabled()) {
+                sourceMetrics.recordDisabled(SOURCE_COMMUNITY)
+                return@withContext emptySet()
+            }
+            val currentUid = identityProvider.currentFirebaseUid() ?: return@withContext emptySet()
+            val db = database ?: return@withContext emptySet()
+            parseBlockedUserIds(
+                awaitFirebaseRead("Community block list") {
+                    db.child("community_user_blocks")
+                        .child(sanitizeCommunityOwnerKey(currentUid))
+                        .get()
+                        .await()
+                },
+            )
+        } catch (e: Exception) {
+            e.rethrowIfCancelled()
+            emptySet()
+        }
+    }
+
+    suspend fun blockUser(
+        blockedUid: String,
+        reason: CommunityBlockReason,
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            if (!isCommunityProviderEnabled()) {
+                sourceMetrics.recordDisabled(SOURCE_COMMUNITY)
+                throw IllegalStateException(communityDisabledMessage())
+            }
+            identityProvider.ensureSignedIn()
+            setCommunityUserBlockWithCallable(blockedUid, reason, blocked = true)
+            Unit
+        }.onFailure { it.rethrowIfCancelled() }
+    }
+
+    suspend fun unblockUser(blockedUid: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            if (!isCommunityProviderEnabled()) {
+                sourceMetrics.recordDisabled(SOURCE_COMMUNITY)
+                throw IllegalStateException(communityDisabledMessage())
+            }
+            identityProvider.ensureSignedIn()
+            setCommunityUserBlockWithCallable(
+                blockedUid = blockedUid,
+                reason = CommunityBlockReason.OTHER,
+                blocked = false,
+            )
+            Unit
+        }.onFailure { it.rethrowIfCancelled() }
+    }
+
+    private suspend fun setCommunityUserBlockWithCallable(
+        blockedUid: String,
+        reason: CommunityBlockReason,
+        blocked: Boolean,
+    ) {
+        if (identityProvider.currentFirebaseUid().isNullOrBlank()) {
+            throw IllegalStateException("Community block service requires Firebase Auth")
+        }
+        val result = try {
+            callableClient.setCommunityUserBlock(
+                CommunityUserBlockInput(
+                    blockedUid = blockedUid,
+                    reason = reason,
+                    blocked = blocked,
+                ),
+            )
+        } catch (e: CommunityCallableException) {
+            throw IllegalStateException("Community block service is unavailable", e)
+        }
+        when {
+            result.status.equals("accepted", ignoreCase = true) -> Unit
+            result.status.equals("duplicate", ignoreCase = true) -> Unit
+            else -> throw IllegalStateException("Unexpected user block status: ${result.status}")
+        }
+    }
+
+    private fun observeBlockedUserIds(currentUid: String): Flow<Set<String>> = callbackFlow {
+        val db = database
+        if (db == null || currentUid.isBlank()) {
+            trySend(emptySet())
+            close()
+            return@callbackFlow
+        }
+
+        val ref = db.child("community_user_blocks").child(currentUid)
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                trySend(parseBlockedUserIds(snapshot))
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                trySend(emptySet())
+                close()
+            }
+        }
+
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+    private fun observeBlockedUsers(currentUid: String): Flow<List<CommunityBlockedUser>> = callbackFlow {
+        val db = database
+        if (db == null || currentUid.isBlank()) {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
+
+        val ref = db.child("community_user_blocks").child(currentUid)
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                trySend(parseBlockedUsers(snapshot))
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                trySend(emptyList())
+                close()
+            }
+        }
+
+        ref.addValueEventListener(listener)
+        awaitClose { ref.removeEventListener(listener) }
+    }
+
+    private suspend fun isCommunityProviderEnabled(): Boolean =
+        prefs.communityProviderEnabled.first() && prefs.communityGuidelinesAccepted.first()
+
+    private suspend fun communityDisabledMessage(): String =
+        if (!prefs.communityProviderEnabled.first()) {
+            "Community source is disabled in Settings"
+        } else {
+            COMMUNITY_GUIDELINES_REQUIRED_MESSAGE
+        }
+}
+
+internal fun parseBlockedUserIds(snapshot: DataSnapshot): Set<String> =
+    normalizeCommunityBlockedUserIds(
+        snapshot.children.mapNotNull { child ->
+            child.child("blockedUid").getValue(String::class.java) ?: child.key
+        },
+    )
+
+internal fun parseBlockedUsers(snapshot: DataSnapshot): List<CommunityBlockedUser> =
+    snapshot.children.mapNotNull { child ->
+        val userId = sanitizeCommunityOwnerKey(
+            child.child("blockedUid").getValue(String::class.java) ?: child.key.orEmpty(),
+        )
+        if (userId.isBlank()) return@mapNotNull null
+        CommunityBlockedUser(
+            userId = userId,
+            reason = communityBlockReasonFromStorage(child.child("reason").getValue(String::class.java)),
+            createdAt = child.child("createdAt").getValue(Long::class.java) ?: 0L,
+        )
+    }.sortedByDescending { it.createdAt }
+
+private fun communityBlockReasonFromStorage(value: String?): CommunityBlockReason =
+    CommunityBlockReason.entries.firstOrNull { it.storageValue == value } ?: CommunityBlockReason.OTHER

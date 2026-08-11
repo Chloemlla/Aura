@@ -84,7 +84,7 @@ def main():
             errors.append(f"Manifest permission {perm} has no declaration packet row")
 
     for svc_name, svc_type in manifest_fgs_services.items():
-        full_name = svc_name if not svc_name.startswith(".") else f"com.freevibe{svc_name}"
+        full_name = svc_name if not svc_name.startswith(".") else f"com.chloemlla.aura{svc_name}"
         if full_name not in packet_services:
             errors.append(f"Manifest service {full_name} (type={svc_type}) has no declaration packet row")
         else:

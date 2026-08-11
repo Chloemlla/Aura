@@ -8,9 +8,9 @@
         android:shortcutLongLabel="@string/shortcut_shuffle_long"
         android:shortcutDisabledMessage="@string/shortcut_unavailable">
         <intent
-            android:action="com.freevibe.action.SHUFFLE_NOW"
-            android:targetPackage="com.freevibe"
-            android:targetClass="com.freevibe.MainActivity" />
+            android:action="com.chloemlla.aura.action.SHUFFLE_NOW"
+            android:targetPackage="com.chloemlla.aura"
+            android:targetClass="com.chloemlla.aura.MainActivity" />
     </shortcut>
 
     <shortcut
@@ -21,9 +21,9 @@
         android:shortcutLongLabel="@string/shortcut_rotate_long"
         android:shortcutDisabledMessage="@string/shortcut_unavailable">
         <intent
-            android:action="com.freevibe.action.ROTATE_NOW"
-            android:targetPackage="com.freevibe"
-            android:targetClass="com.freevibe.MainActivity" />
+            android:action="com.chloemlla.aura.action.ROTATE_NOW"
+            android:targetPackage="com.chloemlla.aura"
+            android:targetClass="com.chloemlla.aura.MainActivity" />
     </shortcut>
 
     <shortcut
@@ -34,9 +34,9 @@
         android:shortcutLongLabel="@string/shortcut_search_long"
         android:shortcutDisabledMessage="@string/shortcut_unavailable">
         <intent
-            android:action="com.freevibe.action.SEARCH"
-            android:targetPackage="com.freevibe"
-            android:targetClass="com.freevibe.MainActivity" />
+            android:action="com.chloemlla.aura.action.SEARCH"
+            android:targetPackage="com.chloemlla.aura"
+            android:targetClass="com.chloemlla.aura.MainActivity" />
     </shortcut>
 
     <shortcut
@@ -47,8 +47,8 @@
         android:shortcutLongLabel="@string/shortcut_downloads_long"
         android:shortcutDisabledMessage="@string/shortcut_unavailable">
         <intent
-            android:action="com.freevibe.action.DOWNLOADS"
-            android:targetPackage="com.freevibe"
-            android:targetClass="com.freevibe.MainActivity" />
+            android:action="com.chloemlla.aura.action.DOWNLOADS"
+            android:targetPackage="com.chloemlla.aura"
+            android:targetClass="com.chloemlla.aura.MainActivity" />
     </shortcut>
 </shortcuts>

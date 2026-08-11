@@ -21,7 +21,7 @@ local.properties
 /app/release
 *.apk
 *.aab
-freevibe.jks
+aura.jks
 CLAUDE.md
 CODEX_CHANGELOG.md
 .claude/

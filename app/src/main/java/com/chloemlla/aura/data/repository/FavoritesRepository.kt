@@ -1,0 +1,58 @@
+package com.chloemlla.aura.data.repository
+
+import com.chloemlla.aura.data.local.FavoriteDao
+import com.chloemlla.aura.data.model.FavoriteEntity
+import com.chloemlla.aura.data.model.FavoriteIdentity
+import com.chloemlla.aura.data.model.SOURCE_AVAILABILITY_AVAILABLE
+import com.chloemlla.aura.data.model.SOURCE_AVAILABILITY_UNAVAILABLE
+import com.chloemlla.aura.data.model.favoriteIdentity
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class FavoritesRepository @Inject constructor(
+    private val dao: FavoriteDao,
+) {
+    fun getAll(): Flow<List<FavoriteEntity>> = dao.getAll()
+    fun getWallpapers(): Flow<List<FavoriteEntity>> = dao.getByType("WALLPAPER")
+    fun getSounds(): Flow<List<FavoriteEntity>> = dao.getByType("SOUND")
+    fun isFavorite(identity: FavoriteIdentity): Flow<Boolean> = dao.isFavorite(identity.id, identity.source, identity.type)
+    fun allIdentities(): Flow<Set<FavoriteIdentity>> = dao.allIdentities().map { it.toSet() }
+    fun count(): Flow<Int> = dao.count()
+    suspend fun getByIdentity(identity: FavoriteIdentity): FavoriteEntity? =
+        dao.getByIdentity(identity.id, identity.source, identity.type)
+
+    suspend fun getLatestById(id: String): FavoriteEntity? = dao.getLatestById(id)
+    suspend fun getLatestByIdAndType(id: String, type: String): FavoriteEntity? =
+        dao.getLatestByIdAndType(id, type)
+
+    suspend fun add(favorite: FavoriteEntity) = dao.insert(favorite)
+    suspend fun remove(identity: FavoriteIdentity) = dao.deleteByIdentity(identity.id, identity.source, identity.type)
+    suspend fun markSourceUnavailable(identity: FavoriteIdentity, reason: String? = null) =
+        dao.updateSourceAvailability(
+            identity.id,
+            identity.source,
+            identity.type,
+            SOURCE_AVAILABILITY_UNAVAILABLE,
+            reason?.takeIf { it.isNotBlank() },
+        )
+
+    suspend fun clearSourceUnavailable(identity: FavoriteIdentity) =
+        dao.updateSourceAvailability(
+            identity.id,
+            identity.source,
+            identity.type,
+            SOURCE_AVAILABILITY_AVAILABLE,
+            null,
+        )
+
+    suspend fun toggle(favorite: FavoriteEntity, isFav: Boolean) {
+        if (isFav) {
+            remove(favorite.favoriteIdentity())
+        } else {
+            dao.insert(favorite)
+        }
+    }
+}

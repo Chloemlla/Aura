@@ -9,4 +9,4 @@ Recent highlights:
 - Video battery dashboard, touch-reactive effects, and frame thumbnails on the loop trim editor.
 - Smart Crop centres the wallpaper on the detected subject before applying.
 - Rotate on every unlock or pre-stage on screen-off via the new RotationTriggerService (opt-in).
-- Tasker / MacroDroid hook: com.freevibe.action.ROTATE_NOW broadcast.
+- Tasker / MacroDroid hook: com.chloemlla.aura.action.ROTATE_NOW broadcast.

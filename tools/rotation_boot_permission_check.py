@@ -122,7 +122,7 @@ def allowed_receiver_source_paths(repo_root: Path, allowed_boot_receivers: set[s
     for receiver in allowed_boot_receivers:
         qualified_name = receiver
         if receiver.startswith("."):
-            qualified_name = f"com.freevibe{receiver}"
+            qualified_name = f"com.chloemlla.aura{receiver}"
         receiver_path = source_root / Path(*qualified_name.split("."))
         paths.add(receiver_path.with_suffix(".kt"))
         paths.add(receiver_path.with_suffix(".java"))

@@ -1,0 +1,111 @@
+package com.chloemlla.aura.service
+
+import android.graphics.Bitmap
+import androidx.core.graphics.ColorUtils
+import androidx.palette.graphics.Palette
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/**
+ * Extracts Material You-style color palette from wallpaper images.
+ * Uses Android Palette API to extract dominant, vibrant, and muted colors.
+ * Shows users what their system theme colors would look like before applying.
+ */
+@Singleton
+class ColorExtractor @Inject constructor(
+    private val okHttpClient: OkHttpClient,
+) {
+    data class WallpaperPalette(
+        val dominantColor: Int = 0,
+        val vibrantColor: Int = 0,
+        val vibrantDark: Int = 0,
+        val vibrantLight: Int = 0,
+        val mutedColor: Int = 0,
+        val mutedDark: Int = 0,
+        val mutedLight: Int = 0,
+        val dominantSwatch: Palette.Swatch? = null,
+        /**
+         * Best accent for Material You preview.
+         *
+         * Falls back through the ladder when [dominantColor] would render as
+         * dim gray on cartoon / solid-color images: dominant (if HSL passes
+         * the quality gate) → darkVibrant → vibrant → lightVibrant →
+         * mutedDark → muted → mutedLight → dominant. See
+         * [ColorAccentSelector.selectAccent] for the gate logic.
+         *
+         * Always non-zero when ANY swatch is non-zero.
+         */
+        val bestAccentColor: Int = 0,
+    )
+
+    /** Extract color palette from a wallpaper URL */
+    suspend fun extractFromUrl(url: String): WallpaperPalette? = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder().url(url).build()
+            val response = okHttpClient.newCall(request).execute()
+            response.use { resp ->
+                if (!resp.isSuccessful) return@use null
+                val body = resp.body ?: return@withContext null
+                // Palette only needs a ~200x200 downsample; cap the buffered payload at 32 MB
+                // so a hostile redirect to a giant image can't explode heap just for tinting.
+                val advertised = body.contentLength()
+                if (advertisedLengthExceeds(advertised, MAX_COLOR_EXTRACT_BYTES)) {
+                    return@withContext null
+                }
+                val bytes = readStreamCapped(body.byteStream(), MAX_COLOR_EXTRACT_BYTES)
+                val bitmap = decodeImageBytes(bytes, maxLongEdge = PALETTE_DECODE_LONG_EDGE)
+                    ?: return@withContext null
+                extractFromBitmap(bitmap).also { bitmap.recycle() }
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            null
+        }
+    }
+
+    /** Extract color palette from a bitmap */
+    fun extractFromBitmap(bitmap: Bitmap): WallpaperPalette {
+        val palette = Palette.from(bitmap).maximumColorCount(16).generate()
+        val dominant = palette.getDominantColor(0)
+        val vibrant = palette.getVibrantColor(0)
+        val vibrantDark = palette.getDarkVibrantColor(0)
+        val vibrantLight = palette.getLightVibrantColor(0)
+        val muted = palette.getMutedColor(0)
+        val mutedDark = palette.getDarkMutedColor(0)
+        val mutedLight = palette.getLightMutedColor(0)
+        return WallpaperPalette(
+            dominantColor = dominant,
+            vibrantColor = vibrant,
+            vibrantDark = vibrantDark,
+            vibrantLight = vibrantLight,
+            mutedColor = muted,
+            mutedDark = mutedDark,
+            mutedLight = mutedLight,
+            dominantSwatch = palette.dominantSwatch,
+            bestAccentColor = ColorAccentSelector.selectAccent(
+                dominant = dominant,
+                vibrantDark = vibrantDark,
+                vibrant = vibrant,
+                vibrantLight = vibrantLight,
+                mutedDark = mutedDark,
+                muted = muted,
+                mutedLight = mutedLight,
+                hslOf = { color ->
+                    val hsl = FloatArray(3)
+                    ColorUtils.colorToHSL(color, hsl)
+                    hsl
+                },
+            ),
+        )
+    }
+
+    private companion object {
+        /** Palette extraction only downsamples to 200x200; 32 MB is plenty for 4K originals. */
+        private const val MAX_COLOR_EXTRACT_BYTES = 32L * 1024 * 1024
+        private const val PALETTE_DECODE_LONG_EDGE = 200
+    }
+}

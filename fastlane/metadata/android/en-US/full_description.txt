@@ -18,7 +18,7 @@ Features:
 - Assign custom ringtones to individual contacts
 - Home-screen and lock-screen widget for quick wallpaper rotation
 - Auto-change wallpaper on a schedule, on screen-off, or on every unlock
-- Tasker / MacroDroid integration via com.freevibe.action.ROTATE_NOW broadcast
+- Tasker / MacroDroid integration via com.chloemlla.aura.action.ROTATE_NOW broadcast
 - Community uploads with voting (anonymous, no account needed)
 - Creator profiles, followed creators, top-creator leaderboard
 - Shareable wallpaper collections via Aura links, QR codes, and JSON

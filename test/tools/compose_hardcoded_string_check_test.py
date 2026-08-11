@@ -23,7 +23,7 @@ def write_screen(repo_root: Path, text: str = "Existing title") -> None:
         repo_root / "app/src/main/java/com/freevibe/ui/ExampleScreen.kt",
         "\n".join(
             [
-                "package com.freevibe.ui",
+                "package com.chloemlla.aura.ui",
                 "",
                 "import androidx.compose.material3.Text",
                 "",
@@ -77,7 +77,7 @@ class ComposeHardcodedStringCheckTest(unittest.TestCase):
                 repo_root / "app/src/main/java/com/freevibe/ui/ExampleScreen.kt",
                 "\n".join(
                     [
-                        "package com.freevibe.ui",
+                        "package com.chloemlla.aura.ui",
                         "import androidx.compose.material3.Text",
                         "@Composable",
                         "fun ExampleScreen() {",

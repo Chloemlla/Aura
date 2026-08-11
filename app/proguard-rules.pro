@@ -1,7 +1,7 @@
 # Moshi
--keep class com.freevibe.data.remote.** { *; }
--keepclassmembers class com.freevibe.data.remote.** { *; }
--keep class com.freevibe.service.FavoriteExportItem { *; }
+-keep class com.chloemlla.aura.data.remote.** { *; }
+-keepclassmembers class com.chloemlla.aura.data.remote.** { *; }
+-keep class com.chloemlla.aura.service.FavoriteExportItem { *; }
 -keep @com.squareup.moshi.JsonClass class * { *; }
 
 # Retrofit
