@@ -80,13 +80,6 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
   Acceptance: privacy, distribution, legal, and support docs referenced by README or app code are tracked and resolve on `main`; agent working notes (`CLAUDE.md`, `CODEX_CHANGELOG.md`, `AUTONOMOUS-LOOP-STATE.md`) stay untracked; the privacy gate fails when its published URL does not resolve.
   Complexity: S
 
-- [ ] P0 — Stop VoteRepository opening Firebase before community opt-in
-  Why: the `init` block attaches an RTDB `ValueEventListener` with no `isCommunityAccessEnabled()` gate while community access defaults to false, and the listener is never removed; opening Videos or Settings constructs the singleton and opens a socket for a non-consenting user.
-  Evidence: `VoteRepository.kt:173-189` vs the gate at `:199,215,317,328,356`; `PreferencesManager.kt:160`; injected at `VideoWallpapersViewModel.kt:438`, `SettingsViewModel.kt:106`.
-  Touches: `VoteRepository.kt`, community-identity laziness gate, unit tests.
-  Acceptance: no Firebase listener attaches until community access is enabled, the moderation listener detaches when it is disabled, and `tools/community_identity_laziness_check.py` covers the moderation path.
-  Complexity: S
-
 ### P1
 
 - [ ] P1 — Make release gates assert published state, not the working tree

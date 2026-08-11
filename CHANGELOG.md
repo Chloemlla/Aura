@@ -15,6 +15,15 @@ All notable changes to Aura will be documented in this file.
   parsing) and `body-parser` 1.20.5 (GHSA-v422-hmwv-36x6, request size enforcement silently
   disabled by an invalid `limit`). `protobufjs` was held at the vulnerable version by an override
   originally added *as* a security pin.
+- **Privacy: community voting no longer touches the network before you opt in** —
+  `VoteRepository` attached a Firebase Realtime Database moderation listener from its `init`
+  block with no consent check, while every other entry point in the class gates on
+  `isCommunityAccessEnabled()`. Both consent preferences default to off and the class is a
+  singleton constructed as soon as the Videos or Settings tab opens, so a user who never
+  enabled community features still opened an RTDB socket for the lifetime of the process — and
+  the listener was never removed. The listener now follows the consent preferences: it attaches
+  only once community features and the guidelines are both accepted, detaches when either is
+  withdrawn, and clears cached moderation hides with the socket.
 - **New gate: npm overrides cannot silently rot** — `tools/npm_override_policy_check.py` and
   `docs/security/npm-override-policy.json` record the advisory floor behind every pin and fail
   when the manifest or the resolved lockfile drops below it, when a shipped override is not
