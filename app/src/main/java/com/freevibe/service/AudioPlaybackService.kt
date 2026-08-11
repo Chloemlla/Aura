@@ -35,7 +35,7 @@ class AudioPlaybackService : MediaLibraryService() {
     @Inject lateinit var bundledContentProvider: BundledContentProvider
     @Inject lateinit var favoritesRepository: FavoritesRepository
 
-    private var mediaSession: MediaSession? = null
+    private var mediaLibrarySession: MediaLibraryService.MediaLibrarySession? = null
 
     @OptIn(UnstableApi::class)
     override fun onCreate() {
@@ -62,119 +62,126 @@ class AudioPlaybackService : MediaLibraryService() {
             .setHandleAudioBecomingNoisy(true)
             .build()
 
-        mediaSession = MediaSession.Builder(this, player)
+        mediaLibrarySession = MediaLibraryService.MediaLibrarySession.Builder(this, player, libraryCallback)
             .build()
     }
 
     @OptIn(UnstableApi::class)
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibraryService.MediaLibrarySession? {
         val allowed = controllerInfo.isTrusted ||
             controllerInfo.packageName == packageName ||
             controllerInfo.packageName.startsWith("com.chloemlla.")
         if (!allowed) {
             Log.w("AudioPlaybackService", "Rejected controller from ${controllerInfo.packageName}")
         }
-        return mediaSession.takeIf { allowed }
+        return mediaLibrarySession.takeIf { allowed }
     }
 
-    @OptIn(UnstableApi::class)
-    override fun onGetLibraryRoot(
-        controllerInfo: MediaSession.ControllerInfo,
-        rootHints: Bundle?,
-    ): ListenableFuture<LibraryResult<MediaItem>> =
-        Futures.immediateFuture(
-            LibraryResult.ofItem(
-                MediaItem.Builder()
-                    .setMediaId(ROOT_ID)
-                    .setMediaMetadata(
-                        MediaMetadata.Builder()
-                            .setTitle("Aura")
-                            .setIsBrowsable(true)
-                            .build(),
-                    )
-                    .build(),
-            ),
-        )
+    private val libraryCallback = object : MediaLibraryService.MediaLibrarySession.Callback {
 
-    @OptIn(UnstableApi::class)
-    override fun onGetChildren(
-        controllerInfo: MediaSession.ControllerInfo,
-        parentId: String,
-        page: Int,
-        pageSize: Int,
-        params: Bundle?,
-    ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
-        val children: ImmutableList<MediaItem> = when (parentId) {
-            ROOT_ID -> ImmutableList.of(
-                browseableCategory("Ringtones", CATEGORY_RINGTONE, "Curated melodic ringtones"),
-                browseableCategory("Notifications", CATEGORY_NOTIFICATION, "Short, crisp notification sounds"),
-                browseableCategory("Alarms", CATEGORY_ALARM, "Attention-getting alarm sounds"),
-                browseableCategory("Favorites", CATEGORY_FAVORITES, "Your saved sounds"),
-                browseableCategory("Aura Picks", CATEGORY_AURA_PICKS, "All bundled Aura Picks"),
+        @OptIn(UnstableApi::class)
+        override fun onGetLibraryRoot(
+            session: MediaLibraryService.MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            params: MediaLibraryService.LibraryParams?,
+        ): ListenableFuture<LibraryResult<MediaItem>> =
+            Futures.immediateFuture(
+                LibraryResult.ofItem(
+                    MediaItem.Builder()
+                        .setMediaId(ROOT_ID)
+                        .setMediaMetadata(
+                            MediaMetadata.Builder()
+                                .setTitle("Aura")
+                                .setIsBrowsable(true)
+                                .build(),
+                        )
+                        .build(),
+                    /* params = */ null,
+                ),
             )
-            CATEGORY_RINGTONE -> bundledContentProvider.getRingtones()
-                .map { it.toMediaItem() }
-                .let(ImmutableList::copyOf)
-            CATEGORY_NOTIFICATION -> bundledContentProvider.getNotifications()
-                .map { it.toMediaItem() }
-                .let(ImmutableList::copyOf)
-            CATEGORY_ALARM -> bundledContentProvider.getAlarms()
-                .map { it.toMediaItem() }
-                .let(ImmutableList::copyOf)
-            CATEGORY_FAVORITES -> runBlocking { favoritesRepository.getSounds().first() }
-                .mapNotNull { favorite ->
-                    val source = runCatching {
-                        ContentSource.valueOf(favorite.source.uppercase(Locale.ROOT))
-                    }.getOrNull() ?: return@mapNotNull null
-                    Sound(
-                        id = favorite.id,
-                        source = source,
-                        name = favorite.name,
-                        previewUrl = favorite.fullUrl,
-                        downloadUrl = favorite.fullUrl,
-                        duration = favorite.duration,
-                        uploaderName = favorite.uploaderName ?: "",
-                    ).toMediaItem()
-                }
-                .let(ImmutableList::copyOf)
-            CATEGORY_AURA_PICKS -> allBundledSounds()
-                .map { it.toMediaItem() }
-                .let(ImmutableList::copyOf)
-            else -> return Futures.immediateFuture(
-                LibraryResult.ofError(MediaLibraryService.RESULT_ERROR_BAD_VALUE),
+
+        @OptIn(UnstableApi::class)
+        override fun onGetChildren(
+            session: MediaLibraryService.MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            parentId: String,
+            page: Int,
+            pageSize: Int,
+            params: MediaLibraryService.LibraryParams?,
+        ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
+            val children: ImmutableList<MediaItem> = when (parentId) {
+                ROOT_ID -> ImmutableList.of(
+                    browseableCategory("Ringtones", CATEGORY_RINGTONE, "Curated melodic ringtones"),
+                    browseableCategory("Notifications", CATEGORY_NOTIFICATION, "Short, crisp notification sounds"),
+                    browseableCategory("Alarms", CATEGORY_ALARM, "Attention-getting alarm sounds"),
+                    browseableCategory("Favorites", CATEGORY_FAVORITES, "Your saved sounds"),
+                    browseableCategory("Aura Picks", CATEGORY_AURA_PICKS, "All bundled Aura Picks"),
+                )
+                CATEGORY_RINGTONE -> bundledContentProvider.getRingtones()
+                    .map { it.toMediaItem() }
+                    .let(ImmutableList::copyOf)
+                CATEGORY_NOTIFICATION -> bundledContentProvider.getNotifications()
+                    .map { it.toMediaItem() }
+                    .let(ImmutableList::copyOf)
+                CATEGORY_ALARM -> bundledContentProvider.getAlarms()
+                    .map { it.toMediaItem() }
+                    .let(ImmutableList::copyOf)
+                CATEGORY_FAVORITES -> runBlocking { favoritesRepository.getSounds().first() }
+                    .mapNotNull { favorite ->
+                        val source = runCatching {
+                            ContentSource.valueOf(favorite.source.uppercase(Locale.ROOT))
+                        }.getOrNull() ?: return@mapNotNull null
+                        Sound(
+                            id = favorite.id,
+                            source = source,
+                            name = favorite.name,
+                            previewUrl = favorite.fullUrl,
+                            downloadUrl = favorite.fullUrl,
+                            duration = favorite.duration,
+                            uploaderName = favorite.uploaderName ?: "",
+                        ).toMediaItem()
+                    }
+                    .let(ImmutableList::copyOf)
+                CATEGORY_AURA_PICKS -> allBundledSounds()
+                    .map { it.toMediaItem() }
+                    .let(ImmutableList::copyOf)
+                else -> return Futures.immediateFuture(
+                    LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE),
+                )
+            }
+            return Futures.immediateFuture(LibraryResult.ofItemList(children, /* params = */ null))
+        }
+
+        @OptIn(UnstableApi::class)
+        override fun onGetItem(
+            session: MediaLibraryService.MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            mediaId: String,
+        ): ListenableFuture<LibraryResult<MediaItem>> {
+            val match = allBundledSounds().firstOrNull { it.stableKey() == mediaId }
+            return Futures.immediateFuture(
+                if (match != null) {
+                    LibraryResult.ofItem(match.toMediaItem(), /* params = */ null)
+                } else {
+                    LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE)
+                },
             )
         }
-        return Futures.immediateFuture(LibraryResult.ofItemList(children))
-    }
-
-    @OptIn(UnstableApi::class)
-    override fun onGetItem(
-        controllerInfo: MediaSession.ControllerInfo,
-        mediaId: String,
-    ): ListenableFuture<LibraryResult<MediaItem>> {
-        val match = allBundledSounds().firstOrNull { it.stableKey() == mediaId }
-        return Futures.immediateFuture(
-            if (match != null) {
-                LibraryResult.ofItem(match.toMediaItem())
-            } else {
-                LibraryResult.ofError(MediaLibraryService.RESULT_ERROR_BAD_VALUE)
-            },
-        )
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        val player = mediaSession?.player
+        val player = mediaLibrarySession?.player
         if (player == null || !player.playWhenReady || player.mediaItemCount == 0) {
             stopSelf()
         }
     }
 
     override fun onDestroy() {
-        mediaSession?.run {
+        mediaLibrarySession?.run {
             player.release()
             release()
         }
-        mediaSession = null
+        mediaLibrarySession = null
         super.onDestroy()
     }
 
