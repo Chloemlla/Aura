@@ -1,3 +1,4 @@
+import java.net.URL
 import java.util.Properties
 
 plugins {
@@ -382,7 +383,7 @@ val downloadYtDlp by tasks.registering {
     outputs.file(ytdlpFile)
     outputs.file(versionFile)
     doLast {
-        val url = java.net.URI("https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp").toURL()
+        val url = URL("https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp")
         val dest = ytdlpFile.asFile
         logger.lifecycle("Downloading latest yt-dlp from $url ...")
         url.openStream().use { input ->
