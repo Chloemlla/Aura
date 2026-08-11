@@ -160,9 +160,9 @@ android {
         // incompatibility, not app code. The app uses StateFlow throughout, so the LiveData
         // nullability check has nothing to inspect here anyway.
         disable += "NullSafeMutableLiveData"
-        // RememberInCompositionDetector crashes with IncompatibleClassChangeError on
+        // FrequentlyChangingValueDetector crashes with IncompatibleClassChangeError on
         // Kotlin 2.3.21 — same class of AGP/lint analysis-api incompatibility as above.
-        disable += "RememberInComposition"
+        disable += "FrequentlyChangingValue"
     }
 
     packaging {
