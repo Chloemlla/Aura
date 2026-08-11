@@ -1486,6 +1486,18 @@
     <string name="settings_about_privacy_subtitle">Review data use, diagnostics, community deletion, and generated wallpaper handling</string>
     <string name="settings_about_licenses_title">Open source licenses</string>
     <string name="settings_about_licenses_subtitle">See generated notices, library licenses, and content-source attributions</string>
+
+    <!-- App language -->
+    <string name="settings_language_section_title">Appearance</string>
+    <string name="settings_language_title">Language</string>
+    <string name="settings_language_subtitle">Change app language</string>
+    <string name="settings_language_dialog_title">Choose language</string>
+    <string name="settings_language_system">System default</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_language_chinese">中文</string>
+    <string name="settings_language_restart_title">Language changed</string>
+    <string name="settings_language_restart_body">The app will restart to apply the new language.</string>
+
     <string name="settings_picker_backup_interval_title">Backup interval</string>
     <string name="settings_picker_backup_interval_12h">Every 12 hours</string>
     <string name="settings_picker_backup_interval_daily">Daily</string>

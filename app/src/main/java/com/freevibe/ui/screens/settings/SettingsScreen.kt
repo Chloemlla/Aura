@@ -489,9 +489,8 @@ fun SettingsScreen(
             )
 
             if (SettingsSectionKeys.PERMISSIONS in visibleSectionKeys) PermissionsSettingsSection(context)
-            if (SettingsSectionKeys.ABOUT in visibleSectionKeys) {
-                AboutSettingsSection(context = context, onLicensesClick = onLicensesClick)
-            }
+            if (SettingsSectionKeys.LANGUAGE in visibleSectionKeys) LanguageSettingsSection(viewModel, context)
+            if (SettingsSectionKeys.ABOUT in visibleSectionKeys) AboutSettingsSection(context, onLicensesClick)
             Spacer(Modifier.height(24.dp))
         }
     }

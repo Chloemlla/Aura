@@ -1,6 +1,7 @@
 package com.freevibe
 
 import android.app.Application
+import android.content.Context
 import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
@@ -21,6 +22,7 @@ import com.freevibe.service.CrashDiagnosticsText
 import com.freevibe.service.AppCheckInstaller
 import com.freevibe.service.OfflineFavoritesManager
 import com.freevibe.service.PathBackedRecordReconciler
+import com.freevibe.util.LocaleHelper
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -57,6 +59,10 @@ class FreeVibeApp : Application(), Configuration.Provider, SingletonImageLoader.
     lateinit var pathBackedRecordReconciler: PathBackedRecordReconciler
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(LocaleHelper.wrapContext(base))
+    }
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()

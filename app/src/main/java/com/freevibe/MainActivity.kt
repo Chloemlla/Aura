@@ -1,5 +1,6 @@
 package com.freevibe
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -23,6 +24,7 @@ import com.freevibe.service.extractCollectionShareToken
 import com.freevibe.ui.FreeVibeRoot
 import com.freevibe.ui.navigation.Screen
 import com.freevibe.ui.theme.FreeVibeTheme
+import com.freevibe.util.LocaleHelper
 import dagger.hilt.android.AndroidEntryPoint
 
 internal data class LaunchNavigation(
@@ -199,6 +201,10 @@ private fun Intent.collectionStreamUri(): Uri? =
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private var launchNavigation by mutableStateOf<LaunchNavigation?>(null)
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(LocaleHelper.wrapContext(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

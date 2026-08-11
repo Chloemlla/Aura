@@ -27,7 +27,7 @@ class SettingsSearchTest {
     @Test
     fun `search index covers the rendered sections with distinct keys`() {
         val keys = SETTINGS_SEARCH_SECTIONS.map { it.key }
-        assertEquals(11, keys.size)
+        assertEquals(12, keys.size)
         assertEquals(keys.size, keys.toSet().size)
         assertTrue(SettingsSectionKeys.BACKUP in keys)
         assertTrue(SettingsSectionKeys.DIAGNOSTICS in keys)

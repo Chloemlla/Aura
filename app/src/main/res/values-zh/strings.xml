@@ -983,7 +983,7 @@
     <string name="video_wp_category_neon">霓虹</string>
     <string name="video_wp_category_ocean">海洋</string>
     <string name="video_wp_category_fire">火焰</string>
-    <string name="video_wp_category_cinemagraph">Cinemagraph</string>
+    <string name="video_wp_category_cinemagraph">动态摄影</string>
     <string name="video_wp_category_scifi">科幻</string>
     <string name="video_wp_category_rain">雨</string>
     <string name="video_wp_category_clouds">云</string>
@@ -1095,7 +1095,7 @@
     <string name="settings_video_subreddits_title">视频社区</string>
     <string name="settings_reddit_subreddits_summary">已选择 %1$d 个 • 点击编辑</string>
     <string name="settings_reddit_subreddits_hint">输入以逗号或换行分隔的 subreddit 名称。r/ 前缀可选。留空可恢复 Aura 的默认设置。</string>
-    <string name="settings_reddit_subreddits_input_label">Subreddits</string>
+    <string name="settings_reddit_subreddits_input_label">子版块</string>
     <string name="settings_reddit_subreddits_error">每个名称使用 2–40 个字母、数字或下划线，且社区数量不超过 12 个。</string>
     <string name="settings_wp_bing_title">启用 Bing 每日来源</string>
     <string name="settings_wp_bing_on_subtitle">将 Bing 每日图片添加到发现和轮换中</string>
@@ -1486,6 +1486,18 @@
     <string name="settings_about_privacy_subtitle">查看数据使用、诊断、社区删除和生成壁纸的处理方式</string>
     <string name="settings_about_licenses_title">开源许可证</string>
     <string name="settings_about_licenses_subtitle">查看生成的声明、库许可证和内容来源归属</string>
+
+    <!-- App language -->
+    <string name="settings_language_section_title">外观</string>
+    <string name="settings_language_title">语言</string>
+    <string name="settings_language_subtitle">更改应用语言</string>
+    <string name="settings_language_dialog_title">选择语言</string>
+    <string name="settings_language_system">系统默认</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_language_chinese">中文</string>
+    <string name="settings_language_restart_title">语言已更改</string>
+    <string name="settings_language_restart_body">应用将重启以应用新语言。</string>
+
     <string name="settings_picker_backup_interval_title">备份间隔</string>
     <string name="settings_picker_backup_interval_12h">每 12 小时</string>
     <string name="settings_picker_backup_interval_daily">每天</string>

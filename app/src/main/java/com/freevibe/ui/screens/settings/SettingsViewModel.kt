@@ -43,9 +43,11 @@ import com.freevibe.service.YtDlpUpdateManager
 import com.freevibe.service.YtDlpUpdateResult
 import com.freevibe.service.YtDlpUpdateSnapshot
 import com.freevibe.service.YtDlpUpdateStatus
+import com.freevibe.util.LocaleHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -120,6 +122,22 @@ class SettingsViewModel @Inject constructor(
 
     fun clearParallaxGalleryResult() { _parallaxGalleryResult.value = null }
     fun clearVideoWallpaperSelectionResult() { _videoWallpaperSelectionResult.value = null }
+
+    // App language (LocaleHelper-backed). Callers observe localeChanged and
+    // recreate the Activity so attachBaseContext re-wraps with the new locale.
+    private val _localeOptions = MutableStateFlow(LocaleHelper.getSupportedLanguages())
+    val localeOptions: StateFlow<List<LocaleHelper.LanguageOption>> = _localeOptions.asStateFlow()
+    private val _currentLocaleTag = MutableStateFlow(LocaleHelper.getAppLocaleTag(context))
+    val currentLocaleTag: StateFlow<String> = _currentLocaleTag.asStateFlow()
+    private val _localeChanged = Channel<Unit>(Channel.BUFFERED)
+    val localeChanged: Flow<Unit> = _localeChanged.receiveAsFlow()
+
+    fun setAppLocale(localeTag: String) {
+        if (localeTag == _currentLocaleTag.value) return
+        LocaleHelper.setAppLocale(context, localeTag)
+        _currentLocaleTag.value = localeTag
+        _localeChanged.trySend(Unit)
+    }
 
     /**
      * Turn the user's gallery photo into a parallax live wallpaper. The caller (Settings

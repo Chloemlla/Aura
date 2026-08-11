@@ -34,6 +34,7 @@ internal object SettingsSectionKeys {
     const val STORAGE = "storage"
     const val DIAGNOSTICS = "diagnostics"
     const val PERMISSIONS = "permissions"
+    const val LANGUAGE = "language"
     const val ABOUT = "about"
 }
 
@@ -49,6 +50,7 @@ internal val SETTINGS_SEARCH_SECTIONS: List<SettingsSearchSection> = listOf(
     SettingsSearchSection(SettingsSectionKeys.STORAGE, R.string.settings_storage_section_title, R.string.settings_storage_section_description),
     SettingsSearchSection(SettingsSectionKeys.DIAGNOSTICS, R.string.settings_diagnostics_section_title, R.string.settings_diagnostics_section_description),
     SettingsSearchSection(SettingsSectionKeys.PERMISSIONS, R.string.settings_permissions_section_title, R.string.settings_permissions_section_description),
+    SettingsSearchSection(SettingsSectionKeys.LANGUAGE, R.string.settings_language_section_title, R.string.settings_language_subtitle),
     SettingsSearchSection(SettingsSectionKeys.ABOUT, R.string.settings_about_section_title, R.string.settings_about_section_description),
 )
 
