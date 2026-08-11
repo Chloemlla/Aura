@@ -20,6 +20,7 @@
          <trust group="androidx.core" name="core"/>
          <trust group="androidx.core" name="core-ktx"/>
          <trust group="androidx.compose.material3" name="material3-window-size-class"/>
+         <trust group="androidx.compose.material3" name="material3-window-size-class-android"/>
          <trust group="androidx.compose.runtime" name="runtime"/>
          <trust group="androidx.compose.runtime" name="runtime-android"/>
          <trust group="androidx.compose.runtime" name="runtime-annotation"/>
