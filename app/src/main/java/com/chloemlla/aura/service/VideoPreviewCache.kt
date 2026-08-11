@@ -8,7 +8,6 @@ import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheWriter
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
@@ -60,19 +59,11 @@ class VideoPreviewCache @Inject constructor(
     private val clashProxyManager: ClashProxyManager,
 ) {
     private val upstreamFactory by lazy {
-        // Resolve the Clash proxy per createDataSource() so state changes (VPN
-        // up/down, auto-adapt toggle) are picked up dynamically instead of
-        // snapshotting the proxy when the cache is first built.
-        object : HttpDataSource.Factory {
-            override fun createDataSource(): HttpDataSource =
-                DefaultHttpDataSource.Factory()
-                    .setUserAgent("Aura/${BuildConfig.VERSION_NAME} (Android; Open Source)")
-                    .setConnectTimeoutMs(15_000)
-                    .setReadTimeoutMs(30_000)
-                    .setAllowCrossProtocolRedirects(false)
-                    .setProxy(clashProxyManager.resolveHttpProxy())
-                    .createDataSource()
-        }
+        DefaultHttpDataSource.Factory()
+            .setUserAgent("Aura/${BuildConfig.VERSION_NAME} (Android; Open Source)")
+            .setConnectTimeoutMs(15_000)
+            .setReadTimeoutMs(30_000)
+            .setAllowCrossProtocolRedirects(false)
     }
 
     private val cache by lazy {

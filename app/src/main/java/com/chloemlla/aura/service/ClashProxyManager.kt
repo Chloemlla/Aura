@@ -133,24 +133,10 @@ class ClashProxyManager @Inject constructor(
     /**
      * Whether the in-process proxy should be skipped because Clash VPN is
      * already routing traffic through process-level VPN binding.
-     *
-     * [ConnectivityManager.bindProcessToNetwork] / [ConnectivityManager.setProcessDefaultNetwork]
-     * can silently no-op on Android 10+, so on Android M+ this also verifies
-     * that the process default network actually points at the VPN before
-     * deciding the manual proxy can be skipped. Without that verification,
-     * traffic would bypass Clash entirely when the binding is ineffective.
      */
     fun shouldSkipManualProxy(): Boolean {
         val state = buildState()
-        if (!state.isClashRouting || !state.processBound) return false
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val vpn = _vpnNetwork.get() ?: return false
-            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            @Suppress("DEPRECATION")
-            val processDefaultNetwork = cm.getProcessDefaultNetwork()
-            return processDefaultNetwork == vpn
-        }
-        return true
+        return state.isClashRouting && state.processBound
     }
 
     /**
@@ -402,14 +388,9 @@ class ClashProxyManager @Inject constructor(
         if (state.isClashRouting && state.vpnActive) {
             val vpn = _vpnNetwork.get() ?: return
             val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            @Suppress("DEPRECATION")
             val result = runCatching {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    @Suppress("DEPRECATION")
-                    cm.setProcessDefaultNetwork(vpn)
-                } else {
-                    @Suppress("DEPRECATION")
-                    cm.bindProcessToNetwork(vpn)
-                }
+                cm.bindProcessToNetwork(vpn)
             }
             if (result.isSuccess) {
                 _processBound.set(true)
@@ -427,14 +408,9 @@ class ClashProxyManager @Inject constructor(
     private fun unbindProcess() {
         if (_processBound.getAndSet(false)) {
             val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            @Suppress("DEPRECATION")
             runCatching {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    @Suppress("DEPRECATION")
-                    cm.setProcessDefaultNetwork(null)
-                } else {
-                    @Suppress("DEPRECATION")
-                    cm.bindProcessToNetwork(null)
-                }
+                cm.bindProcessToNetwork(null)
             }
         }
     }
