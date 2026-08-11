@@ -53,9 +53,18 @@ import java.net.URI
 import kotlin.math.roundToLong
 
 private val sharedHttpClient by lazy {
+    val mgr = ClashProxyHolder.instance
     okhttp3.OkHttpClient.Builder()
         .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        .apply {
+            if (mgr != null) {
+                // Per-socket VPN binding: each socket is bound to the Clash VPN
+                // when active, so connections route through the tunnel even when
+                // process-level bindProcessToNetwork is ineffective.
+                socketFactory(mgr.createVpnSocketFactory())
+            }
+        }
         .proxySelector(object : ProxySelector() {
             override fun select(uri: URI?): List<Proxy> {
                 val mgr = ClashProxyHolder.instance

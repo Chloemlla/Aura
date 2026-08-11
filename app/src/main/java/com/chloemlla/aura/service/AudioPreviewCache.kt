@@ -8,11 +8,7 @@ import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
-import androidx.media3.datasource.cache.CacheWriter
-import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
-import androidx.media3.datasource.cache.SimpleCache
-import androidx.media3.database.StandaloneDatabaseProvider
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.datasource.HttpDataSource
 import com.chloemlla.aura.BuildConfig
 import com.chloemlla.aura.data.model.Sound
 import com.chloemlla.aura.data.model.stableKey
@@ -28,12 +24,18 @@ import javax.inject.Singleton
 @Singleton
 class AudioPreviewCache @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val clashProxyManager: ClashProxyManager,
 ) {
-    private val upstreamFactory = DefaultHttpDataSource.Factory()
-        .setUserAgent("Aura/${BuildConfig.VERSION_NAME} (Android; Open Source)")
-        .setConnectTimeoutMs(15_000)
-        .setReadTimeoutMs(20_000)
-        .setAllowCrossProtocolRedirects(false)
+    private val upstreamFactory: HttpDataSource.Factory = object : HttpDataSource.Factory {
+        override fun createDataSource(): HttpDataSource =
+            DefaultHttpDataSource.Factory()
+                .setUserAgent("Aura/${BuildConfig.VERSION_NAME} (Android; Open Source)")
+                .setConnectTimeoutMs(15_000)
+                .setReadTimeoutMs(20_000)
+                .setAllowCrossProtocolRedirects(false)
+                .setProxy(clashProxyManager.resolveHttpProxy())
+                .createDataSource()
+    }
 
     private val cache = SimpleCache(
         File(context.cacheDir, "audio-preview-cache"),

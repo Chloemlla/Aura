@@ -5,6 +5,7 @@ import com.chloemlla.aura.data.model.SearchResult
 import com.chloemlla.aura.data.model.Sound
 import com.chloemlla.aura.BuildConfig
 import com.chloemlla.aura.data.local.PreferencesManager
+import com.chloemlla.aura.service.ClashProxyHolder
 import com.chloemlla.aura.service.SourceMetrics
 import com.chloemlla.aura.service.YtDlpUpdateManager
 import com.chloemlla.aura.service.YouTubeYtDlpRequestFactory
@@ -537,7 +538,14 @@ class DownloaderImpl private constructor() : org.schabi.newpipe.extractor.downlo
 
     override fun execute(request: org.schabi.newpipe.extractor.downloader.Request): org.schabi.newpipe.extractor.downloader.Response {
         val url = java.net.URL(request.url())
-        val conn = url.openConnection() as java.net.HttpURLConnection
+        // Route through the Clash HTTP proxy when Clash is installed; otherwise
+        // fall back to the global ProxySelector (openConnection() no-arg).
+        val clashProxy = ClashProxyHolder.instance?.resolveHttpProxy()
+        val conn = if (clashProxy != null && clashProxy.type() == java.net.Proxy.Type.HTTP) {
+            url.openConnection(clashProxy) as java.net.HttpURLConnection
+        } else {
+            url.openConnection() as java.net.HttpURLConnection
+        }
         try {
             conn.requestMethod = request.httpMethod()
             conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; rv:128.0) Gecko/20100101 Firefox/128.0")

@@ -68,6 +68,11 @@ object AppModule {
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
+        // Per-socket VPN binding: when the Clash VPN is active, every socket this
+        // client creates is bound to the VPN network directly. This is reliable on
+        // Android 10+, where process-level bindProcessToNetwork can silently no-op
+        // and leave traffic bypassing Clash.
+        .socketFactory(clashProxyManager.createVpnSocketFactory())
         // Dynamic proxy selector: queries Clash state at request time so the
         // OkHttpClient singleton is built once but adapts to VPN binding and
         // proxy availability changes throughout the process lifetime.

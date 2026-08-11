@@ -16,6 +16,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import java.net.InetSocketAddress
 import java.net.ProxySelector
+import java.net.Socket
 import java.net.SocketAddress
 import java.net.URI
 import java.util.concurrent.CopyOnWriteArrayList
@@ -23,6 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
+import javax.net.SocketFactory
 
 /**
  * Holder for a static [ClashProxyManager] reference, set during app startup
@@ -130,9 +132,26 @@ class ClashProxyManager @Inject constructor(
 
     /**
      * Whether the in-process proxy should be skipped because Clash VPN is
-     * already routing traffic through [bindProcessToNetwork].
+     * already routing traffic through process-level VPN binding.
+     *
+     * [ConnectivityManager.bindProcessToNetwork] / [ConnectivityManager.setProcessDefaultNetwork]
+     * can silently no-op on Android 10+, so on Android M+ this also verifies
+     * that the process default network actually points at the VPN before
+     * deciding the manual proxy can be skipped. Without that verification,
+     * traffic would bypass Clash entirely when the binding is ineffective.
      */
-    fun shouldSkipManualProxy(): Boolean = state().shouldSkipManualProxy
+    fun shouldSkipManualProxy(): Boolean {
+        val state = buildState()
+        if (!state.isClashRouting || !state.processBound) return false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val vpn = _vpnNetwork.get() ?: return false
+            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            @Suppress("DEPRECATION")
+            val processDefaultNetwork = cm.getProcessDefaultNetwork()
+            return processDefaultNetwork == vpn
+        }
+        return true
+    }
 
     /**
      * Proxy address for subprocesses (FFmpeg, yt-dlp) and fallback OkHttp.
@@ -150,6 +169,79 @@ class ClashProxyManager @Inject constructor(
         val addr = proxyAddress() ?: return emptyMap()
         val proxyUrl = "http://${addr.hostString}:${addr.port}"
         return mapOf("http_proxy" to proxyUrl, "https_proxy" to proxyUrl)
+    }
+
+    /**
+     * Resolve the [java.net.Proxy] that in-process HTTP clients should use at
+     * this moment.
+     *
+     * Returns [java.net.Proxy.NO_PROXY] when the Clash VPN is verified to be
+     * routing the process (so connections ride the tunnel directly), the
+     * detected Clash mixed-port HTTP proxy when Clash is installed, or
+     * [java.net.Proxy.NO_PROXY] when no Clash is detected.
+     */
+    fun resolveHttpProxy(): java.net.Proxy =
+        if (shouldSkipManualProxy()) {
+            java.net.Proxy.NO_PROXY
+        } else {
+            val addr = proxyAddress()
+            if (addr != null) {
+                java.net.Proxy(java.net.Proxy.Type.HTTP, addr)
+            } else {
+                java.net.Proxy.NO_PROXY
+            }
+        }
+
+    /**
+     * Creates a [SocketFactory] that binds each socket to the Clash VPN network
+     * when active. This provides reliable per-socket VPN binding as a complement
+     * to the process-level [ConnectivityManager.bindProcessToNetwork], which is
+     * unreliable on Android 10+.
+     *
+     * OkHttp connects sockets it creates with `createSocket()` (no-arg), so the
+     * socket is bound to the VPN network before the connection is established.
+     * When no Clash VPN is routing, the delegate socket factory is used directly.
+     */
+    fun createVpnSocketFactory(delegate: SocketFactory = SocketFactory.getDefault()): SocketFactory {
+        return object : SocketFactory() {
+            private fun bind(socket: Socket) {
+                if (!buildState().isClashRouting) return
+                val vpn = _vpnNetwork.get() ?: return
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    runCatching { vpn.bindSocket(socket) }
+                }
+            }
+
+            override fun createSocket(): Socket {
+                val socket = delegate.createSocket()
+                bind(socket)
+                return socket
+            }
+
+            override fun createSocket(host: String, port: Int): Socket {
+                val socket = delegate.createSocket(host, port)
+                bind(socket)
+                return socket
+            }
+
+            override fun createSocket(host: String, port: Int, localHost: java.net.InetAddress, localPort: Int): Socket {
+                val socket = delegate.createSocket(host, port, localHost, localPort)
+                bind(socket)
+                return socket
+            }
+
+            override fun createSocket(host: java.net.InetAddress, port: Int): Socket {
+                val socket = delegate.createSocket(host, port)
+                bind(socket)
+                return socket
+            }
+
+            override fun createSocket(host: java.net.InetAddress, port: Int, localHost: java.net.InetAddress, localPort: Int): Socket {
+                val socket = delegate.createSocket(host, port, localHost, localPort)
+                bind(socket)
+                return socket
+            }
+        }
     }
 
     /**
@@ -211,7 +303,7 @@ class ClashProxyManager @Inject constructor(
                     return if (shouldSkipManualProxy()) {
                         listOf(java.net.Proxy.NO_PROXY)
                     } else {
-                        val addr = _proxyAddress.get()
+                        val addr = proxyAddress()
                         if (addr != null) {
                             listOf(java.net.Proxy(java.net.Proxy.Type.HTTP, addr))
                         } else {
@@ -310,9 +402,22 @@ class ClashProxyManager @Inject constructor(
         if (state.isClashRouting && state.vpnActive) {
             val vpn = _vpnNetwork.get() ?: return
             val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            runCatching {
-                cm.bindProcessToNetwork(vpn)
+            val result = runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    @Suppress("DEPRECATION")
+                    cm.setProcessDefaultNetwork(vpn)
+                } else {
+                    @Suppress("DEPRECATION")
+                    cm.bindProcessToNetwork(vpn)
+                }
+            }
+            if (result.isSuccess) {
                 _processBound.set(true)
+            } else {
+                _processBound.set(false)
+                if (BuildConfig.DEBUG) {
+                    Log.w(TAG, "VPN process binding failed: ${result.exceptionOrNull()?.message}")
+                }
             }
         } else {
             unbindProcess()
@@ -324,6 +429,10 @@ class ClashProxyManager @Inject constructor(
             val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             runCatching {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    @Suppress("DEPRECATION")
+                    cm.setProcessDefaultNetwork(null)
+                } else {
+                    @Suppress("DEPRECATION")
                     cm.bindProcessToNetwork(null)
                 }
             }
