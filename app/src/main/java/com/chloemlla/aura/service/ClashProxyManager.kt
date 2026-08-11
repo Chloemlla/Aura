@@ -77,9 +77,9 @@ class ClashProxyManager @Inject constructor(
     /** Known Clash Meta for Android package names, ordered by preference. */
     private val clashPackages = listOf(
         "com.github.metacubex.clash",
+        "com.github.metacubex.clash.alpha",
+        "com.github.metacubex.clash.meta",
         "com.github.kr328.clash",
-        "com.clash.meta",
-        "com.clash.alpha",
     )
 
     /** ContentProvider authority suffix for partner status queries. */

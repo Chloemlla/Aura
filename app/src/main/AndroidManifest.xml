@@ -49,9 +49,9 @@
         <package android:name="com.asus.mobilemanager" />
         <!-- Clash Meta for Android variants (proxy compatibility) -->
         <package android:name="com.github.metacubex.clash" />
+        <package android:name="com.github.metacubex.clash.alpha" />
+        <package android:name="com.github.metacubex.clash.meta" />
         <package android:name="com.github.kr328.clash" />
-        <package android:name="com.clash.meta" />
-        <package android:name="com.clash.alpha" />
     </queries>
 
     <application
@@ -68,6 +68,12 @@
         android:theme="@style/Theme.Aura"
         android:usesCleartextTraffic="false"
         tools:targetApi="35">
+
+        <!-- Clash partner integration: allows Aura to query Clash Meta for Android
+             VPN status via the StatusProvider partner protocol. -->
+        <meta-data
+            android:name="com.github.kr328.clash.partner"
+            android:value="true" />
 
         <profileable
             android:shell="true"
