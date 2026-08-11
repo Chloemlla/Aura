@@ -161,6 +161,12 @@ jobs:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
           cache-cleanup: on-success
 
+      - name: Stop stale Gradle daemons
+        run: |
+          echo "Java version: $(java -version 2>&1)"
+          echo "JAVA_HOME: $JAVA_HOME"
+          ./gradlew --stop --no-daemon 2>/dev/null || true
+
       - name: Resolve lumen-crash SDK version
         run: |
           python .github/scripts/fetch-lumen-crash-sdk.py
@@ -169,12 +175,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run unit tests (full flavor)
-        run: ./gradlew testFullDebugUnitTest --no-daemon -Pdependency.verification=off
+        run: ./gradlew -Dorg.gradle.java.home="$JAVA_HOME" cleanTestFullDebugUnitTest testFullDebugUnitTest --no-daemon -Pdependency.verification=off
         env:
           GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
       - name: Run unit tests (foss flavor)
-        run: ./gradlew testFossDebugUnitTest --no-daemon -Pdependency.verification=off
+        run: ./gradlew -Dorg.gradle.java.home="$JAVA_HOME" cleanTestFossDebugUnitTest testFossDebugUnitTest --no-daemon -Pdependency.verification=off
         env:
           GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
