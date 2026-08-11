@@ -14,11 +14,24 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import java.net.InetSocketAddress
+import java.net.ProxySelector
+import java.net.SocketAddress
+import java.net.URI
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/**
+ * Holder for a static [ClashProxyManager] reference, set during app startup
+ * so that standalone OkHttp clients (e.g. [VideoCropScreen]'s sharedHttpClient)
+ * can reach the proxy state without Hilt injection.
+ */
+object ClashProxyHolder {
+    @Volatile
+    var instance: ClashProxyManager? = null
+}
 
 /**
  * Entry point for accessing [ClashProxyManager] from non-Hilt classes (e.g.
@@ -175,10 +188,41 @@ class ClashProxyManager @Inject constructor(
 
     /**
      * Initialize and start monitoring. Call from [Application.onCreate].
+     * Sets a global [ProxySelector] so that all HTTP clients (OkHttp,
+     * HttpURLConnection, etc.) route through Clash when available.
      */
     fun start() {
+        ClashProxyHolder.instance = this
+        installGlobalProxySelector()
         refresh()
         startNetworkWatch()
+    }
+
+    /**
+     * Installs a global [ProxySelector] that delegates to this manager,
+     * covering all [java.net.URL.openConnection] calls (including NewPipe's
+     * DownloaderImpl) and OkHttp clients without their own proxy config.
+     */
+    private fun installGlobalProxySelector() {
+        try {
+            ProxySelector.setDefault(object : ProxySelector() {
+                override fun select(uri: URI?): List<java.net.Proxy> {
+                    return if (shouldSkipManualProxy()) {
+                        listOf(java.net.Proxy.NO_PROXY)
+                    } else {
+                        val addr = _proxyAddress.get()
+                        if (addr != null) {
+                            listOf(java.net.Proxy(java.net.Proxy.Type.HTTP, addr))
+                        } else {
+                            listOf(java.net.Proxy.NO_PROXY)
+                        }
+                    }
+                }
+                override fun connectFailed(uri: URI?, sa: SocketAddress?, e: java.io.IOException?) {}
+            })
+        } catch (_: SecurityException) {
+            // Some environments restrict setting the default ProxySelector.
+        }
     }
 
     /**

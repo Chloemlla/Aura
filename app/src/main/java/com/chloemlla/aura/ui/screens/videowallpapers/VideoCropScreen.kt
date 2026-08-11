@@ -42,14 +42,34 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.media3.common.C
 import com.chloemlla.aura.service.FfmpegDownloader
 import com.chloemlla.aura.service.FfmpegDownloaderEntryPoint
+import com.chloemlla.aura.service.ClashProxyHolder
 import dagger.hilt.EntryPointAccessors
 import java.io.File
+import java.io.IOException
+import java.net.Proxy
+import java.net.ProxySelector
+import java.net.SocketAddress
+import java.net.URI
 import kotlin.math.roundToLong
 
 private val sharedHttpClient by lazy {
     okhttp3.OkHttpClient.Builder()
         .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        .proxySelector(object : ProxySelector() {
+            override fun select(uri: URI?): List<Proxy> {
+                val mgr = ClashProxyHolder.instance
+                if (mgr == null) return listOf(Proxy.NO_PROXY)
+                return if (mgr.shouldSkipManualProxy()) {
+                    listOf(Proxy.NO_PROXY)
+                } else {
+                    val addr = mgr.proxyAddress()
+                    if (addr != null) listOf(Proxy(Proxy.Type.HTTP, addr))
+                    else listOf(Proxy.NO_PROXY)
+                }
+            }
+            override fun connectFailed(uri: URI?, sa: SocketAddress?, e: IOException?) {}
+        })
         .build()
 }
 
