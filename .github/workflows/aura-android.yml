@@ -186,21 +186,29 @@ jobs:
 
       - name: Run Android lint (full flavor)
         run: |
-          ./gradlew lintFullDebug --no-daemon -Pdependency.verification=off || {
+          lint_rc=0
+          ./gradlew lintFullDebug --no-daemon -Pdependency.verification=off || lint_rc=$?
+          echo "=== FULL LINT BASELINE (app/lint-baseline.xml) ==="
+          cat app/lint-baseline.xml 2>/dev/null || echo "(no lint-baseline.xml generated)"
+          if [ "$lint_rc" -ne 0 ]; then
             echo "=== FULL LINT REPORT (app/build/reports/lint-results-fullDebug.txt) ==="
             cat app/build/reports/lint-results-fullDebug.txt
-            exit 1
-          }
+            exit "$lint_rc"
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
       - name: Run Android lint (foss flavor)
         run: |
-          ./gradlew lintFossDebug --no-daemon -Pdependency.verification=off || {
+          lint_rc=0
+          ./gradlew lintFossDebug --no-daemon -Pdependency.verification=off || lint_rc=$?
+          echo "=== FOSS LINT BASELINE (app/lint-baseline.xml) ==="
+          cat app/lint-baseline.xml 2>/dev/null || echo "(no lint-baseline.xml generated)"
+          if [ "$lint_rc" -ne 0 ]; then
             echo "=== FOSS LINT REPORT (app/build/reports/lint-results-fossDebug.txt) ==="
             cat app/build/reports/lint-results-fossDebug.txt
-            exit 1
-          }
+            exit "$lint_rc"
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 

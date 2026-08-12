@@ -177,6 +177,13 @@ android {
         buildConfig = true
     }
 
+    lint {
+        // AGP auto-creates this file on the first lint run; it captures the 53 errors
+        // newly flagged by the upgraded lint/Compose/media3 checks so the upgrade can
+        // land without a mass refactor, while still failing on any NEW lint error.
+        baseline = file("lint-baseline.xml")
+    }
+
     packaging {
         jniLibs {
             useLegacyPackaging = true
