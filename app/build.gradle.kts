@@ -413,16 +413,15 @@ val downloadYtDlp by tasks.registering {
 }
 
 // Wire the yt-dlp download to run before any task that reads the source set resource
-// directory (mergeResources, map*SourceSetPaths, generate*Resources, etc.) so Gradle
-// 9.6.1's implicit dependency validation doesn't flag the raw/ytdlp file as a missing producer.
+// directory (mergeResources, map*SourceSetPaths, generate*Resources, process*NavigationResources,
+// lint*, lintVital*, etc.) so Gradle 9.x's implicit dependency validation doesn't flag the
+// raw/ytdlp file as a missing producer.
 tasks.matching {
-    it.name.startsWith("merge") && it.name.endsWith("Resources")
+    (it.name.startsWith("merge") && it.name.endsWith("Resources")) ||
+        (it.name.startsWith("map") && it.name.endsWith("SourceSetPaths")) ||
+        (it.name.startsWith("generate") && it.name.endsWith("Resources")) ||
+        it.name.contains("NavigationResources") ||
+        it.name.startsWith("lint")
 }.configureEach {
-    dependsOn(downloadYtDlp)
-}
-tasks.matching { it.name.startsWith("map") && it.name.endsWith("SourceSetPaths") }.configureEach {
-    dependsOn(downloadYtDlp)
-}
-tasks.matching { it.name.startsWith("generate") && it.name.endsWith("Resources") }.configureEach {
     dependsOn(downloadYtDlp)
 }
