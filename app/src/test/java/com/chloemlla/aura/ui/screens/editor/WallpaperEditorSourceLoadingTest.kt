@@ -109,6 +109,11 @@ class WallpaperEditorSourceLoadingTest {
         assertTrue(first !== second)
         assertTrue(viewModel.state.value.overlayLayers.isEmpty())
         assertFalse(viewModel.state.value.canUndoOverlay)
+
+        // The brightness render hops to Dispatchers.Default (a real dispatcher). Let it
+        // finish inside this test so its resume-to-Main cannot race the next test's
+        // setMain/resetMain ("Dispatchers.Main is used concurrently with setting it").
+        viewModel.state.first { !it.isProcessing }
     }
 
     @Test
