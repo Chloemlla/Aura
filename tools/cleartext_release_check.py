@@ -18,6 +18,10 @@ DEFAULT_SOURCE_ROOTS = [
 ]
 
 CLEARTEXT_CONFIG_RE = re.compile(r"cleartextTrafficPermitted\s*=\s*[\"']true[\"']", re.IGNORECASE)
+EXPLICIT_DENY_CONFIG_RE = re.compile(
+    r"<base-config[^>]*cleartextTrafficPermitted\s*=\s*[\"']false[\"']",
+    re.IGNORECASE,
+)
 MANIFEST_CLEARTEXT_TRUE_RE = re.compile(r"usesCleartextTraffic\s*=\s*[\"']true[\"']", re.IGNORECASE)
 HTTP_URL_LITERAL_RE = re.compile(r'"([^"\n]*http://[^"\n]*)"')
 HTTP_SCHEME_CALL_RE = re.compile(r"\.scheme\(\s*\"http\"\s*\)")
@@ -100,6 +104,11 @@ def validate_cleartext_release_policy(
         'cleartextTrafficPermitted="true"',
         repo_root,
     )
+    config_text = config_path.read_text(encoding="utf-8")
+    if not EXPLICIT_DENY_CONFIG_RE.search(config_text):
+        raise CleartextReleaseError(
+            f"{config_path.relative_to(repo_root)} must declare base-config cleartextTrafficPermitted=\"false\""
+        )
     manifest_cleartext_refs = matching_lines(
         manifest_path,
         MANIFEST_CLEARTEXT_TRUE_RE,

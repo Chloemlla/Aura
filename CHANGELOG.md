@@ -13,6 +13,9 @@ All notable changes to Aura will be documented in this file.
 - **UX: shuffle no longer immediately repeats** — rotation excludes a recent history window
   scaled to the fetched candidate pool, while one-item sources still make progress and
   sequential rotation remains unchanged.
+- **Security: make inbound wallpaper and cleartext policy explicit** — the network security
+  config now denies cleartext in a declared base policy, and `ACTION_ATTACH_DATA` accepts only
+  provider-backed image URIs carrying an explicit read grant.
 
 ## v6.41.0 (2026-08-10)
 

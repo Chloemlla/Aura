@@ -149,7 +149,7 @@ private fun parseSetWallpaperNavigation(intent: Intent): LaunchNavigation? {
     if (intent.action != Intent.ACTION_ATTACH_DATA) return null
     val data = intent.data ?: return null
     val type = intent.type ?: return null
-    if (!type.startsWith("image/")) return null
+    if (!type.startsWith("image/") || !isAllowedAttachDataUri(data, intent.flags)) return null
     val uriString = data.toString()
     val wallpaper = Wallpaper(
         id = "set-with-${uriString.hashCode()}",
@@ -164,6 +164,12 @@ private fun parseSetWallpaperNavigation(intent: Intent): LaunchNavigation? {
         wallpaper = wallpaper,
     )
 }
+
+/** ACTION_ATTACH_DATA must carry a provider-backed URI and an explicit read grant. */
+internal fun isAllowedAttachDataUri(uri: Uri, intentFlags: Int): Boolean =
+    uri.scheme.equals("content", ignoreCase = true) &&
+        !uri.authority.isNullOrBlank() &&
+        intentFlags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0
 
 private fun parseCollectionImportNavigation(intent: Intent): LaunchNavigation? {
     val data = intent.data
