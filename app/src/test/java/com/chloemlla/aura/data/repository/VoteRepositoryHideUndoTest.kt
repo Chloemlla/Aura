@@ -14,12 +14,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * Guards the reversibility the hide/undo snackbar relies on: a non-admin downvote hides an
  * item locally, and undoDownvote restores it. Without this, an accidental Hide is unrecoverable.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class VoteRepositoryHideUndoTest {
 
     private fun newRepository(): VoteRepository {

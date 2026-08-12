@@ -13,6 +13,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * WorkManager-integration harness for wallpaper rotation reliability — the failure class that
@@ -22,6 +23,7 @@ import org.robolectric.RobolectricTestRunner
  * constraint so a metered network cannot satisfy the run.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class AutoWallpaperWorkerSchedulingTest {
 
     private lateinit var context: Context

@@ -31,11 +31,11 @@ class CoilMigrationContractTest {
     }
 
     @Test
-    fun `Compose 1_8 dependencies are aligned by the June 2025 BOM`() {
+    fun `Compose dependencies are aligned by the 2026.06 BOM`() {
         val catalog = File("../gradle/libs.versions.toml").readText()
         val appBuild = File("build.gradle.kts").readText()
 
-        assertTrue(catalog.contains("compose-bom = \"2025.06.00\""))
+        assertTrue(catalog.contains("compose-bom = \"2026.06.01\""))
         assertFalse(catalog.contains("compose-ui-test ="))
         assertFalse(catalog.contains("material3 = \""))
         assertTrue(appBuild.split("platform(libs.compose.bom)").size - 1 >= 3)
