@@ -1,0 +1,3674 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.3.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.3.1)" variant="all" version="9.3.1">
+
+    <issue
+        id="EmptySuperCall"
+        message="No need to call `super.onCleared`; the super method is defined to be empty"
+        errorLine1="        super.onCleared()"
+        errorLine2="              ~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperViewModel.kt"
+            line="334"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="EmptySuperCall"
+        message="No need to call `super.onCleared`; the super method is defined to be empty"
+        errorLine1="        super.onCleared()"
+        errorLine2="              ~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/editor/SoundEditorViewModel.kt"
+            line="540"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="EmptySuperCall"
+        message="No need to call `super.onCleared`; the super method is defined to be empty"
+        errorLine1="        super.onCleared()"
+        errorLine2="              ~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsViewModel.kt"
+            line="394"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="EmptySuperCall"
+        message="No need to call `super.onCleared`; the super method is defined to be empty"
+        errorLine1="        super.onCleared()"
+        errorLine2="              ~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersViewModel.kt"
+            line="797"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="EmptySuperCall"
+        message="No need to call `super.onCleared`; the super method is defined to be empty"
+        errorLine1="        super.onCleared()"
+        errorLine2="              ~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperEditorViewModel.kt"
+            line="209"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="EmptySuperCall"
+        message="No need to call `super.onCleared`; the super method is defined to be empty"
+        errorLine1="        super.onCleared()"
+        errorLine2="              ~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpapersViewModel.kt"
+            line="202"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 29 (current min is 26): `android.media.MediaFormat#MIMETYPE_VIDEO_AV1`"
+        errorLine1="                    info.supportedTypes.any { it.equals(MediaFormat.MIMETYPE_VIDEO_AV1, ignoreCase = true) }"
+        errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/Av1CodecSupport.kt"
+            line="20"
+            column="57"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 29 (current min is 26): `android.media.MediaFormat#MIMETYPE_VIDEO_AV1`"
+        errorLine1="            MediaFormat.MIMETYPE_VIDEO_AV1,"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/Av1CodecSupport.kt"
+            line="48"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 29 (current min is 26): `android.media.MediaCodecInfo#isHardwareAccelerated`"
+        errorLine1="                    info.isHardwareAccelerated &amp;&amp;"
+        errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/Av1CodecSupport.kt"
+            line="19"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="PrivateApi"
+        message="Accessing internal APIs via reflection is not supported and may not work on all devices or in the future"
+        errorLine1="        val builderCls = Class.forName("
+        errorLine2="                         ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/PhotoPickerCustomization.kt"
+            line="227"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellWidth` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:targetCellWidth=&quot;2&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/aura_widget_info.xml"
+            line="10"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellHeight` is only used in API level 31 and higher (current min is 26)"
+        errorLine1="    android:targetCellHeight=&quot;2&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/aura_widget_info.xml"
+            line="11"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="AppBundleLocaleChanges"
+        message="Found dynamic locale changes, but did not find corresponding Play Core library calls for downloading languages and splitting by language is not disabled in the `bundle` configuration"
+        errorLine1="        config.setLocale(locale)"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/util/LocaleHelper.kt"
+            line="40"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="IdleBatteryChargingConstraints"
+        message="Constraints may not be met for some devices"
+        errorLine1="    if (requiresCharging) builder.setRequiresCharging(true)"
+        errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/AutoWallpaperWorker.kt"
+            line="353"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="NonObservableLocale"
+        message="Reading locale in a non-observable way in a composable function"
+        errorLine1="        DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, Locale.getDefault())"
+        errorLine2="                                                                           ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/settings/DiagnosticsComponents.kt"
+            line="719"
+            column="76"/>
+    </issue>
+
+    <issue
+        id="UnspecifiedRegisterReceiverFlag"
+        message="`powerSaveReceiver` is missing `RECEIVER_EXPORTED` or `RECEIVER_NOT_EXPORTED` flag for unprotected broadcasts registered for com.chloemlla.aura.action.VIDEO_AUTO_BATTERY_SAVER_CHANGED"
+        errorLine1="                    registerReceiver(powerSaveReceiver, filter)"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/VideoWallpaperService.kt"
+            line="597"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of Gradle than 9.5.0 is available: 9.7.0"
+        errorLine1="distributionUrl=https\://services.gradle.org/distributions/gradle-9.5.0-bin.zip"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="$HOME/work/Aura/Aura/gradle/wrapper/gradle-wrapper.properties"
+            line="3"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test.ext:junit than 1.2.1 is available: 1.3.0"
+        errorLine1="androidx-test-ext-junit = &quot;1.2.1&quot;"
+        errorLine2="                          ~~~~~~~">
+        <location
+            file="$HOME/work/Aura/Aura/gradle/libs.versions.toml"
+            line="31"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0"
+        errorLine1="androidx-test-runner = &quot;1.6.2&quot;"
+        errorLine2="                       ~~~~~~~">
+        <location
+            file="$HOME/work/Aura/Aura/gradle/libs.versions.toml"
+            line="32"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test.uiautomator:uiautomator than 2.3.0 is available: 2.4.0"
+        errorLine1="androidx-uiautomator = &quot;2.3.0&quot;"
+        errorLine2="                       ~~~~~~~">
+        <location
+            file="$HOME/work/Aura/Aura/gradle/libs.versions.toml"
+            line="33"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlin.android than 2.3.21 is available: 2.4.10"
+        errorLine1="kotlin = &quot;2.3.21&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/work/Aura/Aura/gradle/libs.versions.toml"
+            line="3"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlin.plugin.compose than 2.3.21 is available: 2.4.10"
+        errorLine1="kotlin = &quot;2.3.21&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/work/Aura/Aura/gradle/libs.versions.toml"
+            line="3"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlin.plugin.serialization than 2.3.21 is available: 2.4.10"
+        errorLine1="kotlin = &quot;2.3.21&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/work/Aura/Aura/gradle/libs.versions.toml"
+            line="3"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.squareup.okhttp3:logging-interceptor than 5.3.2 is available: 5.4.0"
+        errorLine1="okhttp = &quot;5.3.2&quot;"
+        errorLine2="         ~~~~~~~">
+        <location
+            file="$HOME/work/Aura/Aura/gradle/libs.versions.toml"
+            line="10"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.squareup.okhttp3:okhttp than 5.3.2 is available: 5.4.0"
+        errorLine1="okhttp = &quot;5.3.2&quot;"
+        errorLine2="         ~~~~~~~">
+        <location
+            file="$HOME/work/Aura/Aura/gradle/libs.versions.toml"
+            line="10"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of io.coil-kt.coil3:coil-compose than 3.4.0 is available: 3.5.0"
+        errorLine1="coil = &quot;3.4.0&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/work/Aura/Aura/gradle/libs.versions.toml"
+            line="11"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of io.coil-kt.coil3:coil-gif than 3.4.0 is available: 3.5.0"
+        errorLine1="coil = &quot;3.4.0&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/work/Aura/Aura/gradle/libs.versions.toml"
+            line="11"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of io.coil-kt.coil3:coil-network-okhttp than 3.4.0 is available: 3.5.0"
+        errorLine1="coil = &quot;3.4.0&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/work/Aura/Aura/gradle/libs.versions.toml"
+            line="11"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of app.cash.turbine:turbine than 1.2.0 is available: 1.2.1"
+        errorLine1="turbine = &quot;1.2.0&quot;"
+        errorLine2="          ~~~~~~~">
+        <location
+            file="$HOME/work/Aura/Aura/gradle/libs.versions.toml"
+            line="27"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of io.mockk:mockk than 1.13.13 is available: 1.14.11"
+        errorLine1="mockk = &quot;1.13.13&quot;"
+        errorLine2="        ~~~~~~~~~">
+        <location
+            file="$HOME/work/Aura/Aura/gradle/libs.versions.toml"
+            line="28"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.ExperimentalApi` or `@OptIn(markerClass = androidx.media3.common.util.ExperimentalApi.class)`"
+        errorLine1="        ExoPlayer.Builder(context).experimentalSetDynamicSchedulingEnabled(true).build().apply {"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoCropScreen.kt"
+            line="173"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.ExperimentalApi` or `@OptIn(markerClass = androidx.media3.common.util.ExperimentalApi.class)`"
+        errorLine1="        ExoPlayer.Builder(context).experimentalSetDynamicSchedulingEnabled(true).build().apply {"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpaperPreviewScreen.kt"
+            line="62"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.ExperimentalApi` or `@OptIn(markerClass = androidx.media3.common.util.ExperimentalApi.class)`"
+        errorLine1="                        .experimentalSetDynamicSchedulingEnabled(true)"
+        errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersScreen.kt"
+            line="948"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.ExperimentalApi` or `@OptIn(markerClass = androidx.media3.common.util.ExperimentalApi.class)`"
+        errorLine1="                        .experimentalSetDynamicSchedulingEnabled(true)"
+        errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersScreen.kt"
+            line="1169"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="ConfigurationScreenWidthHeight"
+        message="Using Configuration.screenWidthDp instead of LocalWindowInfo.current.containerSize"
+        errorLine1="    val screenWidthDp = LocalConfiguration.current.screenWidthDp"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundDetailScreen.kt"
+            line="82"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                    context.getString(R.string.collections_share_chooser, event.collectionName),"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/collections/CollectionsScreen.kt"
+            line="274"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                    scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.collections_no_share_target)) }"
+        errorLine2="                                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/collections/CollectionsScreen.kt"
+            line="277"
+            column="67"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.collections_link_copied)) }"
+        errorLine2="                                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/collections/CollectionsScreen.kt"
+            line="333"
+            column="63"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                                    message = context.getString("
+        errorLine2="                                                              ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/collections/CollectionsScreen.kt"
+            line="385"
+            column="63"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                                    actionLabel = context.getString(R.string.common_undo),"
+        errorLine2="                                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/collections/CollectionsScreen.kt"
+            line="389"
+            column="67"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                                message = context.getString(R.string.collections_removed),"
+        errorLine2="                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/collections/CollectionsScreen.kt"
+            line="453"
+            column="59"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                                actionLabel = context.getString(R.string.common_undo),"
+        errorLine2="                                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/collections/CollectionsScreen.kt"
+            line="454"
+            column="63"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                        message = context.getString("
+        errorLine2="                                                  ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/downloads/DownloadsScreen.kt"
+            line="165"
+            column="51"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                        actionLabel = context.getString(R.string.common_undo),"
+        errorLine2="                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/downloads/DownloadsScreen.kt"
+            line="169"
+            column="55"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                        context.getString(R.string.favorites_removed_one, snapshot.size)"
+        errorLine2="                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/favorites/FavoritesScreen.kt"
+            line="161"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                        context.getString(R.string.favorites_removed_many, snapshot.size)"
+        errorLine2="                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/favorites/FavoritesScreen.kt"
+            line="163"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                    val undoLabel = context.getString(R.string.favorites_undo)"
+        errorLine2="                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/favorites/FavoritesScreen.kt"
+            line="165"
+            column="53"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                                context.getString(R.string.favorites_state_source_unavailable)"
+        errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/favorites/FavoritesScreen.kt"
+            line="577"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                                context.getString(R.string.favorites_state_saved_sound)"
+        errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/favorites/FavoritesScreen.kt"
+            line="579"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                actionLabel = if (event.undoTarget != null) context.getString(R.string.apply_feedback_undo) else null,"
+        errorLine2="                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/FreeVibeRoot.kt"
+            line="142"
+            column="61"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                    message = context.getString(R.string.apply_feedback_reverted),"
+        errorLine2="                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/FreeVibeRoot.kt"
+            line="159"
+            column="47"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                    message = context.getString("
+        errorLine2="                                              ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/FreeVibeRoot.kt"
+            line="167"
+            column="47"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                        e.message ?: context.getString(R.string.apply_feedback_unknown_error),"
+        errorLine2="                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/FreeVibeRoot.kt"
+            line="169"
+            column="54"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                        com.chloemlla.aura.data.model.WallpaperTarget.HOME -> context.getString(R.string.apply_target_home)"
+        errorLine2="                                                                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/FreeVibeRoot.kt"
+            line="794"
+            column="95"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                        com.chloemlla.aura.data.model.WallpaperTarget.LOCK -> context.getString(R.string.apply_target_lock)"
+        errorLine2="                                                                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/FreeVibeRoot.kt"
+            line="795"
+            column="95"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                        com.chloemlla.aura.data.model.WallpaperTarget.BOTH -> context.getString(R.string.apply_target_both)"
+        errorLine2="                                                                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/FreeVibeRoot.kt"
+            line="796"
+            column="95"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                            message = context.getString(R.string.apply_feedback_applied_to, label),"
+        errorLine2="                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/FreeVibeRoot.kt"
+            line="800"
+            column="55"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                            message = context.getString("
+        errorLine2="                                                      ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/FreeVibeRoot.kt"
+            line="810"
+            column="55"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                                e.message ?: context.getString(R.string.apply_feedback_unknown_error),"
+        errorLine2="                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/FreeVibeRoot.kt"
+            line="812"
+            column="62"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                    context.getString(R.string.settings_feedback_local_folder_saved)"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt"
+            line="152"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                    context.getString(R.string.settings_feedback_local_folder_no_persist)"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt"
+            line="154"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                showSettingsFeedback(context.getString(R.string.settings_feedback_backup_folder_on))"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt"
+            line="180"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                showSettingsFeedback(context.getString(R.string.settings_feedback_backup_folder_saved))"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt"
+            line="182"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                showSettingsFeedback(context.getString(R.string.settings_feedback_backup_folder_no_persist))"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt"
+            line="184"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                    LiveWallpaperLaunchMode.DIRECT -> showSettingsFeedback(context.getString(R.string.settings_feedback_parallax_direct))"
+        errorLine2="                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt"
+            line="214"
+            column="76"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                    LiveWallpaperLaunchMode.CHOOSER -> showSettingsFeedback(context.getString(R.string.settings_feedback_parallax_chooser))"
+        errorLine2="                                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt"
+            line="215"
+            column="77"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                    null -> showSettingsFeedback(context.getString(R.string.settings_feedback_parallax_manual))"
+        errorLine2="                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt"
+            line="216"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                showSettingsFeedback(context.getString(R.string.settings_feedback_parallax_failed, result.message))"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt"
+            line="221"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                    LiveWallpaperLaunchMode.DIRECT -> showSettingsFeedback(context.getString(R.string.settings_feedback_video_direct))"
+        errorLine2="                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt"
+            line="238"
+            column="76"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                    LiveWallpaperLaunchMode.CHOOSER -> showSettingsFeedback(context.getString(R.string.settings_feedback_video_chooser))"
+        errorLine2="                                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt"
+            line="239"
+            column="77"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                    null -> showSettingsFeedback(context.getString(R.string.settings_feedback_video_manual))"
+        errorLine2="                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt"
+            line="240"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="            snackbarHostState.showSnackbar(context.getString(R.string.common_error_format, it))"
+        errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/editor/SoundEditorScreen.kt"
+            line="140"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                            message = context.getString(R.string.community_item_hidden),"
+        errorLine2="                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsScreen.kt"
+            line="700"
+            column="55"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                            actionLabel = context.getString(R.string.common_undo),"
+        errorLine2="                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsScreen.kt"
+            line="701"
+            column="59"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                        Toast.makeText(context, context.getString(R.string.video_wp_toast_direct), Toast.LENGTH_LONG).show()"
+        errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersScreen.kt"
+            line="330"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                        Toast.makeText(context, context.getString(R.string.video_wp_toast_chooser), Toast.LENGTH_LONG).show()"
+        errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersScreen.kt"
+            line="333"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                        Toast.makeText(context, context.getString(R.string.video_wp_toast_fallback), Toast.LENGTH_LONG).show()"
+        errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersScreen.kt"
+            line="336"
+            column="49"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                                    message = context.getString(R.string.community_item_hidden),"
+        errorLine2="                                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersScreen.kt"
+            line="627"
+            column="63"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="                                                    actionLabel = context.getString(R.string.common_undo),"
+        errorLine2="                                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersScreen.kt"
+            line="628"
+            column="67"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="            snackbarHostState.showSnackbar(context.getString(R.string.common_error_format, it))"
+        errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperCropScreen.kt"
+            line="73"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="LocalContextGetResourceValueCall"
+        message="Querying resource values using LocalContext.current"
+        errorLine1="            snackbarHostState.showSnackbar(context.getString(R.string.common_error_format, it))"
+        errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperEditorScreen.kt"
+            line="89"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="LocalContextResourcesRead"
+        message="Reading Resources using LocalContext.current.resources"
+        errorLine1="        GoogleOssNoticeReader.load(context.resources)"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/licenses/LicensesScreen.kt"
+            line="117"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="DiscouragedApi"
+        message="Use of this function is discouraged because resource reflection makes it harder to perform build optimizations and compile-time verification of code. It is much more efficient to retrieve resources by identifier (e.g. `R.foo.bar`) than by name (e.g. `getIdentifier(&quot;bar&quot;, &quot;foo&quot;, null)`)."
+        errorLine1="        context.resources.getIdentifier(&quot;default_web_client_id&quot;, &quot;string&quot;, context.packageName) != 0"
+        errorLine2="                          ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/CommunityIdentityProvider.kt"
+            line="75"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;failed&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;favorites_batch_downloading_with_outcomes&quot;>Downloading %1$d/%2$d (%3$d failed, %4$d blocked)&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="71"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;percent&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;a11y_download_percent&quot;>Download %1$d percent complete&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="74"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;votes&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;a11y_vote_count&quot;>%1$d votes&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="93"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;percent&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;a11y_trim_range&quot;>Selected range %1$d to %2$d percent&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="97"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;percent&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;a11y_playing_percent&quot;>Playing %1$d percent&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="103"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;selected&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;onboarding_selected_count&quot;>%1$d selected&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="323"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;wallpapers&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;collections_qr_info&quot;>%1$s — %2$d wallpapers&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="487"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;wallpapers&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;collections_wallpaper_count&quot;>%1$d wallpapers&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="491"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;uploads&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;profile_creator_stats&quot;>%1$d uploads - %2$d votes&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="651"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;votes&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;profile_upload_stats&quot;>%1$s - %2$d votes&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="652"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;style&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_dialogs_overview_style_count&quot;>%1$d style preferences&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="803"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;styles&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_dialogs_overview_styles_selected&quot;>%1$d styles selected&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="811"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;provider&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_dialogs_overview_provider_keys&quot;>%1$d provider keys&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="815"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;hours&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_wp_change_interval_subtitle&quot;>Every %1$d hours&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1046"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;columns&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_wp_grid_columns_subtitle&quot;>%1$d columns&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1079"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;local&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_wp_style_learning_reset_subtitle&quot;>%1$d local signals&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1089"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;selected&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_reddit_subreddits_summary&quot;>%1$d selected • tap to edit&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1096"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;recently&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_wp_history_subtitle&quot;>%1$d recently applied&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1108"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;words&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_sounds_blocked_words_subtitle&quot;>%1$d words filtered from YouTube results&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1273"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;community&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_services_blocked_count_subtitle&quot;>%1$d community creators hidden&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1310"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;free&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_storage_generated_summary&quot;>%1$d in use, %2$d free to reclaim&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1368"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;reference&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_storage_generated_stale&quot;>%1$d reference(s) point at a missing file.&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1369"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;active&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_diag_source_count_subtitle&quot;>%1$d active sources tracked this session&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1382"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;records&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_diag_background_record_summary&quot;>%1$d records - max attempts %2$d&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1408"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;requests&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_diag_source_request_summary&quot;>%1$d requests - %2$d%% success - %3$d consecutive failures - %4$d disabled - %5$s&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1432"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;words&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_picker_blocked_words_count&quot;>%1$d words&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1527"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;saved&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;library_favorites_count&quot;>%1$d saved&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1539"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;offline&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;library_downloads_count&quot;>%1$d offline&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1542"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;set&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;library_collections_count&quot;>%1$d set(s)&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1545"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;applied&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;library_recent_count&quot;>%1$d applied, %2$d search terms&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1551"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;selected&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;favorites_selection_count&quot;>%1$d selected&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1564"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;selected&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;favorites_download_selected_one&quot;>Download %1$d selected wallpaper&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1568"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;selected&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;favorites_download_selected_many&quot;>Download %1$d selected wallpapers&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1569"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;favorite&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;favorites_removed_one&quot;>Removed %1$d favorite&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1570"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;favorites&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;favorites_removed_many&quot;>Removed %1$d favorites&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1571"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;selected&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;favorites_remove_selected_one&quot;>Remove %1$d selected favorite&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1573"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;selected&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;favorites_remove_selected_many&quot;>Remove %1$d selected favorites&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1574"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;polished&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;wallpapers_subtitle_discover_count&quot;>%1$d polished picks are ready across trusted sources, tuned for phone-friendly browsing.&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1677"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;profile&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_sounds_profiles_on_subtitle&quot;>%1$d profile(s) active — sounds change by schedule&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1725"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;daypart&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_wp_pack_on_subtitle&quot;>%1$d daypart slot(s) — wallpaper changes by time of day&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1730"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;unreadable&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_library_import_skipped_invalid&quot;>Skipped %1$d unreadable entries (%2$s).&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1753"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;items&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_library_import_skipped_non_portable&quot;>%1$d items point at files that only exist on the device that made this backup, so they were not restored (%2$s).&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1754"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;items&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_library_import_skipped_duplicate&quot;>Skipped %1$d items already in your library (%2$s).&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1755"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;items&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_library_import_skipped_over_limit&quot;>Skipped %1$d items past the per-section import limit (%2$s).&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1756"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;downloads&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_library_import_skipped_migration&quot;>%1$d downloads from an older backup format were not restored; downloads stay on the device that made them (%2$s).&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1757"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;settings_interval_minutes&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-zh/strings.xml"
+            line="1145"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;settings_interval_hours&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-zh/strings.xml"
+            line="1149"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;settings_interval_days&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-zh/strings.xml"
+            line="1153"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;settings_backup_keeping_files&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-zh/strings.xml"
+            line="1183"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;settings_backup_keeping_newest&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-zh/strings.xml"
+            line="1187"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;settings_backup_interval_every_hours&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-zh/strings.xml"
+            line="1191"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;settings_backup_retention_keep&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-zh/strings.xml"
+            line="1195"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;settings_diag_workinfo_receipts&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-zh/strings.xml"
+            line="1399"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;settings_library_export_done&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-zh/strings.xml"
+            line="1742"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;settings_library_import_done&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-zh/strings.xml"
+            line="1747"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ExportedContentProvider"
+        message="Exported content providers can provide access to potentially sensitive data"
+        errorLine1="        &lt;provider"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="272"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="ExportedReceiver"
+        message="Exported receiver does not require permission"
+        errorLine1="        &lt;receiver"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="210"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="ExportedReceiver"
+        message="Exported receiver does not require permission"
+        errorLine1="        &lt;receiver"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="234"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="            restrictBackgroundStatus = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {"
+        errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/BackgroundWorkDiagnosticsReader.kt"
+            line="131"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/ClashProxyManager.kt"
+            line="196"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/ClashProxyManager.kt"
+            line="371"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/RotationTriggerService.kt"
+            line="157"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="FrequentlyChangingValue"
+        message="Reading a value annotated with @FrequentlyChangingValue inside composition"
+        errorLine1="                    val pageOffset = (pagerState.currentPage - page + pagerState.currentPageOffsetFraction)"
+        errorLine2="                                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperDetailScreen.kt"
+            line="315"
+            column="82"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableLongStateOf` instead of `mutableStateOf`"
+        errorLine1="    var elapsedMs by remember(startedAtMs) { mutableStateOf(0L) }"
+        errorLine2="                                             ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsScreen.kt"
+            line="1582"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="Overdraw"
+        message="Possible overdraw: Root element paints background `#0A0A0F` with a theme that also paints a background (inferred theme is `@style/Theme.Aura`)"
+        errorLine1="    android:background=&quot;#0A0A0F&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_loading.xml"
+            line="5"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.ic_launcher_background` appears to be unused"
+        errorLine1="    &lt;color name=&quot;ic_launcher_background&quot;>#0a0e17&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/ic_launcher_colors.xml"
+            line="3"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.browse_rail_wallpaper_newest_query` appears to be unused"
+        errorLine1="    &lt;string name=&quot;browse_rail_wallpaper_newest_query&quot;>new wallpapers&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="43"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.browse_rail_sound_newest_ringtone_query` appears to be unused"
+        errorLine1="    &lt;string name=&quot;browse_rail_sound_newest_ringtone_query&quot;>new ringtone&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="45"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.browse_rail_sound_newest_notification_query` appears to be unused"
+        errorLine1="    &lt;string name=&quot;browse_rail_sound_newest_notification_query&quot;>new notification sound&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="46"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.browse_rail_sound_newest_alarm_query` appears to be unused"
+        errorLine1="    &lt;string name=&quot;browse_rail_sound_newest_alarm_query&quot;>new alarm tone&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="47"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.detail_details` appears to be unused"
+        errorLine1="    &lt;string name=&quot;detail_details&quot;>Details&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="572"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.feed_wotd` appears to be unused"
+        errorLine1="    &lt;string name=&quot;feed_wotd&quot;>Wallpaper of the Day&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="619"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.sounds_error_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;sounds_error_title&quot;>Sounds could not refresh&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="839"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.sounds_loading_description` appears to be unused"
+        errorLine1="    &lt;string name=&quot;sounds_loading_description&quot;>Aura is checking YouTube clip length and preview availability before showing ringtone-ready results.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="846"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.sounds_card_ready` appears to be unused"
+        errorLine1="    &lt;string name=&quot;sounds_card_ready&quot;>Ready&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="880"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.video_wp_header_label` appears to be unused"
+        errorLine1="    &lt;string name=&quot;video_wp_header_label&quot;>Motion wallpapers&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="937"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.video_wp_gallery_cd` appears to be unused"
+        errorLine1="    &lt;string name=&quot;video_wp_gallery_cd&quot;>Video or GIF from gallery&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="940"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.video_wp_loading_description` appears to be unused"
+        errorLine1="    &lt;string name=&quot;video_wp_loading_description&quot;>Aura is checking sources for portrait-friendly clips and battery-aware playback hints.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="945"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.video_wp_badge_portrait` appears to be unused"
+        errorLine1="    &lt;string name=&quot;video_wp_badge_portrait&quot;>Portrait&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="969"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.video_wp_badge_landscape` appears to be unused"
+        errorLine1="    &lt;string name=&quot;video_wp_badge_landscape&quot;>Landscape&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="970"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.settings_feedback_reddit_discontinued` appears to be unused"
+        errorLine1="    &lt;string name=&quot;settings_feedback_reddit_discontinued&quot;>Reddit RSS is cached and refreshed sparingly to respect its public feed limits.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1011"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.settings_wp_reddit_subtitle` appears to be unused"
+        errorLine1="    &lt;string name=&quot;settings_wp_reddit_subtitle&quot;>Cached public RSS with post and creator attribution&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1091"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.settings_language_restart_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;settings_language_restart_title&quot;>Language changed&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1498"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.settings_language_restart_body` appears to be unused"
+        errorLine1="    &lt;string name=&quot;settings_language_restart_body&quot;>The app will restart to apply the new language.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1499"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_banner_degraded_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_banner_degraded_title&quot;>Some content sources are temporarily unavailable&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1596"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_daily_pick_cd` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_daily_pick_cd&quot;>Wallpaper of the Day&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1616"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_daily_pick_featured_cd` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_daily_pick_featured_cd&quot;>Featured&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1617"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_daily_pick_category_fallback` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_daily_pick_category_fallback&quot;>Daily pick&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1618"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_daily_pick_view_cd` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_daily_pick_view_cd&quot;>View wallpaper&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1619"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_seasonal_explore` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_seasonal_explore&quot;>Explore&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1620"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collections_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collections_title&quot;>Explore Collections&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1621"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collections_subtitle` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collections_subtitle&quot;>Quick routes into polished looks when you want a more directed browse.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1622"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_amoled_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_amoled_title&quot;>AMOLED Black&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1623"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_amoled_desc` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_amoled_desc&quot;>Deep blacks and low-glow contrast&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1624"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_minimal_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_minimal_title&quot;>Minimal&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1625"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_minimal_desc` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_minimal_desc&quot;>Clean lines with quiet composition&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1626"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_nature_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_nature_title&quot;>Nature 4K&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1627"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_nature_desc` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_nature_desc&quot;>Landscapes, forests, and natural depth&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1628"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_cyberpunk_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_cyberpunk_title&quot;>Cyberpunk&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1629"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_cyberpunk_desc` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_cyberpunk_desc&quot;>Electric nightlife and neon geometry&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1630"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_space_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_space_title&quot;>Space&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1631"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_space_desc` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_space_desc&quot;>Nebulae, stars, and cinematic skies&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1632"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_abstract_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_abstract_title&quot;>Abstract&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1633"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_abstract_desc` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_abstract_desc&quot;>Gradients, form studies, and color fields&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1634"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_anime_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_anime_title&quot;>Anime&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1635"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_anime_desc` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_anime_desc&quot;>Illustrated scenes and stylized worlds&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1636"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_ocean_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_ocean_title&quot;>Ocean&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1637"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_ocean_desc` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_ocean_desc&quot;>Waves, shoreline light, and cool tones&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1638"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_mountains_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_mountains_title&quot;>Mountains&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1639"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_mountains_desc` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_mountains_desc&quot;>Peaks, fog, and wide scenic balance&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1640"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_urban_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_urban_title&quot;>Urban&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1641"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_collection_urban_desc` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_collection_urban_desc&quot;>Skylines, streets, and city atmosphere&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1642"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_card_upvotes_cd` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_card_upvotes_cd&quot;>Upvotes&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1644"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_header_discover_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_header_discover_title&quot;>Discover wallpapers&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1672"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_source_health_summary` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_source_health_summary&quot;>Limited source health right now: %1$s&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1714"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_card_badge_amoled` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_card_badge_amoled&quot;>AMOLED&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1715"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.wallpapers_card_badge_icon_safe` appears to be unused"
+        errorLine1="    &lt;string name=&quot;wallpapers_card_badge_icon_safe&quot;>Icon-safe&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1716"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.raw.ytdlp` appears to be unused">
+        <location
+            file="src/main/res/raw/ytdlp"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;settings_ytdlp_update_checking&quot;>正在检查稳定的 yt-dlp 版本...&lt;/string>"
+        errorLine2="                                                  ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-zh/strings.xml"
+            line="213"
+            column="51"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;settings_ytdlp_update_checking&quot;>Checking the stable yt-dlp release...&lt;/string>"
+        errorLine2="                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="213"
+            column="51"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;contact_picker_opening&quot;>正在打开联系人选择器...&lt;/string>"
+        errorLine2="                                          ~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-zh/strings.xml"
+            line="711"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;contact_picker_opening&quot;>Opening contact picker...&lt;/string>"
+        errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="711"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;contact_picker_reading_contact&quot;>正在读取所选联系人...&lt;/string>"
+        errorLine2="                                                  ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-zh/strings.xml"
+            line="716"
+            column="51"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;contact_picker_reading_contact&quot;>Reading selected contact...&lt;/string>"
+        errorLine2="                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="716"
+            column="51"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;sound_detail_opening&quot;>正在打开声音...&lt;/string>"
+        errorLine2="                                        ~~~~~~~~~">
+        <location
+            file="src/main/res/values-zh/strings.xml"
+            line="898"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;sound_detail_opening&quot;>Opening sound...&lt;/string>"
+        errorLine2="                                        ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="898"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;settings_theme_pack_working_subtitle&quot;>正在处理主题包传输...&lt;/string>"
+        errorLine2="                                                        ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-zh/strings.xml"
+            line="1203"
+            column="57"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;settings_theme_pack_working_subtitle&quot;>Working on theme pack transfer...&lt;/string>"
+        errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="1203"
+            column="57"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="            return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/AgslEffectPipeline.kt"
+            line="57"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="            ?: Bitmap.createBitmap(source.width.coerceAtLeast(1), source.height.coerceAtLeast(1), Bitmap.Config.ARGB_8888)"
+        errorLine2="               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/AgslEffectPipeline.kt"
+            line="81"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="        Bitmap.createBitmap(source.width.coerceAtLeast(1), source.height.coerceAtLeast(1), Bitmap.Config.ARGB_8888)"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/AgslEffectPipeline.kt"
+            line="83"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/AgslEffectPipeline.kt"
+            line="90"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                localUri = Uri.parse(wallpaper.fullUrl),"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperViewModel.kt"
+            line="397"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                    .setUri(Uri.parse(url))"
+        errorLine2="                            ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/AudioPreviewCache.kt"
+            line="60"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="    prefs.edit()"
+        errorLine2="    ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/widget/AuraWidget.kt"
+            line="312"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            val treeUri = Uri.parse(folderUri)"
+        errorLine2="                          ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/AutoBackupWorker.kt"
+            line="45"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="    val treeUri = runCatching { Uri.parse(folderUriString) }.getOrNull() ?: return emptyList()"
+        errorLine2="                                ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/AutoWallpaperWorker.kt"
+            line="469"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/BackgroundWorkReceiptStore.kt"
+            line="39"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/BackgroundWorkReceiptStore.kt"
+            line="53"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/BackgroundWorkReceiptStore.kt"
+            line="70"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            val uri = android.net.Uri.parse(&quot;content://$pkg$partnerAuthoritySuffix&quot;)"
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/ClashProxyManager.kt"
+            line="359"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="        return Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888).apply {"
+        errorLine2="               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/CollectionExporter.kt"
+            line="149"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.set` instead?"
+        errorLine1="                    setPixel(x, y, if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/CollectionExporter.kt"
+            line="152"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="        initialImportUri?.let { viewModel.importCollectionFile(Uri.parse(it)) }"
+        errorLine2="                                                               ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/collections/CollectionsScreen.kt"
+            line="265"
+            column="64"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit().remove(KEY_FALLBACK_ID).apply()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/CommunityIdentityProvider.kt"
+            line="87"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="            val result = Bitmap.createBitmap(base.width, base.height, Bitmap.Config.ARGB_8888)"
+        errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/DepthPortraitComposer.kt"
+            line="80"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="        val result = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/DepthPortraitComposer.kt"
+            line="151"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="                val result = Bitmap.createBitmap(base.width, base.height, Bitmap.Config.ARGB_8888)"
+        errorLine2="                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/DepthPortraitComposer.kt"
+            line="248"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.scale` instead?"
+        errorLine1="        val small = Bitmap.createScaledBitmap(src, smallW, smallH, true)"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/DepthPortraitComposer.kt"
+            line="331"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.scale` instead?"
+        errorLine1="        val result = Bitmap.createScaledBitmap(small, src.width, src.height, true)"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/DepthPortraitComposer.kt"
+            line="332"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="        val uri = runCatching { Uri.parse(raw) }.getOrNull()"
+        errorLine2="                                ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/DownloadManager.kt"
+            line="381"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="        val uri = runCatching { Uri.parse(rawPath) }.getOrNull()"
+        errorLine2="                                ~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/DownloadManager.kt"
+            line="407"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                val parsed = Uri.parse(item.localPath)"
+        errorLine2="                             ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/downloads/DownloadsScreen.kt"
+            line="73"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                                    val uri = Uri.parse(path)"
+        errorLine2="                                              ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/downloads/DownloadsScreen.kt"
+            line="142"
+            column="47"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/ExternalAutomationGate.kt"
+            line="59"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/ExternalAutomationGate.kt"
+            line="77"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="    val uri = Uri.parse(url)"
+        errorLine2="              ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/util/ExternalLinks.kt"
+            line="20"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="                        prefs.edit().putBoolean(ONBOARDING_DONE, true).apply()"
+        errorLine2="                        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/FreeVibeRoot.kt"
+            line="319"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/LiveWallpaperReceiptStore.kt"
+            line="48"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/LiveWallpaperReceiptStore.kt"
+            line="59"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit().putString(key, utcNow()).apply()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/LiveWallpaperReceiptStore.kt"
+            line="67"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit().putString(&quot;${prefix}last_draw_utc&quot;, utcNow()).apply()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/LiveWallpaperReceiptStore.kt"
+            line="72"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/LiveWallpaperReceiptStore.kt"
+            line="77"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/LiveWallpaperReceiptStore.kt"
+            line="85"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/util/LocaleHelper.kt"
+            line="26"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).setData(Uri.parse(&quot;package:$pkg&quot;))"
+        errorLine2="                                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/OemBatteryGuidance.kt"
+            line="92"
+            column="70"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="                                    Bitmap.createBitmap(bmpW, bmpH, Bitmap.Config.ARGB_8888)"
+        errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/ParallaxWallpaperService.kt"
+            line="342"
+            column="37"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="                                Bitmap.createBitmap(bmpW, bmpH, Bitmap.Config.ARGB_8888)"
+        errorLine2="                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/ParallaxWallpaperService.kt"
+            line="365"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            context.contentResolver.openFileDescriptor(Uri.parse(rawUri), &quot;r&quot;)?.use { true } ?: false"
+        errorLine2="                                                       ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/PathBackedRecordReconciler.kt"
+            line="60"
+            column="56"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        context.getSharedPreferences(VIDEO_PREFS_NAME, Context.MODE_PRIVATE)"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt"
+            line="527"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        context.getSharedPreferences(VIDEO_PREFS_NAME, Context.MODE_PRIVATE)"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt"
+            line="534"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        context.getSharedPreferences(VIDEO_PREFS_NAME, Context.MODE_PRIVATE)"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt"
+            line="539"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        context.getSharedPreferences(VIDEO_PREFS_NAME, Context.MODE_PRIVATE)"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt"
+            line="544"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        weatherWallpaperPrefs().edit().putFloat(ADAPTIVE_TINT_INTENSITY_PREF, intensity).apply()"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt"
+            line="576"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        weatherWallpaperPrefs().edit().putString(LIVE_WALLPAPER_SHADER_PRESET_PREF, sanitized).apply()"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt"
+            line="591"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        weatherWallpaperPrefs().edit().putBoolean(DAILY_WALLPAPER_ENABLED_PREF, enabled).apply()"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt"
+            line="597"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        weatherWallpaperPrefs().edit().putString(WEATHER_VFX_EFFECT_PREF, effect).apply()"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt"
+            line="601"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        weatherWallpaperPrefs().edit().putString(TOUCH_EFFECT_STRENGTH_PREF, strength).apply()"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt"
+            line="605"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        weatherWallpaperPrefs().edit().putBoolean(key, enabled).apply()"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt"
+            line="612"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit().putString(key.storageKey, encrypt(value)).apply()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/data/local/ProviderCredentialStore.kt"
+            line="42"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit().remove(key.storageKey).apply()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/data/local/ProviderCredentialStore.kt"
+            line="46"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit().putString(KEY_ENTRIES, adapter.toJson(entries)).apply()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/RecoverableDeletion.kt"
+            line="141"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="        val expected = Uri.parse(lastAppliedUri)"
+        errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/RingtoneRestorationReceiver.kt"
+            line="67"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                val uri = Uri.parse(chosen.localPath)"
+        errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/RingtoneShuffleWorker.kt"
+            line="62"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                    val uri = Uri.parse(chosen.localPath)"
+        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/RingtoneShuffleWorker.kt"
+            line="84"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="        val uri = Uri.parse(path)"
+        errorLine2="                  ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/RingtoneShuffleWorker.kt"
+            line="155"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/RotationTriggerRecovery.kt"
+            line="40"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/RotationTriggerRecovery.kt"
+            line="59"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="                prefs.edit().putString(KEY_WALLPAPER, wallpaperAdapter.toJson(w)).apply()"
+        errorLine2="                ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/SelectedContentHolder.kt"
+            line="115"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="                prefs.edit().putString(KEY_SOUND, soundAdapter.toJson(s)).apply()"
+        errorLine2="                ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/SelectedContentHolder.kt"
+            line="123"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="                prefs.edit().apply {"
+        errorLine2="                ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/SelectedContentHolder.kt"
+            line="131"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            context.contentResolver.releasePersistableUriPermission(Uri.parse(uriString), flags)"
+        errorLine2="                                                                    ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsViewModel.kt"
+            line="484"
+            column="69"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            data = Uri.parse(&quot;package:${context.packageName}&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/SoundApplier.kt"
+            line="40"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            data = Uri.parse(&quot;package:${context.packageName}&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/SoundApplier.kt"
+            line="40"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            prefs.edit()"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/SoundFeedCache.kt"
+            line="155"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit().putLong(accessKey(key), nowMs).apply()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/SoundFeedCache.kt"
+            line="161"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        val editor = prefs.edit()"
+        errorLine2="                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/SoundFeedCache.kt"
+            line="184"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                    Uri.parse(active.ringtoneUri),"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/SoundProfileManager.kt"
+            line="117"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                    Uri.parse(active.notificationUri),"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/SoundProfileManager.kt"
+            line="125"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                    Uri.parse(active.alarmUri),"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/SoundProfileManager.kt"
+            line="133"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs?.edit()?.clear()?.apply()"
+        errorLine2="        ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/SourceMetrics.kt"
+            line="224"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs?.edit()"
+        errorLine2="        ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/SourceMetrics.kt"
+            line="232"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs?.edit()"
+        errorLine2="        ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/SourceMetrics.kt"
+            line="269"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs?.edit()"
+        errorLine2="        ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/SourceMetrics.kt"
+            line="277"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="                        context.getSharedPreferences(LIVE_WALLPAPER_PREFS, Context.MODE_PRIVATE)"
+        errorLine2="                        ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/ThemePackRecipeManager.kt"
+            line="317"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        context.getSharedPreferences(WIDGET_PREFS, Context.MODE_PRIVATE)"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/ThemePackRecipeManager.kt"
+            line="511"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            &quot;content&quot; -> context.contentResolver.openInputStream(Uri.parse(trimmed))"
+        errorLine2="                                                                 ~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/ThemePackRecipeManager.kt"
+            line="647"
+            column="66"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            &quot;file&quot; -> Uri.parse(trimmed).path?.let(::File)?.takeIf { it.isFile }?.inputStream()"
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/ThemePackRecipeManager.kt"
+            line="648"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            &quot;file&quot; -> Uri.parse(locator).path.orEmpty()"
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/ThemePackRecipeManager.kt"
+            line="702"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                Uri.parse(locator),"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/ThemePackRecipeManager.kt"
+            line="720"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Canvas.withSave` instead?"
+        errorLine1="                    canvas.save()"
+        errorLine2="                    ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/VfxParticleRenderer.kt"
+            line="229"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.scale` instead?"
+        errorLine1="            val scaled = android.graphics.Bitmap.createScaledBitmap(frame, 160, 90, true)"
+        errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoCropScreen.kt"
+            line="654"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                    .setUri(Uri.parse(url))"
+        errorLine2="                            ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/VideoPreviewCache.kt"
+            line="92"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            setMediaItem(MediaItem.fromUri(Uri.parse(streamUrl)))"
+        errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpaperPreviewScreen.kt"
+            line="63"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Canvas.withTranslation` instead?"
+        errorLine1="                canvas.save()"
+        errorLine2="                ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/VideoWallpaperService.kt"
+            line="543"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            getSharedPreferences(VIDEO_STATS_PREFS_NAME, MODE_PRIVATE)"
+        errorLine2="            ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/VideoWallpaperService.kt"
+            line="704"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        context.getSharedPreferences(&quot;freevibe_live_wp&quot;, Context.MODE_PRIVATE)"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/VideoWallpaperStorage.kt"
+            line="228"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="    context.getSharedPreferences(&quot;freevibe_live_wp&quot;, Context.MODE_PRIVATE)"
+        errorLine2="    ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersScreen.kt"
+            line="145"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        pixabayVideoCachePrefs.edit()"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersViewModel.kt"
+            line="1270"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        pixabayVideoCachePrefs.edit()"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersViewModel.kt"
+            line="1314"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        context.getSharedPreferences(&quot;aura_votes&quot;, Context.MODE_PRIVATE)"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/data/repository/VoteRepository.kt"
+            line="340"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        context.getSharedPreferences(&quot;aura_votes&quot;, Context.MODE_PRIVATE)"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/data/repository/VoteRepository.kt"
+            line="376"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                val input = context.contentResolver.openInputStream(android.net.Uri.parse(locator))"
+        errorLine2="                                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/WallpaperApplier.kt"
+            line="127"
+            column="69"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                val path = android.net.Uri.parse(locator).path ?: return false"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/WallpaperApplier.kt"
+            line="133"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="                context.getSharedPreferences(&quot;freevibe_parallax&quot;, Context.MODE_PRIVATE)"
+        errorLine2="                ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/WallpaperApplier.kt"
+            line="200"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            context.getSharedPreferences(&quot;freevibe_parallax&quot;, Context.MODE_PRIVATE)"
+        errorLine2="            ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/WallpaperApplier.kt"
+            line="236"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            context.getSharedPreferences(&quot;freevibe_parallax&quot;, Context.MODE_PRIVATE)"
+        errorLine2="            ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/WallpaperApplier.kt"
+            line="274"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                val path = android.net.Uri.parse(locator).path"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/WallpaperApplier.kt"
+            line="311"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="        val parsed = runCatching { android.net.Uri.parse(uri) }.getOrNull() ?: return@withContext null"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/WallpaperApplier.kt"
+            line="323"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="        val result = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/WallpaperApplier.kt"
+            line="428"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="        val result = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/WallpaperApplier.kt"
+            line="448"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            loadFromContentUri(Uri.parse(url))"
+        errorLine2="                               ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperCropViewModel.kt"
+            line="74"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="                                        android.graphics.Color.parseColor(if (hex.startsWith(&quot;#&quot;)) hex else &quot;#$hex&quot;)"
+        errorLine2="                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperDetailScreen.kt"
+            line="499"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="            Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperEditorViewModel.kt"
+            line="660"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="            Bitmap.createBitmap("
+        errorLine2="            ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperEditorViewModel.kt"
+            line="663"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.scale` instead?"
+        errorLine1="        val small = Bitmap.createScaledBitmap(src, smallW, smallH, true)"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperEditorViewModel.kt"
+            line="735"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.scale` instead?"
+        errorLine1="        val result = Bitmap.createScaledBitmap(small, src.width, src.height, true)"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperEditorViewModel.kt"
+            line="736"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="    val result = base.copy(Bitmap.Config.ARGB_8888, true) ?: Bitmap.createBitmap("
+        errorLine2="                                                             ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperEditorViewModel.kt"
+            line="843"
+            column="62"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Canvas.withTranslation` instead?"
+        errorLine1="        canvas.save()"
+        errorLine2="        ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperEditorViewModel.kt"
+            line="852"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="                context.getSharedPreferences(&quot;freevibe_widget&quot;, Context.MODE_PRIVATE)"
+        errorLine2="                ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/WallpaperHistoryManager.kt"
+            line="60"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.scale` instead?"
+        errorLine1="        val scaled = Bitmap.createScaledBitmap(bitmap, width, height, true)"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/data/repository/WallpaperUploadRepository.kt"
+            line="457"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.scale` instead?"
+        errorLine1="            val scaled = Bitmap.createScaledBitmap(working, nextWidth, nextHeight, true)"
+        errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/data/repository/WallpaperUploadRepository.kt"
+            line="621"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        Color(android.graphics.Color.parseColor(&quot;#$normalized&quot;))"
+        errorLine2="              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpapersScreen.kt"
+            line="1746"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            applicationContext.getSharedPreferences(&quot;freevibe_weather_wp&quot;, Context.MODE_PRIVATE)"
+        errorLine2="            ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/WeatherUpdateWorker.kt"
+            line="43"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            context.getSharedPreferences(&quot;freevibe_weather_wp&quot;, Context.MODE_PRIVATE)"
+        errorLine2="            ^">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/WeatherUpdateWorker.kt"
+            line="120"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            prefs.edit().putInt(KEY_PUBLISHED_VERSION, BuildConfig.VERSION_CODE).apply()"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/widget/WidgetPreviewPublisher.kt"
+            line="43"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        libraryPrefs.edit()"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/chloemlla/aura/service/YtDlpUpdateManager.kt"
+            line="316"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use version catalog instead"
+        errorLine1="    implementation(&quot;androidx.palette:palette-ktx:1.0.0&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="313"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use version catalog instead"
+        errorLine1="    implementation(&quot;com.github.teamnewpipe:NewPipeExtractor:v0.26.3&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="371"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use version catalog instead"
+        errorLine1="    implementation(&quot;io.github.junkfood02.youtubedl-android:library:0.18.1&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="374"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use version catalog instead"
+        errorLine1="    implementation(&quot;com.chloemlla.lumen:lumen-crash:$lumenCrashSdkVersion&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="389"
+            column="20"/>
+    </issue>
+
+</issues>
