@@ -247,7 +247,7 @@ class AuraOriginalsDownloader @AssistedInject constructor(
         internal fun sanitizeEntryId(id: String): String? {
             if (id.isBlank()) return null
             // Reject any path separator or null byte outright.
-            if (id.contains('/') || id.contains('\\') || id.contains(' ')) return null
+            if (id.contains('/') || id.contains('\\') || id.contains('\u0000')) return null
             // Reject dot-only ids that would resolve to "." or "..".
             if (id == "." || id == "..") return null
             // Reject anything that isn't a safe filename character.

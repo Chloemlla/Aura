@@ -13,6 +13,20 @@ import androidx.annotation.RequiresApi
 
 const val LIVE_WALLPAPER_SHADER_PRESET_PREF = "live_wallpaper_shader_preset"
 
+/**
+ * SharedPreferences file the live-wallpaper engines read synchronously.
+ *
+ * A `WallpaperService` cannot practically subscribe to DataStore, so these keys are the
+ * runtime source of truth and every writer must set them before the suspending DataStore
+ * write. See [com.chloemlla.aura.data.local.PreferencesManager].
+ */
+const val WEATHER_WALLPAPER_PREFS_NAME = "freevibe_weather_wp"
+
+const val REDUCE_ANIMATIONS_PREF = "reduce_animations"
+const val ADAPTIVE_TINT_ENABLED_PREF = "adaptive_tint_enabled"
+const val ADAPTIVE_TINT_INTENSITY_PREF = "adaptive_tint_intensity"
+const val LIVE_WALLPAPER_DIM_ENABLED_PREF = "live_wallpaper_dim_enabled"
+
 data class AgslShaderPreset(
     val id: String,
     internal val agsl: String,

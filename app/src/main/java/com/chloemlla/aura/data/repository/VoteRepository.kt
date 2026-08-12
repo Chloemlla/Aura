@@ -10,13 +10,18 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.updateAndGet
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -165,28 +170,88 @@ class VoteRepository @Inject constructor(
         _localHiddenIds.value = prefs.getStringSet("hidden_ids", emptySet()) ?: emptySet()
     }
 
-    // ── Global moderation list (admin-hidden, synced from Firebase) ���─
+    // ── Global moderation list (admin-hidden, synced from Firebase) ──
 
     private val _moderatedIds = MutableStateFlow<Set<String>>(emptySet())
+
+    /**
+     * Guarded by [moderationLock]. Non-null exactly while a listener is attached, so the
+     * consent collector below is idempotent on repeated emissions of the same value.
+     */
     private var moderationListener: ValueEventListener? = null
+    private val moderationLock = Any()
+
+    /**
+     * Singleton-scoped because the moderation listener outlives any one screen. Cancelled
+     * only with the process; [detachModerationListener] is what releases the Firebase
+     * listener when consent is withdrawn.
+     */
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init {
-        // Listen for moderation list changes
-        try {
-            val listener = object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    _moderatedIds.value = snapshot.children.mapNotNull { it.key }.toSet()
+        // The moderation listener opens a Realtime Database socket, so it must not attach
+        // until the user has actually opted into community features. Both preferences
+        // default to false, and this repository is a @Singleton constructed as soon as any
+        // screen that injects it opens — attaching from init would put a non-consenting
+        // user on the network for the lifetime of the process.
+        repositoryScope.launch {
+            combine(
+                prefs.communityProviderEnabled,
+                prefs.communityGuidelinesAccepted,
+            ) { providerEnabled, guidelinesAccepted -> providerEnabled && guidelinesAccepted }
+                .distinctUntilChanged()
+                .collect { enabled ->
+                    if (enabled) attachModerationListener() else detachModerationListener()
                 }
-                override fun onCancelled(error: DatabaseError) {
-                    if (com.chloemlla.aura.BuildConfig.DEBUG) Log.w("VoteRepo", "Moderation listener cancelled: ${error.message}")
-                }
-            }
-            moderationRef?.addValueEventListener(listener)
-            moderationListener = listener
-        } catch (e: Exception) {
-            if (com.chloemlla.aura.BuildConfig.DEBUG) Log.w("VoteRepo", "Firebase init failed: ${e.message}")
         }
     }
+
+    private fun attachModerationListener() {
+        synchronized(moderationLock) {
+            if (moderationListener != null) return
+            try {
+                val listener = object : ValueEventListener {
+                    override fun onDataChange(snapshot: DataSnapshot) {
+                        _moderatedIds.value = snapshot.children.mapNotNull { it.key }.toSet()
+                    }
+
+                    override fun onCancelled(error: DatabaseError) {
+                        if (com.chloemlla.aura.BuildConfig.DEBUG) {
+                            Log.w("VoteRepo", "Moderation listener cancelled: ${error.message}")
+                        }
+                    }
+                }
+                val ref = moderationRef ?: return
+                ref.addValueEventListener(listener)
+                moderationListener = listener
+            } catch (e: Exception) {
+                if (com.chloemlla.aura.BuildConfig.DEBUG) {
+                    Log.w("VoteRepo", "Firebase init failed: ${e.message}")
+                }
+            }
+        }
+    }
+
+    private fun detachModerationListener() {
+        synchronized(moderationLock) {
+            val listener = moderationListener ?: return
+            moderationListener = null
+            try {
+                moderationRef?.removeEventListener(listener)
+            } catch (e: Exception) {
+                if (com.chloemlla.aura.BuildConfig.DEBUG) {
+                    Log.w("VoteRepo", "Moderation listener detach failed: ${e.message}")
+                }
+            }
+            // Moderation hides are a community-service signal; drop them with the socket so a
+            // user who opts out does not keep filtering content from a source they left.
+            _moderatedIds.value = emptySet()
+        }
+    }
+
+    /** Visible for tests: whether a Firebase moderation listener is currently attached. */
+    internal fun isModerationListenerAttached(): Boolean =
+        synchronized(moderationLock) { moderationListener != null }
 
     /** Combined hidden IDs: local downvotes + global moderation */
     val hiddenIds: Flow<Set<String>> = combine(_localHiddenIds, _moderatedIds) { local, moderated ->

@@ -5,7 +5,7 @@
 
 <h1 align="center">Aura</h1>
 
-![Version](https://img.shields.io/badge/version-6.40.0-blue)
+![Version](https://img.shields.io/badge/version-6.41.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Android%208.0+-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.1.0-7F52FF?logo=kotlin&logoColor=white)
@@ -33,7 +33,7 @@ Aura is built as a local-first tool rather than an ad-and-credit marketplace:
 - **Multi-source personalization** — Reddit RSS, Wallhaven, Bing, Pexels, Pixabay, YouTube, legacy Freesound attributions, and community uploads.
 - **Instant startup** — Discover feed is cached locally. On subsequent launches wallpapers appear immediately while fresh results load in the background.
 - **Performance proof path** — Baseline Profile and Macrobenchmark tests cover startup, Wallpaper Detail, and the main media grids on a physical-device runner.
-- **5 bottom nav tabs** — Wallpapers, Videos, Sounds, Favorites, Settings.
+- **5 bottom nav tabs** — Wallpapers, Videos, Sounds, Library, Settings.
 
 ## Installing Aura
 
@@ -165,7 +165,7 @@ rotation, while tapping it still queues one wallpaper change when scheduling is 
 
 ```
 Jetpack Compose UI (16+ screens, 5 bottom nav tabs)
-  Wallpapers | Videos | Sounds | Favorites | Settings
+  Wallpapers | Videos | Sounds | Library | Settings
   Editors | Collections | Downloads | Onboarding | Widget
 ViewModels (Hilt) + Cache Layer
   Repos: Wallhaven, Pexels, Pixabay, Bing, Reddit RSS, YouTube, Freesound legacy,
@@ -175,7 +175,7 @@ ViewModels (Hilt) + Cache Layer
             DownloadManager, AudioTrimmer, BatchDownload,
             ContactRingtone, FavoritesExporter, OfflineFavorites
   YouTube: NewPipe Extractor (search) + yt-dlp (stream extraction + FFmpeg crop)
-Room DB v14 (Favorites, Downloads, Search History, Wallpaper Cache,
+Room DB v16 (Favorites, Downloads, Search History, Wallpaper Cache,
             Wallpaper History, Collections)
 DataStore (Settings, Onboarding)
 Firebase RTDB (Community Voting + Uploads + Admin Moderation)

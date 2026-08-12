@@ -1,0 +1,104 @@
+# Release metadata consistency
+
+This packet keeps Aura's release-facing metadata aligned across Fastlane,
+README, release docs, privacy packets, Play App content, alternative-store
+disclosures, and GitHub Release artifacts. The machine-readable contract is
+[`release-metadata-consistency.json`](release-metadata-consistency.json).
+
+## Current package
+
+| Field | Value |
+| --- | --- |
+| Package | `com.freevibe` |
+| Version name | `6.34.6` |
+| Version code | `133` |
+| Fastlane metadata root | `fastlane/metadata/android/en-US` |
+| Privacy policy URL | `https://github.com/SysAdminDoc/Aura/blob/main/docs/privacy/privacy-policy.md` |
+
+## Metadata surfaces
+
+- `app/build.gradle.kts` is the source for package, version name, and version
+  code.
+- Fastlane `title.txt`, `short_description.txt`, `full_description.txt`, and
+  `changelogs/133.txt` are the store text surface.
+- `README.md` must keep links to the privacy policy, release signing, channel
+  strategy, alternative-store disclosures, release metadata consistency, SBOM
+  readiness, store asset planning, developer verification, and supply-chain
+  docs.
+- `docs/privacy/privacy-policy-link.json`,
+  `docs/distribution/play-app-content.json`, and
+  `docs/distribution/alt-store-metadata.json` must keep the same package and
+privacy-policy URL where those fields apply.
+- `docs/rotation-trigger-boot-behavior.json` keeps the boot-completed
+  permission decision aligned with manifest and release disclosures.
+- `docs/rotation-trigger-fgs-policy.json` keeps the special-use foreground
+  service declaration aligned with manifest, Settings, Play, and release
+  evidence.
+- `docs/background-work-scheduling-ledger.json` keeps WorkManager unique work
+  names, enqueue policies, constraints, deferral reasons, and release docs
+  aligned with scheduler source.
+- `docs/background-work-network-posture.json` keeps background-work connected
+  versus unmetered network posture, Data Saver gaps, privacy surfaces, and
+  release risk aligned with scheduler source.
+
+## Release preflights
+
+Local release checks must keep these release-facing gates before Android build
+or release publication work:
+
+- `tools/store_metadata_preflight.py`
+- `tools/store_asset_pipeline_check.py`
+- `tools/privacy_policy_link_check.py`
+- `tools/privacy_data_safety_check.py`
+- `tools/rotation_boot_permission_check.py`
+- `tools/rotation_fgs_policy_check.py`
+- `tools/background_work_scheduling_check.py`
+- `tools/background_work_network_check.py`
+- `tools/background_work_device_evidence_check.py`
+- `tools/community_guidelines_consent_check.py`
+- `tools/play_app_content_packet_check.py`
+- `tools/alt_store_metadata_check.py`
+- `tools/sbom_readiness_check.py`
+- `tools/release_artifact_bundle_check.py`
+
+## Release artifacts
+
+Local release dry runs and tagged releases must document these expected
+artifacts:
+
+- `Aura-vX.Y.Z-versionCode-N-universal-release.apk`
+- `Aura-vX.Y.Z-versionCode-N-play-release.aab`
+- `THIRD-PARTY-NOTICES.md`
+- `GOOGLE-OSS-RAW-INPUTS.zip`
+- `NATIVE-COMPLIANCE.md`
+- `NATIVE-ALIGNMENT.json`
+- `SHA256SUMS.txt`
+- `RELEASE_NOTES.md`
+- `apksigner.txt`
+- `aapt-badging.txt`
+- `aab-manifest.txt`
+- `bundletool-validate.txt`
+- `aab-jarsigner.txt`
+- `aab-keytool.txt`
+- `PLAY-APP-SIGNING-OWNER-STEPS.txt`
+
+## Release checklist
+
+Before any public release:
+
+1. Run `py -3 tools\release_metadata_consistency_check.py --policy docs\distribution\release-metadata-consistency.json --repo-root .`.
+2. Run the store metadata, store asset pipeline, privacy, Data safety, rotation boot permission, rotation foreground-service policy, background work scheduling, background work network posture, community guidelines, Play App content, alternative-store, and SBOM readiness gates listed above.
+3. Confirm the current `versionCode` changelog mentions the current `versionName`.
+4. Confirm the local release directory and GitHub Release contain the expected release files.
+
+## Sources
+
+- Google Play app creation and store listing fields: https://support.google.com/googleplay/android-developer/answer/9859152
+- Google Play store listing best practices: https://support.google.com/googleplay/android-developer/answer/13393723
+- Android App Bundles: https://developer.android.com/guide/app-bundle
+- Android app signing: https://developer.android.com/studio/publish/app-signing
+- bundletool: https://developer.android.com/tools/bundletool
+- Play App Signing: https://support.google.com/googleplay/android-developer/answer/9842756
+- fastlane supply metadata docs: https://docs.fastlane.tools/actions/supply/
+- GitHub Releases: https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases
+- F-Droid descriptions, graphics, and screenshots: https://f-droid.org/en/docs/All_About_Descriptions_Graphics_and_Screenshots/

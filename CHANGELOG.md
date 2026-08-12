@@ -2,6 +2,60 @@
 
 All notable changes to Aura will be documented in this file.
 
+## v6.41.0 (2026-08-10)
+
+- **Fix: the JVM unit test suite could not compile** — `groupingBy` emits an anonymous
+  `Grouping` class carrying no Kotlin metadata, and Kotlin 2.1.0's incremental compiler asserts
+  when it reads that class back (`Couldn't load KotlinClass`). In `app/src/test` this was fatal:
+  `compileFullDebugUnitTestKotlin` aborted, so no unit test in the project could run. The two
+  uses in `BackgroundWorkDiagnosticsReader` were survivable but silently forced a full
+  non-incremental recompile on every build while still reporting `BUILD SUCCESSFUL`. All three
+  now use `groupBy`, and `tools/kotlin_toolchain_hazard_check.py` fails the build if the
+  construct returns.
+- **Fix: source files no longer carry bytes that hide them from tooling** — a raw NUL byte in
+  `AuraOriginalsDownloader.kt` made ripgrep report `binary file matches` and refuse to display
+  the file; the line it concealed was the path-traversal guard. Repaired that byte, three U+FFFD
+  replacement characters in `VoteRepository.kt`, and the line endings of 54 files. A new
+  `.gitattributes` pins tracked text to LF — 14 files had mixed endings, including two that
+  release gates hash — and `tools/source_byte_hygiene_check.py` now rejects NUL bytes, U+FFFD,
+  invalid UTF-8, and stray carriage returns across all 784 tracked text files.
+- **Security: patched two live advisories in the community backend** — `functions` resolved
+  `protobufjs` 7.6.4 (GHSA-j3f2-48v5-ccww, denial of service via infinite loop in `.proto` option
+  parsing) and `body-parser` 1.20.5 (GHSA-v422-hmwv-36x6, request size enforcement silently
+  disabled by an invalid `limit`). `protobufjs` was held at the vulnerable version by an override
+  originally added *as* a security pin.
+- **Fix: every documentation link in README and the app now resolves** — `.gitignore` excluded
+  all markdown except README, so none of `docs/` was ever published. All 11 documentation links
+  in README returned 404, as did the privacy policy that Settings > About opens. The 50
+  documents README, the app, and the release gates reference are now tracked; the 162-file
+  factory-loop research archive stays local, and agent working notes remain untracked.
+- **New gate: links are checked against what is published, not what is on disk** —
+  `tools/published_state.py` adds tracked-in-git and tag-exists predicates, and
+  `tools/docs_link_check.py` walks every `docs/*.md` link in README and app source and fails
+  when one would 404. The privacy policy gate now uses the same predicate, so it can no longer
+  report `ok` for a document nobody can open.
+- **Fix: live-wallpaper settings no longer strand on the old value** — five Settings toggles
+  (reduce animations, adaptive tint, tint intensity, live-wallpaper dimming, shader preset)
+  wrote DataStore before the SharedPreferences bridge the wallpaper engines actually read.
+  Backing out of Settings cancelled the coroutine between the two writes, leaving the live
+  wallpaper on the old value permanently while the toggle read as changed. All five bridges
+  moved into `PreferencesManager`, which already codified the correct order for the video
+  settings, and `tools/preference_write_order_check.py` now holds all nine bridges to it.
+- **Privacy: community voting no longer touches the network before you opt in** —
+  `VoteRepository` attached a Firebase Realtime Database moderation listener from its `init`
+  block with no consent check, while every other entry point in the class gates on
+  `isCommunityAccessEnabled()`. Both consent preferences default to off and the class is a
+  singleton constructed as soon as the Videos or Settings tab opens, so a user who never
+  enabled community features still opened an RTDB socket for the lifetime of the process — and
+  the listener was never removed. The listener now follows the consent preferences: it attaches
+  only once community features and the guidelines are both accepted, detaches when either is
+  withdrawn, and clears cached moderation hides with the socket.
+- **New gate: npm overrides cannot silently rot** — `tools/npm_override_policy_check.py` and
+  `docs/security/npm-override-policy.json` record the advisory floor behind every pin and fail
+  when the manifest or the resolved lockfile drops below it, when a shipped override is not
+  policed, when a pin uses a range operator instead of an exact version, or when an entry cites
+  no advisory.
+
 ## v6.40.0 (2026-07-29)
 
 - **Fix: live wallpapers no longer pile up decode threads** — the weather and parallax engines both

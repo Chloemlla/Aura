@@ -945,24 +945,15 @@ class SettingsViewModel @Inject constructor(
     fun setWeatherEffects(enabled: Boolean) = viewModelScope.launch { prefs.setWeatherEffectsEnabled(enabled) }
     fun setReduceAnimations(enabled: Boolean) = viewModelScope.launch {
         prefs.setReduceAnimations(enabled)
-        context.getSharedPreferences("freevibe_weather_wp", android.content.Context.MODE_PRIVATE)
-            .edit().putBoolean("reduce_animations", enabled).apply()
     }
     fun setAdaptiveTint(enabled: Boolean) = viewModelScope.launch {
         prefs.setAdaptiveTintEnabled(enabled)
-        // Bridge to SharedPreferences so WeatherWallpaperService can read it synchronously
-        context.getSharedPreferences("freevibe_weather_wp", android.content.Context.MODE_PRIVATE)
-            .edit().putBoolean("adaptive_tint_enabled", enabled).apply()
     }
     fun setAdaptiveTintIntensity(intensity: Float) = viewModelScope.launch {
         prefs.setAdaptiveTintIntensity(intensity)
-        context.getSharedPreferences("freevibe_weather_wp", android.content.Context.MODE_PRIVATE)
-            .edit().putFloat("adaptive_tint_intensity", intensity).apply()
     }
     fun setLiveWallpaperDimEnabled(enabled: Boolean) = viewModelScope.launch {
         prefs.setLiveWallpaperDimEnabled(enabled)
-        context.getSharedPreferences("freevibe_weather_wp", android.content.Context.MODE_PRIVATE)
-            .edit().putBoolean("live_wallpaper_dim_enabled", enabled).apply()
     }
     fun setStabilityKey(key: String) = viewModelScope.launch { prefs.setStabilityKey(key) }
     fun setGeneratedContentProviderEnabled(enabled: Boolean) =
@@ -975,10 +966,9 @@ class SettingsViewModel @Inject constructor(
     fun setDarkModeWallpaperId(id: String) = viewModelScope.launch { prefs.setDarkModeWallpaperId(id) }
     fun setLightModeWallpaperId(id: String) = viewModelScope.launch { prefs.setLightModeWallpaperId(id) }
     fun setLiveWallpaperShaderPreset(id: String) = viewModelScope.launch {
-        val sanitized = AgslShaderGallery.sanitizeId(id)
-        prefs.setLiveWallpaperShaderPreset(sanitized)
-        context.getSharedPreferences("freevibe_weather_wp", android.content.Context.MODE_PRIVATE)
-            .edit().putString(LIVE_WALLPAPER_SHADER_PRESET_PREF, sanitized).apply()
+        // Sanitize here as well as in PreferencesManager: this keeps unvalidated ids from
+        // reaching the data layer at all. sanitizeId is idempotent, so the second pass is free.
+        prefs.setLiveWallpaperShaderPreset(AgslShaderGallery.sanitizeId(id))
     }
 
     fun clearCache() = viewModelScope.launch {

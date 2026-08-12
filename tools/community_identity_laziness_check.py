@@ -43,6 +43,67 @@ def read_settings_surface_text(repo_root: Path) -> str:
     )
 
 
+VOTE_REPOSITORY_PATH = "app/src/main/java/com/freevibe/data/repository/VoteRepository.kt"
+
+CONSENT_PREFERENCES = ("communityProviderEnabled", "communityGuidelinesAccepted")
+
+
+def iter_init_block_bodies(text: str) -> list[str]:
+    """Return the body of every `init {` block, matched by brace depth."""
+    bodies: list[str] = []
+    marker = "init {"
+    index = text.find(marker)
+    while index != -1:
+        cursor = index + len(marker) - 1
+        depth = 0
+        for position in range(cursor, len(text)):
+            char = text[position]
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    bodies.append(text[cursor + 1 : position])
+                    break
+        index = text.find(marker, index + len(marker))
+    return bodies
+
+
+def validate_moderation_listener_consent(repo_root: Path) -> int:
+    """The moderation listener opens an RTDB socket, so consent must gate it.
+
+    Both consent preferences default to false and VoteRepository is a @Singleton
+    constructed as soon as any injecting screen opens, so attaching from `init`
+    puts a non-consenting user on the network for the life of the process.
+    """
+    text = read_text(repo_root / VOTE_REPOSITORY_PATH)
+
+    for body in iter_init_block_bodies(text):
+        if "addValueEventListener" in body:
+            raise CommunityIdentityLazinessError(
+                "VoteRepository must not attach a Firebase listener from an init block; "
+                "gate it behind the community consent preferences"
+            )
+
+    if "attachModerationListener" not in text or "detachModerationListener" not in text:
+        raise CommunityIdentityLazinessError(
+            "VoteRepository must attach and detach the moderation listener explicitly"
+        )
+
+    for preference in CONSENT_PREFERENCES:
+        if preference not in text:
+            raise CommunityIdentityLazinessError(
+                f"VoteRepository moderation listener must observe {preference}"
+            )
+
+    if "removeEventListener" not in text:
+        raise CommunityIdentityLazinessError(
+            "VoteRepository must remove the moderation listener when consent is withdrawn"
+        )
+
+    return text.count("addValueEventListener")
+
+
 def validate_community_identity_laziness(repo_root: Path) -> dict[str, int | str]:
     app_text = read_text(repo_root / "app/src/main/java/com/freevibe/FreeVibeApp.kt")
     for term in FORBIDDEN_STARTUP_TERMS:
@@ -66,10 +127,13 @@ def validate_community_identity_laziness(repo_root: Path) -> dict[str, int | str
     if "communityIdentitySummary" not in settings_text or "Not created" not in settings_text:
         raise CommunityIdentityLazinessError("Settings must expose current community identity state before deletion/cleanup actions")
 
+    moderation_listener_count = validate_moderation_listener_consent(repo_root)
+
     return {
         "status": "ok",
         "lazyWritePathCount": len(REQUIRED_LAZY_WRITE_PATHS),
         "lazyEnsureSignedInCalls": lazy_write_count,
+        "consentGatedModerationListeners": moderation_listener_count,
     }
 
 

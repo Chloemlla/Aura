@@ -1,0 +1,32 @@
+# Store every text file with LF in the repository.
+#
+# Without this, Windows editors and tooling silently rewrite whole files to
+# CRLF. That is not cosmetic here: release gates hash tracked text
+# (docs/legal/dependency-notices.lock.json, the community backend manifest) and
+# tools/foss_reproducibility_check.py diffs git-tracked inputs across two
+# checkouts, so a line-ending flip changes a digest without changing a line of
+# code. Fourteen tracked files had mixed line endings before this file existed.
+* text=auto eol=lf
+
+# Windows batch must keep CRLF or cmd.exe can mis-parse continuation lines.
+*.bat text eol=crlf
+
+# Binary payloads: never convert, never diff as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.zip binary
+*.jar binary
+*.apk binary
+*.aab binary
+*.jks binary
+*.keystore binary
+*.pdf binary
+*.mp3 binary
+*.mp4 binary
+*.webm binary
