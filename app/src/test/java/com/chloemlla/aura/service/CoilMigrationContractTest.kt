@@ -31,7 +31,7 @@ class CoilMigrationContractTest {
     }
 
     @Test
-    fun `Compose dependencies are aligned by the 2026.06 BOM`() {
+    fun `Compose dependencies are aligned by the June 2026 BOM`() {
         val catalog = File("../gradle/libs.versions.toml").readText()
         val appBuild = File("build.gradle.kts").readText()
 
