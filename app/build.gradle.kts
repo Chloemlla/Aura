@@ -86,7 +86,7 @@ val localProps = Properties().apply {
 
 android {
     namespace = "com.chloemlla.aura"
-    compileSdk = 36
+    compileSdk = 37
 
     signingConfigs {
         create("release") {
@@ -100,7 +100,7 @@ android {
     defaultConfig {
         applicationId = "com.chloemlla.aura"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 142
         versionName = "6.41.0"
 
@@ -185,24 +185,6 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
-    }
-
-    lint {
-        // lintVitalAnalyzeFullRelease crashes inside AndroidX's NonNullableMutableLiveDataDetector
-        // ("Found class org.jetbrains.kotlin.analysis.api.resolution.KaCallableMemberCall, but
-        // interface was expected") on this AGP 8.7.3 / Kotlin 2.1.0 pin — a lint/analysis-api
-        // incompatibility, not app code. The app uses StateFlow throughout, so the LiveData
-        // nullability check has nothing to inspect here anyway.
-        disable += "NullSafeMutableLiveData"
-        // FrequentlyChangingValueDetector and RememberInCompositionDetector both crash
-        // with IncompatibleClassChangeError on Kotlin 2.3.21 — same class of AGP/lint
-        // analysis-api incompatibility as above.
-        disable += "FrequentlyChangingValue"
-        disable += "RememberInComposition"
-        // AutoboxingStateCreationDetector crashes with IncompatibleClassChangeError
-        // on this AGP 8.7.3 / Kotlin 2.1.0 pin — same analysis-api incompatibility
-        // as the other disabled detectors above.
-        disable += "AutoboxingStateCreation"
     }
 
     packaging {

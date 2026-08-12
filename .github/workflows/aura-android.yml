@@ -47,7 +47,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
 
-      - name: Set up Java 17
+      - name: Set up Java 21
         uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520
         with:
           distribution: zulu
@@ -149,7 +149,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
 
-      - name: Set up Java 17
+      - name: Set up Java 21
         uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520
         with:
           distribution: zulu
@@ -236,7 +236,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
 
-      - name: Set up Java 17
+      - name: Set up Java 21
         uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520
         with:
           distribution: zulu

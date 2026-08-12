@@ -67,7 +67,7 @@
         android:enableOnBackInvokedCallback="true"
         android:theme="@style/Theme.Aura"
         android:usesCleartextTraffic="false"
-        tools:targetApi="35">
+        tools:targetApi="37">
 
         <!-- Clash partner integration: allows Aura to query Clash Meta for Android
              VPN status via the StatusProvider partner protocol. -->

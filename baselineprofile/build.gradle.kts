@@ -6,13 +6,13 @@ plugins {
 
 android {
     namespace = "com.chloemlla.aura.benchmark"
-    compileSdk = 36
+    compileSdk = 37
     targetProjectPath = ":app"
     experimentalProperties["android.experimental.self-instrumenting"] = true
 
     defaultConfig {
         minSdk = 28
-        targetSdk = 36
+        targetSdk = 37
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
