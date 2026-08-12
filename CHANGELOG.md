@@ -7,6 +7,9 @@ All notable changes to Aura will be documented in this file.
 - **Reliability: route weather-wallpaper settings through the data layer** — daily wallpaper,
   VFX, and touch-effect writes now go through `PreferencesManager`; the preference gate scans
   every settings source file for direct runtime `SharedPreferences` writes.
+- **Reliability: stream ordinary wallpaper applies** — URL, file, and content sources now go
+  through `WallpaperManager.setStream` with the existing 64 MiB cap; bitmap decoding remains
+  for edited and pixel-transformed output, and oversized chunked responses fail visibly.
 
 ## v6.41.0 (2026-08-10)
 
