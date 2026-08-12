@@ -72,6 +72,7 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
   Touches: release build + signing, `tools/release_artifact_bundle_check.py`, `tools/release_manifest.py`, a new tag/release gate.
   Acceptance: v6.40.0 is tagged and released with the signed universal APK and `SHA256SUMS.txt`; a gate fails when `versionName` in `app/build.gradle.kts` has no matching git tag and published release.
   Complexity: S
+  Update 2026-08-11: the tag half is done and the target has moved. `git ls-remote --tags origin` resolves `v6.41.0` to `122d431` (pushed), but `gh release list` still returns `v6.38.1` (2026-07-29) as latest, so v6.39.0, v6.40.0, and v6.41.0 have no published Release. Retarget this item at **v6.41.0** and note that the gate must fail on *tag exists but Release does not*, not only on the version-has-no-tag direction — `tools/published_state.py` already added a tag-exists predicate in v6.41.0 and needs the release-exists companion. `obtainium.json` sets `verifyLatestTagAndReleaseAreSame: false` and `fallbackToOlderReleases: true`, so Obtainium users are silently held on v6.38.1.
 
 ### P1
 
@@ -242,3 +243,192 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
   Acceptance: an opt-in setting applies wallpapers sized so the launcher cannot pan or zoom them, live engines ignore offset changes when it is on, and the behavior is documented as launcher-dependent where the platform cannot guarantee it.
   Complexity: M
 
+
+### Added 2026-08-11
+
+Evidence, confidence labels, and sources in RESEARCH.md (2026-08-11 pass). Items verified
+against v6.41.0 / versionCode 142 at `122d431`.
+
+#### P0
+
+- [ ] P0 — Publish the tracked docs that still 404, and widen the link gate past `docs/`
+  Why: `.gitignore:36` (`*.md`) still excludes `CONTRIBUTING.md` and `ARCHITECTURE.md`, so both return HTTP 404 on GitHub — GitHub shows no contributing guidelines on new issues or PRs, and the architecture overview that calls itself "for contributors" is unreachable. This is the same failure class v6.41.0 claimed to close for `docs/`, left open one directory up.
+  Evidence: `git check-ignore -v CONTRIBUTING.md ARCHITECTURE.md` → `.gitignore:36 *.md`; neither appears in `git ls-files`; both `blob/main/` URLs return 404, as does `docs/plugins/` which `CONTRIBUTING.md` links; `tools/docs_link_check.py` `SOURCE_ROOTS` = README + `app/src/main/java` + `app/src/main/res/values`, and `DOC_LINK_PATTERN` matches only `docs/`-prefixed targets.
+  Touches: `.gitignore`, `tools/docs_link_check.py`, `CONTRIBUTING.md`, `ARCHITECTURE.md`.
+  Acceptance: `CONTRIBUTING.md` and `ARCHITECTURE.md` are tracked and resolve over HTTP; the link gate walks every tracked root-level markdown file and every link target regardless of prefix, resolves relative links against the repo, and fails when any target is untracked or missing; deleting the tracking rule for either file breaks the gate; `docs/plugins/` is either created or the link removed.
+  Complexity: S
+
+- [ ] P0 — Correct `CONTRIBUTING.md`, which documents a roadmap that no longer exists
+  Why: it tells contributors to open issues "against existing items by their ID", to add "sources in the Appendix", and to read a "How to read this document" section for Now/Next/Later/Under-Consideration/Rejected tier thresholds. `ROADMAP.md` has no IDs, no Appendix, no such section, and uses P0–P3. A contributor following it cannot file a conforming issue. Must land with the item above or it publishes wrong instructions.
+  Evidence: `CONTRIBUTING.md:85-93` vs `ROADMAP.md` structure; `grep "^- \[ \] P" ROADMAP.md` returns 28 unbolded, un-IDed items.
+  Touches: `CONTRIBUTING.md`, optionally a gate in `tools/`.
+  Acceptance: the Roadmap section describes the P0–P3 format and the actual item template; the dangling `docs/plugins/` reference is resolved; a check asserts that every roadmap concept named in `CONTRIBUTING.md` exists in `ROADMAP.md`.
+  Complexity: S
+
+#### P1
+
+- [ ] P1 — Apply wallpapers through the streaming API instead of a decoded bitmap
+  Why: every apply path decodes the source into an in-process `Bitmap` before handing it to the system, which is the documented cause of the category's worst failure — OOM during apply, after which Android silently reverts to the default wallpaper and the user's choice is gone with no error. Peristyle diagnosed exactly this and fixed it by moving to the stream API. Aura's own `OutOfMemoryError` catch in the editor is independent evidence the pressure is real. Also the main mitigation for the Android 17 memory-limiter item below.
+  Evidence: `WallpaperApplier.kt:83` and `:102` are the only apply calls; `setStream` appears nowhere in `app/src/main/java`; Peristyle #221 (31 comments) with the maintainer's stream-API fix; the 64 MB `readCapped` ceiling decodes to far more in ARGB_8888.
+  Touches: `WallpaperApplier.kt`, `AutoWallpaperWorker.kt`, `DailyWallpaperWorker.kt`, apply tests.
+  Acceptance: uncropped applies stream bytes to `WallpaperManager.setStream` with no full-size in-process bitmap; the bitmap path remains only where a crop rect or an edited bitmap requires it and is documented as such; a test drives an oversized source through the rotation path and asserts no full-resolution decode occurs; apply failure surfaces to the user instead of resolving as a reverted wallpaper.
+  Complexity: M
+
+- [ ] P1 — Stop shuffle repeating wallpapers it just showed
+  Why: `AutoWallpaperWorker` writes every apply to the history table and never reads it back, so shuffle can pick the same wallpaper twice in a row and does so on small sources. This is the single most-commented issue found anywhere in the category survey, and the data Aura needs is already persisted.
+  Evidence: `AutoWallpaperWorker.kt:210` calls `historyManager.record(...)`; `pickScheduledWallpaper(wallpapers, shuffle)` at `:110` consults no history; `WallpaperHistoryManager.kt:25,29,36` expose `getRecent`/`mostRecent`/`secondMostRecent` that no rotation code calls; Peristyle #115 (53 comments).
+  Touches: `AutoWallpaperWorker.kt`, `WallpaperHistoryManager.kt`, `WallpaperHistoryDao`, worker tests.
+  Acceptance: shuffle excludes a recently-applied window sized relative to the candidate pool and degrades gracefully when the pool is smaller than the window; sequential (non-shuffle) rotation is unchanged; a test with a two-item and a fifty-item source asserts no immediate repeat and no starvation; the window is visible in rotation diagnostics.
+  Complexity: S
+
+- [ ] P1 — Detect and recover when Aura's live wallpaper is no longer active
+  Why: Aura ships three `WallpaperService` implementations and never asks the system which wallpaper is running, so a service dropped after reboot, replaced by another app, or killed by an OEM manager is indistinguishable from a working one — the user sees a stock wallpaper and Aura's settings still read "on". Muzei reports this exact shape on Android 17 / Pixel 10 after reboot.
+  Evidence: no `getWallpaperInfo` or `WallpaperInfo` anywhere in `app/src/main/java`; `VideoWallpaperService.kt`, `ParallaxWallpaperService.kt`, `WeatherWallpaperService.kt`; `RingtoneRestorationReceiver.kt` already proves the post-boot restoration pattern for sounds; Muzei #874 (16 comments, 2026-07-01). Build this into the Rotation Health screen tracked above rather than a second surface.
+  Touches: `LiveWallpaperReceiptStore.kt`, `SettingsDiagnosticsSection.kt`, the three wallpaper services, `RingtoneRestorationReceiver.kt` (BOOT_COMPLETED pattern), string resources.
+  Acceptance: Aura compares `getWallpaperInfo()?.packageName` against its own on resume and after `BOOT_COMPLETED`/`MY_PACKAGE_REPLACED`, records the result, and shows an explicit "your Aura live wallpaper is no longer active" state with a one-tap re-apply; the check never runs on a render thread; a test covers active, replaced-by-third-party, and static-wallpaper cases.
+  Complexity: M
+
+- [ ] P1 — Survive an app downgrade and prove the whole Room migration chain
+  Why: the database is built with migrations and nothing else, so installing an older Aura APK — an ordinary Obtainium rollback, and README documents the `adb install -r` path — leaves Room unable to open the file and the app crashes on every launch, recoverable only by clearing app data, which destroys favorites, collections, and history. Separately, 15 migrations are declared and 2 are tested.
+  Evidence: `AppModule.kt:241-250` (`addMigrations(*DatabaseMigrations.ALL_MIGRATIONS)` plus a foreign-keys callback, no downgrade handling); `DatabaseMigrations.kt` declares `MIGRATION_1_2` … `MIGRATION_15_16`; `DatabaseMigrationTest.kt` exercises only `migrate8To9` and `migrate14To16`. The exported-schema floor of 9 is deliberate policy (`room_schema_history_check.py --supported-export-start 9`) and is not what this item changes.
+  Touches: `di/AppModule.kt`, `app/src/androidTest/java/com/freevibe/data/local/DatabaseMigrationTest.kt`, `tools/room_schema_history_check.py`.
+  Acceptance: a downgrade opens the database without crashing and either migrates down or resets with an explicit user-visible warning and a pointer to backup/restore — never a silent wipe; a test builds a v1 database from the hand-written schema and runs the full 1→16 chain, plus each intermediate hop that has an exported schema; the gate fails when a declared migration has no test.
+  Complexity: M
+
+- [ ] P1 — Handle the Android 17 per-app memory limiter
+  Why: Android 17 imposes a RAM-derived memory ceiling on **all** apps regardless of targetSdk, and Aura is the exact profile it targets — a 4096 px editor render path with a known bitmap-orphaning defect, a 64 MB apply ceiling, and three long-lived wallpaper engines holding bitmap layers. Today a limiter kill is indistinguishable from any other death, and the diagnostics bundle users paste into crash reports would not mention it.
+  Evidence: developer.android.com/about/versions/17/behavior-changes-all — applies to all apps; detection via `ApplicationExitInfo.getDescription()` containing `MemoryLimiter:AnonSwap`; `CrashDiagnosticsCollector.kt:101` builds the bundle and reads no `ApplicationExitInfo`; `WallpaperEditorViewModel.kt` `MAX_EDIT_LONG_EDGE = 4096` and the orphaned-bitmap item tracked above.
+  Touches: `CrashDiagnosticsCollector.kt`, `FreeVibeApp.kt`, `WallpaperEditorViewModel.kt`, `docs/support/crash-diagnostics.md`, tests.
+  Acceptance: the diagnostics bundle reports the last `ApplicationExitInfo` reason and description, naming a memory-limiter kill explicitly when present; a memory-limiter exit is counted and surfaced in Diagnostics; the editor's peak allocation is measured and bounded against a recorded ceiling; `docs/support/crash-diagnostics.md` documents the new field.
+  Complexity: M
+
+- [ ] P1 — Make the wallpaper grid model stable and start measuring recomposition
+  Why: `Wallpaper` carries two `List<String>` fields and no `@Immutable`, while `Sound` directly below it has the annotation. It is the model rendered in every cell of the busiest screens in the app, so the Compose compiler treats those items as unstable and recomposes them whenever a parent does — and with no compiler metrics configured, the cost is invisible. Aura already has Macrobenchmark to prove the delta.
+  Evidence: `data/model/Models.kt:33-54` (`Wallpaper`, `tags: List<String>`, `colors: List<String>`, no annotation) vs `:58` (`Sound`, `@Immutable`); 10 `@Immutable`/`@Stable` in the whole codebase; no `composeCompiler { }` block in `app/build.gradle.kts`; `WallpapersScreen.kt` 1,848 lines, `VideoWallpapersScreen.kt` 1,605.
+  Touches: `data/model/Models.kt`, `app/build.gradle.kts`, `baselineprofile/src/main/java/.../GridScrollBenchmark.kt`, a stability configuration file.
+  Acceptance: `composeCompiler` emits metrics and reports to a build directory and a stability configuration file is checked in; `Wallpaper` and every other model rendered in a list is reported stable; `GridScrollBenchmark` frame timings are recorded before and after in the same commit; a gate fails when a list-rendered model is reported unstable.
+  Complexity: M
+
+- [ ] P1 — Retire FFmpeg from the sound editor using the platform media stack
+  Why: FFmpeg and Python are the bulk of the 198 MB artifact, they force `useLegacyPackaging = true` (compressed `.so` extracted at install, roughly doubling on-device native storage and working against the uncompressed packaging 16 KB guidance asks for), and they are the reason a yt-dlp CVE treadmill reaches the *editing* path at all. Media3 now offers muxers and speed/pitch transforms that cover trim, convert, and speed without a native toolchain. This is the largest single lever on APK size and native-loader exposure.
+  Evidence: `AudioTrimmer.kt` re-encodes every export through FFmpeg reached by reflection on youtubedl-android's static fields (ARCHITECTURE.md "External"); `app/build.gradle.kts:165-168` `useLegacyPackaging = true` with no comment, required by youtubedl-android's `extractNativeLibs` contract; `docs/distribution/native-alignment.json` lists `libffmpeg.zip.so` and `libpython.zip.so` for four ABIs; Media3 release notes for `OggMuxer`, `WavMuxer`, and `EditedMediaItem` speed with pitch preservation. Blocked until the tracked compileSdk 36 item lands — the Media3 releases carrying these need it.
+  Touches: `AudioTrimmer.kt`, `SoundEditorViewModel.kt`, `app/build.gradle.kts` packaging, `tools/native_alignment_check.py`, `docs/distribution/native-alignment.json`.
+  Acceptance: trim, convert, and speed run through the platform media stack with byte-comparable output on a fixture corpus; FFmpeg is retained only for the operations that genuinely require it, with each one named in the docs; if the video-crop path is the last FFmpeg consumer, that is recorded explicitly; APK size before and after is measured, and whether `useLegacyPackaging` can be turned off is answered either way.
+  Complexity: XL
+
+#### P2
+
+- [ ] P2 — Restore validation-only CI
+  Why: 82 Python gates, 81 pytest mirrors, ~940 JVM tests, three instrumented tests, and the Roborazzi suite all run only when a human remembers, which is how three unreleased versions and two 404 documents survived a release. Four security gates additionally report `"status": "ok", "workflowCount": 0` because they audit workflows that no longer exist. Validation CI is explicitly permitted; releasing binaries from CI is not, and must stay out.
+  Evidence: `.github/` contains only `ISSUE_TEMPLATE/crash_report.yml`; all five workflows deleted in `ec73ea7` (2026-06-26); `tools/github_{actions_allowlist,security_workflow,workflow_permissions,workflow_secrets}_check.py` all report `workflowCount: 0` while 41 files still reference `.github/workflows`. Complements — does not replace — the tracked "gates assert published state" item.
+  Touches: `.github/workflows/verify.yml`, `tools/github_actions_allowlist_check.py` and the three sibling gates, `docs/distribution/*.json` entries claiming `releaseWorkflowEnforced`.
+  Acceptance: one workflow runs `assembleDebug`, `testDebugUnitTest`, `lintDebug` once lint is repaired, the pytest gate suite, and `verifyRoborazziFullDebug` on push and PR, and builds or publishes no release artifact; the four workflow-auditing gates fail on `workflowCount: 0` instead of passing; any policy file naming `releaseWorkflowEnforced` either points at a real mechanism or is corrected.
+  Complexity: M
+
+- [ ] P2 — Make the preference write-order gate derive its own scope
+  Why: the gate holds a hand-written nine-name list of bridge setters, so a tenth bridge is unpoliced the moment it is written — and the DataStore/SharedPreferences split-brain it exists to prevent has been fixed at least four times across releases. It also sees only `SettingsViewModel`, while 55 `getSharedPreferences` call sites live across 30 files and six preference files.
+  Evidence: `tools/preference_write_order_check.py:31-42` (`BRIDGE_FUNCTIONS` tuple) and `:107-110` (the `SettingsViewModel` substring check); commits `e2c0252` → `e6b117b` → `79b6177` → `63ddc94` are four separate fixes for the same class. Supersedes the scope of the tracked "move the last three SharedPreferences writes out of the settings UI" item — do that one first, then this.
+  Touches: `tools/preference_write_order_check.py`, `test/tools/preference_write_order_check_test.py`, `PreferencesManager.kt`.
+  Acceptance: the gate discovers bridges by finding every function in `PreferencesManager` that writes both stores, rather than reading a list, and fails if any writes DataStore first; it forbids `getSharedPreferences` anywhere under `ui/`; a test adds a new wrong-order bridge and proves the gate fails without editing the gate.
+  Complexity: S
+
+- [ ] P2 — Codify the design system as tokens and gate it
+  Why: the "rectangular 4–12 dp radii, no pill / oval / fully-rounded backdrops" rule is written in ARCHITECTURE.md and CLAUDE.md and enforced by nothing — corner radii are literal numbers at 250+ call sites, and the rule is already broken in shipped code. It is the only major documented project rule with no gate behind it, in a repo with 82 gates.
+  Evidence: `VideoWallpapersScreen.kt:884` uses `RoundedCornerShape(50)`, a full pill; `WallpapersScreen.kt:1268` uses 24 dp; 225 uses of `RoundedCornerShape(8)` plus strays at 1, 2, 4, 5, 6, 10, 12; `ui/theme/` contains only `Theme.kt` with colour tokens and no shape or spacing source; 102 hardcoded `Color(0x…)` literals across seven UI files; `test/tools/` has no design gate.
+  Touches: `ui/theme/` (new shape and spacing token files), the seven UI files with colour literals, the two shape violations, a new `tools/design_token_check.py` and its test.
+  Acceptance: shape and spacing tokens live in `ui/theme/` and the two violations are corrected or explicitly waived with a recorded reason; a gate rejects literal `RoundedCornerShape(n)` outside the token file and any radius above the documented ceiling; colour literals outside `Theme.kt` and the source-tone tables are rejected or registered; the gate fails when a pill radius is reintroduced.
+  Complexity: M
+
+- [ ] P2 — Surface the failures that currently reach the user as nothing
+  Why: a cluster of independent silent failures on paths where the user has just tapped something and nothing else can tell them it did not work.
+  Evidence: `VoteRepository.kt:407` — `onCancelled(error: DatabaseError) {}`, so a permission-denied or disconnect leaves stale votes with no log; seven `startActivity` calls in empty catches at `FreeVibeWidget.kt:352,381,407` (the widget has no other feedback channel), `ContactPickerScreen.kt:448`, `SoundDetailScreen.kt:564,582`, `WallpaperDetailScreen.kt:620-630`; `VideoWallpaperService.kt:126-134` and `:248-256` swallow display-metrics and `MediaMetadataRetriever` failures so stale or zero dimensions enter the scaling math. Distinct from the tracked "remaining service and editor reliability defects" item, which covers `RotationTriggerService`, `SoundEditorViewModel`, `VideoWallpapersViewModel`, and `VoteRepository.kt:208,342`.
+  Touches: `VoteRepository.kt`, `FreeVibeWidget.kt`, `ContactPickerScreen.kt`, `SoundDetailScreen.kt`, `WallpaperDetailScreen.kt`, `VideoWallpaperService.kt`, string resources, tests.
+  Acceptance: `onCancelled` logs and marks the vote state degraded; every `startActivity` failure produces user-visible feedback appropriate to its surface, and the widget path uses a widget-visible state rather than a Toast; the two `VideoWallpaperService` swallows log and fall back to a defined value instead of a stale one; tests cover an `ActivityNotFoundException` on each surface.
+  Complexity: S
+
+- [ ] P2 — Browse the device's own sounds and offer a way back to the stock ringtone
+  Why: Aura writes ringtones but never reads them — it cannot show what is currently set, cannot let the user pick from sounds already on the device, and captures only its *own* last-applied URI, so there is no path back to the OEM default from inside the app. Applying a ringtone is effectively irreversible, and the category's only maintained editor was abandoned for six years, so this shelf is uncontested.
+  Evidence: `RingtoneManager.TYPE_*` appears only in `SoundApplier.kt:65-67`, `RingtoneShuffleWorker.kt:65,87`, and `RingtoneRestorationReceiver.kt:53-55` — all write or restore-Aura's-own-value paths; no `RingtoneManager.getCursor()` anywhere; no revert string in `strings.xml`; UltimateRingtonePicker; ringdroid #16, open since 2015-12-10.
+  Touches: `SoundApplier.kt`, `SoundsScreen.kt` or a new device-sounds surface, `PreferencesManager.kt` (capture the pre-Aura URI on first apply), `RingtoneRestorationReceiver.kt`, string resources, tests.
+  Acceptance: a device-sounds view lists and previews system and user sounds per type and marks the one currently set; the pre-Aura URI for each of the three types is captured before the first overwrite and never overwritten again; a "restore original" action returns each type to that URI and reports honestly when the original is gone; tests cover first apply, repeat apply, and a missing original.
+  Complexity: M
+
+- [ ] P2 — Ship an opt-in in-app update check
+  Why: the entire distribution channel is sideload. Users who do not run Obtainium have no way to learn a new version exists, and the current gap — three versions published in the changelog and none reachable — is exactly the case where they would want to know. One HTTPS request to the releases endpoint with no identifiers is compatible with the no-tracking charter as long as it is off by default.
+  Evidence: no update check anywhere in `app/src/main/java` (the only `releases/latest` references are static links in `LicensesScreen.kt:70,76,82`); `obtainium.json`; README's install section documents manual SHA-256 verification and `adb install -r`.
+  Touches: a new update-check service, `SettingsPermissionsAboutSection.kt`, `PreferencesManager.kt`, `ProviderNetworkPolicy.kt` / `network_endpoint_inventory_check.py`, `docs/privacy/data-safety.md`, string resources, tests.
+  Acceptance: an opt-in check compares the installed versionCode against the newest published Release, links to it, and shows the release notes; it is off by default, respects data-saver and metered-network posture, never auto-downloads or auto-installs, and is declared in the endpoint inventory and the data-safety doc; a test covers no-release, same-version, newer-version, and network-failure.
+  Complexity: S
+
+- [ ] P2 — Add StrictMode and LeakCanary to debug builds
+  Why: the two recurring defect classes in this repo's history are main-thread preference and disk reads, and orphaned bitmaps and media players — precisely the two things these tools catch automatically, and neither is present. The `runBlocking` DataStore read on the main thread and the editor bitmap orphaning both reached shipped code and were found by reading, not by tooling.
+  Evidence: no `StrictMode` and no `leakcanary` anywhere in `app/src/main/java`, `app/build.gradle.kts`, or `gradle/libs.versions.toml`; the tracked editor-bitmap and `RotationTriggerService.kt:61-72` items; `SoundEditorViewModel.kt:520-532` nests six empty catches around MediaPlayer teardown.
+  Touches: `FreeVibeApp.kt`, `app/build.gradle.kts`, `gradle/libs.versions.toml`, `gradle/verification-metadata.xml`.
+  Acceptance: debug builds install a thread policy (disk and network reads/writes) and a VM policy (leaked closables, activity leaks) that log rather than crash, and LeakCanary is a `debugImplementation` only; release and FOSS release artifacts contain neither, asserted by the APK scan; the existing known violations are enumerated in `CLAUDE.md` so new ones are distinguishable.
+  Complexity: S
+
+- [ ] P2 — Play more than one clip in the video live wallpaper
+  Why: `VideoWallpaperService` plays exactly one video. A playlist with per-clip framing is the top-requested capability in the video-wallpaper category, and the whole rotation machinery Aura already owns — scheduler, day/night, collections — has no video equivalent.
+  Evidence: no playlist or queue concept in `VideoWallpaperService.kt`; UndeadWallpaper v1.3.7 (per-clip zoom/offset/rotation/speed, shuffle, smart start); Lively #137 (25 comments) on condition-driven change. Depends on the tracked video-cache-bounding and main-thread-encode fixes; do those first.
+  Touches: `VideoWallpaperService.kt`, `VideoWallpaperStorage.kt`, `PreferencesManager.kt`, video settings UI, the soak harness, string resources.
+  Acceptance: an ordered or shuffled clip list advances at a configured boundary with no black frame at the seam; per-clip fit/crop and mute are preserved; the existing FPS cap, low-battery cap, and `onVisibilityChanged` pause govern the whole playlist, not just the first clip; total decoded storage stays bounded; the soak harness runs the playlist path and asserts nothing survives `onDestroy`.
+  Complexity: L
+
+- [ ] P2 — Make translation possible: locale config plus a contribution path
+  Why: 1,690 strings are extracted, the pseudolocale and RTL gates are live, and the result is unreachable — `res/` has no `values-<locale>/` directory, the manifest declares no `localeConfig` so the Android 13+ per-app language picker cannot appear, and there is no documented way for a translator to contribute. The extraction work is done and is currently producing nothing.
+  Evidence: `ls -d app/src/main/res/values*/` returns only `values/`; no `localeConfig` in `AndroidManifest.xml`; no Weblate, Crowdin, or Transifex configuration in the repo; `CONTRIBUTING.md` mentions locales only in a `Locale.ROOT` code-style note. Complements the tracked "residual runtime localization gaps" item, which covers the remaining hardcoded literals — including `MediaIngestion.kt:488-494`, which builds English `" or "` / `", or "` conjunctions in user-facing text.
+  Touches: `AndroidManifest.xml`, `res/xml/locales_config.xml`, `CONTRIBUTING.md`, a hosting configuration, `tools/` gate.
+  Acceptance: `android:localeConfig` is declared and lists every shipped locale; adding a `values-<locale>/` directory makes the language appear in Android's per-app language picker, verified on device or emulator; `CONTRIBUTING.md` documents how to submit a translation; a gate fails when a locale directory exists but is missing from the locale config, or vice versa.
+  Complexity: M
+
+- [ ] P2 — Give TalkBack announcements and a controlled reading order
+  Why: the prior pass's interactive-element audit came back clean and is not re-raised — what is missing is not labels but *announcements*. Three `liveRegion` usages cover an app whose primary surfaces are async grids, a download queue, and audio playback, so a screen-reader user gets no notification when results arrive, a download finishes, or playback state changes. Reading order is entirely unmanaged.
+  Evidence: `liveRegion` 3 occurrences, `heading` 7, `traversalIndex` 0, `isTraversalGroup` 0 across `app/src/main/java`; 48 `AuraStateCard` usages across 16 of 79 screen files show where async state transitions already exist and go unannounced.
+  Touches: `SharedComponents.kt` (`AuraStateCard`), `DownloadsScreen.kt`, `SoundDetailScreen.kt`, the three feed screens, `app/src/androidTest/.../AccessibilityReleaseGateTest.kt`, `tools/accessibility_release_gate_check.py`.
+  Acceptance: loading→ready, loading→error, and empty transitions announce politely once and do not re-announce on recomposition; download completion and playback state changes announce; feed sections are traversal groups with a defined order; the accessibility gate asserts a live region exists on each async surface it already covers.
+  Complexity: M
+
+#### P3
+
+- [ ] P3 — Add UI test anchors
+  Why: there are zero `testTag` modifiers in the entire main source tree, so there is nothing for a Compose UI test to attach to. The tracked "test production composables instead of look-alike route fixtures" item will hit this on its first day, and three `androidTest` files is the current ceiling.
+  Evidence: `grep -rn "testTag" app/src/main/java` returns 0; `app/src/androidTest` holds three files; `AuraRouteStateScreenshotTest.kt` is the sole Roborazzi entry point.
+  Touches: `SharedComponents.kt`, the five bottom-nav screens, `ui/navigation/Screen.kt`, a tag constants file.
+  Acceptance: a single constants object defines tags for the five nav destinations, the primary list on each, and the shared state card; tags are applied via a helper that compiles out of release builds or is asserted absent from the release APK; the accessibility and screenshot suites select by tag rather than by text.
+  Complexity: S
+
+- [ ] P3 — Add a user-supplied URL or self-hosted wallpaper source
+  Why: Aura has eight third-party feeds and no way for a user to point it at their own — no WebDAV, no SMB, no arbitrary URL. For a local-first app whose charter is not depending on anyone's marketplace, that is the missing source, and it is the only one that cannot rot, rate-limit, or change its terms.
+  Evidence: no WebDAV, SMB, or custom-endpoint client under `data/remote/`; `ProviderCapability.kt` already models `LOCAL` and `ProviderConfiguration.REQUIRED_KEY`, so the policy layer can express it; cssnr/remote-wallpaper-android; WallFlow #113 ("Reddit stopped working", open, in an app whose maintainer stopped pushing in 2024) is the counter-example.
+  Touches: a new provider client and repository, `ProviderCapability.kt`, `ProviderDisclosure.kt`, `ProviderNetworkPolicy.kt`, `tools/network_endpoint_inventory_check.py`, settings UI, tests.
+  Acceptance: a user can register one or more HTTPS endpoints returning an image or an image list, with optional basic auth stored through `ProviderCredentialStore`; the source is opt-in, off by default, declared in the disclosure layer so its provenance is recorded, and cleartext is refused; failure states are visible and per-endpoint; a test covers a single image, a listing, an unreachable host, and a non-image response.
+  Complexity: M
+
+- [ ] P3 — Narrow the R8 keep rules
+  Why: nine wildcard keeps preserve entire packages — including Aura's whole network layer — that the libraries' own consumer rules already cover, which defeats obfuscation of the app's own DTOs and adds dex the shrinker could remove. Small next to the native payload, but free.
+  Evidence: `app/proguard-rules.pro:2-3` keeps `com.freevibe.data.remote.**` and all its members; `:9,25,26,29-32` do the same for `retrofit2`, `org.schabi.newpipe.extractor`, `org.mozilla.javascript`, `com.yausername`, `org.apache.commons.compress`, `org.apache.commons.io`; Retrofit, Moshi, and commons-* all ship consumer rules; Moshi KSP codegen needs only the generated adapters kept.
+  Touches: `app/proguard-rules.pro`, release verification.
+  Acceptance: each remaining keep names a class or a narrow member set with a comment stating what breaks without it; a release build passes the JVM suite, the Roborazzi suite, and a manual pass over every provider; dex method count and APK size before and after are recorded.
+  Complexity: S
+
+- [ ] P3 — Record the ML Kit dependency risk and decide a fallback
+  Why: parallax wallpapers and smart crop both rest on a Play-services beta artifact published 2023-11-06 and never promoted to stable. If it is withdrawn, two advertised features stop working in the `full` flavor — and they are already absent from `foss`, which the README feature table does not mention, in the very artifact IzzyOnDroid would ship.
+  Evidence: `app/build.gradle.kts:345-349` pins the `play-services-mlkit-subject-segmentation` beta as `fullImplementation` with a comment noting no bundled artifact exists; `SmartCropDetector.kt`, `ParallaxWallpaperService.kt`; `app/src/foss/java/com/google/mlkit/vision/segmentation/subject/SubjectSegmentation.kt` is a stub; README's feature table does not distinguish the flavors.
+  Touches: `docs/distribution/` (a dependency-risk record), README feature table, `tools/fdroid_preflight.py`, `SmartCropDetector.kt`.
+  Acceptance: a record names the artifact, its 2023 publish date, the two features that depend on it, and the chosen response if it is withdrawn; both features degrade visibly rather than silently when segmentation is unavailable, and a test covers that path; the README states which features the FOSS build omits; the preflight asserts the README statement matches the `foss` source set.
+  Complexity: S
+
+- [ ] P3 — Ship a haptic pattern alongside a ringtone
+  Why: Android 16 added envelope-based vibration builders that describe amplitude and frequency curves and abstract away device capability. No app in this category — free or paid — pairs a custom vibration with a custom ringtone, and Aura already owns both the sound editor and the apply path. Gated on the tracked compileSdk 36 item.
+  Evidence: no `VibrationEffect`, `BasicEnvelopeBuilder`, or `WaveformEnvelopeBuilder` anywhere in `app/src/main/java`; `SoundApplier.kt` and `ContactRingtoneService.kt` are the apply surfaces; developer.android.com custom-haptic-effects.
+  Touches: `SoundApplier.kt`, `SoundEditorScreen.kt`, `ContactRingtoneService.kt`, `PreferencesManager.kt`, theme-pack recipe schema, string resources.
+  Acceptance: a small preset set of vibration patterns can be previewed in the editor and stored with a sound; the pattern is applied where the platform allows and the limitation is stated where it does not; devices without envelope support fall back to a simple waveform and say so; patterns round-trip through theme-pack export and import.
+  Complexity: M
+
+- [ ] P3 — Claim the distribution and discovery surfaces that are currently empty
+  Why: Aura is the highest-starred FOSS Android ringtone project under GitHub `topic:ringtone`, a topic that is nearly empty, and the F-Droid ringtone shelf holds one abandoned fork. It is on no awesome-list, and `offa/android-foss` has a one-entry wallpaper section and no live-wallpaper or ringtone section at all. This is the cheapest reach available and it needs no code.
+  Evidence: `offa/android-foss` wallpaper section lists one app; `vvolas/Awesome-Live-Wallpaper` is Android-specific and dead since 2016; `w3teal/awesome-ringtone` does not list Aura; F-Droid's RFP queue shows live unserved wallpaper demand. Depends on the two P0 items above — a submission that links a 404 contributing guide or resolves to a stale release is worse than none.
+  Touches: no app code; README topics, external PRs, `docs/distribution/channel-strategy.md`.
+  Acceptance: `docs/distribution/channel-strategy.md` records which lists were submitted to and when, with links; GitHub topics are set; submissions happen only after the current release is published and the documentation links resolve; the IzzyOnDroid decision recorded in the open questions is settled before an inclusion request is filed.
+  Complexity: S
+</content>
