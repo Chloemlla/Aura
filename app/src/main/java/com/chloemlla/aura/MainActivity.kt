@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -26,7 +25,6 @@ import com.chloemlla.aura.ui.FreeVibeRoot
 import com.chloemlla.aura.ui.navigation.Screen
 import com.chloemlla.aura.ui.theme.FreeVibeTheme
 import com.chloemlla.aura.util.LocaleHelper
-import com.chloemlla.lumen.crash.ui.LumenCrashGate
 import dagger.hilt.android.AndroidEntryPoint
 
 internal data class LaunchNavigation(
@@ -217,38 +215,17 @@ class MainActivity : ComponentActivity() {
         } else {
             null
         }
-        runCatching {
-            setContent {
-                FreeVibeTheme {
-                    LumenCrashGate {
-                        Surface(
-                            modifier = Modifier.fillMaxSize(),
-                            color = MaterialTheme.colorScheme.background,
-                        ) {
-                            FreeVibeRoot(
-                                initialNavigateTo = launchNavigation?.route,
-                                initialWallpaper = launchNavigation?.wallpaper,
-                                navigationToken = launchNavigation?.token ?: 0L,
-                            )
-                        }
-                    }
-                }
-            }
-        }.onFailure { e ->
-            Log.e("MainActivity", "setContent with LumenCrashGate failed", e)
-            // Fallback: render without crash gate
-            setContent {
-                FreeVibeTheme {
-                    Surface(
-                        modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.background,
-                    ) {
-                        FreeVibeRoot(
-                            initialNavigateTo = launchNavigation?.route,
-                            initialWallpaper = launchNavigation?.wallpaper,
-                            navigationToken = launchNavigation?.token ?: 0L,
-                        )
-                    }
+        setContent {
+            FreeVibeTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
+                    FreeVibeRoot(
+                        initialNavigateTo = launchNavigation?.route,
+                        initialWallpaper = launchNavigation?.wallpaper,
+                        navigationToken = launchNavigation?.token ?: 0L,
+                    )
                 }
             }
         }
