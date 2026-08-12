@@ -68,6 +68,8 @@ internal fun SmartLiveWallpaperSettingsSection(
     reduceAnimations: Boolean,
     liveWallpaperDimEnabled: Boolean,
     onSetDailyWallpaperEnabled: (Boolean) -> Unit,
+    onSetVfxEffect: (String) -> Unit,
+    onSetTouchEffectStrength: (String) -> Unit,
     onEnableWeatherEffects: () -> Unit,
     onDisableWeatherEffects: () -> Unit,
     onPermissionPrompt: (SettingsPermissionPrompt) -> Unit,
@@ -213,6 +215,7 @@ internal fun SmartLiveWallpaperSettingsSection(
     if (showVfxPicker) {
         VfxPickerDialog(
             context = context,
+            onSelect = onSetVfxEffect,
             onDismiss = { showVfxPicker = false },
         )
     }
@@ -225,9 +228,11 @@ internal fun SmartLiveWallpaperSettingsSection(
     }
     if (showTouchEffectsPicker) {
         TouchEffectsPickerDialog(
-            context = context,
             touchEffectStrength = touchEffectStrength,
-            onSelect = { touchEffectStrength = it },
+            onSelect = {
+                touchEffectStrength = it
+                onSetTouchEffectStrength(it)
+            },
             onDismiss = { showTouchEffectsPicker = false },
         )
     }
@@ -410,6 +415,7 @@ private fun WallpaperSlotCard(
 @Composable
 private fun VfxPickerDialog(
     context: Context,
+    onSelect: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val effects = listOf(
@@ -442,8 +448,7 @@ private fun VfxPickerDialog(
                         selected = currentVfx == key,
                         onClick = {
                             currentVfx = key
-                            context.getSharedPreferences("freevibe_weather_wp", Context.MODE_PRIVATE)
-                                .edit().putString("vfx_effect", key).apply()
+                            onSelect(key)
                             onDismiss()
                         },
                     )
@@ -458,7 +463,6 @@ private fun VfxPickerDialog(
 
 @Composable
 private fun TouchEffectsPickerDialog(
-    context: Context,
     touchEffectStrength: String,
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit,
@@ -479,8 +483,6 @@ private fun TouchEffectsPickerDialog(
                         selected = touchEffectStrength == key,
                         onClick = {
                             onSelect(key)
-                            context.getSharedPreferences("freevibe_weather_wp", Context.MODE_PRIVATE)
-                                .edit().putString("touch_effect_strength", key).apply()
                             onDismiss()
                         },
                     )

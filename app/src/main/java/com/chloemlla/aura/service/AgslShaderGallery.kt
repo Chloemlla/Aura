@@ -26,6 +26,9 @@ const val REDUCE_ANIMATIONS_PREF = "reduce_animations"
 const val ADAPTIVE_TINT_ENABLED_PREF = "adaptive_tint_enabled"
 const val ADAPTIVE_TINT_INTENSITY_PREF = "adaptive_tint_intensity"
 const val LIVE_WALLPAPER_DIM_ENABLED_PREF = "live_wallpaper_dim_enabled"
+const val DAILY_WALLPAPER_ENABLED_PREF = "daily_wallpaper_enabled"
+const val WEATHER_VFX_EFFECT_PREF = "vfx_effect"
+const val TOUCH_EFFECT_STRENGTH_PREF = "touch_effect_strength"
 
 data class AgslShaderPreset(
     val id: String,

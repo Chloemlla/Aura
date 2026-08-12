@@ -1,5 +1,7 @@
 package com.chloemlla.aura
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.service.ExternalAutomationGate
@@ -11,7 +13,12 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class MainActivityLaunchNavigationTest {
     @Test
     fun `buildLaunchNavigation supports route-only launches`() {
@@ -83,5 +90,24 @@ class MainActivityLaunchNavigationTest {
             )
             assertNull("Expected null for unsafe URL $unsafe", wallpaper)
         }
+    }
+
+    @Test
+    fun `attach-data only accepts a granted content provider uri`() {
+        val allowed = Uri.parse("content://media/external/images/1")
+        assertTrue(isAllowedAttachDataUri(allowed, Intent.FLAG_GRANT_READ_URI_PERMISSION))
+        assertFalse(isAllowedAttachDataUri(allowed, 0))
+        assertFalse(
+            isAllowedAttachDataUri(
+                Uri.parse("file:///sdcard/image.jpg"),
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            ),
+        )
+        assertFalse(
+            isAllowedAttachDataUri(
+                Uri.parse("content:///image.jpg"),
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            ),
+        )
     }
 }

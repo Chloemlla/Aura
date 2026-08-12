@@ -2,6 +2,21 @@
 
 All notable changes to Aura will be documented in this file.
 
+## Unreleased
+
+- **Reliability: route weather-wallpaper settings through the data layer** — daily wallpaper,
+  VFX, and touch-effect writes now go through `PreferencesManager`; the preference gate scans
+  every settings source file for direct runtime `SharedPreferences` writes.
+- **Reliability: stream ordinary wallpaper applies** — URL, file, and content sources now go
+  through `WallpaperManager.setStream` with the existing 64 MiB cap; bitmap decoding remains
+  for edited and pixel-transformed output, and oversized chunked responses fail visibly.
+- **UX: shuffle no longer immediately repeats** — rotation excludes a recent history window
+  scaled to the fetched candidate pool, while one-item sources still make progress and
+  sequential rotation remains unchanged.
+- **Security: make inbound wallpaper and cleartext policy explicit** — the network security
+  config now denies cleartext in a declared base policy, and `ACTION_ATTACH_DATA` accepts only
+  provider-backed image URIs carrying an explicit read grant.
+
 ## v6.41.0 (2026-08-10)
 
 - **Fix: the JVM unit test suite could not compile** — `groupingBy` emits an anonymous

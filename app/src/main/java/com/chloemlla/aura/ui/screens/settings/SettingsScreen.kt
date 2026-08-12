@@ -82,8 +82,7 @@ fun SettingsScreen(
     }
     fun setDailyWallpaperEnabled(enabled: Boolean) {
         dailyWallpaperEnabled = enabled
-        context.getSharedPreferences("freevibe_weather_wp", Context.MODE_PRIVATE)
-            .edit().putBoolean("daily_wallpaper_enabled", enabled).apply()
+        viewModel.setDailyWallpaperEnabled(enabled)
         if (enabled) DailyWallpaperWorker.schedule(context) else DailyWallpaperWorker.cancel(context)
     }
 
@@ -408,6 +407,8 @@ fun SettingsScreen(
                 reduceAnimations = reduceAnimations,
                 liveWallpaperDimEnabled = liveWallpaperDimEnabled,
                 onSetDailyWallpaperEnabled = ::setDailyWallpaperEnabled,
+                onSetVfxEffect = viewModel::setWeatherVfxEffect,
+                onSetTouchEffectStrength = viewModel::setTouchEffectStrength,
                 onEnableWeatherEffects = ::enableWeatherEffects,
                 onDisableWeatherEffects = ::disableWeatherEffects,
                 onPermissionPrompt = { settingsPermissionPrompt = it },

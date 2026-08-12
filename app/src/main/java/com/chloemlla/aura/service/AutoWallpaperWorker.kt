@@ -107,7 +107,11 @@ class AutoWallpaperWorker @AssistedInject constructor(
         if (rawWallpapers.isEmpty()) return Result.retry()
 
         val wallpapers = filterRecentRepeats(rawWallpapers)
-        val pick = pickScheduledWallpaper(wallpapers, shuffle) ?: return Result.retry()
+        val pick = pickScheduledWallpaper(
+            wallpapers = wallpapers,
+            shuffle = shuffle,
+            recentKeys = recentShuffleKeys(wallpapers.size),
+        ) ?: return Result.retry()
 
         if (homeEnabled && lockEnabled) {
             applyAndRecord(pick, WallpaperTarget.BOTH)
@@ -132,7 +136,11 @@ class AutoWallpaperWorker @AssistedInject constructor(
         if (source == "bing" && !prefs.bingProviderEnabled.first()) return Result.success()
 
         val wallpapers = filterRecentRepeats(fetchWallpapers(source))
-        val wallpaper = wallpapers.randomOrNull() ?: return Result.retry()
+        val wallpaper = pickScheduledWallpaper(
+            wallpapers = wallpapers,
+            shuffle = true,
+            recentKeys = recentShuffleKeys(wallpapers.size),
+        ) ?: return Result.retry()
 
         return applyAndRecord(wallpaper, target)
     }
@@ -150,6 +158,12 @@ class AutoWallpaperWorker @AssistedInject constructor(
         } else {
             remaining
         }
+    }
+
+    private suspend fun recentShuffleKeys(candidateCount: Int): Set<String> {
+        val window = shuffleHistoryWindow(candidateCount)
+        if (window == 0) return emptySet()
+        return historyManager.getRecent(window).first().map { it.rotationKey() }.toSet()
     }
 
     private suspend fun fetchWallpapers(source: String): List<Wallpaper> {
@@ -416,11 +430,24 @@ internal fun shouldUseNightWallpaperVariant(
 internal fun pickScheduledWallpaper(
     wallpapers: List<Wallpaper>,
     shuffle: Boolean,
+    recentKeys: Set<String> = emptySet(),
 ): Wallpaper? = when {
     wallpapers.isEmpty() -> null
-    shuffle -> wallpapers.random()
+    shuffle -> {
+        val eligible = wallpapers.filterNot { it.stableKey() in recentKeys }
+        (eligible.ifEmpty { wallpapers }).random()
+    }
     else -> wallpapers.first()
 }
+
+/** Keep a small pool of applied items out of shuffle without starving tiny sources. */
+internal fun shuffleHistoryWindow(candidateCount: Int): Int = when {
+    candidateCount <= 1 -> 0
+    else -> (candidateCount / 10).coerceIn(1, 5)
+}
+
+private fun com.chloemlla.aura.data.model.WallpaperHistoryEntity.rotationKey(): String =
+    "WALLPAPER::${source.uppercase(Locale.ROOT)}::$wallpaperId"
 
 /**
  * Filters out recently applied wallpapers. Returns an EMPTY list when every

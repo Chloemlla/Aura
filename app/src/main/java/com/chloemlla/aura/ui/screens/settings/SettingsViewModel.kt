@@ -943,6 +943,9 @@ class SettingsViewModel @Inject constructor(
         }
     }
     fun setWeatherEffects(enabled: Boolean) = viewModelScope.launch { prefs.setWeatherEffectsEnabled(enabled) }
+    fun setDailyWallpaperEnabled(enabled: Boolean) = prefs.setDailyWallpaperEnabled(enabled)
+    fun setWeatherVfxEffect(effect: String) = prefs.setWeatherVfxEffect(effect)
+    fun setTouchEffectStrength(strength: String) = prefs.setTouchEffectStrength(strength)
     fun setReduceAnimations(enabled: Boolean) = viewModelScope.launch {
         prefs.setReduceAnimations(enabled)
     }

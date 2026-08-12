@@ -87,7 +87,10 @@ class CleartextReleaseCheckTest(unittest.TestCase):
 
 
 def seed_repo(repo: Path) -> Path:
-    write(repo / "app/src/main/res/xml/network_security_config.xml", "<network-security-config />\n")
+    write(
+        repo / "app/src/main/res/xml/network_security_config.xml",
+        '<network-security-config><base-config cleartextTrafficPermitted="false" /></network-security-config>\n',
+    )
     write(repo / "app/src/main/AndroidManifest.xml", "<manifest><application /></manifest>\n")
     write(repo / "app/src/main/java/Example.kt", 'const val BASE_URL = "https://ccmixter.org/"\n')
     return repo

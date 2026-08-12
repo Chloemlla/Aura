@@ -11,6 +11,8 @@ import android.graphics.Rect
 import com.chloemlla.aura.data.model.WallpaperTarget
 import com.chloemlla.aura.util.rethrowIfCancelled
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.FilterInputStream
+import java.io.InputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -62,6 +64,14 @@ class WallpaperApplier @Inject constructor(
         imageFlow: MediaIngestionImageFlow = MediaIngestionImageFlow.LOCAL_APPLY,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
+            // WallpaperManager can consume the encoded source directly. Keep the bitmap
+            // path below for transformations, but avoid expanding a normal JPEG/PNG into
+            // a full ARGB bitmap before the system receives it.
+            if (darkenPercent <= 0 && !nightVariant &&
+                streamLocatorToWallpaper(locator, target, cropRect)
+            ) {
+                return@runCatching Unit
+            }
             var bitmap = decodeFromLocator(locator, imageFlow)
                 ?: throw IllegalStateException("Failed to decode wallpaper image")
             try {
@@ -75,17 +85,69 @@ class WallpaperApplier @Inject constructor(
                     bitmap.recycle()
                     bitmap = nightBitmap
                 }
-                val flag = when (target) {
-                    WallpaperTarget.HOME -> WallpaperManager.FLAG_SYSTEM
-                    WallpaperTarget.LOCK -> WallpaperManager.FLAG_LOCK
-                    WallpaperTarget.BOTH -> WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK
-                }
-                wallpaperManager.setBitmap(bitmap, cropRect, true, flag)
+                wallpaperManager.setBitmap(bitmap, cropRect, true, wallpaperFlags(target))
                 Unit
             } finally {
                 if (!bitmap.isRecycled) bitmap.recycle()
             }
         }.onFailure { it.rethrowIfCancelled() }
+    }
+
+    /** Stream an encoded source directly to WallpaperManager when no pixel transform is needed. */
+    private fun streamLocatorToWallpaper(
+        locator: String,
+        target: WallpaperTarget,
+        cropRect: Rect?,
+    ): Boolean {
+        if (locator.isBlank()) return false
+        fun apply(input: InputStream) {
+            wallpaperManager.setStream(
+                WallpaperByteLimitInputStream(input, MAX_WALLPAPER_BYTES),
+                cropRect,
+                true,
+                wallpaperFlags(target),
+            )
+        }
+
+        return when {
+            locator.startsWith("http://", ignoreCase = true) ||
+                locator.startsWith("https://", ignoreCase = true) -> {
+                okHttpClient.newCall(Request.Builder().url(locator).build()).execute().use { response ->
+                    if (!response.isSuccessful) throw java.io.IOException("Download failed: ${response.code}")
+                    val body = response.body ?: throw java.io.IOException("Empty response body")
+                    val advertised = body.contentLength()
+                    if (advertised > MAX_WALLPAPER_BYTES) {
+                        throw java.io.IOException("Wallpaper too large: $advertised > $MAX_WALLPAPER_BYTES bytes")
+                    }
+                    apply(body.byteStream())
+                }
+                true
+            }
+            locator.startsWith("content://", ignoreCase = true) -> {
+                val input = context.contentResolver.openInputStream(android.net.Uri.parse(locator))
+                    ?: throw java.io.IOException("Could not open wallpaper content")
+                input.use(::apply)
+                true
+            }
+            locator.startsWith("file:", ignoreCase = true) -> {
+                val path = android.net.Uri.parse(locator).path ?: return false
+                streamLocalFile(path, ::apply)
+            }
+            locator.startsWith("/") -> streamLocalFile(locator, ::apply)
+            else -> false
+        }
+    }
+
+    private fun streamLocalFile(path: String, apply: (InputStream) -> Unit): Boolean {
+        val file = java.io.File(path)
+        if (!file.exists() || !file.canRead()) {
+            throw java.io.IOException("Wallpaper file is unavailable")
+        }
+        if (file.length() > MAX_WALLPAPER_BYTES) {
+            throw java.io.IOException("Wallpaper too large: ${file.length()} > $MAX_WALLPAPER_BYTES bytes")
+        }
+        file.inputStream().use(apply)
+        return true
     }
 
     /** Apply wallpaper from an already-loaded bitmap */
@@ -94,12 +156,7 @@ class WallpaperApplier @Inject constructor(
         target: WallpaperTarget = WallpaperTarget.BOTH,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            val flag = when (target) {
-                WallpaperTarget.HOME -> WallpaperManager.FLAG_SYSTEM
-                WallpaperTarget.LOCK -> WallpaperManager.FLAG_LOCK
-                WallpaperTarget.BOTH -> WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK
-            }
-            wallpaperManager.setBitmap(bitmap, null, true, flag)
+            wallpaperManager.setBitmap(bitmap, null, true, wallpaperFlags(target))
             Unit
         }.onFailure { it.rethrowIfCancelled() }
     }
@@ -402,8 +459,50 @@ class WallpaperApplier @Inject constructor(
         return result
     }
 
+    private fun wallpaperFlags(target: WallpaperTarget): Int = when (target) {
+        WallpaperTarget.HOME -> WallpaperManager.FLAG_SYSTEM
+        WallpaperTarget.LOCK -> WallpaperManager.FLAG_LOCK
+        WallpaperTarget.BOTH -> WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK
+    }
+
     private companion object {
         /** Hard cap on single-wallpaper downloads — mirrors DownloadManager's ceiling. */
         private const val MAX_WALLPAPER_BYTES = 64L * 1024 * 1024
+    }
+}
+
+/** InputStream guard used by WallpaperManager.setStream, including chunked HTTP responses. */
+internal class WallpaperByteLimitInputStream(
+    input: InputStream,
+    private val maxBytes: Long,
+) : FilterInputStream(input) {
+    private var bytesRead = 0L
+
+    override fun read(): Int {
+        val value = super.read()
+        if (value >= 0) recordBytes(1)
+        return value
+    }
+
+    override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+        if (length == 0) return 0
+        val remaining = (maxBytes - bytesRead + 1).coerceAtMost(length.toLong()).toInt()
+        val count = super.read(buffer, offset, remaining)
+        if (count > 0) recordBytes(count.toLong())
+        return count
+    }
+
+    override fun skip(byteCount: Long): Long {
+        val remaining = (maxBytes - bytesRead).coerceAtLeast(0L)
+        val skipped = super.skip(byteCount.coerceAtMost(remaining))
+        bytesRead += skipped
+        return skipped
+    }
+
+    private fun recordBytes(count: Long) {
+        bytesRead += count
+        if (bytesRead > maxBytes) {
+            throw java.io.IOException("Wallpaper too large: exceeds $maxBytes bytes")
+        }
     }
 }
