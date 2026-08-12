@@ -172,16 +172,6 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-        // Firebase BoM 34.13.0 ships firebase-auth 24.1.0 compiled with a newer
-        // Kotlin (metadata 2.3.0) than this project's pinned compiler (2.1.0), which
-        // makes kspDebugKotlin reject the .kotlin_module under strict checking. The
-        // bytecode + public API are stable; only the metadata stamp is ahead, so we
-        // read it best-effort rather than dragging the whole toolchain forward.
-        freeCompilerArgs += "-Xskip-metadata-version-check"
-    }
-
     buildFeatures {
         compose = true
         buildConfig = true
@@ -204,6 +194,18 @@ android {
         unitTests {
             isIncludeAndroidResources = true
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        // Firebase BoM 34.13.0 ships firebase-auth 24.1.0 compiled with a newer
+        // Kotlin (metadata 2.3.0) than this project's pinned compiler (2.1.0), which
+        // makes kspDebugKotlin reject the .kotlin_module under strict checking. The
+        // bytecode + public API are stable; only the metadata stamp is ahead, so we
+        // read it best-effort rather than dragging the whole toolchain forward.
+        freeCompilerArgs.add("-Xskip-metadata-version-check")
     }
 }
 
