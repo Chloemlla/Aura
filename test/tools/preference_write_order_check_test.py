@@ -36,6 +36,11 @@ class PreferenceWriteOrderCheckTest(unittest.TestCase):
             target.write_text(content, encoding="utf-8")
         return root
 
+    def _stage_settings_source(self, root: Path, source: str) -> None:
+        target = root / "app/src/main/java/com/freevibe/ui/screens/settings/FakeSettings.kt"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(source, encoding="utf-8")
+
     def _live_manager(self) -> str:
         return (REPO_ROOT / PREFERENCES_MANAGER).read_text(encoding="utf-8")
 
@@ -91,6 +96,18 @@ class PreferenceWriteOrderCheckTest(unittest.TestCase):
             validate_preference_write_order(self._stage(self._live_manager(), view_model))
 
         self.assertIn("SettingsViewModel touches SharedPreferences", str(ctx.exception))
+
+    def test_rejects_settings_composable_writing_shared_preferences(self) -> None:
+        root = self._stage(self._live_manager())
+        self._stage_settings_source(
+            root,
+            'fun render(context: Context) { context.getSharedPreferences("weather", 0).edit().putBoolean("x", true).apply() }\n',
+        )
+
+        with self.assertRaises(PreferenceWriteOrderError) as ctx:
+            validate_preference_write_order(root)
+
+        self.assertIn("writes SharedPreferences directly", str(ctx.exception))
 
     def test_rejects_a_removed_bridge(self) -> None:
         manager = self._live_manager().replace("fun setReduceAnimations", "fun setReduceAnimationsRenamed", 1)

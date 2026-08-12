@@ -25,6 +25,7 @@ from pathlib import Path
 
 PREFERENCES_MANAGER = "app/src/main/java/com/freevibe/data/local/PreferencesManager.kt"
 SETTINGS_VIEW_MODEL = "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt"
+SETTINGS_SOURCE_ROOT = "app/src/main/java/com/freevibe/ui/screens/settings"
 
 # Bridge setters: each writes SharedPreferences for the live-wallpaper runtime and
 # DataStore for the UI, and the SharedPreferences write must come first.
@@ -42,6 +43,9 @@ BRIDGE_FUNCTIONS = (
 
 SHARED_PREF_WRITE = re.compile(
     r"(writeLiveWallpaperFlag|weatherWallpaperPrefs\(\)|getSharedPreferences)"
+)
+UI_SHARED_PREF_WRITE = re.compile(
+    r"getSharedPreferences[\s\S]{0,300}?\.edit\s*\(\s*\)",
 )
 DATASTORE_WRITE = re.compile(r"\bset\(Keys\.")
 
@@ -106,6 +110,15 @@ def validate_preference_write_order(repo_root: Path) -> dict[str, object]:
             "SettingsViewModel touches SharedPreferences directly; live-wallpaper bridges "
             "belong in PreferencesManager so the write order is enforced in one place"
         )
+
+    settings_root = repo_root / SETTINGS_SOURCE_ROOT
+    for source_path in sorted(settings_root.glob("*.kt")) if settings_root.is_dir() else ():
+        source = source_path.read_text(encoding="utf-8")
+        if UI_SHARED_PREF_WRITE.search(source):
+            errors.append(
+                f"{source_path.relative_to(repo_root)} writes SharedPreferences directly; "
+                "route runtime settings through PreferencesManager"
+            )
 
     checked = 0
     for name in BRIDGE_FUNCTIONS:

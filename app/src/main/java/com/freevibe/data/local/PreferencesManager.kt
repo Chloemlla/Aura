@@ -10,10 +10,13 @@ import com.freevibe.data.model.hasAcceptedCommunityGuidelinesVersion
 import com.freevibe.service.ADAPTIVE_TINT_ENABLED_PREF
 import com.freevibe.service.ADAPTIVE_TINT_INTENSITY_PREF
 import com.freevibe.service.AgslShaderGallery
+import com.freevibe.service.DAILY_WALLPAPER_ENABLED_PREF
 import com.freevibe.service.LIVE_WALLPAPER_DIM_ENABLED_PREF
 import com.freevibe.service.LIVE_WALLPAPER_SHADER_PRESET_PREF
 import com.freevibe.service.REDUCE_ANIMATIONS_PREF
+import com.freevibe.service.TOUCH_EFFECT_STRENGTH_PREF
 import com.freevibe.service.WEATHER_WALLPAPER_PREFS_NAME
+import com.freevibe.service.WEATHER_VFX_EFFECT_PREF
 import com.freevibe.service.VIDEO_AUTO_BATTERY_SAVER_PREF
 import com.freevibe.service.VIDEO_AUTO_BATTERY_SAVER_CHANGED_ACTION
 import com.freevibe.service.VIDEO_FPS_LIMIT_PREF
@@ -587,6 +590,19 @@ class PreferencesManager @Inject constructor(
         val sanitized = AgslShaderGallery.sanitizeId(id)
         weatherWallpaperPrefs().edit().putString(LIVE_WALLPAPER_SHADER_PRESET_PREF, sanitized).apply()
         set(Keys.LIVE_WALLPAPER_SHADER_PRESET, sanitized)
+    }
+
+    /** Runtime-only settings consumed synchronously by the weather wallpaper service. */
+    fun setDailyWallpaperEnabled(enabled: Boolean) {
+        weatherWallpaperPrefs().edit().putBoolean(DAILY_WALLPAPER_ENABLED_PREF, enabled).apply()
+    }
+
+    fun setWeatherVfxEffect(effect: String) {
+        weatherWallpaperPrefs().edit().putString(WEATHER_VFX_EFFECT_PREF, effect).apply()
+    }
+
+    fun setTouchEffectStrength(strength: String) {
+        weatherWallpaperPrefs().edit().putString(TOUCH_EFFECT_STRENGTH_PREF, strength).apply()
     }
 
     private fun weatherWallpaperPrefs() =

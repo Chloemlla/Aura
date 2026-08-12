@@ -2,6 +2,12 @@
 
 All notable changes to Aura will be documented in this file.
 
+## Unreleased
+
+- **Reliability: route weather-wallpaper settings through the data layer** — daily wallpaper,
+  VFX, and touch-effect writes now go through `PreferencesManager`; the preference gate scans
+  every settings source file for direct runtime `SharedPreferences` writes.
+
 ## v6.41.0 (2026-08-10)
 
 - **Fix: the JVM unit test suite could not compile** — `groupingBy` emits an anonymous
