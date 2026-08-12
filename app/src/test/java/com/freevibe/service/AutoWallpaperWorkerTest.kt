@@ -179,6 +179,40 @@ class AutoWallpaperWorkerTest {
         assertEquals(first, picked)
     }
 
+    @Test
+    fun `shuffle excludes the recent window but falls back for a one-item source`() {
+        val first = wallpaper("first", ContentSource.WALLHAVEN)
+        val second = wallpaper("second", ContentSource.REDDIT)
+
+        assertEquals(
+            second,
+            pickScheduledWallpaper(
+                wallpapers = listOf(first, second),
+                shuffle = true,
+                recentKeys = setOf(first.stableKey()),
+            ),
+        )
+        assertEquals(
+            first,
+            pickScheduledWallpaper(
+                wallpapers = listOf(first),
+                shuffle = true,
+                recentKeys = setOf(first.stableKey()),
+            ),
+        )
+    }
+
+    @Test
+    fun `shuffle history window grows with a candidate pool without exceeding five`() {
+        assertEquals(0, shuffleHistoryWindow(0))
+        assertEquals(0, shuffleHistoryWindow(1))
+        assertEquals(1, shuffleHistoryWindow(2))
+        assertEquals(1, shuffleHistoryWindow(9))
+        assertEquals(2, shuffleHistoryWindow(20))
+        assertEquals(5, shuffleHistoryWindow(50))
+        assertEquals(5, shuffleHistoryWindow(500))
+    }
+
     // ── excludeRecentWallpapers (sequential selection) ──
 
     @Test
