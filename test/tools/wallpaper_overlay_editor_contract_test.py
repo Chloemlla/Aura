@@ -34,9 +34,9 @@ def test_overlay_state_and_renderer_are_local_only():
 def test_apply_export_and_parallax_use_rendered_overlay_bitmap():
     source = read("app/src/main/java/com/freevibe/ui/screens/editor/WallpaperEditorViewModel.kt")
 
-    assert "renderBitmapForOutput()" in source
-    assert "renderBitmapForOutputAsync()" in source
-    assert source.count("renderBitmapForOutputAsync()") >= 4
+    assert "renderBitmapForOutput(defaultOverlayText)" in source
+    assert "renderBitmapForOutputAsync(defaultOverlayText: String)" in source
+    assert source.count("renderBitmapForOutputAsync(") >= 4
     # The rendered bitmap is checked against the state the render read *and* the
     # state as it is now. A filter render finishing during the write puts a
     # different bitmap on screen, so the snapshot alone would free something the
@@ -53,7 +53,7 @@ def test_overlay_preview_and_controls_are_wired():
     strings = read("app/src/main/res/values/strings.xml")
 
     for token in [
-        "LAYERS_FILTER_NAME",
+        "R.string.editor_wallpaper_layers_chip",
         "WallpaperEditorPreview",
         "OverlayLayerPreview",
         "WallpaperLayerControls",
