@@ -255,6 +255,14 @@ These items require adb-connected device or Android 17 emulator testing:
     judgment, not an autonomous edit. Resolve by either confirming deletion or picking a source
     to re-wire, then move back to ROADMAP.md.
 
+- **P3 — Microsoft Spotlight daily-image source**
+  - Blocker: Microsoft documents Spotlight content endpoints as Windows product endpoints, not
+    as a supported public image API with redistribution and attribution terms. Community clients
+    reverse-engineer the endpoint, but that is not enough to pass Aura's provider policy gate.
+  - Resume when Microsoft publishes a stable third-party endpoint and terms that permit the
+    requested opt-in wallpaper use, or when the release owner records an explicit legal decision
+    accepting the current terms and endpoint risk.
+
 ---
 
 ## Blocker: Dependent on Other Blocked Items

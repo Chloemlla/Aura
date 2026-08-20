@@ -4,13 +4,6 @@ Actionable work only. Historical and completed roadmap material is archived in C
 
 ## Actionable Items
 
-- [ ] P3 — Add Microsoft Spotlight as an opt-in daily-image source after terms validation
-  Why: a keyless daily-image source adds low-frequency breadth without another high-volume feed.
-  Evidence: WallYou source registry; existing Bing/NASA/Wikimedia daily-source plumbing.
-  Touches: provider registry/client, attribution/licensing, network-endpoints manifest, source toggle UI/tests.
-  Acceptance: after the P0 capability registry lands, a stable endpoint and use/attribution terms pass its policy gate; Spotlight is opt-in, preserves source URL/provenance, degrades visibly, and is recorded in the endpoint manifest. Lorem Picsum is intentionally excluded because `ProviderDisclosure.kt` forbids new default sourcing.
-  Complexity: M
-
 - [ ] P3 — Optional clock/date overlay on applied/live wallpapers
   Why: Paperize issue 533 validates the niche, and Aura already has an overlay composer; it adds no background cost while off.
   Evidence: Paperize issue 533; `WallpaperEditorScreen.kt` overlay pipeline.
