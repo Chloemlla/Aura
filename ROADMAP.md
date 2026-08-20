@@ -66,15 +66,6 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
 
 ### P0
 
-- [ ] P0 — Tag and publish v6.40.0; gate on release existing
-  Why: CHANGELOG documents v6.39.0 and v6.40.0 (2026-07-29) but `git tag` and `gh release list` stop at v6.38.1, so no user has the bounded archive extraction, the automation-gate fix, or the apply coordinator; Obtainium reads GitHub Releases.
-  Evidence: `CHANGELOG.md:5,28`; `gh release list` latest = v6.38.1 (2026-07-29); `obtainium.json`; commit "Remove GitHub Actions workflows — local builds only".
-  Touches: release build + signing, `tools/release_artifact_bundle_check.py`, `tools/release_manifest.py`, a new tag/release gate.
-  Acceptance: v6.40.0 is tagged and released with the signed universal APK and `SHA256SUMS.txt`; a gate fails when `versionName` in `app/build.gradle.kts` has no matching git tag and published release.
-Complexity: S
-
-  Update 2026-08-11: the tag half is done and the target has moved. `git ls-remote --tags origin` resolves `v6.41.0` to `122d431` (pushed), but `gh release list` still returns `v6.38.1` (2026-07-29) as latest, so v6.39.0, v6.40.0, and v6.41.0 have no published Release. Retarget this item at **v6.41.0** and note that the gate must fail on *tag exists but Release does not*, not only on the version-has-no-tag direction — `tools/published_state.py` already added a tag-exists predicate in v6.41.0 and needs the release-exists companion. `obtainium.json` sets `verifyLatestTagAndReleaseAreSame: false` and `fallbackToOlderReleases: true`, so Obtainium users are silently held on v6.38.1.
-
 ### P1
 
 - [ ] P1 — Make release gates assert published state, not the working tree

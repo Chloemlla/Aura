@@ -4,6 +4,13 @@ All notable changes to Aura will be documented in this file.
 
 ## v6.42.0
 
+- **Release: publish the versions that were finished but never shipped** — v6.39.0,
+  v6.40.0, and v6.41.0 were tagged and left unreleased, so the download page still served
+  v6.38.1 and Obtainium silently held everyone there. A gate now fails when the declared
+  `versionName` has no matching git tag *and* no published GitHub Release, closing the half
+  that a tag-only check missed. The release check is skipped rather than guessed at when
+  GitHub cannot be reached, so an offline checkout still builds.
+
 - **Build: enable the Gradle build cache, parallel execution, and the configuration
   cache** — a clean `:app:testFullDebugUnitTest` drops from 7m08s to 5m35s, and 28s when
   the caches are warm. No task reported a configuration-cache problem. The heap moved to
