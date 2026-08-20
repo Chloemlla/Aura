@@ -26,11 +26,13 @@ N-1 itself is the largest single gate. Until it lands, these items cannot procee
   - Scope: AGP 8.7.3 -> 9.2.x, Gradle 8.12 -> 9.5+, Kotlin 2.1.0 -> 2.3.20, KSP1 -> KSP2, Compose BOM -> 2026.05.00, Hilt 2.53.1 -> 2.59.x, Navigation 3.x, etc.
   - Risk: Memory-heavy Gradle runs on this workstation. R8 keep-rule regressions, KSP2 cache issues.
   - Gates: N-3/N-4/NX-2/NX-7 and most Next-tier items.
+  - Scope notes 2026-08-20: AGP 9.x ships built-in Kotlin — the standalone `org.jetbrains.kotlin.android` plugin must be removed or the build fails; Gradle 9.1+ is the floor; use Hilt **2.59.2**, not 2.59 (2.59 shipped a broken Gradle plugin, dagger#5099); Kotlin stable is now 2.4.x with the K1 frontend removed; AGP 9.3 adds an `analyzeReleaseR8Config` keep-rule analyzer useful for the queued R8 item.
 
 - **N-4 (remaining)** — WallpaperDescription scaffolding is comment-only until N-1 unlocks compileSdk 36+.
 
 - **P0 — API 37 toolchain and target-SDK release gate** (Cycle 10)
   - Needs compileSdk 37 + AGP 8.9.0-rc01+ minimum. Blocked until N-1 completes.
+  - Note 2026-08-20: budget for the targetSdk 36 behavior trio on the way — predictive back on by default (`onBackPressed` no longer called), edge-to-edge opt-out removed, and orientation/resize flags ignored on sw>=600dp (opt-out dies entirely at targetSdk 37).
 
 - **P2 — Direct Android 17 API cleanup for shipped bridges** (Cycle 10)
   - EyeDropper and Photo Picker 9:16 shipped through reflection; direct API needs compileSdk 37.
@@ -66,6 +68,7 @@ N-1 itself is the largest single gate. Until it lands, these items cannot procee
   - Blocker: Room 2.8.4 KSP failed locally with `AbstractMethodError` in Room's kotlinx-serialization bundle serializer under Kotlin 2.1.0 / KSP 2.1.0-1.0.29.
   - Current state: Aura is on Room 2.7.2 to satisfy WorkManager 2.11.2 without taking the larger Kotlin/KSP/toolchain upgrade.
   - Resume when N-1 upgrades Kotlin/KSP. Acceptance remains: all schema versions migrate cleanly, KSP succeeds with Kotlin codegen, and favorites/downloads/collections behavior is unchanged.
+  - Note 2026-08-20: Room 3.0.1 is now the stable line (KSP-only, coroutine-first, package renames) — the 2.8.x target is superseded, and the move is a real migration to plan inside N-1, not a version bump.
 
 ### N-1-gated Next items (NX)
 

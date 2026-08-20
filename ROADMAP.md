@@ -71,7 +71,8 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
   Evidence: `CHANGELOG.md:5,28`; `gh release list` latest = v6.38.1 (2026-07-29); `obtainium.json`; commit "Remove GitHub Actions workflows — local builds only".
   Touches: release build + signing, `tools/release_artifact_bundle_check.py`, `tools/release_manifest.py`, a new tag/release gate.
   Acceptance: v6.40.0 is tagged and released with the signed universal APK and `SHA256SUMS.txt`; a gate fails when `versionName` in `app/build.gradle.kts` has no matching git tag and published release.
-  Complexity: S
+Complexity: S
+
   Update 2026-08-11: the tag half is done and the target has moved. `git ls-remote --tags origin` resolves `v6.41.0` to `122d431` (pushed), but `gh release list` still returns `v6.38.1` (2026-07-29) as latest, so v6.39.0, v6.40.0, and v6.41.0 have no published Release. Retarget this item at **v6.41.0** and note that the gate must fail on *tag exists but Release does not*, not only on the version-has-no-tag direction — `tools/published_state.py` already added a tag-exists predicate in v6.41.0 and needs the release-exists companion. `obtainium.json` sets `verifyLatestTagAndReleaseAreSame: false` and `fallbackToOlderReleases: true`, so Obtainium users are silently held on v6.38.1.
 
 ### P1
@@ -87,7 +88,7 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
   Why: the released universal APK is 198 MB — 6.6× IzzyOnDroid's 30 MB per-APK ceiling and above Accrescent's 128 MiB — because 32-bit FFmpeg and Python payloads ship for ABIs nothing needs, and the gate named `require64BitOnly` skips every non-64-bit library instead of rejecting it.
   Evidence: `tools/native_alignment_check.py:246-247` (`if not library.is_64_bit: continue`); `docs/distribution/native-alignment.json` `require64BitOnly: true` with `lib/armeabi-v7a/`, `lib/x86/` in its own evidence block; `gh release view v6.38.1` asset = 198 MB; no `splits`/`abiFilters` in `app/build.gradle.kts`. Referenced as NX-8 in ARCHITECTURE.md but tracked nowhere.
   Touches: `app/build.gradle.kts` (`splits { abi { ... } }`), `tools/native_alignment_check.py`, release bundle check, `obtainium.json`, README install copy.
-  Note: per-ABI splits are the fix; **dropping `armeabi-v7a` is a separate, user-facing decision**, because `minSdk 26` still admits 32-bit-only Android 8–9 devices. Splits cut the download without cutting those users. Either resolve `require64BitOnly: true` to match reality (32-bit shipped and supported) or record an explicit decision to drop 32-bit — today the policy and the artifact disagree and the gate cannot tell.
+  Note: per-ABI splits are the fix; **dropping `armeabi-v7a` is a separate, user-facing decision**, because `minSdk 26` still admits 32-bit-only Android 8–9 devices. Splits cut the download without cutting those users. Either resolve `require64BitOnly: true` to match reality (32-bit shipped and supported) or record an explicit decision to drop 32-bit — as of 2026-08-11 the policy and the artifact disagree and the gate cannot tell.
   Acceptance: release output is per-ABI plus a universal APK, and the arm64-v8a artifact is under 30 MB; `native_alignment_check.py` verifies the *declared* ABI set against the APK and fails on any mismatch in either direction, instead of skipping non-64-bit libraries; `obtainium.json`'s `autoApkFilterByArch` is confirmed against the split asset names; `docs/distribution/native-alignment.json` no longer claims `releaseWorkflowEnforced` for a workflow that does not exist.
   Complexity: M
 
@@ -113,6 +114,8 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
   Acceptance: each upgrade lands with unit tests, lint, and Roborazzi green; Compose BOM is struck from the N-1 scope line and the Firebase BoM item is deleted from `Roadmap_Blocked.md`; any library that cannot move records its blocker there instead; the Glance RC is resolved to a stable line or its risk is documented.
   Complexity: M
 
+  Update 2026-08-20: current targets are Compose BOM 2026.08.00 (mesh gradients; pausable composition is on by default since BOM 2025.12.00), material3 1.4.0 stable (Expressive — adopt tokens selectively, the wholesale look conflicts with the design charter), NewPipeExtractor v0.26.5 (2026-08-15), Roborazzi 1.70.0, Firebase BoM 34.17.0 (published, confirmed). Glance 1.2.0 still never shipped stable; 1.2.0-rc01 remains the newest usable line.
+
 - [ ] P1 — Bound yt-dlp downloads before writing and audit CVE-exposed flags
   Why: the two `YoutubeDL.execute` branches pass no `--max-filesize` and the size limit is enforced only after the file is fully written to `filesDir`, so a long video writes gigabytes then fails; separately, the bundled payload predates five 2026 yt-dlp advisories (four HIGH command-injection).
   Evidence: `VideoWallpapersViewModel.kt:706-735` vs `VideoWallpaperStorage.kt:137-155`; the OkHttp branches at `:743-766` are correctly capped; `youtubedl-android` 0.18.1 (2025-11-16); CVE-2026-55404, GHSA-69qj-pvh9-c5wg, CVE-2026-26331, CVE-2026-50574, CVE-2026-50023. Complements the device-blocked yt-dlp extraction item in `Roadmap_Blocked.md`.
@@ -120,19 +123,14 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
   Acceptance: both yt-dlp branches pass an explicit size cap and the HLS path no longer needs 2× the file size; a gate asserts Aura passes none of `--exec`, `--write-link`, `--netrc-cmd`, or an aria2c downloader; the CVE policy doc records the audited flag set.
   Complexity: M
 
+  Note 2026-08-20: the bundled 2026.07.04 payload post-dates every 2026 advisory fix (all fixed by 2026.06.09), so no emergency payload bump is needed — the size caps and the flag gate are the remaining work.
+
 - [ ] P1 — Publish `WallpaperColors` from the live-wallpaper engines
   Why: none of the wallpaper services implement `onComputeColors()`, so the system derives Material You theming from nothing while an Aura live wallpaper is active — the most-reported complaint class across darkmodewallpaper and Muzei.
   Evidence: no `onComputeColors`/`WallpaperColors` anywhere in `app/src/main/java/com/freevibe/service/`; darkmodewallpaper #115/#203, Muzei #744; Aura already has `ColorExtractor`/`WallpaperPalette`.
   Touches: `VideoWallpaperService.kt`, `ParallaxWallpaperService.kt`, `WeatherWallpaperService.kt`, `ColorExtractor.kt`, settings toggle, soak contract test.
   Acceptance: each engine returns `WallpaperColors` derived from the current frame or source bitmap, recomputed on source change and not per frame; a setting suppresses publication for users who do not want launcher recoloring; the soak harness asserts no extra bitmap retention.
   Complexity: M
-
-- [ ] P2 — Move the last three SharedPreferences writes out of the settings UI
-  Why: `SettingsScreen.kt` and `SettingsSmartLiveSection.kt` still write `freevibe_weather_wp` directly from composables, bypassing `PreferencesManager`; these are single-store writes so they do not have the ordering defect, but they keep runtime state outside the data layer where the write-order gate cannot see it.
-  Evidence: `SettingsScreen.kt:85` (`daily_wallpaper_enabled`); `SettingsSmartLiveSection.kt:445` (`vfx_effect`), `:482` (`touch_effect_strength`); `tools/preference_write_order_check.py` currently asserts only that `SettingsViewModel` is clean.
-  Touches: `PreferencesManager.kt`, `SettingsScreen.kt`, `SettingsSmartLiveSection.kt`, `tools/preference_write_order_check.py`.
-  Acceptance: those three keys are written through `PreferencesManager`; the gate forbids `getSharedPreferences` writes anywhere under `ui/screens/settings/`, and a test proves it fails when one is reintroduced.
-  Complexity: S
 
 - [ ] P1 — Stop the wallpaper editor orphaning bitmaps and losing composed state
   Why: each filter render replaces `editedBitmap` without recycling the displaced one (up to ~67 MB at `MAX_EDIT_LONG_EDGE = 4096`, and an `OutOfMemoryError` catch already exists as evidence), any slider silently discards a composed depth portrait, and apply/export/parallax render from a snapshot captured before the coroutine launches.
@@ -147,6 +145,8 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
   Touches: `SettingsDiagnosticsSection.kt`, `AutoWallpaperWorker.kt`, `DailyWallpaperWorker.kt`, `RotationTriggerService.kt`, `WorkInfo` diagnostics, string resources.
   Acceptance: one screen shows last fire time, next scheduled fire, WorkManager state and stop reason, boot-receiver-fired status, battery-optimization exemption status, and last error, with a test-fire action; values come from real `WorkInfo`, and the screen is covered by a production-composable state test.
   Complexity: M
+
+  Note 2026-08-20: WorkManager 2.12.0-rc01 adds `WorkMetricsInfo` execution metrics and an event-listener API — adopt when stable to feed this screen real per-run data.
 
 ### P2
 
@@ -192,18 +192,13 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
   Acceptance: schema version, versionName, versionCode, and tab/navigation claims in README are checked against the manifest; the gate fails on drift; the current Room v14 claims are corrected to v16.
   Complexity: S
 
+  Note 2026-08-20: include `docs/distribution/release-dry-run.md` in the gate's scope — it still walks through 6.34.6, seven minors behind.
+
 - [ ] P2 — Add the fastlane store images IzzyOnDroid requires
   Why: `fastlane/metadata/android/en-US/` has no `images/` directory, so there is no icon, phone screenshot, or feature graphic for a store listing to consume. (Changelogs are current — an earlier claim that they stopped at versionCode 8 was a lexical-sort artifact; 22 exist, through 141.)
   Evidence: `ls fastlane/metadata/android/en-US/` returns only `changelogs/`, `full_description.txt`, `short_description.txt`, `title.txt`; IzzyOnDroid App Inclusion Policy requires in-repo Fastlane metadata with icon and screenshots. Screenshot capture itself stays blocked in `Roadmap_Blocked.md`.
   Touches: `fastlane/metadata/android/en-US/images/**`, `tools/store_metadata_preflight.py`.
   Acceptance: `images/icon.png` and at least four `images/phoneScreenshots/` entries exist at the required dimensions, and the preflight fails when the icon or screenshot set is absent.
-  Complexity: S
-
-- [ ] P2 — Close the residual manifest and intent hardening gaps
-  Why: an empty `network_security_config.xml` makes the manifest's `usesCleartextTraffic="false"` inert, leaving only the platform default; and `ACTION_ATTACH_DATA` accepts `intent.data` with any scheme while the adjacent launch path enforces HTTPS-only.
-  Evidence: `res/xml/network_security_config.xml` (`<network-security-config />`), referenced from `AndroidManifest.xml:60` with `usesCleartextTraffic="false"` at `:64`; `MainActivity.kt:144-166` vs `isAllowedLaunchUrl` at `:93-101`.
-  Touches: `network_security_config.xml`, `MainActivity.kt`, `tools/cleartext_release_check.py`, tests.
-  Acceptance: the config declares an explicit `base-config` with cleartext disabled and the gate asserts it; `ACTION_ATTACH_DATA` accepts only `content://` URIs whose read grant is held, rejecting `file://` and unknown authorities with user-visible feedback.
   Complexity: S
 
 - [ ] P2 — Fix the remaining service and editor reliability defects
@@ -267,20 +262,6 @@ against v6.41.0 / versionCode 142 at `122d431`.
 
 #### P1
 
-- [ ] P1 — Apply wallpapers through the streaming API instead of a decoded bitmap
-  Why: every apply path decodes the source into an in-process `Bitmap` before handing it to the system, which is the documented cause of the category's worst failure — OOM during apply, after which Android silently reverts to the default wallpaper and the user's choice is gone with no error. Peristyle diagnosed exactly this and fixed it by moving to the stream API. Aura's own `OutOfMemoryError` catch in the editor is independent evidence the pressure is real. Also the main mitigation for the Android 17 memory-limiter item below.
-  Evidence: `WallpaperApplier.kt:83` and `:102` are the only apply calls; `setStream` appears nowhere in `app/src/main/java`; Peristyle #221 (31 comments) with the maintainer's stream-API fix; the 64 MB `readCapped` ceiling decodes to far more in ARGB_8888.
-  Touches: `WallpaperApplier.kt`, `AutoWallpaperWorker.kt`, `DailyWallpaperWorker.kt`, apply tests.
-  Acceptance: uncropped applies stream bytes to `WallpaperManager.setStream` with no full-size in-process bitmap; the bitmap path remains only where a crop rect or an edited bitmap requires it and is documented as such; a test drives an oversized source through the rotation path and asserts no full-resolution decode occurs; apply failure surfaces to the user instead of resolving as a reverted wallpaper.
-  Complexity: M
-
-- [ ] P1 — Stop shuffle repeating wallpapers it just showed
-  Why: `AutoWallpaperWorker` writes every apply to the history table and never reads it back, so shuffle can pick the same wallpaper twice in a row and does so on small sources. This is the single most-commented issue found anywhere in the category survey, and the data Aura needs is already persisted.
-  Evidence: `AutoWallpaperWorker.kt:210` calls `historyManager.record(...)`; `pickScheduledWallpaper(wallpapers, shuffle)` at `:110` consults no history; `WallpaperHistoryManager.kt:25,29,36` expose `getRecent`/`mostRecent`/`secondMostRecent` that no rotation code calls; Peristyle #115 (53 comments).
-  Touches: `AutoWallpaperWorker.kt`, `WallpaperHistoryManager.kt`, `WallpaperHistoryDao`, worker tests.
-  Acceptance: shuffle excludes a recently-applied window sized relative to the candidate pool and degrades gracefully when the pool is smaller than the window; sequential (non-shuffle) rotation is unchanged; a test with a two-item and a fifty-item source asserts no immediate repeat and no starvation; the window is visible in rotation diagnostics.
-  Complexity: S
-
 - [ ] P1 — Detect and recover when Aura's live wallpaper is no longer active
   Why: Aura ships three `WallpaperService` implementations and never asks the system which wallpaper is running, so a service dropped after reboot, replaced by another app, or killed by an OEM manager is indistinguishable from a working one — the user sees a stock wallpaper and Aura's settings still read "on". Muzei reports this exact shape on Android 17 / Pixel 10 after reboot.
   Evidence: no `getWallpaperInfo` or `WallpaperInfo` anywhere in `app/src/main/java`; `VideoWallpaperService.kt`, `ParallaxWallpaperService.kt`, `WeatherWallpaperService.kt`; `RingtoneRestorationReceiver.kt` already proves the post-boot restoration pattern for sounds; Muzei #874 (16 comments, 2026-07-01). Build this into the Rotation Health screen tracked above rather than a second surface.
@@ -296,7 +277,7 @@ against v6.41.0 / versionCode 142 at `122d431`.
   Complexity: M
 
 - [ ] P1 — Handle the Android 17 per-app memory limiter
-  Why: Android 17 imposes a RAM-derived memory ceiling on **all** apps regardless of targetSdk, and Aura is the exact profile it targets — a 4096 px editor render path with a known bitmap-orphaning defect, a 64 MB apply ceiling, and three long-lived wallpaper engines holding bitmap layers. Today a limiter kill is indistinguishable from any other death, and the diagnostics bundle users paste into crash reports would not mention it.
+  Why: Android 17 imposes a RAM-derived memory ceiling on **all** apps regardless of targetSdk, and Aura is the exact profile it targets — a 4096 px editor render path with a known bitmap-orphaning defect, a 64 MB apply ceiling, and three long-lived wallpaper engines holding bitmap layers. As of 2026-08-11, a limiter kill is indistinguishable from any other death, and the diagnostics bundle users paste into crash reports would not mention it.
   Evidence: developer.android.com/about/versions/17/behavior-changes-all — applies to all apps; detection via `ApplicationExitInfo.getDescription()` containing `MemoryLimiter:AnonSwap`; `CrashDiagnosticsCollector.kt:101` builds the bundle and reads no `ApplicationExitInfo`; `WallpaperEditorViewModel.kt` `MAX_EDIT_LONG_EDGE = 4096` and the orphaned-bitmap item tracked above.
   Touches: `CrashDiagnosticsCollector.kt`, `FreeVibeApp.kt`, `WallpaperEditorViewModel.kt`, `docs/support/crash-diagnostics.md`, tests.
   Acceptance: the diagnostics bundle reports the last `ApplicationExitInfo` reason and description, naming a memory-limiter kill explicitly when present; a memory-limiter exit is counted and surfaced in Diagnostics; the editor's peak allocation is measured and bounded against a recorded ceiling; `docs/support/crash-diagnostics.md` documents the new field.
@@ -374,6 +355,8 @@ against v6.41.0 / versionCode 142 at `122d431`.
   Acceptance: an ordered or shuffled clip list advances at a configured boundary with no black frame at the seam; per-clip fit/crop and mute are preserved; the existing FPS cap, low-battery cap, and `onVisibilityChanged` pause govern the whole playlist, not just the first clip; total decoded storage stays bounded; the soak harness runs the playlist path and asserts nothing survives `onDestroy`.
   Complexity: L
 
+  Note 2026-08-20: Media3 1.11.0 adds `ExoPlayer.setPreloadConfiguration()` and `DefaultPreloadManager` — the intended mechanism for the gapless seam. Sequence after the compileSdk 36 item, which unlocks Media3 1.10+.
+
 - [ ] P2 — Make translation possible: locale config plus a contribution path
   Why: 1,690 strings are extracted, the pseudolocale and RTL gates are live, and the result is unreachable — `res/` has no `values-<locale>/` directory, the manifest declares no `localeConfig` so the Android 13+ per-app language picker cannot appear, and there is no documented way for a translator to contribute. The extraction work is done and is currently producing nothing.
   Evidence: `ls -d app/src/main/res/values*/` returns only `values/`; no `localeConfig` in `AndroidManifest.xml`; no Weblate, Crowdin, or Transifex configuration in the repo; `CONTRIBUTING.md` mentions locales only in a `Locale.ROOT` code-style note. Complements the tracked "residual runtime localization gaps" item, which covers the remaining hardcoded literals — including `MediaIngestion.kt:488-494`, which builds English `" or "` / `", or "` conjunctions in user-facing text.
@@ -382,7 +365,7 @@ against v6.41.0 / versionCode 142 at `122d431`.
   Complexity: M
 
 - [ ] P2 — Give TalkBack announcements and a controlled reading order
-  Why: the prior pass's interactive-element audit came back clean and is not re-raised — what is missing is not labels but *announcements*. Three `liveRegion` usages cover an app whose primary surfaces are async grids, a download queue, and audio playback, so a screen-reader user gets no notification when results arrive, a download finishes, or playback state changes. Reading order is entirely unmanaged.
+  Why: the interactive-element audit recorded clean labels on 2026-08-11; the missing layer is *announcements*. Three `liveRegion` usages cover an app whose primary surfaces are async grids, a download queue, and audio playback, so a screen-reader user gets no notification when results arrive, a download finishes, or playback state changes. Reading order is entirely unmanaged.
   Evidence: `liveRegion` 3 occurrences, `heading` 7, `traversalIndex` 0, `isTraversalGroup` 0 across `app/src/main/java`; 48 `AuraStateCard` usages across 16 of 79 screen files show where async state transitions already exist and go unannounced.
   Touches: `SharedComponents.kt` (`AuraStateCard`), `DownloadsScreen.kt`, `SoundDetailScreen.kt`, the three feed screens, `app/src/androidTest/.../AccessibilityReleaseGateTest.kt`, `tools/accessibility_release_gate_check.py`.
   Acceptance: loading→ready, loading→error, and empty transitions announce politely once and do not re-announce on recomposition; download completion and playback state changes announce; feed sections are traversal groups with a defined order; the accessibility gate asserts a live region exists on each async surface it already covers.
@@ -431,4 +414,92 @@ against v6.41.0 / versionCode 142 at `122d431`.
   Touches: no app code; README topics, external PRs, `docs/distribution/channel-strategy.md`.
   Acceptance: `docs/distribution/channel-strategy.md` records which lists were submitted to and when, with links; GitHub topics are set; submissions happen only after the current release is published and the documentation links resolve; the IzzyOnDroid decision recorded in the open questions is settled before an inclusion request is filed.
   Complexity: S
-</content>
+
+### Additional Research-Driven Additions (2026-08-11)
+
+#### P2
+
+- [ ] P2 — Preflight live-wallpaper capability and provide a truthful static fallback
+  Why: `AndroidManifest.xml:37-40` marks live wallpaper optional, but `LiveWallpaperLauncher.kt:15-35` only tries direct/chooser intents and reports a generic failure; `WallpaperApplier.isSupported()` covers static wallpaper operations, not live-wallpaper feature/service availability. This is distinct from the existing P1 item that detects a live wallpaper that was active and later disappeared.
+  Evidence: `AndroidManifest.xml:37-40`, `LiveWallpaperLauncher.kt:15-35`, `WallpaperApplier.kt:225-228`; Android `WallpaperManager`/live-wallpaper APIs; the UndeadWallpaper community thread consulted on 2026-08-11 reports OEM devices that disable live wallpapers.
+  Touches: `LiveWallpaperLauncher.kt`, video/parallax entry points, `VideoWallpapersScreen.kt`, `WallpaperDetailScreen.kt`, capability tests, strings.
+  Acceptance: before launch, Aura checks `PackageManager.FEATURE_LIVE_WALLPAPER`, resolves the requested service and action, and distinguishes unsupported, unavailable, and security-denied states; image sources offer static apply when valid, video-only sources explain the limitation; no path claims success after an unresolvable intent; tests cover no feature, missing service, security failure, and static fallback.
+  Complexity: S
+
+- [ ] P2 — Make direct media downloads validator-aware and resumable
+  Why: `DownloadManager.downloadFile()` always issues an unconditional GET, starts a new temp file at byte zero, and deletes it after interruption; `DownloadProgress` is process-local and `DownloadEntity` stores only completed MediaStore rows. Size caps prevent oversized writes but do not prevent a mobile user from paying for the same interrupted 64 MiB transfer repeatedly. This complements, rather than duplicates, the existing BatchDownloadService item: that item fixes job lifetime, while this one fixes per-file transport.
+  Evidence: `app/src/main/java/com/freevibe/service/DownloadManager.kt:114-185`, `app/src/main/java/com/freevibe/data/model/Models.kt:150-159`; RFC 9111 sections on incomplete/partial responses and validation; OkHttp’s cache/client API; cssnr/remote-wallpaper-android issue #26 requesting HTTP caching.
+  Touches: `DownloadManager.kt`, `Models.kt`, `Database.kt`/Room migration, `DownloadEntity`/DAO, `DownloadsScreen.kt`, transport tests with a local HTTP server, cleanup/diagnostics.
+  Acceptance: a stable download identity persists temp path, URL, byte count, size, and ETag/Last-Modified when available; retries send `Range` plus `If-Range` only with a matching validator and accept continuation only for a valid `206`; `200`, validator mismatch, range mismatch, or changed length safely truncates and restarts; completion remains temp-then-atomic MediaStore publication; process death resumes or clearly marks a recoverable failure; size/sniffing caps apply to the aggregate bytes; tests cover 206 resume, 200 restart, 412/validator change, cancellation, stale-temp cleanup, and no duplicate MediaStore rows.
+  Complexity: M
+
+### Added 2026-08-20
+
+Evidence and confidence labels in RESEARCH.md (2026-08-20 pass). Items verified against v6.41.0 / versionCode 142 at `070d9a8` plus the uncommitted working tree.
+
+#### P2
+
+- [ ] P2 — Ship the 24H wallpaper-pack editor its Settings toggle already promises
+  Why: the toggle schedules `WallpaperPackWorker` every 15 minutes, but no UI can create or edit a pack, so the worker polls DataStore JSON that is always empty — perpetual no-op battery work shipped as a feature; time-of-day playlists are also Wallpaper Engine's most-praised capability.
+  Evidence: commit `2025c41` ("editor UI for defining individual slots is a follow-up"); `SettingsWallpaperSection.kt:249`; `WallpaperPackManager.kt` (worker parses `prefs.wallpaperPackJson` that nothing writes); Wallpaper Engine Android time-of-day playlists.
+  Touches: a pack editor surface (settings section or dedicated screen), `WallpaperPackManager.kt`, `SettingsViewModel.kt`, `PreferencesManager.kt`, string resources, tests.
+  Acceptance: users can create, edit, and delete packs with wallpapers assigned per daypart (morning/day/evening/night) and per target (home/lock/both); the worker is enqueued only when an enabled pack has at least one slot and is cancelled when the last one is removed; with no pack defined the toggle explains what to do instead of scheduling empty work; tests cover empty-pack gating and slot resolution across the overnight wrap.
+  Complexity: M
+
+- [ ] P2 — Ship the sound-profile editor its Settings toggle already promises
+  Why: same defect class as the pack editor — the toggle schedules `SoundProfileWorker` every 15 minutes and the worker defers with "no sound profiles defined" forever, because no UI can create a profile.
+  Evidence: commit `3bfb2d7` ("Profile editor UI for defining individual profiles is a follow-up"); `SettingsSoundSection.kt:198`; `SoundProfileManager.kt:82-93` (empty-profile deferral each run).
+  Touches: a profile editor surface, `SoundProfileManager.kt`, `SettingsViewModel.kt`, `PreferencesManager.kt`, string resources, tests.
+  Acceptance: users can create named profiles mapping ringtone/notification/alarm URIs to start/end hours, enable/disable each, and delete them; the worker is enqueued only when at least one enabled profile exists; profile application records into the existing `lastApplied*Uri` restoration data so boot restoration does not stomp it; tests cover empty gating, overlapping windows, and the overnight wrap.
+  Complexity: M
+
+- [ ] P2 — Finish live-wallpaper dimming on the video and parallax engines
+  Why: `LiveWallpaperDimming` (dim + double-tap reveal) shipped wired into `WeatherWallpaperService` only, with the other two engines named as follow-up wiring that never happened; the Settings toggle reads as engine-agnostic, so on video/parallax it is a silent no-op.
+  Evidence: commit `517f642` ("reusable by VideoWallpaperService and ParallaxWallpaperService (left as follow-up wiring)"); grep shows no dimming reference in `VideoWallpaperService.kt` or `ParallaxWallpaperService.kt`; Muzei recede mode is the category reference.
+  Touches: `VideoWallpaperService.kt`, `ParallaxWallpaperService.kt`, `LiveWallpaperDimming.kt`, the live-wallpaper soak harness, string resources.
+  Acceptance: dim level and double-tap reveal behave identically on all three engines; re-dim after reveal follows the one-shot delayed-frame pattern CLAUDE.md documents for `WeatherWallpaperService.scheduleDraw()`; the soak harness runs the dimmed path and asserts no extra bitmap retention; until parity lands the toggle copy names the engines it affects.
+  Complexity: S
+
+- [ ] P2 — Classify OEM ringtone-write failures instead of failing generically
+  Why: `SoundApplier` calls `RingtoneManager.setActualDefaultRingtoneUri` with no OEM-failure handling, and Samsung devices are documented throwing `IllegalArgumentException` ("cannot keep your settings in the secure settings") on notification-sound writes — the user sees a generic failure for a known, explainable device behavior in the app's core action.
+  Evidence: `SoundApplier.kt:70,109`; Samsung developer-forum reports of the secure-settings exception on Galaxy devices; Samsung community threads on tones not persisting after updates.
+  Touches: `SoundApplier.kt`, `ContactRingtoneService.kt`, error string resources, `SettingsDiagnosticsSection.kt` or the diagnostics bundle.
+  Acceptance: the secure-settings failure class is caught and distinguished from missing `WRITE_SETTINGS`; the user gets device-specific guidance including a one-tap route to the system sound picker as fallback; the failure class is counted in diagnostics; a test covers the `IllegalArgumentException` path for each of the three sound types.
+  Complexity: S
+
+- [ ] P2 — Prefetch the next rotation wallpaper
+  Why: `AutoWallpaperWorker` fetches from the provider at fire time, so a dead or metered-blocked network at the trigger means a skipped rotation; prefetching the next candidate after each successful rotation makes remote-source rotation as reliable as local, and Wallora demonstrates the pattern.
+  Evidence: `AutoWallpaperWorker.kt` provider fetch in `doWork`; Wallora README (prefetch cache for instant apply); WallFlow's open offline-mode request.
+  Touches: `AutoWallpaperWorker.kt`, `DailyWallpaperWorker.kt`, a bounded prefetch cache (or `OfflineFavoritesManager` reuse), rotation diagnostics, tests.
+  Acceptance: after each successful rotation the next candidate downloads to a bounded cache (count and byte budget) respecting metered/data-saver posture; at fire time a cached candidate applies without network and the cache refills afterward; cache misses fall back to the current fetch path; local-source rotation is unchanged; diagnostics report prefetch hit/miss; tests cover hit, miss, budget eviction, and metered deferral.
+  Complexity: M
+
+#### P3
+
+- [ ] P3 — Restart the rotation countdown on manual wallpaper changes
+  Why: a manual apply does not touch the periodic schedule (`ExistingPeriodicWorkPolicy.UPDATE` keeps the existing cadence and the apply coordinator never reschedules), so rotation can overwrite a user's deliberate choice moments after they made it — a documented complaint class in Paperize.
+  Evidence: `WallpaperApplyCoordinator.kt` (no rescheduling); `AutoWallpaperWorker.kt:307` (`ExistingPeriodicWorkPolicy.UPDATE`); Paperize #591.
+  Touches: `WallpaperApplyCoordinator.kt`, `AutoWallpaperWorker.kt` scheduling companion, settings copy, tests.
+  Acceptance: a manual apply from any surface (detail, shuffle, widget, tile, external broadcast) restarts the rotation countdown, governed by an on-by-default "restart timer on manual change" setting; rotation diagnostics show the recomputed next-fire time; a test proves the next fire moves after a manual apply and does not move when the setting is off.
+  Complexity: S
+
+- [ ] P3 — Add Undo and Skip actions to the rotation notification
+  Why: the daily-rotation notification is display-only, so recovering from an unwanted rotated wallpaper requires opening the app, finding history, and undoing — while Aura already owns a working undo path; Peristyle and Paperize both ship notification-level controls.
+  Evidence: `DailyWallpaperWorker.kt` thumbnail notification with no actions; existing undo via `WallpaperHistoryManager`/`ApplyFeedbackBus`; Peristyle 9.7.5 delete-from-notification; Paperize pause/resume.
+  Touches: `DailyWallpaperWorker.kt`, `AutoWallpaperWorker.kt`, a notification action receiver, `WallpaperHistoryManager.kt`, string resources, tests.
+  Acceptance: the rotation notification offers Undo (restores the previous wallpaper through the existing history path) and Skip/Next; actions work with the app process dead; the notification can be silenced per channel without disabling rotation; tests cover undo-restores-previous and skip-advances.
+  Complexity: M
+
+- [ ] P3 — Publish signing-cert transparency and register the reproducible FOSS lane
+  Why: AppVerifier-style verification and IzzyOnDroid's reproducible-build badge both key off a published signing certificate digest and a reproducible recipe; Aura already prints the cert SHA-256 in release notes and has `tools/foss_reproducibility_check.py`, but README/fastlane carry no digest and no rbtlog registration exists.
+  Evidence: IzzyOnDroid reproducible-builds page and `AllowedAPKSigningKeys` practice; codeberg.org/IzzyOnDroid/rbtlog; release-signing runbook prints the digest only into release notes.
+  Touches: `README.md`, `fastlane/metadata/`, `docs/distribution/release-signing.md`, a small gate asserting the published digest matches the keystore, rbtlog registration when the IzzyOnDroid submission proceeds.
+  Acceptance: the release signing certificate SHA-256 appears in README and fastlane metadata and a gate fails when it drifts from the actual release keystore; the reproducible FOSS recipe is registered with rbtlog once IzzyOnDroid submission is decided; stale attestation claims in docs are corrected to the local-build reality.
+  Complexity: S
+
+- [ ] P3 — Offline procedural wallpaper generator
+  Why: Tapet's entire paid differentiator is offline procedural generation at exact screen resolution with palette control; Aura owns palette extraction, Material You seeds, an AGSL pipeline, and rotation, so a deterministic on-device generator neutralizes it while fitting the charter exactly (offline, no AI, no provider). Distinct from the rejected R-1 AI generation: no model, no network, reproducible from a seed.
+  Evidence: Tapet Play listing (premium palettes/patterns); Waller gradient generator and Shader Editor demand on F-Droid; `ColorExtractor`/`WallpaperPalette`, `AgslShaderGallery.kt`, and the rotation source picker as existing infrastructure.
+  Touches: a new generator service (pattern families seeded by palette + RNG seed), `ContentSource` enum, WallpapersScreen entry point, rotation source picker, `ProviderDisclosure.kt` (local provenance), tests.
+  Acceptance: users generate wallpapers offline at exact screen resolution from a chosen palette (including the current Material You palette) and pattern family, then save/apply/favorite them; a "Generated" rotation source produces a fresh image per rotation with no network; output carries provenance metadata distinct from AI and provider content; generation is deterministic given a seed, and tests assert determinism and resolution.
+  Complexity: L
