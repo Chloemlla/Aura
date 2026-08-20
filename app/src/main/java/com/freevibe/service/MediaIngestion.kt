@@ -25,6 +25,10 @@ class MediaIngestionImageRejected(
     message: String,
 ) : IOException(message)
 
+class MediaIngestionMediaRejected(
+    message: String,
+) : IOException(message)
+
 internal fun advertisedLengthExceeds(
     contentLength: Long,
     maxBytes: Long,

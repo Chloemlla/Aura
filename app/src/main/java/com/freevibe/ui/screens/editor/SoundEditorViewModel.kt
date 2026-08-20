@@ -17,9 +17,13 @@ import com.freevibe.service.AudioExportFormat
 import com.freevibe.service.AudioFadeCurve
 import com.freevibe.service.AudioTrimmer
 import com.freevibe.service.MediaIngestionLimitExceeded
+import com.freevibe.service.MediaFamily
 import com.freevibe.service.SoundUrlResolver
 import com.freevibe.service.SoundApplier
 import com.freevibe.service.copyStreamCapped
+import com.freevibe.service.normalizeMediaFileName
+import com.freevibe.service.requireSniffedMediaFile
+import com.freevibe.service.ShareOutbox
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -241,8 +245,9 @@ class SoundEditorViewModel @Inject constructor(
                     success = null,
                 )
             }
+            var cachedFile: File? = null
             try {
-                val file = withContext(Dispatchers.IO) { copyUriToCache(uri) }
+                val file = withContext(Dispatchers.IO) { copyUriToCache(uri).also { cachedFile = it } }
                 val name = file.nameWithoutExtension
                 val waveform = withContext(Dispatchers.Default) { extractWaveform(file.absolutePath) }
                 val timing = withContext(Dispatchers.IO) { getAudioTiming(file.absolutePath) }
@@ -260,6 +265,9 @@ class SoundEditorViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
+                // A revoked or malformed local URI can fail after the bounded copy
+                // succeeds. Do not leave that unusable cache entry behind.
+                cachedFile?.delete()
                 _state.update { it.copy(isLoading = false, error = "Failed to load file: ${e.message}") }
             }
         }
@@ -594,13 +602,27 @@ class SoundEditorViewModel @Inject constructor(
         cacheDir.mkdirs()
         val fileName = uri.lastPathSegment?.substringAfterLast('/') ?: "local_audio"
         val safeName = fileName.replace(FILE_SANITIZE_REGEX, "_")
-        val file = File(cacheDir, safeName)
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            FileOutputStream(file).use { output ->
-                copyStreamCapped(input, output, MAX_EDIT_DOWNLOAD_BYTES)
+        val tempFile = File(cacheDir, ".${safeName}.${System.nanoTime()}.part")
+        try {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(tempFile).use { output ->
+                    copyStreamCapped(input, output, MAX_EDIT_DOWNLOAD_BYTES)
+                }
+            } ?: throw IllegalStateException("Cannot read file")
+            if (tempFile.length() <= 0L) throw IllegalStateException("The selected file is empty")
+
+            val sniffed = requireSniffedMediaFile(tempFile, MediaFamily.AUDIO, "Sound")
+            val file = File(cacheDir, normalizeMediaFileName(safeName, sniffed))
+            if (!tempFile.renameTo(file)) {
+                tempFile.copyTo(file, overwrite = true)
+                tempFile.delete()
             }
-        } ?: throw IllegalStateException("Cannot read file")
-        file
+            ShareOutbox.deleteExternalMedia(context, uri)
+            file
+        } catch (error: Exception) {
+            tempFile.delete()
+            throw error
+        }
     }
 
     private fun extractWaveform(path: String, numSamples: Int = 200): FloatArray {

@@ -23,6 +23,11 @@ All notable changes to Aura will be documented in this file.
   resources. The hardcoded-string gate now checks these ViewModel states and editor controls,
   while its baseline keeps unrelated legacy findings visible for later extraction.
 
+- **Shared image and audio entry now opens the existing editors**: granted user-owned
+  `ACTION_SEND` and `ACTION_EDIT` files are copied to the bounded app outbox, sniffed, and
+  routed to wallpaper crop or Sound Editor. Remote links, multi-file shares, revoked grants,
+  malformed payloads, and oversized inputs get a visible recovery message.
+
 - **New Rotation health screen, in Settings under Diagnostics**: when automatic
   wallpaper change quietly stops, there was nothing to look at. The five reasons it can
   stop all look the same from the home screen: rotation is off, it's waiting for its

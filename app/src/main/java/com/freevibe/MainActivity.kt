@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -14,16 +15,28 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.lifecycleScope
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Wallpaper
 import com.freevibe.service.ExternalAutomationDispatcher
+import com.freevibe.service.ExternalMediaKind
+import com.freevibe.service.IngestedExternalMedia
+import com.freevibe.service.MediaIngestionLimitExceeded
+import com.freevibe.service.MediaIngestionMediaRejected
 import com.freevibe.service.RotationTriggerRecovery
 import com.freevibe.service.TaskerActionReceiver
 import com.freevibe.service.extractCollectionShareToken
+import com.freevibe.service.ingestExternalMedia
+import com.freevibe.service.parseExternalMediaIntent
 import com.freevibe.ui.FreeVibeRoot
 import com.freevibe.ui.navigation.Screen
 import com.freevibe.ui.theme.FreeVibeTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 internal data class LaunchNavigation(
     val route: String? = null,
@@ -40,6 +53,27 @@ private const val EXTRA_DAILY_WALLPAPER_HEIGHT = "daily_wallpaper_height"
 private const val EXTRA_NAVIGATE_TO = "navigate_to"
 internal const val ACTION_SHORTCUT_SEARCH = "com.freevibe.action.SEARCH"
 internal const val ACTION_SHORTCUT_DOWNLOADS = "com.freevibe.action.DOWNLOADS"
+
+internal fun buildExternalMediaNavigation(media: IngestedExternalMedia): LaunchNavigation =
+    when (media.kind) {
+        ExternalMediaKind.IMAGE -> {
+            val uriString = media.uri.toString()
+            val wallpaper = Wallpaper(
+                id = "shared_image_${uriString.hashCode()}",
+                source = ContentSource.LOCAL,
+                thumbnailUrl = uriString,
+                fullUrl = uriString,
+                width = 0,
+                height = 0,
+                category = "Shared image",
+            )
+            // The route carries the local wallpaper metadata. Do not also set
+            // initialWallpaper, which would intentionally route to detail.
+            LaunchNavigation(route = Screen.WallpaperCrop.createRoute(wallpaper))
+        }
+        ExternalMediaKind.AUDIO ->
+            LaunchNavigation(route = Screen.SoundEditor.createLocalRoute(media.uri))
+    }
 
 internal fun consumeLaunchNavigation(intent: Intent?): LaunchNavigation? {
     val navigation = parseLaunchNavigation(intent)
@@ -179,13 +213,24 @@ private fun parseCollectionImportNavigation(intent: Intent): LaunchNavigation? {
     }
 
     val importUri = when {
-        intent.action == Intent.ACTION_SEND -> intent.collectionStreamUri()
+        intent.action == Intent.ACTION_SEND && intent.isJsonCollectionShare() ->
+            intent.collectionStreamUri() ?: intent.clipData
+                ?.takeIf { it.itemCount > 0 }
+                ?.getItemAt(0)
+                ?.uri
         intent.action == Intent.ACTION_VIEW && data?.isJsonLikeCollectionUri(intent.type) == true -> data
         else -> null
     } ?: return null
 
     return buildLaunchNavigation(route = Screen.Collections.createRoute(importUri = importUri.toString()))
 }
+
+private fun Intent.isJsonCollectionShare(): Boolean =
+        type?.contains("json", ignoreCase = true) == true ||
+        data?.toString()?.endsWith(".json", ignoreCase = true) == true ||
+        collectionStreamUri()?.toString()?.endsWith(".json", ignoreCase = true) == true ||
+        clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.uri
+            ?.toString()?.endsWith(".json", ignoreCase = true) == true
 
 private fun Uri.isJsonLikeCollectionUri(intentType: String?): Boolean {
     val asString = toString()
@@ -205,10 +250,12 @@ private fun Intent.collectionStreamUri(): Uri? =
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private var launchNavigation by mutableStateOf<LaunchNavigation?>(null)
+    private var externalMediaJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val launchIntent = intent
         launchNavigation = if (shouldHandleInitialLaunchNavigation(savedInstanceState)) {
             handleShortcutSideEffects(intent)
             consumeLaunchNavigation(intent)
@@ -229,6 +276,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        handleExternalMediaIntent(launchIntent)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -236,6 +284,7 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         handleShortcutSideEffects(intent)
         launchNavigation = consumeLaunchNavigation(intent)
+        handleExternalMediaIntent(intent)
     }
 
     override fun onResume() {
@@ -258,5 +307,34 @@ class MainActivity : ComponentActivity() {
             intent = intent,
             entryPoint = ExternalAutomationDispatcher.ENTRY_POINT_ACTIVITY,
         )
+    }
+
+    private fun handleExternalMediaIntent(intent: Intent?) {
+        externalMediaJob?.cancel()
+        val parsed = parseExternalMediaIntent(intent) ?: return
+        if (parsed.isFailure) {
+            showExternalMediaError(parsed.exceptionOrNull())
+            return
+        }
+        val request = parsed.getOrThrow()
+        externalMediaJob = lifecycleScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) { ingestExternalMedia(this@MainActivity, request) }
+            }.onFailure { error ->
+                if (error is CancellationException) throw error
+            }
+            result
+                .onSuccess { launchNavigation = buildExternalMediaNavigation(it) }
+                .onFailure(::showExternalMediaError)
+        }
+    }
+
+    private fun showExternalMediaError(error: Throwable?) {
+        val messageRes = when (error) {
+            is MediaIngestionLimitExceeded -> R.string.external_media_too_large
+            is MediaIngestionMediaRejected -> R.string.external_media_unsupported
+            else -> R.string.external_media_open_failed
+        }
+        Toast.makeText(this, getString(messageRes), Toast.LENGTH_LONG).show()
     }
 }

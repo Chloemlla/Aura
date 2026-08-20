@@ -17,6 +17,7 @@ import com.freevibe.service.advertisedLengthExceeds
 import com.freevibe.service.MediaIngestionImageFlow
 import com.freevibe.service.decodeImageBytesForFlow
 import com.freevibe.service.readStreamCapped
+import com.freevibe.service.ShareOutbox
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -138,13 +139,15 @@ class WallpaperCropViewModel @Inject constructor(
                         ?: throw Exception("Could not open image")
                     stream.use {
                         val bytes = readStreamCapped(it, MAX_CROP_BYTES)
-                        decodeImageBytesForFlow(
+                        val bitmap = decodeImageBytesForFlow(
                             bytes = bytes,
                             flow = MediaIngestionImageFlow.EDITOR,
                             declaredMimeType = appContext.contentResolver.getType(uri),
                             extension = uri.lastPathSegment?.substringAfterLast('.', missingDelimiterValue = ""),
                             maxLongEdge = MAX_CROP_LONG_EDGE,
                         )
+                        ShareOutbox.deleteExternalMedia(appContext, uri)
+                        bitmap
                     }
                 }
                 _state.update { it.copy(bitmap = bitmap, isLoading = false) }
