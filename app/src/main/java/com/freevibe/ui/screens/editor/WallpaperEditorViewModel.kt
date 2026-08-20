@@ -9,6 +9,7 @@ import com.freevibe.data.model.stableKey
 import com.freevibe.service.DepthBackgroundStyle
 import com.freevibe.service.DepthFrameStyle
 import com.freevibe.service.DepthPortraitComposer
+import com.freevibe.service.WallpaperEditorMemoryBudget
 import com.freevibe.service.DepthPortraitOptions
 import com.freevibe.service.WallpaperApplyCoordinator
 import com.freevibe.service.WallpaperApplyPolicy
@@ -797,7 +798,13 @@ class WallpaperEditorViewModel @Inject constructor(
     private companion object {
         /** Max bytes accepted when downloading a wallpaper for editing. */
         private const val MAX_EDIT_BYTES = 64L * 1024 * 1024
-        private const val MAX_EDIT_LONG_EDGE = 4096
+
+        /**
+         * Owned by [WallpaperEditorMemoryBudget] so the arithmetic that decides
+         * whether this fits under Android 17's per-app memory limiter moves with
+         * it. Raising it here alone would not be possible.
+         */
+        private const val MAX_EDIT_LONG_EDGE = WallpaperEditorMemoryBudget.MAX_EDIT_LONG_EDGE
         private const val MAX_OVERLAY_UNDO = 20
         private const val MAX_OVERLAY_TEXT_LENGTH = 48
         private const val OVERLAY_UNDO_COALESCE_NANOS = 1_000_000_000L // 1s gesture window

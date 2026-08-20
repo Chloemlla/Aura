@@ -219,13 +219,6 @@ against v6.41.0 / versionCode 142 at `122d431`.
   Acceptance: a downgrade opens the database without crashing and either migrates down or resets with an explicit user-visible warning and a pointer to backup/restore — never a silent wipe; a test builds a v1 database from the hand-written schema and runs the full 1→16 chain, plus each intermediate hop that has an exported schema; the gate fails when a declared migration has no test.
   Complexity: M
 
-- [ ] P1 — Handle the Android 17 per-app memory limiter
-  Why: Android 17 imposes a RAM-derived memory ceiling on **all** apps regardless of targetSdk, and Aura is the exact profile it targets — a 4096 px editor render path with a known bitmap-orphaning defect, a 64 MB apply ceiling, and three long-lived wallpaper engines holding bitmap layers. As of 2026-08-11, a limiter kill is indistinguishable from any other death, and the diagnostics bundle users paste into crash reports would not mention it.
-  Evidence: developer.android.com/about/versions/17/behavior-changes-all — applies to all apps; detection via `ApplicationExitInfo.getDescription()` containing `MemoryLimiter:AnonSwap`; `CrashDiagnosticsCollector.kt:101` builds the bundle and reads no `ApplicationExitInfo`; `WallpaperEditorViewModel.kt` `MAX_EDIT_LONG_EDGE = 4096` and the orphaned-bitmap item tracked above.
-  Touches: `CrashDiagnosticsCollector.kt`, `FreeVibeApp.kt`, `WallpaperEditorViewModel.kt`, `docs/support/crash-diagnostics.md`, tests.
-  Acceptance: the diagnostics bundle reports the last `ApplicationExitInfo` reason and description, naming a memory-limiter kill explicitly when present; a memory-limiter exit is counted and surfaced in Diagnostics; the editor's peak allocation is measured and bounded against a recorded ceiling; `docs/support/crash-diagnostics.md` documents the new field.
-  Complexity: M
-
 - [ ] P1 — Make the wallpaper grid model stable and start measuring recomposition
   Why: `Wallpaper` carries two `List<String>` fields and no `@Immutable`, while `Sound` directly below it has the annotation. It is the model rendered in every cell of the busiest screens in the app, so the Compose compiler treats those items as unstable and recomposes them whenever a parent does — and with no compiler metrics configured, the cost is invisible. Aura already has Macrobenchmark to prove the delta.
   Evidence: `data/model/Models.kt:33-54` (`Wallpaper`, `tags: List<String>`, `colors: List<String>`, no annotation) vs `:58` (`Sound`, `@Immutable`); 10 `@Immutable`/`@Stable` in the whole codebase; no `composeCompiler { }` block in `app/build.gradle.kts`; `WallpapersScreen.kt` 1,848 lines, `VideoWallpapersScreen.kt` 1,605.

@@ -94,8 +94,8 @@ internal fun externalAutomationSubtitle(status: ExternalAutomationDiagnostics): 
 }
 
 @Composable
-internal fun crashDiagnosticsSubtitle(summary: CrashDiagnosticsSummary): String =
-    if (summary.hasCrashLog) {
+internal fun crashDiagnosticsSubtitle(summary: CrashDiagnosticsSummary): String {
+    val base = if (summary.hasCrashLog) {
         stringResource(
             R.string.settings_diag_crash_last_subtitle,
             summary.lastCrashAt ?: stringResource(R.string.settings_diag_crash_recorded),
@@ -103,6 +103,16 @@ internal fun crashDiagnosticsSubtitle(summary: CrashDiagnosticsSummary): String 
     } else {
         stringResource(R.string.settings_diag_crash_none_subtitle)
     }
+    // A memory-limiter kill never reaches the crash handler, so it has to be
+    // reported next to "no crashes recorded" rather than inside it.
+    if (summary.memoryLimiterExitCount <= 0) return base
+    val limiter = pluralStringResource(
+        R.plurals.settings_diag_memory_limiter_exits,
+        summary.memoryLimiterExitCount,
+        summary.memoryLimiterExitCount,
+    )
+    return "$base $limiter"
+}
 
 // -- External automation helpers --
 

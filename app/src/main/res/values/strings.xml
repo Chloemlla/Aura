@@ -1376,6 +1376,10 @@
     <string name="settings_diag_crash_last_subtitle">Last crash %1$s • Copy or share a sanitized issue bundle</string>
     <string name="settings_diag_crash_recorded">recorded</string>
     <string name="settings_diag_crash_none_subtitle">No local crash log yet • Copy or share environment details if the app freezes</string>
+    <plurals name="settings_diag_memory_limiter_exits">
+        <item quantity="one">• %1$d memory-limiter shutdown</item>
+        <item quantity="other">• %1$d memory-limiter shutdowns</item>
+    </plurals>
     <string name="settings_diag_background_title">Background work</string>
     <string name="settings_diag_source_title">Source diagnostics</string>
     <string name="settings_diag_source_empty_subtitle">Live provider health appears here after browsing</string>

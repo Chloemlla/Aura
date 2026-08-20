@@ -21,6 +21,15 @@ data class CrashDiagnosticsSummary(
     val lastCrashAt: String? = null,
     val crashLogBytes: Long = 0L,
     val hasCrashLog: Boolean = false,
+    /**
+     * Recent process exits Android attributed to its per-app memory limiter.
+     *
+     * Surfaced separately from the crash log because a limiter kill never reaches
+     * Aura's uncaught-exception handler — the process is simply gone, so
+     * `crash.log` is silent about the one failure mode this app is most exposed
+     * to.
+     */
+    val memoryLimiterExitCount: Int = 0,
 )
 
 internal data class BackgroundWorkDiagnosticsRow(
@@ -43,15 +52,33 @@ class CrashDiagnosticsCollector @Inject constructor(
     private val liveWallpaperReceiptStore: LiveWallpaperReceiptStore,
 ) {
     fun readSummary(): CrashDiagnosticsSummary {
+        val limiterExits = memoryLimiterExitCount()
         val logFile = crashLogFile()
-        if (!logFile.exists() || logFile.length() <= 0L) return CrashDiagnosticsSummary()
+        if (!logFile.exists() || logFile.length() <= 0L) {
+            // A limiter kill leaves no crash log, so an empty log is not an empty
+            // summary — reporting one would hide the exits entirely.
+            return CrashDiagnosticsSummary(memoryLimiterExitCount = limiterExits)
+        }
         val raw = runCatching { logFile.readText(Charsets.UTF_8) }.getOrDefault("")
         return CrashDiagnosticsSummary(
             lastCrashAt = CrashDiagnosticsText.parseLastCrashAt(raw),
             crashLogBytes = logFile.length(),
             hasCrashLog = raw.isNotBlank(),
+            memoryLimiterExitCount = limiterExits,
         )
     }
+
+    private fun recentExits(): List<ApplicationExitInfo> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return emptyList()
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+            ?: return emptyList()
+        return runCatching {
+            am.getHistoricalProcessExitReasons(context.packageName, 0, MAX_EXIT_RECORDS)
+        }.getOrNull().orEmpty()
+    }
+
+    private fun memoryLimiterExitCount(): Int =
+        AndroidMemoryLimiter.countMemoryLimiterExits(recentExits().map { it.description })
 
     suspend fun buildBundle(): String {
         val summary = readSummary()
@@ -313,19 +340,23 @@ class CrashDiagnosticsCollector @Inject constructor(
     }.trimEnd()
 
     private fun formatRecentExitInfo(): String {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return ""
-        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return ""
-        val exits = runCatching {
-            am.getHistoricalProcessExitReasons(context.packageName, 0, 5)
-        }.getOrNull()
-        if (exits.isNullOrEmpty()) return ""
+        val exits = recentExits()
+        if (exits.isEmpty()) return ""
+        val limiterExits = AndroidMemoryLimiter.countMemoryLimiterExits(exits.map { it.description })
         return buildString {
             appendLine("## Recent process exits (API 30+)")
+            appendLine(
+                "- ${AndroidMemoryLimiter.EXPLANATION} kills in this history: $limiterExits",
+            )
+            appendLine("- ${WallpaperEditorMemoryBudget.describe()}")
             for (info in exits) {
                 val reason = exitReasonName(info.reason)
                 val desc = info.description?.take(200) ?: "none"
                 val ts = timestampWithZone(info.timestamp)
-                appendLine("- [$ts] $reason: $desc (importance=${info.importance}, pss=${info.pss}KB)")
+                val limiter = AndroidMemoryLimiter.annotate(info.description)
+                appendLine(
+                    "- [$ts] $reason: $desc (importance=${info.importance}, pss=${info.pss}KB)$limiter",
+                )
             }
         }.trimEnd()
     }
@@ -350,6 +381,7 @@ class CrashDiagnosticsCollector @Inject constructor(
     companion object {
         const val CRASH_LOG_FILE_NAME = "crash.log"
         private const val MAX_CRASH_LOG_CHARS = 16_000
+        private const val MAX_EXIT_RECORDS = 5
         private const val MAX_SOURCE_HEALTH_ROWS = 8
         private const val WEATHER_WALLPAPER_PREFS = "freevibe_weather_wp"
         private const val DAILY_WALLPAPER_ENABLED_KEY = "daily_wallpaper_enabled"

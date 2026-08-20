@@ -4,6 +4,16 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Name the Android 17 memory-limiter shutdown instead of letting it look like nothing**
+  — Android 17 caps how much memory any app may hold, whatever SDK it targets, and when
+  it kills a process there is no exception and no stack trace. The diagnostics bundle
+  reported such a death as an ordinary exit and the crash log stayed empty, so the one
+  failure mode Aura is most exposed to was the one users could not report. Recent exits
+  are now labelled when Android attributed them to the limiter, the count appears in
+  Settings beside the crash-log state, and the bundle records the wallpaper editor's
+  worst-case peak allocation against the ceiling it is held to. Raising the editor's
+  size cap past that ceiling now fails a test.
+
 - **Live wallpapers now theme the rest of your phone** — none of the three wallpaper
   engines answered the system's request for wallpaper colors, so while an Aura live
   wallpaper was on screen the launcher, quick settings, and every app that follows
