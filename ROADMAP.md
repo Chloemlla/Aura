@@ -244,22 +244,6 @@ Complexity: S
 Evidence, confidence labels, and sources in RESEARCH.md (2026-08-11 pass). Items verified
 against v6.41.0 / versionCode 142 at `122d431`.
 
-#### P0
-
-- [ ] P0 — Publish the tracked docs that still 404, and widen the link gate past `docs/`
-  Why: `.gitignore:36` (`*.md`) still excludes `CONTRIBUTING.md` and `ARCHITECTURE.md`, so both return HTTP 404 on GitHub — GitHub shows no contributing guidelines on new issues or PRs, and the architecture overview that calls itself "for contributors" is unreachable. This is the same failure class v6.41.0 claimed to close for `docs/`, left open one directory up.
-  Evidence: `git check-ignore -v CONTRIBUTING.md ARCHITECTURE.md` → `.gitignore:36 *.md`; neither appears in `git ls-files`; both `blob/main/` URLs return 404, as does `docs/plugins/` which `CONTRIBUTING.md` links; `tools/docs_link_check.py` `SOURCE_ROOTS` = README + `app/src/main/java` + `app/src/main/res/values`, and `DOC_LINK_PATTERN` matches only `docs/`-prefixed targets.
-  Touches: `.gitignore`, `tools/docs_link_check.py`, `CONTRIBUTING.md`, `ARCHITECTURE.md`.
-  Acceptance: `CONTRIBUTING.md` and `ARCHITECTURE.md` are tracked and resolve over HTTP; the link gate walks every tracked root-level markdown file and every link target regardless of prefix, resolves relative links against the repo, and fails when any target is untracked or missing; deleting the tracking rule for either file breaks the gate; `docs/plugins/` is either created or the link removed.
-  Complexity: S
-
-- [ ] P0 — Correct `CONTRIBUTING.md`, which documents a roadmap that no longer exists
-  Why: it tells contributors to open issues "against existing items by their ID", to add "sources in the Appendix", and to read a "How to read this document" section for Now/Next/Later/Under-Consideration/Rejected tier thresholds. `ROADMAP.md` has no IDs, no Appendix, no such section, and uses P0–P3. A contributor following it cannot file a conforming issue. Must land with the item above or it publishes wrong instructions.
-  Evidence: `CONTRIBUTING.md:85-93` vs `ROADMAP.md` structure; `grep "^- \[ \] P" ROADMAP.md` returns 28 unbolded, un-IDed items.
-  Touches: `CONTRIBUTING.md`, optionally a gate in `tools/`.
-  Acceptance: the Roadmap section describes the P0–P3 format and the actual item template; the dangling `docs/plugins/` reference is resolved; a check asserts that every roadmap concept named in `CONTRIBUTING.md` exists in `ROADMAP.md`.
-  Complexity: S
-
 #### P1
 
 - [ ] P1 — Detect and recover when Aura's live wallpaper is no longer active
