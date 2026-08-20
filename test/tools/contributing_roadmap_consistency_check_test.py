@@ -56,7 +56,10 @@ class ContributingRoadmapConsistencyCheckTest(unittest.TestCase):
         result = validate_contributing_roadmap(REPO_ROOT)
 
         self.assertEqual("ok", result["status"])
-        self.assertIn("P0", result["roadmapTiers"])
+        # Assert the scheme, not that any given tier is populated: draining the
+        # last P0 is the goal, so requiring one here would make success fail.
+        self.assertTrue(result["roadmapTiers"], "the roadmap should still hold items")
+        self.assertLessEqual(set(result["roadmapTiers"]), {"P0", "P1", "P2", "P3"})
         self.assertEqual(
             ["Acceptance", "Complexity", "Evidence", "Touches", "Why"],
             result["templateFields"],
