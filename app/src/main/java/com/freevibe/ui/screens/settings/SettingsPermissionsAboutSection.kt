@@ -120,6 +120,7 @@ internal fun SettingsPermissionPromptDialog(
 @Composable
 internal fun PermissionsSettingsSection(context: Context) {
     SettingsSection(
+        sectionKey = SettingsSectionKeys.PERMISSIONS,
         title = stringResource(R.string.settings_permissions_section_title),
         description = stringResource(R.string.settings_permissions_section_description),
     ) {
@@ -188,6 +189,7 @@ internal fun AboutSettingsSection(
     onLicensesClick: () -> Unit,
 ) {
     SettingsSection(
+        sectionKey = SettingsSectionKeys.ABOUT,
         title = stringResource(R.string.settings_about_section_title),
         description = stringResource(R.string.settings_about_section_description),
     ) {

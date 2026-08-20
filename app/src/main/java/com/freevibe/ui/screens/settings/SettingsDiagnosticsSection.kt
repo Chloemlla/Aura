@@ -64,6 +64,7 @@ internal fun DiagnosticsSettingsSection(
     var crashDiagnosticsBusy by remember { mutableStateOf(false) }
 
     SettingsSection(
+        sectionKey = SettingsSectionKeys.DIAGNOSTICS,
         title = stringResource(R.string.settings_diagnostics_section_title),
         description = stringResource(R.string.settings_diagnostics_section_description),
     ) {

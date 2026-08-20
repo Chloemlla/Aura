@@ -78,6 +78,7 @@ internal fun BackupSettingsSection(
     }
 
     SettingsSection(
+        sectionKey = SettingsSectionKeys.BACKUP,
         title = stringResource(R.string.settings_backup_section_title),
         description = stringResource(R.string.settings_backup_section_description),
     ) {
@@ -102,6 +103,7 @@ internal fun BackupSettingsSection(
                     viewModel.setAutoBackupEnabled(true)
                 }
             },
+            searchAliases = setOf("backup", "restore", "export", "import"),
         )
         SettingsItem(
             icon = Icons.Default.FolderOpen,

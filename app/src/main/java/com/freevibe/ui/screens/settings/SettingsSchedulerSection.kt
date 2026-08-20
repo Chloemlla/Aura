@@ -60,6 +60,7 @@ internal fun SchedulerSettingsSection(
     var startHourTarget by remember { mutableStateOf<SchedulerSourceTarget?>(null) }
 
     SettingsSection(
+        sectionKey = SettingsSectionKeys.SCHEDULER,
         title = stringResource(R.string.settings_scheduler_section_title),
         description = stringResource(R.string.settings_scheduler_section_description),
     ) {

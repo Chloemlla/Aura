@@ -49,7 +49,7 @@
       "workerClass": "AutoWallpaperWorker",
       "sourcePath": "app/src/main/java/com/freevibe/service/AutoWallpaperWorker.kt",
       "settingsSources": [
-        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt"
+        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsRotationDelegate.kt"
       ],
       "workKind": "periodic",
       "enqueueApi": "enqueueUniquePeriodicWork",
@@ -100,7 +100,7 @@
       "workerClass": "AutoBackupWorker",
       "sourcePath": "app/src/main/java/com/freevibe/service/AutoBackupWorker.kt",
       "settingsSources": [
-        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt"
+        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsRotationDelegate.kt"
       ],
       "workKind": "periodic",
       "enqueueApi": "enqueueUniquePeriodicWork",
@@ -207,7 +207,7 @@
       "workerClass": "RingtoneShuffleWorker",
       "sourcePath": "app/src/main/java/com/freevibe/service/RingtoneShuffleWorker.kt",
       "settingsSources": [
-        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt"
+        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsMediaDelegate.kt"
       ],
       "workKind": "periodic",
       "enqueueApi": "enqueueUniquePeriodicWork",
@@ -241,7 +241,7 @@
       "workerClass": "SoundProfileWorker",
       "sourcePath": "app/src/main/java/com/freevibe/service/SoundProfileManager.kt",
       "settingsSources": [
-        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt"
+        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsMediaDelegate.kt"
       ],
       "workKind": "periodic",
       "enqueueApi": "enqueueUniquePeriodicWork",
@@ -275,7 +275,7 @@
       "workerClass": "WallpaperPackWorker",
       "sourcePath": "app/src/main/java/com/freevibe/service/WallpaperPackManager.kt",
       "settingsSources": [
-        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt"
+        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsMediaDelegate.kt"
       ],
       "workKind": "periodic",
       "enqueueApi": "enqueueUniquePeriodicWork",
@@ -384,7 +384,7 @@
       "workerClass": "AutoWallpaperWorker",
       "sourcePath": "app/src/main/java/com/freevibe/service/RotationTriggerService.kt",
       "settingsSources": [
-        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt",
+        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsRotationDelegate.kt",
         "app/src/main/java/com/freevibe/service/TaskerActionReceiver.kt"
       ],
       "workKind": "oneTime",

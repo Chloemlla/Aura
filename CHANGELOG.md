@@ -4,16 +4,21 @@ All notable changes to Aura will be documented in this file.
 
 ## v6.45.0
 
-- **Screenshot and accessibility gates now exercise production route renderers** — the old
+- **Screenshot and accessibility gates now exercise production route renderers**: the old
   debug-only route drawings have been removed. Wallpaper, sound, settings, video, and
   editor states now run through the same composables used by the app, with localized
   pseudo-locale, RTL, theme, compact, expanded, and large-font coverage.
 
-- **Settings state and side effects now live in feature delegates** — the ViewModel remains
+- **Settings state and side effects now live in feature delegates**: the ViewModel remains
   the existing screen facade, while rotation, media providers, community identity, and
   diagnostics each own their flows and jobs under the ViewModel lifecycle.
 
-- **New Rotation health screen, in Settings under Diagnostics** — when automatic
+- **Settings search now finds controls, not only sections**: localized row titles and
+  descriptions are indexed alongside intentional aliases such as OLED, Wi-Fi, backup,
+  App Check, YouTube, and battery saver. Selecting a result scrolls to and highlights the
+  exact setting, with production tests covering the supported routes and no-result state.
+
+- **New Rotation health screen, in Settings under Diagnostics**: when automatic
   wallpaper change quietly stops, there was nothing to look at. The five reasons it can
   stop all look the same from the home screen: rotation is off, it's waiting for its
   turn, Android is holding it back to save battery, the schedule got dropped after a
@@ -23,27 +28,27 @@ All notable changes to Aura will be documented in this file.
   Run now button, so you can watch a rotation happen instead of guessing. When the device
   refuses to answer something, it says so rather than showing a plausible-looking value.
 
-- **Media playback, image loading, and networking libraries all moved up** — Media3,
+- **Media playback, image loading, and networking libraries all moved up**: Media3,
   Coil, OkHttp, Navigation, Paging, DataStore, Compose, and the YouTube extractor had all
   been stuck behind one toolchain blocker. Compiling against Android 16's SDK cleared it.
   Nothing changes on screen; this is the groundwork the video playlist and gapless seam
   work needs.
 
-- **Fixed a crash on Android 8.0 when a live wallpaper published its colours** — the call
+- **Fixed a crash on Android 8.0 when a live wallpaper published its colours**: the call
   that tells the system a wallpaper's colours changed only exists from Android 8.1, and
   Aura made it on all seven of its publish paths. On Android 8.0 that is an immediate
   crash of the wallpaper service. Every engine now goes through one guarded helper, so
   adding a publish point cannot bring the crash back, and a release gate fails the build
   if one calls the platform directly again.
 
-- **Android Lint runs again, and now has nothing muted** — it had been unable to complete
+- **Android Lint runs again, and now has nothing muted**: it had been unable to complete
   a single run: three Compose detectors threw against the old build plugin's lint API and
   took the whole analysis down with them, so none of the other checks reported either.
   It had been broken long enough that a detector was switched off to work around it. The
   build plugin is now on a version whose lint matches, the run completes, the workaround
   is gone, and the thirteen real errors hiding behind the failure are fixed.
 
-- **The app compiles against Android 16's SDK while still targeting Android 15** —
+- **The app compiles against Android 16's SDK while still targeting Android 15**:
   compiling against a newer platform only widens what Aura can call behind version
   checks. None of Android 16's behaviour changes apply, because those follow the target,
   which has not moved. This is what let the media, image-loading, and networking

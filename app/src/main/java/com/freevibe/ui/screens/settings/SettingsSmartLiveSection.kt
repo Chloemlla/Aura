@@ -86,6 +86,7 @@ internal fun SmartLiveWallpaperSettingsSection(
     }
 
     SettingsSection(
+        sectionKey = SettingsSectionKeys.SMART,
         title = stringResource(R.string.settings_smart_section_title),
         description = stringResource(R.string.settings_smart_section_description),
     ) {

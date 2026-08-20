@@ -244,6 +244,7 @@ fun SettingsScreen(
 
     var settingsPermissionPrompt by remember { mutableStateOf<SettingsPermissionPrompt?>(null) }
     var settingsSearchQuery by remember { mutableStateOf("") }
+    val settingsSearchRegistry = remember { SettingsSearchRegistry() }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -303,8 +304,12 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 12.dp),
             )
-            val visibleSectionKeys = remember(settingsSearchQuery) { visibleSettingsSectionKeys(context, settingsSearchQuery) }
-            SettingsSearchBar(settingsSearchQuery, { settingsSearchQuery = it }, visibleSectionKeys.isEmpty())
+            SettingsSearchScope(
+                context = context,
+                registry = settingsSearchRegistry,
+                query = settingsSearchQuery,
+                onQueryChange = { settingsSearchQuery = it },
+            ) { visibleSectionKeys ->
             if (SettingsSectionKeys.WALLPAPERS in visibleSectionKeys) WallpaperRotationSettingsSection(
                 context = context,
                 viewModel = viewModel,
@@ -347,7 +352,6 @@ fun SettingsScreen(
                 onHistoryClick = navigation.onHistoryClick,
                 onFeedback = ::showSettingsFeedback,
             )
-
             if (SettingsSectionKeys.SCHEDULER in visibleSectionKeys) SchedulerSettingsSection(
                 context = context,
                 viewModel = viewModel,
@@ -369,7 +373,6 @@ fun SettingsScreen(
                 bingProviderEnabled = bingProviderEnabled,
                 onChooseLocalWallpaperFolder = ::chooseLocalWallpaperFolder,
             )
-
             if (SettingsSectionKeys.BACKUP in visibleSectionKeys) SettingsSectionAnchorTarget(Screen.Settings.BACKUP_SECTION, initialSection) {
                 BackupSettingsSection(
                     context = context,
@@ -384,7 +387,6 @@ fun SettingsScreen(
                     onFeedback = ::showSettingsFeedback,
                 )
             }
-
             if (SettingsSectionKeys.SMART in visibleSectionKeys) SmartLiveWallpaperSettingsSection(
                 context = context,
                 viewModel = viewModel,
@@ -488,6 +490,7 @@ fun SettingsScreen(
             if (SettingsSectionKeys.PERMISSIONS in visibleSectionKeys) PermissionsSettingsSection(context)
             if (SettingsSectionKeys.ABOUT in visibleSectionKeys) {
                 AboutSettingsSection(context = context, onLicensesClick = navigation.onLicensesClick)
+            }
             }
             Spacer(Modifier.height(24.dp))
         }

@@ -100,6 +100,7 @@ internal fun WallpaperRotationSettingsSection(
     var showStylePicker by remember { mutableStateOf(false) }
 
     SettingsSection(
+        sectionKey = SettingsSectionKeys.WALLPAPERS,
         title = stringResource(R.string.settings_wallpapers_section_title),
         description = stringResource(R.string.settings_wallpapers_section_description),
     ) {
@@ -140,6 +141,7 @@ internal fun WallpaperRotationSettingsSection(
                 subtitle = stringResource(R.string.settings_wp_wifi_only_subtitle),
                 checked = autoWpRequiresWiFi,
                 onCheckedChange = viewModel::setAutoWallpaperRequiresWiFiOnly,
+                searchAliases = setOf("wifi", "wi-fi", "network"),
             )
             SettingsToggle(
                 icon = Icons.Default.Bedtime,
@@ -172,6 +174,7 @@ internal fun WallpaperRotationSettingsSection(
             },
             checked = autoWallpaperNightVariantEnabled,
             onCheckedChange = viewModel::setAutoWallpaperNightVariantEnabled,
+            searchAliases = setOf("oled", "theme", "dark mode"),
         )
         val rotationActive = autoWpEnabled || schedulerEnabled || rotateOnUnlock || rotateOnScreenOff
         if (rotationActive) {

@@ -82,6 +82,7 @@ internal fun SoundSettingsSection(
     }
 
     SettingsSection(
+        sectionKey = SettingsSectionKeys.SOUNDS,
         title = stringResource(R.string.settings_sounds_section_title),
         description = stringResource(R.string.settings_sounds_section_description),
     ) {
@@ -116,6 +117,7 @@ internal fun SoundSettingsSection(
             },
             checked = youtubeProviderEnabled,
             onCheckedChange = viewModel::setYoutubeProviderEnabled,
+            searchAliases = setOf("youtube", "video", "extractor"),
         )
         SettingsItem(
             icon = Icons.Default.Update,

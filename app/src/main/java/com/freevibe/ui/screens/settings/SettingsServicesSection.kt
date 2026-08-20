@@ -110,6 +110,7 @@ internal fun ServicesCommunitySettingsSection(
     }
 
     SettingsSection(
+        sectionKey = SettingsSectionKeys.SERVICES,
         title = stringResource(R.string.settings_services_section_title),
         description = stringResource(R.string.settings_services_section_description),
     ) {
@@ -123,6 +124,7 @@ internal fun ServicesCommunitySettingsSection(
             },
             checked = communityProviderEnabled,
             onCheckedChange = viewModel::setCommunityProviderEnabled,
+            searchAliases = setOf("firebase", "app check", "integrity"),
         )
         if (communityProviderEnabled) {
             SettingsItem(
