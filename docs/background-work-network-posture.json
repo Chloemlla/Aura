@@ -64,7 +64,7 @@
       ],
       "settingsSourcePath": "app/src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt",
       "requiredSettingsTerms": [
-        "daily_wallpaper_enabled",
+        "setDailyWallpaperEnabled",
         "DailyWallpaperWorker.schedule",
         "DailyWallpaperWorker.cancel"
       ],

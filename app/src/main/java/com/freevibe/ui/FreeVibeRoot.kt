@@ -25,6 +25,7 @@ import androidx.navigation.navArgument
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import com.freevibe.R
+import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Sound
 import com.freevibe.data.model.Wallpaper
@@ -63,12 +64,10 @@ import com.freevibe.ui.screens.aigenerate.AiWallpaperScreen
 import com.freevibe.ui.components.AuraSnackbarHost
 import com.freevibe.ui.components.CountBadge
 
-private const val PREFS_KEY = "freevibe_app"
-private const val ONBOARDING_DONE = "onboarding_complete"
-
 @EntryPoint
 @InstallIn(SingletonComponent::class)
 interface FreeVibeRootEntryPoint {
+    fun preferencesManager(): PreferencesManager
     fun favoritesRepository(): com.freevibe.data.repository.FavoritesRepository
     fun applyFeedbackBus(): com.freevibe.service.ApplyFeedbackBus
     fun wallpaperApplier(): com.freevibe.service.WallpaperApplier
@@ -87,8 +86,8 @@ fun FreeVibeRoot(
         EntryPointAccessors.fromApplication(context, FreeVibeRootEntryPoint::class.java)
     }
     val favoritesCount by remember { entryPoint.favoritesRepository().count() }.collectAsStateWithLifecycle(initialValue = 0)
-    val prefs = remember { context.getSharedPreferences(PREFS_KEY, Context.MODE_PRIVATE) }
-    var onboardingDone by remember { mutableStateOf(prefs.getBoolean(ONBOARDING_DONE, false)) }
+    val preferencesManager = remember { entryPoint.preferencesManager() }
+    var onboardingDone by remember { mutableStateOf(preferencesManager.isOnboardingComplete()) }
     val navigationRootRoute = if (onboardingDone) Screen.Wallpapers.route else Screen.Onboarding.route
 
     val navController = rememberNavController()
@@ -316,7 +315,7 @@ fun FreeVibeRoot(
             composable(Screen.Onboarding.route) {
                 OnboardingScreen(
                     onComplete = {
-                        prefs.edit().putBoolean(ONBOARDING_DONE, true).apply()
+                        preferencesManager.setOnboardingComplete()
                         onboardingDone = true
                         navController.navigate(Screen.Wallpapers.route) {
                             popUpTo(Screen.Onboarding.route) { inclusive = true }

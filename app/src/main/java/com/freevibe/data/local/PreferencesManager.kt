@@ -23,6 +23,7 @@ import com.freevibe.service.VIDEO_FPS_LIMIT_PREF
 import com.freevibe.service.VIDEO_FPS_OVERLAY_PREF
 import com.freevibe.service.VIDEO_PLAYBACK_SPEED_PREF
 import com.freevibe.service.VIDEO_PREFS_NAME
+import com.freevibe.service.VIDEO_STATS_PREFS_NAME
 import com.freevibe.service.sanitizeVideoFpsLimit
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -54,6 +55,22 @@ internal const val SCHEDULER_DAY_NIGHT_MODE_CLOCK = "clock"
 internal const val SCHEDULER_DAY_NIGHT_MODE_SYSTEM_THEME = "system_theme"
 private val REDDIT_RSS_CURSOR_TOKEN = Regex("[a-zA-Z0-9]{1,64}")
 private val REDDIT_SUBREDDIT_NAME = Regex("[A-Za-z0-9_]{2,40}")
+private const val APP_PREFERENCES_NAME = "freevibe_app"
+private const val ONBOARDING_COMPLETE_KEY = "onboarding_complete"
+
+data class VideoBatteryStatsSnapshot(
+    val lastSeenMs: Long,
+    val batteryPercent: Int?,
+    val charging: Boolean,
+    val requestedFps: Int,
+    val effectiveFps: Int,
+    val lowBatterySaverActive: Boolean,
+    val systemPowerSaveMode: Boolean,
+    val motionPausedForPowerSave: Boolean,
+    val visible: Boolean,
+    val mediaType: String,
+    val scaleMode: String,
+)
 
 internal data class RedditSubredditListValidation(
     val subreddits: List<String>,
@@ -150,6 +167,27 @@ class PreferencesManager @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
     companion object {
+        fun readVideoBatteryStats(context: Context): VideoBatteryStatsSnapshot {
+            val stats = context.getSharedPreferences(VIDEO_STATS_PREFS_NAME, Context.MODE_PRIVATE)
+            return VideoBatteryStatsSnapshot(
+                lastSeenMs = stats.getLong("last_seen_ms", 0L),
+                batteryPercent = if (stats.contains("battery_percent")) {
+                    stats.getInt("battery_percent", -1).takeIf { it >= 0 }
+                } else {
+                    null
+                },
+                charging = stats.getBoolean("charging", false),
+                requestedFps = stats.getInt("requested_fps", 30),
+                effectiveFps = stats.getInt("effective_fps", 30),
+                lowBatterySaverActive = stats.getBoolean("low_battery_saver_active", false),
+                systemPowerSaveMode = stats.getBoolean("system_power_save_mode", false),
+                motionPausedForPowerSave = stats.getBoolean("motion_paused_for_power_save", false),
+                visible = stats.getBoolean("visible", false),
+                mediaType = stats.getString("media_type", "none") ?: "none",
+                scaleMode = stats.getString("scale_mode", "zoom") ?: "zoom",
+            )
+        }
+
         fun defaultRingtoneQuery(): String =
             "Ringtones"
 
@@ -607,6 +645,26 @@ class PreferencesManager @Inject constructor(
 
     private fun weatherWallpaperPrefs() =
         context.getSharedPreferences(WEATHER_WALLPAPER_PREFS_NAME, Context.MODE_PRIVATE)
+
+    fun isOnboardingComplete(): Boolean = context
+        .getSharedPreferences(APP_PREFERENCES_NAME, Context.MODE_PRIVATE)
+        .getBoolean(ONBOARDING_COMPLETE_KEY, false)
+
+    fun setOnboardingComplete() {
+        context.getSharedPreferences(APP_PREFERENCES_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(ONBOARDING_COMPLETE_KEY, true)
+            .apply()
+    }
+
+    fun isDailyWallpaperEnabled(): Boolean =
+        weatherWallpaperPrefs().getBoolean(DAILY_WALLPAPER_ENABLED_PREF, false)
+
+    fun weatherVfxEffect(): String =
+        weatherWallpaperPrefs().getString(WEATHER_VFX_EFFECT_PREF, "NONE") ?: "NONE"
+
+    fun touchEffectStrength(): String =
+        weatherWallpaperPrefs().getString(TOUCH_EFFECT_STRENGTH_PREF, "OFF") ?: "OFF"
 
     private fun writeLiveWallpaperFlag(key: String, enabled: Boolean) {
         weatherWallpaperPrefs().edit().putBoolean(key, enabled).apply()

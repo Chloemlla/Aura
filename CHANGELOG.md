@@ -4,6 +4,14 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Reliability: keep SharedPreferences out of the UI layer, and let the gate find its own
+  scope** — onboarding state, the Pixabay video feed cache, and the video-wallpaper
+  selection now persist through the data and service layers instead of composables reaching
+  for `getSharedPreferences`. The write-order gate discovers preference bridges by reading
+  `PreferencesManager` rather than consulting a hand-written list, so a newly added bridge
+  is policed the moment it is written, and it now rejects direct preference access anywhere
+  under `ui/`. A known set of bridges is still required to keep bridging, which discovery
+  alone cannot detect.
 - **Docs: check stated version facts against the build** — README and the working notes
   are now compared with `app/build.gradle.kts`, the exported Room schema, and the real
   bottom-navigation destinations, so a stale Room version, version badge, versionCode, or

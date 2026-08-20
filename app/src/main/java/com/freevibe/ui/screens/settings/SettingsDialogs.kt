@@ -48,10 +48,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.freevibe.R
+import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.model.WALLPAPER_SOURCE_LOCAL_FOLDER
 import com.freevibe.data.repository.CommunityBlockedUser
 import com.freevibe.service.CommunityIdentitySummary
-import com.freevibe.service.VIDEO_STATS_PREFS_NAME
 import com.freevibe.service.effectiveVideoFpsLimit
 import com.freevibe.service.shouldUseVideoBatterySaver
 import com.freevibe.service.shouldPauseVideoMotionForPowerSave
@@ -451,38 +451,33 @@ private fun readVideoBatteryDashboardState(
     autoBatterySaverEnabled: Boolean,
 ): VideoBatteryDashboardState {
     val battery = readSettingsBatterySnapshot(context)
-    val stats = context.getSharedPreferences(VIDEO_STATS_PREFS_NAME, Context.MODE_PRIVATE)
+    val stats = PreferencesManager.readVideoBatteryStats(context)
     val now = System.currentTimeMillis()
-    val lastSeenMs = stats.getLong("last_seen_ms", 0L)
-    val serviceFresh = lastSeenMs > 0L && now - lastSeenMs <= 45_000L
-    val statsBatteryPercent = if (serviceFresh && stats.contains("battery_percent")) {
-        stats.getInt("battery_percent", -1).takeIf { it >= 0 }
-    } else {
-        null
-    }
+    val serviceFresh = stats.lastSeenMs > 0L && now - stats.lastSeenMs <= 45_000L
+    val statsBatteryPercent = stats.batteryPercent.takeIf { serviceFresh }
     val batteryPercent = battery.percent ?: statsBatteryPercent
-    val isCharging = battery.isCharging || (serviceFresh && stats.getBoolean("charging", false))
-    val statsRequestedFps = if (serviceFresh) stats.getInt("requested_fps", requestedFps) else requestedFps
+    val isCharging = battery.isCharging || (serviceFresh && stats.charging)
+    val statsRequestedFps = if (serviceFresh) stats.requestedFps else requestedFps
     val localLowBatterySaver = shouldUseVideoBatterySaver(
         batteryPercent = batteryPercent,
         isCharging = isCharging,
         autoSaverEnabled = autoBatterySaverEnabled,
     )
     val lowBatterySaverActive = localLowBatterySaver ||
-        (serviceFresh && stats.getBoolean("low_battery_saver_active", false))
+        (serviceFresh && stats.lowBatterySaverActive)
     val localSystemPowerSaveMode = try {
         context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
     } catch (_: Exception) {
         false
     }
     val systemPowerSaveMode = localSystemPowerSaveMode ||
-        (serviceFresh && stats.getBoolean("system_power_save_mode", false))
+        (serviceFresh && stats.systemPowerSaveMode)
     val motionPausedForPowerSave = shouldPauseVideoMotionForPowerSave(
         systemPowerSaveMode = systemPowerSaveMode,
         autoSaverEnabled = autoBatterySaverEnabled,
-    ) || (serviceFresh && stats.getBoolean("motion_paused_for_power_save", false))
+    ) || (serviceFresh && stats.motionPausedForPowerSave)
     val effectiveFps = if (serviceFresh) {
-        stats.getInt("effective_fps", effectiveVideoFpsLimit(statsRequestedFps, lowBatterySaverActive))
+        stats.effectiveFps
     } else {
         effectiveVideoFpsLimit(statsRequestedFps, lowBatterySaverActive)
     }
@@ -490,15 +485,15 @@ private fun readVideoBatteryDashboardState(
         batteryPercent = batteryPercent,
         isCharging = isCharging,
         serviceFresh = serviceFresh,
-        serviceVisible = serviceFresh && stats.getBoolean("visible", false),
-        mediaType = if (serviceFresh) stats.getString("media_type", "none") ?: "none" else "none",
+        serviceVisible = serviceFresh && stats.visible,
+        mediaType = if (serviceFresh) stats.mediaType else "none",
         requestedFps = statsRequestedFps,
         effectiveFps = effectiveFps,
         fpsOverlayEnabled = fpsOverlayEnabled,
         lowBatterySaverActive = lowBatterySaverActive,
         systemPowerSaveMode = systemPowerSaveMode,
         motionPausedForPowerSave = motionPausedForPowerSave,
-        scaleMode = if (serviceFresh) stats.getString("scale_mode", "zoom") ?: "zoom" else "zoom",
+        scaleMode = if (serviceFresh) stats.scaleMode else "zoom",
     )
 }
 

@@ -67,6 +67,8 @@ internal fun SmartLiveWallpaperSettingsSection(
     wallpaperHistory: List<WallpaperHistoryEntity>,
     reduceAnimations: Boolean,
     liveWallpaperDimEnabled: Boolean,
+    initialVfxEffect: String,
+    initialTouchEffectStrength: String,
     onSetDailyWallpaperEnabled: (Boolean) -> Unit,
     onSetVfxEffect: (String) -> Unit,
     onSetTouchEffectStrength: (String) -> Unit,
@@ -79,11 +81,8 @@ internal fun SmartLiveWallpaperSettingsSection(
     var showShaderPicker by remember { mutableStateOf(false) }
     var showVfxPicker by remember { mutableStateOf(false) }
     var showTouchEffectsPicker by remember { mutableStateOf(false) }
-    var touchEffectStrength by remember {
-        mutableStateOf(
-            context.getSharedPreferences("freevibe_weather_wp", Context.MODE_PRIVATE)
-                .getString("touch_effect_strength", "OFF") ?: "OFF",
-        )
+    var touchEffectStrength by remember(initialTouchEffectStrength) {
+        mutableStateOf(initialTouchEffectStrength)
     }
 
     SettingsSection(
@@ -214,7 +213,7 @@ internal fun SmartLiveWallpaperSettingsSection(
 
     if (showVfxPicker) {
         VfxPickerDialog(
-            context = context,
+            initialVfxEffect = initialVfxEffect,
             onSelect = onSetVfxEffect,
             onDismiss = { showVfxPicker = false },
         )
@@ -414,7 +413,7 @@ private fun WallpaperSlotCard(
 
 @Composable
 private fun VfxPickerDialog(
-    context: Context,
+    initialVfxEffect: String,
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -427,11 +426,8 @@ private fun VfxPickerDialog(
         "LEAVES" to stringResource(R.string.settings_smart_vfx_leaves),
         "SPARKLES" to stringResource(R.string.settings_smart_vfx_sparkles),
     )
-    var currentVfx by remember {
-        mutableStateOf(
-            context.getSharedPreferences("freevibe_weather_wp", Context.MODE_PRIVATE)
-                .getString("vfx_effect", "NONE") ?: "NONE",
-        )
+    var currentVfx by remember(initialVfxEffect) {
+        mutableStateOf(initialVfxEffect)
     }
     AlertDialog(
         onDismissRequest = onDismiss,

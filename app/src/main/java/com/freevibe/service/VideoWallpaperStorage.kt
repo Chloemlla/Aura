@@ -90,6 +90,18 @@ internal fun hasValidGifHeader(header: ByteArray): Boolean =
             header.copyOfRange(0, 6).toString(Charsets.US_ASCII) == "GIF89a"
         )
 
+internal fun persistVideoWallpaperSelection(
+    context: Context,
+    file: File,
+    scaleMode: String = VIDEO_WALLPAPER_SCALE_MODE_ZOOM,
+) {
+    context.getSharedPreferences("freevibe_live_wp", Context.MODE_PRIVATE)
+        .edit()
+        .putString("video_path", file.absolutePath)
+        .putString("scale_mode", normalizeVideoWallpaperScaleMode(scaleMode))
+        .apply()
+}
+
 @Singleton
 class VideoWallpaperStorage @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -225,10 +237,6 @@ class VideoWallpaperStorage @Inject constructor(
         } ?: -1L
 
     private fun persistSelectedVideoWallpaper(file: File) {
-        context.getSharedPreferences("freevibe_live_wp", Context.MODE_PRIVATE)
-            .edit()
-            .putString("video_path", file.absolutePath)
-            .putString("scale_mode", VIDEO_WALLPAPER_SCALE_MODE_ZOOM)
-            .apply()
+        persistVideoWallpaperSelection(context, file)
     }
 }

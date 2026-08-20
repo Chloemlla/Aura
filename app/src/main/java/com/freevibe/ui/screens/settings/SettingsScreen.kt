@@ -74,11 +74,8 @@ fun SettingsScreen(
         feedbackScope.launch { snackbarHostState.showSnackbar(message) }
     }
     val settingsState = rememberSettingsScreenState(viewModel, context)
-    var dailyWallpaperEnabled by remember {
-        mutableStateOf(
-            context.getSharedPreferences("freevibe_weather_wp", Context.MODE_PRIVATE)
-                .getBoolean("daily_wallpaper_enabled", false),
-        )
+    var dailyWallpaperEnabled by remember(viewModel) {
+        mutableStateOf(viewModel.isDailyWallpaperEnabled())
     }
     fun setDailyWallpaperEnabled(enabled: Boolean) {
         dailyWallpaperEnabled = enabled
@@ -406,6 +403,8 @@ fun SettingsScreen(
                 wallpaperHistory = wallpaperHistory,
                 reduceAnimations = reduceAnimations,
                 liveWallpaperDimEnabled = liveWallpaperDimEnabled,
+                initialVfxEffect = viewModel.weatherVfxEffect(),
+                initialTouchEffectStrength = viewModel.touchEffectStrength(),
                 onSetDailyWallpaperEnabled = ::setDailyWallpaperEnabled,
                 onSetVfxEffect = viewModel::setWeatherVfxEffect,
                 onSetTouchEffectStrength = viewModel::setTouchEffectStrength,

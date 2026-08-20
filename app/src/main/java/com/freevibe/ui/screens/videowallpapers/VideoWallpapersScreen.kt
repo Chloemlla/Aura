@@ -69,6 +69,7 @@ import com.freevibe.service.VideoWallpaperSelectionResult
 import com.freevibe.service.VideoWallpaperService
 import com.freevibe.service.copyStreamCapped
 import com.freevibe.service.normalizeVideoWallpaperScaleMode
+import com.freevibe.service.persistVideoWallpaperSelection
 import com.freevibe.service.videoWallpaperMimeTypes
 import com.freevibe.ui.components.AuraStateAction
 import com.freevibe.ui.components.LoadMoreIndicator
@@ -142,11 +143,7 @@ internal fun persistSelectedVideoWallpaper(
     file: File,
     scaleMode: String = VIDEO_WALLPAPER_SCALE_MODE_ZOOM,
 ) {
-    context.getSharedPreferences("freevibe_live_wp", Context.MODE_PRIVATE)
-        .edit()
-        .putString("video_path", file.absolutePath)
-        .putString("scale_mode", normalizeVideoWallpaperScaleMode(scaleMode))
-        .apply()
+    persistVideoWallpaperSelection(context, file, scaleMode)
 }
 
 internal suspend fun exportVideoToGallery(context: Context, file: File): Uri? = withContext(Dispatchers.IO) {

@@ -1,11 +1,11 @@
 package com.freevibe.ui.screens.videowallpapers
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.freevibe.data.local.PixabayVideoCacheStore
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.util.rethrowIfCancelled
 import com.freevibe.data.remote.pexels.PexelsApi
@@ -57,7 +57,6 @@ import javax.inject.Inject
 
 internal const val PIXABAY_VIDEO_CACHE_TTL_MS = 24 * 60 * 60 * 1000L
 internal const val REDDIT_RSS_MOTION_CACHE_TTL_MS = 2 * 60 * 60 * 1000L
-private const val PIXABAY_VIDEO_CACHE_PREFS = "freevibe_pixabay_video_cache"
 private const val PIXABAY_VIDEO_RATE_LIMITED_UNTIL_KEY = "pixabay_video_rate_limited_until_ms"
 private const val YOUTUBE_VIDEO_METADATA_PROBE_LIMIT = 30
 private const val MAX_CACHED_VIDEO_FEED_ITEMS = 120
@@ -442,9 +441,7 @@ class VideoWallpapersViewModel @Inject constructor(
     val state = _state.asStateFlow()
     private val _gallerySelectionResult = MutableStateFlow<VideoWallpaperSelectionResult?>(null)
     val gallerySelectionResult = _gallerySelectionResult.asStateFlow()
-    private val pixabayVideoCachePrefs: SharedPreferences by lazy(LazyThreadSafetyMode.NONE) {
-        context.getSharedPreferences(PIXABAY_VIDEO_CACHE_PREFS, Context.MODE_PRIVATE)
-    }
+    private val pixabayVideoCache = PixabayVideoCacheStore(context)
     @Volatile
     private var pixabayVideoRateLimitedUntilMs: Long = 0L
 
@@ -1255,7 +1252,7 @@ class VideoWallpapersViewModel @Inject constructor(
         freshnessTtlMs: Long,
     ): CachedPixabayVideoMetadata? =
         decodePixabayVideoCache(
-            raw = pixabayVideoCachePrefs.getString(cacheKey, null),
+            raw = pixabayVideoCache.readString(cacheKey),
             nowMs = System.currentTimeMillis(),
             requireFresh = freshOnly,
             freshnessTtlMs = freshnessTtlMs,
@@ -1267,19 +1264,17 @@ class VideoWallpapersViewModel @Inject constructor(
         nextAfter: String? = null,
         pageExhausted: Boolean? = null,
     ) {
-        pixabayVideoCachePrefs.edit()
-            .putString(
-                cacheKey,
-                encodePixabayVideoCache(
-                    CachedPixabayVideoMetadata(
-                        result = result,
-                        cachedAtMs = System.currentTimeMillis(),
-                        nextAfter = nextAfter,
-                        pageExhausted = pageExhausted,
-                    ),
+        pixabayVideoCache.writeString(
+            cacheKey,
+            encodePixabayVideoCache(
+                CachedPixabayVideoMetadata(
+                    result = result,
+                    cachedAtMs = System.currentTimeMillis(),
+                    nextAfter = nextAfter,
+                    pageExhausted = pageExhausted,
                 ),
-            )
-            .apply()
+            ),
+        )
     }
 
     private fun rememberPixabayVideoMetadata(result: PixabayVideoMetadataResult) {
@@ -1303,7 +1298,7 @@ class VideoWallpapersViewModel @Inject constructor(
     }
 
     private fun activePixabayVideoRateLimitUntilMs(): Long {
-        val persisted = pixabayVideoCachePrefs.getLong(PIXABAY_VIDEO_RATE_LIMITED_UNTIL_KEY, 0L)
+        val persisted = pixabayVideoCache.readLong(PIXABAY_VIDEO_RATE_LIMITED_UNTIL_KEY)
         pixabayVideoRateLimitedUntilMs = maxOf(pixabayVideoRateLimitedUntilMs, persisted)
         return pixabayVideoRateLimitedUntilMs
     }
@@ -1311,9 +1306,7 @@ class VideoWallpapersViewModel @Inject constructor(
     private fun updatePixabayVideoRateLimit(backoffMs: Long) {
         val untilMs = System.currentTimeMillis() + backoffMs
         pixabayVideoRateLimitedUntilMs = maxOf(pixabayVideoRateLimitedUntilMs, untilMs)
-        pixabayVideoCachePrefs.edit()
-            .putLong(PIXABAY_VIDEO_RATE_LIMITED_UNTIL_KEY, pixabayVideoRateLimitedUntilMs)
-            .apply()
+        pixabayVideoCache.writeLong(PIXABAY_VIDEO_RATE_LIMITED_UNTIL_KEY, pixabayVideoRateLimitedUntilMs)
     }
 
 }
