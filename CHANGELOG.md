@@ -4,6 +4,12 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Docs: check stated version facts against the build** — README and the working notes
+  are now compared with `app/build.gradle.kts`, the exported Room schema, and the real
+  bottom-navigation destinations, so a stale Room version, version badge, versionCode, or
+  tab list fails the release-metadata gate instead of shipping. The first run caught a tab
+  list naming a "Favorites" tab the app has not built since it became Library, and the
+  release dry-run walkthrough was still worked through v6.34.6.
 - **Docs: publish the contributor guides that returned 404** — `CONTRIBUTING.md` and
   `ARCHITECTURE.md` were caught by the blanket `*.md` ignore rule, so GitHub showed no
   contributing guidelines and the architecture overview was unreachable. Both are tracked

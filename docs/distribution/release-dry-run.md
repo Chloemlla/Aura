@@ -147,8 +147,8 @@ behavior only; it does not replace a signed local release build.
 $tmp = Join-Path $env:TEMP "aura-release-bundle-smoke"
 Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $tmp | Out-Null
-$apk = "Aura-v6.34.6-versionCode-133-universal-release.apk"
-$aab = "Aura-v6.34.6-versionCode-133-play-release.aab"
+$apk = "Aura-v6.41.0-versionCode-142-universal-release.apk"
+$aab = "Aura-v6.41.0-versionCode-142-play-release.aab"
 "apk" | Set-Content -Encoding ascii (Join-Path $tmp $apk)
 "aab" | Set-Content -Encoding ascii (Join-Path $tmp $aab)
 "third-party" | Set-Content -Encoding ascii (Join-Path $tmp "THIRD-PARTY-NOTICES.md")
@@ -157,7 +157,7 @@ $aab = "Aura-v6.34.6-versionCode-133-play-release.aab"
 '{"status":"ok","policyKind":"nativePageAlignment","packageName":"com.freevibe","requiredLoadSegmentAlignmentBytes":16384,"checked64BitLoadSegments":2,"seen64BitAbis":["arm64-v8a","x86_64"]}' | Set-Content -Encoding ascii (Join-Path $tmp "NATIVE-ALIGNMENT.json")
 "Signer #1 certificate SHA-256 digest: test" | Set-Content -Encoding ascii (Join-Path $tmp "apksigner.txt")
 "package: name='com.freevibe'" | Set-Content -Encoding ascii (Join-Path $tmp "aapt-badging.txt")
-'manifest package="com.freevibe" android:versionCode="133" android:versionName="6.34.6"' | Set-Content -Encoding ascii (Join-Path $tmp "aab-manifest.txt")
+'manifest package="com.freevibe" android:versionCode="142" android:versionName="6.41.0"' | Set-Content -Encoding ascii (Join-Path $tmp "aab-manifest.txt")
 "bundletool validate passed: $aab" | Set-Content -Encoding ascii (Join-Path $tmp "bundletool-validate.txt")
 "jar verified." | Set-Content -Encoding ascii (Join-Path $tmp "aab-jarsigner.txt")
 "Certificate fingerprints:`n`t SHA256: upload-test" | Set-Content -Encoding ascii (Join-Path $tmp "aab-keytool.txt")
@@ -168,7 +168,7 @@ $sumLines | Set-Content -Encoding ascii (Join-Path $tmp "SHA256SUMS.txt")
 $apkHash = (Get-FileHash (Join-Path $tmp $apk) -Algorithm SHA256).Hash.ToLower()
 $aabHash = (Get-FileHash (Join-Path $tmp $aab) -Algorithm SHA256).Hash.ToLower()
 @"
-Aura 6.34.6 (versionCode 133)
+Aura 6.41.0 (versionCode 142)
 
 Signed release artifacts:
 - APK: $apk
@@ -188,13 +188,13 @@ Signed release artifacts:
 Android developer verification:
 - Package: com.freevibe
 "@ | Set-Content -Encoding ascii (Join-Path $tmp "RELEASE_NOTES.md")
-python tools\release_artifact_bundle_check.py --release-dir $tmp --apk-name $apk --aab-name $aab --version-name 6.34.6 --version-code 133
+python tools\release_artifact_bundle_check.py --release-dir $tmp --apk-name $apk --aab-name $aab --version-name 6.41.0 --version-code 142
 ```
 
 Expected output:
 
 ```json
-{"aab": "Aura-v6.34.6-versionCode-133-play-release.aab", "apk": "Aura-v6.34.6-versionCode-133-universal-release.apk", "releaseDir": "<temp path>", "status": "ok", "versionCode": "133", "versionName": "6.34.6"}
+{"aab": "Aura-v6.41.0-versionCode-142-play-release.aab", "apk": "Aura-v6.41.0-versionCode-142-universal-release.apk", "releaseDir": "<temp path>", "status": "ok", "versionCode": "142", "versionName": "6.41.0"}
 ```
 
 ## Sources

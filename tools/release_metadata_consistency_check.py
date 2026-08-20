@@ -39,6 +39,28 @@ REQUIRED_SOURCE_URLS = {
 }
 
 
+# Room's schema version, which the exported schema directory is the truth for.
+ROOM_SCHEMA_CLAIM = re.compile(r"Room\s*(?:DB\s*)?\(?v(\d+)\)?", re.IGNORECASE)
+# Version strings quoted in prose, e.g. a README badge or a "Current: v6.41.0" line.
+VERSION_NAME_CLAIM = re.compile(r"version-(\d+\.\d+\.\d+)-blue|\*\*Current:\*\*\s*v(\d+\.\d+\.\d+)")
+VERSION_CODE_CLAIM = re.compile(r"versionCode\s*(\d+)")
+
+# Prose surfaces that state release facts. CLAUDE.md is untracked working notes,
+# so it is checked when present and skipped when it is not.
+FACT_SURFACES = ("README.md", "CLAUDE.md")
+
+SCREEN_NAV = "app/src/main/java/com/freevibe/ui/navigation/Screen.kt"
+BOTTOM_NAV_ITEMS = re.compile(r"bottomNavItems[^=]*=\s*listOf\(([^)]*)\)", re.DOTALL)
+# "5 bottom nav tabs: A, B, C" / "**5 bottom nav tabs** — A, B, C" / bare count.
+# The trailing \** absorbs a closing bold marker before the separator.
+NAV_TAB_CLAIM = re.compile(
+    r"(\d+)\s+bottom nav tabs\**(?:\s*[:—–-]\s*([^.\n)]+))?",
+    re.IGNORECASE,
+)
+# Prose names the video destination "Videos"; the destination itself is VideoWallpapers.
+NAV_PROSE_ALIASES = {"videos": "videowallpapers"}
+
+
 class ReleaseMetadataConsistencyError(ValueError):
     """Raised when release metadata surfaces drift apart."""
 
@@ -113,6 +135,115 @@ def validate_docs(repo_root: Path, policy: dict[str, Any]) -> None:
     for source_url in REQUIRED_SOURCE_URLS:
         if source_url not in docs_text:
             raise ReleaseMetadataConsistencyError(f"{docs_path} is missing source URL: {source_url}")
+
+
+def room_schema_version(repo_root: Path) -> int:
+    """Highest exported Room schema, which is what the app actually ships."""
+    schema_dir = repo_root / "app/schemas/com.freevibe.data.local.FreeVibeDatabase"
+    versions = [
+        int(path.stem)
+        for path in schema_dir.glob("*.json")
+        if path.stem.isdigit()
+    ]
+    if not versions:
+        raise ReleaseMetadataConsistencyError(
+            "no exported Room schemas found; cannot verify schema claims"
+        )
+    return max(versions)
+
+
+def bottom_nav_destinations(repo_root: Path) -> list[str]:
+    """The bottom navigation destinations the app actually builds."""
+    text = read_text(repo_root, SCREEN_NAV, "navigation graph")
+    match = BOTTOM_NAV_ITEMS.search(text)
+    if not match:
+        raise ReleaseMetadataConsistencyError(
+            f"{SCREEN_NAV} no longer declares bottomNavItems; cannot verify tab claims"
+        )
+    return [entry.strip() for entry in match.group(1).split(",") if entry.strip()]
+
+
+def check_nav_claims(
+    relative_path: str, text: str, destinations: list[str]
+) -> list[str]:
+    """Compare 'N bottom nav tabs: ...' prose against the real destinations."""
+    errors: list[str] = []
+    known = {name.lower() for name in destinations}
+    for match in NAV_TAB_CLAIM.finditer(text):
+        claimed_count = int(match.group(1))
+        if claimed_count != len(destinations):
+            errors.append(
+                f"{relative_path} claims {claimed_count} bottom nav tabs but the app "
+                f"builds {len(destinations)}"
+            )
+        listed = match.group(2)
+        if not listed:
+            continue
+        for raw in listed.split(","):
+            name = raw.strip().strip("*_`").lower()
+            if not name:
+                continue
+            resolved = NAV_PROSE_ALIASES.get(name, name)
+            if resolved not in known:
+                errors.append(
+                    f"{relative_path} names a '{raw.strip()}' bottom nav tab, but the "
+                    f"destinations are {', '.join(destinations)}"
+                )
+    return errors
+
+
+def validate_fact_surfaces(repo_root: Path, gradle: dict[str, object]) -> dict[str, object]:
+    """Check version facts stated in prose against the build and the exported schema.
+
+    README claimed Room v14 for several releases after the database reached v16,
+    and passed every gate, because nothing compared the prose to the source of
+    truth. Anything a reader could act on is checked here.
+    """
+    schema = room_schema_version(repo_root)
+    destinations = bottom_nav_destinations(repo_root)
+    checked: list[str] = []
+    errors: list[str] = []
+
+    for relative_path in FACT_SURFACES:
+        path = repo_root / relative_path
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        checked.append(relative_path)
+
+        for match in ROOM_SCHEMA_CLAIM.finditer(text):
+            claimed = int(match.group(1))
+            if claimed != schema:
+                errors.append(
+                    f"{relative_path} claims Room v{claimed} but the exported schema is v{schema}"
+                )
+
+        for match in VERSION_NAME_CLAIM.finditer(text):
+            claimed = match.group(1) or match.group(2)
+            if claimed != gradle["versionName"]:
+                errors.append(
+                    f"{relative_path} claims version {claimed} but the build declares "
+                    f"{gradle['versionName']}"
+                )
+
+        for match in VERSION_CODE_CLAIM.finditer(text):
+            claimed = int(match.group(1))
+            if claimed != gradle["versionCode"]:
+                errors.append(
+                    f"{relative_path} claims versionCode {claimed} but the build declares "
+                    f"{gradle['versionCode']}"
+                )
+
+        errors.extend(check_nav_claims(relative_path, text, destinations))
+
+    if errors:
+        raise ReleaseMetadataConsistencyError("; ".join(sorted(set(errors))))
+
+    return {
+        "factSurfaces": checked,
+        "roomSchemaVersion": schema,
+        "bottomNavDestinations": destinations,
+    }
 
 
 def validate_required_paths(repo_root: Path, policy: dict[str, Any]) -> None:
@@ -231,6 +362,7 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, object
     validate_readme(repo_root, policy)
     validate_packet_alignment(repo_root, policy)
     validate_release_docs(repo_root, policy)
+    facts = validate_fact_surfaces(repo_root, gradle)
     return {
         "status": "ok",
         "policyKind": "releaseMetadataConsistency",
@@ -239,6 +371,7 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, object
         "versionCode": version_code,
         "sourceUrlCount": source_url_count,
         **fastlane,
+        **facts,
     }
 
 

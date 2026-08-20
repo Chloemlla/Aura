@@ -185,15 +185,6 @@ Complexity: S
   Acceptance: `org.gradle.caching`, `org.gradle.parallel`, and `org.gradle.configuration-cache` are enabled with any incompatible task recorded; `assembleDebug` and `testDebugUnitTest` pass from a clean and a warm cache; before/after timings are recorded.
   Complexity: S
 
-- [ ] P2 — Generate README and CLAUDE.md version facts from the release manifest
-  Why: `tools/release_manifest.py` already emits `roomSchemaVersion: 16` and `versionName: 6.40.0`, but README and CLAUDE.md still claim Room v14, and the consistency gate passes because it never reads them.
-  Evidence: `tools/release_manifest.py` output; `README.md:178`; `CLAUDE.md:244,330`; `tools/release_metadata_consistency_check.py` → `status: ok`.
-  Touches: `tools/release_metadata_consistency_check.py`, README, CLAUDE.md, `docs/distribution/release-metadata-consistency.json`.
-  Acceptance: schema version, versionName, versionCode, and tab/navigation claims in README are checked against the manifest; the gate fails on drift; the current Room v14 claims are corrected to v16.
-  Complexity: S
-
-  Note 2026-08-20: include `docs/distribution/release-dry-run.md` in the gate's scope — it still walks through 6.34.6, seven minors behind.
-
 - [ ] P2 — Add the fastlane store images IzzyOnDroid requires
   Why: `fastlane/metadata/android/en-US/` has no `images/` directory, so there is no icon, phone screenshot, or feature graphic for a store listing to consume. (Changelogs are current — an earlier claim that they stopped at versionCode 8 was a lexical-sort artifact; 22 exist, through 141.)
   Evidence: `ls fastlane/metadata/android/en-US/` returns only `changelogs/`, `full_description.txt`, `short_description.txt`, `title.txt`; IzzyOnDroid App Inclusion Policy requires in-repo Fastlane metadata with icon and screenshots. Screenshot capture itself stays blocked in `Roadmap_Blocked.md`.
