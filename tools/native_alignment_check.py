@@ -15,6 +15,13 @@ from pathlib import Path
 from typing import Any
 
 
+if __package__ in (None, ""):
+    # Executed as `python tools/native_alignment_check.py`, where only tools/ is
+    # on sys.path. Tests import this as `tools.native_alignment_check`.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from tools.published_state import PublishedStateError, assert_enforcement_mechanism
+
 PACKAGE_RE = re.compile(r'applicationId\s*=\s*"([^"]+)"')
 PT_LOAD = 1
 ELF_MAGIC = b"\x7fELF"
@@ -223,11 +230,32 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
     required_abis = set(require_string_list(policy.get("required64BitAbis"), "required64BitAbis"))
     if not required_abis <= ABI_64_BIT:
         raise NativeAlignmentError("required64BitAbis contains an unknown 64-bit ABI")
+    status = require_string(policy.get("status"), "status")
+    enforced_by = validate_enforcement(repo_root, status, policy.get("enforcedBy"))
     return {
         "packageName": package_name,
         "requiredAlignment": required_alignment,
         "requiredAbis": required_abis,
+        "status": status,
+        "enforcedBy": enforced_by,
     }
+
+
+def validate_enforcement(repo_root: Path, status: str, enforced_by: Any) -> list[str]:
+    """Hold an `...Enforced` status to naming a mechanism that actually exists.
+
+    This file said `releaseWorkflowEnforced` long after the workflows it meant
+    were deleted, and nothing noticed because no gate read the field. A status
+    string is a claim; the file it names is the mechanism.
+    """
+    if not status.endswith("Enforced"):
+        return []
+    paths = [] if enforced_by is None else require_string_list(enforced_by, "enforcedBy")
+    try:
+        assert_enforcement_mechanism(repo_root, status, paths, "native alignment policy")
+    except PublishedStateError as exc:
+        raise NativeAlignmentError(str(exc)) from exc
+    return paths
 
 
 def validate_libraries(
@@ -274,6 +302,8 @@ def validate_release_apk(repo_root: Path, policy: dict[str, Any], apk_path: Path
     return {
         "status": "ok",
         "policyKind": "nativePageAlignment",
+        "enforcementStatus": policy_info["status"],
+        "enforcedBy": policy_info["enforcedBy"],
         "packageName": policy_info["packageName"],
         "apk": str(apk_path),
         "apkSha256": sha256_file(apk_path),

@@ -1,7 +1,12 @@
 {
   "schemaVersion": 1,
   "policyKind": "nativePageAlignment",
-  "status": "releaseWorkflowEnforced",
+  "status": "localGateEnforced",
+  "enforcedBy": [
+    "tools/native_alignment_check.py",
+    "test/tools/native_alignment_check_test.py",
+    "docs/distribution/release-dry-run.md"
+  ],
   "packageName": "com.freevibe",
   "requiredLoadSegmentAlignmentBytes": 16384,
   "require64BitOnly": true,

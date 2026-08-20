@@ -68,13 +68,6 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
 
 ### P1
 
-- [ ] P1 — Make release gates assert published state, not the working tree
-  Why: 76 Python gates validate local files only, so four separate P0-class failures pass green — the 404 docs, the untagged release, `workflowCount: 0`, and the 64-bit policy below. Fixing each symptom without this leaves the class open.
-  Evidence: `tools/privacy_policy_link_check.py` → `releaseGate: ok` against a live 404; `tools/github_{actions_allowlist,security_workflow,workflow_permissions,workflow_secrets}_check.py` → `"status":"ok","workflowCount":0`; only `foss_reproducibility_check.py` consults git.
-  Touches: shared assertion helper in `tools/`, the doc/privacy/release/distribution gates, `test/tools/`.
-  Acceptance: a shared predicate layer asserts tracked-in-git, resolves-over-HTTP, tag-exists, and enforcement-mechanism-exists; deleting a tracked doc, a tag, or a workflow named by a policy makes the owning gate fail; each new predicate has a test that proves it fails before it is trusted.
-  Complexity: M
-
 - [ ] P1 — Enforce 64-bit-only and ship per-ABI splits
   Why: the released universal APK is 198 MB — 6.6× IzzyOnDroid's 30 MB per-APK ceiling and above Accrescent's 128 MiB — because 32-bit FFmpeg and Python payloads ship for ABIs nothing needs, and the gate named `require64BitOnly` skips every non-64-bit library instead of rejecting it.
   Evidence: `tools/native_alignment_check.py:246-247` (`if not library.is_64_bit: continue`); `docs/distribution/native-alignment.json` `require64BitOnly: true` with `lib/armeabi-v7a/`, `lib/x86/` in its own evidence block; `gh release view v6.38.1` asset = 198 MB; no `splits`/`abiFilters` in `app/build.gradle.kts`. Referenced as NX-8 in ARCHITECTURE.md but tracked nowhere.

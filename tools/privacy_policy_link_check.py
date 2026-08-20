@@ -14,7 +14,11 @@ if __package__ in (None, ""):
     # sys.path. Tests import this as `tools.privacy_policy_link_check`, where it is not.
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from tools.published_state import PublishedStateError, assert_tracked
+from tools.published_state import (
+    PublishedStateError,
+    assert_resolves_over_http,
+    assert_tracked,
+)
 
 
 CHECK_COMMAND = "python3 tools/privacy_policy_link_check.py"
@@ -28,6 +32,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate Aura privacy policy link coverage.")
     parser.add_argument("--policy", default="docs/privacy/privacy-policy-link.json")
     parser.add_argument("--repo-root", default=".")
+    parser.add_argument(
+        "--offline",
+        action="store_true",
+        help="skip fetching the published policy URL; content checks still run",
+    )
     return parser.parse_args()
 
 
@@ -95,7 +104,17 @@ def normalize_words(text: str) -> str:
     return " ".join(text.lower().split())
 
 
-def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
+def validate_policy(
+    repo_root: Path,
+    policy: dict[str, Any],
+    check_urls: bool = False,
+) -> dict[str, Any]:
+    """Validate the link contract.
+
+    [check_urls] asks the network whether the published policy actually resolves.
+    It is off by default so the content assertions stay deterministic and offline;
+    `main()` turns it on, which is where the answer matters.
+    """
     if policy.get("schemaVersion") != 1:
         raise PrivacyPolicyLinkError("privacy policy link schemaVersion must be 1")
     if policy.get("policyKind") != "privacyPolicyLink":
@@ -118,6 +137,8 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
     # every content assertion and still 404s for every user.
     try:
         assert_tracked(repo_root, policy_doc_path, "privacy policy")
+        if check_urls:
+            assert_resolves_over_http(public_url, "privacy policy link")
     except PublishedStateError as exc:
         raise PrivacyPolicyLinkError(str(exc)) from exc
 
@@ -158,6 +179,9 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
         "sourceUrlCount": len(source_urls),
         "releaseGate": "ok",
         "inAppLink": "ok",
+        # "ok" only when the published copy was actually fetched. Saying "ok" for a
+        # link nobody asked about is the exact failure this gate had.
+        "publicUrlResolves": "ok" if check_urls else "notChecked",
     }
 
 
@@ -166,7 +190,7 @@ def main() -> int:
     repo_root = Path(args.repo_root).resolve()
     try:
         policy = require_object(read_json((repo_root / args.policy).resolve()), "privacy policy link policy")
-        result = validate_policy(repo_root, policy)
+        result = validate_policy(repo_root, policy, check_urls=not args.offline)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

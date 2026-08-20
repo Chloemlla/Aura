@@ -4,6 +4,16 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Release gates check what is published, not just what is on disk** — a document can
+  satisfy every content check while returning 404 to users, which is how the in-app
+  privacy policy button opened a dead link for months with every gate reporting ok. The
+  gates can now ask whether a link actually resolves and whether a policy that claims
+  something enforces it names a mechanism that exists. Both answers are three-valued: an
+  unreachable host is "not checked", never "broken", so an offline build is never failed
+  over someone else's outage. The native-alignment policy claimed enforcement by a
+  release workflow that was deleted a year ago; it now names the local gates that really
+  do enforce it, and deleting one of them fails the build.
+
 - **The wallpaper editor stops throwing away full-size bitmaps, and stops losing your
   depth portrait without a word** — every filter render allocated a new bitmap and
   dropped the one it replaced, so dragging a slider handed the collector up to 64 MiB

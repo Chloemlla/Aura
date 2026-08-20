@@ -23,7 +23,12 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import urllib.error
+import urllib.request
 from pathlib import Path
+
+
+HTTP_TIMEOUT_SECONDS = 5.0
 
 
 class PublishedStateError(ValueError):
@@ -119,3 +124,79 @@ def assert_release_published(repo_root: Path, tag: str, label: str) -> None:
             f"{label}: git tag {tag} exists but no published GitHub Release serves it, "
             "so Obtainium and every direct download stay on the previous version"
         )
+
+
+def url_resolves(url: str, timeout: float = HTTP_TIMEOUT_SECONDS) -> bool | None:
+    """True/False when the host answers, None when the question cannot be asked.
+
+    Tri-state for the same reason [release_published] is: only the server knows,
+    and a gate that turned "no network" into "broken link" would fail builds for
+    the wrong reason. Only a definitive 404 or 410 is a False.
+
+    A HEAD is tried first because it is what a link check needs; some hosts
+    answer HEAD with 403 or 405 while serving the document perfectly well, so
+    those fall through to a GET rather than being reported as a dead link.
+    """
+    for method in ("HEAD", "GET"):
+        try:
+            # Request() itself rejects a malformed URL, so it belongs inside the
+            # guard: a bad string in a policy file is an unanswerable question,
+            # not a crash in the gate that asked it.
+            request = urllib.request.Request(url, method=method)
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                return 200 <= response.status < 400
+        except urllib.error.HTTPError as exc:
+            if exc.code in (404, 410):
+                return False
+            if method == "GET":
+                # Any other status is the server declining to answer this
+                # question, not evidence about whether the document exists.
+                return None
+        except (urllib.error.URLError, OSError, ValueError):
+            return None
+    return None
+
+
+def assert_resolves_over_http(url: str, label: str, timeout: float = HTTP_TIMEOUT_SECONDS) -> None:
+    """Raise when a URL the app or the docs send users to is definitively gone.
+
+    Content checks prove a document is correct in the tree. They cannot prove the
+    published copy exists, which is how the in-app privacy policy button opened a
+    404 for months while every gate reported ok.
+    """
+    if url_resolves(url, timeout=timeout) is False:
+        raise PublishedStateError(
+            f"{label}: {url} returns 404, so every user following that link reaches nothing"
+        )
+
+
+def assert_enforcement_mechanism(
+    repo_root: Path,
+    claim: str,
+    mechanism_paths: list[str],
+    label: str,
+) -> None:
+    """Raise when a policy claims something enforces it but names nothing real.
+
+    `docs/distribution/native-alignment.json` carried `releaseWorkflowEnforced`
+    for a year after the workflows it referred to were deleted. A status string
+    is not a mechanism: the file it names has to exist, and has to be tracked, or
+    the claim is decoration.
+    """
+    if not is_git_repository(repo_root):
+        return
+    if not mechanism_paths:
+        raise PublishedStateError(
+            f"{label} claims '{claim}' but names no mechanism, so nothing enforces it"
+        )
+    for relative_path in mechanism_paths:
+        target = repo_root / relative_path
+        if not target.exists():
+            raise PublishedStateError(
+                f"{label} claims '{claim}' through {relative_path}, which does not exist"
+            )
+        if target.is_file() and not is_tracked(repo_root, relative_path):
+            raise PublishedStateError(
+                f"{label} claims '{claim}' through {relative_path}, which is untracked, "
+                "so the published repository has no such mechanism"
+            )
