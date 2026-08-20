@@ -76,6 +76,14 @@ data class EditorState(
     val success: String? = null,
     val error: String? = null,
     val qualityWarning: String? = null,
+    /**
+     * True while [editedBitmap] holds a composed depth portrait rather than a
+     * filter render. Filters render from the original, so they replace it — the
+     * editor says so instead of letting the composition vanish silently.
+     */
+    val depthPortraitComposed: Boolean = false,
+    /** Transient message that is neither a success nor an error. */
+    val notice: String? = null,
 ) {
     /**
      * True once a decoded source exists. Apply, export, and parallax all read the
@@ -114,6 +122,7 @@ class WallpaperEditorViewModel @Inject constructor(
     val state = _state.asStateFlow()
     private var filterJob: kotlinx.coroutines.Job? = null
     private var loadJob: kotlinx.coroutines.Job? = null
+    private val displacedBitmaps = DisplacedBitmapRecycler()
 
     /**
      * Ownership token for the in-flight source load. Cancellation alone is not
@@ -143,6 +152,7 @@ class WallpaperEditorViewModel @Inject constructor(
     fun setSourceBitmap(bitmap: Bitmap) {
         overlayUndoStack.clear()
         resetUndoCoalescing()
+        val previous = _state.value
         _state.update {
             it.copy(
                 originalBitmap = bitmap,
@@ -151,8 +161,14 @@ class WallpaperEditorViewModel @Inject constructor(
                 selectedOverlayId = null,
                 canUndoOverlay = false,
                 qualityWarning = null,
+                depthPortraitComposed = false,
+                notice = null,
             )
         }
+        // A new source orphans both of the previous one's bitmaps, not just the
+        // filtered one; the decode that produced the old original has no other owner.
+        releaseDisplaced(previous.editedBitmap)
+        releaseDisplaced(previous.originalBitmap)
         // Filter sliders moved before the source arrived were recorded in state but
         // could not render; replay them now so the preview matches the controls
         // instead of silently showing an unfiltered image.
@@ -207,11 +223,28 @@ class WallpaperEditorViewModel @Inject constructor(
     override fun onCleared() {
         filterJob?.cancel()
         loadJob?.cancel()
+        // The editor is gone, so nothing can paint what is still queued. This is
+        // the only place a displaced bitmap is freed without waiting a generation.
+        displacedBitmaps.drain(retainedBitmaps())
         super.onCleared()
+    }
+
+    /** Everything editor state still points at, which the recycler must never free. */
+    private fun retainedBitmaps(): List<Bitmap?> =
+        _state.value.let { listOf(it.originalBitmap, it.editedBitmap) }
+
+    /**
+     * Hands [displaced] to the recycler after state has already moved on, so the
+     * retained set it is checked against is the current one.
+     */
+    private fun releaseDisplaced(displaced: Bitmap?) {
+        if (displaced == null) return
+        displacedBitmaps.displace(displaced, retainedBitmaps())
     }
 
     fun resetAll() {
         filterJob?.cancel()
+        val displaced = _state.value.editedBitmap
         _state.update {
             it.copy(
                 editedBitmap = it.originalBitmap,
@@ -231,17 +264,24 @@ class WallpaperEditorViewModel @Inject constructor(
                 isPreparingParallax = false,
                 pendingParallaxLaunch = false,
                 qualityWarning = null,
+                depthPortraitComposed = false,
+                notice = null,
             )
         }
+        releaseDisplaced(displaced)
         overlayUndoStack.clear()
         resetUndoCoalescing()
     }
 
     fun apply(target: WallpaperTarget) {
-        val snapshot = _state.value
-        if (snapshot.editedBitmap == null && snapshot.originalBitmap == null) return
+        if (_state.value.editedBitmap == null && _state.value.originalBitmap == null) return
         viewModelScope.launch {
             _state.update { it.copy(isApplying = true) }
+            // Read state here rather than before the launch: a filter render that
+            // finished in between would otherwise be applied as the previous frame,
+            // and would hand the recycle helper a snapshot describing bitmaps that
+            // are no longer the ones it rendered.
+            val snapshot = _state.value
             val bitmap = snapshot.renderBitmapForOutputAsync()
             if (bitmap == null) {
                 _state.update { it.copy(isApplying = false) }
@@ -262,12 +302,14 @@ class WallpaperEditorViewModel @Inject constructor(
                     }
                     .onFailure { e -> _state.update { it.copy(isApplying = false, error = e.message) } }
             } finally {
-                recycleRenderedBitmap(bitmap, snapshot)
+                recycleRenderedBitmap(bitmap, snapshot, _state.value)
             }
         }
     }
 
     fun clearSuccess() = _state.update { it.copy(success = null) }
+
+    fun clearNotice() = _state.update { it.copy(notice = null) }
 
     fun clearPendingParallaxLaunch() = _state.update { it.copy(pendingParallaxLaunch = false) }
 
@@ -275,13 +317,15 @@ class WallpaperEditorViewModel @Inject constructor(
         val source = _state.value.editedBitmap ?: _state.value.originalBitmap ?: return
         val options = _state.value.depthPortraitOptions()
         viewModelScope.launch {
-            _state.update { it.copy(isDepthProcessing = true, error = null, success = null) }
+            _state.update { it.copy(isDepthProcessing = true, error = null, success = null, notice = null) }
             try {
                 val result = depthPortraitComposer.compose(source, options)
+                val displaced = _state.value.editedBitmap
                 _state.update {
                     it.copy(
                         editedBitmap = result.bitmap,
                         isDepthProcessing = false,
+                        depthPortraitComposed = result.segmentationApplied,
                         success = if (result.segmentationApplied) {
                             "Depth portrait ready"
                         } else {
@@ -289,15 +333,19 @@ class WallpaperEditorViewModel @Inject constructor(
                         },
                     )
                 }
+                releaseDisplaced(displaced)
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
+                val displaced = _state.value.editedBitmap
                 _state.update {
                     it.copy(
                         editedBitmap = source,
                         isDepthProcessing = false,
+                        depthPortraitComposed = false,
                         error = e.message ?: "Depth portrait failed",
                     )
                 }
+                releaseDisplaced(displaced)
             }
         }
     }
@@ -311,10 +359,10 @@ class WallpaperEditorViewModel @Inject constructor(
     }
 
     private fun exportCurrentBitmap(successMessage: String) {
-        val snapshot = _state.value
-        if (snapshot.editedBitmap == null && snapshot.originalBitmap == null) return
+        if (_state.value.editedBitmap == null && _state.value.originalBitmap == null) return
         viewModelScope.launch {
             _state.update { it.copy(isExporting = true, error = null, success = null) }
+            val snapshot = _state.value
             val bitmap = snapshot.renderBitmapForOutputAsync()
             if (bitmap == null) {
                 _state.update { it.copy(isExporting = false) }
@@ -333,16 +381,16 @@ class WallpaperEditorViewModel @Inject constructor(
                         }
                     }
             } finally {
-                recycleRenderedBitmap(bitmap, snapshot)
+                recycleRenderedBitmap(bitmap, snapshot, _state.value)
             }
         }
     }
 
     fun prepareDepthParallax() {
-        val snapshot = _state.value
-        if (snapshot.editedBitmap == null && snapshot.originalBitmap == null) return
+        if (_state.value.editedBitmap == null && _state.value.originalBitmap == null) return
         viewModelScope.launch {
             _state.update { it.copy(isPreparingParallax = true, error = null, success = null) }
+            val snapshot = _state.value
             val bitmap = snapshot.renderBitmapForOutputAsync()
             if (bitmap == null) {
                 _state.update { it.copy(isPreparingParallax = false) }
@@ -361,7 +409,7 @@ class WallpaperEditorViewModel @Inject constructor(
                         }
                     }
             } finally {
-                recycleRenderedBitmap(bitmap, snapshot)
+                recycleRenderedBitmap(bitmap, snapshot, _state.value)
             }
         }
     }
@@ -609,7 +657,17 @@ class WallpaperEditorViewModel @Inject constructor(
             // not be overwritten moments later by the previous filtered frame, and the
             // dead job can no longer clear isProcessing.
             filterJob?.cancel()
-            _state.update { it.copy(editedBitmap = original, isProcessing = false, qualityWarning = null) }
+            val displaced = _state.value.editedBitmap
+            _state.update {
+                it.copy(
+                    editedBitmap = original,
+                    isProcessing = false,
+                    qualityWarning = null,
+                    depthPortraitComposed = false,
+                    notice = depthPortraitReplacedNotice(it),
+                )
+            }
+            releaseDisplaced(displaced)
             return
         }
         filterJob?.cancel()
@@ -640,15 +698,30 @@ class WallpaperEditorViewModel @Inject constructor(
                 }
                 FilterRenderResult(bmp, matrixResult.qualityWarning)
             }
+            val displaced = _state.value.editedBitmap
             _state.update {
                 it.copy(
                     editedBitmap = result.bitmap,
                     isProcessing = false,
                     qualityWarning = result.qualityWarning,
+                    // Filters render from the original, so whatever composition was
+                    // showing is gone. Say so rather than let it disappear.
+                    depthPortraitComposed = false,
+                    notice = depthPortraitReplacedNotice(it),
                 )
             }
+            releaseDisplaced(displaced)
         }
     }
+
+    /**
+     * The message to show when a filter render is about to replace a composed depth
+     * portrait, or whatever notice was already standing. Re-composing the portrait on
+     * every slider move would mean running segmentation per frame, so the editor tells
+     * the user the composition was replaced instead of pretending it survived.
+     */
+    private fun depthPortraitReplacedNotice(previous: EditorState): String? =
+        if (previous.depthPortraitComposed) DEPTH_PORTRAIT_REPLACED_NOTICE else previous.notice
 
     private fun applyColorMatrix(
         src: Bitmap,
@@ -813,6 +886,9 @@ class WallpaperEditorViewModel @Inject constructor(
 
 private const val DEFAULT_OVERLAY_TEXT = "Aura"
 
+internal const val DEPTH_PORTRAIT_REPLACED_NOTICE =
+    "Filters replaced your depth portrait. Compose it again to bring it back."
+
 private fun EditorState.depthPortraitOptions(): DepthPortraitOptions =
     DepthPortraitOptions(
         backgroundStyle = depthBackgroundStyle,
@@ -833,14 +909,21 @@ private suspend fun EditorState.renderBitmapForOutputAsync(): Bitmap? =
         withContext(Dispatchers.Default) { renderBitmapForOutput() }
     }
 
-private fun recycleRenderedBitmap(bitmap: Bitmap, snapshot: EditorState) {
-    if (snapshot.overlayLayers.isNotEmpty() &&
-        bitmap !== snapshot.editedBitmap &&
-        bitmap !== snapshot.originalBitmap &&
-        !bitmap.isRecycled
-    ) {
-        bitmap.recycle()
-    }
+/**
+ * Frees a bitmap that was allocated purely so it could be written out.
+ *
+ * [renderedFrom] is the state the render read; [live] is the state now. Both are
+ * checked, because a filter render finishing during the write puts a different
+ * bitmap in state, and recycling something the editor is still showing crashes
+ * the next draw. The previous version keyed on "there were overlay layers" as a
+ * proxy for "we allocated this", which holds only while overlays remain the one
+ * reason a render allocates.
+ */
+internal fun recycleRenderedBitmap(bitmap: Bitmap, renderedFrom: EditorState, live: EditorState) {
+    if (bitmap.isRecycled) return
+    if (bitmap === renderedFrom.editedBitmap || bitmap === renderedFrom.originalBitmap) return
+    if (bitmap === live.editedBitmap || bitmap === live.originalBitmap) return
+    bitmap.recycle()
 }
 
 internal fun renderWallpaperOverlays(

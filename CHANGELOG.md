@@ -4,6 +4,16 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **The wallpaper editor stops throwing away full-size bitmaps, and stops losing your
+  depth portrait without a word** — every filter render allocated a new bitmap and
+  dropped the one it replaced, so dragging a slider handed the collector up to 64 MiB
+  per frame. Displaced bitmaps are now freed a generation later, which is late enough
+  that nothing can still be painting them and early enough that the editor never holds
+  more than one. Composing a depth portrait and then touching any filter used to discard
+  the composition in silence; the editor now says so. Apply, export, and parallax also
+  read the editor's current state instead of a snapshot taken before their work started,
+  so they no longer write out the previous frame.
+
 - **Name the Android 17 memory-limiter shutdown instead of letting it look like nothing**
   — Android 17 caps how much memory any app may hold, whatever SDK it targets, and when
   it kills a process there is no exception and no stack trace. The diagnostics bundle

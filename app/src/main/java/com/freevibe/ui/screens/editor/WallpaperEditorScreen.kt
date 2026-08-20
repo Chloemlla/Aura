@@ -90,6 +90,9 @@ fun WallpaperEditorScreen(
             viewModel.clearError()
         }
     }
+    LaunchedEffect(state.notice) {
+        state.notice?.let { snackbarHostState.showSnackbar(it); viewModel.clearNotice() }
+    }
     val parallaxDirectMessage = stringResource(R.string.settings_feedback_parallax_direct)
     val parallaxChooserMessage = stringResource(R.string.settings_feedback_parallax_chooser)
     val parallaxManualMessage = stringResource(R.string.settings_feedback_parallax_manual)

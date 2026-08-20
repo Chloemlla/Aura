@@ -37,7 +37,12 @@ def test_apply_export_and_parallax_use_rendered_overlay_bitmap():
     assert "renderBitmapForOutput()" in source
     assert "renderBitmapForOutputAsync()" in source
     assert source.count("renderBitmapForOutputAsync()") >= 4
-    assert "recycleRenderedBitmap(bitmap, snapshot)" in source
+    # The rendered bitmap is checked against the state the render read *and* the
+    # state as it is now. A filter render finishing during the write puts a
+    # different bitmap on screen, so the snapshot alone would free something the
+    # editor is still painting.
+    assert "recycleRenderedBitmap(bitmap, snapshot, _state.value)" in source
+    assert source.count("recycleRenderedBitmap(bitmap, snapshot, _state.value)") >= 3
     assert "wallpaperApplier.applyFromBitmap(bitmap, target)" in source
     assert "depthPortraitComposer.exportToGallery(bitmap)" in source
     assert "wallpaperApplier.prepareParallaxFromBitmap(bitmap" in source

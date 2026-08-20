@@ -107,13 +107,6 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
 
   Update 2026-08-20: current targets are Compose BOM 2026.08.00 (mesh gradients; pausable composition is on by default since BOM 2025.12.00), material3 1.4.0 stable (Expressive — adopt tokens selectively, the wholesale look conflicts with the design charter), NewPipeExtractor v0.26.5 (2026-08-15), Roborazzi 1.70.0, Firebase BoM 34.17.0 (published, confirmed). Glance 1.2.0 still never shipped stable; 1.2.0-rc01 remains the newest usable line.
 
-- [ ] P1 — Stop the wallpaper editor orphaning bitmaps and losing composed state
-  Why: each filter render replaces `editedBitmap` without recycling the displaced one (up to ~67 MB at `MAX_EDIT_LONG_EDGE = 4096`, and an `OutOfMemoryError` catch already exists as evidence), any slider silently discards a composed depth portrait, and apply/export/parallax render from a snapshot captured before the coroutine launches.
-  Evidence: `WallpaperEditorViewModel.kt:642-648`, `:214-216`, `:280-290`, `:661`, `:601-602` vs `:273-302`, `:240`, `:313`, `:341`, `:829-837`.
-  Touches: `WallpaperEditorViewModel.kt`, editor tests.
-  Acceptance: displaced bitmaps are recycled exactly once with no double-recycle; composing a depth portrait then moving a slider either preserves the composition or tells the user it was replaced; apply/export/parallax render from current state and the recycle helper matches the bitmaps it rendered.
-  Complexity: M
-
 - [ ] P1 — Ship a Rotation Health screen
   Why: auto-rotation silently stopping is the single most-reported failure across every competitor, and no app in the category exposes scheduler state; Backdrops paywalls the feature everyone ships broken.
   Evidence: WallYou #230/#239/#259/#266, WallFlow #85 (37 comments, open since 2024-03), darkmodewallpaper #196; Aura already ships an equivalent Video Battery Dashboard and a worker ledger.
