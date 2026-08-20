@@ -4,13 +4,6 @@ Actionable work only. Historical and completed roadmap material is archived in C
 
 ## Actionable Items
 
-- [ ] P2 — Trim SettingsViewModel into feature-slice delegates (960 lines)
-  Why: settings keeps growing across providers, rotation, community, and diagnostics, concentrating state/job ownership in one ViewModel.
-  Evidence: `ui/screens/settings/SettingsViewModel.kt` (960 lines).
-  Touches: `SettingsViewModel.kt`, feature delegates, tests and split gate.
-  Acceptance: the file is under about 500 lines, behavior is unchanged, delegate job ownership is explicit, a split gate exists, and tests pass.
-  Complexity: M
-
 - [ ] P2 — Extend Settings search from sections to row-level anchors
   Why: the shipped section-title/description search cannot find visible controls such as OLED theme, Wi-Fi, backup, or App Check.
   Evidence: `SettingsSearch.kt`; isolated API 35 queries “theme” and “OLED.”

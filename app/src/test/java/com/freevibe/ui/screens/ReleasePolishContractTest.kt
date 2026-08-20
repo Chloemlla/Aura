@@ -279,8 +279,8 @@ class ReleasePolishContractTest {
 
     @Test
     fun `settings viewmodel schedules and cancels local backup work`() {
-        val source = File("src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt").readText()
-        val backupSlice = source.substringAfter("fun setAutoBackupEnabled(").substringBefore("// T-6: Source diagnostics")
+        val source = File("src/main/java/com/freevibe/ui/screens/settings/SettingsRotationDelegate.kt").readText()
+        val backupSlice = source.substringAfter("fun setAutoBackupEnabled(").substringBefore("fun setSchedulerEnabled")
 
         assertTrue(source.contains("val autoBackupEnabled = prefs.autoBackupEnabled.stateIn"))
         assertTrue(source.contains("val autoBackupFolderUri = prefs.autoBackupFolderUri.stateIn"))
@@ -295,7 +295,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `settings folder grants are released when replaced or cleared`() {
-        val source = File("src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt").readText()
+        val source = File("src/main/java/com/freevibe/ui/screens/settings/SettingsRotationDelegate.kt").readText()
 
         assertTrue(source.contains("private fun releasePersistedUriPermission(uriString: String, flags: Int)"))
         assertTrue(source.contains("prefs.localWallpaperFolderUri.first().trim()"))

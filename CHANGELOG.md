@@ -9,6 +9,10 @@ All notable changes to Aura will be documented in this file.
   editor states now run through the same composables used by the app, with localized
   pseudo-locale, RTL, theme, compact, expanded, and large-font coverage.
 
+- **Settings state and side effects now live in feature delegates** — the ViewModel remains
+  the existing screen facade, while rotation, media providers, community identity, and
+  diagnostics each own their flows and jobs under the ViewModel lifecycle.
+
 - **New Rotation health screen, in Settings under Diagnostics** — when automatic
   wallpaper change quietly stops, there was nothing to look at. The five reasons it can
   stop all look the same from the home screen: rotation is off, it's waiting for its
