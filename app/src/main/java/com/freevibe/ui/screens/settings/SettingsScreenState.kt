@@ -106,6 +106,7 @@ internal data class SettingsScreenState(
     val generatedAssets: GeneratedAssetAudit,
     val diagnostics: List<SourceMetrics.SourceStats>,
     val crashDiagnostics: CrashDiagnosticsSummary,
+    val liveWallpaperLiveness: com.freevibe.service.LiveWallpaperLivenessState?,
     val backgroundWorkDiagnostics: BackgroundWorkDiagnostics,
     val externalAutomationDiagnostics: ExternalAutomationDiagnostics,
     val videoWallpaperSelectionResult: VideoWallpaperSelectionResult?,
@@ -210,6 +211,7 @@ internal fun rememberSettingsScreenState(
     val generatedAssets by viewModel.generatedAssets.collectAsStateWithLifecycle()
     val diagnostics by viewModel.diagnostics.collectAsStateWithLifecycle()
     val crashDiagnostics by viewModel.crashDiagnostics.collectAsStateWithLifecycle()
+    val liveWallpaperLiveness by viewModel.liveWallpaperLiveness.collectAsStateWithLifecycle()
     val backgroundWorkDiagnostics by viewModel.backgroundWorkDiagnostics.collectAsStateWithLifecycle()
     val externalAutomationDiagnostics by viewModel.externalAutomationDiagnostics.collectAsStateWithLifecycle()
     val videoWallpaperSelectionResult by viewModel.videoWallpaperSelectionResult.collectAsStateWithLifecycle()
@@ -331,6 +333,7 @@ internal fun rememberSettingsScreenState(
         generatedAssets = generatedAssets,
         diagnostics = diagnostics,
         crashDiagnostics = crashDiagnostics,
+        liveWallpaperLiveness = liveWallpaperLiveness,
         backgroundWorkDiagnostics = backgroundWorkDiagnostics,
         externalAutomationDiagnostics = externalAutomationDiagnostics,
         videoWallpaperSelectionResult = videoWallpaperSelectionResult,

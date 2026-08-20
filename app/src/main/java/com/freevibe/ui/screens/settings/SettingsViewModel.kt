@@ -102,6 +102,7 @@ class SettingsViewModel @Inject constructor(
     private val videoWallpaperStorage: VideoWallpaperStorage,
     private val sourceMetrics: SourceMetrics,
     private val crashDiagnosticsCollector: CrashDiagnosticsCollector,
+    private val liveWallpaperLivenessMonitor: com.freevibe.service.LiveWallpaperLivenessMonitor,
     private val backgroundWorkDiagnosticsReader: BackgroundWorkDiagnosticsReader,
     private val voteRepo: VoteRepository,
     private val communityBlockRepo: CommunityBlockRepository,
@@ -296,6 +297,10 @@ class SettingsViewModel @Inject constructor(
     val cacheUsage: StateFlow<CacheUsageState> = _cacheUsage.asStateFlow()
     private val _crashDiagnostics = MutableStateFlow(CrashDiagnosticsSummary())
     val crashDiagnostics: StateFlow<CrashDiagnosticsSummary> = _crashDiagnostics.asStateFlow()
+    private val _liveWallpaperLiveness =
+        MutableStateFlow<com.freevibe.service.LiveWallpaperLivenessState?>(null)
+    val liveWallpaperLiveness: StateFlow<com.freevibe.service.LiveWallpaperLivenessState?> =
+        _liveWallpaperLiveness.asStateFlow()
     private val _backgroundWorkDiagnostics = MutableStateFlow(BackgroundWorkDiagnostics())
     val backgroundWorkDiagnostics: StateFlow<BackgroundWorkDiagnostics> =
         _backgroundWorkDiagnostics.asStateFlow()
@@ -479,6 +484,39 @@ class SettingsViewModel @Inject constructor(
         _crashDiagnostics.value = withContext(ioDispatcher) {
             crashDiagnosticsCollector.readSummary()
         }
+    }
+
+    /**
+     * Asks the system whether an Aura live wallpaper is still the running one.
+     *
+     * `getWallpaperInfo()` is a binder call, so it goes to the IO dispatcher and
+     * never near a render thread.
+     */
+    fun refreshLiveWallpaperLiveness() = viewModelScope.launch {
+        _liveWallpaperLiveness.value = withContext(ioDispatcher) {
+            liveWallpaperLivenessMonitor.refresh()
+        }
+    }
+
+    /**
+     * Reopens the live-wallpaper picker on whichever engine last ran, so
+     * recovering is one tap rather than a hunt through the system picker.
+     */
+    fun reapplyLiveWallpaper(context: android.content.Context) {
+        val engine = liveWallpaperLivenessMonitor.lastRunEngine() ?: return
+        liveWallpaperLivenessMonitor.recordApplyRequested()
+        val serviceClass = when (engine) {
+            com.freevibe.service.LiveWallpaperReceiptStore.ENGINE_VIDEO ->
+                com.freevibe.service.VideoWallpaperService::class.java
+            com.freevibe.service.LiveWallpaperReceiptStore.ENGINE_PARALLAX ->
+                com.freevibe.service.ParallaxWallpaperService::class.java
+            else -> com.freevibe.service.WeatherWallpaperService::class.java
+        }
+        com.freevibe.ui.launchLiveWallpaperPicker(
+            context = context,
+            serviceComponent = android.content.ComponentName(context, serviceClass),
+            tag = "SettingsLivenessReapply",
+        )
     }
 
     suspend fun buildCrashDiagnosticsBundle(): String = withContext(ioDispatcher) {

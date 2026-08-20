@@ -1711,6 +1711,9 @@
     <!-- Live wallpaper dimming -->
     <string name="settings_smart_dim_title">Dim behind icons</string>
     <string name="settings_smart_dim_subtitle">Reduce live wallpaper brightness for icon readability; double-tap to reveal full image</string>
+    <string name="settings_diag_live_wallpaper_inactive_title">Your Aura live wallpaper is no longer active</string>
+    <string name="settings_diag_live_wallpaper_replaced_subtitle">Another app (%1$s) is running the live wallpaper now • Tap to set Aura back</string>
+    <string name="settings_diag_live_wallpaper_static_subtitle">A static wallpaper is showing instead • Tap to set Aura back</string>
     <string name="database_downgrade_title">Your library was reset</string>
     <string name="database_downgrade_preserved_body">You installed an older version of Aura. It cannot read the library the newer version wrote (format %1$d, this build reads %2$d), so favorites, collections, and history have been cleared to let the app start.\n\nNothing is lost yet. A copy of the old library is still on this device. Reinstall the newer Aura and it will be picked up again. If you would rather stay on this version, restore from a backup instead.</string>
     <string name="database_downgrade_lost_body">You installed an older version of Aura. It cannot read the library the newer version wrote (format %1$d, this build reads %2$d), so favorites, collections, and history have been cleared to let the app start.\n\nA copy could not be kept, most likely because the device was out of space. Restore from a backup to get your library back.</string>

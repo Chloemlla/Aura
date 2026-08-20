@@ -482,6 +482,7 @@ fun SettingsScreen(
                 viewModel = viewModel,
                 diagnostics = diagnostics,
                 crashDiagnostics = crashDiagnostics,
+                liveWallpaperLiveness = liveWallpaperLiveness,
                 backgroundWorkDiagnostics = backgroundWorkDiagnostics,
                 externalAutomationDiagnostics = externalAutomationDiagnostics,
                 onFeedback = ::showSettingsFeedback,

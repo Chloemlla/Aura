@@ -4,6 +4,15 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Aura notices when its live wallpaper is no longer the one running** — a wallpaper
+  service dropped after a reboot, replaced by another app, or killed by an OEM battery
+  manager looked exactly like a working one: the phone showed a stock wallpaper while
+  Aura's settings still read "on". Aura now asks the system which live wallpaper is
+  actually running, after a reboot or app update and whenever you open Diagnostics, and
+  offers to set yours back in one tap. It stays quiet unless it is certain: if the device
+  will not answer, or you never applied an Aura live wallpaper in the first place, nothing
+  is shown.
+
 - **Installing an older Aura no longer crashes it on every launch, and no longer wipes
   your library in silence** — Room refuses to open a database written by a newer build,
   and nothing caught that, so an ordinary rollback left the app dead on startup with no

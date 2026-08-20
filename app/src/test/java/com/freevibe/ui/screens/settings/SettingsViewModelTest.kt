@@ -485,6 +485,7 @@ class SettingsViewModelTest {
                 ytDlpUpdateManager = ytDlpUpdateManager,
                 liveWallpaperReceiptStore = mockk(relaxed = true),
             ),
+            liveWallpaperLivenessMonitor = mockk(relaxed = true),
             backgroundWorkDiagnosticsReader = backgroundWorkDiagnosticsReaderOverride
                 ?: FakeBackgroundWorkDiagnosticsReader(BackgroundWorkDiagnostics()),
             voteRepo = voteRepo,

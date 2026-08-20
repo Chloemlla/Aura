@@ -13,12 +13,14 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SettingsInputComponent
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,6 +33,8 @@ import com.freevibe.R
 import com.freevibe.service.BackgroundWorkDiagnostics
 import com.freevibe.service.CrashDiagnosticsSummary
 import com.freevibe.service.ExternalAutomationDiagnostics
+import com.freevibe.service.LiveWallpaperActivity
+import com.freevibe.service.LiveWallpaperLivenessState
 import com.freevibe.service.SourceMetrics
 import kotlinx.coroutines.launch
 
@@ -42,8 +46,14 @@ internal fun DiagnosticsSettingsSection(
     crashDiagnostics: CrashDiagnosticsSummary,
     backgroundWorkDiagnostics: BackgroundWorkDiagnostics,
     externalAutomationDiagnostics: ExternalAutomationDiagnostics,
+    liveWallpaperLiveness: LiveWallpaperLivenessState?,
     onFeedback: (String) -> Unit,
 ) {
+    // Re-read every time this section is composed rather than once per ViewModel:
+    // the wallpaper can be replaced from outside Aura while the app is alive, so a
+    // check that only ran at construction would go stale exactly when it matters.
+    LaunchedEffect(Unit) { viewModel.refreshLiveWallpaperLiveness() }
+
     val diagnosticsScope = rememberCoroutineScope()
     var showDiagnostics by remember { mutableStateOf(false) }
     var showBackgroundWorkDiagnostics by remember { mutableStateOf(false) }
@@ -55,6 +65,23 @@ internal fun DiagnosticsSettingsSection(
         title = stringResource(R.string.settings_diagnostics_section_title),
         description = stringResource(R.string.settings_diagnostics_section_description),
     ) {
+        // Only shown once Aura has actually run a live wallpaper and definitely is
+        // not running one now. An UNKNOWN reading says nothing, because nagging a
+        // user whose wallpaper works is how the warning gets ignored when it is real.
+        if (liveWallpaperLiveness?.shouldWarn == true) {
+            SettingsItem(
+                icon = Icons.Default.WarningAmber,
+                title = stringResource(R.string.settings_diag_live_wallpaper_inactive_title),
+                subtitle = when (liveWallpaperLiveness.result.activity) {
+                    LiveWallpaperActivity.REPLACED_BY_OTHER_APP -> stringResource(
+                        R.string.settings_diag_live_wallpaper_replaced_subtitle,
+                        liveWallpaperLiveness.result.runningPackage.orEmpty(),
+                    )
+                    else -> stringResource(R.string.settings_diag_live_wallpaper_static_subtitle)
+                },
+                onClick = { viewModel.reapplyLiveWallpaper(context) },
+            )
+        }
         SettingsItem(
             icon = Icons.Default.BugReport,
             title = stringResource(R.string.settings_diag_crash_title),

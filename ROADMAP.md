@@ -183,13 +183,6 @@ against v6.41.0 / versionCode 142 at `122d431`.
 
 #### P1
 
-- [ ] P1 — Detect and recover when Aura's live wallpaper is no longer active
-  Why: Aura ships three `WallpaperService` implementations and never asks the system which wallpaper is running, so a service dropped after reboot, replaced by another app, or killed by an OEM manager is indistinguishable from a working one — the user sees a stock wallpaper and Aura's settings still read "on". Muzei reports this exact shape on Android 17 / Pixel 10 after reboot.
-  Evidence: no `getWallpaperInfo` or `WallpaperInfo` anywhere in `app/src/main/java`; `VideoWallpaperService.kt`, `ParallaxWallpaperService.kt`, `WeatherWallpaperService.kt`; `RingtoneRestorationReceiver.kt` already proves the post-boot restoration pattern for sounds; Muzei #874 (16 comments, 2026-07-01). Build this into the Rotation Health screen tracked above rather than a second surface.
-  Touches: `LiveWallpaperReceiptStore.kt`, `SettingsDiagnosticsSection.kt`, the three wallpaper services, `RingtoneRestorationReceiver.kt` (BOOT_COMPLETED pattern), string resources.
-  Acceptance: Aura compares `getWallpaperInfo()?.packageName` against its own on resume and after `BOOT_COMPLETED`/`MY_PACKAGE_REPLACED`, records the result, and shows an explicit "your Aura live wallpaper is no longer active" state with a one-tap re-apply; the check never runs on a render thread; a test covers active, replaced-by-third-party, and static-wallpaper cases.
-  Complexity: M
-
 - [ ] P1 — Retire FFmpeg from the sound editor using the platform media stack
   Why: FFmpeg and Python are the bulk of the 198 MB artifact, they force `useLegacyPackaging = true` (compressed `.so` extracted at install, roughly doubling on-device native storage and working against the uncompressed packaging 16 KB guidance asks for), and they are the reason a yt-dlp CVE treadmill reaches the *editing* path at all. Media3 now offers muxers and speed/pitch transforms that cover trim, convert, and speed without a native toolchain. This is the largest single lever on APK size and native-loader exposure.
   Evidence: `AudioTrimmer.kt` re-encodes every export through FFmpeg reached by reflection on youtubedl-android's static fields (ARCHITECTURE.md "External"); `app/build.gradle.kts:165-168` `useLegacyPackaging = true` with no comment, required by youtubedl-android's `extractNativeLibs` contract; `docs/distribution/native-alignment.json` lists `libffmpeg.zip.so` and `libpython.zip.so` for four ABIs; Media3 release notes for `OggMuxer`, `WavMuxer`, and `EditedMediaItem` speed with pitch preservation. Blocked until the tracked compileSdk 36 item lands — the Media3 releases carrying these need it.
