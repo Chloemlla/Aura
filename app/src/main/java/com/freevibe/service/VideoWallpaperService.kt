@@ -3,6 +3,7 @@
 package com.freevibe.service
 
 import android.app.WallpaperColors
+import android.app.wallpaper.WallpaperDescription
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -23,6 +24,7 @@ import android.service.wallpaper.WallpaperService
 import android.view.SurfaceHolder
 import androidx.annotation.RequiresApi
 import com.freevibe.BuildConfig
+import com.freevibe.R
 import java.io.File
 import kotlin.math.max
 
@@ -56,7 +58,13 @@ class VideoWallpaperService : WallpaperService() {
 
     override fun onCreateEngine(): Engine = VideoEngine()
 
-    inner class VideoEngine : Engine(), LiveWallpaperResourceReporter {
+    @RequiresApi(36)
+    override fun onCreateEngine(description: WallpaperDescription): Engine =
+        VideoEngine(readAuraWallpaperDescriptionContent(description)?.source)
+
+    inner class VideoEngine(
+        private val describedVideoPath: String? = null,
+    ) : Engine(), LiveWallpaperResourceReporter {
         private val receiptStore by lazy { LiveWallpaperReceiptStore.create(this@VideoWallpaperService) }
         private var mediaPlayer: MediaPlayer? = null
         private var gifMovie: Movie? = null
@@ -120,7 +128,19 @@ class VideoWallpaperService : WallpaperService() {
 
         private fun getPrefs() = getSharedPreferences(VIDEO_WALLPAPER_PREFS_NAME, MODE_PRIVATE)
         private fun getRuntimePrefs() = getSharedPreferences(VIDEO_PREFS_NAME, MODE_PRIVATE)
-        private fun getVideoPath(): String? = getPrefs().getString("video_path", null)
+        private fun getVideoPath(): String? =
+            describedVideoPath ?: getPrefs().getString("video_path", null)
+
+        @RequiresApi(36)
+        override fun onApplyWallpaper(which: Int): WallpaperDescription {
+            val content = auraWallpaperDescriptionContent(source = getVideoPath())
+            return buildAuraWallpaperDescription(
+                id = auraWallpaperDescriptionId("video", AuraWallpaperDescriptionContent(source = getVideoPath())),
+                title = getString(R.string.video_wallpaper_label),
+                description = getString(R.string.video_wallpaper_label),
+                content = content,
+            )
+        }
         private fun getScaleMode(): String =
             normalizeVideoWallpaperScaleMode(getPrefs().getString("scale_mode", VIDEO_WALLPAPER_SCALE_MODE_ZOOM))
         private fun getPlaybackSpeed(): Float =

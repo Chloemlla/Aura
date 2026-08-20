@@ -12,13 +12,6 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
 
 ### P1
 
-- [ ] P2 — Adopt the API 36 platform APIs the compileSdk bump just made reachable
-  Why: compileSdk 36 landed on 2026-08-20 and immediately unblocked a set of platform APIs the code currently works around or leaves as a TODO. They were queued behind the compile SDK and nothing else.
-  Evidence: `RESEARCH.md:78`; the three `res/xml/*_wallpaper.xml` `WallpaperDescription` TODOs; `RuntimeColorFilter`/`RuntimeXfermode` for the AGSL pipeline; `Notification.ProgressStyle` for the download queue.
-  Touches: `res/xml/*_wallpaper.xml`, the three live-wallpaper services, `AgslShaderGallery.kt`, `DownloadManager.kt` notifications.
-  Acceptance: each adopted API is guarded for minSdk 26 and falls back to the current behavior below API 36; `WallpaperDescription` multi-instance support is either wired or its remaining blocker is recorded here; the download notification uses `ProgressStyle` where available; lint reports no new NewApi findings.
-  Complexity: M
-
 ### P2
 
 - [ ] P2 — Fix concurrent `load()`/`loadMore()` in VideoWallpapersViewModel

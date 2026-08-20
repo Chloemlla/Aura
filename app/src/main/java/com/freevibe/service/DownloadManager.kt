@@ -1,12 +1,26 @@
 package com.freevibe.service
 
+import android.Manifest
+import android.app.Notification
+import android.app.PendingIntent
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
+import androidx.annotation.RequiresApi
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
+import com.freevibe.ACTION_SHORTCUT_DOWNLOADS
+import com.freevibe.BuildConfig
+import com.freevibe.MainActivity
+import com.freevibe.R
 import com.freevibe.data.local.DownloadDao
 import com.freevibe.data.model.ContentType
 import com.freevibe.data.model.DownloadEntity
@@ -26,6 +40,7 @@ import java.io.File
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.roundToInt
 
 data class DownloadProgress(
     val id: String,
@@ -37,6 +52,12 @@ data class DownloadProgress(
     val error: String? = null,
 )
 
+private data class DownloadNotificationSnapshot(
+    val postedAtMs: Long,
+    val percent: Int,
+    val totalBytes: Long,
+)
+
 @Singleton
 class DownloadManager @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -46,6 +67,8 @@ class DownloadManager @Inject constructor(
 ) {
     private val _activeDownloads = MutableStateFlow<Map<String, DownloadProgress>>(emptyMap())
     val activeDownloads: StateFlow<Map<String, DownloadProgress>> = _activeDownloads.asStateFlow()
+    private val notificationLock = Any()
+    private val notificationSnapshots = mutableMapOf<String, DownloadNotificationSnapshot>()
 
     /** Download a wallpaper image to the Pictures directory */
     suspend fun downloadWallpaper(
@@ -286,6 +309,8 @@ class DownloadManager @Inject constructor(
 
     fun clearCompleted(id: String) {
         _activeDownloads.update { it - id }
+        synchronized(notificationLock) { notificationSnapshots.remove(id) }
+        NotificationManagerCompat.from(context).cancel(downloadNotificationId(id))
     }
 
     /**
@@ -401,6 +426,147 @@ class DownloadManager @Inject constructor(
 
     private fun updateProgress(id: String, progress: DownloadProgress) {
         _activeDownloads.update { it + (id to progress) }
+        publishDownloadNotification(progress)
+    }
+
+    private fun publishDownloadNotification(progress: DownloadProgress) {
+        if (
+            Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        val manager = NotificationManagerCompat.from(context)
+        if (!manager.areNotificationsEnabled() || !shouldPostNotification(progress)) return
+
+        val notification = try {
+            if (Build.VERSION.SDK_INT >= 36) {
+                buildApi36DownloadNotification(progress)
+            } else {
+                buildLegacyDownloadNotification(progress)
+            }
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                Log.w("DownloadManager", "Failed to build download notification", e)
+            }
+            return
+        }
+        try {
+            manager.notify(downloadNotificationId(progress.id), notification)
+        } catch (e: SecurityException) {
+            if (BuildConfig.DEBUG) {
+                Log.w("DownloadManager", "Download notification permission was revoked", e)
+            }
+        }
+    }
+
+    private fun shouldPostNotification(progress: DownloadProgress): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        val percent = downloadNotificationPercent(progress)
+        val terminal = progress.isComplete || progress.error != null
+        synchronized(notificationLock) {
+            val previous = notificationSnapshots[progress.id]
+            val changed = previous == null ||
+                previous.percent != percent ||
+                previous.totalBytes != progress.totalBytes
+            val shouldPost = previous == null || terminal ||
+                (changed && now - previous.postedAtMs >= DOWNLOAD_NOTIFICATION_MIN_INTERVAL_MS)
+            if (shouldPost) {
+                notificationSnapshots[progress.id] = DownloadNotificationSnapshot(
+                    postedAtMs = now,
+                    percent = percent,
+                    totalBytes = progress.totalBytes,
+                )
+            }
+            return shouldPost
+        }
+    }
+
+    private fun downloadNotificationId(id: String): Int =
+        DOWNLOAD_NOTIFICATION_ID_BASE + (id.hashCode() and 0x0FFFFFFF)
+
+    private fun downloadNotificationPercent(progress: DownloadProgress): Int =
+        if (progress.isComplete) {
+            100
+        } else {
+            (progress.progress.coerceIn(0f, 1f) * 100f).roundToInt()
+        }
+
+    private fun buildLegacyDownloadNotification(progress: DownloadProgress): Notification =
+        NotificationCompat.Builder(context, NotificationChannels.DOWNLOADS)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(downloadNotificationTitle(progress))
+            .setContentText(downloadNotificationText(progress))
+            .setContentIntent(downloadContentIntent(progress.id))
+            .setOngoing(progress.error == null && !progress.isComplete)
+            .setAutoCancel(progress.error != null || progress.isComplete)
+            .setOnlyAlertOnce(true)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .setProgress(
+                100,
+                downloadNotificationPercent(progress),
+                progress.totalBytes <= 0L && !progress.isComplete && progress.error == null,
+            )
+            .build()
+
+    @RequiresApi(36)
+    private fun buildApi36DownloadNotification(progress: DownloadProgress): Notification {
+        val builder = Notification.Builder(context, NotificationChannels.DOWNLOADS)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(downloadNotificationTitle(progress))
+            .setContentText(downloadNotificationText(progress))
+            .setContentIntent(downloadContentIntent(progress.id))
+            .setOngoing(progress.error == null && !progress.isComplete)
+            .setAutoCancel(progress.error != null || progress.isComplete)
+            .setOnlyAlertOnce(true)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+        if (progress.error == null) {
+            val style = Notification.ProgressStyle().setStyledByProgress(true)
+            if (progress.totalBytes > 0L || progress.isComplete) {
+                style.setProgress(downloadNotificationPercent(progress))
+            } else {
+                style.setProgressIndeterminate(true)
+            }
+            builder.setStyle(style)
+        }
+        return builder.build()
+    }
+
+    private fun downloadContentIntent(id: String): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            action = ACTION_SHORTCUT_DOWNLOADS
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        return PendingIntent.getActivity(
+            context,
+            DOWNLOAD_NOTIFICATION_REQUEST_CODE_BASE + (id.hashCode() and 0x0FFFFFFF),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    private fun downloadNotificationTitle(progress: DownloadProgress): String =
+        if (progress.isComplete) {
+            context.getString(R.string.download_notification_complete, progress.fileName)
+        } else if (progress.error != null) {
+            context.getString(R.string.download_notification_failed, progress.fileName)
+        } else {
+            context.getString(R.string.download_notification_title, progress.fileName)
+        }
+
+    private fun downloadNotificationText(progress: DownloadProgress): String = when {
+        progress.error != null -> progress.error
+            .takeIf { it.isNotBlank() }
+            ?: context.getString(R.string.download_notification_failed, progress.fileName)
+        progress.isComplete -> context.getString(R.string.a11y_download_complete)
+        progress.totalBytes > 0L -> context.getString(
+            R.string.a11y_download_percent,
+            downloadNotificationPercent(progress),
+        )
+        else -> context.getString(R.string.download_notification_preparing)
     }
 
     private fun deleteStoredContent(rawPath: String) {
@@ -459,6 +625,10 @@ private const val MAX_IMAGE_DOWNLOAD_BYTES = 64L * 1024 * 1024
 
 /** Hard cap on audio downloads — matches the 20 MB community upload ceiling + headroom. */
 private const val MAX_AUDIO_DOWNLOAD_BYTES = 64L * 1024 * 1024
+
+private const val DOWNLOAD_NOTIFICATION_MIN_INTERVAL_MS = 250L
+private const val DOWNLOAD_NOTIFICATION_ID_BASE = 16_000
+private const val DOWNLOAD_NOTIFICATION_REQUEST_CODE_BASE = 8_000
 
 private val AURA_MEDIA_DIRECTORIES = listOfNotNull(
     Environment.DIRECTORY_PICTURES,

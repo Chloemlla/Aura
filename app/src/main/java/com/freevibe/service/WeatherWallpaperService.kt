@@ -1,6 +1,7 @@
 package com.freevibe.service
 
 import android.app.WallpaperColors
+import android.app.wallpaper.WallpaperDescription
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Matrix
@@ -14,6 +15,7 @@ import android.service.wallpaper.WallpaperService
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import androidx.annotation.RequiresApi
+import com.freevibe.R
 import com.freevibe.data.remote.weather.WeatherEffect
 
 /**
@@ -26,7 +28,13 @@ class WeatherWallpaperService : WallpaperService() {
 
     override fun onCreateEngine(): Engine = WeatherEngine()
 
-    inner class WeatherEngine : Engine(), LiveWallpaperResourceReporter {
+    @RequiresApi(36)
+    override fun onCreateEngine(description: WallpaperDescription): Engine =
+        WeatherEngine(readAuraWallpaperDescriptionContent(description))
+
+    private inner class WeatherEngine(
+        private val describedContent: AuraWallpaperDescriptionContent? = null,
+    ) : Engine(), LiveWallpaperResourceReporter {
         private val receiptStore by lazy { LiveWallpaperReceiptStore.create(this@WeatherWallpaperService) }
         private var renderer: WeatherParticleRenderer? = null
         private var vfxRenderer: VfxParticleRenderer? = null
@@ -69,6 +77,49 @@ class WeatherWallpaperService : WallpaperService() {
             onRevealChanged = { if (visible) postDraw(0L) },
         )
         private val colorPublisher = LiveWallpaperColorPublisher()
+
+        private fun wallpaperPath(): String? =
+            describedContent?.source ?: weatherPrefs().getString("wallpaper_path", null)
+
+        private fun shaderPresetId(): String? =
+            describedContent?.shaderPresetId
+                ?: weatherPrefs().getString(
+                    LIVE_WALLPAPER_SHADER_PRESET_PREF,
+                    AgslShaderGallery.NONE_ID,
+                )
+
+        private fun weatherEffectName(): String =
+            describedContent?.weatherEffect
+                ?: weatherPrefs().getString("weather_effect", "CLEAR_DAY")
+                ?: "CLEAR_DAY"
+
+        private fun windSpeed(): Double =
+            describedContent?.windSpeed
+                ?: weatherPrefs().getFloat("wind_speed", 0f).toDouble()
+
+        @RequiresApi(36)
+        override fun onApplyWallpaper(which: Int): WallpaperDescription {
+            val prefs = weatherPrefs()
+            val content = describedContent ?: AuraWallpaperDescriptionContent(
+                source = prefs.getString("wallpaper_path", null),
+                shaderPresetId = AgslShaderGallery.sanitizeId(
+                    prefs.getString(LIVE_WALLPAPER_SHADER_PRESET_PREF, AgslShaderGallery.NONE_ID),
+                ),
+                weatherEffect = prefs.getString("weather_effect", "CLEAR_DAY") ?: "CLEAR_DAY",
+                windSpeed = prefs.getFloat("wind_speed", 0f).toDouble(),
+            )
+            return buildAuraWallpaperDescription(
+                id = auraWallpaperDescriptionId("weather", content),
+                title = getString(R.string.weather_wallpaper_label),
+                description = getString(R.string.weather_wallpaper_desc),
+                content = auraWallpaperDescriptionContent(
+                    source = content.source,
+                    shaderPresetId = content.shaderPresetId,
+                    weatherEffect = content.weatherEffect,
+                    windSpeed = content.windSpeed,
+                ),
+            )
+        }
 
         override fun onCreate(surfaceHolder: SurfaceHolder) {
             super.onCreate(surfaceHolder)
@@ -163,7 +214,7 @@ class WeatherWallpaperService : WallpaperService() {
 
         private fun loadWallpaperBitmap() {
             val prefs = weatherPrefs()
-            val path = prefs.getString("wallpaper_path", null) ?: return
+            val path = wallpaperPath() ?: return
             mediaLoader.request {
                 try {
                     val file = java.io.File(path)
@@ -237,10 +288,7 @@ class WeatherWallpaperService : WallpaperService() {
         }
 
         private fun loadShaderPresetFromPrefs() {
-            val presetId = weatherPrefs().getString(
-                LIVE_WALLPAPER_SHADER_PRESET_PREF,
-                AgslShaderGallery.NONE_ID,
-            )
+            val presetId = shaderPresetId()
             val nextPreset = AgslShaderGallery.find(AgslShaderGallery.sanitizeId(presetId))
             if (nextPreset?.id != shaderPreset?.id) {
                 shaderPreset = nextPreset
@@ -251,12 +299,12 @@ class WeatherWallpaperService : WallpaperService() {
 
         private fun currentWallpaperLocator(): String? =
             shaderPreset?.let { "shader:${it.id}" }
-                ?: weatherPrefs().getString("wallpaper_path", null)
+                ?: wallpaperPath()
 
         private fun loadWeatherFromPrefs() {
             val prefs = weatherPrefs()
-            val effectName = prefs.getString("weather_effect", "CLEAR_DAY") ?: "CLEAR_DAY"
-            val wind = prefs.getFloat("wind_speed", 0f).toDouble()
+            val effectName = weatherEffectName()
+            val wind = windSpeed()
             try {
                 renderer?.setWeather(WeatherEffect.valueOf(effectName), wind)
             } catch (_: Exception) {

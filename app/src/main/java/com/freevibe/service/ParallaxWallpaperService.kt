@@ -1,6 +1,7 @@
 package com.freevibe.service
 
 import android.app.WallpaperColors
+import android.app.wallpaper.WallpaperDescription
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -16,6 +17,7 @@ import android.service.wallpaper.WallpaperService
 import android.view.SurfaceHolder
 import androidx.annotation.RequiresApi
 import com.freevibe.BuildConfig
+import com.freevibe.R
 import com.google.android.gms.common.moduleinstall.ModuleInstall
 import com.google.android.gms.common.moduleinstall.ModuleInstallRequest
 import com.google.mlkit.vision.common.InputImage
@@ -40,7 +42,13 @@ class ParallaxWallpaperService : WallpaperService() {
 
     override fun onCreateEngine(): Engine = ParallaxEngine()
 
-    inner class ParallaxEngine : Engine(), SensorEventListener, LiveWallpaperResourceReporter {
+    @RequiresApi(36)
+    override fun onCreateEngine(description: WallpaperDescription): Engine =
+        ParallaxEngine(readAuraWallpaperDescriptionContent(description)?.source)
+
+    inner class ParallaxEngine(
+        private val describedImagePath: String? = null,
+    ) : Engine(), SensorEventListener, LiveWallpaperResourceReporter {
 
         private val receiptStore by lazy { LiveWallpaperReceiptStore.create(this@ParallaxWallpaperService) }
         private var sensorManager: SensorManager? = null
@@ -85,7 +93,22 @@ class ParallaxWallpaperService : WallpaperService() {
         private val colorPublisher = LiveWallpaperColorPublisher()
 
         private fun getPrefs() = getSharedPreferences(PARALLAX_WALLPAPER_PREFS_NAME, MODE_PRIVATE)
-        private fun getImagePath(): String? = getPrefs().getString("image_path", null)
+        private fun getImagePath(): String? =
+            describedImagePath ?: getPrefs().getString("image_path", null)
+
+        @RequiresApi(36)
+        override fun onApplyWallpaper(which: Int): WallpaperDescription {
+            val content = auraWallpaperDescriptionContent(source = getImagePath())
+            return buildAuraWallpaperDescription(
+                id = auraWallpaperDescriptionId(
+                    "parallax",
+                    AuraWallpaperDescriptionContent(source = getImagePath()),
+                ),
+                title = getString(R.string.parallax_wallpaper_label),
+                description = getString(R.string.parallax_wallpaper_desc),
+                content = content,
+            )
+        }
 
         private fun loadColorPublicationFromPrefs() {
             val enabled = getPrefs().getBoolean(

@@ -114,6 +114,8 @@ the same link is available in Settings > About > Privacy policy.
 | **Parallax Wallpapers** | ML Kit depth segmentation for layered tilt-responsive live wallpapers |
 | **Weather Wallpapers** | Live weather effects overlay on wallpapers |
 | **Shader Wallpapers** | Curated AGSL live wallpaper backgrounds with static fallback on older Android releases |
+| **Live Wallpaper Instances** | Android 16 descriptions keep selected video, parallax, and weather settings with a legacy fallback on older releases |
+| **Download Progress** | Download notifications use the Android 16 progress style when available and retain the compatibility progress bar elsewhere |
 | **Touch-Reactive Effects** | Optional ripple and sparkle bursts on live wallpaper touches |
 | **YouTube Sounds** | YouTube-first ringtone, notification, and alarm discovery with duration-aware searches powered by NewPipe + yt-dlp |
 | **Community Sound Uploads** | Pick or record sounds, tag them, vote on community picks, and share via Firebase Storage |
@@ -212,7 +214,7 @@ Firebase RTDB (Community Voting + Uploads + Admin Moderation)
 
 ## Building
 
-Requires JDK 17+ and Android SDK 35. Android Studio Ladybug (2024.2.1) or later recommended.
+Requires JDK 21 and Android SDK 36. Android Studio Ladybug (2024.2.1) or later recommended.
 
 ```bash
 ./gradlew assembleDebug      # use gradlew.bat on Windows

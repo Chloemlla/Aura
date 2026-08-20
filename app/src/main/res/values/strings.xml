@@ -2,6 +2,8 @@
 <resources>
     <string name="app_name">Aura</string>
     <string name="video_wallpaper_label">Aura Video Wallpaper</string>
+    <string name="weather_wallpaper_label">Aura Weather</string>
+    <string name="parallax_wallpaper_label">Aura Parallax</string>
     <string name="weather_wallpaper_desc">Wallpaper with live weather effects (rain, snow, fog)</string>
     <string name="parallax_wallpaper_desc">Depth parallax wallpaper that responds to device tilt</string>
     <string name="widget_description">Quick wallpaper changer - shuffle, set home, or set lock screen</string>
@@ -726,6 +728,10 @@
     <string name="video_crop_full_clip">Full clip</string>
 
     <!-- Downloads -->
+    <string name="download_notification_title">Downloading %1$s</string>
+    <string name="download_notification_complete">Downloaded %1$s</string>
+    <string name="download_notification_failed">Couldn\'t download %1$s</string>
+    <string name="download_notification_preparing">Preparing download</string>
     <string name="downloads_title">Downloads</string>
     <string name="downloads_tab_all">All</string>
     <string name="downloads_active">Active</string>

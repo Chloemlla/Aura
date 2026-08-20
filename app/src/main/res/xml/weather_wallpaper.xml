@@ -2,12 +2,11 @@
 <!--
   Live wallpaper service metadata for WeatherWallpaperService.
 
-  TODO(N-4 / N-1): Expose WallpaperDescription on compileSdk 36 so the weather
-  engine can declare separate instances per WeatherEffect (rain/snow/fog/clear)
-  through the Android 16 wallpaper picker. See ROADMAP.md N-1 + N-4.
+  Android 16 supplies per-instance descriptions from WeatherWallpaperService.
+  Older releases use this metadata as their picker description.
 -->
 <wallpaper
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:label="Aura Weather"
+    android:label="@string/weather_wallpaper_label"
     android:description="@string/weather_wallpaper_desc"
     android:thumbnail="@mipmap/ic_launcher" />

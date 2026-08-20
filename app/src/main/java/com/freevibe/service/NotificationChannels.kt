@@ -7,6 +7,7 @@ import android.content.Context
 object NotificationChannels {
     const val MEDIA_PLAYBACK = "media_playback"
     const val DAILY_WALLPAPER = "daily_wallpaper"
+    const val DOWNLOADS = "aura_downloads"
     const val ROTATION_TRIGGERS = "aura_rotation_triggers"
     const val ROTATION_RECOVERY = "aura_rotation_recovery"
 
@@ -27,6 +28,14 @@ object NotificationChannels {
                     NotificationManager.IMPORTANCE_LOW,
                 ).apply {
                     description = "Daily wallpaper picks from active wallpaper sources"
+                },
+                NotificationChannel(
+                    DOWNLOADS,
+                    "Downloads",
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    description = "Progress and completion updates for media downloads"
+                    setShowBadge(false)
                 },
                 NotificationChannel(
                     ROTATION_TRIGGERS,

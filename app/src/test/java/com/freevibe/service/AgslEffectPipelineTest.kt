@@ -37,4 +37,19 @@ class AgslEffectPipelineTest {
         val agsl = AgslEffect.DEPTH_SHADE(intensity = 0.25f).agsl
         check(agsl.contains("uniform half intensity")) { "DEPTH_SHADE shader must declare intensity uniform" }
     }
+
+    @Test
+    fun `DEPTH_SHADE exposes the API 36 color filter program`() {
+        val agsl = AgslEffect.DEPTH_SHADE(intensity = 0.25f).colorFilterAgsl
+        check(agsl?.contains("main(half4 in_color)") == true) {
+            "DEPTH_SHADE must expose a color-filter entry point"
+        }
+    }
+
+    @Test
+    fun `screen blend keeps source and destination inputs`() {
+        val agsl = SCREEN_BLEND_AGSL
+        check(agsl.contains("half4 src"))
+        check(agsl.contains("half4 dst"))
+    }
 }

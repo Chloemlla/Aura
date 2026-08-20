@@ -43,6 +43,11 @@ All notable changes to Aura will be documented in this file.
   1.2.0 stable release has not shipped. The catalog records the upgrade trigger and prerelease
   risk next to the pin.
 
+- **Android 16 platform APIs now have guarded integrations**: live wallpaper services publish
+  per-instance descriptions and restore their selected media or weather settings, downloads
+  use the Android 16 progress-centric notification with a compatibility fallback, and the
+  AGSL bitmap pipeline uses RuntimeColorFilter and RuntimeXfermode when they are available.
+
 - **New Rotation health screen, in Settings under Diagnostics**: when automatic
   wallpaper change quietly stops, there was nothing to look at. The five reasons it can
   stop all look the same from the home screen: rotation is off, it's waiting for its
