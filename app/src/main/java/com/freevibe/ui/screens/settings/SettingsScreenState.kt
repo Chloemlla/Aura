@@ -18,6 +18,8 @@ import com.freevibe.service.CrashDiagnosticsSummary
 import com.freevibe.service.ExternalAutomationDiagnostics
 import com.freevibe.service.SourceMetrics
 import com.freevibe.service.VideoWallpaperSelectionResult
+import com.freevibe.service.WallpaperClockOverlayMode
+import com.freevibe.service.WallpaperClockOverlayPosition
 
 /**
  * Where Settings can send you.
@@ -79,6 +81,9 @@ internal data class SettingsScreenState(
     val soundProfilesEnabled: Boolean,
     val liveWallpaperDimEnabled: Boolean,
     val liveWallpaperColorsEnabled: Boolean,
+    val wallpaperClockOverlayEnabled: Boolean,
+    val wallpaperClockOverlayMode: WallpaperClockOverlayMode,
+    val wallpaperClockOverlayPosition: WallpaperClockOverlayPosition,
     val soundProfilesJson: String,
     val wallpaperPackEnabled: Boolean,
     val wallpaperPackJson: String,
@@ -193,6 +198,9 @@ internal fun rememberSettingsScreenState(
     val soundProfilesEnabled by viewModel.soundProfilesEnabled.collectAsStateWithLifecycle()
     val liveWallpaperDimEnabled by viewModel.liveWallpaperDimEnabled.collectAsStateWithLifecycle()
     val liveWallpaperColorsEnabled by viewModel.liveWallpaperColorsEnabled.collectAsStateWithLifecycle()
+    val wallpaperClockOverlayEnabled by viewModel.wallpaperClockOverlayEnabled.collectAsStateWithLifecycle()
+    val wallpaperClockOverlayMode by viewModel.wallpaperClockOverlayMode.collectAsStateWithLifecycle()
+    val wallpaperClockOverlayPosition by viewModel.wallpaperClockOverlayPosition.collectAsStateWithLifecycle()
     val soundProfilesJson by viewModel.soundProfilesJson.collectAsStateWithLifecycle()
     val wallpaperPackEnabled by viewModel.wallpaperPackEnabled.collectAsStateWithLifecycle()
     val wallpaperPackJson by viewModel.wallpaperPackJson.collectAsStateWithLifecycle()
@@ -318,6 +326,9 @@ internal fun rememberSettingsScreenState(
         soundProfilesEnabled = soundProfilesEnabled,
         liveWallpaperDimEnabled = liveWallpaperDimEnabled,
         liveWallpaperColorsEnabled = liveWallpaperColorsEnabled,
+        wallpaperClockOverlayEnabled = wallpaperClockOverlayEnabled,
+        wallpaperClockOverlayMode = WallpaperClockOverlayMode.fromPreference(wallpaperClockOverlayMode),
+        wallpaperClockOverlayPosition = WallpaperClockOverlayPosition.fromPreference(wallpaperClockOverlayPosition),
         soundProfilesJson = soundProfilesJson,
         wallpaperPackEnabled = wallpaperPackEnabled,
         wallpaperPackJson = wallpaperPackJson,

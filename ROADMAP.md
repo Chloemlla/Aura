@@ -4,13 +4,6 @@ Actionable work only. Historical and completed roadmap material is archived in C
 
 ## Actionable Items
 
-- [ ] P3 — Optional clock/date overlay on applied/live wallpapers
-  Why: Paperize issue 533 validates the niche, and Aura already has an overlay composer; it adds no background cost while off.
-  Evidence: Paperize issue 533; `WallpaperEditorScreen.kt` overlay pipeline.
-  Touches: editor overlay composer, live-wallpaper renderer, settings/format controls, screenshots.
-  Acceptance: an opt-in overlay renders localized time/date with time-zone and 12/24-hour behavior, contrast/burn-in-safe position choices, and no background work while off; supported static/live paths have production screenshot coverage.
-  Complexity: L
-
 ## Research-Driven Additions
 
 Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.

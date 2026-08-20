@@ -429,6 +429,7 @@ class WeatherWallpaperService : WallpaperService() {
                         dimming.tick()
                         dimming.drawDimOverlay(canvas, canvas.width, canvas.height)
                     }
+                    drawWallpaperClockOverlay(this@WeatherWallpaperService, canvas)
                 }
             } catch (_: Exception) {
             } finally {

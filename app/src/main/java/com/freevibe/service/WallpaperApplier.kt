@@ -68,6 +68,7 @@ class WallpaperApplier @Inject constructor(
             // path below for transformations, but avoid expanding a normal JPEG/PNG into
             // a full ARGB bitmap before the system receives it.
             if (darkenPercent <= 0 && !nightVariant &&
+                !isWallpaperClockOverlayEnabled(context) &&
                 streamLocatorToWallpaper(locator, target, cropRect)
             ) {
                 return@runCatching Unit
@@ -84,6 +85,11 @@ class WallpaperApplier @Inject constructor(
                     val nightBitmap = applyNightVariant(bitmap)
                     bitmap.recycle()
                     bitmap = nightBitmap
+                }
+                val overlayBitmap = bitmapWithWallpaperClockOverlay(context, bitmap)
+                if (overlayBitmap !== bitmap) {
+                    bitmap.recycle()
+                    bitmap = overlayBitmap
                 }
                 wallpaperManager.setBitmap(bitmap, cropRect, true, wallpaperFlags(target))
                 Unit
@@ -156,7 +162,12 @@ class WallpaperApplier @Inject constructor(
         target: WallpaperTarget = WallpaperTarget.BOTH,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            wallpaperManager.setBitmap(bitmap, null, true, wallpaperFlags(target))
+            val overlayBitmap = bitmapWithWallpaperClockOverlay(context, bitmap)
+            try {
+                wallpaperManager.setBitmap(overlayBitmap, null, true, wallpaperFlags(target))
+            } finally {
+                if (overlayBitmap !== bitmap && !overlayBitmap.isRecycled) overlayBitmap.recycle()
+            }
             Unit
         }.onFailure { it.rethrowIfCancelled() }
     }

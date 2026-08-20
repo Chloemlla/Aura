@@ -524,6 +524,7 @@ class ParallaxWallpaperService : WallpaperService() {
                         // Fallback: single image with slight parallax movement
                         canvas.drawBitmap(fb, baseX + bgOffsetX, baseY + bgOffsetY, paint)
                     }
+                    drawWallpaperClockOverlay(this@ParallaxWallpaperService, canvas)
                 }
             } catch (_: Exception) {
             } finally {

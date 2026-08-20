@@ -156,6 +156,9 @@ class SettingsViewModel @Inject constructor(
     val soundProfilesEnabled get() = media.soundProfilesEnabled
     val liveWallpaperDimEnabled get() = media.liveWallpaperDimEnabled
     val liveWallpaperColorsEnabled get() = media.liveWallpaperColorsEnabled
+    val wallpaperClockOverlayEnabled get() = media.wallpaperClockOverlayEnabled
+    val wallpaperClockOverlayMode get() = media.wallpaperClockOverlayMode
+    val wallpaperClockOverlayPosition get() = media.wallpaperClockOverlayPosition
     val soundProfilesJson get() = media.soundProfilesJson
     val wallpaperPackEnabled get() = media.wallpaperPackEnabled
     val wallpaperPackJson get() = media.wallpaperPackJson
@@ -300,6 +303,9 @@ class SettingsViewModel @Inject constructor(
     fun setVideoAutoBatterySaver(enabled: Boolean) = media.setVideoAutoBatterySaver(enabled)
     fun setLiveWallpaperDimEnabled(enabled: Boolean) = media.setLiveWallpaperDimEnabled(enabled)
     fun setLiveWallpaperColorsEnabled(enabled: Boolean) = media.setLiveWallpaperColorsEnabled(enabled)
+    fun setWallpaperClockOverlayEnabled(enabled: Boolean) = media.setWallpaperClockOverlayEnabled(enabled)
+    fun setWallpaperClockOverlayMode(mode: String) = media.setWallpaperClockOverlayMode(mode)
+    fun setWallpaperClockOverlayPosition(position: String) = media.setWallpaperClockOverlayPosition(position)
     fun setGeneratedContentProviderEnabled(enabled: Boolean) = media.setGeneratedContentProviderEnabled(enabled)
     fun acceptGeneratedContentDisclosure() = media.acceptGeneratedContentDisclosure()
     fun resetGeneratedContentDisclosure() = media.resetGeneratedContentDisclosure()

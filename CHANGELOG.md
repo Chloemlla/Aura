@@ -33,6 +33,11 @@ All notable changes to Aura will be documented in this file.
   revoked grants, and assign each folder to home, lock screen, or both. Rotation keeps the
   old single-folder preference working while using the catalog without broad storage access.
 
+- **Clock and date overlays are now optional**: new static applications and the weather,
+  parallax, and GIF live-wallpaper paths can show localized time, date, or both in one of four
+  corner positions. The device's time format and time zone are used, and disabling the setting
+  adds no overlay work to the existing live render loops.
+
 - **New Rotation health screen, in Settings under Diagnostics**: when automatic
   wallpaper change quietly stops, there was nothing to look at. The five reasons it can
   stop all look the same from the home screen: rotation is off, it's waiting for its

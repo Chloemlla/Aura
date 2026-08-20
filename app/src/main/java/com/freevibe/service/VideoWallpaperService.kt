@@ -622,6 +622,7 @@ class VideoWallpaperService : WallpaperService() {
                 canvas.restore()
                 updateGifFpsSample(now)
                 if (isFpsOverlayEnabled()) drawFpsOverlay(canvas)
+                drawWallpaperClockOverlay(this@VideoWallpaperService, canvas)
             } finally {
                 try { holder.unlockCanvasAndPost(canvas) } catch (_: Exception) {}
             }

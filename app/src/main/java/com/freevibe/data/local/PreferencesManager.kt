@@ -29,6 +29,12 @@ import com.freevibe.service.VIDEO_PLAYBACK_SPEED_PREF
 import com.freevibe.service.VIDEO_PREFS_NAME
 import com.freevibe.service.VIDEO_STATS_PREFS_NAME
 import com.freevibe.service.sanitizeVideoFpsLimit
+import com.freevibe.service.WALLPAPER_CLOCK_OVERLAY_ENABLED_PREF
+import com.freevibe.service.WALLPAPER_CLOCK_OVERLAY_MODE_PREF
+import com.freevibe.service.WALLPAPER_CLOCK_OVERLAY_POSITION_PREF
+import com.freevibe.service.WALLPAPER_CLOCK_OVERLAY_PREFS_NAME
+import com.freevibe.service.WallpaperClockOverlayMode
+import com.freevibe.service.WallpaperClockOverlayPosition
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -408,6 +414,39 @@ class PreferencesManager @Inject constructor(
         writeAllLiveWallpaperFlags(LIVE_WALLPAPER_COLORS_ENABLED_PREF, v)
         set(Keys.LIVE_WALLPAPER_COLORS_ENABLED, v)
     }
+
+    val wallpaperClockOverlayEnabled: Flow<Boolean> =
+        get(Keys.WALLPAPER_CLOCK_OVERLAY_ENABLED, false)
+    val wallpaperClockOverlayMode: Flow<String> =
+        get(Keys.WALLPAPER_CLOCK_OVERLAY_MODE, WallpaperClockOverlayMode.TIME_AND_DATE.preferenceValue)
+    val wallpaperClockOverlayPosition: Flow<String> =
+        get(Keys.WALLPAPER_CLOCK_OVERLAY_POSITION, WallpaperClockOverlayPosition.BOTTOM_RIGHT.preferenceValue)
+
+    suspend fun setWallpaperClockOverlayEnabled(enabled: Boolean) {
+        wallpaperClockOverlayPrefs().edit()
+            .putBoolean(WALLPAPER_CLOCK_OVERLAY_ENABLED_PREF, enabled)
+            .apply()
+        set(Keys.WALLPAPER_CLOCK_OVERLAY_ENABLED, enabled)
+    }
+
+    suspend fun setWallpaperClockOverlayMode(mode: String) {
+        val normalized = WallpaperClockOverlayMode.fromPreference(mode).preferenceValue
+        wallpaperClockOverlayPrefs().edit()
+            .putString(WALLPAPER_CLOCK_OVERLAY_MODE_PREF, normalized)
+            .apply()
+        set(Keys.WALLPAPER_CLOCK_OVERLAY_MODE, normalized)
+    }
+
+    suspend fun setWallpaperClockOverlayPosition(position: String) {
+        val normalized = WallpaperClockOverlayPosition.fromPreference(position).preferenceValue
+        wallpaperClockOverlayPrefs().edit()
+            .putString(WALLPAPER_CLOCK_OVERLAY_POSITION_PREF, normalized)
+            .apply()
+        set(Keys.WALLPAPER_CLOCK_OVERLAY_POSITION, normalized)
+    }
+
+    private fun wallpaperClockOverlayPrefs() =
+        context.getSharedPreferences(WALLPAPER_CLOCK_OVERLAY_PREFS_NAME, Context.MODE_PRIVATE)
 
     val lastAppliedRingtoneUri: kotlinx.coroutines.flow.Flow<String> = get(Keys.LAST_APPLIED_RINGTONE_URI, "")
     suspend fun setLastAppliedRingtoneUri(uri: String) = set(Keys.LAST_APPLIED_RINGTONE_URI, uri)
@@ -874,6 +913,9 @@ class PreferencesManager @Inject constructor(
         val WALLPAPER_PACK_LAST_DAYPART = stringPreferencesKey("wallpaper_pack_last_daypart")
         val LIVE_WALLPAPER_DIM_ENABLED = booleanPreferencesKey("live_wallpaper_dim_enabled")
         val LIVE_WALLPAPER_COLORS_ENABLED = booleanPreferencesKey("live_wallpaper_colors_enabled")
+        val WALLPAPER_CLOCK_OVERLAY_ENABLED = booleanPreferencesKey("wallpaper_clock_overlay_enabled")
+        val WALLPAPER_CLOCK_OVERLAY_MODE = stringPreferencesKey("wallpaper_clock_overlay_mode")
+        val WALLPAPER_CLOCK_OVERLAY_POSITION = stringPreferencesKey("wallpaper_clock_overlay_position")
         val SOUND_PROFILES_ENABLED = booleanPreferencesKey("sound_profiles_enabled")
         val SOUND_PROFILES_JSON = stringPreferencesKey("sound_profiles_json")
         val SOUND_PROFILE_LAST_APPLIED_ID = stringPreferencesKey("sound_profile_last_applied_id")

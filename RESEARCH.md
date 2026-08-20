@@ -34,12 +34,12 @@ The tree is dirty: `RESEARCH.md`/`ROADMAP.md` doc updates from the prior session
 - Privacy-first sideloader (no account, no ads, verifiable APK); collector (multi-folder libraries, rotation); customizer (editors, home/lock separation, per-contact sounds); community uploader (rights/AI disclosure); maintainer/distributor (reproducible, size-conscious artifacts).
 
 ### Platforms and distribution
-- [Verified] Android only, minSdk 26, compile/target 35, `full` + `foss` flavors, Room v16. Signed universal APK + SHA256SUMS via GitHub Releases/Obtainium; IzzyOnDroid is the near-term store target; no CI workflows exist.
+- [Verified] Android only, minSdk 26, compile/target 35, `full` + `foss` flavors, Room v17. Signed universal APK + SHA256SUMS via GitHub Releases/Obtainium; IzzyOnDroid is the near-term store target; no CI workflows exist.
 - [Verified] Release gap: `git tag` has v6.41.0; `gh release list` newest is v6.38.1 (2026-07-29). `obtainium.json` sets `fallbackToOlderReleases: true`, silently holding users at v6.38.1.
 
 ### Integrations and data flows
 - Providers: Wallhaven, Pexels, Pixabay, Bing, Reddit (user-configurable up to 12 subreddits, validated), Lemmy, NASA, Wikimedia, YouTube (NewPipe v0.26.3 + yt-dlp 2026.07.04 payload), Open-Meteo, Stability AI (full flavor, off by default), Firebase community. Five legacy sound providers (Freesound/FreesoundV2/SoundCloud/Audius/ccMixter) remain constructed-but-never-called behind documented `ProviderStatus.LEGACY` disclosures; their fate is an owner decision tracked in Roadmap_Blocked.md.
-- Local: Room schema v16, DataStore + six SharedPreferences bridge files (write-order gated), SAF, MediaStore, WorkManager, Media3, Coil, ML Kit subject segmentation (Play-services beta), AGSL presets.
+- Local: Room schema v17, DataStore + six SharedPreferences bridge files (write-order gated), SAF, MediaStore, WorkManager, Media3, Coil, ML Kit subject segmentation (Play-services beta), AGSL presets.
 
 ## Competitive Landscape
 

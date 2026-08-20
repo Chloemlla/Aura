@@ -600,6 +600,9 @@ class SettingsViewModelTest {
             every { prefs.soundProfilesEnabled } returns flowOf(false)
             every { prefs.liveWallpaperDimEnabled } returns flowOf(false)
             every { prefs.liveWallpaperColorsEnabled } returns flowOf(true)
+            every { prefs.wallpaperClockOverlayEnabled } returns flowOf(false)
+            every { prefs.wallpaperClockOverlayMode } returns flowOf("time_and_date")
+            every { prefs.wallpaperClockOverlayPosition } returns flowOf("bottom_right")
             every { prefs.liveWallpaperShaderPreset } returns flowOf(AgslShaderGallery.NONE_ID)
             every { prefs.soundProfilesJson } returns flowOf("")
             every { prefs.soundProfileLastAppliedId } returns flowOf("")
@@ -617,6 +620,9 @@ class SettingsViewModelTest {
             every { prefs.ringtoneShuffleEnabled } returns flowOf(false)
             every { prefs.ringtoneShuffleIntervalHours } returns flowOf(24L)
             coEvery { prefs.setLiveWallpaperShaderPreset(any()) } returns Unit
+            coEvery { prefs.setWallpaperClockOverlayEnabled(any()) } returns Unit
+            coEvery { prefs.setWallpaperClockOverlayMode(any()) } returns Unit
+            coEvery { prefs.setWallpaperClockOverlayPosition(any()) } returns Unit
             coEvery { prefs.clearWallpaperStyleLearning() } returns Unit
         }
 

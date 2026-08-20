@@ -8,6 +8,8 @@ import com.freevibe.service.RingtoneShuffleWorker
 import com.freevibe.service.SoundProfileWorker
 import com.freevibe.service.WallpaperPackWorker
 import com.freevibe.service.WallpaperStyleLearningProfile
+import com.freevibe.service.WallpaperClockOverlayMode
+import com.freevibe.service.WallpaperClockOverlayPosition
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -32,6 +34,17 @@ internal class SettingsMediaDelegate(
     val soundProfilesEnabled = prefs.soundProfilesEnabled.stateIn(scope, sharing, false)
     val liveWallpaperDimEnabled = prefs.liveWallpaperDimEnabled.stateIn(scope, sharing, false)
     val liveWallpaperColorsEnabled = prefs.liveWallpaperColorsEnabled.stateIn(scope, sharing, true)
+    val wallpaperClockOverlayEnabled = prefs.wallpaperClockOverlayEnabled.stateIn(scope, sharing, false)
+    val wallpaperClockOverlayMode = prefs.wallpaperClockOverlayMode.stateIn(
+        scope,
+        sharing,
+        WallpaperClockOverlayMode.TIME_AND_DATE.preferenceValue,
+    )
+    val wallpaperClockOverlayPosition = prefs.wallpaperClockOverlayPosition.stateIn(
+        scope,
+        sharing,
+        WallpaperClockOverlayPosition.BOTTOM_RIGHT.preferenceValue,
+    )
     val soundProfilesJson = prefs.soundProfilesJson.stateIn(scope, sharing, "")
     val wallpaperPackEnabled = prefs.wallpaperPackEnabled.stateIn(scope, sharing, false)
     val wallpaperPackJson = prefs.wallpaperPackJson.stateIn(scope, sharing, "")
@@ -163,6 +176,15 @@ internal class SettingsMediaDelegate(
     fun setVideoAutoBatterySaver(enabled: Boolean) = scope.launch { prefs.setVideoAutoBatterySaver(enabled) }
     fun setLiveWallpaperDimEnabled(enabled: Boolean) = scope.launch { prefs.setLiveWallpaperDimEnabled(enabled) }
     fun setLiveWallpaperColorsEnabled(enabled: Boolean) = scope.launch { prefs.setLiveWallpaperColorsEnabled(enabled) }
+    fun setWallpaperClockOverlayEnabled(enabled: Boolean) = scope.launch {
+        prefs.setWallpaperClockOverlayEnabled(enabled)
+    }
+    fun setWallpaperClockOverlayMode(mode: String) = scope.launch {
+        prefs.setWallpaperClockOverlayMode(mode)
+    }
+    fun setWallpaperClockOverlayPosition(position: String) = scope.launch {
+        prefs.setWallpaperClockOverlayPosition(position)
+    }
     fun setGeneratedContentProviderEnabled(enabled: Boolean) = scope.launch {
         prefs.setGeneratedContentProviderEnabled(enabled)
     }

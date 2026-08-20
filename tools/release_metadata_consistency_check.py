@@ -195,7 +195,7 @@ def check_nav_claims(
 def validate_fact_surfaces(repo_root: Path, gradle: dict[str, object]) -> dict[str, object]:
     """Check version facts stated in prose against the build and the exported schema.
 
-    README claimed Room v14 for several releases after the database reached v16,
+    README claimed Room v14 for several releases after the database reached v17,
     and passed every gate, because nothing compared the prose to the source of
     truth. Anything a reader could act on is checked here.
     """
