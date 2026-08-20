@@ -177,7 +177,7 @@ class WeatherWallpaperService : WallpaperService() {
                     val colorsChanged = colorPublisher.update(path, bmp)
                     handler.post {
                         if (destroyed) { bmp.recycle(); return@post }
-                        if (colorsChanged) notifyColorsChanged()
+                        if (colorsChanged) notifyWallpaperColorsChanged()
                         synchronized(bitmapLock) {
                             val oldWallpaper = wallpaperBitmap
                             val oldScaled = scaledBitmap
@@ -273,7 +273,7 @@ class WeatherWallpaperService : WallpaperService() {
                 LIVE_WALLPAPER_COLORS_ENABLED_PREF,
                 LIVE_WALLPAPER_COLORS_ENABLED_DEFAULT,
             )
-            if (colorPublisher.setEnabled(enabled)) notifyColorsChanged()
+            if (colorPublisher.setEnabled(enabled)) notifyWallpaperColorsChanged()
         }
 
         /**
@@ -289,7 +289,7 @@ class WeatherWallpaperService : WallpaperService() {
                 secondary = preset.fallbackEndColor,
                 tertiary = preset.fallbackAccentColor,
             )
-            if (changed) notifyColorsChanged()
+            if (changed) notifyWallpaperColorsChanged()
         }
 
         @RequiresApi(android.os.Build.VERSION_CODES.O_MR1)

@@ -137,7 +137,7 @@ class VideoWallpaperService : WallpaperService() {
                 LIVE_WALLPAPER_COLORS_ENABLED_PREF,
                 LIVE_WALLPAPER_COLORS_ENABLED_DEFAULT,
             )
-            if (colorPublisher.setEnabled(enabled)) notifyColorsChanged()
+            if (colorPublisher.setEnabled(enabled)) notifyWallpaperColorsChanged()
         }
 
         @RequiresApi(android.os.Build.VERSION_CODES.O_MR1)
@@ -157,7 +157,7 @@ class VideoWallpaperService : WallpaperService() {
                 } finally {
                     frame.recycle()
                 }
-                if (changed) recoveryHandler.post { if (!destroyed) notifyColorsChanged() }
+                if (changed) recoveryHandler.post { if (!destroyed) notifyWallpaperColorsChanged() }
             }
         }
 

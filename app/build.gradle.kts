@@ -70,7 +70,12 @@ val localProps = Properties().apply {
 
 android {
     namespace = "com.freevibe"
-    compileSdk = 35
+    // Compile against 36, keep targetSdk at 35. Compiling against a newer platform
+    // only widens the API surface available behind version guards; it triggers none
+    // of the Android 16 behavior changes, which are keyed to targetSdk. Splitting
+    // the two is what lets Media3 1.10+, Coil 3.5+, and okhttp-android 5.4 resolve
+    // without also taking the predictive-back / edge-to-edge / orientation trio.
+    compileSdk = 36
 
     signingConfigs {
         create("release") {
@@ -169,12 +174,14 @@ android {
     }
 
     lint {
-        // lintVitalAnalyzeFullRelease crashes inside AndroidX's NonNullableMutableLiveDataDetector
-        // ("Found class org.jetbrains.kotlin.analysis.api.resolution.KaCallableMemberCall, but
-        // interface was expected") on this AGP 8.7.3 / Kotlin 2.1.0 pin — a lint/analysis-api
-        // incompatibility, not app code. The app uses StateFlow throughout, so the LiveData
-        // nullability check has nothing to inspect here anyway.
-        disable += "NullSafeMutableLiveData"
+        // No detector disables. AGP 8.7.3 could not run lint at all — three Compose
+        // detectors threw IncompatibleClassChangeError against its lint API and took
+        // the whole run down with them, which is why NullSafeMutableLiveData was
+        // disabled here. AGP 8.9.3 ships lint artifacts that match, so the run
+        // completes and every detector reports. Re-add a disable only with the
+        // stack trace that justifies it.
+        warningsAsErrors = false
+        abortOnError = true
     }
 
     // Per-ABI release APKs alongside the universal one.

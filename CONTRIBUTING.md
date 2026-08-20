@@ -34,7 +34,7 @@ flavor.
 
 Run build, unit-test, lint, signing, checksum, and release-artifact checks locally before pushing or publishing. Public install artifacts are signed APK/AAB outputs produced on this machine and attached to GitHub Releases with local receipts.
 
-Gradle wrapper is pinned to 8.12. AGP 8.7.3. Kotlin 2.1.0. JDK 17. See [`gradle/wrapper/gradle-wrapper.properties`](gradle/wrapper/gradle-wrapper.properties) and [`app/build.gradle.kts`](app/build.gradle.kts).
+Gradle wrapper is pinned to 8.12. AGP 8.9.3. Kotlin 2.1.0. JDK 17. The app compiles against SDK 36 but still targets 35, so none of the Android 16 behavior changes apply. See [`gradle/wrapper/gradle-wrapper.properties`](gradle/wrapper/gradle-wrapper.properties) and [`app/build.gradle.kts`](app/build.gradle.kts).
 
 `local.properties` example:
 

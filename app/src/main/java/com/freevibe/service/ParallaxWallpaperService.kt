@@ -92,7 +92,7 @@ class ParallaxWallpaperService : WallpaperService() {
                 LIVE_WALLPAPER_COLORS_ENABLED_PREF,
                 LIVE_WALLPAPER_COLORS_ENABLED_DEFAULT,
             )
-            if (colorPublisher.setEnabled(enabled)) notifyColorsChanged()
+            if (colorPublisher.setEnabled(enabled)) notifyWallpaperColorsChanged()
         }
 
         @RequiresApi(android.os.Build.VERSION_CODES.O_MR1)
@@ -250,7 +250,7 @@ class ParallaxWallpaperService : WallpaperService() {
                     val colorsChanged = colorPublisher.update(path, bmp)
                     handler.post {
                         if (destroyed) { bmp.recycle(); return@post }
-                        if (colorsChanged) notifyColorsChanged()
+                        if (colorsChanged) notifyWallpaperColorsChanged()
                         synchronized(bitmapLock) {
                             originalBitmap?.recycle()
                             originalBitmap = bmp

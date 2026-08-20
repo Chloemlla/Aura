@@ -2,6 +2,28 @@
 
 All notable changes to Aura will be documented in this file.
 
+## Unreleased
+
+- **Fixed a crash on Android 8.0 when a live wallpaper published its colours** — the call
+  that tells the system a wallpaper's colours changed only exists from Android 8.1, and
+  Aura made it on all seven of its publish paths. On Android 8.0 that is an immediate
+  crash of the wallpaper service. Every engine now goes through one guarded helper, so
+  adding a publish point cannot bring the crash back, and a release gate fails the build
+  if one calls the platform directly again.
+
+- **Android Lint runs again, and now has nothing muted** — it had been unable to complete
+  a single run: three Compose detectors threw against the old build plugin's lint API and
+  took the whole analysis down with them, so none of the other checks reported either.
+  It had been broken long enough that a detector was switched off to work around it. The
+  build plugin is now on a version whose lint matches, the run completes, the workaround
+  is gone, and the thirteen real errors hiding behind the failure are fixed.
+
+- **The app compiles against Android 16's SDK while still targeting Android 15** —
+  compiling against a newer platform only widens what Aura can call behind version
+  checks. None of Android 16's behaviour changes apply, because those follow the target,
+  which has not moved. This is what let the media, image-loading, and networking
+  libraries move off a blocker they had been stuck behind.
+
 ## v6.44.0
 
 - **Aura notices when its live wallpaper is no longer the one running** — a wallpaper

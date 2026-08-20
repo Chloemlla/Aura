@@ -68,20 +68,6 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
 
 ### P1
 
-- [ ] P1 — Restore Android Lint, which cannot complete a run
-  Why: `:app:lintAnalyzeFullDebug` aborts. Three Compose lint detectors each throw `IncompatibleClassChangeError` — `RememberInCompositionDetector` (reached from `FrequentlyChangingValueDetector`) and `AutoboxingStateCreationDetector` — so the whole run dies and none of the other checks report. No app source appears in any stack; it is a binary incompatibility between the Compose BOM 2025.06.00 lint artifacts and the AGP 8.7.3 lint API, the same class as the already-documented `NullSafeMutableLiveData` crash. Disabling detectors individually was tried and is whack-a-mole.
-  Evidence: `app/build.gradle.kts:156-163` (existing workaround for the same failure class); crash stacks from `./gradlew :app:lintAnalyzeFullDebug --no-daemon`. Pre-existing: not introduced by any source change in this cycle, and not verified against the base commit because a clean lint run is what is broken.
-  Touches: `gradle/libs.versions.toml` (Compose BOM / AGP), `app/build.gradle.kts` lint block.
-  Acceptance: `./gradlew :app:lintFullDebug` completes and reports findings rather than aborting, with no blanket detector disables beyond the documented ones; the Definition-of-Done lint step is executable again. Most likely resolved by the AGP/compileSdk 36 bump below — verify there first.
-  Complexity: M
-
-- [ ] P1 — Split the N-1 blocker: AGP 8.9 + compileSdk 36 at targetSdk 35
-  Why: `Roadmap_Blocked.md` blocks Media3, Coil, and OkHttp on the full AGP 9 / Gradle 9 / Kotlin 2.3 upgrade, but compileSdk 36 with targetSdk 35 is legal, triggers no Android 16 behavior change, and needs only an AGP 8.9.x-class bump on the current Gradle 8.12.1 / JDK 17 / Kotlin 2.1.0 stack. AGP 8.8+ is also the floor for the R8 core-count determinism fix any reproducibility claim depends on. **[Likely]** — the exact minimum AGP minor is the acceptance test.
-  Evidence: `Roadmap_Blocked.md:39-58` ("AGP 8.7.3 max is 35") and `:32-33` (already cites AGP 8.9.0-rc01); `app/build.gradle.kts:73,87`; Media3 1.10.1+/Coil 3.5.0 `minCompileSdk 36`.
-  Touches: `gradle/libs.versions.toml`, `app/build.gradle.kts`, `gradle/verification-metadata.xml`, `Roadmap_Blocked.md` (rescope the Media3/Coil/OkHttp entries off N-1 onto this).
-  Acceptance: compileSdk 36 with targetSdk 35 builds, `testDebugUnitTest`, `lintDebug`, and Roborazzi verify green; Media3 1.11.0 and Coil 3.5.0 resolve; no Android 16 behavior change is triggered; AGP 9 / Gradle 9 / Kotlin 2.4 stay in `Roadmap_Blocked.md`.
-  Complexity: L
-
 - [ ] P1 — Refresh the dependencies already available at compileSdk 35
   Why: Compose BOM 2026.06.01, Navigation 2.9.8, Paging 3.5.0, DataStore 1.2.1, kotlinx-coroutines 1.11.0, Firebase BoM 34.17.0, NewPipeExtractor v0.26.4, and Roborazzi 1.71.0 all clear compileSdk 35 and are blocked by nothing; Aura is 7 Roborazzi minors and 4 Firebase minors behind with no recorded reason.
   Evidence: `gradle/libs.versions.toml`; NewPipeExtractor v0.26.3 → v0.26.4 (2026-07-20); Compose BOM 2026.06.01 and Navigation 2.9.8 both resolve at `minCompileSdk 35`. Glance 1.2.0-rc01 is an orphaned RC — 1.2.0 never shipped stable.
@@ -91,6 +77,13 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
   Complexity: M
 
   Update 2026-08-20: current targets are Compose BOM 2026.08.00 (mesh gradients; pausable composition is on by default since BOM 2025.12.00), material3 1.4.0 stable (Expressive — adopt tokens selectively, the wholesale look conflicts with the design charter), NewPipeExtractor v0.26.5 (2026-08-15), Roborazzi 1.70.0, Firebase BoM 34.17.0 (published, confirmed). Glance 1.2.0 still never shipped stable; 1.2.0-rc01 remains the newest usable line.
+
+- [ ] P2 — Adopt the API 36 platform APIs the compileSdk bump just made reachable
+  Why: compileSdk 36 landed on 2026-08-20 and immediately unblocked a set of platform APIs the code currently works around or leaves as a TODO. They were queued behind the compile SDK and nothing else.
+  Evidence: `RESEARCH.md:78`; the three `res/xml/*_wallpaper.xml` `WallpaperDescription` TODOs; `RuntimeColorFilter`/`RuntimeXfermode` for the AGSL pipeline; `Notification.ProgressStyle` for the download queue.
+  Touches: `res/xml/*_wallpaper.xml`, the three live-wallpaper services, `AgslShaderGallery.kt`, `DownloadManager.kt` notifications.
+  Acceptance: each adopted API is guarded for minSdk 26 and falls back to the current behavior below API 36; `WallpaperDescription` multi-instance support is either wired or its remaining blocker is recorded here; the download notification uses `ProgressStyle` where available; lint reports no new NewApi findings.
+  Complexity: M
 
 - [ ] P1 — Ship a Rotation Health screen
   Why: auto-rotation silently stopping is the single most-reported failure across every competitor, and no app in the category exposes scheduler state; Backdrops paywalls the feature everyone ships broken.

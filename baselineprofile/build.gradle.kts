@@ -6,7 +6,8 @@ plugins {
 
 android {
     namespace = "com.freevibe.benchmark"
-    compileSdk = 35
+    // Tracks :app — see the compileSdk note there.
+    compileSdk = 36
     targetProjectPath = ":app"
     experimentalProperties["android.experimental.self-instrumenting"] = true
 

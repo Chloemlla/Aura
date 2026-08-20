@@ -52,7 +52,10 @@ class Target37ToolchainGateTest(unittest.TestCase):
         result = validate_toolchain(REPO_ROOT)
 
         self.assertEqual("pending", result["status"])
-        self.assertEqual(35, result["modules"]["app"]["compileSdk"])
+        # compileSdk 36 with targetSdk 35: compiling against a newer platform is
+        # not targeting it, so the target-37 gate stays armed and inactive.
+        self.assertEqual(36, result["modules"]["app"]["compileSdk"])
+        self.assertEqual(35, result["modules"]["app"]["targetSdk"])
 
     def test_rejects_target37_with_old_agp(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

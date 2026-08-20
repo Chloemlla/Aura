@@ -4,6 +4,7 @@ import android.app.WallpaperColors
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Build
+import android.service.wallpaper.WallpaperService
 import androidx.annotation.ColorInt
 
 /** SharedPreferences key every engine reads to decide whether to publish colors. */
@@ -145,6 +146,21 @@ internal class LiveWallpaperColorPublisher(
      */
     @ColorInt
     private fun opaque(@ColorInt color: Int): Int = color or 0xFF000000.toInt()
+}
+
+/**
+ * Tells the framework the wallpaper's colors changed, where that call exists.
+ *
+ * `notifyColorsChanged()` arrived in API 27, one above Aura's minSdk 26, so calling
+ * it on Android 8.0 is a `NoSuchMethodError` — and 8.0 is inside the supported
+ * range. Every engine publishes through here rather than calling the framework
+ * directly, so adding a publish point cannot reintroduce the crash. On 26 the
+ * platform never asks for colors, so doing nothing is the whole correct behavior.
+ */
+internal fun WallpaperService.Engine.notifyWallpaperColorsChanged() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+        notifyColorsChanged()
+    }
 }
 
 /**

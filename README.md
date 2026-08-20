@@ -221,7 +221,7 @@ Requires JDK 17+ and Android SDK 35. Android Studio Ladybug (2024.2.1) or later 
 ./gradlew assembleFullRelease bundleFullRelease  # requires signing config
 ```
 
-> Always use the included Gradle wrapper. It pins Gradle 8.12 which is required by AGP 8.7.3.
+> Always use the included Gradle wrapper. It pins Gradle 8.12, which is what AGP 8.9.3 needs.
 
 Run debug build, unit tests, lint, signed APK/AAB dry runs, checksum checks, and release metadata guards locally before publishing.
 Debug builds include Android pseudolocales; the route screenshot gate covers compact English XA and Arabic XB RTL fixtures before real translation packs are added.

@@ -340,6 +340,11 @@ class CrashDiagnosticsCollector @Inject constructor(
     }.trimEnd()
 
     private fun formatRecentExitInfo(): String {
+        // recentExits() already returns empty below API 30, so this is redundant at
+        // runtime — but the guard has to be in the function that touches the
+        // ApplicationExitInfo members for lint to see it, and a guard lint cannot
+        // see is a guard the next reader cannot see either.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return ""
         val exits = recentExits()
         if (exits.isEmpty()) return ""
         val limiterExits = AndroidMemoryLimiter.countMemoryLimiterExits(exits.map { it.description })

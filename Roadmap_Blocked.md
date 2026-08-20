@@ -22,41 +22,23 @@
 
 N-1 itself is the largest single gate. Until it lands, these items cannot proceed:
 
-- **N-1 — Toolchain upgrade triad** (AGP 9 + Gradle 9 + Kotlin 2.3 + Compose BOM + Hilt 2.59)
-  - Scope: AGP 8.7.3 -> 9.2.x, Gradle 8.12 -> 9.5+, Kotlin 2.1.0 -> 2.3.20, KSP1 -> KSP2, Compose BOM -> 2026.05.00, Hilt 2.53.1 -> 2.59.x, Navigation 3.x, etc.
+- **N-1 — Toolchain upgrade triad** (AGP 9 + Gradle 9 + Kotlin 2.3 + Hilt 2.59)
+  - Scope: AGP 8.9.3 -> 9.2.x, Gradle 8.12 -> 9.5+, Kotlin 2.1.0 -> 2.3.20, KSP1 -> KSP2, Hilt 2.53.1 -> 2.59.x, Navigation 3.x, etc.
+  - Rescoped 2026-08-20: compileSdk 36 landed on AGP 8.9.3 at targetSdk 35, so this no
+    longer gates anything that only needed a compileSdk of 36. The Compose BOM moves
+    independently and is out of this scope. OkHttp 5.4, Coil 3.5, and Media3 1.10+ came
+    off this blocker and were taken in the dependency refresh.
   - Risk: Memory-heavy Gradle runs on this workstation. R8 keep-rule regressions, KSP2 cache issues.
   - Gates: N-3/N-4/NX-2/NX-7 and most Next-tier items.
   - Scope notes 2026-08-20: AGP 9.x ships built-in Kotlin — the standalone `org.jetbrains.kotlin.android` plugin must be removed or the build fails; Gradle 9.1+ is the floor; use Hilt **2.59.2**, not 2.59 (2.59 shipped a broken Gradle plugin, dagger#5099); Kotlin stable is now 2.4.x with the K1 frontend removed; AGP 9.3 adds an `analyzeReleaseR8Config` keep-rule analyzer useful for the queued R8 item.
 
-- **N-4 (remaining)** — WallpaperDescription scaffolding is comment-only until N-1 unlocks compileSdk 36+.
-
 - **P0 — API 37 toolchain and target-SDK release gate** (Cycle 10)
-  - Needs compileSdk 37 + AGP 8.9.0-rc01+ minimum. Blocked until N-1 completes.
+  - Needs compileSdk 37, which needs an AGP beyond the 8.9.3 the project now pins.
+    Blocked until N-1 completes.
   - Note 2026-08-20: budget for the targetSdk 36 behavior trio on the way — predictive back on by default (`onBackPressed` no longer called), edge-to-edge opt-out removed, and orientation/resize flags ignored on sw>=600dp (opt-out dies entirely at targetSdk 37).
 
 - **P2 — Direct Android 17 API cleanup for shipped bridges** (Cycle 10)
   - EyeDropper and Photo Picker 9:16 shipped through reflection; direct API needs compileSdk 37.
-
-- **P2 — OkHttp 5.3.2 -> 5.4.0**
-  - Blocker: `com.squareup.okhttp3:okhttp-android:5.4.0` requires compileSdk 36 or later,
-    while Aura is on compileSdk 35 and AGP 8.7.3 (whose supported maximum is 35).
-  - Evidence: `:app:checkFullDebugAarMetadata` fails on the dependency's published AAR
-    metadata before compilation. Resume with N-1, then re-run RateLimitInterceptor,
-    redirect, Full/FOSS build, and dependency-verification checks.
-
-- **P1 — Coil 3.4.0 -> 3.5.0**
-  - Blocker: `io.coil-kt.coil3:coil-*:3.5.0` requires compileSdk 36 (AGP 8.7.3 max is 35).
-  - Evidence: `:app:checkFullDebugAarMetadata` lists coil-android/coil-compose/coil-gif/
-    coil-network-okhttp 3.5.0 as requiring compileSdk >= 36. Aura shipped Coil 3.4.0 (the
-    compileSdk-35 ceiling) with `memoryCacheMaxSizePercentWhileInBackground` enabled; resume
-    the 3.5.0 bump after N-1 (3.5.0 also makes that background-cap API stable).
-
-- **P1 — Media3 1.9.4 -> 1.10.1**
-  - Blocker: `androidx.media3:*:1.10.1` requires compileSdk 36 (AGP 8.7.3 max is 35).
-  - Evidence: `:app:checkFullDebugAarMetadata` lists media3-exoplayer/-ui/-session/-common
-    1.10.1 as requiring compileSdk >= 36. Aura shipped Media3 1.9.4 (the compileSdk-35 ceiling)
-    with `experimentalSetDynamicSchedulingEnabled(true)` on the video players; resume the
-    1.10.1 bump (Compose player composables) after N-1.
 
 - **P2 — Video wallpaper playlists and per-video behavior profiles** (Cycle 1)
   - Depends on NX-1 GL/AGSL/ExoPlayer engine migration, which itself depends on N-1.
