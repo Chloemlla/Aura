@@ -1,0 +1,3 @@
+Aura v6.44.0
+
+Recent highlights: installing an older Aura no longer crashes it on every launch and no longer clears your library in silence, because the previous database is copied aside first and you are told what happened and where to restore from; Aura also notices when its live wallpaper is no longer the one running, after a reboot or an app update or whenever you open Diagnostics, and offers to set yours back in one tap.

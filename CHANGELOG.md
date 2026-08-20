@@ -2,7 +2,7 @@
 
 All notable changes to Aura will be documented in this file.
 
-## Unreleased
+## v6.44.0
 
 - **Aura notices when its live wallpaper is no longer the one running** — a wallpaper
   service dropped after a reboot, replaced by another app, or killed by an OEM battery
