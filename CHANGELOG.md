@@ -4,6 +4,12 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Build: enable the Gradle build cache, parallel execution, and the configuration
+  cache** — a clean `:app:testFullDebugUnitTest` drops from 7m08s to 5m35s, and 28s when
+  the caches are warm. No task reported a configuration-cache problem. The heap moved to
+  3072m because parallel workers need more headroom than a serial build, with metaspace
+  capped so a runaway processor fails instead of taking the machine down. Isolated
+  Projects stays off while it is incubating.
 - **Reliability: keep SharedPreferences out of the UI layer, and let the gate find its own
   scope** — onboarding state, the Pixabay video feed cache, and the video-wallpaper
   selection now persist through the data and service layers instead of composables reaching

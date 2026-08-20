@@ -178,13 +178,6 @@ Complexity: S
   Acceptance: the FOSS artifact contains no Stability AI code or key field and the AI entry point is absent from its UI; the yt-dlp update is opt-in with copy stating the user is bypassing repository checks; `fdroid_preflight.py` asserts both.
   Complexity: M
 
-- [ ] P2 — Turn on Gradle build performance flags
-  Why: `gradle.properties` sets only `-Xmx2048m` — no build cache, no parallel, no configuration cache — on a workstation where CLAUDE.md already records Gradle runs exhausting memory.
-  Evidence: `gradle.properties` (4 lines); Gradle 8.12.1 supports all three. Isolated Projects is deliberately excluded — incubating in 9.7 and not recommended for production.
-  Touches: `gradle.properties`, a clean-build timing note.
-  Acceptance: `org.gradle.caching`, `org.gradle.parallel`, and `org.gradle.configuration-cache` are enabled with any incompatible task recorded; `assembleDebug` and `testDebugUnitTest` pass from a clean and a warm cache; before/after timings are recorded.
-  Complexity: S
-
 - [ ] P2 — Add the fastlane store images IzzyOnDroid requires
   Why: `fastlane/metadata/android/en-US/` has no `images/` directory, so there is no icon, phone screenshot, or feature graphic for a store listing to consume. (Changelogs are current — an earlier claim that they stopped at versionCode 8 was a lexical-sort artifact; 22 exist, through 141.)
   Evidence: `ls fastlane/metadata/android/en-US/` returns only `changelogs/`, `full_description.txt`, `short_description.txt`, `title.txt`; IzzyOnDroid App Inclusion Policy requires in-repo Fastlane metadata with icon and screenshots. Screenshot capture itself stays blocked in `Roadmap_Blocked.md`.
@@ -280,13 +273,6 @@ against v6.41.0 / versionCode 142 at `122d431`.
   Touches: `.github/workflows/verify.yml`, `tools/github_actions_allowlist_check.py` and the three sibling gates, `docs/distribution/*.json` entries claiming `releaseWorkflowEnforced`.
   Acceptance: one workflow runs `assembleDebug`, `testDebugUnitTest`, `lintDebug` once lint is repaired, the pytest gate suite, and `verifyRoborazziFullDebug` on push and PR, and builds or publishes no release artifact; the four workflow-auditing gates fail on `workflowCount: 0` instead of passing; any policy file naming `releaseWorkflowEnforced` either points at a real mechanism or is corrected.
   Complexity: M
-
-- [ ] P2 — Make the preference write-order gate derive its own scope
-  Why: the gate holds a hand-written nine-name list of bridge setters, so a tenth bridge is unpoliced the moment it is written — and the DataStore/SharedPreferences split-brain it exists to prevent has been fixed at least four times across releases. It also sees only `SettingsViewModel`, while 55 `getSharedPreferences` call sites live across 30 files and six preference files.
-  Evidence: `tools/preference_write_order_check.py:31-42` (`BRIDGE_FUNCTIONS` tuple) and `:107-110` (the `SettingsViewModel` substring check); commits `e2c0252` → `e6b117b` → `79b6177` → `63ddc94` are four separate fixes for the same class. Supersedes the scope of the tracked "move the last three SharedPreferences writes out of the settings UI" item — do that one first, then this.
-  Touches: `tools/preference_write_order_check.py`, `test/tools/preference_write_order_check_test.py`, `PreferencesManager.kt`.
-  Acceptance: the gate discovers bridges by finding every function in `PreferencesManager` that writes both stores, rather than reading a list, and fails if any writes DataStore first; it forbids `getSharedPreferences` anywhere under `ui/`; a test adds a new wrong-order bridge and proves the gate fails without editing the gate.
-  Complexity: S
 
 - [ ] P2 — Codify the design system as tokens and gate it
   Why: the "rectangular 4–12 dp radii, no pill / oval / fully-rounded backdrops" rule is written in ARCHITECTURE.md and CLAUDE.md and enforced by nothing — corner radii are literal numbers at 250+ call sites, and the rule is already broken in shipped code. It is the only major documented project rule with no gate behind it, in a repo with 82 gates.
