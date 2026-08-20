@@ -132,10 +132,10 @@ class ReleaseMetadataConsistencyCheckTest(unittest.TestCase):
         self.assertEqual(manifest["roomSchemaVersion"], result["roomSchemaVersion"])
 
     def test_rejects_a_stale_room_schema_claim(self) -> None:
-        message = self._drifted(lambda text: text.replace("Room DB v16", "Room DB v14"))
+        message = self._drifted(lambda text: text.replace("Room DB v17", "Room DB v14"))
 
         self.assertIn("Room v14", message)
-        self.assertIn("v16", message)
+        self.assertIn("v17", message)
 
     def test_rejects_a_stale_version_badge(self) -> None:
         # Derived, not hardcoded: a literal version here becomes the stale

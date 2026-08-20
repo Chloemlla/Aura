@@ -341,11 +341,12 @@ internal fun SourcePickerDialog(
     pixabayProviderEnabled: Boolean,
     localFolderUri: String,
     localFolderPermissionActive: Boolean,
+    localCatalogReady: Boolean = false,
     onDismiss: () -> Unit,
     onChooseLocalFolder: () -> Unit,
     onSelect: (String) -> Unit,
 ) {
-    val localFolderReady = isLocalWallpaperFolderReady(localFolderUri, localFolderPermissionActive)
+    val localFolderReady = isLocalWallpaperFolderReady(localFolderUri, localFolderPermissionActive) || localCatalogReady
     val sources = listOf(
         "discover" to stringResource(R.string.settings_dialogs_source_discover),
         "favorites" to stringResource(R.string.settings_dialogs_source_favorites),
@@ -826,10 +827,11 @@ internal fun wallpaperRotationSourceLabel(
     source: String,
     localFolderUri: String,
     localFolderPermissionActive: Boolean,
+    localCatalogReady: Boolean = false,
 ): String = when (source) {
     WALLPAPER_SOURCE_LOCAL_FOLDER -> when {
+        localFolderPermissionActive || localCatalogReady -> stringResource(R.string.settings_dialogs_source_local_folder)
         localFolderUri.isBlank() -> stringResource(R.string.settings_dialogs_source_local_folder_choose)
-        localFolderPermissionActive -> stringResource(R.string.settings_dialogs_source_local_folder)
         else -> stringResource(R.string.settings_dialogs_source_local_folder_permission)
     }
     else -> sourceDisplayName(source)

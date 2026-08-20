@@ -10,6 +10,8 @@ import com.freevibe.data.local.FREEVIBE_DATABASE_VERSION
 import com.freevibe.data.local.DownloadDao
 import com.freevibe.data.local.FavoriteDao
 import com.freevibe.data.local.FreeVibeDatabase
+import com.freevibe.data.local.LocalWallpaperDao
+import com.freevibe.data.local.LocalWallpaperFolderDao
 import com.freevibe.data.local.SearchHistoryDao
 import com.freevibe.data.local.WallpaperCacheDao
 import com.freevibe.data.local.WallpaperHistoryDao
@@ -290,4 +292,10 @@ object AppModule {
 
     @Provides
     fun provideCollectionDao(db: FreeVibeDatabase): CollectionDao = db.collectionDao()
+
+    @Provides
+    fun provideLocalWallpaperFolderDao(db: FreeVibeDatabase): LocalWallpaperFolderDao = db.localWallpaperFolderDao()
+
+    @Provides
+    fun provideLocalWallpaperDao(db: FreeVibeDatabase): LocalWallpaperDao = db.localWallpaperDao()
 }

@@ -61,6 +61,7 @@ class SettingsViewModel @Inject constructor(
     wallpaperCacheManager: WallpaperCacheManager,
     collectionRepo: CollectionRepository,
     wallpaperApplier: WallpaperApplier,
+    localWallpaperCatalog: LocalWallpaperCatalog,
     videoWallpaperStorage: VideoWallpaperStorage,
     sourceMetrics: SourceMetrics,
     crashDiagnosticsCollector: CrashDiagnosticsCollector,
@@ -75,7 +76,7 @@ class SettingsViewModel @Inject constructor(
     aiWallpaperRepository: AiWallpaperRepository,
     @IoDispatcher ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
-    private val rotation = SettingsRotationDelegate(context, prefs, collectionRepo, viewModelScope)
+    private val rotation = SettingsRotationDelegate(context, prefs, collectionRepo, localWallpaperCatalog, viewModelScope)
     private val media = SettingsMediaDelegate(context, prefs, viewModelScope)
     private val community = SettingsCommunityDelegate(
         context = context,
@@ -144,6 +145,8 @@ class SettingsViewModel @Inject constructor(
     val liveWallpaperShaderPreset get() = rotation.liveWallpaperShaderPreset
     val collections get() = rotation.collections
     val schedulerCollectionId get() = rotation.schedulerCollectionId
+    val localWallpaperFolders get() = rotation.localWallpaperFolders
+    val localWallpaperItems get() = rotation.localWallpaperItems
     val autoPreview get() = media.autoPreview
     val gridColumns get() = media.gridColumns
     val previewVolume get() = media.previewVolume
@@ -212,7 +215,16 @@ class SettingsViewModel @Inject constructor(
     fun setAutoWpInterval(hours: Long) = rotation.setAutoWpInterval(hours)
     fun setAutoWpSource(source: String) = rotation.setAutoWpSource(source)
     fun setLocalWallpaperFolderUri(uri: String) = rotation.setLocalWallpaperFolderUri(uri)
+    fun addLocalWallpaperFolder(uri: String, makePrimary: Boolean = true) =
+        rotation.addLocalWallpaperFolder(uri, makePrimary)
     fun clearLocalWallpaperFolderUri() = rotation.clearLocalWallpaperFolderUri()
+    fun removeLocalWallpaperFolder(uri: String) = rotation.removeLocalWallpaperFolder(uri)
+    fun rescanLocalWallpaperFolder(uri: String) = rotation.rescanLocalWallpaperFolder(uri)
+    fun rescanAllLocalWallpaperFolders() = rotation.rescanAllLocalWallpaperFolders()
+    fun setLocalWallpaperFolderTarget(uri: String, target: com.freevibe.data.model.WallpaperTarget) =
+        rotation.setLocalWallpaperFolderTarget(uri, target)
+    fun updateLocalWallpaperTags(documentUri: String, tags: String) =
+        rotation.updateLocalWallpaperTags(documentUri, tags)
     fun setAutoWallpaperRequiresCharging(value: Boolean) = rotation.setAutoWallpaperRequiresCharging(value)
     fun setAutoWallpaperRequiresWiFiOnly(value: Boolean) = rotation.setAutoWallpaperRequiresWiFiOnly(value)
     fun setRotateOnUnlock(value: Boolean) = rotation.setRotateOnUnlock(value)

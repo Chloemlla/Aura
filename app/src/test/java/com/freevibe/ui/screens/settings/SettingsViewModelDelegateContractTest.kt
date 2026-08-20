@@ -36,7 +36,7 @@ class SettingsViewModelDelegateContractTest {
     fun `delegates use the ViewModel lifecycle scope and facade owns no jobs`() {
         val source = viewModel.readText()
 
-        assertTrue(source.contains("SettingsRotationDelegate(context, prefs, collectionRepo, viewModelScope)"))
+        assertTrue(source.contains("SettingsRotationDelegate(context, prefs, collectionRepo, localWallpaperCatalog, viewModelScope)"))
         assertTrue(source.contains("SettingsMediaDelegate(context, prefs, viewModelScope)"))
         assertTrue(source.contains("scope = viewModelScope"))
         assertFalse("the facade must not create independent jobs", source.contains("viewModelScope.launch"))

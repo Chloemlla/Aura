@@ -40,7 +40,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.freevibe.R
-import com.freevibe.data.model.WALLPAPER_SOURCE_LOCAL_FOLDER
 import com.freevibe.service.AuraPickVisualMedia
 import com.freevibe.service.DailyWallpaperWorker
 import com.freevibe.service.ParallaxWallpaperService
@@ -114,46 +113,13 @@ fun SettingsScreen(
         }
     }
 
-    var pendingLocalFolderSource by remember { mutableStateOf<String?>(null) }
-    val localFolderPickerLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocumentTree(),
-    ) { uri: Uri? ->
-        val target = pendingLocalFolderSource
-        pendingLocalFolderSource = null
-        if (uri != null) {
-            val persisted = runCatching {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
-                )
-            }.isSuccess
-            viewModel.setLocalWallpaperFolderUri(uri.toString())
-            when (target) {
-                "auto" -> viewModel.setAutoWpSource(WALLPAPER_SOURCE_LOCAL_FOLDER)
-                "scheduler" -> viewModel.setSchedulerSource(WALLPAPER_SOURCE_LOCAL_FOLDER)
-                "scheduler_day" -> viewModel.setSchedulerSource(
-                    SchedulerSourceTarget.DAY,
-                    WALLPAPER_SOURCE_LOCAL_FOLDER,
-                )
-                "scheduler_night" -> viewModel.setSchedulerSource(
-                    SchedulerSourceTarget.NIGHT,
-                    WALLPAPER_SOURCE_LOCAL_FOLDER,
-                )
-            }
-            showSettingsFeedback(
-                if (persisted) {
-                    resources.getString(R.string.settings_feedback_local_folder_saved)
-                } else {
-                    resources.getString(R.string.settings_feedback_local_folder_no_persist)
-                },
-            )
-        }
-    }
-
-    fun chooseLocalWallpaperFolder(target: String? = null) {
-        pendingLocalFolderSource = target
-        localFolderPickerLauncher.launch(null)
-    }
+    var showLocalWallpaperCatalog by remember { mutableStateOf(false) }
+    val chooseLocalWallpaperFolder = rememberLocalWallpaperFolderPicker(
+        context = context,
+        resources = resources,
+        viewModel = viewModel,
+        onFeedback = ::showSettingsFeedback,
+    )
     var enableAutoBackupAfterFolder by remember { mutableStateOf(false) }
     val backupFolderPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
@@ -283,6 +249,14 @@ fun SettingsScreen(
         )
     }
 
+    LocalWallpaperCatalogDialogHost(
+        show = showLocalWallpaperCatalog,
+        state = settingsState,
+        viewModel = viewModel,
+        onDismiss = { showLocalWallpaperCatalog = false },
+        onAddFolder = { chooseLocalWallpaperFolder("catalog") },
+    )
+
     with(settingsState) {
     Scaffold(
         snackbarHost = { AuraSnackbarHost(snackbarHostState) },
@@ -318,6 +292,8 @@ fun SettingsScreen(
                 autoWpSource = autoWpSource,
                 localWallpaperFolderUri = localWallpaperFolderUri,
                 localFolderPermissionActive = localFolderPermissionActive,
+                localWallpaperFolderCount = localWallpaperFolders.size,
+                localCatalogReady = localWallpaperCatalogReady,
                 autoWpRequiresCharging = autoWpRequiresCharging,
                 autoWpRequiresWiFi = autoWpRequiresWiFi,
                 autoWpRequiresIdle = autoWpRequiresIdle,
@@ -340,7 +316,8 @@ fun SettingsScreen(
                 wallhavenProviderEnabled = wallhavenProviderEnabled,
                 pixabayProviderEnabled = pixabayProviderEnabled,
                 wallpaperHistoryCount = wallpaperHistory.size,
-                onChooseLocalWallpaperFolder = ::chooseLocalWallpaperFolder,
+                onChooseLocalWallpaperFolder = chooseLocalWallpaperFolder,
+                onManageLocalWallpaperFolders = { showLocalWallpaperCatalog = true },
                 onPickVideoWallpaper = { videoPickerLauncher.launch(videoWallpaperMimeTypes()) },
                 onPickParallaxImage = {
                     parallaxGalleryLauncher.launch(
@@ -368,10 +345,11 @@ fun SettingsScreen(
                 schedulerShuffle = schedulerShuffle,
                 localWallpaperFolderUri = localWallpaperFolderUri,
                 localFolderPermissionActive = localFolderPermissionActive,
+                localCatalogReady = localWallpaperCatalogReady,
                 wallhavenProviderEnabled = wallhavenProviderEnabled,
                 pixabayProviderEnabled = pixabayProviderEnabled,
                 bingProviderEnabled = bingProviderEnabled,
-                onChooseLocalWallpaperFolder = ::chooseLocalWallpaperFolder,
+                onChooseLocalWallpaperFolder = chooseLocalWallpaperFolder,
             )
             if (SettingsSectionKeys.BACKUP in visibleSectionKeys) SettingsSectionAnchorTarget(Screen.Settings.BACKUP_SECTION, initialSection) {
                 BackupSettingsSection(

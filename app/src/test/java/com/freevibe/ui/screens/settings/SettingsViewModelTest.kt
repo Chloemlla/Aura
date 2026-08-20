@@ -18,6 +18,7 @@ import com.freevibe.service.CommunityIdentityProvider
 import com.freevibe.service.CommunityIdentitySummary
 import com.freevibe.service.CrashDiagnosticsCollector
 import com.freevibe.service.OfflineFavoritesManager
+import com.freevibe.service.LocalWallpaperCatalog
 import com.freevibe.service.ThemePackExportReport
 import com.freevibe.service.ThemePackImportReport
 import com.freevibe.service.ThemePackRecipeManager
@@ -460,6 +461,11 @@ class SettingsViewModelTest {
             every { it.getAll() } returns flowOf(emptyList())
         }
         val wallpaperApplier = mockk<com.freevibe.service.WallpaperApplier>(relaxed = true)
+        val localWallpaperCatalog = mockk<LocalWallpaperCatalog>().also {
+            every { it.folders } returns flowOf(emptyList())
+            every { it.items } returns flowOf(emptyList())
+            coEvery { it.migrateLegacyFolder(any()) } returns null
+        }
         val videoWallpaperStorage = videoWallpaperStorageOverride ?: mockk(relaxed = true)
         val voteRepo = mockk<VoteRepository>(relaxed = true).also {
             every { it.isAdmin } returns isAdmin
@@ -485,6 +491,7 @@ class SettingsViewModelTest {
             wallpaperCacheManager = wallpaperCacheManager,
             collectionRepo = collectionRepo,
             wallpaperApplier = wallpaperApplier,
+            localWallpaperCatalog = localWallpaperCatalog,
             videoWallpaperStorage = videoWallpaperStorage,
             sourceMetrics = com.freevibe.service.SourceMetrics(),
             crashDiagnosticsCollector = CrashDiagnosticsCollector(

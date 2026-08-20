@@ -9,6 +9,8 @@ import com.freevibe.data.model.WallpaperCacheEntity
 import com.freevibe.data.model.WallpaperCollectionEntity
 import com.freevibe.data.model.WallpaperCollectionItemEntity
 import com.freevibe.data.model.WallpaperHistoryEntity
+import com.freevibe.data.model.LocalWallpaperEntity
+import com.freevibe.data.model.LocalWallpaperFolderEntity
 import kotlinx.coroutines.flow.Flow
 
 // -- Database --
@@ -24,7 +26,7 @@ import kotlinx.coroutines.flow.Flow
  * Read by [DatabaseDowngradeGuard] to recognise a database written by a newer
  * Aura before Room tries to open it and throws.
  */
-const val FREEVIBE_DATABASE_VERSION = 16
+const val FREEVIBE_DATABASE_VERSION = 17
 
 @Database(
     entities = [
@@ -35,8 +37,10 @@ const val FREEVIBE_DATABASE_VERSION = 16
         WallpaperHistoryEntity::class,
         WallpaperCollectionEntity::class,
         WallpaperCollectionItemEntity::class,
+        LocalWallpaperFolderEntity::class,
+        LocalWallpaperEntity::class,
     ],
-    version = 16,
+    version = 17,
     exportSchema = true,
 )
 abstract class FreeVibeDatabase : RoomDatabase() {
@@ -46,6 +50,8 @@ abstract class FreeVibeDatabase : RoomDatabase() {
     abstract fun wallpaperCacheDao(): WallpaperCacheDao
     abstract fun wallpaperHistoryDao(): WallpaperHistoryDao
     abstract fun collectionDao(): CollectionDao
+    abstract fun localWallpaperFolderDao(): LocalWallpaperFolderDao
+    abstract fun localWallpaperDao(): LocalWallpaperDao
 }
 
 // -- Favorite DAO --

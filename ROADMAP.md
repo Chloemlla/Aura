@@ -4,13 +4,6 @@ Actionable work only. Historical and completed roadmap material is archived in C
 
 ## Actionable Items
 
-- [ ] P2 — Build an indexed multi-folder local wallpaper catalog
-  Why: one rotation folder cannot represent collectors' existing libraries, tags, missing folders, or independent home/lock source sets.
-  Evidence: current single-folder preferences/SAF path; Paperize, Peristyle, Muzei, and Fossify Gallery.
-  Touches: persisted SAF grants, Room media index/tags, scanner/dedupe, local browse/search, rotation source picker/diagnostics.
-  Acceptance: users can add/remove multiple SAF folders, rescan incrementally, tag/search/dedupe items, diagnose revoked/missing grants, and choose per-home/lock collections without broad storage permission.
-  Complexity: L
-
 - [ ] P3 — Add Microsoft Spotlight as an opt-in daily-image source after terms validation
   Why: a keyless daily-image source adds low-frequency breadth without another high-volume feed.
   Evidence: WallYou source registry; existing Bing/NASA/Wikimedia daily-source plumbing.

@@ -63,6 +63,8 @@ internal fun WallpaperRotationSettingsSection(
     autoWpSource: String,
     localWallpaperFolderUri: String,
     localFolderPermissionActive: Boolean,
+    localWallpaperFolderCount: Int,
+    localCatalogReady: Boolean,
     autoWpRequiresCharging: Boolean,
     autoWpRequiresWiFi: Boolean,
     autoWpRequiresIdle: Boolean,
@@ -86,6 +88,7 @@ internal fun WallpaperRotationSettingsSection(
     pixabayProviderEnabled: Boolean,
     wallpaperHistoryCount: Int,
     onChooseLocalWallpaperFolder: (String?) -> Unit,
+    onManageLocalWallpaperFolders: () -> Unit,
     onPickVideoWallpaper: () -> Unit,
     onPickParallaxImage: () -> Unit,
     onCategoriesClick: () -> Unit,
@@ -125,6 +128,7 @@ internal fun WallpaperRotationSettingsSection(
                     source = autoWpSource,
                     localFolderUri = localWallpaperFolderUri,
                     localFolderPermissionActive = localFolderPermissionActive,
+                    localCatalogReady = localCatalogReady,
                 ),
                 onClick = { showSourcePicker = true },
             )
@@ -202,11 +206,15 @@ internal fun WallpaperRotationSettingsSection(
         SettingsItem(
             icon = Icons.Default.FolderOpen,
             title = stringResource(R.string.settings_wp_local_folder_title),
-            subtitle = localWallpaperFolderSubtitle(
-                localWallpaperFolderUri,
-                localFolderPermissionActive,
-            ),
-            onClick = { onChooseLocalWallpaperFolder(null) },
+            subtitle = if (localWallpaperFolderCount > 0) {
+                stringResource(R.string.settings_local_catalog_subtitle_count, localWallpaperFolderCount)
+            } else {
+                localWallpaperFolderSubtitle(
+                    localWallpaperFolderUri,
+                    localFolderPermissionActive,
+                )
+            },
+            onClick = onManageLocalWallpaperFolders,
         )
         if (localWallpaperFolderUri.isNotBlank()) {
             SettingsItem(
@@ -367,6 +375,7 @@ internal fun WallpaperRotationSettingsSection(
             pixabayProviderEnabled = pixabayProviderEnabled,
             localFolderUri = localWallpaperFolderUri,
             localFolderPermissionActive = localFolderPermissionActive,
+            localCatalogReady = localCatalogReady,
             onDismiss = { showSourcePicker = false },
             onChooseLocalFolder = {
                 showSourcePicker = false

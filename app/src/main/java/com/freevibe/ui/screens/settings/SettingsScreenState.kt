@@ -6,6 +6,9 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.freevibe.data.model.LocalWallpaperEntity
+import com.freevibe.data.model.LocalWallpaperFolderEntity
+import com.freevibe.data.model.LocalWallpaperFolderScanStatus
 import com.freevibe.data.model.WallpaperHistoryEntity
 import com.freevibe.data.repository.CommunityBlockedUser
 import com.freevibe.data.repository.GeneratedAssetAudit
@@ -44,6 +47,9 @@ internal data class SettingsScreenState(
     val autoWpSource: String,
     val localWallpaperFolderUri: String,
     val localFolderPermissionActive: Boolean,
+    val localWallpaperFolders: List<LocalWallpaperFolderEntity>,
+    val localWallpaperItems: List<LocalWallpaperEntity>,
+    val localWallpaperCatalogReady: Boolean,
     val autoWpRequiresCharging: Boolean,
     val autoWpRequiresWiFi: Boolean,
     val autoWpRequiresIdle: Boolean,
@@ -150,6 +156,15 @@ internal fun rememberSettingsScreenState(
     val autoWpInterval by viewModel.autoWpInterval.collectAsStateWithLifecycle()
     val autoWpSource by viewModel.autoWpSource.collectAsStateWithLifecycle()
     val localWallpaperFolderUri by viewModel.localWallpaperFolderUri.collectAsStateWithLifecycle()
+    val localWallpaperFolders by viewModel.localWallpaperFolders.collectAsStateWithLifecycle()
+    val localWallpaperItems by viewModel.localWallpaperItems.collectAsStateWithLifecycle()
+    val localWallpaperCatalogReady = remember(localWallpaperFolders) {
+        localWallpaperFolders.any {
+            it.scanStatus == LocalWallpaperFolderScanStatus.READY ||
+                it.scanStatus == LocalWallpaperFolderScanStatus.READY_LIMITED ||
+                it.scanStatus == LocalWallpaperFolderScanStatus.READY_PARTIAL
+        }
+    }
     val autoWpRequiresCharging by viewModel.autoWpRequiresCharging.collectAsStateWithLifecycle()
     val autoWpRequiresWiFi by viewModel.autoWpRequiresWiFi.collectAsStateWithLifecycle()
     val autoWpRequiresIdle by viewModel.autoWpRequiresIdle.collectAsStateWithLifecycle()
@@ -271,6 +286,9 @@ internal fun rememberSettingsScreenState(
         autoWpSource = autoWpSource,
         localWallpaperFolderUri = localWallpaperFolderUri,
         localFolderPermissionActive = localFolderPermissionActive,
+        localWallpaperFolders = localWallpaperFolders,
+        localWallpaperItems = localWallpaperItems,
+        localWallpaperCatalogReady = localWallpaperCatalogReady,
         autoWpRequiresCharging = autoWpRequiresCharging,
         autoWpRequiresWiFi = autoWpRequiresWiFi,
         autoWpRequiresIdle = autoWpRequiresIdle,

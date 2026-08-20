@@ -10,8 +10,10 @@ import com.freevibe.data.repository.CollectionRepository
 import com.freevibe.service.AgslShaderGallery
 import com.freevibe.service.AutoBackupWorker
 import com.freevibe.service.AutoWallpaperWorker
+import com.freevibe.service.LocalWallpaperCatalog
 import com.freevibe.service.RotationTriggerService
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -23,6 +25,7 @@ internal class SettingsRotationDelegate(
     private val context: Context,
     private val prefs: PreferencesManager,
     private val collectionRepo: CollectionRepository,
+    private val localWallpaperCatalog: LocalWallpaperCatalog,
     private val scope: CoroutineScope,
 ) {
     private val sharing = SharingStarted.WhileSubscribed(5000)
@@ -65,6 +68,14 @@ internal class SettingsRotationDelegate(
     val collections: StateFlow<List<WallpaperCollectionEntity>> = collectionRepo.getAll()
         .stateIn(scope, sharing, emptyList())
     val schedulerCollectionId = prefs.schedulerCollectionId.stateIn(scope, sharing, -1L)
+    val localWallpaperFolders = localWallpaperCatalog.folders.stateIn(scope, sharing, emptyList())
+    val localWallpaperItems = localWallpaperCatalog.items.stateIn(scope, sharing, emptyList())
+
+    init {
+        scope.launch(Dispatchers.IO) {
+            localWallpaperCatalog.migrateLegacyFolder(prefs.localWallpaperFolderUri.first())
+        }
+    }
 
     fun setAutoWallpaper(enabled: Boolean) = scope.launch {
         prefs.setAutoWallpaperEnabled(enabled)
@@ -91,10 +102,42 @@ internal class SettingsRotationDelegate(
         }
     }
 
+    fun addLocalWallpaperFolder(uri: String, makePrimary: Boolean = true) = scope.launch {
+        val nextUri = uri.trim()
+        if (nextUri.isBlank()) return@launch
+        if (makePrimary) prefs.setLocalWallpaperFolderUri(nextUri)
+        localWallpaperCatalog.addFolder(nextUri)
+    }
+
     fun clearLocalWallpaperFolderUri() = scope.launch {
         val uri = prefs.localWallpaperFolderUri.first().trim()
         if (uri.isNotBlank()) releasePersistedUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        if (uri.isNotBlank()) localWallpaperCatalog.removeFolder(uri)
         prefs.setLocalWallpaperFolderUri("")
+    }
+
+    fun removeLocalWallpaperFolder(uri: String) = scope.launch {
+        val nextUri = uri.trim()
+        localWallpaperCatalog.removeFolder(nextUri)
+        if (prefs.localWallpaperFolderUri.first().trim() == nextUri) {
+            prefs.setLocalWallpaperFolderUri("")
+        }
+    }
+
+    fun rescanLocalWallpaperFolder(uri: String) = scope.launch {
+        localWallpaperCatalog.rescanFolder(uri)
+    }
+
+    fun rescanAllLocalWallpaperFolders() = scope.launch {
+        localWallpaperCatalog.rescanAll()
+    }
+
+    fun setLocalWallpaperFolderTarget(uri: String, target: com.freevibe.data.model.WallpaperTarget) = scope.launch {
+        localWallpaperCatalog.updateFolderTarget(uri, target)
+    }
+
+    fun updateLocalWallpaperTags(documentUri: String, tags: String) = scope.launch {
+        localWallpaperCatalog.updateTags(documentUri, tags)
     }
 
     fun setAutoWallpaperRequiresCharging(value: Boolean) = scope.launch {

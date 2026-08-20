@@ -183,7 +183,7 @@ ViewModels (Hilt) + Cache Layer
             DownloadManager, AudioTrimmer, BatchDownload,
             ContactRingtone, FavoritesExporter, OfflineFavorites
   YouTube: NewPipe Extractor (search) + yt-dlp (stream extraction + FFmpeg crop)
-Room DB v16 (Favorites, Downloads, Search History, Wallpaper Cache,
+Room DB v17 (Favorites, Downloads, Search History, Wallpaper Cache,
             Wallpaper History, Collections)
 DataStore (Settings, Onboarding)
 Firebase RTDB (Community Voting + Uploads + Admin Moderation)
