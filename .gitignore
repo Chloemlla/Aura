@@ -21,6 +21,10 @@ local.properties
 /app/release
 *.apk
 *.aab
+
+# Assembled release artifacts and their receipts. These are build outputs that
+# get attached to a GitHub Release, never committed — the APK alone is ~200 MB.
+release/
 freevibe.jks
 CLAUDE.md
 CODEX_CHANGELOG.md
