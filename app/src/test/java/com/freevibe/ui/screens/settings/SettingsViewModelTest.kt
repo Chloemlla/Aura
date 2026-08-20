@@ -2,6 +2,7 @@ package com.freevibe.ui.screens.settings
 
 import android.content.Context
 import android.net.Uri
+import com.freevibe.R
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.local.WallpaperCacheManager
 import com.freevibe.data.model.CommunityBlockReason
@@ -431,6 +432,16 @@ class SettingsViewModelTest {
             every { it.cacheDir } returns cacheDir
             every { it.filesDir } returns cacheDir.parentFile ?: cacheDir
             every { it.applicationContext } returns it
+            every { it.getString(R.string.settings_community_creator_unblocked) } returns "Creator unblocked"
+            every { it.getString(R.string.settings_community_identity_cleared) } returns "Local community identity cleared"
+            every { it.getString(R.string.settings_storage_bytes_b, 0L) } returns "0 B"
+            every { it.getString(R.string.settings_storage_bytes_kb, 3.0) } returns "3.0 KB"
+            every {
+                it.getString(R.string.settings_theme_pack_exported, 7, 2)
+            } returns "Theme pack exported: 7 recipes, 2 local assets"
+            every {
+                it.getString(R.string.settings_theme_pack_imported, 3)
+            } returns "Theme pack imported: 3 settings restored"
         }
         val prefs = prefsOverride ?: mockPreferences()
         val historyManager = mockk<WallpaperHistoryManager>(relaxed = true).also {

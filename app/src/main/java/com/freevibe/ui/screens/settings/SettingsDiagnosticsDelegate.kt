@@ -108,7 +108,11 @@ internal class SettingsDiagnosticsDelegate(
         val result = wallpaperApplier.prepareParallaxFromUri(uri, "parallax_user_photo.jpg")
         _parallaxGalleryResult.value = result.fold(
             onSuccess = { ParallaxGalleryResult.Ready },
-            onFailure = { ParallaxGalleryResult.Failure(it.message ?: "Could not prepare photo") },
+            onFailure = {
+                ParallaxGalleryResult.Failure(
+                    it.message ?: context.getString(R.string.settings_feedback_prepare_photo_failed),
+                )
+            },
         )
     }
 
@@ -117,7 +121,11 @@ internal class SettingsDiagnosticsDelegate(
         val result = videoWallpaperStorage.prepareFromUri(uri)
         _videoWallpaperSelectionResult.value = result.fold(
             onSuccess = { VideoWallpaperSelectionResult.Ready },
-            onFailure = { VideoWallpaperSelectionResult.Failure(it.message ?: "Could not prepare video") },
+            onFailure = {
+                VideoWallpaperSelectionResult.Failure(
+                    it.message ?: context.getString(R.string.settings_feedback_prepare_video_failed),
+                )
+            },
         )
     }
 
@@ -215,11 +223,20 @@ internal class SettingsDiagnosticsDelegate(
             _themePackTransfer.value = result.fold(
                 onSuccess = { report ->
                     ThemePackTransferState(
-                        message = "Theme pack exported: ${report.exportedItemCount} recipes, ${report.embeddedAssetCount} local assets",
+                        message = context.getString(
+                            R.string.settings_theme_pack_exported,
+                            report.exportedItemCount,
+                            report.embeddedAssetCount,
+                        ),
                     )
                 },
                 onFailure = { error ->
-                    ThemePackTransferState(error = "Theme pack export failed: ${error.message ?: "try again"}")
+                    ThemePackTransferState(
+                        error = context.getString(
+                            R.string.settings_theme_pack_export_failed,
+                            error.message ?: context.getString(R.string.common_retry_later),
+                        ),
+                    )
                 },
             )
         }
@@ -233,12 +250,20 @@ internal class SettingsDiagnosticsDelegate(
             _themePackTransfer.value = result.fold(
                 onSuccess = { report ->
                     ThemePackTransferState(
-                        message = "Theme pack imported: ${report.importedItemCount} settings restored",
+                        message = context.getString(
+                            R.string.settings_theme_pack_imported,
+                            report.importedItemCount,
+                        ),
                         instructions = report.instructions,
                     )
                 },
                 onFailure = { error ->
-                    ThemePackTransferState(error = "Theme pack import failed: ${error.message ?: "try again"}")
+                    ThemePackTransferState(
+                        error = context.getString(
+                            R.string.settings_theme_pack_import_failed,
+                            error.message ?: context.getString(R.string.common_retry_later),
+                        ),
+                    )
                 },
             )
         }
@@ -350,12 +375,20 @@ internal class SettingsDiagnosticsDelegate(
     }
 
     private fun formatBytes(bytes: Long): String {
-        val root = java.util.Locale.ROOT
         return when {
-            bytes < 1024 -> "$bytes B"
-            bytes < 1024 * 1024 -> String.format(root, "%.1f KB", bytes / 1024.0)
-            bytes < 1024L * 1024 * 1024 -> String.format(root, "%.1f MB", bytes / (1024.0 * 1024.0))
-            else -> String.format(root, "%.1f GB", bytes / (1024.0 * 1024.0 * 1024.0))
+            bytes < 1024 -> context.getString(R.string.settings_storage_bytes_b, bytes)
+            bytes < 1024 * 1024 -> context.getString(
+                R.string.settings_storage_bytes_kb,
+                bytes / 1024.0,
+            )
+            bytes < 1024L * 1024 * 1024 -> context.getString(
+                R.string.settings_storage_bytes_mb,
+                bytes / (1024.0 * 1024.0),
+            )
+            else -> context.getString(
+                R.string.settings_storage_bytes_gb,
+                bytes / (1024.0 * 1024.0 * 1024.0),
+            )
         }
     }
 }

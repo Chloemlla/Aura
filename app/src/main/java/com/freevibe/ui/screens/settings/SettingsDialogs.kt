@@ -678,6 +678,9 @@ internal fun SettingsOverviewCard(
     cacheUsage: CacheUsageState,
     configuredApiKeys: Int,
 ) {
+    val storageLabel = cacheUsage.fileUsageLabel.ifBlank {
+        stringResource(R.string.settings_storage_calculating)
+    }
     val strStyleCount = stringResource(R.string.settings_dialogs_overview_style_count, selectedStyleCount)
     val strRotationEvery = stringResource(R.string.settings_dialogs_overview_rotation_every, formatInterval(schedulerInterval))
     val strWeatherOverlays = stringResource(R.string.settings_dialogs_overview_weather_overlays)
@@ -768,7 +771,7 @@ internal fun SettingsOverviewCard(
             SettingsMetric(
                 modifier = Modifier.weight(1f),
                 label = stringResource(R.string.settings_dialogs_overview_storage),
-                value = cacheUsage.fileUsageLabel,
+                value = storageLabel,
                 icon = Icons.Default.Folder,
                 tint = MaterialTheme.colorScheme.secondary,
             )
@@ -943,17 +946,25 @@ internal fun touchEffectSummary(raw: String): String = when (raw.uppercase(java.
 }
 
 @Composable
-internal fun cacheUsageSubtitle(cacheUsage: CacheUsageState): String =
-    if (cacheUsage.hasWallpaperMetadataCache) {
-        stringResource(R.string.settings_storage_cache_usage_with_feed, cacheUsage.fileUsageLabel)
-    } else {
-        stringResource(R.string.settings_storage_cache_usage, cacheUsage.fileUsageLabel)
+internal fun cacheUsageSubtitle(cacheUsage: CacheUsageState): String {
+    val storageLabel = cacheUsage.fileUsageLabel.ifBlank {
+        stringResource(R.string.settings_storage_calculating)
     }
+    return if (cacheUsage.hasWallpaperMetadataCache) {
+        stringResource(R.string.settings_storage_cache_usage_with_feed, storageLabel)
+    } else {
+        stringResource(R.string.settings_storage_cache_usage, storageLabel)
+    }
+}
 
 @Composable
-internal fun clearCacheConfirmation(cacheUsage: CacheUsageState): String =
-    if (cacheUsage.hasWallpaperMetadataCache) {
-        stringResource(R.string.settings_storage_clear_cache_confirmation_with_feed, cacheUsage.fileUsageLabel)
-    } else {
-        stringResource(R.string.settings_storage_clear_cache_confirmation, cacheUsage.fileUsageLabel)
+internal fun clearCacheConfirmation(cacheUsage: CacheUsageState): String {
+    val storageLabel = cacheUsage.fileUsageLabel.ifBlank {
+        stringResource(R.string.settings_storage_calculating)
     }
+    return if (cacheUsage.hasWallpaperMetadataCache) {
+        stringResource(R.string.settings_storage_clear_cache_confirmation_with_feed, storageLabel)
+    } else {
+        stringResource(R.string.settings_storage_clear_cache_confirmation, storageLabel)
+    }
+}

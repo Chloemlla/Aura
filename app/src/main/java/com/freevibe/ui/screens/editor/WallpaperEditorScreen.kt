@@ -1,6 +1,7 @@
 package com.freevibe.ui.screens.editor
 
 import android.content.ComponentName
+import androidx.annotation.StringRes
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
@@ -69,7 +70,7 @@ fun WallpaperEditorScreen(
             fallbackWallpaper?.fullUrl.orEmpty(),
         ).joinToString("|")
     }
-    var selectedFilter by remember(editorIdentityKey) { mutableStateOf("Brightness") }
+    var selectedFilter by remember(editorIdentityKey) { mutableIntStateOf(R.string.editor_filter_brightness) }
     val snackbarHostState = remember { SnackbarHostState() }
     var selectionResolved by remember(editorIdentityKey) { mutableStateOf<Boolean?>(null) }
 
@@ -117,30 +118,30 @@ fun WallpaperEditorScreen(
         }
     }
 
-    data class EditorPreset(val name: String, val b: Float, val c: Float, val s: Float, val bl: Float,
+    data class EditorPreset(@StringRes val nameRes: Int, val b: Float, val c: Float, val s: Float, val bl: Float,
                              val v: Float = 0f, val g: Float = 0f, val a: Float = 0f, val w: Float = 0f)
     val presets = listOf(
-        EditorPreset("AMOLED", -20f, 1.3f, 1.1f, 0f, v = 0.3f, a = 0.7f),
-        EditorPreset("Warm", 15f, 1.1f, 1.3f, 0f, w = 25f),
-        EditorPreset("Cool", -10f, 1.1f, 0.8f, 0f, w = -20f),
-        EditorPreset("Vivid", 5f, 1.3f, 1.6f, 0f),
-        EditorPreset("Cinematic", -5f, 1.4f, 0.7f, 0f, v = 0.4f, g = 0.15f, w = 10f),
-        EditorPreset("Dreamy", 20f, 0.9f, 1.1f, 8f, v = 0.2f),
-        EditorPreset("B&W", 0f, 1.2f, 0f, 0f),
-        EditorPreset("Noir", -15f, 1.5f, 0f, 0f, v = 0.5f, g = 0.2f, a = 0.4f),
-        EditorPreset("Film", 5f, 1.1f, 0.9f, 0f, g = 0.25f, v = 0.15f, w = 8f),
-        EditorPreset("Moody", -10f, 1.2f, 0.6f, 2f, v = 0.35f, w = -10f),
+        EditorPreset(R.string.editor_preset_amoled, -20f, 1.3f, 1.1f, 0f, v = 0.3f, a = 0.7f),
+        EditorPreset(R.string.editor_preset_warm, 15f, 1.1f, 1.3f, 0f, w = 25f),
+        EditorPreset(R.string.editor_preset_cool, -10f, 1.1f, 0.8f, 0f, w = -20f),
+        EditorPreset(R.string.editor_preset_vivid, 5f, 1.3f, 1.6f, 0f),
+        EditorPreset(R.string.editor_preset_cinematic, -5f, 1.4f, 0.7f, 0f, v = 0.4f, g = 0.15f, w = 10f),
+        EditorPreset(R.string.editor_preset_dreamy, 20f, 0.9f, 1.1f, 8f, v = 0.2f),
+        EditorPreset(R.string.editor_preset_bw, 0f, 1.2f, 0f, 0f),
+        EditorPreset(R.string.editor_preset_noir, -15f, 1.5f, 0f, 0f, v = 0.5f, g = 0.2f, a = 0.4f),
+        EditorPreset(R.string.editor_preset_film, 5f, 1.1f, 0.9f, 0f, g = 0.25f, v = 0.15f, w = 8f),
+        EditorPreset(R.string.editor_preset_moody, -10f, 1.2f, 0.6f, 2f, v = 0.35f, w = -10f),
     )
 
     val filters = listOf(
-        FilterControl("Brightness", Icons.Default.BrightnessHigh, state.brightness, -100f..100f) { viewModel.updateBrightness(it) },
-        FilterControl("Contrast", Icons.Default.Contrast, state.contrast, 0.5f..2f) { viewModel.updateContrast(it) },
-        FilterControl("Saturation", Icons.Default.ColorLens, state.saturation, 0f..2f) { viewModel.updateSaturation(it) },
-        FilterControl("Warmth", Icons.Default.Thermostat, state.warmth, -50f..50f) { viewModel.updateWarmth(it) },
-        FilterControl("Blur", Icons.Default.BlurOn, state.blurRadius, 0f..25f) { viewModel.updateBlur(it) },
-        FilterControl("AMOLED", Icons.Default.DarkMode, state.amoledCrush, 0f..1f) { viewModel.updateAmoledCrush(it) },
-        FilterControl("Vignette", Icons.Default.Vignette, state.vignette, 0f..1f) { viewModel.updateVignette(it) },
-        FilterControl("Grain", Icons.Default.Grain, state.grain, 0f..1f) { viewModel.updateGrain(it) },
+        FilterControl(R.string.editor_filter_brightness, Icons.Default.BrightnessHigh, state.brightness, -100f..100f) { viewModel.updateBrightness(it) },
+        FilterControl(R.string.editor_filter_contrast, Icons.Default.Contrast, state.contrast, 0.5f..2f) { viewModel.updateContrast(it) },
+        FilterControl(R.string.editor_filter_saturation, Icons.Default.ColorLens, state.saturation, 0f..2f) { viewModel.updateSaturation(it) },
+        FilterControl(R.string.editor_filter_warmth, Icons.Default.Thermostat, state.warmth, -50f..50f) { viewModel.updateWarmth(it) },
+        FilterControl(R.string.editor_filter_blur, Icons.Default.BlurOn, state.blurRadius, 0f..25f) { viewModel.updateBlur(it) },
+        FilterControl(R.string.editor_filter_amoled, Icons.Default.DarkMode, state.amoledCrush, 0f..1f) { viewModel.updateAmoledCrush(it) },
+        FilterControl(R.string.editor_filter_vignette, Icons.Default.Vignette, state.vignette, 0f..1f) { viewModel.updateVignette(it) },
+        FilterControl(R.string.editor_filter_grain, Icons.Default.Grain, state.grain, 0f..1f) { viewModel.updateGrain(it) },
     )
 
     // NX-13: unsaved-changes guard. Editor filters are non-trivial work; backing
@@ -316,7 +317,7 @@ fun WallpaperEditorScreen(
                         onClick = {
                             viewModel.applyPreset(preset.b, preset.c, preset.s, preset.bl, preset.v, preset.g, preset.a, preset.w)
                         },
-                        label = { Text(preset.name, style = MaterialTheme.typography.labelSmall) },
+                        label = { Text(stringResource(preset.nameRes), style = MaterialTheme.typography.labelSmall) },
                         shape = RoundedCornerShape(8.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.22f)),
                         colors = SuggestionChipDefaults.suggestionChipColors(
@@ -336,9 +337,9 @@ fun WallpaperEditorScreen(
             ) {
                 filters.forEach { filter ->
                     FilterChip(
-                        selected = selectedFilter == filter.name,
-                        onClick = { selectedFilter = filter.name },
-                        label = { Text(filter.name, style = MaterialTheme.typography.labelSmall) },
+                    selected = selectedFilter == filter.titleRes,
+                    onClick = { selectedFilter = filter.titleRes },
+                    label = { Text(stringResource(filter.titleRes), style = MaterialTheme.typography.labelSmall) },
                         leadingIcon = {
                             Icon(filter.icon, null, modifier = Modifier.size(14.dp))
                         },
@@ -346,8 +347,8 @@ fun WallpaperEditorScreen(
                     )
                 }
                 FilterChip(
-                    selected = selectedFilter == DEPTH_FILTER_NAME,
-                    onClick = { selectedFilter = DEPTH_FILTER_NAME },
+                    selected = selectedFilter == R.string.editor_wallpaper_depth_chip,
+                    onClick = { selectedFilter = R.string.editor_wallpaper_depth_chip },
                     label = {
                         Text(
                             stringResource(R.string.editor_wallpaper_depth_chip),
@@ -360,8 +361,8 @@ fun WallpaperEditorScreen(
                     shape = RoundedCornerShape(8.dp),
                 )
                 FilterChip(
-                    selected = selectedFilter == LAYERS_FILTER_NAME,
-                    onClick = { selectedFilter = LAYERS_FILTER_NAME },
+                    selected = selectedFilter == R.string.editor_wallpaper_layers_chip,
+                    onClick = { selectedFilter = R.string.editor_wallpaper_layers_chip },
                     label = {
                         Text(
                             stringResource(R.string.editor_wallpaper_layers_chip),
@@ -376,11 +377,11 @@ fun WallpaperEditorScreen(
             }
 
             when (selectedFilter) {
-                DEPTH_FILTER_NAME -> DepthPortraitControls(state = state, viewModel = viewModel)
-                LAYERS_FILTER_NAME -> WallpaperLayerControls(state = state, viewModel = viewModel)
+                R.string.editor_wallpaper_depth_chip -> DepthPortraitControls(state = state, viewModel = viewModel)
+                R.string.editor_wallpaper_layers_chip -> WallpaperLayerControls(state = state, viewModel = viewModel)
                 else -> {
                     // Active slider
-                    filters.find { it.name == selectedFilter }?.let { active ->
+                    filters.find { it.titleRes == selectedFilter }?.let { active ->
                         Column(
                             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
                         ) {
@@ -388,7 +389,7 @@ fun WallpaperEditorScreen(
                                 Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                Text(active.name, style = MaterialTheme.typography.labelMedium)
+                                Text(stringResource(active.titleRes), style = MaterialTheme.typography.labelMedium)
                                 Text(String.format(java.util.Locale.ROOT, "%.1f", active.value), style = MaterialTheme.typography.labelSmall)
                             }
                             Slider(
@@ -561,7 +562,7 @@ private fun OverlayLayerPreview(
                 when (layer.type) {
                     WallpaperOverlayType.TEXT -> {
                         Text(
-                            text = layer.text.ifBlank { "Aura" },
+                            text = layer.text.ifBlank { stringResource(R.string.editor_wallpaper_default_overlay_text) },
                             color = Color(layer.color),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -1031,11 +1032,8 @@ private fun EditorActionButtonContent(
     }
 }
 
-private const val DEPTH_FILTER_NAME = "Depth"
-private const val LAYERS_FILTER_NAME = "Layers"
-
 private data class FilterControl(
-    val name: String,
+    @StringRes val titleRes: Int,
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val value: Float,
     val range: ClosedFloatingPointRange<Float>,

@@ -13,7 +13,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import javax.inject.Inject
 
 data class CacheUsageState(
-    val fileUsageLabel: String = "Calculating...",
+    val fileUsageLabel: String = "",
     val hasWallpaperMetadataCache: Boolean = false,
 )
 
@@ -78,6 +78,7 @@ class SettingsViewModel @Inject constructor(
     private val rotation = SettingsRotationDelegate(context, prefs, collectionRepo, viewModelScope)
     private val media = SettingsMediaDelegate(context, prefs, viewModelScope)
     private val community = SettingsCommunityDelegate(
+        context = context,
         prefs = prefs,
         voteRepo = voteRepo,
         communityBlockRepo = communityBlockRepo,

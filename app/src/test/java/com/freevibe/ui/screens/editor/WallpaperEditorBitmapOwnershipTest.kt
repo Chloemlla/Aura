@@ -1,6 +1,8 @@
 package com.freevibe.ui.screens.editor
 
+import android.content.Context
 import android.graphics.Bitmap
+import com.freevibe.R
 import com.freevibe.service.DepthPortraitComposer
 import com.freevibe.service.DepthPortraitResult
 import com.freevibe.service.WallpaperApplier
@@ -41,6 +43,10 @@ class WallpaperEditorBitmapOwnershipTest {
         wallpaperApplier = mockk(relaxed = true)
         depthPortraitComposer = mockk(relaxed = true)
         viewModel = WallpaperEditorViewModel(
+            context = mockk<Context>(relaxed = true).also {
+                every { it.getString(R.string.editor_wallpaper_depth_replaced_notice) } returns
+                    "Filters replaced your depth portrait. Compose it again to bring it back."
+            },
             wallpaperApplier = wallpaperApplier,
             depthPortraitComposer = depthPortraitComposer,
             okHttpClient = mockk(relaxed = true),
@@ -103,7 +109,10 @@ class WallpaperEditorBitmapOwnershipTest {
         val state = viewModel.state.value
         assertSame(source, state.editedBitmap)
         assertFalse(state.depthPortraitComposed)
-        assertEquals(DEPTH_PORTRAIT_REPLACED_NOTICE, state.notice)
+        assertEquals(
+            "Filters replaced your depth portrait. Compose it again to bring it back.",
+            state.notice,
+        )
     }
 
     @Test

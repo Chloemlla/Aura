@@ -1,12 +1,15 @@
 package com.freevibe.ui.screens.editor
 
+import android.content.Context
 import android.graphics.Bitmap
 import app.cash.turbine.test
+import com.freevibe.R
 import com.freevibe.data.model.WallpaperTarget
 import com.freevibe.service.DepthPortraitComposer
 import com.freevibe.service.DepthPortraitResult
 import com.freevibe.service.WallpaperApplier
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -28,13 +31,18 @@ class WallpaperEditorViewModelTest {
     private lateinit var wallpaperApplier: WallpaperApplier
     private lateinit var depthPortraitComposer: DepthPortraitComposer
     private lateinit var viewModel: WallpaperEditorViewModel
+    private lateinit var context: Context
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         wallpaperApplier = mockk(relaxed = true)
         depthPortraitComposer = mockk(relaxed = true)
+        context = mockk<Context>(relaxed = true).also {
+            every { it.getString(R.string.editor_wallpaper_depth_ready) } returns "Depth portrait ready"
+        }
         viewModel = WallpaperEditorViewModel(
+            context = context,
             wallpaperApplier = wallpaperApplier,
             depthPortraitComposer = depthPortraitComposer,
             okHttpClient = mockk(relaxed = true),
@@ -194,23 +202,20 @@ class WallpaperEditorViewModelTest {
 
     @Test
     fun `downscale warning describes reduced render dimensions`() {
-        val warning = wallpaperEditorDownscaleWarning(
+        val warning = wallpaperEditorDownscalePercent(
             sourceWidth = 4000,
             sourceHeight = 3000,
             renderedWidth = 2000,
             renderedHeight = 1500,
         )
 
-        assertEquals(
-            "Memory was tight, so this edit is rendered at about 50% resolution. It can still be applied, but a smaller source image will preserve full detail.",
-            warning,
-        )
+        assertEquals(50, warning)
     }
 
     @Test
     fun `downscale warning is absent for full size renders`() {
         assertNull(
-            wallpaperEditorDownscaleWarning(
+            wallpaperEditorDownscalePercent(
                 sourceWidth = 4000,
                 sourceHeight = 3000,
                 renderedWidth = 4000,

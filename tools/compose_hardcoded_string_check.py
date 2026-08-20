@@ -39,6 +39,22 @@ LABELLED_ARG_RE = re.compile(
     + r")",
     re.DOTALL,
 )
+STATE_MESSAGE_RE = re.compile(
+    r"\b(?P<sink>success|error|notice|message|qualityWarning|fileUsageLabel)\s*=\s*(?P<literal>"
+    + STRING_LITERAL_PATTERN
+    + r")",
+    re.DOTALL,
+)
+EDITOR_CONTROL_RE = re.compile(
+    r"\b(?P<sink>EditorPreset|FilterControl)\s*\(\s*(?P<literal>"
+    + STRING_LITERAL_PATTERN
+    + r")",
+    re.DOTALL,
+)
+BLANK_DEFAULT_RE = re.compile(
+    r"\bifBlank\s*\{\s*(?P<literal>" + STRING_LITERAL_PATTERN + r")",
+    re.DOTALL,
+)
 
 SOURCE_SUFFIXES = {".kt", ".kts"}
 DEFAULT_SCAN_ROOTS = ["app/src/main/java/com/freevibe/ui"]
@@ -179,6 +195,19 @@ def iter_file_findings(path: Path, repo_root: Path) -> list[Finding]:
                     line=line_number_for_offset(text, match.start("literal")),
                 )
             )
+
+    for pattern in (STATE_MESSAGE_RE, EDITOR_CONTROL_RE, BLANK_DEFAULT_RE):
+        for match in pattern.finditer(text):
+            value = decode_kotlin_string(match.group("literal"))
+            if is_visible_literal(value):
+                findings.append(
+                    Finding(
+                        path=relative_path,
+                        sink=match.groupdict().get("sink") or "ifBlank",
+                        text=value,
+                        line=line_number_for_offset(text, match.start("literal")),
+                    )
+                )
     return findings
 
 
@@ -218,13 +247,20 @@ def write_baseline(repo_root: Path, baseline_path: Path) -> dict[str, Any]:
     scan_roots = DEFAULT_SCAN_ROOTS
     ignored_path_fragments = DEFAULT_IGNORED_PATH_FRAGMENTS
     findings = find_hardcoded_strings(repo_root, scan_roots, ignored_path_fragments)
+    existing: dict[str, Any] = {}
+    if baseline_path.is_file():
+        loaded = json.loads(baseline_path.read_text(encoding="utf-8"))
+        if not isinstance(loaded, dict):
+            raise ComposeHardcodedStringError("baseline file must contain a JSON object")
+        existing = loaded
     baseline = {
+        **existing,
         "schemaVersion": 1,
         "policyKind": "composeHardcodedStringBaseline",
         "scanSourceRoots": scan_roots,
         "ignoredPathFragments": ignored_path_fragments,
         "allowedExistingStatus": "baselineGateActiveExtractionPending",
-        "migrationPlan": DEFAULT_MIGRATION_PLAN,
+        "migrationPlan": existing.get("migrationPlan", DEFAULT_MIGRATION_PLAN),
         "baseline": summarize_findings(findings),
     }
     baseline_path.parent.mkdir(parents=True, exist_ok=True)

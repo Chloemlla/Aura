@@ -399,6 +399,41 @@
     <string name="editor_wallpaper_layers_move_right">Move layer right</string>
     <string name="editor_wallpaper_layers_move_up">Move layer up</string>
     <string name="editor_wallpaper_layers_move_down">Move layer down</string>
+    <string name="editor_wallpaper_default_overlay_text">Aura</string>
+    <string name="editor_wallpaper_applied">Applied</string>
+    <string name="editor_wallpaper_depth_ready">Depth portrait ready</string>
+    <string name="editor_wallpaper_depth_fallback">Subject segmentation unavailable. The original wallpaper was kept.</string>
+    <string name="editor_wallpaper_depth_failed">Depth portrait failed</string>
+    <string name="editor_wallpaper_depth_exported">Depth portrait saved to Pictures/Aura</string>
+    <string name="editor_wallpaper_exported">Edited wallpaper saved to Pictures/Aura</string>
+    <string name="editor_wallpaper_export_failed">Export failed</string>
+    <string name="editor_wallpaper_parallax_failed">Parallax setup failed</string>
+    <string name="editor_wallpaper_text_layer_added">Text layer added</string>
+    <string name="editor_wallpaper_sticker_layer_added">Sticker layer added</string>
+    <string name="editor_wallpaper_http_error">Server returned HTTP %1$d</string>
+    <string name="editor_wallpaper_empty_response">The image response was empty</string>
+    <string name="editor_wallpaper_image_too_large">This image is too large to edit</string>
+    <string name="editor_wallpaper_load_image_failed">Failed to load image</string>
+    <string name="editor_wallpaper_depth_replaced_notice">Filters replaced your depth portrait. Compose it again to bring it back.</string>
+    <string name="editor_wallpaper_quality_warning_message">Memory was tight, so this edit is rendered at about %1$d%% resolution. It can still be applied, but a smaller source image will preserve full detail.</string>
+    <string name="editor_filter_brightness">Brightness</string>
+    <string name="editor_filter_contrast">Contrast</string>
+    <string name="editor_filter_saturation">Saturation</string>
+    <string name="editor_filter_warmth">Warmth</string>
+    <string name="editor_filter_blur">Blur</string>
+    <string name="editor_filter_amoled">AMOLED</string>
+    <string name="editor_filter_vignette">Vignette</string>
+    <string name="editor_filter_grain">Grain</string>
+    <string name="editor_preset_amoled">AMOLED</string>
+    <string name="editor_preset_warm">Warm</string>
+    <string name="editor_preset_cool">Cool</string>
+    <string name="editor_preset_vivid">Vivid</string>
+    <string name="editor_preset_cinematic">Cinematic</string>
+    <string name="editor_preset_dreamy">Dreamy</string>
+    <string name="editor_preset_bw">B&amp;W</string>
+    <string name="editor_preset_noir">Noir</string>
+    <string name="editor_preset_film">Film</string>
+    <string name="editor_preset_moody">Moody</string>
 
     <!-- Wallpaper crop -->
     <string name="editor_crop_title">Crop &amp; Position</string>
@@ -740,6 +775,34 @@
     <string name="favorites_sort_name">Sort: Name A–Z</string>
     <string name="favorites_sort_oldest">Sort: Oldest first</string>
     <string name="favorites_source_unavailable">Source unavailable</string>
+    <plurals name="favorites_exported">
+        <item quantity="one">Exported %1$d favorite</item>
+        <item quantity="other">Exported %1$d favorites</item>
+    </plurals>
+    <plurals name="favorites_imported">
+        <item quantity="one">Imported %1$d favorite</item>
+        <item quantity="other">Imported %1$d favorites</item>
+    </plurals>
+    <plurals name="favorites_removed">
+        <item quantity="one">Removed %1$d favorite</item>
+        <item quantity="other">Removed %1$d favorites</item>
+    </plurals>
+    <string name="favorites_export_failed">Favorites export failed: %1$s</string>
+    <string name="favorites_import_failed">Favorites import failed: %1$s</string>
+    <string name="favorites_select_wallpaper">Select at least one wallpaper</string>
+    <string name="favorites_batch_already_running">A batch download is already running</string>
+    <plurals name="favorites_batch_provider_blocked">
+        <item quantity="one">Provider policy blocked %1$d wallpaper</item>
+        <item quantity="other">Provider policy blocked %1$d wallpapers</item>
+    </plurals>
+    <plurals name="favorites_batch_downloading_with_blocked">
+        <item quantity="one">Downloading %1$d wallpaper; %2$d blocked by provider policy</item>
+        <item quantity="other">Downloading %1$d wallpapers; %2$d blocked by provider policy</item>
+    </plurals>
+    <plurals name="favorites_batch_downloading">
+        <item quantity="one">Downloading %1$d wallpaper...</item>
+        <item quantity="other">Downloading %1$d wallpapers...</item>
+    </plurals>
 
     <!-- Settings dialogs -->
     <string name="settings_dialogs_identity_title">Community identity</string>
@@ -1013,6 +1076,8 @@
     <string name="settings_feedback_diagnostics_failed">Could not build diagnostics</string>
     <string name="settings_feedback_diagnostics_copied">Diagnostics copied</string>
     <string name="settings_feedback_deletion_code_copied">Deletion request code copied</string>
+    <string name="settings_feedback_prepare_photo_failed">Could not prepare photo</string>
+    <string name="settings_feedback_prepare_video_failed">Could not prepare video</string>
     <string name="settings_feedback_share_deletion_unavailable">No app can share deletion requests</string>
     <string name="settings_feedback_share_diagnostics_unavailable">No app can share diagnostics</string>
     <string name="settings_share_deletion_request_title">Share deletion request</string>
@@ -1035,6 +1100,7 @@
     <string name="settings_services_section_description">Provider keys and opt-in cloud features. Generated wallpapers and community actions stay off until you enable them here.</string>
     <string name="settings_storage_section_title">Storage</string>
     <string name="settings_storage_section_description">Keep downloads accessible while trimming temporary media and cached feeds when needed.</string>
+    <string name="settings_storage_calculating">Calculating...</string>
     <string name="settings_diagnostics_section_title">Diagnostics</string>
     <string name="settings_diagnostics_section_description">Local-only troubleshooting details. Nothing is uploaded automatically.</string>
     <string name="settings_permissions_section_title">Permissions and sources</string>
@@ -1205,6 +1271,10 @@
     <string name="settings_theme_pack_default_filename">aura-theme-pack.zip</string>
     <string name="settings_theme_pack_instructions_title">Theme pack setup steps</string>
     <string name="settings_theme_pack_instruction_row">- %1$s</string>
+    <string name="settings_theme_pack_exported">Theme pack exported: %1$d recipes, %2$d local assets</string>
+    <string name="settings_theme_pack_export_failed">Theme pack export failed: %1$s</string>
+    <string name="settings_theme_pack_imported">Theme pack imported: %1$d settings restored</string>
+    <string name="settings_theme_pack_import_failed">Theme pack import failed: %1$s</string>
     <string name="settings_smart_daily_wp_title">Daily wallpaper</string>
     <string name="settings_smart_daily_wp_subtitle">Get a daily wallpaper recommendation notification</string>
     <string name="settings_smart_tint_title">Time-of-day tint</string>
@@ -1311,6 +1381,11 @@
     <string name="settings_services_blocked_count_subtitle">%1$d community creators hidden</string>
     <string name="settings_services_reports_title">Community reports</string>
     <string name="settings_services_reports_subtitle">Review open rights, source, and safety reports</string>
+    <string name="settings_community_creator_unblocked">Creator unblocked</string>
+    <string name="settings_community_unblock_failed">Unblock failed: %1$s</string>
+    <string name="settings_community_identity_cleared">Local community identity cleared</string>
+    <string name="settings_community_identity_missing">No local community identity was stored</string>
+    <string name="settings_community_cleanup_failed">Local cleanup failed: %1$s</string>
     <string name="settings_services_wallhaven_key_title">Wallhaven API Key</string>
     <string name="settings_services_wallhaven_key_subtitle">Optional: higher limits + NSFW (wallhaven.cc/settings)</string>
     <string name="settings_services_provider_key_storage_warning_title">Provider key storage needs attention</string>
@@ -1373,6 +1448,10 @@
     <string name="settings_storage_cache_usage_with_feed">Using %1$s of temp files and offline saves + wallpaper feed cache</string>
     <string name="settings_storage_clear_cache_confirmation">This will remove %1$s of temporary media and offline favorites. Downloaded files are not affected.</string>
     <string name="settings_storage_clear_cache_confirmation_with_feed">This will remove %1$s of temporary media and offline favorites, and reset cached wallpaper feeds. Downloaded files are not affected.</string>
+    <string name="settings_storage_bytes_b">%1$d B</string>
+    <string name="settings_storage_bytes_kb">%1$.1f KB</string>
+    <string name="settings_storage_bytes_mb">%1$.1f MB</string>
+    <string name="settings_storage_bytes_gb">%1$.1f GB</string>
     <string name="settings_diag_crash_title">Crash diagnostics bundle</string>
     <string name="settings_diag_crash_last_subtitle">Last crash %1$s • Copy or share a sanitized issue bundle</string>
     <string name="settings_diag_crash_recorded">recorded</string>

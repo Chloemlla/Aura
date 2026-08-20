@@ -1,5 +1,7 @@
 package com.freevibe.ui.screens.settings
 
+import android.content.Context
+import com.freevibe.R
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.repository.CommunityBlockRepository
 import com.freevibe.data.repository.VoteRepository
@@ -16,6 +18,7 @@ import kotlinx.coroutines.withContext
 
 /** Owns community provider settings, moderation actions, and local identity cleanup. */
 internal class SettingsCommunityDelegate(
+    private val context: Context,
     private val prefs: PreferencesManager,
     private val voteRepo: VoteRepository,
     private val communityBlockRepo: CommunityBlockRepository,
@@ -55,11 +58,16 @@ internal class SettingsCommunityDelegate(
         _communityBlockAction.value = CommunityBlockActionState(unblockingUserId = userId)
         communityBlockRepo.unblockUser(userId)
             .onSuccess {
-                _communityBlockAction.value = CommunityBlockActionState(message = "Creator unblocked")
+                _communityBlockAction.value = CommunityBlockActionState(
+                    message = context.getString(R.string.settings_community_creator_unblocked),
+                )
             }
             .onFailure { error ->
                 _communityBlockAction.value = CommunityBlockActionState(
-                    error = "Unblock failed: ${error.message ?: "try again"}",
+                    error = context.getString(
+                        R.string.settings_community_unblock_failed,
+                        error.message ?: context.getString(R.string.common_retry_later),
+                    ),
                 )
             }
     }
@@ -82,15 +90,18 @@ internal class SettingsCommunityDelegate(
                 refreshCommunityIdentitySummary()
                 _communityIdentityCleanup.value = CommunityIdentityCleanupState(
                     message = if (cleared) {
-                        "Local community identity cleared"
+                        context.getString(R.string.settings_community_identity_cleared)
                     } else {
-                        "No local community identity was stored"
+                        context.getString(R.string.settings_community_identity_missing)
                     },
                 )
             }
             .onFailure { error ->
                 _communityIdentityCleanup.value = CommunityIdentityCleanupState(
-                    error = "Local cleanup failed: ${error.message ?: "try again"}",
+                    error = context.getString(
+                        R.string.settings_community_cleanup_failed,
+                        error.message ?: context.getString(R.string.common_retry_later),
+                    ),
                 )
             }
     }

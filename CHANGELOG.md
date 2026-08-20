@@ -18,6 +18,11 @@ All notable changes to Aura will be documented in this file.
   App Check, YouTube, and battery saver. Selecting a result scrolls to and highlights the
   exact setting, with production tests covering the supported routes and no-result state.
 
+- **Runtime feedback now follows the localization path**: editor presets and filters,
+  editor processing messages, Favorites actions, Settings feedback, and storage sizes use
+  resources. The hardcoded-string gate now checks these ViewModel states and editor controls,
+  while its baseline keeps unrelated legacy findings visible for later extraction.
+
 - **New Rotation health screen, in Settings under Diagnostics**: when automatic
   wallpaper change quietly stops, there was nothing to look at. The five reasons it can
   stop all look the same from the home screen: rotation is off, it's waiting for its

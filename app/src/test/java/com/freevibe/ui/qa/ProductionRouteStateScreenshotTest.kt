@@ -112,6 +112,27 @@ class ProductionRouteStateScreenshotTest {
         captureScenario(ProductionRouteScenario.WallpaperEditorLoading, darkTheme = false)
     }
 
+    @Test
+    @Config(sdk = [35], qualifiers = "en-rXA-w411dp-h891dp-xhdpi")
+    fun wallpaperEditorLoadingCompactEnglishXa() {
+        captureScenario(
+            scenario = ProductionRouteScenario.WallpaperEditorLoading,
+            darkTheme = false,
+            localeSuffix = "_en_XA",
+        )
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "ar-rXB-w411dp-h891dp-xhdpi")
+    fun wallpaperEditorLoadingCompactArabicXbRtl() {
+        captureScenario(
+            scenario = ProductionRouteScenario.WallpaperEditorLoading,
+            darkTheme = false,
+            layoutDirection = LayoutDirection.Rtl,
+            localeSuffix = "_ar_XB",
+        )
+    }
+
     private fun captureScenario(
         scenario: ProductionRouteScenario,
         darkTheme: Boolean,
@@ -119,6 +140,7 @@ class ProductionRouteStateScreenshotTest {
         layoutDirection: LayoutDirection = LayoutDirection.Ltr,
         width: Dp = 411.dp,
         height: Dp = 891.dp,
+        localeSuffix: String = "",
     ) {
         val variant = buildString {
             append(scenario.screenshotName)
@@ -126,6 +148,7 @@ class ProductionRouteStateScreenshotTest {
             if (width != 411.dp || height != 891.dp) append("_${width.value.toInt()}x${height.value.toInt()}")
             if (fontScale > 1.0f) append("_font${fontScale.toString().replace(".", "_")}")
             if (layoutDirection == LayoutDirection.Rtl) append("_rtl")
+            append(localeSuffix)
         }
         val expectedText = ApplicationProvider
             .getApplicationContext<Context>()

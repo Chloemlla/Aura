@@ -1,8 +1,10 @@
 package com.freevibe.ui.screens.favorites
 
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.freevibe.R
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.FavoriteEntity
 import com.freevibe.data.model.favoriteIdentity
@@ -15,12 +17,14 @@ import com.freevibe.service.BatchDownloadService
 import com.freevibe.service.FavoritesExporter
 import com.freevibe.service.SelectedContentHolder
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class FavoritesViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val favoritesRepo: FavoritesRepository,
     private val exporter: FavoritesExporter,
     private val selectedContent: SelectedContentHolder,
@@ -72,14 +76,36 @@ class FavoritesViewModel @Inject constructor(
 
     fun exportFavorites(uri: Uri) = viewModelScope.launch {
         exporter.export(uri)
-            .onSuccess { count -> _message.update { _ -> "Exported $count favorites" } }
-            .onFailure { e -> _message.update { _ -> "Export failed: ${e.message}" } }
+            .onSuccess { count ->
+                _message.update {
+                    context.resources.getQuantityString(R.plurals.favorites_exported, count, count)
+                }
+            }
+            .onFailure { e ->
+                _message.update {
+                    context.getString(
+                        R.string.favorites_export_failed,
+                        e.message ?: context.getString(R.string.common_retry_later),
+                    )
+                }
+            }
     }
 
     fun importFavorites(uri: Uri) = viewModelScope.launch {
         exporter.import(uri)
-            .onSuccess { count -> _message.update { _ -> "Imported $count favorites" } }
-            .onFailure { e -> _message.update { _ -> "Import failed: ${e.message}" } }
+            .onSuccess { count ->
+                _message.update {
+                    context.resources.getQuantityString(R.plurals.favorites_imported, count, count)
+                }
+            }
+            .onFailure { e ->
+                _message.update {
+                    context.getString(
+                        R.string.favorites_import_failed,
+                        e.message ?: context.getString(R.string.common_retry_later),
+                    )
+                }
+            }
     }
 
     val batchState = batchDownloadService.state
@@ -88,7 +114,7 @@ class FavoritesViewModel @Inject constructor(
         val wps = wallpapers.value.map { it.toWallpaper() }
         if (wps.isEmpty()) return
         val result = batchDownloadService.downloadBatch(wps)
-        _message.update { _ -> batchDownloadMessage(result, "wallpaper") }
+        _message.update { batchDownloadMessage(result, context) }
     }
 
     // -- Bulk actions (selection mode) ---------------------------------------
@@ -100,7 +126,11 @@ class FavoritesViewModel @Inject constructor(
         val s = sounds.value.filter { it.stableKey() in keys }
         (w + s).forEach { favoritesRepo.remove(it.favoriteIdentity()) }
         val total = w.size + s.size
-        if (total > 0) _message.update { _ -> "Removed $total favorite${if (total == 1) "" else "s"}" }
+        if (total > 0) {
+            _message.update {
+                context.resources.getQuantityString(R.plurals.favorites_removed, total, total)
+            }
+        }
     }
 
     /** Kick off a batch download for every selected wallpaper favorite. Sounds are ignored. */
@@ -108,11 +138,11 @@ class FavoritesViewModel @Inject constructor(
         if (keys.isEmpty()) return
         val wps = wallpapers.value.filter { it.stableKey() in keys }.map { it.toWallpaper() }
         if (wps.isEmpty()) {
-            _message.update { _ -> "Select at least one wallpaper" }
+            _message.update { context.getString(R.string.favorites_select_wallpaper) }
             return
         }
         val result = batchDownloadService.downloadBatch(wps)
-        _message.update { _ -> batchDownloadMessage(result, "wallpaper") }
+        _message.update { batchDownloadMessage(result, context) }
     }
 
     fun clearMessage() { _message.update { _ -> null } }
@@ -120,13 +150,26 @@ class FavoritesViewModel @Inject constructor(
 
 private fun batchDownloadMessage(
     result: com.freevibe.service.BatchDownloadStartResult,
-    noun: String,
+    context: Context,
 ): String = when {
-    result.alreadyRunning -> "A batch download is already running"
+    result.alreadyRunning -> context.getString(R.string.favorites_batch_already_running)
     result.acceptedCount == 0 && result.blockedCount > 0 ->
-        "Provider policy blocked ${result.blockedCount} ${noun}${if (result.blockedCount == 1) "" else "s"}"
+        context.resources.getQuantityString(
+            R.plurals.favorites_batch_provider_blocked,
+            result.blockedCount,
+            result.blockedCount,
+        )
     result.blockedCount > 0 ->
-        "Downloading ${result.acceptedCount} ${noun}${if (result.acceptedCount == 1) "" else "s"}; ${result.blockedCount} blocked by provider policy"
+        context.resources.getQuantityString(
+            R.plurals.favorites_batch_downloading_with_blocked,
+            result.acceptedCount,
+            result.acceptedCount,
+            result.blockedCount,
+        )
     else ->
-        "Downloading ${result.acceptedCount} ${noun}${if (result.acceptedCount == 1) "" else "s"}..."
+        context.resources.getQuantityString(
+            R.plurals.favorites_batch_downloading,
+            result.acceptedCount,
+            result.acceptedCount,
+        )
 }
