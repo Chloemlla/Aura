@@ -35,6 +35,8 @@ __pycache__/
 # in-app Settings > About > Privacy policy button opens one of them.
 *.md
 !README.md
+!CONTRIBUTING.md
+!ARCHITECTURE.md
 !docs/**/*.md
 
 # Factory-loop research artifacts are session history, not published docs.

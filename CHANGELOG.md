@@ -4,6 +4,20 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Docs: publish the contributor guides that returned 404** — `CONTRIBUTING.md` and
+  `ARCHITECTURE.md` were caught by the blanket `*.md` ignore rule, so GitHub showed no
+  contributing guidelines and the architecture overview was unreachable. Both are tracked
+  now, and the link gate walks every tracked root-level markdown file and resolves every
+  relative target instead of only `docs/`-prefixed ones.
+- **Docs: correct the contributing guide** — it described a roadmap with item IDs, an
+  Appendix, and Now/Next/Later tiers that no longer exist, told contributors to run
+  ambiguous unqualified Gradle tasks, said screenshot tests were still queued when
+  Roborazzi has been running for months, and linked a `docs/plugins/` directory that was
+  never created.
+- **Build: restore dependency verification on a cold cache** — four Maven metadata
+  artifacts had no recorded checksum, so `checkFullDebugAarMetadata` failed before
+  compiling anything on a fresh clone. Each added digest was verified against the
+  checksum published by repo1.maven.org rather than trusted from the local cache.
 - **Reliability: route weather-wallpaper settings through the data layer** — daily wallpaper,
   VFX, and touch-effect writes now go through `PreferencesManager`; the preference gate scans
   every settings source file for direct runtime `SharedPreferences` writes.
