@@ -107,15 +107,6 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
 
   Update 2026-08-20: current targets are Compose BOM 2026.08.00 (mesh gradients; pausable composition is on by default since BOM 2025.12.00), material3 1.4.0 stable (Expressive — adopt tokens selectively, the wholesale look conflicts with the design charter), NewPipeExtractor v0.26.5 (2026-08-15), Roborazzi 1.70.0, Firebase BoM 34.17.0 (published, confirmed). Glance 1.2.0 still never shipped stable; 1.2.0-rc01 remains the newest usable line.
 
-- [ ] P1 — Bound yt-dlp downloads before writing and audit CVE-exposed flags
-  Why: the two `YoutubeDL.execute` branches pass no `--max-filesize` and the size limit is enforced only after the file is fully written to `filesDir`, so a long video writes gigabytes then fails; separately, the bundled payload predates five 2026 yt-dlp advisories (four HIGH command-injection).
-  Evidence: `VideoWallpapersViewModel.kt:706-735` vs `VideoWallpaperStorage.kt:137-155`; the OkHttp branches at `:743-766` are correctly capped; `youtubedl-android` 0.18.1 (2025-11-16); CVE-2026-55404, GHSA-69qj-pvh9-c5wg, CVE-2026-26331, CVE-2026-50574, CVE-2026-50023. Complements the device-blocked yt-dlp extraction item in `Roadmap_Blocked.md`.
-  Touches: `VideoWallpapersViewModel.kt`, `VideoWallpaperStorage.kt`, `YouTubeRepository.kt`, `docs/security/ytdlp-cve-policy.json`.
-  Acceptance: both yt-dlp branches pass an explicit size cap and the HLS path no longer needs 2× the file size; a gate asserts Aura passes none of `--exec`, `--write-link`, `--netrc-cmd`, or an aria2c downloader; the CVE policy doc records the audited flag set.
-  Complexity: M
-
-  Note 2026-08-20: the bundled 2026.07.04 payload post-dates every 2026 advisory fix (all fixed by 2026.06.09), so no emergency payload bump is needed — the size caps and the flag gate are the remaining work.
-
 - [ ] P1 — Publish `WallpaperColors` from the live-wallpaper engines
   Why: none of the wallpaper services implement `onComputeColors()`, so the system derives Material You theming from nothing while an Aura live wallpaper is active — the most-reported complaint class across darkmodewallpaper and Muzei.
   Evidence: no `onComputeColors`/`WallpaperColors` anywhere in `app/src/main/java/com/freevibe/service/`; darkmodewallpaper #115/#203, Muzei #744; Aura already has `ColorExtractor`/`WallpaperPalette`.

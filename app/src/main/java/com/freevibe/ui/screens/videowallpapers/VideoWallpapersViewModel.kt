@@ -25,6 +25,8 @@ import com.freevibe.service.shouldPrebufferVideoPreview
 import com.freevibe.service.YtDlpUpdateManager
 import com.freevibe.service.YouTubeYtDlpRequestFactory
 import com.freevibe.service.advertisedLengthExceeds
+import com.freevibe.service.applyYtDlpDownloadBounds
+import com.freevibe.service.moveIntoPlace
 import com.freevibe.service.copyStreamCapped
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -706,12 +708,15 @@ class VideoWallpapersViewModel @Inject constructor(
                             request.addOption("-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best")
                             request.addOption("--merge-output-format", "mp4")
                             request.addOption("--remux-video", "mp4")
-                            request.addOption("--no-playlist")
                             request.addOption("--force-overwrites")
                             request.addOption("-o", hlsOutput.absolutePath)
+                            applyYtDlpDownloadBounds(request)
                             com.yausername.youtubedl_android.YoutubeDL.getInstance().execute(request)
                             if (!hlsOutput.exists()) throw java.io.IOException("HLS download did not produce an MP4")
-                            hlsOutput.copyTo(cacheFile, overwrite = true)
+                            // Move rather than copy: both files live in the same
+                            // directory, so a copy would briefly need twice the
+                            // video's size on a device already near its cap.
+                            moveIntoPlace(hlsOutput, cacheFile)
                             ytDlpUpdateManager.recordExtractionSuccess()
                         } catch (e: Exception) {
                             if (e is kotlinx.coroutines.CancellationException) throw e
@@ -728,6 +733,7 @@ class VideoWallpapersViewModel @Inject constructor(
                             request.addOption("-f", "bestvideo[ext=mp4][height<=1080]/best[ext=mp4]/best")
                             request.addOption("-o", cacheFile.absolutePath)
                             request.addOption("--force-overwrites")
+                            applyYtDlpDownloadBounds(request)
                             com.yausername.youtubedl_android.YoutubeDL.getInstance().execute(request)
                             ytDlpUpdateManager.recordExtractionSuccess()
                         } catch (e: Exception) {

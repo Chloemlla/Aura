@@ -165,6 +165,63 @@ def validate_required_call_sites(repo_root: Path, call_sites: list[dict[str, Any
     return validated
 
 
+def validate_download_bounds(repo_root: Path, policy: dict[str, Any]) -> list[str]:
+    """Every media download must be bounded before a byte is written.
+
+    The size ceiling used to be checked only after the file was fully written,
+    so a long video wrote gigabytes to the device and was then rejected. The
+    helper carrying `--max-filesize` has to exist, and every download call site
+    has to route through it — a forbidden-option scan cannot see an option that
+    was simply never passed.
+    """
+    validated: list[str] = []
+
+    helper = require_object(policy.get("downloadBoundsHelper"), "downloadBoundsHelper")
+    helper_path = require_string(helper.get("path"), "downloadBoundsHelper.path")
+    path = repo_root / helper_path
+    if not path.is_file():
+        raise YtDlpCvePolicyError(f"download bounds helper is missing: {helper_path}")
+    helper_text = path.read_text(encoding="utf-8", errors="ignore")
+    for term in require_string_list(
+        helper.get("requiredTerms"), "downloadBoundsHelper.requiredTerms"
+    ):
+        if term not in helper_text:
+            raise YtDlpCvePolicyError(
+                f"{helper_path} no longer passes the required download option: {term}"
+            )
+
+    for index, raw_site in enumerate(
+        require_object_list(policy.get("downloadCallSites"), "downloadCallSites")
+    ):
+        site_id = require_string(raw_site.get("id"), f"downloadCallSites[{index}].id")
+        relative_path = require_string(
+            raw_site.get("path"), f"downloadCallSites[{index}].path"
+        )
+        site_path = repo_root / relative_path
+        if not site_path.is_file():
+            raise YtDlpCvePolicyError(f"{site_id} source file is missing: {relative_path}")
+        text = site_path.read_text(encoding="utf-8", errors="ignore")
+        for term in require_string_list(
+            raw_site.get("requiredTerms"), f"downloadCallSites[{index}].requiredTerms"
+        ):
+            if term not in text:
+                raise YtDlpCvePolicyError(
+                    f"{relative_path} downloads media without bounding it first "
+                    f"(missing {term})"
+                )
+        # Every execute in a download site must be preceded by the bounds call,
+        # so adding a third branch that forgets it fails here.
+        executes = text.count("YoutubeDL.getInstance().execute")
+        bounded = text.count("applyYtDlpDownloadBounds")
+        if bounded < executes:
+            raise YtDlpCvePolicyError(
+                f"{relative_path} has {executes} yt-dlp executions but only {bounded} "
+                "bounded download(s); every download must pass a size cap"
+            )
+        validated.append(site_id)
+    return validated
+
+
 def validate_policy(repo_root: Path, policy_path: Path) -> dict[str, Any]:
     policy = require_object(read_json(policy_path), "policy")
     schema_version = policy.get("schemaVersion")
@@ -223,6 +280,7 @@ def validate_policy(repo_root: Path, policy_path: Path) -> dict[str, Any]:
         raise YtDlpCvePolicyError(
             "forbidden yt-dlp option is reachable in Aura source:\n" + "\n".join(hits)
         )
+    download_sites = validate_download_bounds(repo_root, policy)
 
     status = "affected_not_reachable" if affected else "fixed_or_unaffected"
     return {
@@ -234,6 +292,7 @@ def validate_policy(repo_root: Path, policy_path: Path) -> dict[str, Any]:
         "minimumSafeYtDlpVersion": minimum_safe,
         "forbiddenOptions": forbidden_options,
         "validatedCallSites": call_sites,
+        "boundedDownloadSites": download_sites,
         "scannedSourceRoots": source_roots,
     }
 

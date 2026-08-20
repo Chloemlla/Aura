@@ -4,6 +4,14 @@ All notable changes to Aura will be documented in this file.
 
 ## v6.42.0
 
+- **Security: bound yt-dlp downloads before any bytes are written** — the video-wallpaper
+  import passed no size cap, and the 256 MB ceiling was only checked once the file had
+  already been written in full, so a long video wrote gigabytes to the device and was then
+  rejected. Both download branches now pass `--max-filesize` and `--no-playlist` up front.
+  The Reddit HLS path also moves its finished file into place instead of copying it, so a
+  download no longer needs twice the video's size on disk at once. A gate counts yt-dlp
+  executions against bounded downloads, so a new branch that forgets the cap fails the
+  build rather than shipping — a forbidden-option scan cannot see an option nobody passed.
 - **Release: publish the versions that were finished but never shipped** — v6.39.0,
   v6.40.0, and v6.41.0 were tagged and left unreleased, so the download page still served
   v6.38.1 and Obtainium silently held everyone there. A gate now fails when the declared
