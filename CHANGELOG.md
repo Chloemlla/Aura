@@ -2,7 +2,7 @@
 
 All notable changes to Aura will be documented in this file.
 
-## Unreleased
+## v6.43.0
 
 - **Grid cells stop redrawing when nothing about them changed** — the models behind the
   wallpaper, video, download, history, and collection lists are now all declared immutable
