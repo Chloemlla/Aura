@@ -38,6 +38,11 @@ All notable changes to Aura will be documented in this file.
   corner positions. The device's time format and time zone are used, and disabling the setting
   adds no overlay work to the existing live render loops.
 
+- **The Glance widget pin is now documented**: Aura stays on Glance 1.2.0-rc01 because the
+  widget's generated-preview API arrived in the 1.2 line, while stable remains 1.1.1 and the
+  1.2.0 stable release has not shipped. The catalog records the upgrade trigger and prerelease
+  risk next to the pin.
+
 - **New Rotation health screen, in Settings under Diagnostics**: when automatic
   wallpaper change quietly stops, there was nothing to look at. The five reasons it can
   stop all look the same from the home screen: rotation is off, it's waiting for its

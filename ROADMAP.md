@@ -12,13 +12,6 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
 
 ### P1
 
-- [ ] P3 — Resolve the orphaned Glance 1.2.0-rc01 pin
-  Why: `glance = "1.2.0-rc01"` is a release candidate whose stable never shipped, so the widget stack sits on a prerelease with no upgrade path and no recorded decision.
-  Evidence: `gradle/libs.versions.toml`; Glance 1.2.0 stable was never published. Every other dependency moved in the 2026-08-20 refresh; this one had nowhere to go.
-  Touches: `gradle/libs.versions.toml`, `gradle/verification-metadata.xml`, `FreeVibeWidget.kt`, widget tests.
-  Acceptance: the pin either moves to a stable line or the reason it cannot is recorded next to it in the catalog, with the risk of shipping a prerelease widget stack stated; widget behaviour is unchanged either way.
-  Complexity: S
-
 - [ ] P2 — Adopt the API 36 platform APIs the compileSdk bump just made reachable
   Why: compileSdk 36 landed on 2026-08-20 and immediately unblocked a set of platform APIs the code currently works around or leaves as a TODO. They were queued behind the compile SDK and nothing else.
   Evidence: `RESEARCH.md:78`; the three `res/xml/*_wallpaper.xml` `WallpaperDescription` TODOs; `RuntimeColorFilter`/`RuntimeXfermode` for the AGSL pipeline; `Notification.ProgressStyle` for the download queue.
