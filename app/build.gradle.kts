@@ -162,6 +162,29 @@ android {
         disable += "NullSafeMutableLiveData"
     }
 
+    // Per-ABI release APKs alongside the universal one.
+    //
+    // The universal artifact is ~199 MB because FFmpeg and Python ship for four
+    // ABIs and a phone uses exactly one of them. IzzyOnDroid caps a single APK at
+    // 30 MB and Accrescent at 128 MiB, so the universal build is a direct-download
+    // artifact and nothing else.
+    //
+    // armeabi-v7a and x86 stay in the set deliberately: minSdk 26 still admits
+    // 32-bit-only Android 8 and 9 devices, and splitting cuts the download without
+    // cutting those users. Dropping 32-bit is a separate, user-facing decision and
+    // is not what this does.
+    //
+    // Every split keeps the same versionCode. Only one ever installs on a given
+    // device, and Obtainium's autoApkFilterByArch picks it by asset name.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+            isUniversalApk = true
+        }
+    }
+
     packaging {
         jniLibs {
             useLegacyPackaging = true

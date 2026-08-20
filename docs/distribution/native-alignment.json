@@ -9,13 +9,34 @@
   ],
   "packageName": "com.freevibe",
   "requiredLoadSegmentAlignmentBytes": 16384,
-  "require64BitOnly": true,
+  "require64BitOnly": false,
+  "thirtyTwoBitSupportRationale": "minSdk 26 still admits 32-bit-only Android 8 and 9 devices. Per-ABI splits cut the download for everyone without cutting those devices off, so 32-bit ships and is declared rather than being quietly present under a 64-bit-only claim. Dropping armeabi-v7a and x86 is a separate user-facing decision.",
+  "declaredAbis": [
+    "arm64-v8a",
+    "armeabi-v7a",
+    "x86",
+    "x86_64"
+  ],
   "required64BitAbis": [
     "arm64-v8a",
     "x86_64"
   ],
   "releaseApkGlob": "app/build/outputs/apk/*/release/*release*.apk",
   "verificationCommand": "python3 tools/native_alignment_check.py --policy docs/distribution/native-alignment.json --apk <release-apk>",
+  "abiSplitEvidence": {
+    "date": "2026-08-20",
+    "status": "verified",
+    "note": "Per-ABI splits cut the download from 199 MB to 60 MB on the architecture every modern phone uses. That is still above IzzyOnDroid's 30 MB per-APK ceiling: the remaining bulk is the FFmpeg and Python native payload, which the tracked sound-editor item is what actually removes. Splitting was never going to reach 30 MB on its own and this records that it did not.",
+    "artifactBytes": {
+      "app-full-arm64-v8a-release.apk": 63439662,
+      "app-full-armeabi-v7a-release.apk": 56785934,
+      "app-full-universal-release.apk": 208831546,
+      "app-full-x86-release.apk": 62027502,
+      "app-full-x86_64-release.apk": 66431342
+    },
+    "izzyOnDroidPerApkCeilingBytes": 31457280,
+    "arm64UnderIzzyOnDroidCeiling": false
+  },
   "latestLocalEvidence": {
     "date": "2026-07-02",
     "status": "verified",

@@ -68,14 +68,6 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
 
 ### P1
 
-- [ ] P1 — Enforce 64-bit-only and ship per-ABI splits
-  Why: the released universal APK is 198 MB — 6.6× IzzyOnDroid's 30 MB per-APK ceiling and above Accrescent's 128 MiB — because 32-bit FFmpeg and Python payloads ship for ABIs nothing needs, and the gate named `require64BitOnly` skips every non-64-bit library instead of rejecting it.
-  Evidence: `tools/native_alignment_check.py:246-247` (`if not library.is_64_bit: continue`); `docs/distribution/native-alignment.json` `require64BitOnly: true` with `lib/armeabi-v7a/`, `lib/x86/` in its own evidence block; `gh release view v6.38.1` asset = 198 MB; no `splits`/`abiFilters` in `app/build.gradle.kts`. Referenced as NX-8 in ARCHITECTURE.md but tracked nowhere.
-  Touches: `app/build.gradle.kts` (`splits { abi { ... } }`), `tools/native_alignment_check.py`, release bundle check, `obtainium.json`, README install copy.
-  Note: per-ABI splits are the fix; **dropping `armeabi-v7a` is a separate, user-facing decision**, because `minSdk 26` still admits 32-bit-only Android 8–9 devices. Splits cut the download without cutting those users. Either resolve `require64BitOnly: true` to match reality (32-bit shipped and supported) or record an explicit decision to drop 32-bit — as of 2026-08-11 the policy and the artifact disagree and the gate cannot tell.
-  Acceptance: release output is per-ABI plus a universal APK, and the arm64-v8a artifact is under 30 MB; `native_alignment_check.py` verifies the *declared* ABI set against the APK and fails on any mismatch in either direction, instead of skipping non-64-bit libraries; `obtainium.json`'s `autoApkFilterByArch` is confirmed against the split asset names; `docs/distribution/native-alignment.json` no longer claims `releaseWorkflowEnforced` for a workflow that does not exist.
-  Complexity: M
-
 - [ ] P1 — Restore Android Lint, which cannot complete a run
   Why: `:app:lintAnalyzeFullDebug` aborts. Three Compose lint detectors each throw `IncompatibleClassChangeError` — `RememberInCompositionDetector` (reached from `FrequentlyChangingValueDetector`) and `AutoboxingStateCreationDetector` — so the whole run dies and none of the other checks report. No app source appears in any stack; it is a binary incompatibility between the Compose BOM 2025.06.00 lint artifacts and the AGP 8.7.3 lint API, the same class as the already-documented `NullSafeMutableLiveData` crash. Disabling detectors individually was tried and is whack-a-mole.
   Evidence: `app/build.gradle.kts:156-163` (existing workaround for the same failure class); crash stacks from `./gradlew :app:lintAnalyzeFullDebug --no-daemon`. Pre-existing: not introduced by any source change in this cycle, and not verified against the base commit because a clean lint run is what is broken.
@@ -218,6 +210,8 @@ against v6.41.0 / versionCode 142 at `122d431`.
   Touches: `AudioTrimmer.kt`, `SoundEditorViewModel.kt`, `app/build.gradle.kts` packaging, `tools/native_alignment_check.py`, `docs/distribution/native-alignment.json`.
   Acceptance: trim, convert, and speed run through the platform media stack with byte-comparable output on a fixture corpus; FFmpeg is retained only for the operations that genuinely require it, with each one named in the docs; if the video-crop path is the last FFmpeg consumer, that is recorded explicitly; APK size before and after is measured, and whether `useLegacyPackaging` can be turned off is answered either way.
   Complexity: XL
+
+  Update 2026-08-20: per-ABI splits landed and measured 199 MB universal → 60.5 MB arm64-v8a, 54.2 MB armeabi-v7a, 59.2 MB x86, 63.4 MB x86_64. That is a 3.3× cut but still twice IzzyOnDroid's 30 MB per-APK ceiling, so **this item is now the only remaining lever on store eligibility** — the residual bulk is the FFmpeg and Python payload and nothing else. Splitting was never going to reach 30 MB alone; the measurement is recorded in `docs/distribution/native-alignment.json` under `abiSplitEvidence`.
 
 #### P2
 

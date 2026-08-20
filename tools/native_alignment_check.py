@@ -225,17 +225,38 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
     )
     if required_alignment < 16384 or required_alignment & (required_alignment - 1) != 0:
         raise NativeAlignmentError("requiredLoadSegmentAlignmentBytes must be a power of two at least 16384")
-    if not require_bool(policy.get("require64BitOnly"), "require64BitOnly"):
-        raise NativeAlignmentError("require64BitOnly must remain true")
+    # This used to insist require64BitOnly stay true while the shipped APK carried
+    # armeabi-v7a and x86, and the library loop skipped every 32-bit library, so
+    # the contradiction was unobservable. The flag now means what it says, and the
+    # declared set below is what records reality.
+    require_64_bit_only = require_bool(policy.get("require64BitOnly"), "require64BitOnly")
     required_abis = set(require_string_list(policy.get("required64BitAbis"), "required64BitAbis"))
     if not required_abis <= ABI_64_BIT:
         raise NativeAlignmentError("required64BitAbis contains an unknown 64-bit ABI")
+    declared_abis = set(require_string_list(policy.get("declaredAbis"), "declaredAbis"))
+    if not required_abis <= declared_abis:
+        raise NativeAlignmentError(
+            "required64BitAbis names ABIs missing from declaredAbis: "
+            + ", ".join(sorted(required_abis - declared_abis))
+        )
+    if require_64_bit_only and not declared_abis <= ABI_64_BIT:
+        raise NativeAlignmentError(
+            "require64BitOnly is true but declaredAbis includes 32-bit ABIs: "
+            + ", ".join(sorted(declared_abis - ABI_64_BIT))
+        )
+    if not require_64_bit_only:
+        require_string(
+            policy.get("thirtyTwoBitSupportRationale"),
+            "thirtyTwoBitSupportRationale",
+        )
     status = require_string(policy.get("status"), "status")
     enforced_by = validate_enforcement(repo_root, status, policy.get("enforcedBy"))
     return {
         "packageName": package_name,
         "requiredAlignment": required_alignment,
         "requiredAbis": required_abis,
+        "declaredAbis": declared_abis,
+        "require64BitOnly": require_64_bit_only,
         "status": status,
         "enforcedBy": enforced_by,
     }
@@ -258,20 +279,63 @@ def validate_enforcement(repo_root: Path, status: str, enforced_by: Any) -> list
     return paths
 
 
+def expected_abis_for_apk(apk_name: str, declared_abis: set[str]) -> tuple[str, set[str]]:
+    """What this particular artifact should contain, decided by its file name.
+
+    Which ABIs an APK *should* have cannot be inferred from the ones it has: a
+    universal build that lost three of its four ABIs looks exactly like a split.
+    Gradle names the artifacts, so the name is the declaration — `...-arm64-v8a-`
+    must hold that ABI and nothing else, and anything else must hold all of them.
+    """
+    for abi in sorted(declared_abis, key=len, reverse=True):
+        if f"-{abi}-" in apk_name or apk_name.endswith(f"-{abi}.apk"):
+            return f"split:{abi}", {abi}
+    return "universal", set(declared_abis)
+
+
 def validate_libraries(
     libraries: list[NativeLibrary],
     *,
     required_alignment: int,
     required_abis: set[str],
+    expected_abis: set[str],
+    require_64_bit_only: bool,
+    variant: str = "universal",
 ) -> dict[str, object]:
     errors: list[str] = []
+    seen_abis = {library.abi for library in libraries}
     seen_64_bit_abis = {library.abi for library in libraries if library.is_64_bit}
-    missing_abis = sorted(required_abis - seen_64_bit_abis)
-    if missing_abis:
-        errors.append("APK missing required 64-bit ABIs: " + ", ".join(missing_abis))
+
+    # Checked in both directions. An ABI the artifact should not carry is payload
+    # nobody signed up to ship; one it should carry but does not is a device
+    # silently losing support. The old gate could see neither, because it skipped
+    # every non-64-bit library before it looked at anything.
+    unexpected = sorted(seen_abis - expected_abis)
+    if unexpected:
+        errors.append(f"{variant} APK ships unexpected ABIs: " + ", ".join(unexpected))
+    absent = sorted(expected_abis - seen_abis)
+    if absent:
+        errors.append(f"{variant} APK is missing expected ABIs: " + ", ".join(absent))
+
+    if require_64_bit_only:
+        thirty_two_bit = sorted({library.abi for library in libraries if not library.is_64_bit})
+        if thirty_two_bit:
+            errors.append(
+                "policy requires 64-bit only but the APK ships 32-bit ABIs: "
+                + ", ".join(thirty_two_bit)
+            )
+
+    # A per-ABI split holds one ABI by definition, so demanding the full 64-bit
+    # set of it would fail every split including the correct ones.
+    if variant == "universal":
+        missing_abis = sorted(required_abis - seen_64_bit_abis)
+        if missing_abis:
+            errors.append("APK missing required 64-bit ABIs: " + ", ".join(missing_abis))
 
     checked_segments = 0
     for library in libraries:
+        # 16 KB page alignment is a 64-bit requirement; 32-bit libraries have no
+        # such contract, so they are counted above but not measured here.
         if not library.is_64_bit:
             continue
         for segment in library.load_segments:
@@ -287,6 +351,9 @@ def validate_libraries(
         "checked64BitLoadSegments": checked_segments,
         "nativeLibraryCount": len(libraries),
         "seen64BitAbis": sorted(seen_64_bit_abis),
+        "seenAbis": sorted(seen_abis),
+        "expectedAbis": sorted(expected_abis),
+        "apkVariant": variant,
     }
 
 
@@ -294,10 +361,14 @@ def validate_release_apk(repo_root: Path, policy: dict[str, Any], apk_path: Path
     policy_info = validate_policy(repo_root, policy)
     skipped_archive_entries: list[str] = []
     libraries = inspect_apk(apk_path, skipped_archive_entries=skipped_archive_entries)
+    variant, expected_abis = expected_abis_for_apk(apk_path.name, policy_info["declaredAbis"])
     library_result = validate_libraries(
         libraries,
         required_alignment=policy_info["requiredAlignment"],
         required_abis=policy_info["requiredAbis"],
+        expected_abis=expected_abis,
+        require_64_bit_only=policy_info["require64BitOnly"],
+        variant=variant,
     )
     return {
         "status": "ok",

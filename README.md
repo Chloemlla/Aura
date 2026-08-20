@@ -37,17 +37,25 @@ Aura is built as a local-first tool rather than an ad-and-credit marketplace:
 
 ## Installing Aura
 
-Download the signed universal APK and `SHA256SUMS.txt` from the same
-[GitHub Release](https://github.com/SysAdminDoc/Aura/releases). Obtainium users
-should select the asset named
-`Aura-vX.Y.Z-versionCode-N-universal-release.apk`; do not install debug or
-third-party re-signed builds.
+Every release ships one APK per CPU architecture plus a universal one, and a
+single `SHA256SUMS.txt` covering all of them, on the same
+[GitHub Release](https://github.com/SysAdminDoc/Aura/releases).
+
+Pick the one that matches your phone. Almost every Android phone made since 2017
+is `arm64-v8a`, and that build is roughly a third the size of the universal one
+because it carries native code for one architecture instead of four. `armeabi-v7a`
+is for older 32-bit devices; the `x86` builds are for emulators. If you are not
+sure, the universal APK installs anywhere. Obtainium picks the right one on its
+own with `autoApkFilterByArch` enabled, which the bundled
+[`obtainium.json`](obtainium.json) already sets.
+
+Do not install debug or third-party re-signed builds.
 
 Verify the download, then install or update it with ADB:
 
 ```powershell
-Get-FileHash .\Aura-vX.Y.Z-versionCode-N-universal-release.apk -Algorithm SHA256
-adb install --user 0 -r .\Aura-vX.Y.Z-versionCode-N-universal-release.apk
+Get-FileHash .\Aura-vX.Y.Z-versionCode-N-arm64-v8a-release.apk -Algorithm SHA256
+adb install --user 0 -r .\Aura-vX.Y.Z-versionCode-N-arm64-v8a-release.apk
 ```
 
 Compare the printed digest with `SHA256SUMS.txt` before installing. The `-r`

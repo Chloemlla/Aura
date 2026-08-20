@@ -116,10 +116,21 @@ The final directory is validated before upload:
 python3 tools/release_artifact_bundle_check.py \
   --release-dir "$RELEASE_DIR" \
   --apk-name "$APK_NAME" \
+  --split-apk-name "Aura-v$VERSION_NAME-versionCode-$VERSION_CODE-arm64-v8a-release.apk" \
+  --split-apk-name "Aura-v$VERSION_NAME-versionCode-$VERSION_CODE-armeabi-v7a-release.apk" \
+  --split-apk-name "Aura-v$VERSION_NAME-versionCode-$VERSION_CODE-x86-release.apk" \
+  --split-apk-name "Aura-v$VERSION_NAME-versionCode-$VERSION_CODE-x86_64-release.apk" \
   --aab-name "$AAB_NAME" \
   --version-name "$VERSION_NAME" \
   --version-code "$VERSION_CODE"
 ```
+
+`assembleFullRelease` produces five APKs: one per architecture plus the universal
+one. All five are published, all five belong in `SHA256SUMS.txt`, and all five have
+to be named in the release notes, because a split nobody mentions is a split nobody
+downloads. Pass each per-ABI file with its own `--split-apk-name`; the check
+verifies each one exists, is checksummed, matches the version, and claims a
+distinct architecture.
 
 The check fails when:
 

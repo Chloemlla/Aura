@@ -4,6 +4,19 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **A download that is a third the size, because it carries code for your phone only**
+  — the single universal APK was 199 MB, and roughly three quarters of that was native
+  code for architectures your device will never run. Releases now ship one APK per
+  architecture alongside the universal one. On `arm64-v8a`, which is nearly every phone
+  made since 2017, that is 60 MB. Obtainium picks the right one automatically; if you
+  install by hand and are not sure, the universal APK still works everywhere. Nobody
+  loses support: 32-bit `armeabi-v7a` is still built, because Android 8 and 9 devices
+  that need it are still in the supported range.
+
+  This does not reach the 30 MB per-APK limit IzzyOnDroid sets, and splitting was never
+  going to. What is left is the FFmpeg and Python payload the sound editor depends on,
+  and that is tracked separately.
+
 - **Release gates check what is published, not just what is on disk** — a document can
   satisfy every content check while returning 404 to users, which is how the in-app
   privacy policy button opened a dead link for months with every gate reporting ok. The

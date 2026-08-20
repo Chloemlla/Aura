@@ -13,6 +13,11 @@ from pathlib import Path
 
 RAW_GOOGLE_OSS_INPUT_ARCHIVE = "GOOGLE-OSS-RAW-INPUTS.zip"
 
+# ABIs the release splits by. A release now ships one APK per architecture next
+# to the universal one, so the bundle is a set of artifacts rather than a single
+# file, and every one of them has to be checksummed and named in the notes.
+SPLIT_ABIS = ("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+
 REQUIRED_STATIC_FILES = {
     "THIRD-PARTY-NOTICES.md",
     RAW_GOOGLE_OSS_INPUT_ARCHIVE,
@@ -36,6 +41,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--release-dir", default="release")
     parser.add_argument("--apk-name", required=True)
+    parser.add_argument(
+        "--split-apk-name",
+        action="append",
+        default=[],
+        help="per-ABI APK in the bundle; repeat once per architecture",
+    )
     parser.add_argument("--aab-name", required=True)
     parser.add_argument("--version-name", required=True)
     parser.add_argument("--version-code", required=True)
@@ -182,6 +193,37 @@ def validate_aab_signature_receipts(
     return errors
 
 
+def validate_split_apk_names(
+    split_apk_names: list[str],
+    *,
+    version_name: str,
+    version_code: str,
+) -> list[str]:
+    """Every split must name its ABI, and no ABI may appear twice.
+
+    A duplicate would mean two artifacts claiming the same architecture, and a
+    device would install whichever the store happened to serve.
+    """
+    errors: list[str] = []
+    seen_abis: set[str] = set()
+    for name in split_apk_names:
+        prefix = f"Aura-v{version_name}-versionCode-{version_code}-"
+        if not name.startswith(prefix) or not name.endswith("-release.apk"):
+            errors.append(
+                f"split APK name {name} does not match versionName {version_name} "
+                f"and versionCode {version_code}"
+            )
+            continue
+        abi = name[len(prefix): -len("-release.apk")]
+        if abi not in SPLIT_ABIS:
+            errors.append(f"split APK name {name} does not name a known ABI")
+            continue
+        if abi in seen_abis:
+            errors.append(f"split APK bundle contains {abi} more than once")
+        seen_abis.add(abi)
+    return errors
+
+
 def validate_bundle(
     *,
     release_dir: Path,
@@ -189,11 +231,17 @@ def validate_bundle(
     aab_name: str,
     version_name: str,
     version_code: str,
+    split_apk_names: list[str] | None = None,
 ) -> list[str]:
     errors: list[str] = []
+    splits = list(split_apk_names or [])
     expected_files = set(REQUIRED_STATIC_FILES)
     expected_files.add(apk_name)
     expected_files.add(aab_name)
+    expected_files.update(splits)
+    errors.extend(
+        validate_split_apk_names(splits, version_name=version_name, version_code=version_code)
+    )
 
     if not release_dir.is_dir():
         return [f"Release directory not found: {release_dir}"]
@@ -230,6 +278,7 @@ def validate_bundle(
             RAW_GOOGLE_OSS_INPUT_ARCHIVE,
             "NATIVE-COMPLIANCE.md",
             "NATIVE-ALIGNMENT.json",
+            *splits,
         }
         missing = sorted(expected_checksum_files - set(checksums))
         extra = sorted(set(checksums) - expected_checksum_files)
@@ -266,6 +315,9 @@ def validate_bundle(
             "Local build receipt:",
             "Build type: release, android:debuggable=false",
             "Package: com.freevibe",
+            # A split nobody mentions is a split nobody downloads, and the whole
+            # point of publishing them is that users pick the right one.
+            *splits,
         ]
         for fragment in required_note_fragments:
             if fragment not in release_notes:
@@ -336,6 +388,7 @@ def main() -> int:
         aab_name=args.aab_name,
         version_name=args.version_name,
         version_code=args.version_code,
+        split_apk_names=args.split_apk_name,
     )
     if errors:
         print("Release artifact bundle validation failed:", file=sys.stderr)
@@ -347,6 +400,7 @@ def main() -> int:
             {
                 "aab": args.aab_name,
                 "apk": args.apk_name,
+                "splitApks": sorted(args.split_apk_name),
                 "releaseDir": str(release_dir),
                 "status": "ok",
                 "versionCode": args.version_code,
