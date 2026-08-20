@@ -2,6 +2,7 @@ package com.freevibe.ui.screens.settings
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -14,6 +15,28 @@ import com.freevibe.service.CrashDiagnosticsSummary
 import com.freevibe.service.ExternalAutomationDiagnostics
 import com.freevibe.service.SourceMetrics
 import com.freevibe.service.VideoWallpaperSelectionResult
+
+/**
+ * Where Settings can send you.
+ *
+ * These were nine loose lambda parameters on `SettingsScreen`, which is held to a
+ * 500-line ceiling it kept bumping into — every new destination cost a line in
+ * the signature and a line at the call site. Grouping them also stops the
+ * parameter list from being the place a reader has to look to find out what
+ * Settings links to.
+ */
+@Immutable
+data class SettingsNavigation(
+    val onDownloadsClick: () -> Unit = {},
+    val onLicensesClick: () -> Unit = {},
+    val onCategoriesClick: () -> Unit = {},
+    val onHistoryClick: () -> Unit = {},
+    val onCollectionsClick: () -> Unit = {},
+    val onCreatorProfileClick: () -> Unit = {},
+    val onCommunityReportsClick: () -> Unit = {},
+    val onGeneratedWallpapersClick: () -> Unit = {},
+    val onRotationHealthClick: () -> Unit = {},
+)
 
 internal data class SettingsScreenState(
     val autoWpEnabled: Boolean,

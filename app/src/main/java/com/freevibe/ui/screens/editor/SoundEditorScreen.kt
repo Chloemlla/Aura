@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -85,6 +86,8 @@ fun SoundEditorScreen(
     val openSettingsLabel = stringResource(R.string.write_settings_open)
     val writeSettingsUnavailable = stringResource(R.string.write_settings_unavailable)
     val context = LocalContext.current
+    // Reading a string off LocalContext is not a composition read. LocalResources is.
+    val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     var writeSettingsRefresh by remember { mutableIntStateOf(0) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -137,7 +140,7 @@ fun SoundEditorScreen(
     }
     LaunchedEffect(state.error) {
         state.error?.let {
-            snackbarHostState.showSnackbar(context.getString(R.string.common_error_format, it))
+            snackbarHostState.showSnackbar(resources.getString(R.string.common_error_format, it))
             viewModel.clearMessages()
         }
     }

@@ -4,6 +4,22 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **New Rotation health screen, in Settings under Diagnostics** — when automatic
+  wallpaper change quietly stops, there was nothing to look at. The five reasons it can
+  stop all look the same from the home screen: rotation is off, it's waiting for its
+  turn, Android is holding it back to save battery, the schedule got dropped after a
+  restart, or the last run failed. Each needs a different response. The screen names
+  which one it is, shows when rotation last ran and when it is next due, whether Android
+  is restricting Aura's background use, and whether a restart was ever seen. There's a
+  Run now button, so you can watch a rotation happen instead of guessing. When the device
+  refuses to answer something, it says so rather than showing a plausible-looking value.
+
+- **Media playback, image loading, and networking libraries all moved up** — Media3,
+  Coil, OkHttp, Navigation, Paging, DataStore, Compose, and the YouTube extractor had all
+  been stuck behind one toolchain blocker. Compiling against Android 16's SDK cleared it.
+  Nothing changes on screen; this is the groundwork the video playlist and gapless seam
+  work needs.
+
 - **Fixed a crash on Android 8.0 when a live wallpaper published its colours** — the call
   that tells the system a wallpaper's colours changed only exists from Android 8.1, and
   Aura made it on all seven of its publish paths. On Android 8.0 that is an immediate

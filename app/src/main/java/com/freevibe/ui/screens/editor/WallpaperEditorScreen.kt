@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -59,6 +60,8 @@ fun WallpaperEditorScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    // Reading a string off LocalContext is not a composition read. LocalResources is.
+    val resources = LocalResources.current
     val editorIdentityKey = remember(wallpaperId, fallbackWallpaper?.source, fallbackWallpaper?.fullUrl) {
         listOf(
             wallpaperId,
@@ -86,7 +89,7 @@ fun WallpaperEditorScreen(
     }
     LaunchedEffect(state.error) {
         state.error?.let {
-            snackbarHostState.showSnackbar(context.getString(R.string.common_error_format, it))
+            snackbarHostState.showSnackbar(resources.getString(R.string.common_error_format, it))
             viewModel.clearError()
         }
     }

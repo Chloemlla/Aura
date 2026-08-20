@@ -16,6 +16,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
@@ -53,6 +54,8 @@ fun DownloadsScreen(
         stringResource(R.string.nav_sounds),
     )
     val context = LocalContext.current
+    // Reading a string off LocalContext is not a composition read. LocalResources is.
+    val resources = LocalResources.current
     val missingPathMessage = stringResource(R.string.downloads_file_path_missing)
     val missingFileMessage = stringResource(R.string.downloads_file_no_longer_exists)
     val cannotOpenMessage = stringResource(R.string.downloads_cannot_open_file)
@@ -162,11 +165,11 @@ fun DownloadsScreen(
                                 viewModel.deleteDownload(download.id)
                                 scope.launch {
                                     val result = snackbarHostState.showSnackbar(
-                                        message = context.getString(
+                                        message = resources.getString(
                                             R.string.downloads_deleted,
                                             download.name.ifBlank { download.id },
                                         ),
-                                        actionLabel = context.getString(R.string.common_undo),
+                                        actionLabel = resources.getString(R.string.common_undo),
                                         duration = SnackbarDuration.Short,
                                     )
                                     if (result == SnackbarResult.ActionPerformed) {

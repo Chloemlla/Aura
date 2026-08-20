@@ -68,15 +68,12 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
 
 ### P1
 
-- [ ] P1 — Refresh the dependencies already available at compileSdk 35
-  Why: Compose BOM 2026.06.01, Navigation 2.9.8, Paging 3.5.0, DataStore 1.2.1, kotlinx-coroutines 1.11.0, Firebase BoM 34.17.0, NewPipeExtractor v0.26.4, and Roborazzi 1.71.0 all clear compileSdk 35 and are blocked by nothing; Aura is 7 Roborazzi minors and 4 Firebase minors behind with no recorded reason.
-  Evidence: `gradle/libs.versions.toml`; NewPipeExtractor v0.26.3 → v0.26.4 (2026-07-20); Compose BOM 2026.06.01 and Navigation 2.9.8 both resolve at `minCompileSdk 35`. Glance 1.2.0-rc01 is an orphaned RC — 1.2.0 never shipped stable.
-  Modifies two entries in `Roadmap_Blocked.md`: the N-1 triad (`:25-26`) bundles "Compose BOM -> 2026.05.00" into the AGP 9 / Gradle 9 / Kotlin 2.3 upgrade, but Compose does not force a compileSdk bump and can move independently — remove it from N-1's scope. The "P2 Firebase BoM 34.13.0 -> 34.16.0" blocker (`:13-17`, "34.16.0 does not exist yet") is **resolved**: 34.17.0 is published, so that item moves back here.
-  Touches: `gradle/libs.versions.toml`, `gradle/verification-metadata.xml`, Roborazzi goldens, `Roadmap_Blocked.md`.
-  Acceptance: each upgrade lands with unit tests, lint, and Roborazzi green; Compose BOM is struck from the N-1 scope line and the Firebase BoM item is deleted from `Roadmap_Blocked.md`; any library that cannot move records its blocker there instead; the Glance RC is resolved to a stable line or its risk is documented.
-  Complexity: M
-
-  Update 2026-08-20: current targets are Compose BOM 2026.08.00 (mesh gradients; pausable composition is on by default since BOM 2025.12.00), material3 1.4.0 stable (Expressive — adopt tokens selectively, the wholesale look conflicts with the design charter), NewPipeExtractor v0.26.5 (2026-08-15), Roborazzi 1.70.0, Firebase BoM 34.17.0 (published, confirmed). Glance 1.2.0 still never shipped stable; 1.2.0-rc01 remains the newest usable line.
+- [ ] P3 — Resolve the orphaned Glance 1.2.0-rc01 pin
+  Why: `glance = "1.2.0-rc01"` is a release candidate whose stable never shipped, so the widget stack sits on a prerelease with no upgrade path and no recorded decision.
+  Evidence: `gradle/libs.versions.toml`; Glance 1.2.0 stable was never published. Every other dependency moved in the 2026-08-20 refresh; this one had nowhere to go.
+  Touches: `gradle/libs.versions.toml`, `gradle/verification-metadata.xml`, `FreeVibeWidget.kt`, widget tests.
+  Acceptance: the pin either moves to a stable line or the reason it cannot is recorded next to it in the catalog, with the risk of shipping a prerelease widget stack stated; widget behaviour is unchanged either way.
+  Complexity: S
 
 - [ ] P2 — Adopt the API 36 platform APIs the compileSdk bump just made reachable
   Why: compileSdk 36 landed on 2026-08-20 and immediately unblocked a set of platform APIs the code currently works around or leaves as a TODO. They were queued behind the compile SDK and nothing else.
@@ -84,15 +81,6 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
   Touches: `res/xml/*_wallpaper.xml`, the three live-wallpaper services, `AgslShaderGallery.kt`, `DownloadManager.kt` notifications.
   Acceptance: each adopted API is guarded for minSdk 26 and falls back to the current behavior below API 36; `WallpaperDescription` multi-instance support is either wired or its remaining blocker is recorded here; the download notification uses `ProgressStyle` where available; lint reports no new NewApi findings.
   Complexity: M
-
-- [ ] P1 — Ship a Rotation Health screen
-  Why: auto-rotation silently stopping is the single most-reported failure across every competitor, and no app in the category exposes scheduler state; Backdrops paywalls the feature everyone ships broken.
-  Evidence: WallYou #230/#239/#259/#266, WallFlow #85 (37 comments, open since 2024-03), darkmodewallpaper #196; Aura already ships an equivalent Video Battery Dashboard and a worker ledger.
-  Touches: `SettingsDiagnosticsSection.kt`, `AutoWallpaperWorker.kt`, `DailyWallpaperWorker.kt`, `RotationTriggerService.kt`, `WorkInfo` diagnostics, string resources.
-  Acceptance: one screen shows last fire time, next scheduled fire, WorkManager state and stop reason, boot-receiver-fired status, battery-optimization exemption status, and last error, with a test-fire action; values come from real `WorkInfo`, and the screen is covered by a production-composable state test.
-  Complexity: M
-
-  Note 2026-08-20: WorkManager 2.12.0-rc01 adds `WorkMetricsInfo` execution metrics and an event-listener API — adopt when stable to feed this screen real per-run data.
 
 ### P2
 

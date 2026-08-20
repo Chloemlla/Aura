@@ -347,6 +347,13 @@ sealed class Screen(
         selectedIcon = Icons.Filled.History,
     )
 
+    data object RotationHealth : Screen(
+        route = "rotation_health",
+        titleRes = R.string.nav_rotation_health,
+        icon = Icons.Filled.MonitorHeart,
+        selectedIcon = Icons.Filled.MonitorHeart,
+    )
+
     // ── AI Wallpaper Generator ──────────────────────────────────
     data object AiWallpaper : Screen(
         route = "ai_wallpaper",

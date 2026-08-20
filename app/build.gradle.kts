@@ -366,7 +366,7 @@ dependencies {
     // protobuf-javalite past CVE-2024-7254 (N-2). Kotlin extensions (await, etc.)
     // are still available via kotlinx-coroutines-play-services (pulled in via
     // coroutines-android).
-    add("fullImplementation", platform("com.google.firebase:firebase-bom:34.13.0"))
+    add("fullImplementation", platform("com.google.firebase:firebase-bom:34.17.0"))
     add("fullImplementation", "com.google.firebase:firebase-auth")
     add("fullImplementation", "com.google.firebase:firebase-database")
     add("fullImplementation", "com.google.firebase:firebase-storage")
@@ -379,7 +379,7 @@ dependencies {
     // introduce subtle stream-handling regressions (DownloaderImpl InputStream leak
     // historically, fixed in v5.8). Re-verify YouTubeRepository + DownloaderImpl
     // stream lifecycle on every bump (re-verified clean for v0.26.3).
-    implementation("com.github.teamnewpipe:NewPipeExtractor:v0.26.3")
+    implementation("com.github.teamnewpipe:NewPipeExtractor:v0.26.5")
 
     // yt-dlp for Android (YouTube stream URL extraction)
     implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")

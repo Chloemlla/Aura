@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -726,7 +727,14 @@ internal fun formatSourceDiagnosticTime(timestampMs: Long): String =
     if (timestampMs <= 0L) {
         stringResource(R.string.settings_diag_none)
     } else {
-        DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, Locale.getDefault())
+        // Locale.getDefault() is not a composition read, so changing the device
+        // language would leave every timestamp on this screen formatted in the old
+        // one until something else happened to recompose it.
+        // No Locale.getDefault() fallback: locales[0] is non-empty from API 24 and
+        // minSdk is 26, so the fallback was unreachable — and reading it here is
+        // exactly the non-observable call this avoids.
+        val locale = LocalConfiguration.current.locales[0]
+        DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, locale)
             .format(Date(timestampMs))
     }
 

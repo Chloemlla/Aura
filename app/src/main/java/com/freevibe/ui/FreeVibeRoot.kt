@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -53,6 +54,8 @@ import com.freevibe.ui.screens.licenses.LicensesScreen
 import com.freevibe.ui.screens.library.LibraryScreen
 import com.freevibe.ui.screens.onboarding.OnboardingScreen
 import com.freevibe.ui.screens.settings.SettingsScreen
+import com.freevibe.ui.screens.settings.RotationHealthScreen
+import com.freevibe.ui.screens.settings.SettingsNavigation
 import com.freevibe.ui.screens.settings.WallpaperHistoryScreen
 import com.freevibe.ui.screens.search.UniversalSearchScreen
 import com.freevibe.ui.screens.sounds.ContactPickerScreen
@@ -83,6 +86,8 @@ fun FreeVibeRoot(
     navigationToken: Long = 0L,
 ) {
     val context = LocalContext.current
+    // Reading a string off LocalContext is not a composition read. LocalResources is.
+    val resources = LocalResources.current
     val entryPoint = remember {
         EntryPointAccessors.fromApplication(context, FreeVibeRootEntryPoint::class.java)
     }
@@ -146,7 +151,7 @@ fun FreeVibeRoot(
         entryPoint.applyFeedbackBus().events.collect { event ->
             val result = snackbarHostState.showSnackbar(
                 message = event.message,
-                actionLabel = if (event.undoTarget != null) context.getString(R.string.apply_feedback_undo) else null,
+                actionLabel = if (event.undoTarget != null) resources.getString(R.string.apply_feedback_undo) else null,
                 duration = SnackbarDuration.Short,
                 withDismissAction = true,
             )
@@ -163,7 +168,7 @@ fun FreeVibeRoot(
                             entryPoint.wallpaperHistoryManager().recordRestore(entry)
                             entryPoint.applyFeedbackBus().post(
                                 com.freevibe.service.ApplyFeedbackEvent(
-                                    message = context.getString(R.string.apply_feedback_reverted),
+                                    message = resources.getString(R.string.apply_feedback_reverted),
                                     undoTarget = null,
                                 )
                             )
@@ -171,9 +176,9 @@ fun FreeVibeRoot(
                         .onFailure { e ->
                             entryPoint.applyFeedbackBus().post(
                                 com.freevibe.service.ApplyFeedbackEvent(
-                                    message = context.getString(
+                                    message = resources.getString(
                                         R.string.apply_feedback_undo_failed,
-                                        e.message ?: context.getString(R.string.apply_feedback_unknown_error),
+                                        e.message ?: resources.getString(R.string.apply_feedback_unknown_error),
                                     ),
                                     undoTarget = null,
                                 )
@@ -519,14 +524,17 @@ fun FreeVibeRoot(
             ) { backStackEntry ->
                 SettingsScreen(
                     initialSection = backStackEntry.arguments?.getString("section")?.ifBlank { null },
-                    onDownloadsClick = { navController.navigate(Screen.Downloads.route) { launchSingleTop = true } },
-                    onLicensesClick = { navController.navigate(Screen.Licenses.route) { launchSingleTop = true } },
-                    onCategoriesClick = { navController.navigate(Screen.Categories.route) { launchSingleTop = true } },
-                    onHistoryClick = { navController.navigate(Screen.WallpaperHistory.route) { launchSingleTop = true } },
-                    onCollectionsClick = { navController.navigate(Screen.Collections.route) { launchSingleTop = true } },
-                    onCreatorProfileClick = { navController.navigate(Screen.CreatorProfile.route) { launchSingleTop = true } },
-                    onCommunityReportsClick = { navController.navigate(Screen.CommunityReports.route) { launchSingleTop = true } },
-                    onGeneratedWallpapersClick = { navController.navigate(Screen.AiWallpaper.route) { launchSingleTop = true } },
+                    navigation = SettingsNavigation(
+                        onDownloadsClick = { navController.navigate(Screen.Downloads.route) { launchSingleTop = true } },
+                        onLicensesClick = { navController.navigate(Screen.Licenses.route) { launchSingleTop = true } },
+                        onCategoriesClick = { navController.navigate(Screen.Categories.route) { launchSingleTop = true } },
+                        onHistoryClick = { navController.navigate(Screen.WallpaperHistory.route) { launchSingleTop = true } },
+                        onCollectionsClick = { navController.navigate(Screen.Collections.route) { launchSingleTop = true } },
+                        onCreatorProfileClick = { navController.navigate(Screen.CreatorProfile.route) { launchSingleTop = true } },
+                        onCommunityReportsClick = { navController.navigate(Screen.CommunityReports.route) { launchSingleTop = true } },
+                        onGeneratedWallpapersClick = { navController.navigate(Screen.AiWallpaper.route) { launchSingleTop = true } },
+                        onRotationHealthClick = { navController.navigate(Screen.RotationHealth.route) { launchSingleTop = true } },
+                    ),
                 )
             }
 
@@ -816,13 +824,13 @@ fun FreeVibeRoot(
                                     entryPoint.wallpaperHistoryManager().record(wallpaper, target)
                                     val undoTarget = entryPoint.wallpaperHistoryManager().previousSnapshot()
                                     val label = when (target) {
-                                        com.freevibe.data.model.WallpaperTarget.HOME -> context.getString(R.string.apply_target_home)
-                                        com.freevibe.data.model.WallpaperTarget.LOCK -> context.getString(R.string.apply_target_lock)
-                                        com.freevibe.data.model.WallpaperTarget.BOTH -> context.getString(R.string.apply_target_both)
+                                        com.freevibe.data.model.WallpaperTarget.HOME -> resources.getString(R.string.apply_target_home)
+                                        com.freevibe.data.model.WallpaperTarget.LOCK -> resources.getString(R.string.apply_target_lock)
+                                        com.freevibe.data.model.WallpaperTarget.BOTH -> resources.getString(R.string.apply_target_both)
                                     }
                                     entryPoint.applyFeedbackBus().post(
                                         com.freevibe.service.ApplyFeedbackEvent(
-                                            message = context.getString(R.string.apply_feedback_applied_to, label),
+                                            message = resources.getString(R.string.apply_feedback_applied_to, label),
                                             undoTarget = undoTarget,
                                         )
                                     )
@@ -832,9 +840,9 @@ fun FreeVibeRoot(
                                     // only signal the apply didn't happen.
                                     entryPoint.applyFeedbackBus().post(
                                         com.freevibe.service.ApplyFeedbackEvent(
-                                            message = context.getString(
+                                            message = resources.getString(
                                                 R.string.apply_feedback_apply_failed,
-                                                e.message ?: context.getString(R.string.apply_feedback_unknown_error),
+                                                e.message ?: resources.getString(R.string.apply_feedback_unknown_error),
                                             ),
                                             undoTarget = null,
                                         )
@@ -1079,6 +1087,11 @@ fun FreeVibeRoot(
                 CommunityReportsScreen(
                     onBack = { navController.popBackStack() },
                 )
+            }
+
+            // ── Rotation Health ──────────────────────────────────
+            composable(Screen.RotationHealth.route) {
+                RotationHealthScreen(onBack = { navController.popBackStack() })
             }
 
             // ── Wallpaper History ────────────────────────────────

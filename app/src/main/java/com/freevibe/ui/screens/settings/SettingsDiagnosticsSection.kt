@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.Schedule
@@ -48,6 +49,7 @@ internal fun DiagnosticsSettingsSection(
     externalAutomationDiagnostics: ExternalAutomationDiagnostics,
     liveWallpaperLiveness: LiveWallpaperLivenessState?,
     onFeedback: (String) -> Unit,
+    onRotationHealth: () -> Unit = {},
 ) {
     // Re-read every time this section is composed rather than once per ViewModel:
     // the wallpaper can be replaced from outside Aura while the app is alive, so a
@@ -82,6 +84,12 @@ internal fun DiagnosticsSettingsSection(
                 onClick = { viewModel.reapplyLiveWallpaper(context) },
             )
         }
+        SettingsItem(
+            icon = Icons.Default.Autorenew,
+            title = stringResource(R.string.rotation_health_entry_title),
+            subtitle = stringResource(R.string.rotation_health_entry_subtitle),
+            onClick = onRotationHealth,
+        )
         SettingsItem(
             icon = Icons.Default.BugReport,
             title = stringResource(R.string.settings_diag_crash_title),

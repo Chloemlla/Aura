@@ -2,6 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+
+# The Compose BOM that first carried the UI-test artifacts this gate relies on.
+# A floor, not a pin: newer BOMs are the expected state.
+MINIMUM_COMPOSE_BOM = (2025, 6, 0)
 from pathlib import Path
 from typing import Any
 
@@ -123,8 +128,23 @@ def validate_accessibility_release_gate(repo_root: Path, policy_path: str) -> di
 
     version_catalog = read_text(repo_root / "gradle/libs.versions.toml")
     app_gradle = read_text(repo_root / "app/build.gradle.kts")
-    if 'compose-bom = "2025.06.00"' not in version_catalog:
-        raise AccessibilityReleaseGateError("version catalog must align Compose UI test artifacts with the June 2025 BOM or newer")
+    # This said "or newer" while matching one exact string, so it was a pin
+    # wearing a floor's label and it failed on the first upgrade. The BOM version
+    # is calendar-versioned (YYYY.MM.PP), which compares correctly as a tuple.
+    bom_match = re.search(r'compose-bom\s*=\s*"(\d{4})\.(\d{2})\.(\d{2})"', version_catalog)
+    if not bom_match:
+        raise AccessibilityReleaseGateError(
+            "version catalog declares no calendar-versioned compose-bom, so Compose UI "
+            "test artifacts are not aligned by a BOM at all"
+        )
+    bom_version = tuple(int(part) for part in bom_match.groups())
+    if bom_version < MINIMUM_COMPOSE_BOM:
+        declared = ".".join(f"{part:02d}" if index else str(part) for index, part in enumerate(bom_version))
+        raise AccessibilityReleaseGateError(
+            f"compose-bom {declared} is older than the "
+            f"{'.'.join(f'{p:02d}' if i else str(p) for i, p in enumerate(MINIMUM_COMPOSE_BOM))} "
+            "floor the accessibility test artifacts need"
+        )
     for coordinate in required_dependencies:
         group, name = coordinate.split(":", 1)
         if group not in version_catalog or name not in version_catalog:

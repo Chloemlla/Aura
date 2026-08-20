@@ -36,6 +36,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -166,6 +167,8 @@ fun SoundsScreen(
     var showRecordPermissionRecovery by remember { mutableStateOf(false) }
     var pendingPersonalRecording by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    // Reading a string off LocalContext is not a composition read. LocalResources is.
+    val resources = LocalResources.current
     val focusManager = LocalFocusManager.current
     val snackbarHostState = remember { SnackbarHostState() }
     var nonBlockingWarning by remember { mutableStateOf<String?>(null) }
@@ -697,8 +700,8 @@ fun SoundsScreen(
                                     viewModel.downvote(hiddenId)
                                     scope.launch {
                                         val result = snackbarHostState.showSnackbar(
-                                            message = context.getString(R.string.community_item_hidden),
-                                            actionLabel = context.getString(R.string.common_undo),
+                                            message = resources.getString(R.string.community_item_hidden),
+                                            actionLabel = resources.getString(R.string.common_undo),
                                             duration = SnackbarDuration.Short,
                                         )
                                         if (result == SnackbarResult.ActionPerformed) viewModel.undoDownvote(hiddenId)

@@ -1811,4 +1811,43 @@
     <string name="ai_share_community_default_name">Generated wallpaper</string>
     <string name="ai_share_community_complete">Generated wallpaper shared to Community</string>
     <string name="ai_share_community_failed">Community upload failed: %1$s</string>
+
+    <!-- Rotation Health -->
+    <string name="nav_rotation_health">Rotation health</string>
+    <string name="action_back">Back</string>
+    <string name="rotation_health_title">Rotation health</string>
+    <string name="rotation_health_entry_title">Rotation health</string>
+    <string name="rotation_health_entry_subtitle">Why your wallpaper is or is not changing</string>
+    <string name="rotation_health_refresh">Refresh</string>
+    <string name="rotation_health_run_now">Run now</string>
+    <string name="rotation_health_running">Checking…</string>
+    <string name="rotation_health_run_now_queued">A rotation has been queued. It runs in the background, so give it a moment and refresh.</string>
+    <string name="rotation_health_battery_settings">Battery settings</string>
+    <string name="rotation_health_healthy_body">Rotation is scheduled and the last run succeeded.</string>
+    <string name="rotation_health_verdict_healthy">Rotation is working</string>
+    <string name="rotation_health_verdict_disabled">Rotation is off</string>
+    <string name="rotation_health_verdict_throttled">Android is holding rotation back</string>
+    <string name="rotation_health_verdict_not_scheduled">Rotation is on but nothing is scheduled</string>
+    <string name="rotation_health_verdict_failing">The last rotation failed</string>
+    <string name="rotation_health_row_enabled">Automatic change</string>
+    <string name="rotation_health_row_interval">Interval</string>
+    <string name="rotation_health_row_source">Source</string>
+    <string name="rotation_health_row_last_fire">Last change</string>
+    <string name="rotation_health_row_next_fire">Next change</string>
+    <string name="rotation_health_row_work_state">Scheduler state</string>
+    <string name="rotation_health_row_stop_reason">Last stop reason</string>
+    <string name="rotation_health_row_boot_receiver">Last restart seen</string>
+    <string name="rotation_health_row_battery_exemption">Background battery use</string>
+    <string name="rotation_health_row_last_failure">Last failure</string>
+    <string name="rotation_health_row_deferral">Last deferral reason</string>
+    <string name="rotation_health_row_read_error">Diagnostic read error</string>
+    <string name="rotation_health_on">On</string>
+    <string name="rotation_health_off">Off</string>
+    <string name="rotation_health_never">Never</string>
+    <string name="rotation_health_unknown">This device will not say</string>
+    <string name="rotation_health_next_fire_unscheduled">Not scheduled</string>
+    <string name="rotation_health_boot_never_seen">No restart recorded yet</string>
+    <string name="rotation_health_battery_exempt">Unrestricted</string>
+    <string name="rotation_health_battery_restricted">Restricted, which can stop rotation</string>
+    <string name="rotation_health_interval_minutes">%1$d minutes</string>
 </resources>

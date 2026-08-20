@@ -196,9 +196,9 @@ Firebase RTDB (Community Voting + Uploads + Admin Moderation)
 | UI | Jetpack Compose + Material 3 |
 | DI | Hilt 2.53.1 |
 | Database | Room 2.7.2 |
-| Network | Retrofit 3.0.0 + OkHttp 5.3.2 |
+| Network | Retrofit 3.0.0 + OkHttp 5.4.0 |
 | JSON | Moshi + KSP codegen |
-| Images | Coil 3.4.0 with OkHttp network loading and GIF support |
+| Images | Coil 3.5.0 with OkHttp network loading and GIF support |
 | Audio/Video | Media3 ExoPlayer |
 | ML | ML Kit Selfie Segmentation |
 | YouTube Search | NewPipe Extractor |

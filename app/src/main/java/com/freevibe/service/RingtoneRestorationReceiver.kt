@@ -33,6 +33,15 @@ class RingtoneRestorationReceiver : BroadcastReceiver() {
             intent?.action != Intent.ACTION_MY_PACKAGE_REPLACED
         ) return
 
+        // Nothing the platform keeps can answer "did the boot broadcast reach
+        // Aura?" after the fact, so it has to be written down while it is true.
+        // One small put, inside the broadcast deadline. A device that has plainly
+        // rebooted with no record here is an OEM that never delivered it, and
+        // Rotation Health reports exactly that.
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+            runCatching { BootObservationStore.recordBoot(context) }
+        }
+
         WorkManager.getInstance(context).enqueueUniqueWork(
             RingtoneRestorationWorker.WORK_NAME,
             ExistingWorkPolicy.REPLACE,

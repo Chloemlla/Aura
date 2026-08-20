@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import tempfile
 import unittest
@@ -50,10 +51,49 @@ class AccessibilityReleaseGateCheckTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = copy_required_tree(Path(tmpdir))
             catalog_path = repo / "gradle/libs.versions.toml"
+            # Rewrite whatever version is declared rather than one literal: the
+            # previous form replaced a string the catalog had already moved past,
+            # so it silently stopped testing anything.
             catalog_path.write_text(
-                catalog_path.read_text(encoding="utf-8").replace(
-                    'compose-bom = "2025.06.00"',
+                re.sub(
+                    r'compose-bom\s*=\s*"[^"]+"',
                     'compose-bom = "2024.12.01"',
+                    catalog_path.read_text(encoding="utf-8"),
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(AccessibilityReleaseGateError):
+                validate_accessibility_release_gate(repo, "docs/qa/accessibility-release-gate.json")
+
+    def test_accepts_a_bom_newer_than_the_floor(self) -> None:
+        """The floor is a floor. The old exact-match check failed every upgrade."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = copy_required_tree(Path(tmpdir))
+            catalog_path = repo / "gradle/libs.versions.toml"
+            catalog_path.write_text(
+                re.sub(
+                    r'compose-bom\s*=\s*"[^"]+"',
+                    'compose-bom = "2027.01.00"',
+                    catalog_path.read_text(encoding="utf-8"),
+                ),
+                encoding="utf-8",
+            )
+
+            result = validate_accessibility_release_gate(
+                repo, "docs/qa/accessibility-release-gate.json"
+            )
+            self.assertEqual("ok", result["status"])
+
+    def test_rejects_a_catalog_with_no_compose_bom_at_all(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = copy_required_tree(Path(tmpdir))
+            catalog_path = repo / "gradle/libs.versions.toml"
+            catalog_path.write_text(
+                re.sub(
+                    r'compose-bom\s*=\s*"[^"]+"\n',
+                    "",
+                    catalog_path.read_text(encoding="utf-8"),
                 ),
                 encoding="utf-8",
             )

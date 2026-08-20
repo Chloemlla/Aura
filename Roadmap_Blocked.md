@@ -8,16 +8,6 @@
 
 ---
 
-## Blocker: Unreleased External Dependency
-
-- **P2 — Firebase BoM 34.13.0 -> 34.16.0 (full flavor)**
-  - Blocker: Firebase's official Android release notes currently publish BoM 34.15.0;
-    the requested 34.16.0 release does not exist yet.
-  - Resume when 34.16.0 is published, then run the full-flavor build and community-path
-    tests while confirming the FOSS flavor remains unaffected.
-
----
-
 ## Blocker: N-1 Toolchain Upgrade (AGP 9 / Gradle 9 / Kotlin 2.3)
 
 N-1 itself is the largest single gate. Until it lands, these items cannot proceed:
@@ -28,6 +18,9 @@ N-1 itself is the largest single gate. Until it lands, these items cannot procee
     longer gates anything that only needed a compileSdk of 36. The Compose BOM moves
     independently and is out of this scope. OkHttp 5.4, Coil 3.5, and Media3 1.10+ came
     off this blocker and were taken in the dependency refresh.
+  - Compose BOM ceiling 2026-08-20: 2026.06.01 (Compose 1.11.4) is the highest this
+    stack accepts. 2026.07+ ships Compose 1.12.x, whose AAR metadata demands compileSdk
+    37 and AGP 9.1, so the Compose line is capped here until this item lands after all.
   - Risk: Memory-heavy Gradle runs on this workstation. R8 keep-rule regressions, KSP2 cache issues.
   - Gates: N-3/N-4/NX-2/NX-7 and most Next-tier items.
   - Scope notes 2026-08-20: AGP 9.x ships built-in Kotlin — the standalone `org.jetbrains.kotlin.android` plugin must be removed or the build fails; Gradle 9.1+ is the floor; use Hilt **2.59.2**, not 2.59 (2.59 shipped a broken Gradle plugin, dagger#5099); Kotlin stable is now 2.4.x with the K1 frontend removed; AGP 9.3 adds an `analyzeReleaseR8Config` keep-rule analyzer useful for the queued R8 item.
