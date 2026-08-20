@@ -18,18 +18,16 @@ class PseudolocaleReleaseGateTest(unittest.TestCase):
         self.assertNotIn("resourceConfigurations", gradle)
 
     def test_route_screenshot_gate_renders_en_xa_and_ar_xb(self):
-        screenshot_test = self.read("app/src/test/java/com/freevibe/ui/screens/fixtures/AuraRouteStateScreenshotTest.kt")
-        fixtures = self.read("app/src/debug/java/com/freevibe/ui/screens/fixtures/AuraRouteStateFixtures.kt")
+        screenshot_test = self.read("app/src/test/java/com/freevibe/ui/qa/ProductionRouteStateScreenshotTest.kt")
+        production_routes = self.read("app/src/main/java/com/freevibe/ui/qa/ProductionRouteState.kt")
 
         self.assertIn('qualifiers = "en-rXA-w411dp-h891dp-xhdpi"', screenshot_test)
         self.assertIn('qualifiers = "ar-rXB-w411dp-h891dp-xhdpi"', screenshot_test)
-        self.assertIn("englishXaPseudo", screenshot_test)
-        self.assertIn("arabicXbPseudo", screenshot_test)
         self.assertIn("LayoutDirection.Rtl", screenshot_test)
-        self.assertIn("onNodeWithText(textTransform(fixture.primaryAssertionText())).assertExists()", screenshot_test)
-        self.assertIn("LocalFixtureTextTransform provides textTransform", screenshot_test)
-        self.assertIn("LocalFixtureTextTransform", fixtures)
-        self.assertIn("fixtureText(", fixtures)
+        self.assertIn("ProductionRouteScenario", screenshot_test)
+        self.assertIn("ApplicationProvider", screenshot_test)
+        self.assertIn("ProductionRouteState", production_routes)
+        self.assertNotIn("AuraRouteStateFixture", production_routes)
 
     def test_localization_policy_links_the_active_gate(self):
         policy = json.loads(self.read("docs/localization/hardcoded-string-baseline.json"))
@@ -38,8 +36,8 @@ class PseudolocaleReleaseGateTest(unittest.TestCase):
         self.assertEqual("active", gate["status"])
         self.assertEqual("debug", gate["enabledBuildType"])
         self.assertEqual(["en-XA", "ar-XB"], gate["locales"])
-        self.assertIn("AuraRouteFixture.WallpapersGridSuccess", gate["compactRouteFixtures"])
-        self.assertIn("AuraRouteFixture.SettingsProviderDisabled", gate["compactRouteFixtures"])
+        self.assertIn("ProductionRouteScenario.WallpapersGridSuccess", gate["compactRouteScenarios"])
+        self.assertIn("ProductionRouteScenario.SettingsProviderDisabled", gate["compactRouteScenarios"])
 
     def test_no_real_translation_pack_was_added(self):
         values_dirs = {

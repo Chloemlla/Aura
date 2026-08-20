@@ -4,6 +4,11 @@ All notable changes to Aura will be documented in this file.
 
 ## v6.45.0
 
+- **Screenshot and accessibility gates now exercise production route renderers** — the old
+  debug-only route drawings have been removed. Wallpaper, sound, settings, video, and
+  editor states now run through the same composables used by the app, with localized
+  pseudo-locale, RTL, theme, compact, expanded, and large-font coverage.
+
 - **New Rotation health screen, in Settings under Diagnostics** — when automatic
   wallpaper change quietly stops, there was nothing to look at. The five reasons it can
   stop all look the same from the home screen: rotation is off, it's waiting for its

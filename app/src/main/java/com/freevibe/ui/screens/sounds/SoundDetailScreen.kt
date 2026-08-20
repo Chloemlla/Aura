@@ -669,7 +669,7 @@ private fun buildSoundShareBody(sound: Sound, capabilities: SoundLicenseCapabili
 }
 
 @Composable
-private fun ApplyButton(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, enabled: Boolean, isLoading: Boolean, modifier: Modifier, onClick: () -> Unit) {
+internal fun ApplyButton(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, enabled: Boolean, isLoading: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Button(
         onClick = onClick, modifier = modifier.heightIn(min = 48.dp), enabled = enabled,
         shape = RoundedCornerShape(8.dp),
@@ -842,7 +842,7 @@ private fun SimilarSoundsSection(
 }
 
 @Composable
-private fun DetailWaveform(duration: Double, isPlaying: Boolean, modifier: Modifier = Modifier, progress: Float = 0f, onSeek: ((Float) -> Unit)? = null) {
+internal fun DetailWaveform(duration: Double, isPlaying: Boolean, modifier: Modifier = Modifier, progress: Float = 0f, onSeek: ((Float) -> Unit)? = null) {
     val barColor = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
     val activeColor = MaterialTheme.colorScheme.primary
     val barCount = 60

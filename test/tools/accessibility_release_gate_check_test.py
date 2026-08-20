@@ -132,7 +132,7 @@ def copy_required_tree(destination: Path) -> Path:
         "app/build.gradle.kts",
         "gradle/libs.versions.toml",
         "docs/qa/accessibility-release-gate.json",
-        "app/src/debug/java/com/freevibe/ui/screens/fixtures/AuraRouteStateFixtures.kt",
+        "app/src/main/java/com/freevibe/ui/qa/ProductionRouteState.kt",
         "app/src/androidTest/java/com/freevibe/ui/accessibility/AccessibilityReleaseGateTest.kt",
     ]
     for relative_path in paths:

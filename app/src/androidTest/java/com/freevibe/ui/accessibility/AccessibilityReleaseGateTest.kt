@@ -11,8 +11,8 @@ import androidx.compose.ui.test.tryPerformAccessibilityChecks
 import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SdkSuppress
-import com.freevibe.ui.screens.fixtures.AuraRouteFixture
-import com.freevibe.ui.screens.fixtures.AuraRouteStateFixture
+import com.freevibe.ui.qa.ProductionRouteScenario
+import com.freevibe.ui.qa.ProductionRouteState
 import com.freevibe.ui.theme.FreeVibeTheme
 import org.junit.Before
 import org.junit.Rule
@@ -20,11 +20,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Release accessibility gate for real Aura route-state fixtures.
+ * Release accessibility gate for production route-state renderers.
  *
- * These checks render the same debug route fixtures used by screenshot QA rather
- * than standalone component primitives, so failures map back to user-facing
- * Wallpapers, Sounds, Settings, Videos, and editor/detail surfaces.
+ * These checks render the same production subcomposables used by the live
+ * Wallpapers, Sounds, Settings, Videos, and editor/detail routes. Scenario data
+ * is deterministic, but the UI under test is compiled into the release source set.
  */
 @RunWith(AndroidJUnit4::class)
 class AccessibilityReleaseGateTest {
@@ -39,38 +39,27 @@ class AccessibilityReleaseGateTest {
 
     @SdkSuppress(minSdkVersion = 34)
     @Test
-    fun wallpapersGridRouteFixturePassesAccessibilityChecks() {
-        renderFixture(
-            fixture = AuraRouteFixture.WallpapersGridSuccess,
-            expectedText = "Fresh AMOLED picks",
-        )
+    fun wallpapersGridProductionStatePassesAccessibilityChecks() {
+        renderScenario(ProductionRouteScenario.WallpapersGridSuccess)
     }
 
     @SdkSuppress(minSdkVersion = 34)
     @Test
-    fun wallpapersOfflineRouteFixturePassesAccessibilityChecks() {
-        renderFixture(
-            fixture = AuraRouteFixture.WallpapersOfflineEmpty,
-            expectedText = "Offline wallpaper search",
-            darkTheme = false,
-        )
+    fun wallpapersOfflineProductionStatePassesAccessibilityChecks() {
+        renderScenario(ProductionRouteScenario.WallpapersOfflineEmpty, darkTheme = false)
     }
 
     @SdkSuppress(minSdkVersion = 34)
     @Test
-    fun soundsDetailRouteFixturePassesAccessibilityChecks() {
-        renderFixture(
-            fixture = AuraRouteFixture.SoundDetailReady,
-            expectedText = "Midnight Pulse",
-        )
+    fun soundsDetailProductionStatePassesAccessibilityChecks() {
+        renderScenario(ProductionRouteScenario.SoundDetailReady)
     }
 
     @SdkSuppress(minSdkVersion = 34)
     @Test
-    fun settingsDiagnosticsRouteFixturePassesAccessibilityChecks() {
-        renderFixture(
-            fixture = AuraRouteFixture.SettingsProviderDisabled,
-            expectedText = "Local-first controls",
+    fun settingsDiagnosticsProductionStatePassesAccessibilityChecks() {
+        renderScenario(
+            ProductionRouteScenario.SettingsProviderDisabled,
             darkTheme = false,
             fontScale = 2.0f,
         )
@@ -78,26 +67,18 @@ class AccessibilityReleaseGateTest {
 
     @SdkSuppress(minSdkVersion = 34)
     @Test
-    fun videoWallpapersRouteFixturePassesAccessibilityChecks() {
-        renderFixture(
-            fixture = AuraRouteFixture.VideoWallpapersError,
-            expectedText = "Video wallpaper metadata",
-        )
+    fun videoWallpapersProductionStatePassesAccessibilityChecks() {
+        renderScenario(ProductionRouteScenario.VideoWallpapersError)
     }
 
     @SdkSuppress(minSdkVersion = 34)
     @Test
-    fun wallpaperEditorRouteFixturePassesAccessibilityChecks() {
-        renderFixture(
-            fixture = AuraRouteFixture.WallpaperEditorLoading,
-            expectedText = "Wallpaper editor recovery",
-            darkTheme = false,
-        )
+    fun wallpaperEditorProductionStatePassesAccessibilityChecks() {
+        renderScenario(ProductionRouteScenario.WallpaperEditorLoading, darkTheme = false)
     }
 
-    private fun renderFixture(
-        fixture: AuraRouteFixture,
-        expectedText: String,
+    private fun renderScenario(
+        scenario: ProductionRouteScenario,
         darkTheme: Boolean = true,
         fontScale: Float = 1.0f,
     ) {
@@ -105,13 +86,13 @@ class AccessibilityReleaseGateTest {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
                 FreeVibeTheme(darkTheme = darkTheme, dynamicColor = false) {
-                    AuraRouteStateFixture(fixture = fixture)
+                    ProductionRouteState(scenario = scenario)
                 }
             }
         }
 
         composeRule.waitForIdle()
-        composeRule.onNodeWithText(expectedText).assertExists()
+        composeRule.onNodeWithText(composeRule.activity.getString(scenario.assertionResource)).assertExists()
         composeRule.onRoot().tryPerformAccessibilityChecks()
     }
 }

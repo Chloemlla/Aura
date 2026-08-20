@@ -442,7 +442,7 @@ fun WallpaperEditorScreen(
 }
 
 @Composable
-private fun WallpaperEditorPreview(
+internal fun WallpaperEditorPreview(
     bitmap: ImageBitmap,
     contentDescription: String,
     modifier: Modifier = Modifier,

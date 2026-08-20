@@ -1076,7 +1076,7 @@ private fun WallpaperFiltersSheet(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun WallpaperGrid(
+internal fun WallpaperGrid(
     wallpapers: List<Wallpaper>,
     isLoadingMore: Boolean,
     columns: Int = 2,
@@ -1298,14 +1298,14 @@ private fun WallpaperCard(
     }
 }
 
-private data class WallpaperStateAction(
+internal data class WallpaperStateAction(
     val label: String,
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val onClick: () -> Unit,
 )
 
 @Composable
-private fun WallpaperStateCard(
+internal fun WallpaperStateCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
     description: String,

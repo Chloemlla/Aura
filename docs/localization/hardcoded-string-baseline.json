@@ -21,15 +21,15 @@
     "status": "active",
     "enabledBuildType": "debug",
     "locales": ["en-XA", "ar-XB"],
-    "fixtureGate": "app/src/test/java/com/freevibe/ui/screens/fixtures/AuraRouteStateScreenshotTest.kt",
-    "compactRouteFixtures": [
-      "AuraRouteFixture.WallpapersGridSuccess",
-      "AuraRouteFixture.SettingsProviderDisabled"
+    "routeGate": "app/src/test/java/com/freevibe/ui/qa/ProductionRouteStateScreenshotTest.kt",
+    "compactRouteScenarios": [
+      "ProductionRouteScenario.WallpapersGridSuccess",
+      "ProductionRouteScenario.SettingsProviderDisabled"
     ],
     "checks": [
       "Debug builds package generated pseudolocale resources.",
-      "English XA compact route fixture renders expanded primary text.",
-      "Arabic XB compact route fixture renders with RTL layout direction."
+      "English XA compact production route renders generated pseudolocale text.",
+      "Arabic XB compact production route renders with RTL layout direction."
     ]
   },
   "policyKind": "composeHardcodedStringBaseline",

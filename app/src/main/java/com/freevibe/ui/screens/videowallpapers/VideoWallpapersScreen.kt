@@ -1117,7 +1117,7 @@ private fun VideoPreviewUnavailableIndicator(modifier: Modifier = Modifier) {
     androidx.media3.common.util.ExperimentalApi::class,
 )
 @Composable
-private fun VideoCard(
+internal fun VideoCard(
     item: VideoWallpaperItem,
     streamUrl: String?,
     mediaSourceFactory: MediaSource.Factory,

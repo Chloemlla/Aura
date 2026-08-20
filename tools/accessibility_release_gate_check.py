@@ -33,6 +33,8 @@ REQUIRED_EXECUTED_SURFACES = {
     "wallpaper-editor",
 }
 
+PRODUCTION_ROUTE_SOURCE = "app/src/main/java/com/freevibe/ui/qa/ProductionRouteState.kt"
+
 FORBIDDEN_DIRECT_PRIMITIVES = {
     "SettingsSection(",
     "SettingsToggle(",
@@ -94,16 +96,17 @@ def validate_accessibility_release_gate(repo_root: Path, policy_path: str) -> di
         "createAndroidComposeRule",
         "tryPerformAccessibilityChecks",
         "@SdkSuppress(minSdkVersion = 34)",
-        "AuraRouteStateFixture",
-        "renderFixture",
+        "ProductionRouteScenario",
+        "ProductionRouteState",
+        "renderScenario",
     ):
         if term not in test_text:
             raise AccessibilityReleaseGateError(f"{test_path} missing automated accessibility term: {term}")
     for term in FORBIDDEN_DIRECT_PRIMITIVES:
         if term in test_text:
-            raise AccessibilityReleaseGateError(f"{test_path} must render Aura route fixtures, not {term} directly")
+            raise AccessibilityReleaseGateError(f"{test_path} must render production route states, not {term} directly")
 
-    fixture_text = read_text(repo_root / "app/src/debug/java/com/freevibe/ui/screens/fixtures/AuraRouteStateFixtures.kt")
+    production_route_text = read_text(repo_root / PRODUCTION_ROUTE_SOURCE)
     executed_rows = [
         require_object(item, "automatedGate.executedSurfaces[]")
         for item in require_list(automated.get("executedSurfaces"), "automatedGate.executedSurfaces")
@@ -114,17 +117,21 @@ def validate_accessibility_release_gate(repo_root: Path, policy_path: str) -> di
         raise AccessibilityReleaseGateError("automatedGate.executedSurfaces missing: " + ", ".join(missing_executed))
     for row in executed_rows:
         require_string(row.get("surface"), f"{row.get('id')}.surface")
-        fixture = require_string(row.get("fixture"), f"{row.get('id')}.fixture")
-        assertion = require_string(row.get("assertion"), f"{row.get('id')}.assertion")
-        if not fixture.startswith("AuraRouteFixture."):
-            raise AccessibilityReleaseGateError(f"{row.get('id')}.fixture must name an AuraRouteFixture")
-        fixture_name = fixture.rsplit(".", 1)[-1]
-        if fixture not in test_text:
-            raise AccessibilityReleaseGateError(f"{test_path} missing executed fixture: {fixture}")
-        if assertion not in test_text:
-            raise AccessibilityReleaseGateError(f"{test_path} missing executed assertion: {assertion}")
-        if fixture_name not in fixture_text:
-            raise AccessibilityReleaseGateError(f"debug route fixtures missing enum case: {fixture_name}")
+        scenario = require_string(row.get("scenario"), f"{row.get('id')}.scenario")
+        assertion_resource = require_string(
+            row.get("assertionResource"), f"{row.get('id')}.assertionResource"
+        )
+        if not scenario.startswith("ProductionRouteScenario."):
+            raise AccessibilityReleaseGateError(f"{row.get('id')}.scenario must name a ProductionRouteScenario")
+        scenario_name = scenario.rsplit(".", 1)[-1]
+        if scenario not in test_text:
+            raise AccessibilityReleaseGateError(f"{test_path} missing executed scenario: {scenario}")
+        if assertion_resource not in production_route_text:
+            raise AccessibilityReleaseGateError(
+                f"production route source missing executed assertion resource: {assertion_resource}"
+            )
+        if scenario_name not in production_route_text:
+            raise AccessibilityReleaseGateError(f"production route source missing scenario: {scenario_name}")
 
     version_catalog = read_text(repo_root / "gradle/libs.versions.toml")
     app_gradle = read_text(repo_root / "app/build.gradle.kts")
