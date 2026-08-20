@@ -4,6 +4,14 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Grid cells stop redrawing when nothing about them changed** — the models behind the
+  wallpaper, video, download, history, and collection lists are now all declared immutable
+  to the Compose compiler, so a cell can skip recomposition when its contents have not
+  moved. Several of them were not, which meant every cell redrew whenever anything above
+  it did. The compiler also emits stability reports again, and a check fails the build if
+  a list model quietly loses its annotation, so this cannot drift back. The first report
+  reads eleven stable classes and none unstable.
+
 - **A download that is a third the size, because it carries code for your phone only**
   — the single universal APK was 199 MB, and roughly three quarters of that was native
   code for architectures your device will never run. Releases now ship one APK per

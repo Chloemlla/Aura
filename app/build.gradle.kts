@@ -153,6 +153,21 @@ android {
         buildConfig = true
     }
 
+    composeCompiler {
+        // Without these, how often a cell recomposes is invisible: the compiler
+        // already knows which models it considers unstable and simply never says.
+        // The reports land in build/ and are read by hand or by
+        // tools/compose_stability_check.py after a build.
+        metricsDestination.set(layout.buildDirectory.dir("compose/metrics"))
+        reportsDestination.set(layout.buildDirectory.dir("compose/reports"))
+        // Third-party types the compiler cannot see into. Without this file every
+        // composable taking one is treated as unstable, which buries Aura's own
+        // models in noise.
+        stabilityConfigurationFiles.add(
+            rootProject.layout.projectDirectory.file("compose-stability.conf")
+        )
+    }
+
     lint {
         // lintVitalAnalyzeFullRelease crashes inside AndroidX's NonNullableMutableLiveDataDetector
         // ("Found class org.jetbrains.kotlin.analysis.api.resolution.KaCallableMemberCall, but

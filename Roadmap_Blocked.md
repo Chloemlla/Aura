@@ -165,6 +165,18 @@ These items have code shipped but require Firebase Console access, production RT
 
 These items require adb-connected device or Android 17 emulator testing:
 
+- **P2 — Record the GridScrollBenchmark frame timings the stability work was meant to move**
+  - The stability half landed 2026-08-20: every model rendered in a Compose list carries
+    `@Immutable`, `composeCompiler` emits metrics and reports, `compose-stability.conf` is
+    checked in, and `tools/compose_stability_check.py` fails when a list-rendered model
+    loses its annotation. The first report reads 11 stable classes and 0 unstable.
+  - Blocker: the remaining acceptance is a before-and-after frame-timing measurement, and
+    `GridScrollBenchmark` is a Macrobenchmark that only produces real numbers on a physical
+    device. A compiler report says the cells *can* skip recomposition; only the benchmark
+    says what that was worth.
+  - Resume by running `:baselineprofile:connectedFullBenchmarkAndroidTest` on a phone,
+    against the commit before the annotations and the commit after, and recording both.
+
 - **P2 — Split VideoWallpapersViewModel into delegates (1318 lines)**
   - The pure top-level helpers (feed parsing, cache codec, Reddit motion selection) are fully
     covered by `VideoWallpapersViewModelTest` and could move safely. The blocker is the other
