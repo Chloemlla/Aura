@@ -11,8 +11,12 @@ import com.freevibe.service.ADAPTIVE_TINT_ENABLED_PREF
 import com.freevibe.service.ADAPTIVE_TINT_INTENSITY_PREF
 import com.freevibe.service.AgslShaderGallery
 import com.freevibe.service.DAILY_WALLPAPER_ENABLED_PREF
+import com.freevibe.service.LIVE_WALLPAPER_COLORS_ENABLED_DEFAULT
+import com.freevibe.service.LIVE_WALLPAPER_COLORS_ENABLED_PREF
 import com.freevibe.service.LIVE_WALLPAPER_DIM_ENABLED_PREF
 import com.freevibe.service.LIVE_WALLPAPER_SHADER_PRESET_PREF
+import com.freevibe.service.PARALLAX_WALLPAPER_PREFS_NAME
+import com.freevibe.service.VIDEO_WALLPAPER_PREFS_NAME
 import com.freevibe.service.REDUCE_ANIMATIONS_PREF
 import com.freevibe.service.TOUCH_EFFECT_STRENGTH_PREF
 import com.freevibe.service.WEATHER_WALLPAPER_PREFS_NAME
@@ -397,6 +401,14 @@ class PreferencesManager @Inject constructor(
         set(Keys.LIVE_WALLPAPER_DIM_ENABLED, v)
     }
 
+    // Whether the live-wallpaper engines publish WallpaperColors for system theming
+    val liveWallpaperColorsEnabled: Flow<Boolean> =
+        get(Keys.LIVE_WALLPAPER_COLORS_ENABLED, LIVE_WALLPAPER_COLORS_ENABLED_DEFAULT)
+    suspend fun setLiveWallpaperColorsEnabled(v: Boolean) {
+        writeAllLiveWallpaperFlags(LIVE_WALLPAPER_COLORS_ENABLED_PREF, v)
+        set(Keys.LIVE_WALLPAPER_COLORS_ENABLED, v)
+    }
+
     val lastAppliedRingtoneUri: kotlinx.coroutines.flow.Flow<String> = get(Keys.LAST_APPLIED_RINGTONE_URI, "")
     suspend fun setLastAppliedRingtoneUri(uri: String) = set(Keys.LAST_APPLIED_RINGTONE_URI, uri)
     val lastAppliedNotificationUri: kotlinx.coroutines.flow.Flow<String> = get(Keys.LAST_APPLIED_NOTIFICATION_URI, "")
@@ -670,6 +682,24 @@ class PreferencesManager @Inject constructor(
         weatherWallpaperPrefs().edit().putBoolean(key, enabled).apply()
     }
 
+    /**
+     * Writes a flag every live-wallpaper engine honours.
+     *
+     * The three engines each read their own preference file, so a setting the UI
+     * presents as engine-agnostic has to land in all three or it silently applies
+     * to whichever engine happens to own the weather file.
+     */
+    private fun writeAllLiveWallpaperFlags(key: String, enabled: Boolean) {
+        listOf(
+            WEATHER_WALLPAPER_PREFS_NAME,
+            PARALLAX_WALLPAPER_PREFS_NAME,
+            VIDEO_WALLPAPER_PREFS_NAME,
+        ).forEach { name ->
+            context.getSharedPreferences(name, Context.MODE_PRIVATE)
+                .edit().putBoolean(key, enabled).apply()
+        }
+    }
+
     // ── Personalization ──────────────────────────────────────────
 
     val userStyles: Flow<String> = get(Keys.USER_STYLES, "")
@@ -843,6 +873,7 @@ class PreferencesManager @Inject constructor(
         val WALLPAPER_PACK_JSON = stringPreferencesKey("wallpaper_pack_json")
         val WALLPAPER_PACK_LAST_DAYPART = stringPreferencesKey("wallpaper_pack_last_daypart")
         val LIVE_WALLPAPER_DIM_ENABLED = booleanPreferencesKey("live_wallpaper_dim_enabled")
+        val LIVE_WALLPAPER_COLORS_ENABLED = booleanPreferencesKey("live_wallpaper_colors_enabled")
         val SOUND_PROFILES_ENABLED = booleanPreferencesKey("sound_profiles_enabled")
         val SOUND_PROFILES_JSON = stringPreferencesKey("sound_profiles_json")
         val SOUND_PROFILE_LAST_APPLIED_ID = stringPreferencesKey("sound_profile_last_applied_id")

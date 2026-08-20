@@ -1,5 +1,6 @@
 package com.freevibe.service
 
+import android.app.WallpaperColors
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Matrix
@@ -12,6 +13,7 @@ import android.provider.Settings
 import android.service.wallpaper.WallpaperService
 import android.view.MotionEvent
 import android.view.SurfaceHolder
+import androidx.annotation.RequiresApi
 import com.freevibe.data.remote.weather.WeatherEffect
 
 /**
@@ -66,6 +68,7 @@ class WeatherWallpaperService : WallpaperService() {
         private val dimming = LiveWallpaperDimming(
             onRevealChanged = { if (visible) postDraw(0L) },
         )
+        private val colorPublisher = LiveWallpaperColorPublisher()
 
         override fun onCreate(surfaceHolder: SurfaceHolder) {
             super.onCreate(surfaceHolder)
@@ -100,6 +103,7 @@ class WeatherWallpaperService : WallpaperService() {
             loadShaderPresetFromPrefs()
             loadAdaptiveTintFromPrefs()
             loadDimmingFromPrefs()
+            loadColorPublicationFromPrefs()
             if (visible) scheduleDraw()
         }
 
@@ -115,6 +119,7 @@ class WeatherWallpaperService : WallpaperService() {
                 loadShaderPresetFromPrefs()
                 loadAdaptiveTintFromPrefs()
                 loadDimmingFromPrefs()
+                loadColorPublicationFromPrefs()
                 scheduleDraw()
             } else {
                 cancelDraw()
@@ -153,6 +158,7 @@ class WeatherWallpaperService : WallpaperService() {
                 wallpaperBitmap = null
             }
             shaderRenderer.clear()
+            colorPublisher.clear()
         }
 
         private fun loadWallpaperBitmap() {
@@ -165,8 +171,13 @@ class WeatherWallpaperService : WallpaperService() {
                     val (targetWidth, targetHeight) = resolveDecodeTarget()
                     val bmp = BitmapSampling.decodeSampledBitmap(path, targetWidth, targetHeight)
                         ?: return@request
+                    // Quantize on the loader thread, before the bitmap is handed to
+                    // the main thread where it can be recycled out from under us.
+                    // The publisher keeps colors, never the bitmap.
+                    val colorsChanged = colorPublisher.update(path, bmp)
                     handler.post {
                         if (destroyed) { bmp.recycle(); return@post }
+                        if (colorsChanged) notifyColorsChanged()
                         synchronized(bitmapLock) {
                             val oldWallpaper = wallpaperBitmap
                             val oldScaled = scaledBitmap
@@ -234,6 +245,7 @@ class WeatherWallpaperService : WallpaperService() {
             if (nextPreset?.id != shaderPreset?.id) {
                 shaderPreset = nextPreset
                 shaderRenderer.clear()
+                publishShaderPresetColors()
             }
         }
 
@@ -255,6 +267,33 @@ class WeatherWallpaperService : WallpaperService() {
         private fun loadDimmingFromPrefs() {
             dimEnabled = weatherPrefs().getBoolean("live_wallpaper_dim_enabled", false)
         }
+
+        private fun loadColorPublicationFromPrefs() {
+            val enabled = weatherPrefs().getBoolean(
+                LIVE_WALLPAPER_COLORS_ENABLED_PREF,
+                LIVE_WALLPAPER_COLORS_ENABLED_DEFAULT,
+            )
+            if (colorPublisher.setEnabled(enabled)) notifyColorsChanged()
+        }
+
+        /**
+         * A shader preset draws its own palette and never loads a bitmap, so its
+         * authored colors are what the system should theme from. Bitmap-backed
+         * wallpapers publish from the decode instead, in [loadWallpaperBitmap].
+         */
+        private fun publishShaderPresetColors() {
+            val preset = shaderPreset ?: return
+            val changed = colorPublisher.updateFromColors(
+                token = "shader:${preset.id}",
+                primary = preset.fallbackStartColor,
+                secondary = preset.fallbackEndColor,
+                tertiary = preset.fallbackAccentColor,
+            )
+            if (changed) notifyColorsChanged()
+        }
+
+        @RequiresApi(android.os.Build.VERSION_CODES.O_MR1)
+        override fun onComputeColors(): WallpaperColors? = colorPublisher.current
 
         private fun loadAdaptiveTintFromPrefs() {
             val prefs = weatherPrefs()

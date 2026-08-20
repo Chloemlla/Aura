@@ -1707,6 +1707,8 @@
     <!-- Live wallpaper dimming -->
     <string name="settings_smart_dim_title">Dim behind icons</string>
     <string name="settings_smart_dim_subtitle">Reduce live wallpaper brightness for icon readability; double-tap to reveal full image</string>
+    <string name="settings_smart_wallpaper_colors_title">Theme the system from your wallpaper</string>
+    <string name="settings_smart_wallpaper_colors_subtitle">Let your launcher and Material You pick up colors from the live wallpaper on screen</string>
 
     <!-- Sound profiles -->
     <string name="settings_sounds_profiles_title">Time-of-day sound profiles</string>

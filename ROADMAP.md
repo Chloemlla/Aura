@@ -107,13 +107,6 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
 
   Update 2026-08-20: current targets are Compose BOM 2026.08.00 (mesh gradients; pausable composition is on by default since BOM 2025.12.00), material3 1.4.0 stable (Expressive — adopt tokens selectively, the wholesale look conflicts with the design charter), NewPipeExtractor v0.26.5 (2026-08-15), Roborazzi 1.70.0, Firebase BoM 34.17.0 (published, confirmed). Glance 1.2.0 still never shipped stable; 1.2.0-rc01 remains the newest usable line.
 
-- [ ] P1 — Publish `WallpaperColors` from the live-wallpaper engines
-  Why: none of the wallpaper services implement `onComputeColors()`, so the system derives Material You theming from nothing while an Aura live wallpaper is active — the most-reported complaint class across darkmodewallpaper and Muzei.
-  Evidence: no `onComputeColors`/`WallpaperColors` anywhere in `app/src/main/java/com/freevibe/service/`; darkmodewallpaper #115/#203, Muzei #744; Aura already has `ColorExtractor`/`WallpaperPalette`.
-  Touches: `VideoWallpaperService.kt`, `ParallaxWallpaperService.kt`, `WeatherWallpaperService.kt`, `ColorExtractor.kt`, settings toggle, soak contract test.
-  Acceptance: each engine returns `WallpaperColors` derived from the current frame or source bitmap, recomputed on source change and not per frame; a setting suppresses publication for users who do not want launcher recoloring; the soak harness asserts no extra bitmap retention.
-  Complexity: M
-
 - [ ] P1 — Stop the wallpaper editor orphaning bitmaps and losing composed state
   Why: each filter render replaces `editedBitmap` without recycling the displaced one (up to ~67 MB at `MAX_EDIT_LONG_EDGE = 4096`, and an `OutOfMemoryError` catch already exists as evidence), any slider silently discards a composed depth portrait, and apply/export/parallax render from a snapshot captured before the coroutine launches.
   Evidence: `WallpaperEditorViewModel.kt:642-648`, `:214-216`, `:280-290`, `:661`, `:601-602` vs `:273-302`, `:240`, `:313`, `:341`, `:829-837`.

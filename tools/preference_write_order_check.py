@@ -28,7 +28,8 @@ SETTINGS_VIEW_MODEL = "app/src/main/java/com/freevibe/ui/screens/settings/Settin
 UI_SOURCE_ROOT = "app/src/main/java/com/freevibe/ui"
 
 SHARED_PREF_WRITE = re.compile(
-    r"(writeLiveWallpaperFlag|weatherWallpaperPrefs\(\)|getSharedPreferences)"
+    r"(writeLiveWallpaperFlags?|writeAllLiveWallpaperFlags|weatherWallpaperPrefs\(\)"
+    r"|getSharedPreferences)"
 )
 UI_SHARED_PREF_WRITE = re.compile(
     r"getSharedPreferences[\s\S]{0,300}?\.edit\s*\(\s*\)",
@@ -51,6 +52,7 @@ DECLARATION_START = re.compile(
 # which discovery alone cannot see because it stops being a bridge at all.
 REQUIRED_BRIDGES = (
     "setLiveWallpaperDimEnabled",
+    "setLiveWallpaperColorsEnabled",
     "setAdaptiveTintEnabled",
     "setAdaptiveTintIntensity",
     "setReduceAnimations",

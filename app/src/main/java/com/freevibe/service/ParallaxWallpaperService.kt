@@ -1,5 +1,6 @@
 package com.freevibe.service
 
+import android.app.WallpaperColors
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -13,6 +14,7 @@ import android.os.Handler
 import android.os.Looper
 import android.service.wallpaper.WallpaperService
 import android.view.SurfaceHolder
+import androidx.annotation.RequiresApi
 import com.freevibe.BuildConfig
 import com.google.android.gms.common.moduleinstall.ModuleInstall
 import com.google.android.gms.common.moduleinstall.ModuleInstallRequest
@@ -80,9 +82,21 @@ class ParallaxWallpaperService : WallpaperService() {
         private var drawScheduled = false
         private var sensorRegistered = false
         private val mediaLoader = LiveWallpaperMediaLoader("aura-parallax-loader")
+        private val colorPublisher = LiveWallpaperColorPublisher()
 
-        private fun getPrefs() = getSharedPreferences("freevibe_parallax", MODE_PRIVATE)
+        private fun getPrefs() = getSharedPreferences(PARALLAX_WALLPAPER_PREFS_NAME, MODE_PRIVATE)
         private fun getImagePath(): String? = getPrefs().getString("image_path", null)
+
+        private fun loadColorPublicationFromPrefs() {
+            val enabled = getPrefs().getBoolean(
+                LIVE_WALLPAPER_COLORS_ENABLED_PREF,
+                LIVE_WALLPAPER_COLORS_ENABLED_DEFAULT,
+            )
+            if (colorPublisher.setEnabled(enabled)) notifyColorsChanged()
+        }
+
+        @RequiresApi(android.os.Build.VERSION_CODES.O_MR1)
+        override fun onComputeColors(): WallpaperColors? = colorPublisher.current
 
         override fun onCreate(surfaceHolder: SurfaceHolder) {
             super.onCreate(surfaceHolder)
@@ -131,6 +145,7 @@ class ParallaxWallpaperService : WallpaperService() {
             super.onSurfaceChanged(holder, format, width, height)
             screenWidth = width
             screenHeight = height
+            loadColorPublicationFromPrefs()
             val bmp = synchronized(bitmapLock) { originalBitmap }
             if (bmp != null) scaleAndSegment(bmp)
             else loadImage()
@@ -142,6 +157,7 @@ class ParallaxWallpaperService : WallpaperService() {
             this.visible = visible
             receiptStore.recordVisibilityChanged(LiveWallpaperReceiptStore.ENGINE_PARALLAX, visible)
             if (visible) {
+                loadColorPublicationFromPrefs()
                 registerSensor()
                 scheduleDraw()
             } else {
@@ -173,6 +189,7 @@ class ParallaxWallpaperService : WallpaperService() {
             mediaLoader.shutdown()
             releaseSegmenter()
             recycleBitmaps()
+            colorPublisher.clear()
         }
 
         // -- Sensor --
@@ -227,8 +244,13 @@ class ParallaxWallpaperService : WallpaperService() {
                     val (targetWidth, targetHeight) = resolveDecodeTarget()
                     val bmp = BitmapSampling.decodeSampledBitmap(path, targetWidth, targetHeight)
                         ?: return@request
+                    // Quantize here, on the loader thread, while this bitmap is still
+                    // ours: once it is posted the main thread owns its lifetime. The
+                    // publisher keeps the colors, never the bitmap.
+                    val colorsChanged = colorPublisher.update(path, bmp)
                     handler.post {
                         if (destroyed) { bmp.recycle(); return@post }
+                        if (colorsChanged) notifyColorsChanged()
                         synchronized(bitmapLock) {
                             originalBitmap?.recycle()
                             originalBitmap = bmp

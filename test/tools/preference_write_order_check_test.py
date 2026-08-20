@@ -7,6 +7,7 @@ from pathlib import Path
 from tools.preference_write_order_check import (
     PREFERENCES_MANAGER,
     SETTINGS_VIEW_MODEL,
+    SHARED_PREF_WRITE,
     PreferenceWriteOrderError,
     discover_bridge_functions,
     extract_function_body,
@@ -57,9 +58,12 @@ class PreferenceWriteOrderCheckTest(unittest.TestCase):
         manager = self._live_manager()
         for name in discover_bridge_functions(manager):
             body = extract_function_body(manager, name)
+            # Use the gate's own pattern rather than a copy: a duplicated regex here
+            # would go stale the next time a new write helper is added, and would
+            # fail on the gate's behalf instead of on the code's.
             self.assertRegex(
                 body,
-                r"writeLiveWallpaperFlag|weatherWallpaperPrefs\(\)|getSharedPreferences",
+                SHARED_PREF_WRITE,
                 f"{name} must write SharedPreferences",
             )
             self.assertIn("set(Keys.", body, f"{name} must write DataStore")

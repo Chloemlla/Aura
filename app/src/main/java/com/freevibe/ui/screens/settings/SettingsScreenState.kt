@@ -49,6 +49,7 @@ internal data class SettingsScreenState(
     val alarmShuffleEnabled: Boolean,
     val soundProfilesEnabled: Boolean,
     val liveWallpaperDimEnabled: Boolean,
+    val liveWallpaperColorsEnabled: Boolean,
     val soundProfilesJson: String,
     val wallpaperPackEnabled: Boolean,
     val wallpaperPackJson: String,
@@ -152,6 +153,7 @@ internal fun rememberSettingsScreenState(
     val alarmShuffleEnabled by viewModel.alarmShuffleEnabled.collectAsStateWithLifecycle()
     val soundProfilesEnabled by viewModel.soundProfilesEnabled.collectAsStateWithLifecycle()
     val liveWallpaperDimEnabled by viewModel.liveWallpaperDimEnabled.collectAsStateWithLifecycle()
+    val liveWallpaperColorsEnabled by viewModel.liveWallpaperColorsEnabled.collectAsStateWithLifecycle()
     val soundProfilesJson by viewModel.soundProfilesJson.collectAsStateWithLifecycle()
     val wallpaperPackEnabled by viewModel.wallpaperPackEnabled.collectAsStateWithLifecycle()
     val wallpaperPackJson by viewModel.wallpaperPackJson.collectAsStateWithLifecycle()
@@ -272,6 +274,7 @@ internal fun rememberSettingsScreenState(
         alarmShuffleEnabled = alarmShuffleEnabled,
         soundProfilesEnabled = soundProfilesEnabled,
         liveWallpaperDimEnabled = liveWallpaperDimEnabled,
+        liveWallpaperColorsEnabled = liveWallpaperColorsEnabled,
         soundProfilesJson = soundProfilesJson,
         wallpaperPackEnabled = wallpaperPackEnabled,
         wallpaperPackJson = wallpaperPackJson,

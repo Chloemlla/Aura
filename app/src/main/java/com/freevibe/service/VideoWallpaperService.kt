@@ -2,10 +2,13 @@
 
 package com.freevibe.service
 
+import android.app.WallpaperColors
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Movie
 import android.media.AudioAttributes
@@ -18,9 +21,16 @@ import android.os.PowerManager
 import android.os.SystemClock
 import android.service.wallpaper.WallpaperService
 import android.view.SurfaceHolder
+import androidx.annotation.RequiresApi
 import com.freevibe.BuildConfig
 import java.io.File
 import kotlin.math.max
+
+/**
+ * Colour quantization only needs a rough thumbnail, and a GIF frame decoded at full
+ * size on a wallpaper process is exactly the allocation this app has been bitten by.
+ */
+private const val COLOR_FRAME_SAMPLE_SIZE = 4
 
 private data class BatterySnapshot(
     val percent: Int?,
@@ -101,8 +111,14 @@ class VideoWallpaperService : WallpaperService() {
         private var watchdogRunnable: Runnable? = null
         private val recoveryHandler = Handler(Looper.getMainLooper())
         private var pendingResumePositionMs = 0
+        @Volatile private var destroyed = false
+        private val colorPublisher = LiveWallpaperColorPublisher()
+        // A video has no source bitmap lying around, so one representative frame has
+        // to be decoded to describe it. That runs here rather than inline in
+        // initializePlayer, which is on the main thread.
+        private val colorLoader = LiveWallpaperMediaLoader("aura-video-colors")
 
-        private fun getPrefs() = getSharedPreferences("freevibe_live_wp", MODE_PRIVATE)
+        private fun getPrefs() = getSharedPreferences(VIDEO_WALLPAPER_PREFS_NAME, MODE_PRIVATE)
         private fun getRuntimePrefs() = getSharedPreferences(VIDEO_PREFS_NAME, MODE_PRIVATE)
         private fun getVideoPath(): String? = getPrefs().getString("video_path", null)
         private fun getScaleMode(): String =
@@ -115,6 +131,59 @@ class VideoWallpaperService : WallpaperService() {
             getRuntimePrefs().getBoolean(VIDEO_FPS_OVERLAY_PREF, false)
         private fun isAutoBatterySaverEnabled(): Boolean =
             getRuntimePrefs().getBoolean(VIDEO_AUTO_BATTERY_SAVER_PREF, true)
+
+        private fun loadColorPublicationFromPrefs() {
+            val enabled = getPrefs().getBoolean(
+                LIVE_WALLPAPER_COLORS_ENABLED_PREF,
+                LIVE_WALLPAPER_COLORS_ENABLED_DEFAULT,
+            )
+            if (colorPublisher.setEnabled(enabled)) notifyColorsChanged()
+        }
+
+        @RequiresApi(android.os.Build.VERSION_CODES.O_MR1)
+        override fun onComputeColors(): WallpaperColors? = colorPublisher.current
+
+        /**
+         * Describes the clip to the system by quantizing one frame, keyed on path plus
+         * modification time so a re-applied identical file costs nothing and a replaced
+         * file at the same path still recomputes.
+         */
+        private fun refreshWallpaperColors(path: String, modifiedAt: Long) {
+            val token = "$path@$modifiedAt"
+            colorLoader.request {
+                val frame = decodeColorFrame(path) ?: return@request
+                val changed = try {
+                    colorPublisher.update(token, frame)
+                } finally {
+                    frame.recycle()
+                }
+                if (changed) recoveryHandler.post { if (!destroyed) notifyColorsChanged() }
+            }
+        }
+
+        private fun decodeColorFrame(path: String): Bitmap? {
+            if (path.endsWith(".gif", ignoreCase = true)) {
+                // MediaMetadataRetriever cannot read GIF; BitmapFactory hands back its
+                // first frame, which is as representative as any single frame of a loop.
+                return try {
+                    BitmapFactory.decodeFile(
+                        path,
+                        BitmapFactory.Options().apply { inSampleSize = COLOR_FRAME_SAMPLE_SIZE },
+                    )
+                } catch (_: Throwable) {
+                    null
+                }
+            }
+            val retriever = MediaMetadataRetriever()
+            return try {
+                retriever.setDataSource(path)
+                retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            } catch (_: Throwable) {
+                null
+            } finally {
+                try { retriever.release() } catch (_: Exception) {}
+            }
+        }
 
         private fun resolveScreenSize() {
             try {
@@ -145,6 +214,7 @@ class VideoWallpaperService : WallpaperService() {
             registerPowerSaveReceiver()
             reconcilePowerSavePause()
             receiptStore.recordSurfaceCreated(LiveWallpaperReceiptStore.ENGINE_VIDEO, getVideoPath())
+            loadColorPublicationFromPrefs()
             initializePlayer(holder)
         }
 
@@ -166,6 +236,7 @@ class VideoWallpaperService : WallpaperService() {
             this.visible = visible
             receiptStore.recordVisibilityChanged(LiveWallpaperReceiptStore.ENGINE_VIDEO, visible)
             if (visible) {
+                loadColorPublicationFromPrefs()
                 reconcilePowerSavePause()
                 startTelemetryHeartbeat()
                 val path = getVideoPath()
@@ -201,12 +272,15 @@ class VideoWallpaperService : WallpaperService() {
 
         override fun onDestroy() {
             super.onDestroy()
+            destroyed = true
             visible = false
             unregisterPowerSaveReceiver()
             stopTelemetryHeartbeat()
             stopPlaybackWatchdog()
             cancelPendingRebuild()
             releasePlayback()
+            colorLoader.shutdown()
+            colorPublisher.clear()
             publishVideoTelemetry()
         }
 
@@ -226,6 +300,7 @@ class VideoWallpaperService : WallpaperService() {
                 }
                 lastModified = file.lastModified()
                 lastPath = path
+                refreshWallpaperColors(path, lastModified)
                 if (file.extension.equals("gif", ignoreCase = true)) {
                     activeMediaType = "gif"
                     initializeGifPlayback(holder, file)
@@ -568,6 +643,7 @@ class VideoWallpaperService : WallpaperService() {
                     pendingRebuild,
                 ).count { it != null },
                 broadcastReceivers = if (powerSaveReceiverRegistered) 1 else 0,
+                loaderThreads = colorLoader.outstanding,
             )
 
         private fun releasePlayback() {

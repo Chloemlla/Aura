@@ -580,6 +580,7 @@ class SettingsViewModelTest {
             every { prefs.alarmShuffleEnabled } returns flowOf(false)
             every { prefs.soundProfilesEnabled } returns flowOf(false)
             every { prefs.liveWallpaperDimEnabled } returns flowOf(false)
+            every { prefs.liveWallpaperColorsEnabled } returns flowOf(true)
             every { prefs.liveWallpaperShaderPreset } returns flowOf(AgslShaderGallery.NONE_ID)
             every { prefs.soundProfilesJson } returns flowOf("")
             every { prefs.soundProfileLastAppliedId } returns flowOf("")

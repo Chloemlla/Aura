@@ -4,6 +4,17 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Live wallpapers now theme the rest of your phone** — none of the three wallpaper
+  engines answered the system's request for wallpaper colors, so while an Aura live
+  wallpaper was on screen the launcher, quick settings, and every app that follows
+  Material You themed from nothing. All three now publish a palette: the weather and
+  parallax engines derive it from the image they decoded, the video engine from one
+  representative frame, and a shader preset publishes the palette it was authored with.
+  Colors are recomputed only when the wallpaper source actually changes, never per
+  frame, and the quantizing happens on the decode thread rather than the render path.
+  A new Settings toggle turns publication off for anyone who does not want their
+  launcher recolored.
+
 - **Security: bound yt-dlp downloads before any bytes are written** — the video-wallpaper
   import passed no size cap, and the 256 MB ceiling was only checked once the file had
   already been written in full, so a long video wrote gigabytes to the device and was then

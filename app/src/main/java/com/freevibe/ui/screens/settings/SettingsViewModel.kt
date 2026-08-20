@@ -202,6 +202,7 @@ class SettingsViewModel @Inject constructor(
     val alarmShuffleEnabled = prefs.alarmShuffleEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val soundProfilesEnabled = prefs.soundProfilesEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val liveWallpaperDimEnabled = prefs.liveWallpaperDimEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val liveWallpaperColorsEnabled = prefs.liveWallpaperColorsEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
     val soundProfilesJson = prefs.soundProfilesJson.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
     val wallpaperPackEnabled = prefs.wallpaperPackEnabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     val wallpaperPackJson = prefs.wallpaperPackJson.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
@@ -942,6 +943,9 @@ class SettingsViewModel @Inject constructor(
     }
     fun setLiveWallpaperDimEnabled(enabled: Boolean) = viewModelScope.launch {
         prefs.setLiveWallpaperDimEnabled(enabled)
+    }
+    fun setLiveWallpaperColorsEnabled(enabled: Boolean) = viewModelScope.launch {
+        prefs.setLiveWallpaperColorsEnabled(enabled)
     }
     fun setStabilityKey(key: String) = viewModelScope.launch { prefs.setStabilityKey(key) }
     fun setGeneratedContentProviderEnabled(enabled: Boolean) =
