@@ -11,6 +11,7 @@ class RoomSchemaHistoryError(ValueError):
 
 
 DATABASE_VERSION_RE = re.compile(r"version\s*=\s*(\d+)")
+DATABASE_VERSION_CONSTANT_RE = re.compile(r"FREEVIBE_DATABASE_VERSION\s*=\s*(\d+)")
 MIGRATION_RE = re.compile(r"\bval\s+MIGRATION_(\d+)_(\d+)\b")
 
 
@@ -24,7 +25,23 @@ def current_database_version(database_source: str) -> int:
     match = DATABASE_VERSION_RE.search(database_source)
     if not match:
         raise RoomSchemaHistoryError("FreeVibeDatabase version declaration was not found")
-    return int(match.group(1))
+    annotated = int(match.group(1))
+    # The same number lives twice: once as the annotation argument Room's
+    # processor reads, and once as a constant the downgrade guard reads before
+    # Room opens anything. An annotation argument has to be a literal, so the
+    # duplication is unavoidable; letting it drift is not. A guard comparing the
+    # wrong version would either miss a downgrade or invent one.
+    constant_match = DATABASE_VERSION_CONSTANT_RE.search(database_source)
+    if not constant_match:
+        raise RoomSchemaHistoryError(
+            "FREEVIBE_DATABASE_VERSION constant was not found; the downgrade guard reads it"
+        )
+    constant = int(constant_match.group(1))
+    if constant != annotated:
+        raise RoomSchemaHistoryError(
+            f"FREEVIBE_DATABASE_VERSION is {constant} but @Database declares {annotated}"
+        )
+    return annotated
 
 
 def exported_schema_versions(schema_dir: Path) -> list[int]:

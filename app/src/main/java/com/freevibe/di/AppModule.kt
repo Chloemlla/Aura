@@ -3,7 +3,10 @@ package com.freevibe.di
 import android.content.Context
 import androidx.room.Room
 import com.freevibe.data.local.CollectionDao
+import com.freevibe.data.local.DatabaseDowngradeGuard
+import com.freevibe.data.local.DatabaseDowngradeReceiptStore
 import com.freevibe.data.local.DatabaseMigrations
+import com.freevibe.data.local.FREEVIBE_DATABASE_VERSION
 import com.freevibe.data.local.DownloadDao
 import com.freevibe.data.local.FavoriteDao
 import com.freevibe.data.local.FreeVibeDatabase
@@ -238,9 +241,29 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): FreeVibeDatabase =
-        Room.databaseBuilder(context, FreeVibeDatabase::class.java, "freevibe.db")
+    fun provideDatabase(
+        @ApplicationContext context: Context,
+        downgradeReceipts: DatabaseDowngradeReceiptStore,
+    ): FreeVibeDatabase {
+        // Before Room touches the file. Opening a database whose schema is ahead
+        // of this build is exactly what throws, so the check has to happen first,
+        // and it reads the version out of the SQLite header rather than opening a
+        // connection to ask.
+        DatabaseDowngradeGuard
+            .inspect(
+                databaseFile = DatabaseDowngradeGuard.databaseFile(context),
+                currentVersion = FREEVIBE_DATABASE_VERSION,
+            )
+            ?.let(downgradeReceipts::record)
+
+        return Room.databaseBuilder(context, FreeVibeDatabase::class.java, "freevibe.db")
             .addMigrations(*DatabaseMigrations.ALL_MIGRATIONS)
+            // Only on downgrade. An upgrade with a missing migration must still
+            // fail loudly, because that is a bug in this build rather than a user
+            // installing an older APK. The guard above has already copied the
+            // database aside and recorded a receipt the UI turns into a warning,
+            // so this drops tables that are provably recoverable.
+            .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
             .addCallback(object : androidx.room.RoomDatabase.Callback() {
                 override fun onOpen(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                     super.onOpen(db)
@@ -248,6 +271,7 @@ object AppModule {
                 }
             })
             .build()
+    }
 
     @Provides
     fun provideFavoriteDao(db: FreeVibeDatabase): FavoriteDao = db.favoriteDao()

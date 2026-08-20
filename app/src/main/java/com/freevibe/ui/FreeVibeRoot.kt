@@ -72,6 +72,7 @@ interface FreeVibeRootEntryPoint {
     fun applyFeedbackBus(): com.freevibe.service.ApplyFeedbackBus
     fun wallpaperApplier(): com.freevibe.service.WallpaperApplier
     fun wallpaperHistoryManager(): com.freevibe.service.WallpaperHistoryManager
+    fun databaseDowngradeReceiptStore(): com.freevibe.data.local.DatabaseDowngradeReceiptStore
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -98,6 +99,13 @@ fun FreeVibeRoot(
     // sounds. Warn once per app run while on a metered connection; dismissal sticks for the session.
     val onMeteredConnection = com.freevibe.ui.components.rememberOnMeteredConnection()
     var dataWarningDismissed by rememberSaveable { mutableStateOf(false) }
+
+    // A downgrade reset the library before any screen existed. The user's next
+    // move is to wonder where their favorites went, so this is raised at the root
+    // rather than buried in Settings, and it survives process death until it has
+    // actually been read.
+    val downgradeReceiptStore = remember { entryPoint.databaseDowngradeReceiptStore() }
+    var downgradeReceipt by remember { mutableStateOf(downgradeReceiptStore.read()) }
 
     // Handle deep-link navigation from widget or notification
     LaunchedEffect(navigationToken, initialNavigateTo, initialWallpaper?.id) {
@@ -193,6 +201,24 @@ fun FreeVibeRoot(
         val useNavigationRail = showBottomBar && navigationLayout.isExpanded
 
         CompositionLocalProvider(LocalAuraNavigationLayout provides navigationLayout) {
+        downgradeReceipt?.let { receipt ->
+            com.freevibe.ui.components.DatabaseDowngradeWarningDialog(
+                receipt = receipt,
+                onAcknowledge = {
+                    downgradeReceiptStore.acknowledge()
+                    downgradeReceipt = null
+                },
+                onOpenBackup = {
+                    downgradeReceiptStore.acknowledge()
+                    downgradeReceipt = null
+                    runCatching {
+                        navController.navigate(
+                            Screen.Settings.createRoute(Screen.Settings.BACKUP_SECTION),
+                        )
+                    }
+                },
+            )
+        }
         Scaffold(
             containerColor = Color.Transparent,
             snackbarHost = {

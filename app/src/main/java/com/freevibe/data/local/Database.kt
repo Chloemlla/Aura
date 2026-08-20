@@ -13,6 +13,19 @@ import kotlinx.coroutines.flow.Flow
 
 // -- Database --
 
+/**
+ * The schema version this build knows how to open.
+ *
+ * Duplicated as a literal in the `@Database` annotation below because an
+ * annotation argument has to be a compile-time constant the Room processor can
+ * see. `tools/room_schema_history_check.py` fails when the two disagree, so the
+ * duplication cannot drift.
+ *
+ * Read by [DatabaseDowngradeGuard] to recognise a database written by a newer
+ * Aura before Room tries to open it and throws.
+ */
+const val FREEVIBE_DATABASE_VERSION = 16
+
 @Database(
     entities = [
         FavoriteEntity::class,

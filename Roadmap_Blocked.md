@@ -165,6 +165,20 @@ These items have code shipped but require Firebase Console access, production RT
 
 These items require adb-connected device or Android 17 emulator testing:
 
+- **P2 — Cover the pre-export half of the Room migration chain (1 → 8)**
+  - The downgrade half landed 2026-08-20 and is fully covered by JVM tests: an older APK
+    now opens without crashing, the previous database is copied aside first, and the user
+    gets an explicit warning pointing at backup/restore instead of a silent wipe.
+  - Already covered on device: `migrate8To9` and `migrateEveryExportedSchemaVersionToCurrent`
+    (every exported start version 9..15 through to 16).
+  - Blocker: `MIGRATION_1_2` … `MIGRATION_7_8` have no exported schema JSON — the export
+    floor of 9 is deliberate policy — so testing them means hand-writing a v1 schema in SQL
+    and running the chain through `MigrationTestHelper`, which is instrumentation-only.
+    Writing 200 lines of hand-authored schema that cannot be run here would be guessing.
+  - Resume by extending `DatabaseMigrationTest` with a `createVersion1Database()` built the
+    way `createVersion8Database()` already is, then
+    `helper.runMigrationsAndValidate(TEST_DB, 16, true, *DatabaseMigrations.ALL_MIGRATIONS)`.
+
 - **P2 — Record the GridScrollBenchmark frame timings the stability work was meant to move**
   - The stability half landed 2026-08-20: every model rendered in a Compose list carries
     `@Immutable`, `composeCompiler` emits metrics and reports, `compose-stability.conf` is

@@ -2,6 +2,17 @@
 
 All notable changes to Aura will be documented in this file.
 
+## Unreleased
+
+- **Installing an older Aura no longer crashes it on every launch, and no longer wipes
+  your library in silence** — Room refuses to open a database written by a newer build,
+  and nothing caught that, so an ordinary rollback left the app dead on startup with no
+  way out but clearing app data. Aura now recognises the situation before it opens the
+  database, copies the existing library aside, and tells you what happened with a pointer
+  to backup and restore. If you reinstall the newer version, the copy is picked up again
+  and nothing is lost. Where the copy could not be written, usually for lack of space, it
+  says that instead of implying your data is still there.
+
 ## v6.43.0
 
 - **Grid cells stop redrawing when nothing about them changed** — the models behind the
