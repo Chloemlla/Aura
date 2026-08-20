@@ -138,9 +138,15 @@ class ReleaseMetadataConsistencyCheckTest(unittest.TestCase):
         self.assertIn("v16", message)
 
     def test_rejects_a_stale_version_badge(self) -> None:
-        message = self._drifted(lambda text: text.replace("version-6.41.0-blue", "version-6.40.0-blue"))
+        # Derived, not hardcoded: a literal version here becomes the stale
+        # fixture this gate exists to catch the moment the app is bumped.
+        current = str(read_manifest(REPO_ROOT)["versionName"])
+        stale = "0.0.1"
+        message = self._drifted(
+            lambda text: text.replace(f"version-{current}-blue", f"version-{stale}-blue")
+        )
 
-        self.assertIn("6.40.0", message)
+        self.assertIn(stale, message)
 
     def test_rejects_a_tab_count_that_does_not_match_the_app(self) -> None:
         message = self._drifted(lambda text: text.replace("5 bottom nav tabs", "4 bottom nav tabs"))

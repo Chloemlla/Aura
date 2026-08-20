@@ -2,7 +2,7 @@
 
 All notable changes to Aura will be documented in this file.
 
-## Unreleased
+## v6.42.0
 
 - **Build: enable the Gradle build cache, parallel execution, and the configuration
   cache** — a clean `:app:testFullDebugUnitTest` drops from 7m08s to 5m35s, and 28s when
