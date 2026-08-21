@@ -4,16 +4,16 @@
     {
       "count": 1,
       "firstLine": 77,
-      "id": "4c13515392e80a56",
-      "path": "app/src/main/java/com/freevibe/ui/screens/aigenerate/AiWallpaperViewModel.kt",
+      "id": "eefaa995ac27d7d3",
+      "path": "app/src/full/java/com/freevibe/ui/screens/aigenerate/AiWallpaperViewModel.kt",
       "sink": "ifBlank",
       "text": "Generated wallpaper"
     },
     {
       "count": 1,
       "firstLine": 130,
-      "id": "244d2f5d4a7adb98",
-      "path": "app/src/main/java/com/freevibe/ui/screens/aigenerate/AiWallpaperViewModel.kt",
+      "id": "4a602a507a7de7d0",
+      "path": "app/src/full/java/com/freevibe/ui/screens/aigenerate/AiWallpaperViewModel.kt",
       "sink": "ifBlank",
       "text": "ai-generated"
     },
@@ -83,7 +83,7 @@
     },
     {
       "count": 1,
-      "firstLine": 263,
+      "firstLine": 287,
       "id": "09e9f2e75e4be949",
       "path": "app/src/main/java/com/freevibe/ui/screens/editor/SoundEditorViewModel.kt",
       "sink": "error",
@@ -91,7 +91,7 @@
     },
     {
       "count": 1,
-      "firstLine": 209,
+      "firstLine": 227,
       "id": "357b9d13c27fabed",
       "path": "app/src/main/java/com/freevibe/ui/screens/editor/SoundEditorViewModel.kt",
       "sink": "error",
@@ -99,7 +99,7 @@
     },
     {
       "count": 1,
-      "firstLine": 394,
+      "firstLine": 441,
       "id": "293a8ccd5f609390",
       "path": "app/src/main/java/com/freevibe/ui/screens/editor/SoundEditorViewModel.kt",
       "sink": "error",
@@ -107,7 +107,7 @@
     },
     {
       "count": 1,
-      "firstLine": 796,
+      "firstLine": 885,
       "id": "5c36f8bc58a81e8c",
       "path": "app/src/main/java/com/freevibe/ui/screens/editor/SoundEditorViewModel.kt",
       "sink": "ifBlank",
@@ -115,7 +115,7 @@
     },
     {
       "count": 1,
-      "firstLine": 419,
+      "firstLine": 468,
       "id": "e652d3d9502758e2",
       "path": "app/src/main/java/com/freevibe/ui/screens/editor/SoundEditorViewModel.kt",
       "sink": "success",
@@ -123,7 +123,7 @@
     },
     {
       "count": 1,
-      "firstLine": 227,
+      "firstLine": 230,
       "id": "217205d68f7cb5c1",
       "path": "app/src/main/java/com/freevibe/ui/screens/editor/WallpaperCropViewModel.kt",
       "sink": "error",
@@ -131,7 +131,7 @@
     },
     {
       "count": 1,
-      "firstLine": 245,
+      "firstLine": 248,
       "id": "b5efdbfdfe69a262",
       "path": "app/src/main/java/com/freevibe/ui/screens/editor/WallpaperCropViewModel.kt",
       "sink": "success",
@@ -139,7 +139,7 @@
     },
     {
       "count": 1,
-      "firstLine": 151,
+      "firstLine": 240,
       "id": "d5f44ff0b4cedc85",
       "path": "app/src/main/java/com/freevibe/ui/screens/sounds/ContactPickerScreen.kt",
       "sink": "error",
@@ -147,7 +147,7 @@
     },
     {
       "count": 1,
-      "firstLine": 126,
+      "firstLine": 160,
       "id": "fc4e9342ff6165f5",
       "path": "app/src/main/java/com/freevibe/ui/screens/sounds/ContactPickerScreen.kt",
       "sink": "error",
@@ -155,7 +155,7 @@
     },
     {
       "count": 1,
-      "firstLine": 137,
+      "firstLine": 195,
       "id": "f3c43aa573b4fc23",
       "path": "app/src/main/java/com/freevibe/ui/screens/sounds/ContactPickerScreen.kt",
       "sink": "error",
@@ -163,7 +163,7 @@
     },
     {
       "count": 1,
-      "firstLine": 144,
+      "firstLine": 207,
       "id": "5f0917f7dde822d9",
       "path": "app/src/main/java/com/freevibe/ui/screens/sounds/ContactPickerScreen.kt",
       "sink": "success",
@@ -227,7 +227,7 @@
     },
     {
       "count": 1,
-      "firstLine": 328,
+      "firstLine": 329,
       "id": "58fa02224d23fc10",
       "path": "app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersViewModel.kt",
       "sink": "ifBlank",
@@ -298,24 +298,28 @@
     ],
     "targetResourceFile": "app/src/main/res/values/strings.xml"
   },
+  "policyKind": "composeHardcodedStringBaseline",
   "pseudolocaleReleaseGate": {
-    "status": "active",
-    "enabledBuildType": "debug",
-    "locales": ["en-XA", "ar-XB"],
-    "routeGate": "app/src/test/java/com/freevibe/ui/qa/ProductionRouteStateScreenshotTest.kt",
-    "compactRouteScenarios": [
-      "ProductionRouteScenario.WallpapersGridSuccess",
-      "ProductionRouteScenario.SettingsProviderDisabled"
-    ],
     "checks": [
       "Debug builds package generated pseudolocale resources.",
       "English XA compact production route renders generated pseudolocale text.",
       "Arabic XB compact production route renders with RTL layout direction."
-    ]
+    ],
+    "compactRouteScenarios": [
+      "ProductionRouteScenario.WallpapersGridSuccess",
+      "ProductionRouteScenario.SettingsProviderDisabled"
+    ],
+    "enabledBuildType": "debug",
+    "locales": [
+      "en-XA",
+      "ar-XB"
+    ],
+    "routeGate": "app/src/test/java/com/freevibe/ui/qa/ProductionRouteStateScreenshotTest.kt",
+    "status": "active"
   },
-  "policyKind": "composeHardcodedStringBaseline",
   "scanSourceRoots": [
-    "app/src/main/java/com/freevibe/ui"
+    "app/src/main/java/com/freevibe/ui",
+    "app/src/full/java/com/freevibe/ui"
   ],
   "schemaVersion": 1
 }

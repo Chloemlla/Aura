@@ -44,6 +44,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.freevibe.BuildConfig
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -135,7 +136,9 @@ fun WallpapersScreen(
     val pixabayProviderEnabled by viewModel.pixabayProviderEnabled.collectAsStateWithLifecycle()
     val communityProviderEnabled by viewModel.communityProviderEnabled.collectAsStateWithLifecycle()
     val communityGuidelinesAccepted by viewModel.communityGuidelinesAccepted.collectAsStateWithLifecycle()
-    val generatedContentProviderEnabled by viewModel.generatedContentProviderEnabled.collectAsStateWithLifecycle()
+    val generatedContentProviderEnabled by viewModel.generatedContentProviderEnabled
+        .collectAsStateWithLifecycle()
+    val showGeneratedContentEntry = !BuildConfig.FOSS_BUILD && generatedContentProviderEnabled
     var hideAiGeneratedCommunity by rememberSaveable { mutableStateOf(false) }
     val feedWallpapers = remember(state.wallpapers, state.selectedTab, hideAiGeneratedCommunity) {
         if (state.selectedTab == WallpaperTab.COMMUNITY && hideAiGeneratedCommunity) {
@@ -472,7 +475,7 @@ fun WallpapersScreen(
                                     },
                                 )
                             }
-                            if (generatedContentProviderEnabled) {
+                            if (showGeneratedContentEntry) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.feed_generate)) },
                                     leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },

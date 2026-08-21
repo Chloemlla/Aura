@@ -57,7 +57,10 @@ BLANK_DEFAULT_RE = re.compile(
 )
 
 SOURCE_SUFFIXES = {".kt", ".kts"}
-DEFAULT_SCAN_ROOTS = ["app/src/main/java/com/freevibe/ui"]
+DEFAULT_SCAN_ROOTS = [
+    "app/src/main/java/com/freevibe/ui",
+    "app/src/full/java/com/freevibe/ui",
+]
 DEFAULT_BASELINE = "docs/localization/hardcoded-string-baseline.json"
 DEFAULT_IGNORED_PATH_FRAGMENTS = [
     "/build/",
@@ -264,7 +267,11 @@ def write_baseline(repo_root: Path, baseline_path: Path) -> dict[str, Any]:
         "baseline": summarize_findings(findings),
     }
     baseline_path.parent.mkdir(parents=True, exist_ok=True)
-    baseline_path.write_text(json.dumps(baseline, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    baseline_path.write_text(
+        json.dumps(baseline, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
     return baseline
 
 

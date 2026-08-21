@@ -9,36 +9,36 @@ import org.junit.Test
  * user-facing strings for known status codes so the user gets actionable copy
  * instead of "Generation failed (HTTP 402): {raw json blob}".
  */
-class AiWallpaperRepositoryFriendlyErrorTest {
+class StabilityGeneratedWallpaperBackendErrorTest {
 
     @Test
     fun `401 yields actionable key-invalid message`() {
-        val msg = AiWallpaperRepository.friendlyErrorMessage(401, null)
+        val msg = StabilityGeneratedWallpaperBackend.friendlyErrorMessage(401, null)
         assertTrue("Expected key-related message, got: $msg", msg.contains("key", ignoreCase = true))
     }
 
     @Test
     fun `402 yields credits message`() {
-        val msg = AiWallpaperRepository.friendlyErrorMessage(402, null)
+        val msg = StabilityGeneratedWallpaperBackend.friendlyErrorMessage(402, null)
         assertTrue("Expected credits message, got: $msg", msg.contains("credits", ignoreCase = true))
         assertTrue("Expected account action, got: $msg", msg.contains("platform.stability.ai/account"))
     }
 
     @Test
     fun `403 yields content-policy message`() {
-        val msg = AiWallpaperRepository.friendlyErrorMessage(403, null)
+        val msg = StabilityGeneratedWallpaperBackend.friendlyErrorMessage(403, null)
         assertTrue("Expected content-policy message, got: $msg", msg.contains("content policy", ignoreCase = true))
     }
 
     @Test
     fun `422 yields prompt-too-complex message`() {
-        val msg = AiWallpaperRepository.friendlyErrorMessage(422, null)
+        val msg = StabilityGeneratedWallpaperBackend.friendlyErrorMessage(422, null)
         assertTrue("Expected prompt message, got: $msg", msg.contains("prompt", ignoreCase = true))
     }
 
     @Test
     fun `429 yields rate limit message`() {
-        val msg = AiWallpaperRepository.friendlyErrorMessage(429, null)
+        val msg = StabilityGeneratedWallpaperBackend.friendlyErrorMessage(429, null)
         assertTrue("Expected rate-limit message, got: $msg", msg.contains("rate limit", ignoreCase = true))
         assertTrue("Expected cooldown guidance, got: $msg", msg.contains("60 seconds"))
         assertTrue("Expected account action, got: $msg", msg.contains("platform.stability.ai/account"))
@@ -46,26 +46,26 @@ class AiWallpaperRepositoryFriendlyErrorTest {
 
     @Test
     fun `5xx yields server error message with code`() {
-        val msg = AiWallpaperRepository.friendlyErrorMessage(503, null)
+        val msg = StabilityGeneratedWallpaperBackend.friendlyErrorMessage(503, null)
         assertTrue("Expected server-error message, got: $msg", msg.contains("server", ignoreCase = true))
         assertTrue("Expected 503 in message, got: $msg", msg.contains("503"))
     }
 
     @Test
     fun `unknown code yields generic message including code`() {
-        val msg = AiWallpaperRepository.friendlyErrorMessage(418, null)
+        val msg = StabilityGeneratedWallpaperBackend.friendlyErrorMessage(418, null)
         assertEquals("Generation failed (HTTP 418).", msg)
     }
 
     @Test
     fun `error body is appended when present`() {
-        val msg = AiWallpaperRepository.friendlyErrorMessage(429, "Rate limit exceeded, retry in 30s")
+        val msg = StabilityGeneratedWallpaperBackend.friendlyErrorMessage(429, "Rate limit exceeded, retry in 30s")
         assertTrue("Expected body suffix, got: $msg", msg.contains("Rate limit exceeded"))
     }
 
     @Test
     fun `blank error body is dropped`() {
-        val msg = AiWallpaperRepository.friendlyErrorMessage(401, "   ")
+        val msg = StabilityGeneratedWallpaperBackend.friendlyErrorMessage(401, "   ")
         // Trailing space would be present if the helper naively concatenated. We assert
         // the message ends at a period (the canonical base form).
         assertTrue("Blank error body should not be appended: $msg", msg.endsWith("."))
@@ -73,19 +73,8 @@ class AiWallpaperRepositoryFriendlyErrorTest {
 
     @Test
     fun `null error body is dropped`() {
-        val msg = AiWallpaperRepository.friendlyErrorMessage(401, null)
+        val msg = StabilityGeneratedWallpaperBackend.friendlyErrorMessage(401, null)
         assertTrue("Null error body should not be appended: $msg", msg.endsWith("."))
     }
 
-    @Test
-    fun `generated wallpaper tags omit prompt words`() {
-        assertEquals(
-            listOf("ai-generated", "photographic"),
-            AiWallpaperRepository.generatedWallpaperTags(AiStyle.PHOTOGRAPHIC),
-        )
-        assertEquals(
-            listOf("ai-generated"),
-            AiWallpaperRepository.generatedWallpaperTags(AiStyle.NONE),
-        )
-    }
 }

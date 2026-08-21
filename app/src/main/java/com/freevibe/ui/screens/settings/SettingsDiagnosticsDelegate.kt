@@ -28,6 +28,7 @@ import com.freevibe.service.WallpaperHistoryManager
 import com.freevibe.service.WeatherWallpaperService
 import com.freevibe.service.ParallaxWallpaperService
 import com.freevibe.service.YtDlpUpdateManager
+import com.freevibe.service.YtDlpUpdateConsent
 import com.freevibe.service.YtDlpUpdateResult
 import com.freevibe.service.YtDlpUpdateStatus
 import kotlinx.coroutines.CoroutineDispatcher
@@ -181,7 +182,7 @@ internal class SettingsDiagnosticsDelegate(
         }
     }
 
-    fun updateYtDlp() {
+    fun updateYtDlp(consent: YtDlpUpdateConsent) {
         if (_ytDlpUpdate.value.isUpdating) return
         scope.launch {
             _ytDlpUpdate.update {
@@ -192,7 +193,7 @@ internal class SettingsDiagnosticsDelegate(
                     error = null,
                 )
             }
-            val result = runCatching { ytDlpUpdateManager.updateStable() }
+            val result = runCatching { ytDlpUpdateManager.updateStable(consent) }
                 .getOrElse { error ->
                     YtDlpUpdateResult(
                         status = YtDlpUpdateStatus.FAILED,

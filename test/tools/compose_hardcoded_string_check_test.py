@@ -19,6 +19,7 @@ def write_strings(repo_root: Path) -> None:
 
 
 def write_screen(repo_root: Path, text: str = "Existing title") -> None:
+    (repo_root / "app/src/full/java/com/freevibe/ui").mkdir(parents=True, exist_ok=True)
     write_text(
         repo_root / "app/src/main/java/com/freevibe/ui/ExampleScreen.kt",
         "\n".join(

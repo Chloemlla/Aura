@@ -114,7 +114,7 @@ internal data class SettingsScreenState(
     val pexelsApiKey: String,
     val pixabayApiKey: String,
     val freesoundApiKey: String,
-    val stabilityAiKey: String,
+    val generatedWallpaperProviderKey: String,
     val providerCredentialStorageUnavailable: Boolean,
     val generatedContentProviderEnabled: Boolean,
     val generatedContentDisclosureAccepted: Boolean,
@@ -231,7 +231,7 @@ internal fun rememberSettingsScreenState(
     val pexelsApiKey by viewModel.pexelsApiKey.collectAsStateWithLifecycle()
     val pixabayApiKey by viewModel.pixabayApiKey.collectAsStateWithLifecycle()
     val freesoundApiKey by viewModel.freesoundApiKey.collectAsStateWithLifecycle()
-    val stabilityAiKey by viewModel.stabilityAiKey.collectAsStateWithLifecycle()
+    val generatedWallpaperProviderKey by viewModel.generatedWallpaperProviderKey.collectAsStateWithLifecycle()
     val providerCredentialStorageUnavailable by viewModel.providerCredentialStorageUnavailable.collectAsStateWithLifecycle()
     val generatedContentProviderEnabled by viewModel.generatedContentProviderEnabled.collectAsStateWithLifecycle()
     val generatedContentDisclosureAccepted by viewModel.generatedContentDisclosureAccepted.collectAsStateWithLifecycle()
@@ -282,9 +282,9 @@ internal fun rememberSettingsScreenState(
         pexelsApiKey,
         pixabayApiKey,
         freesoundApiKey,
-        stabilityAiKey,
+        generatedWallpaperProviderKey,
     ) {
-        listOf(wallhavenApiKey, pexelsApiKey, pixabayApiKey, freesoundApiKey, stabilityAiKey)
+        listOf(wallhavenApiKey, pexelsApiKey, pixabayApiKey, freesoundApiKey, generatedWallpaperProviderKey)
             .count { it.isNotBlank() }
     }
 
@@ -359,7 +359,7 @@ internal fun rememberSettingsScreenState(
         pexelsApiKey = pexelsApiKey,
         pixabayApiKey = pixabayApiKey,
         freesoundApiKey = freesoundApiKey,
-        stabilityAiKey = stabilityAiKey,
+        generatedWallpaperProviderKey = generatedWallpaperProviderKey,
         providerCredentialStorageUnavailable = providerCredentialStorageUnavailable,
         generatedContentProviderEnabled = generatedContentProviderEnabled,
         generatedContentDisclosureAccepted = generatedContentDisclosureAccepted,

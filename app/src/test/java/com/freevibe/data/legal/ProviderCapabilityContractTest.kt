@@ -191,13 +191,13 @@ class ProviderCapabilityContractTest {
     }
 
     @Test
-    fun `FOSS builds drop exactly the Firebase-backed sources`() {
+    fun `FOSS builds drop exactly the full-only sources`() {
         val fossExcluded = providerCapabilities
             .filterNot { it.availableIn(ProviderBuild.FOSS) }
             .map { it.source }
             .toSet()
 
-        assertEquals(setOf(ContentSource.COMMUNITY), fossExcluded)
+        assertEquals(setOf(ContentSource.COMMUNITY, ContentSource.AI_GENERATED), fossExcluded)
     }
 
     @Test

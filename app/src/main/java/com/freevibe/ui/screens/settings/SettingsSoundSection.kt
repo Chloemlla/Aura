@@ -48,6 +48,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.freevibe.R
 import com.freevibe.service.normalizeYouTubePoTokenProviderUrl
+import com.freevibe.service.YtDlpUpdateConsent
 
 @Composable
 internal fun SoundSettingsSection(
@@ -72,6 +73,7 @@ internal fun SoundSettingsSection(
     var showYtSoundEditor by remember { mutableStateOf(false) }
     var showYtBlockedEditor by remember { mutableStateOf(false) }
     var showPoTokenProviderEditor by remember { mutableStateOf(false) }
+    var showYtDlpConsent by remember { mutableStateOf(false) }
     val ytDlpUpdateNotice = ytDlpUpdateFeedbackMessage(ytDlpUpdate)
 
     LaunchedEffect(ytDlpUpdate.completedStatus, ytDlpUpdate.error) {
@@ -128,7 +130,7 @@ internal fun SoundSettingsSection(
             ),
             onClick = {
                 if (youtubeProviderEnabled && !ytDlpUpdate.isUpdating) {
-                    viewModel.updateYtDlp()
+                    showYtDlpConsent = true
                 }
             },
         )
@@ -198,6 +200,38 @@ internal fun SoundSettingsSection(
             },
             checked = soundProfilesEnabled,
             onCheckedChange = viewModel::setSoundProfilesEnabled,
+        )
+    }
+
+    if (showYtDlpConsent) {
+        AlertDialog(
+            onDismissRequest = { showYtDlpConsent = false },
+            title = { Text(stringResource(R.string.settings_ytdlp_consent_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.settings_ytdlp_consent_body))
+                    Text(
+                        stringResource(R.string.settings_ytdlp_consent_warning),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showYtDlpConsent = false
+                        viewModel.updateYtDlp(YtDlpUpdateConsent.REPOSITORY_CHECKS_BYPASS_CONFIRMED)
+                    },
+                ) {
+                    Text(stringResource(R.string.settings_ytdlp_consent_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showYtDlpConsent = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
         )
     }
 

@@ -236,8 +236,7 @@ class PreferencesManager @Inject constructor(
         providerCredential(ProviderCredentialKey.PIXABAY, Keys.PIXABAY_KEY, com.freevibe.BuildConfig.PIXABAY_API_KEY)
     val freesoundApiKey: Flow<String> =
         providerCredential(ProviderCredentialKey.FREESOUND, Keys.FREESOUND_KEY, com.freevibe.BuildConfig.FREESOUND_API_KEY)
-    val stabilityAiKey: Flow<String> =
-        providerCredential(ProviderCredentialKey.STABILITY_AI, Keys.STABILITY_KEY, com.freevibe.BuildConfig.STABILITY_AI_KEY)
+    val generatedWallpaperProviderKey: Flow<String> = generatedWallpaperProviderKeyForFlavor()
     val generatedContentProviderEnabled: Flow<Boolean> = get(
         Keys.GENERATED_CONTENT_PROVIDER_ENABLED,
         DEFAULT_GENERATED_CONTENT_PROVIDER_ENABLED,
@@ -277,10 +276,13 @@ class PreferencesManager @Inject constructor(
         setProviderCredential(ProviderCredentialKey.PIXABAY, Keys.PIXABAY_KEY, key)
     suspend fun setFreesoundKey(key: String) =
         setProviderCredential(ProviderCredentialKey.FREESOUND, Keys.FREESOUND_KEY, key)
-    suspend fun setStabilityKey(key: String) =
-        setProviderCredential(ProviderCredentialKey.STABILITY_AI, Keys.STABILITY_KEY, key)
-    suspend fun setGeneratedContentProviderEnabled(enabled: Boolean) =
-        set(Keys.GENERATED_CONTENT_PROVIDER_ENABLED, enabled)
+    suspend fun setGeneratedWallpaperProviderKey(key: String) =
+        setGeneratedWallpaperProviderKeyForFlavor(key)
+    suspend fun setGeneratedContentProviderEnabled(enabled: Boolean) {
+        if (!com.freevibe.BuildConfig.FOSS_BUILD) {
+            set(Keys.GENERATED_CONTENT_PROVIDER_ENABLED, enabled)
+        }
+    }
     suspend fun setGeneratedContentDisclosureAccepted(accepted: Boolean) =
         set(Keys.GENERATED_CONTENT_DISCLOSURE_ACCEPTED, accepted)
     suspend fun setWallhavenProviderEnabled(enabled: Boolean) = set(Keys.WALLHAVEN_PROVIDER_ENABLED, enabled)
@@ -756,7 +758,7 @@ class PreferencesManager @Inject constructor(
         dataStore.edit { it[key] = value }
     }
 
-    private fun providerCredential(
+    internal fun providerCredential(
         credentialKey: ProviderCredentialKey,
         legacyKey: Preferences.Key<String>,
         default: String,
@@ -780,7 +782,7 @@ class PreferencesManager @Inject constructor(
         return readProviderCredentialValue(credentialKey) ?: default
     }
 
-    private suspend fun setProviderCredential(
+    internal suspend fun setProviderCredential(
         credentialKey: ProviderCredentialKey,
         legacyKey: Preferences.Key<String>,
         key: String,
@@ -825,7 +827,6 @@ class PreferencesManager @Inject constructor(
         val PEXELS_KEY = stringPreferencesKey("pexels_api_key")
         val PIXABAY_KEY = stringPreferencesKey("pixabay_api_key")
         val FREESOUND_KEY = stringPreferencesKey("freesound_api_key")
-        val STABILITY_KEY = stringPreferencesKey("stability_ai_key")
         val GENERATED_CONTENT_PROVIDER_ENABLED = booleanPreferencesKey("generated_content_provider_enabled")
         val GENERATED_CONTENT_DISCLOSURE_ACCEPTED = booleanPreferencesKey("generated_content_disclosure_accepted")
         val WALLHAVEN_PROVIDER_ENABLED = booleanPreferencesKey("wallhaven_provider_enabled")

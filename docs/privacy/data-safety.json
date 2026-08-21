@@ -322,7 +322,7 @@
       "deletionPath": "Disable weather effects, revoke location permission, or clear app data."
     },
     {
-      "endpointId": "stability-api",
+      "endpointId": "generated-wallpaper-api",
       "dataTypes": ["Generated wallpaper prompts", "Provider API key", "Generated images"],
       "collectionStatus": "userInitiatedCollection",
       "sharingStatus": "sharedWithSelectedProviders",

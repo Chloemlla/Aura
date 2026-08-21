@@ -3,20 +3,16 @@ package com.freevibe.data.repository
 import android.content.Context
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Wallpaper
-import com.freevibe.data.remote.stability.StabilityAiApi
 import com.freevibe.service.advertisedLengthExceeds
 import com.freevibe.service.copyStreamCapped
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
+import java.net.URI
 import java.util.Locale
+import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody
-import okhttp3.RequestBody.Companion.toRequestBody
-import java.io.File
-import java.net.URI
-import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -34,7 +30,7 @@ enum class AiStyle(val label: String, val preset: String) {
 @Singleton
 class AiWallpaperRepository @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val api: StabilityAiApi,
+    private val backend: GeneratedWallpaperBackend,
     private val referenceIndex: GeneratedAssetReferenceIndex,
 ) {
     private val dir: File
@@ -49,84 +45,63 @@ class AiWallpaperRepository @Inject constructor(
         // explicit rethrow, a ViewModel scope cancel (back-navigation mid-generate) would
         // be captured as a failure Result and surface to the user as a generic error.
         try {
-            val textType = "text/plain".toMediaType()
-            val parts = buildMap<String, RequestBody> {
-                put("prompt", prompt.toRequestBody(textType))
-                put("aspect_ratio", "9:16".toRequestBody(textType))
-                put("output_format", "png".toRequestBody(textType))
-                if (style.preset.isNotEmpty()) {
-                    put("style_preset", style.preset.toRequestBody(textType))
+            val body = backend.generate(prompt, style, apiKey).getOrThrow()
+            body.use {
+                if (advertisedLengthExceeds(body.contentLength(), MAX_GENERATED_WALLPAPER_BYTES)) {
+                    throw IllegalStateException("Generated wallpaper is too large")
                 }
-            }
 
-            val response = api.generateImage(
-                authHeader = "Bearer $apiKey",
-                accept = "image/*",
-                parts = parts,
-            )
-
-            if (!response.isSuccessful) {
-                val errorBody = response.errorBody()?.string()?.takeIf { it.isNotBlank() }
-                throw IllegalStateException(friendlyErrorMessage(response.code(), errorBody))
-            }
-
-            val body = response.body()
-                ?: throw IllegalStateException("Empty response from Stability AI")
-            if (advertisedLengthExceeds(body.contentLength(), MAX_GENERATED_WALLPAPER_BYTES)) {
-                throw IllegalStateException("Generated wallpaper is too large")
-            }
-
-            val id = UUID.randomUUID().toString()
-            val file = File(dir, "$id.png")
-            val tmp = File(dir, "$id.tmp")
-            try {
-                body.byteStream().use { input ->
-                    tmp.outputStream().use { output ->
-                        copyStreamCapped(input, output, MAX_GENERATED_WALLPAPER_BYTES)
+                val id = UUID.randomUUID().toString()
+                val file = File(dir, "$id.png")
+                val tmp = File(dir, "$id.tmp")
+                try {
+                    body.byteStream().use { input ->
+                        tmp.outputStream().use { output ->
+                            copyStreamCapped(input, output, MAX_GENERATED_WALLPAPER_BYTES)
+                        }
                     }
+                    if (!tmp.renameTo(file)) {
+                        tmp.copyTo(file, overwrite = true)
+                        tmp.delete()
+                    }
+                } catch (e: Throwable) {
+                    runCatching { tmp.delete() }
+                    if (e is CancellationException) throw e
+                    throw e
                 }
-                if (!tmp.renameTo(file)) {
-                    tmp.copyTo(file, overwrite = true)
-                    tmp.delete()
+
+                // Reclaim storage *after* the new file lands so an inflight generation never
+                // races against eviction. The cap is 50 *unreferenced* files; older ones go
+                // first. Pruning is best-effort, but cancellation must still propagate.
+                try {
+                    pruneOldFilesInternal(MAX_GENERATED_FILES)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Throwable) {
+                    // Storage reclamation is not worth failing a successful generation.
                 }
-            } catch (e: Throwable) {
-                runCatching { tmp.delete() }
-                if (e is CancellationException) throw e
-                throw e
-            }
 
-            // Reclaim storage *after* the new file lands so an inflight generation never
-            // races against eviction. The cap is 50 *unreferenced* files; older ones go
-            // first. Pruning is best-effort, but cancellation must still propagate.
-            try {
-                pruneOldFilesInternal(MAX_GENERATED_FILES)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Throwable) {
-                // Storage reclamation is not worth failing a successful generation.
+                Result.success(
+                    Wallpaper(
+                        id = id,
+                        source = ContentSource.AI_GENERATED,
+                        thumbnailUrl = file.toURI().toString(),
+                        fullUrl = file.toURI().toString(),
+                        width = 576,
+                        height = 1024,
+                        category = "AI Generated",
+                        tags = generatedWallpaperTags(style),
+                        uploaderName = "AI",
+                        isAiGenerated = true,
+                    ),
+                )
             }
-
-            Result.success(
-                Wallpaper(
-                    id = id,
-                    source = ContentSource.AI_GENERATED,
-                    thumbnailUrl = file.toURI().toString(),
-                    fullUrl = file.toURI().toString(),
-                    width = 576,
-                    height = 1024,
-                    category = "AI Generated",
-                    tags = generatedWallpaperTags(style),
-                    uploaderName = "AI",
-                    isAiGenerated = true,
-                ),
-            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
             Result.failure(e)
         }
     }
-
 
     /**
      * Delete generated images beyond the most recent [maxCount] to reclaim storage.
@@ -219,25 +194,5 @@ class AiWallpaperRepository @Inject constructor(
             if (style.preset.isNotEmpty()) add(style.preset)
         }
 
-        /**
-         * Map HTTP error codes from Stability AI to actionable user messages. Lives in
-         * the companion object so it can be unit-tested without spinning up Hilt or a
-         * fake Retrofit. Pure JVM function.
-         *
-         * @param code HTTP status code from the Stability AI API response.
-         * @param errorBody Optional response body text; appended verbatim when non-blank.
-         */
-        internal fun friendlyErrorMessage(code: Int, errorBody: String?): String {
-            val base = when (code) {
-                401 -> "Stability AI key is invalid or expired. Update it in the key field."
-                402 -> "Stability AI account is out of credits. Top up or check billing at platform.stability.ai/account."
-                403 -> "Prompt was rejected by Stability AI's content policy. Try rewording."
-                422 -> "Prompt could not be processed. Try a shorter or simpler description."
-                429 -> "Stability AI rate limit hit. Wait 60 seconds, then check platform.stability.ai/account if it keeps happening."
-                in 500..599 -> "Stability AI server error ($code). Try again shortly."
-                else -> "Generation failed (HTTP $code)."
-            }
-            return if (!errorBody.isNullOrBlank()) "$base $errorBody" else base
-        }
     }
 }

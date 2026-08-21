@@ -14,13 +14,6 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
 
 ### P2
 
-- [ ] P2 — Strip Stability AI from the `foss` flavor and gate binary-update consent
-  Why: the `foss` source set stubs only `com/google/*`, so the Stability AI integration compiles into the FOSS artifact and collides head-on with IzzyOnDroid's stated policy against apps for accessing generative-AI platforms; separately, both IzzyOnDroid and F-Droid require runtime binary downloads to be explicit opt-in with a stated warning.
-  Evidence: `app/build.gradle.kts:98` (`STABILITY_AI_KEY` unconditional in `defaultConfig`); `app/src/foss/java/com/google/**` only; `YtDlpUpdateManager.kt:56-57` reachable from `SettingsViewModel.kt:517`; IzzyOnDroid App Inclusion Policy.
-  Touches: `app/build.gradle.kts` source sets, `aigenerate/**`, `StabilityAiApi.kt`, `YtDlpUpdateManager.kt`, settings copy, `tools/fdroid_preflight.py`.
-  Acceptance: the FOSS artifact contains no Stability AI code or key field and the AI entry point is absent from its UI; the yt-dlp update is opt-in with copy stating the user is bypassing repository checks; `fdroid_preflight.py` asserts both.
-  Complexity: M
-
 - [ ] P2 — Add the fastlane store images IzzyOnDroid requires
   Why: `fastlane/metadata/android/en-US/` has no `images/` directory, so there is no icon, phone screenshot, or feature graphic for a store listing to consume. (Changelogs are current — an earlier claim that they stopped at versionCode 8 was a lexical-sort artifact; 22 exist, through 141.)
   Evidence: `ls fastlane/metadata/android/en-US/` returns only `changelogs/`, `full_description.txt`, `short_description.txt`, `title.txt`; IzzyOnDroid App Inclusion Policy requires in-repo Fastlane metadata with icon and screenshots. Screenshot capture itself stays blocked in `Roadmap_Blocked.md`.

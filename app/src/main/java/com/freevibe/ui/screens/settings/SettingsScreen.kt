@@ -434,7 +434,7 @@ fun SettingsScreen(
                 pexelsApiKey = pexelsApiKey,
                 pixabayApiKey = pixabayApiKey,
                 freesoundApiKey = freesoundApiKey,
-                stabilityAiKey = stabilityAiKey,
+                generatedWallpaperProviderKey = generatedWallpaperProviderKey,
                 providerCredentialStorageUnavailable = providerCredentialStorageUnavailable,
                 generatedContentProviderEnabled = generatedContentProviderEnabled,
                 generatedContentDisclosureAccepted = generatedContentDisclosureAccepted,

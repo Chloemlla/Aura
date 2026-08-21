@@ -68,7 +68,7 @@ must have a matching `networkSurfaces` row in `docs/privacy/data-safety.json`.
 | `audius-api` | Search queries and provider response metadata shared with Audius during sound browsing. | Sound browsing controls and local cache cleanup. |
 | `ccmixter-api` | Search queries and provider response metadata shared with ccMixter during sound browsing. | Sound browsing controls and local cache cleanup. |
 | `open-meteo-api` | Approximate location shared with Open-Meteo only when weather effects are enabled. | Weather effects toggle and Android location permission. |
-| `stability-api` | Prompt, key-authenticated request metadata, and generated output handled through Stability when the user starts generation. | Generated wallpaper switch, disclosure, and Stability key controls. |
+| `generated-wallpaper-api` | Prompt, key-authenticated request metadata, and generated output handled through Stability when the user starts generation. | Generated wallpaper switch, disclosure, and Stability key controls. |
 | `youtube-newpipe` | Video IDs and provider response metadata shared with YouTube tooling during enabled YouTube flows. | YouTube source switch and sound query settings. |
 | `youtube-pot-provider` | YouTube attestation challenge, video-bound token context, and response metadata shared only with the HTTPS provider selected by the user. | PO-token provider URL, YouTube source switch, and clear-app-data controls. |
 | `aura-collection-links` | No app-initiated network collection; links are import locators. | User chooses whether to import a collection link. |

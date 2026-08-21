@@ -11,7 +11,7 @@
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.1.0-7F52FF?logo=kotlin&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4)
 
-> Open-source alternative to Zedge — wallpapers, video wallpapers, ringtones, and sounds for Android. **YouTube integration, yt-dlp powered.**
+> Open-source alternative to Zedge: wallpapers, video wallpapers, ringtones, and sounds for Android. **YouTube integration, yt-dlp powered.**
 
 ![Aura Screenshot](screenshot.png)
 
@@ -23,17 +23,17 @@ Aura is built as a local-first tool rather than an ad-and-credit marketplace:
 |------|---------------|
 | **Advertising** | No ad SDK, sponsored placements, or cross-app tracking. |
 | **Account** | Browsing, downloading, editing, applying, and backing up content do not require an Aura account; community features use an anonymous app identity. |
-| **Credits and paywalls** | No Aura credit balance, subscription, or in-app paywall. Optional Stability AI generation uses the user's own provider key and may consume Stability credits. |
-| **AI-generated content** | Generation is off by default. Declared AI uploads are labeled, Aura-generated uploads are labeled automatically, and community feeds provide a Hide AI filter. |
+| **Credits and paywalls** | No Aura credit balance, subscription, or in-app paywall. In full builds, optional Stability AI generation uses the user's own provider key and may consume Stability credits. |
+| **AI-generated content** | Generation is off by default in full builds and omitted from FOSS builds. Declared AI uploads are labeled, Aura-generated uploads are labeled automatically, and community feeds provide a Hide AI filter. |
 | **Offline library** | Downloads and offline favorites stay on the device for local use. Portable backups carry favorites, collections, searches, wallpaper packs, and sound profiles without exporting device-specific download paths. |
 
-- **Quality-ranked YouTube sounds** — ringtones, notifications, and alarms use intent-specific YouTube searches with tight duration windows and cleaner result filtering.
-- **Reddit-first discovery** — mobile wallpaper and motion communities lead the home feeds, with real cached Atom cursor pagination instead of a fixed recent slice.
-- **Video wallpapers from multiple sources** — browse Reddit live wallpapers/cinemagraphs first, followed by YouTube, Pixabay, and Pexels; import local videos/GIFs, then tune loop, crop, Fill, or Fit before applying.
-- **Multi-source personalization** — Reddit RSS, Wallhaven, Bing, Pexels, Pixabay, YouTube, legacy Freesound attributions, and community uploads.
-- **Instant startup** — Discover feed is cached locally. On subsequent launches wallpapers appear immediately while fresh results load in the background.
-- **Performance proof path** — Baseline Profile and Macrobenchmark tests cover startup, Wallpaper Detail, and the main media grids on a physical-device runner.
-- **5 bottom nav tabs** — Wallpapers, Videos, Sounds, Library, Settings.
+- **Quality-ranked YouTube sounds**: ringtones, notifications, and alarms use intent-specific YouTube searches with tight duration windows and cleaner result filtering.
+- **Reddit-first discovery**: mobile wallpaper and motion communities lead the home feeds, with real cached Atom cursor pagination instead of a fixed recent slice.
+- **Video wallpapers from multiple sources**: browse Reddit live wallpapers/cinemagraphs first, followed by YouTube, Pixabay, and Pexels; import local videos/GIFs, then tune loop, crop, Fill, or Fit before applying.
+- **Multi-source personalization**: Reddit RSS, Wallhaven, Bing, Pexels, Pixabay, YouTube, legacy Freesound attributions, and community uploads.
+- **Instant startup**: Discover feed is cached locally. On subsequent launches wallpapers appear immediately while fresh results load in the background.
+- **Performance proof path**: Baseline Profile and Macrobenchmark tests cover startup, Wallpaper Detail, and the main media grids on a physical-device runner.
+- **5 bottom nav tabs**: Wallpapers, Videos, Sounds, Library, Settings.
 
 ## Installing Aura
 
@@ -50,6 +50,11 @@ own with `autoApkFilterByArch` enabled, which the bundled
 [`obtainium.json`](obtainium.json) already sets.
 
 Do not install debug or third-party re-signed builds.
+
+FOSS store builds omit the Stability AI generator, its provider key field, and
+Firebase-backed community features. Full GitHub builds retain those optional
+features, with generation disabled until the user enables it and accepts its
+disclosure.
 
 Verify the download, then install or update it with ADB:
 
@@ -88,6 +93,10 @@ accepts the credential-free HTTPS base URL of a self-hosted
 [bgutil provider](https://github.com/Brainicism/bgutil-ytdlp-pot-provider). Aura
 ships its hash-pinned yt-dlp plugin but sends attestation data only after this
 optional URL is configured; see yt-dlp's [PO Token Guide](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide).
+
+Choosing **Update yt-dlp** in Settings downloads a replacement executable at
+runtime. Aura requires a separate confirmation that explains this bypasses
+F-Droid or other repository review checks before the download can start.
 
 ## Privacy
 
@@ -249,6 +258,6 @@ Issues and PRs welcome. Please follow existing code style (Kotlin, Compose, Hilt
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License. See [LICENSE](LICENSE) for details.
 
 Content from third-party sources retains its original license. YouTube content is accessed via NewPipe Extractor and yt-dlp under their respective open-source licenses.

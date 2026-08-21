@@ -326,7 +326,7 @@ val providerCapabilities: List<ProviderCapability> = listOf(
     ProviderCapability(
         source = ContentSource.AI_GENERATED,
         lifecycle = ProviderLifecycle.GENERATED,
-        builds = ALL_BUILDS,
+        builds = FULL_ONLY,
         channels = ALL_CHANNELS,
         configuration = ProviderConfiguration.REQUIRED_KEY,
         permission = ProviderPermission.NONE,
@@ -334,7 +334,7 @@ val providerCapabilities: List<ProviderCapability> = listOf(
         requiresAttribution = true,
         enabledByDefault = false,
         killSwitchKey = "generated_content_provider_enabled",
-        endpointIds = setOf("stability-api"),
+        endpointIds = setOf("generated-wallpaper-api"),
     ),
     ProviderCapability(
         source = ContentSource.OPEN_METEO,

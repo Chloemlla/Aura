@@ -63,7 +63,6 @@ import com.freevibe.ui.screens.sounds.SoundDetailScreen
 import com.freevibe.ui.screens.sounds.SoundsScreen
 import com.freevibe.ui.screens.wallpapers.WallpaperDetailScreen
 import com.freevibe.ui.screens.wallpapers.WallpapersScreen
-import com.freevibe.ui.screens.aigenerate.AiWallpaperScreen
 import com.freevibe.ui.components.AuraSnackbarHost
 import com.freevibe.ui.components.CountBadge
 
@@ -538,12 +537,7 @@ fun FreeVibeRoot(
                 )
             }
 
-            // ── AI Wallpaper Generator ────────────────────────────
-            composable(Screen.AiWallpaper.route) {
-                AiWallpaperScreen(
-                    onBack = { navController.navigateUp() },
-                )
-            }
+            generatedWallpaperRoute(navController)
 
             // ── Detail screens ────────────────────────────────────
             composable(

@@ -26,6 +26,7 @@ import com.freevibe.service.VideoWallpaperSelectionResult
 import com.freevibe.service.VideoWallpaperStorage
 import com.freevibe.service.WallpaperHistoryManager
 import com.freevibe.service.YtDlpUpdateManager
+import com.freevibe.service.YtDlpUpdateConsent
 import com.freevibe.service.YtDlpUpdateResult
 import com.freevibe.service.YtDlpUpdateSnapshot
 import com.freevibe.service.YtDlpUpdateStatus
@@ -322,7 +323,7 @@ class SettingsViewModelTest {
             rollbackAvailable = true,
         )
         every { manager.snapshot() } returns initial
-        coEvery { manager.updateStable() } returns YtDlpUpdateResult(
+        coEvery { manager.updateStable(YtDlpUpdateConsent.REPOSITORY_CHECKS_BYPASS_CONFIRMED) } returns YtDlpUpdateResult(
             status = YtDlpUpdateStatus.UPDATED_PENDING_VALIDATION,
             snapshot = updated,
         )
@@ -331,13 +332,13 @@ class SettingsViewModelTest {
             ytDlpUpdateManagerOverride = manager,
         )
 
-        viewModel.updateYtDlp()
+        viewModel.updateYtDlp(YtDlpUpdateConsent.REPOSITORY_CHECKS_BYPASS_CONFIRMED)
         advanceUntilIdle()
 
         assertFalse(viewModel.ytDlpUpdate.value.isUpdating)
         assertEquals(YtDlpUpdateStatus.UPDATED_PENDING_VALIDATION, viewModel.ytDlpUpdate.value.completedStatus)
         assertEquals(updated, viewModel.ytDlpUpdate.value.snapshot)
-        coVerify(exactly = 1) { manager.updateStable() }
+        coVerify(exactly = 1) { manager.updateStable(YtDlpUpdateConsent.REPOSITORY_CHECKS_BYPASS_CONFIRMED) }
     }
 
     @Test
@@ -615,7 +616,7 @@ class SettingsViewModelTest {
             every { prefs.adaptiveTintIntensity } returns flowOf(0.3f)
             every { prefs.darkModeWallpaperId } returns flowOf("") // Phase 6.2 dark slot
             every { prefs.lightModeWallpaperId } returns flowOf("") // Phase 6.2 light slot
-            every { prefs.stabilityAiKey } returns flowOf("")       // Phase 3.1 AI
+            every { prefs.generatedWallpaperProviderKey } returns flowOf("")       // Phase 3.1 AI
             every { prefs.reduceAnimations } returns flowOf(false) // Reduced-motion a11y
             every { prefs.ringtoneShuffleEnabled } returns flowOf(false)
             every { prefs.ringtoneShuffleIntervalHours } returns flowOf(24L)

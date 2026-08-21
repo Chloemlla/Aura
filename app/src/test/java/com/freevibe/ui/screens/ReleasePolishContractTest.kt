@@ -261,7 +261,7 @@ class ReleasePolishContractTest {
             "src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperStyleActions.kt",
             "src/main/java/com/freevibe/ui/screens/sounds/SoundCommunityActions.kt",
             "src/main/java/com/freevibe/ui/screens/sounds/SoundsViewModel.kt",
-            "src/main/java/com/freevibe/ui/screens/aigenerate/AiWallpaperViewModel.kt",
+            "src/full/java/com/freevibe/ui/screens/aigenerate/AiWallpaperViewModel.kt",
         ).map { File(it).readText() }
         val source = feedbackFiles.joinToString("\n")
 
@@ -329,7 +329,7 @@ class ReleasePolishContractTest {
     fun `settings credential and youtube edit dialogs avoid ime occlusion`() {
         val servicesSource = File("src/main/java/com/freevibe/ui/screens/settings/SettingsServicesSection.kt").readText()
         val soundSource = File("src/main/java/com/freevibe/ui/screens/settings/SettingsSoundSection.kt").readText()
-        val apiDialog = servicesSource.substringAfter("private fun ProviderApiKeyDialog(")
+        val apiDialog = servicesSource.substringAfter("internal fun ProviderApiKeyDialog(")
         val ytQueriesDialog = soundSource.substringAfter("private fun YouTubeSoundQueriesDialog(").substringBefore("private fun YouTubeBlockedWordsDialog(")
         val blockedWordsDialog = soundSource.substringAfter("private fun YouTubeBlockedWordsDialog(")
 
@@ -371,7 +371,7 @@ class ReleasePolishContractTest {
         val videoRefineSheet = videoSource.substringAfter("private fun VideoFiltersSheet(").substringBefore("private fun videoSourceHealthSummary(")
         val soundSource = File("src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt").readText()
         val soundModeBar = soundSource.substringAfter("private fun SoundModeBar(").substringBefore("// -- Sounds List --")
-        val aiSource = File("src/main/java/com/freevibe/ui/screens/aigenerate/AiWallpaperScreen.kt").readText()
+        val aiSource = File("src/full/java/com/freevibe/ui/screens/aigenerate/AiWallpaperScreen.kt").readText()
         val aiStylePicker = aiSource.substringAfter("// ── Style picker").substringBefore("// ── Generate button")
 
         assertTrue(!browseRailSource.contains("FilterChip("))
@@ -390,7 +390,7 @@ class ReleasePolishContractTest {
     @Test
     fun `long disclosure dialogs keep policy copy scrollable on compact screens`() {
         val guidelines = File("src/main/java/com/freevibe/ui/components/CommunityGuidelinesDialog.kt").readText()
-        val aiDisclosure = File("src/main/java/com/freevibe/ui/screens/aigenerate/AiWallpaperScreen.kt")
+        val aiDisclosure = File("src/full/java/com/freevibe/ui/screens/aigenerate/AiWallpaperScreen.kt")
             .readText()
             .substringAfter("fun GeneratedWallpaperDisclosureDialog(")
             .substringBefore("@OptIn(")

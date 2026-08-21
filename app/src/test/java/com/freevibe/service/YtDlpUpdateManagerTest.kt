@@ -38,7 +38,7 @@ class YtDlpUpdateManagerTest {
         )
         val manager = fixture.manager(fakeRuntime)
 
-        val update = manager.updateStable()
+        val update = manager.updateStable(YtDlpUpdateConsent.REPOSITORY_CHECKS_BYPASS_CONFIRMED)
 
         assertEquals(YtDlpUpdateStatus.UPDATED_PENDING_VALIDATION, update.status)
         assertEquals("new", fixture.runtimeFile.readText())
@@ -71,7 +71,7 @@ class YtDlpUpdateManagerTest {
         )
         val manager = fixture.manager(fakeRuntime)
 
-        manager.updateStable()
+        manager.updateStable(YtDlpUpdateConsent.REPOSITORY_CHECKS_BYPASS_CONFIRMED)
         val restored = manager.recordExtractionFailure(IllegalStateException("po token failed"))
 
         assertTrue(restored)
@@ -94,7 +94,7 @@ class YtDlpUpdateManagerTest {
         ).also { it.initYtDlpThrows = true }
         val manager = fixture.manager(fakeRuntime)
 
-        manager.updateStable()
+        manager.updateStable(YtDlpUpdateConsent.REPOSITORY_CHECKS_BYPASS_CONFIRMED)
         val restored = manager.recordExtractionFailure(IllegalStateException("po token failed"))
 
         assertFalse(restored)
@@ -113,7 +113,7 @@ class YtDlpUpdateManagerTest {
         )
         val manager = fixture.manager(fakeRuntime)
 
-        manager.updateStable()
+        manager.updateStable(YtDlpUpdateConsent.REPOSITORY_CHECKS_BYPASS_CONFIRMED)
         fixture.rollbackDir.deleteRecursively()
         fixture.rollbackDir.writeText("not a rollback directory")
         val restored = manager.recordExtractionFailure(IllegalStateException("po token failed"))
@@ -136,7 +136,7 @@ class YtDlpUpdateManagerTest {
         )
         val manager = fixture.manager(fakeRuntime)
 
-        val update = manager.updateStable()
+        val update = manager.updateStable(YtDlpUpdateConsent.REPOSITORY_CHECKS_BYPASS_CONFIRMED)
 
         assertEquals(YtDlpUpdateStatus.FAILED, update.status)
         assertEquals("old", fixture.runtimeFile.readText())
@@ -156,7 +156,7 @@ class YtDlpUpdateManagerTest {
         )
         val manager = fixture.manager(fakeRuntime)
 
-        val update = manager.updateStable()
+        val update = manager.updateStable(YtDlpUpdateConsent.REPOSITORY_CHECKS_BYPASS_CONFIRMED)
 
         assertEquals(YtDlpUpdateStatus.FAILED, update.status)
         assertEquals("safe-bundled", fixture.runtimeFile.readText())

@@ -172,7 +172,7 @@ class AiWallpaperViewModel @Inject constructor(
     private var lastSuccessfulGeneration: GeneratedWallpaperRequestSignature? = null
 
     // API key is read from DataStore so changes in Settings propagate live.
-    val stabilityAiKey: StateFlow<String> = prefs.stabilityAiKey
+    val stabilityAiKey: StateFlow<String> = prefs.generatedWallpaperProviderKey
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
     val generatedContentProviderEnabled: StateFlow<Boolean> = prefs.generatedContentProviderEnabled
         .stateIn(
@@ -196,7 +196,7 @@ class AiWallpaperViewModel @Inject constructor(
     }
 
     fun saveApiKey(key: String) {
-        viewModelScope.launch { prefs.setStabilityKey(key) }
+        viewModelScope.launch { prefs.setGeneratedWallpaperProviderKey(key) }
     }
 
     fun acceptGeneratedContentDisclosure() {

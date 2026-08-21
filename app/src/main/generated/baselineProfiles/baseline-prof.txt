@@ -22268,7 +22268,6 @@ SPLcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;->-$$
 SPLcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;->-$$Nest$fgetprovideOkHttpClientProvider(Lcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;)Ldagger/internal/Provider;
 SPLcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;->-$$Nest$fgetprovidePexelsApiProvider(Lcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;)Ldagger/internal/Provider;
 SPLcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;->-$$Nest$fgetprovidePixabayApiProvider(Lcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;)Ldagger/internal/Provider;
-SPLcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;->-$$Nest$fgetprovideStabilityAiApiProvider(Lcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;)Ldagger/internal/Provider;
 SPLcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;->-$$Nest$fgetprovideWallhavenApiProvider(Lcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;)Ldagger/internal/Provider;
 SPLcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;->-$$Nest$fgetredditRepositoryProvider(Lcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;)Ldagger/internal/Provider;
 SPLcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;->-$$Nest$fgetsearchHistoryRepositoryProvider(Lcom/freevibe/DaggerFreeVibeApp_HiltComponents_SingletonC$SingletonCImpl;)Ldagger/internal/Provider;
@@ -22693,7 +22692,6 @@ SPLcom/freevibe/data/local/PreferencesManager$Keys;->getSCHEDULER_SHUFFLE()Landr
 SPLcom/freevibe/data/local/PreferencesManager$Keys;->getSCHEDULER_SOURCE()Landroidx/datastore/preferences/core/Preferences$Key;
 SPLcom/freevibe/data/local/PreferencesManager$Keys;->getSHOW_NSFW()Landroidx/datastore/preferences/core/Preferences$Key;
 SPLcom/freevibe/data/local/PreferencesManager$Keys;->getSHOW_SKETCHY()Landroidx/datastore/preferences/core/Preferences$Key;
-SPLcom/freevibe/data/local/PreferencesManager$Keys;->getSTABILITY_KEY()Landroidx/datastore/preferences/core/Preferences$Key;
 SPLcom/freevibe/data/local/PreferencesManager$Keys;->getUSER_STYLES()Landroidx/datastore/preferences/core/Preferences$Key;
 SPLcom/freevibe/data/local/PreferencesManager$Keys;->getVIDEO_AUTO_BATTERY_SAVER()Landroidx/datastore/preferences/core/Preferences$Key;
 SPLcom/freevibe/data/local/PreferencesManager$Keys;->getVIDEO_FPS_LIMIT()Landroidx/datastore/preferences/core/Preferences$Key;
@@ -23059,7 +23057,6 @@ SPLcom/freevibe/data/remote/pixabay/PixabayPhotoResponseJsonAdapter;-><clinit>()
 SPLcom/freevibe/data/remote/pixabay/PixabayPhotoResponseJsonAdapter;-><init>(Lcom/squareup/moshi/Moshi;)V
 SPLcom/freevibe/data/remote/pixabay/PixabayPhotoResponseJsonAdapter;->fromJson(Lcom/squareup/moshi/JsonReader;)Lcom/freevibe/data/remote/pixabay/PixabayPhotoResponse;
 SPLcom/freevibe/data/remote/pixabay/PixabayPhotoResponseJsonAdapter;->fromJson(Lcom/squareup/moshi/JsonReader;)Ljava/lang/Object;
-Lcom/freevibe/data/remote/stability/StabilityAiApi;
 Lcom/freevibe/data/remote/wallhaven/WallhavenApi;
 Lcom/freevibe/data/remote/wallhaven/WallhavenApi$DefaultImpls;
 SPLcom/freevibe/data/remote/wallhaven/WallhavenApi$DefaultImpls;->search$default(Lcom/freevibe/data/remote/wallhaven/WallhavenApi;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/String;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
@@ -23122,7 +23119,6 @@ SPLcom/freevibe/data/remote/wallhaven/WallhavenWallpaperJsonAdapter;->fromJson(L
 SPLcom/freevibe/data/remote/wallhaven/WallhavenWallpaperJsonAdapter;->fromJson(Lcom/squareup/moshi/JsonReader;)Ljava/lang/Object;
 Lcom/freevibe/data/repository/AiWallpaperRepository;
 SPLcom/freevibe/data/repository/AiWallpaperRepository;-><clinit>()V
-SPLcom/freevibe/data/repository/AiWallpaperRepository;-><init>(Landroid/content/Context;Lcom/freevibe/data/remote/stability/StabilityAiApi;)V
 Lcom/freevibe/data/repository/AiWallpaperRepository$Companion;
 SPLcom/freevibe/data/repository/AiWallpaperRepository$Companion;-><init>()V
 SPLcom/freevibe/data/repository/AiWallpaperRepository$Companion;-><init>(Lkotlin/jvm/internal/DefaultConstructorMarker;)V
@@ -23470,7 +23466,6 @@ SPLcom/freevibe/di/AppModule;->provideOkHttpClient()Lokhttp3/OkHttpClient;
 SPLcom/freevibe/di/AppModule;->providePexelsApi(Lokhttp3/OkHttpClient;Lcom/squareup/moshi/Moshi;)Lcom/freevibe/data/remote/pexels/PexelsApi;
 SPLcom/freevibe/di/AppModule;->providePixabayApi(Lokhttp3/OkHttpClient;Lcom/squareup/moshi/Moshi;)Lcom/freevibe/data/remote/pixabay/PixabayApi;
 SPLcom/freevibe/di/AppModule;->provideSearchHistoryDao(Lcom/freevibe/data/local/FreeVibeDatabase;)Lcom/freevibe/data/local/SearchHistoryDao;
-SPLcom/freevibe/di/AppModule;->provideStabilityAiApi(Lokhttp3/OkHttpClient;)Lcom/freevibe/data/remote/stability/StabilityAiApi;
 SPLcom/freevibe/di/AppModule;->provideWallhavenApi(Lokhttp3/OkHttpClient;Lcom/squareup/moshi/Moshi;)Lcom/freevibe/data/remote/wallhaven/WallhavenApi;
 SPLcom/freevibe/di/AppModule;->provideWallpaperCacheDao(Lcom/freevibe/data/local/FreeVibeDatabase;)Lcom/freevibe/data/local/WallpaperCacheDao;
 SPLcom/freevibe/di/AppModule;->provideWallpaperHistoryDao(Lcom/freevibe/data/local/FreeVibeDatabase;)Lcom/freevibe/data/local/WallpaperHistoryDao;
@@ -23501,8 +23496,6 @@ Lcom/freevibe/di/AppModule_ProvidePixabayApiFactory;
 SPLcom/freevibe/di/AppModule_ProvidePixabayApiFactory;->providePixabayApi(Lokhttp3/OkHttpClient;Lcom/squareup/moshi/Moshi;)Lcom/freevibe/data/remote/pixabay/PixabayApi;
 Lcom/freevibe/di/AppModule_ProvideSearchHistoryDaoFactory;
 SPLcom/freevibe/di/AppModule_ProvideSearchHistoryDaoFactory;->provideSearchHistoryDao(Lcom/freevibe/data/local/FreeVibeDatabase;)Lcom/freevibe/data/local/SearchHistoryDao;
-Lcom/freevibe/di/AppModule_ProvideStabilityAiApiFactory;
-SPLcom/freevibe/di/AppModule_ProvideStabilityAiApiFactory;->provideStabilityAiApi(Lokhttp3/OkHttpClient;)Lcom/freevibe/data/remote/stability/StabilityAiApi;
 Lcom/freevibe/di/AppModule_ProvideWallhavenApiFactory;
 SPLcom/freevibe/di/AppModule_ProvideWallhavenApiFactory;->provideWallhavenApi(Lokhttp3/OkHttpClient;Lcom/squareup/moshi/Moshi;)Lcom/freevibe/data/remote/wallhaven/WallhavenApi;
 Lcom/freevibe/di/AppModule_ProvideWallpaperCacheDaoFactory;
@@ -24417,12 +24410,6 @@ Lcom/freevibe/ui/navigation/Screen$Wallpapers;
 SPLcom/freevibe/ui/navigation/Screen$Wallpapers;-><clinit>()V
 SPLcom/freevibe/ui/navigation/Screen$Wallpapers;-><init>()V
 SPLcom/freevibe/ui/navigation/Screen$Wallpapers;->equals(Ljava/lang/Object;)Z
-Lcom/freevibe/ui/screens/aigenerate/AiWallpaperViewModel_HiltModules$KeyModule;
-SPLcom/freevibe/ui/screens/aigenerate/AiWallpaperViewModel_HiltModules$KeyModule;->provide()Z
-Lcom/freevibe/ui/screens/aigenerate/AiWallpaperViewModel_HiltModules_BindsModule_Binds_LazyMapKey;
-SPLcom/freevibe/ui/screens/aigenerate/AiWallpaperViewModel_HiltModules_BindsModule_Binds_LazyMapKey;-><clinit>()V
-Lcom/freevibe/ui/screens/aigenerate/AiWallpaperViewModel_HiltModules_KeyModule_Provide_LazyMapKey;
-SPLcom/freevibe/ui/screens/aigenerate/AiWallpaperViewModel_HiltModules_KeyModule_Provide_LazyMapKey;-><clinit>()V
 Lcom/freevibe/ui/screens/collections/CollectionsViewModel_HiltModules$KeyModule;
 SPLcom/freevibe/ui/screens/collections/CollectionsViewModel_HiltModules$KeyModule;->provide()Z
 Lcom/freevibe/ui/screens/collections/CollectionsViewModel_HiltModules_BindsModule_Binds_LazyMapKey;

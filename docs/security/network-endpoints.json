@@ -252,7 +252,7 @@
       ]
     },
     {
-      "id": "stability-api",
+      "id": "generated-wallpaper-api",
       "hosts": ["api.stability.ai"],
       "schemes": ["https"],
       "surface": "Generated wallpaper image generation",

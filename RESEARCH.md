@@ -29,6 +29,12 @@ Per-contact ringtone assignment now checks Do Not Disturb policy state, explains
 blocked priority callers, opens Android's priority-caller and contact editor flows, and offers a
 VIP-only preset that silences the default ringtone after assigning the selected contact tone.
 
+The FOSS flavor now excludes the Stability network client, encrypted credential
+binding, generator screens, provider settings, and related resources at the
+source-set boundary. Its generated wallpaper route is a no-op. Runtime yt-dlp
+replacement downloads also require a separate warning confirmation that states
+repository checks are bypassed.
+
 ## Product Map
 
 ### Core workflows

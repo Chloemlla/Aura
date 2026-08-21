@@ -181,7 +181,7 @@ class SettingsViewModel @Inject constructor(
     val pexelsApiKey get() = media.pexelsApiKey
     val pixabayApiKey get() = media.pixabayApiKey
     val freesoundApiKey get() = media.freesoundApiKey
-    val stabilityAiKey get() = media.stabilityAiKey
+    val generatedWallpaperProviderKey get() = media.generatedWallpaperProviderKey
     val providerCredentialStorageUnavailable get() = media.providerCredentialStorageUnavailable
     val generatedContentProviderEnabled get() = media.generatedContentProviderEnabled
     val generatedContentDisclosureAccepted get() = media.generatedContentDisclosureAccepted
@@ -293,7 +293,7 @@ class SettingsViewModel @Inject constructor(
     fun setPexelsKey(key: String) = media.setPexelsKey(key)
     fun setPixabayKey(key: String) = media.setPixabayKey(key)
     fun setFreesoundKey(key: String) = media.setFreesoundKey(key)
-    fun setStabilityKey(key: String) = media.setStabilityKey(key)
+    fun setGeneratedWallpaperProviderKey(key: String) = media.setGeneratedWallpaperProviderKey(key)
     fun setWallhavenProviderEnabled(enabled: Boolean) = media.setWallhavenProviderEnabled(enabled)
     fun setBingProviderEnabled(enabled: Boolean) = media.setBingProviderEnabled(enabled)
     fun setPexelsProviderEnabled(enabled: Boolean) = media.setPexelsProviderEnabled(enabled)
@@ -329,7 +329,7 @@ class SettingsViewModel @Inject constructor(
     fun refreshBackgroundWorkDiagnostics() = diagnosticsDelegate.refreshBackgroundWorkDiagnostics()
     fun setExternalAutomationEnabled(enabled: Boolean) = diagnosticsDelegate.setExternalAutomationEnabled(enabled)
     fun refreshExternalAutomationDiagnostics() = diagnosticsDelegate.refreshExternalAutomationDiagnostics()
-    fun updateYtDlp() = diagnosticsDelegate.updateYtDlp()
+    fun updateYtDlp(consent: com.freevibe.service.YtDlpUpdateConsent) = diagnosticsDelegate.updateYtDlp(consent)
     fun clearYtDlpUpdateNotice() = diagnosticsDelegate.clearYtDlpUpdateNotice()
     fun exportThemePack(uri: Uri) = diagnosticsDelegate.exportThemePack(uri)
     fun importThemePack(uri: Uri) = diagnosticsDelegate.importThemePack(uri)
