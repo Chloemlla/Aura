@@ -31,6 +31,7 @@ import com.freevibe.service.copyStreamCapped
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -464,6 +465,9 @@ class VideoWallpapersViewModel @Inject constructor(
         }
     }.let { java.util.Collections.synchronizedMap(it) }
     private val previewResolveInFlight = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val loadLock = Any()
+    private var loadJob: Job? = null
+    private var loadGeneration = 0L
 
     private val junkPatterns = listOf(
         "top \\d+", "\\d+ best", "how to", "tutorial", "review", "setup",
@@ -551,8 +555,6 @@ class VideoWallpapersViewModel @Inject constructor(
     }
 
     fun loadMore() {
-        if (_state.value.isLoading || _state.value.isLoadingMore || !_state.value.hasMore) return
-        _state.update { it.copy(isLoadingMore = true) }
         load(loadMore = true)
     }
 
@@ -574,6 +576,7 @@ class VideoWallpapersViewModel @Inject constructor(
             )
         }
         streamUrls.clear()
+        previewResolveInFlight.clear()
         _resolvedIds.value = emptySet()
         load()
     }
@@ -603,6 +606,7 @@ class VideoWallpapersViewModel @Inject constructor(
             )
         }
         streamUrls.clear()
+        previewResolveInFlight.clear()
         _resolvedIds.value = emptySet()
         load()
     }
@@ -793,17 +797,29 @@ class VideoWallpapersViewModel @Inject constructor(
         }
     }
 
-    private var loadJob: Job? = null
-
     override fun onCleared() {
-        loadJob?.cancel()
+        synchronized(loadLock) {
+            loadGeneration++
+            loadJob?.cancel()
+            loadJob = null
+        }
         super.onCleared()
     }
 
     private fun load(loadMore: Boolean = false) {
-        if (!loadMore) loadJob?.cancel()
-        loadJob = viewModelScope.launch {
-            val thisJob = kotlin.coroutines.coroutineContext[Job]
+        val job = synchronized(loadLock) {
+            if (loadMore) {
+                val current = _state.value
+                val feedLoadPending = loadJob != null
+                if (current.isLoading || current.isLoadingMore || !current.hasMore || feedLoadPending) {
+                    return
+                }
+                _state.update { it.copy(isLoadingMore = true) }
+            } else {
+                loadJob?.cancel()
+            }
+            val generation = ++loadGeneration
+            viewModelScope.launch(start = CoroutineStart.LAZY) {
             try {
             if (!loadMore) {
                 _state.update {
@@ -1039,7 +1055,7 @@ class VideoWallpapersViewModel @Inject constructor(
             val sourceFailureSet = sourceFailures.toSet()
             val attemptedCount = attemptedSources.size
             val allAttemptedFailed = attemptedCount > 0 && sourceFailures.size == attemptedCount
-            val preserveCurrentFeed = !loadMore && mixed.isEmpty() && s.items.isNotEmpty()
+            val preserveCurrentFeed = !loadMore && mixed.isEmpty() && _state.value.items.isNotEmpty()
 
             currentCoroutineContext().ensureActive()
             _state.update {
@@ -1103,11 +1119,16 @@ class VideoWallpapersViewModel @Inject constructor(
                 // Only the CURRENT load may clear the flags: a cancelled load's finally
                 // runs after its replacement already set isLoading = true, and clearing
                 // here would flash the empty-state card for the whole new load.
-                if (loadJob === thisJob) {
-                    _state.update { it.copy(isLoading = false, isLoadingMore = false, isRefreshing = false) }
+                synchronized(loadLock) {
+                    if (loadGeneration == generation) {
+                        loadJob = null
+                        _state.update { it.copy(isLoading = false, isLoadingMore = false, isRefreshing = false) }
+                    }
                 }
             }
+            }.also { loadJob = it }
         }
+        job.start()
     }
 
     private suspend fun loadPixabayVideoMetadata(

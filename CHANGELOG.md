@@ -48,6 +48,10 @@ All notable changes to Aura will be documented in this file.
   use the Android 16 progress-centric notification with a compatibility fallback, and the
   AGSL bitmap pipeline uses RuntimeColorFilter and RuntimeXfermode when they are available.
 
+- **Video wallpaper feed loading is now serialized**: warm-cache results stay visible while the
+  network refresh finishes, an immediate pagination request is ignored instead of duplicating
+  provider calls, and the next accepted page appends without dropping cached items.
+
 - **New Rotation health screen, in Settings under Diagnostics**: when automatic
   wallpaper change quietly stops, there was nothing to look at. The five reasons it can
   stop all look the same from the home screen: rotation is off, it's waiting for its

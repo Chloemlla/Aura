@@ -107,6 +107,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Creator Profiles** | View upload stats, votes, followed creators, followed uploads, and top creator leaderboard |
 | **Shareable Collections** | Share wallpaper collections as Aura links, QR codes, or JSON files and import them on another device |
 | **Video Wallpapers** | Browse YouTube video wallpapers with ExoPlayer auto-preview or import local clips/GIFs |
+| **Video Feed Pagination** | Warm-cache loading and pagination share one request gate, so provider results aren't duplicated or dropped |
 | **Video Quality Hints** | Loop-safe, low-battery, and phone-fit filters plus per-card motion hints |
 | **Video Fit Modes** | Fill for full-screen crop or Fit to preserve the full frame |
 | **Video Loop & Crop Editor** | Trim intros/outros with frame thumbnails, preview the loop, and convert landscape videos to portrait |

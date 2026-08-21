@@ -14,13 +14,6 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
 
 ### P2
 
-- [ ] P2 — Fix concurrent `load()`/`loadMore()` in VideoWallpapersViewModel
-  Why: the warm-cache path clears `isLoading` while the network load is still in flight, so the screen's auto-fill effect starts a second job that queries every provider for the same page, and the first job then replaces `items` wholesale and discards everything the second appended.
-  Evidence: `VideoWallpapersViewModel.kt:817-831,554-558,801-802,1042-1048,1103`; trigger at `VideoWallpapersScreen.kt:565-567`. Distinct from the delegate split in `Roadmap_Blocked.md`, which stays blocked — this is the bug that split would otherwise carry forward.
-  Touches: `VideoWallpapersViewModel.kt`, `VideoWallpapersScreen.kt`, ViewModel tests.
-  Acceptance: only one feed job runs at a time or pagination state advances atomically; a test drives a warm-cache cold start plus an immediate `loadMore` and asserts no duplicate provider requests and no lost appended items; `previewResolveInFlight` is cleared alongside `streamUrls` and `_resolvedIds` on reset.
-  Complexity: M
-
 - [ ] P2 — Give the Sound Editor gapless ringtone output
   Why: an OGG tagged `ANDROID_LOOP=true` loops gaplessly as an Android ringtone; without it every trimmed ringtone has a silence gap on repeat. Aura already exports OGG and never writes the tag, and no Android app — free or paid — currently ships loop-seam preview or a lossless cut.
   Evidence: no `ANDROID_LOOP` anywhere in `app/src/`; `AudioTrimmer.kt` always re-encodes through FFmpeg; losslesscut-android; HN 44935850 ("it's so dang hard to install a custom ringtone").
