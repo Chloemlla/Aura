@@ -485,6 +485,8 @@
     <string name="editor_sound_export_bitrate">Bitrate</string>
     <string name="editor_sound_bitrate_value">%1$d kbps</string>
     <string name="editor_sound_lossless_export">Lossless export · bitrate follows the source signal.</string>
+    <string name="editor_sound_lossless_cut">Lossless cut</string>
+    <string name="editor_sound_lossless_cut_info">Copies source audio packets without re-encoding. Aura checks that the copied bytes stay identical before export completes. Fades and normalization must stay off.</string>
     <string name="editor_sound_export_to_music">Export trimmed audio to Music/Aura</string>
     <string name="editor_sound_export_success">Exported %1$s to Music/Aura</string>
     <string name="editor_sound_export_failed">Export failed: %1$s</string>

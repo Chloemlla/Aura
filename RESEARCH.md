@@ -21,11 +21,15 @@ Top opportunities in priority order:
 
 The prior working-tree edits are now committed. The current feed path uses a generation-gated load job so warm-cache rendering and pagination cannot issue overlapping provider requests or overwrite an accepted append.
 
+The Sound Editor now keeps processed exports on the existing FFmpeg path, while an unprocessed
+supported source can use a guarded stream-copy cut. OGG exports include `ANDROID_LOOP=true`,
+and the editor checks the copied packet sequence before accepting a lossless result.
+
 ## Product Map
 
 ### Core workflows
 - Browse provider/community/local wallpaper, video, and sound feeds; search/filter; preview; favorite; download (Room + MediaStore).
-- Edit wallpapers (crop, tone, AMOLED crush, depth portraits, text/sticker overlays) and sounds (trim, fade, normalize, convert) and apply to home/lock/both or as ringtone/notification/alarm/per-contact.
+- Edit wallpapers (crop, tone, AMOLED crush, depth portraits, text/sticker overlays) and sounds (trim, fade, normalize, convert, gapless OGG output, and verified lossless cuts) and apply to home/lock/both or as ringtone/notification/alarm/per-contact.
 - Run one of three live-wallpaper engines (video, parallax, weather/shader) with FPS caps, battery caps, touch effects, and a battery dashboard.
 - Automate: interval/clock/day-night/theme rotation, rotation triggers (unlock/screen-off), 24H packs (scheduler shipped, editor missing), sound profiles (same state), scheduled backups, Tasker/tile/widget entry points.
 - Share and back up: collections via link/QR/JSON, whole-library export/import, local theme packs.

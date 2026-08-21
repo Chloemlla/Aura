@@ -125,7 +125,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Real-Time Waveform** | Mini waveform on each sound card tracks actual playback position |
 | **Configurable Search** | Customize YouTube search queries and blocked words per sound tab |
 | **Ringtones & Sounds** | Tab-based browsing: Ringtones (5-45s), Notifications (0-8s), Alarms (5-60s) |
-| **Sound Editor** | Waveform trim, fade in/out, normalize, format convert (MP3/OGG/WAV/FLAC/M4A) |
+| **Sound Editor** | Waveform trim, gapless OGG ringtone output, verified lossless cuts, fades, normalize, and format convert (MP3/OGG/WAV/FLAC/M4A) |
 | **Wallpaper Editor** | Brightness, contrast, saturation, blur, depth portraits, and local text/sticker layers |
 | **Crop & Position** | Pinch-zoom with aspect ratio presets (9:16, 16:9, 1:1) |
 | **Collections** | Organize wallpapers into named folders with 2x2 cover previews |

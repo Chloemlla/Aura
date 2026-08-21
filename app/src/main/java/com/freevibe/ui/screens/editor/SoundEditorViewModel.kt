@@ -21,6 +21,8 @@ import com.freevibe.service.MediaFamily
 import com.freevibe.service.SoundUrlResolver
 import com.freevibe.service.SoundApplier
 import com.freevibe.service.copyStreamCapped
+import com.freevibe.service.isLosslessCutAllowed
+import com.freevibe.service.losslessCutExportFormat
 import com.freevibe.service.normalizeMediaFileName
 import com.freevibe.service.requireSniffedMediaFile
 import com.freevibe.service.ShareOutbox
@@ -56,6 +58,8 @@ data class SoundEditorState(
     val fadeInMs: Long = 0,
     val fadeOutMs: Long = 0,
     val fadeCurve: AudioFadeCurve = AudioFadeCurve.LINEAR,
+    val normalizationApplied: Boolean = false,
+    val losslessCut: Boolean = false,
     val exportFormat: AudioExportFormat = AudioExportFormat.MP3,
     val exportBitrateKbps: Int? = AudioExportFormat.MP3.defaultBitrateKbps,
     val waveformZoom: Float = 1f,
@@ -69,6 +73,11 @@ data class SoundEditorState(
     val trimStartFraction: Float get() = if (durationMs > 0L) trimStartMs.toFloat() / durationMs else 0f
     val trimEndFraction: Float get() = if (durationMs > 0L) trimEndMs.toFloat() / durationMs else 1f
     val trimDurationMs: Long get() = trimEndMs - trimStartMs
+    val canUseLosslessCut: Boolean
+        get() = isLosslessCutAllowed(fadeInMs, fadeOutMs, normalizationApplied) &&
+            losslessCutExportFormat(localFilePath) != null
+    val effectiveExportFormat: AudioExportFormat
+        get() = if (losslessCut) losslessCutExportFormat(localFilePath) ?: exportFormat else exportFormat
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -79,7 +88,8 @@ data class SoundEditorState(
             playbackPosition == other.playbackPosition &&
             isPlaying == other.isPlaying && isApplying == other.isApplying &&
             fadeInMs == other.fadeInMs && fadeOutMs == other.fadeOutMs &&
-            fadeCurve == other.fadeCurve && exportFormat == other.exportFormat &&
+            fadeCurve == other.fadeCurve && normalizationApplied == other.normalizationApplied &&
+            losslessCut == other.losslessCut && exportFormat == other.exportFormat &&
             exportBitrateKbps == other.exportBitrateKbps && waveformZoom == other.waveformZoom &&
             waveformViewportStart == other.waveformViewportStart &&
             fileName == other.fileName && localFilePath == other.localFilePath &&
@@ -99,6 +109,8 @@ data class SoundEditorState(
         result = 31 * result + fadeInMs.hashCode()
         result = 31 * result + fadeOutMs.hashCode()
         result = 31 * result + fadeCurve.hashCode()
+        result = 31 * result + normalizationApplied.hashCode()
+        result = 31 * result + losslessCut.hashCode()
         result = 31 * result + exportFormat.hashCode()
         result = 31 * result + (exportBitrateKbps ?: 0)
         result = 31 * result + waveformZoom.hashCode()
@@ -184,6 +196,8 @@ class SoundEditorViewModel @Inject constructor(
                     fadeInMs = 0,
                     fadeOutMs = 0,
                     fadeCurve = AudioFadeCurve.LINEAR,
+                    normalizationApplied = false,
+                    losslessCut = false,
                     waveformZoom = 1f,
                     waveformViewportStart = 0f,
                     fileName = name,
@@ -238,6 +252,8 @@ class SoundEditorViewModel @Inject constructor(
                     fadeInMs = 0,
                     fadeOutMs = 0,
                     fadeCurve = AudioFadeCurve.LINEAR,
+                    normalizationApplied = false,
+                    losslessCut = false,
                     waveformZoom = 1f,
                     waveformViewportStart = 0f,
                     error = null,
@@ -338,11 +354,25 @@ class SoundEditorViewModel @Inject constructor(
     }
 
     fun setFadeIn(ms: Long) {
-        _state.update { it.copy(fadeInMs = ms.coerceIn(0, (it.trimDurationMs / 2).coerceAtLeast(1))) }
+        _state.update { state ->
+            val fadeInMs = ms.coerceIn(0, (state.trimDurationMs / 2).coerceAtLeast(1))
+            state.copy(
+                fadeInMs = fadeInMs,
+                losslessCut = state.losslessCut &&
+                    isLosslessCutAllowed(fadeInMs, state.fadeOutMs, state.normalizationApplied),
+            )
+        }
     }
 
     fun setFadeOut(ms: Long) {
-        _state.update { it.copy(fadeOutMs = ms.coerceIn(0, (it.trimDurationMs / 2).coerceAtLeast(1))) }
+        _state.update { state ->
+            val fadeOutMs = ms.coerceIn(0, (state.trimDurationMs / 2).coerceAtLeast(1))
+            state.copy(
+                fadeOutMs = fadeOutMs,
+                losslessCut = state.losslessCut &&
+                    isLosslessCutAllowed(state.fadeInMs, fadeOutMs, state.normalizationApplied),
+            )
+        }
     }
 
     fun setFadeCurve(curve: AudioFadeCurve) {
@@ -354,6 +384,7 @@ class SoundEditorViewModel @Inject constructor(
             it.copy(
                 exportFormat = format,
                 exportBitrateKbps = format.defaultBitrateKbps,
+                losslessCut = false,
             )
         }
     }
@@ -361,6 +392,14 @@ class SoundEditorViewModel @Inject constructor(
     fun setExportBitrate(kbps: Int) {
         _state.update { state ->
             if (kbps in state.exportFormat.bitratesKbps) state.copy(exportBitrateKbps = kbps) else state
+        }
+    }
+
+    fun setLosslessCut(enabled: Boolean) {
+        _state.update { state ->
+            if (!enabled) state.copy(losslessCut = false)
+            else if (state.canUseLosslessCut) state.copy(losslessCut = true)
+            else state
         }
     }
 
@@ -414,6 +453,8 @@ class SoundEditorViewModel @Inject constructor(
                     fadeCurve = s.fadeCurve,
                     exportFormat = s.exportFormat,
                     bitrateKbps = s.exportBitrateKbps,
+                    normalizationApplied = s.normalizationApplied,
+                    losslessCut = s.losslessCut,
                 ).getOrThrow()
 
                 soundApplier.applyFromLocalFile(trimmedPath, s.fileName, type)
@@ -452,6 +493,8 @@ class SoundEditorViewModel @Inject constructor(
                     fadeCurve = state.fadeCurve,
                     exportFormat = state.exportFormat,
                     bitrateKbps = state.exportBitrateKbps,
+                    normalizationApplied = state.normalizationApplied,
+                    losslessCut = state.losslessCut,
                 ).getOrThrow()
                 soundApplier.exportFromLocalFile(outputPath, state.fileName)
                     .getOrThrow()
@@ -460,7 +503,7 @@ class SoundEditorViewModel @Inject constructor(
                         isApplying = false,
                         success = context.getString(
                             R.string.editor_sound_export_success,
-                            state.exportFormat.name,
+                            state.effectiveExportFormat.name,
                         ),
                     )
                 }
@@ -483,8 +526,8 @@ class SoundEditorViewModel @Inject constructor(
 
     private fun startPlayback() {
         val path = _state.value.localFilePath ?: return
-        val startMs = _state.value.trimStartMs.toInt()
-        val endMs = _state.value.trimEndMs.toInt()
+        val startMs = _state.value.trimStartMs.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+        val endMs = _state.value.trimEndMs.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
 
         stopPlayback()
         try {
@@ -506,8 +549,18 @@ class SoundEditorViewModel @Inject constructor(
                             while (_state.value.isPlaying) {
                                 val p = player ?: break
                                 val pos = try { p.currentPosition } catch (_: IllegalStateException) { break }
-                                if (pos >= endMs) break
                                 val dur = try { p.duration } catch (_: IllegalStateException) { break }
+                                if (shouldLoopTrimPreview(pos, startMs, endMs)) {
+                                    try {
+                                        p.seekTo(startMs)
+                                        p.start()
+                                        if (dur > 0) _state.update { it.copy(playbackPosition = startMs.toFloat() / dur) }
+                                    } catch (_: IllegalStateException) {
+                                        break
+                                    }
+                                    kotlinx.coroutines.delay(20)
+                                    continue
+                                }
                                 if (dur > 0) _state.update { it.copy(playbackPosition = pos.toFloat() / dur) }
                                 kotlinx.coroutines.delay(50)
                             }
@@ -517,7 +570,18 @@ class SoundEditorViewModel @Inject constructor(
                         stopPlayback()
                     }
                 }
-                setOnCompletionListener { stopPlayback() }
+                setOnCompletionListener { mp ->
+                    if (_state.value.isPlaying && endMs > startMs) {
+                        try {
+                            mp.seekTo(startMs)
+                            mp.start()
+                        } catch (_: IllegalStateException) {
+                            stopPlayback()
+                        }
+                    } else {
+                        stopPlayback()
+                    }
+                }
                 setOnErrorListener { _, _, _ -> stopPlayback(); true }
                 prepareAsync()
             }
@@ -722,6 +786,9 @@ internal fun buildLocalAudioEditorIdentity(uri: String): String = "local::$uri"
 
 internal const val MIN_RINGTONE_TRIM_MS: Long = 8_000L
 internal const val MAX_RINGTONE_TRIM_MS: Long = 30_000L
+
+internal fun shouldLoopTrimPreview(positionMs: Int, startMs: Int, endMs: Int): Boolean =
+    endMs > startMs && positionMs >= endMs
 
 internal fun defaultRingtoneTrimEndMs(durationMs: Long): Long =
     when {

@@ -2,6 +2,7 @@ package com.freevibe.ui.screens.editor
 
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Sound
+import com.freevibe.service.isLosslessCutAllowed
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -102,6 +103,37 @@ class SoundEditorViewModelTest {
     fun `default ringtone trim milliseconds preserve exact short duration`() {
         assertEquals(20_123L, defaultRingtoneTrimEndMs(20_123L))
         assertEquals(30_000L, defaultRingtoneTrimEndMs(60_000L))
+    }
+
+    @Test
+    fun `lossless cut requires processing effects to stay disabled`() {
+        assertTrue(isLosslessCutAllowed(0L, 0L, normalizationApplied = false))
+        assertFalse(isLosslessCutAllowed(1L, 0L, normalizationApplied = false))
+        assertFalse(isLosslessCutAllowed(0L, 1L, normalizationApplied = false))
+        assertFalse(isLosslessCutAllowed(0L, 0L, normalizationApplied = true))
+    }
+
+    @Test
+    fun `editor offers lossless cut only for supported unprocessed sources`() {
+        assertTrue(
+            SoundEditorState(localFilePath = "C:/cache/source.ogg").canUseLosslessCut,
+        )
+        assertFalse(
+            SoundEditorState(
+                localFilePath = "C:/cache/source.ogg",
+                normalizationApplied = true,
+            ).canUseLosslessCut,
+        )
+        assertFalse(
+            SoundEditorState(localFilePath = "C:/cache/source.webm").canUseLosslessCut,
+        )
+    }
+
+    @Test
+    fun `loop preview restarts only at the selected end`() {
+        assertFalse(shouldLoopTrimPreview(positionMs = 4_999, startMs = 1_000, endMs = 5_000))
+        assertTrue(shouldLoopTrimPreview(positionMs = 5_000, startMs = 1_000, endMs = 5_000))
+        assertFalse(shouldLoopTrimPreview(positionMs = 5_000, startMs = 5_000, endMs = 5_000))
     }
 
     @Test

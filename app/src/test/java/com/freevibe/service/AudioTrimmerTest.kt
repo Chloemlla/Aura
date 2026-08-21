@@ -57,6 +57,65 @@ class AudioTrimmerTest {
     }
 
     @Test
+    fun `ogg export marks the file for gapless Android ringtone looping`() {
+        val command = buildFfmpegTrimCommand(
+            ffmpegPath = "/ffmpeg",
+            inputPath = "/input.mp3",
+            outputPath = "/output.ogg",
+            startMs = 0L,
+            endMs = 2_000L,
+            fadeInMs = 0L,
+            fadeOutMs = 0L,
+            fadeCurve = AudioFadeCurve.LINEAR,
+            exportFormat = AudioExportFormat.OGG,
+            bitrateKbps = 192,
+        )
+
+        assertTrue(command.windowed(2).contains(listOf("-metadata", "ANDROID_LOOP=true")))
+    }
+
+    @Test
+    fun `stream copy command never adds an audio filter or encoder`() {
+        val command = buildFfmpegStreamCopyTrimCommand(
+            ffmpegPath = "/ffmpeg",
+            inputPath = "/input.ogg",
+            outputPath = "/output.ogg",
+            startMs = 123L,
+            endMs = 1_987L,
+            outputFormat = AudioExportFormat.OGG,
+        )
+
+        assertTrue(command.windowed(2).contains(listOf("-ss", "0.123")))
+        assertTrue(command.windowed(2).contains(listOf("-t", "1.864")))
+        assertTrue(command.windowed(2).contains(listOf("-c:a", "copy")))
+        assertFalse(command.contains("-af"))
+        assertFalse(command.contains("-b:a"))
+        assertTrue(command.windowed(2).contains(listOf("-metadata", "ANDROID_LOOP=true")))
+    }
+
+    @Test
+    fun `lossless cut verification accepts only a contiguous packet copy`() {
+        val source = listOf(
+            byteArrayOf(1, 2),
+            byteArrayOf(3, 4),
+            byteArrayOf(5, 6),
+        )
+
+        assertTrue(
+            areEncodedAudioPacketsContiguousCopy(
+                source,
+                listOf(byteArrayOf(3, 4), byteArrayOf(5, 6)),
+            ),
+        )
+        assertFalse(
+            areEncodedAudioPacketsContiguousCopy(
+                source,
+                listOf(byteArrayOf(3, 9), byteArrayOf(5, 6)),
+            ),
+        )
+    }
+
+    @Test
     fun `trim duration tolerance is exactly one audio frame`() {
         assertTrue(isTrimDurationWithinOneAudioFrame(5_000L, 5_023L, 23L))
         assertFalse(isTrimDurationWithinOneAudioFrame(5_000L, 5_024L, 23L))

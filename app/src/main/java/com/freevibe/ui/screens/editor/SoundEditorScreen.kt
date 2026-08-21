@@ -516,11 +516,24 @@ fun SoundEditorScreen(
                             selected = state.exportFormat == format,
                             onClick = { viewModel.setExportFormat(format) },
                             label = { Text(format.name, style = MaterialTheme.typography.labelSmall) },
-                            enabled = !state.isApplying,
+                            enabled = !state.isApplying && !state.losslessCut,
                         )
                     }
                 }
-                if (state.exportFormat.bitratesKbps.isNotEmpty()) {
+                if (state.canUseLosslessCut) {
+                    FilterChip(
+                        selected = state.losslessCut,
+                        onClick = { viewModel.setLosslessCut(!state.losslessCut) },
+                        label = { Text(stringResource(R.string.editor_sound_lossless_cut)) },
+                        enabled = !state.isApplying,
+                    )
+                    Text(
+                        stringResource(R.string.editor_sound_lossless_cut_info),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (!state.losslessCut && state.exportFormat.bitratesKbps.isNotEmpty()) {
                     Text(stringResource(R.string.editor_sound_export_bitrate), style = MaterialTheme.typography.labelMedium)
                     Row(
                         modifier = Modifier
@@ -537,7 +550,7 @@ fun SoundEditorScreen(
                             )
                         }
                     }
-                } else {
+                } else if (!state.losslessCut) {
                     Text(
                         stringResource(R.string.editor_sound_lossless_export),
                         style = MaterialTheme.typography.bodySmall,

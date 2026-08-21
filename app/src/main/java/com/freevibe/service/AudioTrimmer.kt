@@ -3,11 +3,13 @@ package com.freevibe.service
 import android.content.Context
 import android.media.MediaExtractor
 import android.media.MediaFormat
+import android.os.Build
 import com.freevibe.util.rethrowIfCancelled
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.nio.ByteBuffer
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -15,6 +17,8 @@ import kotlin.math.abs
 
 private const val FFMPEG_TIMEOUT_SECONDS = 120L
 private const val FFMPEG_LOG_DRAIN_LIMIT_BYTES = 256 * 1024 // cap stderr-draining to 256 KB so a misbehaving FFmpeg can't OOM us
+private const val LOSSLESS_VERIFY_MAX_BYTES = 64L * 1024 * 1024
+private const val LOSSLESS_FALLBACK_PACKET_BYTES = 1024 * 1024
 private val SANITIZE_REGEX = Regex("[^a-zA-Z0-9_-]")
 
 enum class AudioFadeCurve(val ffmpegValue: String) {
@@ -41,6 +45,37 @@ internal fun isTrimDurationWithinOneAudioFrame(
     actualDurationMs: Long,
     frameDurationMs: Long,
 ): Boolean = abs(expectedDurationMs - actualDurationMs) <= frameDurationMs.coerceAtLeast(1L)
+
+internal fun isLosslessCutAllowed(
+    fadeInMs: Long,
+    fadeOutMs: Long,
+    normalizationApplied: Boolean,
+): Boolean = fadeInMs == 0L && fadeOutMs == 0L && !normalizationApplied
+
+internal fun losslessCutExportFormat(inputPath: String?): AudioExportFormat? {
+    val extension = inputPath
+        ?.let(::File)
+        ?.extension
+        ?.lowercase(Locale.ROOT)
+        ?.takeIf(String::isNotBlank)
+        ?: return null
+    return AudioExportFormat.entries.firstOrNull { it.extension == extension }
+}
+
+internal fun areEncodedAudioPacketsContiguousCopy(
+    sourcePackets: List<ByteArray>,
+    outputPackets: List<ByteArray>,
+): Boolean {
+    if (sourcePackets.isEmpty() || outputPackets.isEmpty() || outputPackets.size > sourcePackets.size) {
+        return false
+    }
+    val lastStart = sourcePackets.size - outputPackets.size
+    return (0..lastStart).any { start ->
+        outputPackets.indices.all { offset ->
+            sourcePackets[start + offset].contentEquals(outputPackets[offset])
+        }
+    }
+}
 
 private fun ffmpegSeconds(milliseconds: Long): String =
     String.format(Locale.ROOT, "%.3f", milliseconds / 1000.0)
@@ -89,7 +124,40 @@ internal fun buildFfmpegTrimCommand(
         "-map", "0:a:0",
         "-vn",
         "-af", filters.joinToString(","),
-    ) + codec + outputPath
+    ) + codec + if (exportFormat == AudioExportFormat.OGG) {
+        listOf("-metadata", "ANDROID_LOOP=true")
+    } else {
+        emptyList()
+    } + outputPath
+}
+
+internal fun buildFfmpegStreamCopyTrimCommand(
+    ffmpegPath: String,
+    inputPath: String,
+    outputPath: String,
+    startMs: Long,
+    endMs: Long,
+    outputFormat: AudioExportFormat,
+): List<String> {
+    require(startMs >= 0L) { "Start time must not be negative" }
+    require(endMs > startMs) { "End time must be after start time" }
+    val metadata = if (outputFormat == AudioExportFormat.OGG) {
+        listOf("-metadata", "ANDROID_LOOP=true")
+    } else {
+        emptyList()
+    }
+    return listOf(
+        ffmpegPath,
+        "-hide_banner",
+        "-loglevel", "error",
+        "-y",
+        "-ss", ffmpegSeconds(startMs),
+        "-i", inputPath,
+        "-map", "0:a:0",
+        "-vn",
+        "-t", ffmpegSeconds(endMs - startMs),
+        "-c:a", "copy",
+    ) + metadata + outputPath
 }
 
 /**
@@ -128,11 +196,22 @@ class AudioTrimmer @Inject constructor(
         fadeCurve: AudioFadeCurve = AudioFadeCurve.LINEAR,
         exportFormat: AudioExportFormat = AudioExportFormat.MP3,
         bitrateKbps: Int? = exportFormat.defaultBitrateKbps,
+        normalizationApplied: Boolean = false,
+        losslessCut: Boolean = false,
     ): Result<String> = withContext(Dispatchers.IO) {
         var pendingOutput: File? = null
         runCatching {
             require(endMs > startMs) { "End time must be after start time" }
-            require(bitrateKbps == null || bitrateKbps in exportFormat.bitratesKbps) {
+            require(!losslessCut || isLosslessCutAllowed(fadeInMs, fadeOutMs, normalizationApplied)) {
+                "Lossless cut requires fades and normalization to be disabled"
+            }
+            val effectiveFormat = if (losslessCut) {
+                losslessCutExportFormat(inputPath)
+                    ?: throw Exception("Lossless cut requires a supported audio file format")
+            } else {
+                exportFormat
+            }
+            require(losslessCut || bitrateKbps == null || bitrateKbps in exportFormat.bitratesKbps) {
                 "Unsupported ${exportFormat.name} bitrate: $bitrateKbps kbps"
             }
 
@@ -140,24 +219,35 @@ class AudioTrimmer @Inject constructor(
             outputDir.mkdirs()
             val outputFile = File(
                 outputDir,
-                "${outputFileName.replace(SANITIZE_REGEX, "_")}.${exportFormat.extension}",
+                "${outputFileName.replace(SANITIZE_REGEX, "_")}.${effectiveFormat.extension}",
             )
             pendingOutput = outputFile
             outputFile.delete()
             val ffmpegInfo = getYtdlpFfmpeg() ?: throw Exception("FFmpeg not available")
             val (ffmpegPath, ldLibPath) = ffmpegInfo
-            val command = buildFfmpegTrimCommand(
-                ffmpegPath = ffmpegPath.absolutePath,
-                inputPath = inputPath,
-                outputPath = outputFile.absolutePath,
-                startMs = startMs,
-                endMs = endMs,
-                fadeInMs = fadeInMs,
-                fadeOutMs = fadeOutMs,
-                fadeCurve = fadeCurve,
-                exportFormat = exportFormat,
-                bitrateKbps = bitrateKbps,
-            )
+            val command = if (losslessCut) {
+                buildFfmpegStreamCopyTrimCommand(
+                    ffmpegPath = ffmpegPath.absolutePath,
+                    inputPath = inputPath,
+                    outputPath = outputFile.absolutePath,
+                    startMs = startMs,
+                    endMs = endMs,
+                    outputFormat = effectiveFormat,
+                )
+            } else {
+                buildFfmpegTrimCommand(
+                    ffmpegPath = ffmpegPath.absolutePath,
+                    inputPath = inputPath,
+                    outputPath = outputFile.absolutePath,
+                    startMs = startMs,
+                    endMs = endMs,
+                    fadeInMs = fadeInMs,
+                    fadeOutMs = fadeOutMs,
+                    fadeCurve = fadeCurve,
+                    exportFormat = exportFormat,
+                    bitrateKbps = bitrateKbps,
+                )
+            }
 
             val processBuilder = ProcessBuilder(command)
                 .redirectErrorStream(true)
@@ -174,6 +264,9 @@ class AudioTrimmer @Inject constructor(
                 val exitCode = process.exitValue()
                 if (exitCode != 0 || !outputFile.exists() || outputFile.length() <= 100L) {
                     throw Exception("Audio export failed (exit $exitCode)")
+                }
+                if (losslessCut && !verifyLosslessPacketCopy(inputPath, outputFile.absolutePath)) {
+                    throw Exception("Lossless export verification failed: copied audio bytes changed")
                 }
                 val timing = readEncodedAudioTiming(outputFile.absolutePath)
                 if (
@@ -195,6 +288,86 @@ class AudioTrimmer @Inject constructor(
         }.onFailure {
             pendingOutput?.delete()
             it.rethrowIfCancelled()
+        }
+    }
+
+    private fun verifyLosslessPacketCopy(inputPath: String, outputPath: String): Boolean {
+        val outputPackets = readEncodedAudioPackets(outputPath)
+        if (outputPackets.isEmpty()) return false
+        val prefix = IntArray(outputPackets.size)
+        for (index in 1 until outputPackets.size) {
+            var candidate = prefix[index - 1]
+            while (candidate > 0 && !outputPackets[index].contentEquals(outputPackets[candidate])) {
+                candidate = prefix[candidate - 1]
+            }
+            if (outputPackets[index].contentEquals(outputPackets[candidate])) candidate++
+            prefix[index] = candidate
+        }
+
+        var matched = 0
+        var found = false
+        forEachEncodedAudioPacket(inputPath) { sourcePacket ->
+            while (matched > 0 && !sourcePacket.contentEquals(outputPackets[matched])) {
+                matched = prefix[matched - 1]
+            }
+            if (sourcePacket.contentEquals(outputPackets[matched])) matched++
+            if (matched == outputPackets.size) {
+                found = true
+                false
+            } else {
+                true
+            }
+        }
+        return found
+    }
+
+    private fun readEncodedAudioPackets(path: String): List<ByteArray> {
+        val packets = ArrayList<ByteArray>()
+        var totalBytes = 0L
+        forEachEncodedAudioPacket(path) { packet ->
+            totalBytes += packet.size
+            if (totalBytes > LOSSLESS_VERIFY_MAX_BYTES) {
+                throw Exception("Lossless export verification input is too large")
+            }
+            packets += packet
+            true
+        }
+        return packets
+    }
+
+    private fun forEachEncodedAudioPacket(path: String, block: (ByteArray) -> Boolean): Boolean {
+        val extractor = MediaExtractor()
+        return try {
+            extractor.setDataSource(path)
+            val trackIndex = (0 until extractor.trackCount).firstOrNull { index ->
+                extractor.getTrackFormat(index).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
+            } ?: return false
+            extractor.selectTrack(trackIndex)
+            val fallbackBuffer = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+                ByteBuffer.allocate(LOSSLESS_FALLBACK_PACKET_BYTES)
+            } else {
+                null
+            }
+            while (true) {
+                val buffer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    val sampleSize = extractor.sampleSize
+                    if (sampleSize < 0L) break
+                    require(sampleSize <= Int.MAX_VALUE) { "Encoded audio sample is too large" }
+                    ByteBuffer.allocate(sampleSize.toInt())
+                } else {
+                    fallbackBuffer!!.apply { clear() }
+                }
+                val bytesRead = extractor.readSampleData(buffer, 0)
+                if (bytesRead < 0) break
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P && bytesRead == buffer.capacity()) {
+                    throw Exception("Encoded audio sample exceeds the verifier buffer")
+                }
+                if (bytesRead > 0 && !block(buffer.array().copyOf(bytesRead))) return false
+                if (!extractor.advance()) break
+            }
+            true
+        } finally {
+            try { extractor.release() } catch (_: Exception) {}
         }
     }
 

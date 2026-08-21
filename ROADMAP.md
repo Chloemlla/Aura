@@ -14,13 +14,6 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
 
 ### P2
 
-- [ ] P2 — Give the Sound Editor gapless ringtone output
-  Why: an OGG tagged `ANDROID_LOOP=true` loops gaplessly as an Android ringtone; without it every trimmed ringtone has a silence gap on repeat. Aura already exports OGG and never writes the tag, and no Android app — free or paid — currently ships loop-seam preview or a lossless cut.
-  Evidence: no `ANDROID_LOOP` anywhere in `app/src/`; `AudioTrimmer.kt` always re-encodes through FFmpeg; losslesscut-android; HN 44935850 ("it's so dang hard to install a custom ringtone").
-  Touches: `AudioTrimmer.kt`, `SoundEditorViewModel.kt`, `SoundEditorScreen.kt`, string resources, editor tests.
-  Acceptance: OGG export writes `ANDROID_LOOP=true`; a loop-seam preview plays end→start on repeat; a lossless stream-copy cut mode is offered when no fade/normalize is applied and is verified byte-identical in the copied region.
-  Complexity: M
-
 - [ ] P2 — Make per-contact ringtones survive Do Not Disturb
   Why: Aura writes `CUSTOM_RINGTONE` but does nothing about DND or priority senders, so the feature is a no-op in the most common phone state; the widely-shared workaround (silent default + per-contact real ringtones) is a one-tap preset Aura could own.
   Evidence: no `INTERRUPTION_FILTER`, `NotificationManager.Policy`, or `isNotificationPolicyAccessGranted` anywhere in `app/src/main/java`; `ContactRingtoneService.kt`; SOSRing; HN 44935850.

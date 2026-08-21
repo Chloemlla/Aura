@@ -52,6 +52,11 @@ All notable changes to Aura will be documented in this file.
   network refresh finishes, an immediate pagination request is ignored instead of duplicating
   provider calls, and the next accepted page appends without dropping cached items.
 
+- **Sound Editor exports now support gapless ringtone loops**: OGG output writes Android's
+  `ANDROID_LOOP=true` marker, the trim preview wraps from the selected end back to its start,
+  and supported unprocessed source files can use a stream-copy cut whose packet bytes are
+  checked before export completes.
+
 - **New Rotation health screen, in Settings under Diagnostics**: when automatic
   wallpaper change quietly stops, there was nothing to look at. The five reasons it can
   stop all look the same from the home screen: rotation is off, it's waiting for its
