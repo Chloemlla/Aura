@@ -27,13 +27,15 @@ coverage.
 | `android.permission.POST_NOTIFICATIONS` | Show required foreground-service and worker notifications. | App interactions; local only. | Not shared. | Runtime notification permission. |
 | `android.permission.ACCESS_COARSE_LOCATION` | Fetch approximate weather for optional weather wallpaper effects. | Approximate location. | Shared with Open-Meteo when weather is enabled. | Location disclosure required. |
 | `android.permission.WRITE_CONTACTS` | Write the selected ringtone URI to the contact selected through Android's contact picker. | Contacts and audio files; local only. | Not shared. | Sensitive permission requested only when applying a per-contact ringtone. |
+| `android.permission.ACCESS_NOTIFICATION_POLICY` | Inspect Do Not Disturb priority-caller rules for per-contact ringtone guidance. | App interactions and notification policy state; local only. | Not shared. | Special access used only to explain DND behavior; Aura does not change the policy silently. |
 
 ## Data Safety Answer Notes
 
 - Approximate location is used only for optional weather effects and is shared
   with the weather provider when that feature is enabled.
 - Contacts are selected through Android's contact picker for per-contact
-  ringtone assignment and are not uploaded by Aura.
+  ringtone assignment and are not uploaded by Aura. DND policy state is read
+  locally only when Aura needs to explain whether that ringtone can ring.
 - Microphone recordings are local until the user uploads a community sound.
 - Community uploads, votes, follows, reports, creator profiles, and collection
   shares use Firebase when the user uses those community features.

@@ -2,10 +2,12 @@ package com.freevibe.ui.screens.sounds
 
 import android.Manifest
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.ContactsContract
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -40,8 +42,10 @@ import com.freevibe.ui.components.AuraSnackbarHost
 import com.freevibe.ui.components.AuraStateAction
 import com.freevibe.ui.components.AuraStateCard
 import com.freevibe.service.BundledContentProvider
+import com.freevibe.service.ContactDndGuidance
 import com.freevibe.service.ContactInfo
 import com.freevibe.service.ContactRingtoneService
+import com.freevibe.service.contactEditorUri
 import com.freevibe.service.SoundApplier
 import com.freevibe.service.SoundUrlResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -57,6 +61,8 @@ import com.freevibe.data.model.soundLicenseCapabilities
 
 data class ContactPickerState(
     val selectedContact: ContactInfo? = null,
+    val dndGuidance: ContactDndGuidance? = null,
+    val pendingVipOnly: Boolean = false,
     val isLoading: Boolean = false,
     val hasWritePermission: Boolean = false,
     val selectedSound: Sound? = null,
@@ -69,10 +75,17 @@ data class ContactPickerState(
 private data class PendingContactAction(
     val contactId: Long,
     val message: String,
+    val vipOnly: Boolean,
+)
+
+private data class PendingWriteAction(
+    val contactId: Long,
+    val vipOnly: Boolean,
 )
 
 @HiltViewModel
 class ContactPickerViewModel @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
     private val contactService: ContactRingtoneService,
     private val soundApplier: SoundApplier,
     private val favoritesRepo: FavoritesRepository,
@@ -121,7 +134,28 @@ class ContactPickerViewModel @Inject constructor(
         return true
     }
 
-    fun assignToContact(contactId: Long, confirmed: Boolean = false) {
+    fun assignToContact(
+        contactId: Long,
+        confirmed: Boolean = false,
+        ignoreDnd: Boolean = false,
+    ) {
+        assignContact(contactId, confirmed, vipOnly = false, ignoreDnd = ignoreDnd)
+    }
+
+    fun assignVipOnlyRinging(
+        contactId: Long,
+        confirmed: Boolean = false,
+        ignoreDnd: Boolean = false,
+    ) {
+        assignContact(contactId, confirmed, vipOnly = true, ignoreDnd = ignoreDnd)
+    }
+
+    private fun assignContact(
+        contactId: Long,
+        confirmed: Boolean,
+        vipOnly: Boolean,
+        ignoreDnd: Boolean,
+    ) {
         val sound = _state.value.selectedSound ?: run {
             _state.update { it.copy(error = "No sound selected. Return to Sounds and choose a valid item.") }
             return
@@ -130,8 +164,32 @@ class ContactPickerViewModel @Inject constructor(
             _state.update { it.copy(error = message) }
             return
         }
-        _state.update { it.copy(isApplying = true, applyingContactId = contactId, error = null, success = null) }
+        _state.update {
+            it.copy(
+                isApplying = true,
+                applyingContactId = contactId,
+                dndGuidance = null,
+                pendingVipOnly = false,
+                error = null,
+                success = null,
+            )
+        }
         viewModelScope.launch {
+            val contact = _state.value.selectedContact
+            if (!ignoreDnd && contact != null) {
+                val guidance = contactService.getDndGuidance(contact)
+                if (guidance != ContactDndGuidance.NONE) {
+                    _state.update {
+                        it.copy(
+                            isApplying = false,
+                            applyingContactId = null,
+                            dndGuidance = guidance,
+                            pendingVipOnly = vipOnly,
+                        )
+                    }
+                    return@launch
+                }
+            }
             val dlUrl = soundUrlResolver.resolve(sound)
             if (dlUrl.isNullOrBlank()) {
                 _state.update { it.copy(isApplying = false, applyingContactId = null, error = "This sound does not have a downloadable ringtone file.") }
@@ -141,7 +199,38 @@ class ContactPickerViewModel @Inject constructor(
                 .onSuccess { uri ->
                     contactService.setContactRingtone(contactId, uri)
                         .onSuccess {
-                            _state.update { it.copy(isApplying = false, applyingContactId = null, success = "Ringtone set for contact") }
+                            if (!vipOnly) {
+                                _state.update {
+                                    it.copy(
+                                        isApplying = false,
+                                        applyingContactId = null,
+                                        success = "Ringtone set for contact",
+                                    )
+                                }
+                            } else {
+                                soundApplier.setDefaultRingtoneSilent()
+                                    .onSuccess {
+                                        _state.update {
+                                            it.copy(
+                                                isApplying = false,
+                                                applyingContactId = null,
+                                                success = context.getString(R.string.contact_picker_vip_success),
+                                            )
+                                        }
+                                    }
+                                    .onFailure { e ->
+                                        _state.update {
+                                            it.copy(
+                                                isApplying = false,
+                                                applyingContactId = null,
+                                                error = context.getString(
+                                                    R.string.contact_picker_vip_default_failed,
+                                                    e.message ?: e.javaClass.simpleName,
+                                                ),
+                                            )
+                                        }
+                                    }
+                                }
                         }
                         .onFailure { e ->
                             _state.update { it.copy(isApplying = false, applyingContactId = null, error = e.message) }
@@ -154,6 +243,8 @@ class ContactPickerViewModel @Inject constructor(
     }
 
     fun clearMessages() = _state.update { it.copy(success = null, error = null) }
+
+    fun clearDndGuidance() = _state.update { it.copy(dndGuidance = null, pendingVipOnly = false) }
 
     private suspend fun resolveSound(soundId: String): Sound? {
         favoritesRepo.getLatestByIdAndType(soundId, "SOUND")
@@ -200,6 +291,8 @@ fun ContactPickerScreen(
     val scope = rememberCoroutineScope()
     val errorMessage = state.error?.let { stringResource(R.string.common_error_format, it) }
     val noContactPickerMessage = stringResource(R.string.contact_picker_unavailable_message)
+    val dndSettingsUnavailableMessage = stringResource(R.string.contact_picker_dnd_settings_unavailable)
+    val dndContactUnavailableMessage = stringResource(R.string.contact_picker_dnd_contact_unavailable)
     var permissionPermanentlyDenied by remember { mutableStateOf(false) }
     val soundIdentityKey = remember(soundId, fallbackSound?.source, fallbackSound?.previewUrl, fallbackSound?.downloadUrl) {
         listOf(
@@ -211,7 +304,7 @@ fun ContactPickerScreen(
     }
     var soundResolved by remember(soundIdentityKey) { mutableStateOf<Boolean?>(null) }
     var pendingContactAction by remember(soundIdentityKey) { mutableStateOf<PendingContactAction?>(null) }
-    var pendingWriteContactId by remember(soundIdentityKey) { mutableStateOf<Long?>(null) }
+    var pendingWriteAction by remember(soundIdentityKey) { mutableStateOf<PendingWriteAction?>(null) }
 
     LaunchedEffect(soundIdentityKey) {
         soundResolved = viewModel.ensureSelectedSound(soundId, fallbackSound)
@@ -229,10 +322,14 @@ fun ContactPickerScreen(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
         viewModel.setWritePermissionGranted(granted)
-        val pendingContactId = pendingWriteContactId
-        pendingWriteContactId = null
-        if (granted && pendingContactId != null) {
-            viewModel.assignToContact(pendingContactId, confirmed = true)
+        val pending = pendingWriteAction
+        pendingWriteAction = null
+        if (granted && pending != null) {
+            if (pending.vipOnly) {
+                viewModel.assignVipOnlyRinging(pending.contactId, confirmed = true)
+            } else {
+                viewModel.assignToContact(pending.contactId, confirmed = true)
+            }
         } else if (!granted) {
             val activity = context as? Activity
             if (activity != null &&
@@ -267,29 +364,57 @@ fun ContactPickerScreen(
         }
     }
 
-    fun requestWriteOrAssign(contactId: Long) {
+    fun requestWriteOrAssign(contactId: Long, vipOnly: Boolean = false) {
         val hasWrite = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.WRITE_CONTACTS,
         ) == PackageManager.PERMISSION_GRANTED
         if (hasWrite) {
             viewModel.setWritePermissionGranted(true)
-            viewModel.assignToContact(contactId, confirmed = true)
+            if (vipOnly) {
+                viewModel.assignVipOnlyRinging(contactId, confirmed = true)
+            } else {
+                viewModel.assignToContact(contactId, confirmed = true)
+            }
         } else {
-            pendingWriteContactId = contactId
+            pendingWriteAction = PendingWriteAction(contactId, vipOnly)
             writePermissionLauncher.launch(Manifest.permission.WRITE_CONTACTS)
         }
     }
 
-    fun assignWithPolicy(contactId: Long) {
+    fun assignWithPolicy(contactId: Long, vipOnly: Boolean = false) {
         val sound = state.selectedSound ?: return
         val capability = sound.soundLicenseCapabilities().capability(SoundAction.APPLY)
         when (capability.decision) {
-            SoundActionDecision.ALLOWED -> requestWriteOrAssign(contactId)
+            SoundActionDecision.ALLOWED -> requestWriteOrAssign(contactId, vipOnly)
             SoundActionDecision.CONFIRMATION_REQUIRED -> {
-                pendingContactAction = PendingContactAction(contactId, capability.reason)
+                pendingContactAction = PendingContactAction(contactId, capability.reason, vipOnly)
             }
             SoundActionDecision.DISABLED -> Unit
+        }
+    }
+
+    fun openDndSettings() {
+        val action = if (state.dndGuidance == ContactDndGuidance.POLICY_ACCESS_REQUIRED) {
+            Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS
+        } else {
+            Settings.ACTION_ZEN_MODE_PRIORITY_SETTINGS
+        }
+        try {
+            context.startActivity(Intent(action))
+            viewModel.clearDndGuidance()
+        } catch (_: Exception) {
+            scope.launch { snackbarHostState.showSnackbar(dndSettingsUnavailableMessage) }
+        }
+    }
+
+    fun openContactForPriority() {
+        val contact = state.selectedContact ?: return
+        try {
+            context.startActivity(Intent(Intent.ACTION_EDIT, contactEditorUri(contact)))
+            viewModel.clearDndGuidance()
+        } catch (_: Exception) {
+            scope.launch { snackbarHostState.showSnackbar(dndContactUnavailableMessage) }
         }
     }
 
@@ -302,7 +427,7 @@ fun ContactPickerScreen(
                 TextButton(
                     onClick = {
                         pendingContactAction = null
-                        requestWriteOrAssign(pending.contactId)
+                        requestWriteOrAssign(pending.contactId, pending.vipOnly)
                     },
                 ) {
                     Text(stringResource(R.string.common_continue))
@@ -310,6 +435,64 @@ fun ContactPickerScreen(
             },
             dismissButton = {
                 TextButton(onClick = { pendingContactAction = null }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
+    }
+
+    val dndGuidance = state.dndGuidance
+    val dndContact = state.selectedContact
+    if (dndGuidance != null && dndContact != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::clearDndGuidance,
+            title = { Text(stringResource(R.string.contact_picker_dnd_title)) },
+            text = {
+                Text(
+                    when (dndGuidance) {
+                        ContactDndGuidance.POLICY_ACCESS_REQUIRED -> stringResource(R.string.contact_picker_dnd_policy_access_body)
+                        ContactDndGuidance.CALLS_BLOCKED -> stringResource(R.string.contact_picker_dnd_calls_blocked_body)
+                        ContactDndGuidance.PRIORITY_CALLS_DISABLED -> stringResource(R.string.contact_picker_dnd_priority_calls_disabled_body)
+                        ContactDndGuidance.CONTACT_MUST_BE_STARRED -> stringResource(R.string.contact_picker_dnd_contact_not_starred_body)
+                        ContactDndGuidance.NONE -> ""
+                    },
+                )
+            },
+            confirmButton = {
+                Column(horizontalAlignment = Alignment.End) {
+                    if (dndGuidance == ContactDndGuidance.POLICY_ACCESS_REQUIRED) {
+                        TextButton(onClick = ::openDndSettings) {
+                            Text(stringResource(R.string.contact_picker_dnd_grant_access))
+                        }
+                    } else if (dndGuidance == ContactDndGuidance.CALLS_BLOCKED ||
+                        dndGuidance == ContactDndGuidance.PRIORITY_CALLS_DISABLED
+                    ) {
+                        TextButton(onClick = ::openDndSettings) {
+                            Text(stringResource(R.string.contact_picker_dnd_open_settings))
+                        }
+                    }
+                    if (!dndContact.isStarred) {
+                        TextButton(onClick = ::openContactForPriority) {
+                            Text(stringResource(R.string.contact_picker_dnd_mark_priority))
+                        }
+                    }
+                    TextButton(
+                        onClick = {
+                            val vipOnly = state.pendingVipOnly
+                            viewModel.clearDndGuidance()
+                            if (vipOnly) {
+                                viewModel.assignVipOnlyRinging(dndContact.id, confirmed = true, ignoreDnd = true)
+                            } else {
+                                viewModel.assignToContact(dndContact.id, confirmed = true, ignoreDnd = true)
+                            }
+                        },
+                    ) {
+                        Text(stringResource(R.string.contact_picker_dnd_assign_anyway))
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::clearDndGuidance) {
                     Text(stringResource(R.string.common_cancel))
                 }
             },
@@ -448,6 +631,7 @@ fun ContactPickerScreen(
                             try { context.startActivity(intent) } catch (_: Exception) {}
                         },
                         onApply = { assignWithPolicy(contact.id) },
+                        onVipOnlyRinging = { assignWithPolicy(contact.id, vipOnly = true) },
                     )
                 }
             }
@@ -466,6 +650,7 @@ private fun ContactAssignmentCard(
     onChangeContact: () -> Unit,
     onOpenSettings: () -> Unit,
     onApply: () -> Unit,
+    onVipOnlyRinging: () -> Unit,
 ) {
     Surface(
         shape = RoundedCornerShape(8.dp),
@@ -542,6 +727,16 @@ private fun ContactAssignmentCard(
                     Icon(Icons.Default.PersonSearch, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.common_change))
+                }
+                OutlinedButton(
+                    onClick = onVipOnlyRinging,
+                    enabled = enabled && !isApplying,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) {
+                    Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.contact_picker_vip_preset))
                 }
                 if (permissionPermanentlyDenied && !writePermissionGranted) {
                     Button(

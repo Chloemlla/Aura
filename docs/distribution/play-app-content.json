@@ -190,6 +190,11 @@
         "evidenceRefs": ["docs/privacy/data-safety.md"]
       },
       {
+        "name": "android.permission.ACCESS_NOTIFICATION_POLICY",
+        "declaration": "Used locally to inspect Do Not Disturb priority-caller rules and explain per-contact ringtone behavior; Aura does not change the policy silently.",
+        "evidenceRefs": ["docs/privacy/data-safety.md", "app/src/main/AndroidManifest.xml"]
+      },
+      {
         "name": "android.permission.WRITE_EXTERNAL_STORAGE",
         "declaration": "Legacy API 28-and-below storage compatibility for user-directed downloads and exports.",
         "evidenceRefs": ["docs/privacy/data-safety.md", "app/src/main/AndroidManifest.xml"]

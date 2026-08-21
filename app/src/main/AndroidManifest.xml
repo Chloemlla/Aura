@@ -33,6 +33,7 @@
 
     <!-- Contacts (per-contact ringtones) -->
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
 
     <!-- Live wallpaper not required -->
     <uses-feature

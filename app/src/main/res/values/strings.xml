@@ -767,6 +767,20 @@
     <string name="contact_picker_selected_from_picker">Selected from Android contact picker</string>
     <string name="contact_picker_permission_off">Contact update permission is off. Open Android settings to let Aura write the ringtone to this contact.</string>
     <string name="contact_picker_permission_prompt">Aura asks for contact update permission only when you apply the ringtone.</string>
+    <string name="contact_picker_dnd_title">Do Not Disturb may block this ringtone</string>
+    <string name="contact_picker_dnd_policy_access_body">Do Not Disturb is active, and Aura cannot inspect its priority-caller rules yet. Grant notification policy access, then mark this contact as starred if Android is set to allow starred callers.</string>
+    <string name="contact_picker_dnd_calls_blocked_body">Do Not Disturb is blocking calls right now. Open DND settings to choose priority callers, mark this contact as starred, or assign the ringtone anyway.</string>
+    <string name="contact_picker_dnd_priority_calls_disabled_body">Do Not Disturb is active, but priority calls are disabled. Open DND settings and allow calls from starred contacts, then mark this contact as starred.</string>
+    <string name="contact_picker_dnd_contact_not_starred_body">Do Not Disturb is allowing starred callers only. Open this contact and mark it as starred so the assigned ringtone can ring.</string>
+    <string name="contact_picker_dnd_grant_access">Grant DND access</string>
+    <string name="contact_picker_dnd_open_settings">Open DND settings</string>
+    <string name="contact_picker_dnd_mark_priority">Mark contact as priority</string>
+    <string name="contact_picker_dnd_assign_anyway">Assign anyway</string>
+    <string name="contact_picker_dnd_settings_unavailable">Android DND settings could not be opened.</string>
+    <string name="contact_picker_dnd_contact_unavailable">The contact editor could not be opened.</string>
+    <string name="contact_picker_vip_preset">VIP-only preset</string>
+    <string name="contact_picker_vip_success">VIP-only ringing preset applied</string>
+    <string name="contact_picker_vip_default_failed">The contact ringtone was set, but the default ringtone could not be silenced: %1$s</string>
 
     <!-- Wallpaper history -->
     <string name="history_title">Wallpaper History</string>
@@ -1613,6 +1627,8 @@
     <string name="settings_perm_location_desc">Weather wallpaper effects fetch local conditions from Open-Meteo. Coordinates are rounded and cleared when weather effects are disabled.</string>
     <string name="settings_perm_contacts">Contacts</string>
     <string name="settings_perm_contacts_desc">Assign per-contact ringtones. Contact data stays on-device and is never uploaded.</string>
+    <string name="settings_perm_dnd">Do Not Disturb access</string>
+    <string name="settings_perm_dnd_desc">Check whether priority callers can ring while Do Not Disturb is active. Aura uses this for per-contact ringtone guidance.</string>
     <string name="settings_perm_microphone">Microphone</string>
     <string name="settings_perm_microphone_desc">Record audio for custom sounds. Recording starts only on tap and stays local until you choose to upload.</string>
     <string name="settings_perm_modify_settings">Modify settings</string>

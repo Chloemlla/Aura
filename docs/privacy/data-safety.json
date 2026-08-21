@@ -179,6 +179,19 @@
       "deletionPath": "Change the contact ringtone through Aura or Android Contacts/settings.",
       "denialBehavior": "Aura cannot assign the selected ringtone to the contact.",
       "playDeclaration": "Sensitive permission; targeted per-contact ringtone feature."
+    },
+    {
+      "name": "android.permission.ACCESS_NOTIFICATION_POLICY",
+      "category": "notifications",
+      "purpose": "Inspect Do Not Disturb priority-caller rules so Aura can explain whether a selected contact ringtone can ring.",
+      "userAction": "User assigns a per-contact ringtone or opens the permissions section.",
+      "dataTypes": ["App interactions", "Notification policy state"],
+      "collectionStatus": "localOnly",
+      "sharingStatus": "notShared",
+      "retention": "Aura does not store notification policy details; Android remains the source of truth.",
+      "deletionPath": "Revoke Aura's Do Not Disturb access in Android settings or clear app data.",
+      "denialBehavior": "Aura explains that it cannot inspect DND priority rules and leaves the user an explicit assign-anyway choice.",
+      "playDeclaration": "Local DND policy inspection for per-contact ringtone guidance; Aura does not alter policy silently."
     }
   ],
   "networkSurfaces": [

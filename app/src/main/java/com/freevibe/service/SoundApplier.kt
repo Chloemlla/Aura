@@ -86,6 +86,21 @@ class SoundApplier @Inject constructor(
         }.onFailure { it.rethrowIfCancelled() }
     }
 
+    /** Silence the default ringtone so only explicitly assigned contact tones ring. */
+    suspend fun setDefaultRingtoneSilent(): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            if (!canWriteSettings()) {
+                throw SecurityException("WRITE_SETTINGS permission not granted")
+            }
+            RingtoneManager.setActualDefaultRingtoneUri(
+                context,
+                RingtoneManager.TYPE_RINGTONE,
+                null,
+            )
+            prefs.setLastAppliedRingtoneUri("")
+        }.onFailure { it.rethrowIfCancelled() }
+    }
+
     /** Apply a local audio file (e.g. trimmed output) as system sound */
     suspend fun applyFromLocalFile(
         filePath: String,

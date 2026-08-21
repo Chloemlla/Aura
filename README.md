@@ -133,7 +133,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Quick Settings Action** | Add “Next wallpaper” from the system tile editor for one-tap rotation, even while automatic rotation is off |
 | **Auto Wallpaper** | Rotation schedule with one source, clock-based day/night sources, or system light/dark theme matching |
 | **Shuffle FAB** | One-tap random wallpaper from current tab |
-| **Per-Contact Ringtones** | Assign custom ringtones to individual contacts |
+| **Per-Contact Ringtones** | Assign custom ringtones with DND priority guidance and a VIP-only silent-default preset |
 | **Dual Wallpapers** | Coordinated home + lock screen wallpaper pairs |
 | **Favorites Export** | JSON export/import with full metadata via Android SAF |
 | **Theme Packs** | Local zip export/import for wallpaper, video, sound, widget tint, and launcher shortcut recipes |

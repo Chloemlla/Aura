@@ -2,6 +2,7 @@ package com.freevibe.service
 
 import android.content.ContentValues
 import android.content.Context
+import android.app.NotificationManager
 import android.net.Uri
 import android.provider.ContactsContract
 import com.freevibe.util.rethrowIfCancelled
@@ -17,12 +18,88 @@ data class ContactInfo(
     val name: String,
     val photoUri: String? = null,
     val currentRingtoneUri: String? = null,
+    val isStarred: Boolean = false,
 )
+
+enum class ContactDndGuidance {
+    NONE,
+    POLICY_ACCESS_REQUIRED,
+    CALLS_BLOCKED,
+    PRIORITY_CALLS_DISABLED,
+    CONTACT_MUST_BE_STARRED,
+}
+
+internal fun classifyContactDndGuidance(
+    interruptionFilter: Int,
+    hasPolicyAccess: Boolean,
+    priorityCategories: Int,
+    priorityCallSenders: Int,
+    contactIsStarred: Boolean,
+): ContactDndGuidance {
+    if (
+        interruptionFilter == NotificationManager.INTERRUPTION_FILTER_ALL ||
+        interruptionFilter == NotificationManager.INTERRUPTION_FILTER_UNKNOWN
+    ) {
+        return ContactDndGuidance.NONE
+    }
+    if (!hasPolicyAccess) return ContactDndGuidance.POLICY_ACCESS_REQUIRED
+    if (
+        interruptionFilter == NotificationManager.INTERRUPTION_FILTER_NONE ||
+        interruptionFilter == NotificationManager.INTERRUPTION_FILTER_ALARMS
+    ) {
+        return ContactDndGuidance.CALLS_BLOCKED
+    }
+    if (interruptionFilter != NotificationManager.INTERRUPTION_FILTER_PRIORITY) {
+        return ContactDndGuidance.CALLS_BLOCKED
+    }
+    if (priorityCategories and NotificationManager.Policy.PRIORITY_CATEGORY_CALLS == 0) {
+        return ContactDndGuidance.PRIORITY_CALLS_DISABLED
+    }
+    return when {
+        priorityCallSenders == NotificationManager.Policy.PRIORITY_SENDERS_ANY -> ContactDndGuidance.NONE
+        priorityCallSenders == NotificationManager.Policy.PRIORITY_SENDERS_STARRED && !contactIsStarred ->
+            ContactDndGuidance.CONTACT_MUST_BE_STARRED
+        else -> ContactDndGuidance.NONE
+    }
+}
+
+internal fun contactEditorUri(contact: ContactInfo): Uri =
+    if (contact.lookupKey.isNotBlank()) {
+        ContactsContract.Contacts.getLookupUri(contact.id, contact.lookupKey)
+            ?: ContactsContract.Contacts.CONTENT_URI.buildUpon().appendPath(contact.id.toString()).build()
+    } else {
+        ContactsContract.Contacts.CONTENT_URI.buildUpon().appendPath(contact.id.toString()).build()
+    }
 
 @Singleton
 class ContactRingtoneService @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
+    fun getDndGuidance(contact: ContactInfo): ContactDndGuidance {
+        val notificationManager = context.getSystemService(NotificationManager::class.java)
+            ?: return ContactDndGuidance.NONE
+        return runCatching {
+            val interruptionFilter = notificationManager.currentInterruptionFilter
+            if (!notificationManager.isNotificationPolicyAccessGranted) {
+                return@runCatching classifyContactDndGuidance(
+                    interruptionFilter = interruptionFilter,
+                    hasPolicyAccess = false,
+                    priorityCategories = 0,
+                    priorityCallSenders = 0,
+                    contactIsStarred = contact.isStarred,
+                )
+            }
+            val policy = notificationManager.notificationPolicy
+            classifyContactDndGuidance(
+                interruptionFilter = interruptionFilter,
+                hasPolicyAccess = true,
+                priorityCategories = policy.priorityCategories,
+                priorityCallSenders = policy.priorityCallSenders,
+                contactIsStarred = contact.isStarred,
+            )
+        }.getOrElse { ContactDndGuidance.POLICY_ACCESS_REQUIRED }
+    }
+
     suspend fun getContact(contactUri: Uri): ContactInfo? = withContext(Dispatchers.IO) {
         val resolver = context.contentResolver
         resolver.query(
@@ -33,6 +110,7 @@ class ContactRingtoneService @Inject constructor(
                 ContactsContract.Contacts.DISPLAY_NAME_PRIMARY,
                 ContactsContract.Contacts.PHOTO_THUMBNAIL_URI,
                 ContactsContract.Contacts.CUSTOM_RINGTONE,
+                ContactsContract.Contacts.STARRED,
             ),
             null,
             null,
@@ -43,6 +121,7 @@ class ContactRingtoneService @Inject constructor(
             val nameIdx = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME_PRIMARY)
             val photoIdx = cursor.getColumnIndex(ContactsContract.Contacts.PHOTO_THUMBNAIL_URI)
             val ringtoneIdx = cursor.getColumnIndex(ContactsContract.Contacts.CUSTOM_RINGTONE)
+            val starredIdx = cursor.getColumnIndex(ContactsContract.Contacts.STARRED)
             if (!cursor.moveToFirst() || idIdx < 0 || nameIdx < 0) {
                 null
             } else {
@@ -52,6 +131,7 @@ class ContactRingtoneService @Inject constructor(
                     name = cursor.getString(nameIdx) ?: "Unknown",
                     photoUri = if (photoIdx >= 0) cursor.getString(photoIdx) else null,
                     currentRingtoneUri = if (ringtoneIdx >= 0) cursor.getString(ringtoneIdx) else null,
+                    isStarred = starredIdx >= 0 && cursor.getInt(starredIdx) != 0,
                 )
             }
         }

@@ -219,6 +219,11 @@
       "name": "android.permission.WRITE_CONTACTS",
       "purpose": "Assign a selected ringtone to the contact chosen through Android's picker.",
       "disclosure": "Used only after explicit contact ringtone action; contact selection stays local to the device."
+    },
+    {
+      "name": "android.permission.ACCESS_NOTIFICATION_POLICY",
+      "purpose": "Inspect Do Not Disturb priority-caller rules for per-contact ringtone guidance.",
+      "disclosure": "Used locally to explain whether a selected contact can ring during Do Not Disturb; Aura does not change the user's policy without an explicit settings action."
     }
   ],
   "networkServices": [

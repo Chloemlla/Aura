@@ -31,7 +31,9 @@ application, sound assignment, recording, network access, storage compatibility,
 foreground services, notifications, optional coarse location, and local contact
 ringtone assignment. The reviewed boot receiver permission is limited to
 restoring previously applied ringtone, notification, and alarm sounds after
-device boot; wallpaper rotation triggers do not start at boot.
+device boot; wallpaper rotation triggers do not start at boot. DND policy
+access is used locally to explain whether a selected contact ringtone can ring
+during Do Not Disturb, and Aura does not change the user's policy silently.
 
 ## Network services
 

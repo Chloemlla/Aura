@@ -14,13 +14,6 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
 
 ### P2
 
-- [ ] P2 — Make per-contact ringtones survive Do Not Disturb
-  Why: Aura writes `CUSTOM_RINGTONE` but does nothing about DND or priority senders, so the feature is a no-op in the most common phone state; the widely-shared workaround (silent default + per-contact real ringtones) is a one-tap preset Aura could own.
-  Evidence: no `INTERRUPTION_FILTER`, `NotificationManager.Policy`, or `isNotificationPolicyAccessGranted` anywhere in `app/src/main/java`; `ContactRingtoneService.kt`; SOSRing; HN 44935850.
-  Touches: `ContactRingtoneService.kt`, `ContactPickerScreen.kt`, permissions/about section, string resources.
-  Acceptance: assigning a contact ringtone detects DND, explains the interaction, and offers to mark the contact a priority sender via the platform flow; a "VIP-only ringing" preset sets a silent default plus chosen contacts; behavior when policy access is denied is explicit and tested.
-  Complexity: M
-
 - [ ] P2 — Strip Stability AI from the `foss` flavor and gate binary-update consent
   Why: the `foss` source set stubs only `com/google/*`, so the Stability AI integration compiles into the FOSS artifact and collides head-on with IzzyOnDroid's stated policy against apps for accessing generative-AI platforms; separately, both IzzyOnDroid and F-Droid require runtime binary downloads to be explicit opt-in with a stated warning.
   Evidence: `app/build.gradle.kts:98` (`STABILITY_AI_KEY` unconditional in `defaultConfig`); `app/src/foss/java/com/google/**` only; `YtDlpUpdateManager.kt:56-57` reachable from `SettingsViewModel.kt:517`; IzzyOnDroid App Inclusion Policy.

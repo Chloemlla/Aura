@@ -1,6 +1,7 @@
 package com.freevibe.ui.screens.settings
 
 import android.Manifest
+import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -160,6 +161,14 @@ internal fun PermissionsSettingsSection(context: Context) {
             scope = PermissionScope.LOCAL,
             description = stringResource(R.string.settings_perm_contacts_desc),
             granted = ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED,
+        )
+        PermissionTransparencyRow(
+            icon = Icons.Default.Notifications,
+            permission = stringResource(R.string.settings_perm_dnd),
+            scope = PermissionScope.LOCAL,
+            description = stringResource(R.string.settings_perm_dnd_desc),
+            granted = context.getSystemService(NotificationManager::class.java)
+                ?.isNotificationPolicyAccessGranted == true,
         )
         PermissionTransparencyRow(
             icon = Icons.Default.Mic,

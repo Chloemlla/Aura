@@ -57,6 +57,12 @@ All notable changes to Aura will be documented in this file.
   and supported unprocessed source files can use a stream-copy cut whose packet bytes are
   checked before export completes.
 
+- **Per-contact ringtones now understand Do Not Disturb**: assignment explains missing
+  notification-policy access, blocked calls, disabled priority calls, and unstarred
+  contacts. The contact flow opens Android's priority-caller or contact editor screens,
+  keeps an explicit assign-anyway path, and adds a VIP-only preset that silences the
+  default ringtone after assigning the selected contact tone.
+
 - **New Rotation health screen, in Settings under Diagnostics**: when automatic
   wallpaper change quietly stops, there was nothing to look at. The five reasons it can
   stop all look the same from the home screen: rotation is off, it's waiting for its

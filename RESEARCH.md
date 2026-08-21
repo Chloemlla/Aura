@@ -1,6 +1,6 @@
 # Research — Aura
 Date: 2026-08-20 — replaces all prior research (previous pass: 2026-08-11).
-Confidence: unqualified project facts are **Verified** by direct inspection at v6.41.0 (versionCode 142, HEAD `070d9a8`, dirty tree — see Working-tree note); external claims are labeled **Likely**, **Assumption**, or **Needs live validation**.
+Confidence: unqualified project facts are **Verified** by direct inspection of the current v6.45.0 working tree; external claims are labeled **Likely**, **Assumption**, or **Needs live validation**.
 
 ## Executive Summary
 
@@ -25,11 +25,15 @@ The Sound Editor now keeps processed exports on the existing FFmpeg path, while 
 supported source can use a guarded stream-copy cut. OGG exports include `ANDROID_LOOP=true`,
 and the editor checks the copied packet sequence before accepting a lossless result.
 
+Per-contact ringtone assignment now checks Do Not Disturb policy state, explains denied access or
+blocked priority callers, opens Android's priority-caller and contact editor flows, and offers a
+VIP-only preset that silences the default ringtone after assigning the selected contact tone.
+
 ## Product Map
 
 ### Core workflows
 - Browse provider/community/local wallpaper, video, and sound feeds; search/filter; preview; favorite; download (Room + MediaStore).
-- Edit wallpapers (crop, tone, AMOLED crush, depth portraits, text/sticker overlays) and sounds (trim, fade, normalize, convert, gapless OGG output, and verified lossless cuts) and apply to home/lock/both or as ringtone/notification/alarm/per-contact.
+- Edit wallpapers (crop, tone, AMOLED crush, depth portraits, text/sticker overlays) and sounds (trim, fade, normalize, convert, gapless OGG output, and verified lossless cuts) and apply to home/lock/both or as ringtone/notification/alarm/per-contact, with DND-aware contact guidance and a VIP-only ringtone preset.
 - Run one of three live-wallpaper engines (video, parallax, weather/shader) with FPS caps, battery caps, touch effects, and a battery dashboard.
 - Automate: interval/clock/day-night/theme rotation, rotation triggers (unlock/screen-off), 24H packs (scheduler shipped, editor missing), sound profiles (same state), scheduled backups, Tasker/tile/widget entry points.
 - Share and back up: collections via link/QR/JSON, whole-library export/import, local theme packs.
@@ -68,6 +72,7 @@ and the editor checks the copied packet sequence before accepting a lossless res
 - [Verified] **Release gap is the top trust issue**: v6.39.0–v6.41.0 (including the bounded archive extraction, automation-intent gating, cleartext config, and moderation-consent fixes) are unreachable by every Obtainium user. Existing P0 item; evidence refreshed 2026-08-20 (`gh release list` newest = v6.38.1).
 - [Verified] **Two dead toggles schedule perpetual no-op work**: `SettingsWallpaperSection.kt:249` and `SettingsSoundSection.kt:198` enable 15-minute periodic workers (`WallpaperPackManager.kt`, `SoundProfileManager.kt:82-93` — defers with "no sound profiles defined") whose DataStore JSON no UI can write. Battery cost with zero user value, and a shipped promise the product cannot keep. New items queued.
 - [Verified] **OEM ringtone writes fail generically**: `SoundApplier.kt:70,109` call `RingtoneManager.setActualDefaultRingtoneUri` with no OEM-failure classification; Samsung devices throw `IllegalArgumentException` ("cannot keep your settings in the secure settings") on notification-sound writes per Samsung developer-forum reports. New item queued.
+- [Verified] **Per-contact ringtone DND behavior is now explicit**: contact assignment reads Android's interruption filter and priority-call policy when access is available, offers the platform priority-caller/contact-editor flows, and provides a silent-default VIP preset. Denied policy access leaves a visible assign-anyway path and does not change DND policy silently.
 - [Verified] **yt-dlp CVE posture is current**: the bundled 2026.07.04 payload post-dates all four 2026 advisories (CVE-2026-26331 `--netrc-cmd` injection, CVE-2026-50023 filename-sanitization bypass, CVE-2026-50574 aria2c file write — all fixed by 2026.06.09). The remaining tracked work (size caps before write, flag-set gate asserting no `--exec`/`--netrc-cmd`/aria2c) stands; no emergency payload bump needed.
 - [Verified] **Non-issues confirmed this pass**: `AudioPlaybackService.onGetSession` rejects untrusted controllers; the adaptive icon carries a `<monochrome>` layer (Android 16 QPR2 auto-theming safe); `freevibe.jks` and `local.properties` are gitignored and untracked; custom subreddits (12, validated), Lemmy, the AMOLED crush filter, battery dashboards, and AI-content labeling/filtering are all already shipped — several are features competitors' trackers still request.
 - [Verified] **Dynamic color re-trigger** ([Likely] platform flakiness, Paperize #588): Android sometimes fails to recompute Material You colors on programmatic applies. Aura's queued `WallpaperColors` engine item covers live engines; static applies should be spot-checked on device when that item lands.
