@@ -64,17 +64,6 @@ Added 2026-08-10. See RESEARCH.md for evidence and confidence labels.
 Evidence, confidence labels, and sources in RESEARCH.md (2026-08-11 pass). Items verified
 against v6.41.0 / versionCode 142 at `122d431`.
 
-#### P1
-
-- [ ] P1 — Retire FFmpeg from the sound editor using the platform media stack
-  Why: FFmpeg and Python are the bulk of the 198 MB artifact, they force `useLegacyPackaging = true` (compressed `.so` extracted at install, roughly doubling on-device native storage and working against the uncompressed packaging 16 KB guidance asks for), and they are the reason a yt-dlp CVE treadmill reaches the *editing* path at all. Media3 now offers muxers and speed/pitch transforms that cover trim, convert, and speed without a native toolchain. This is the largest single lever on APK size and native-loader exposure.
-  Evidence: `AudioTrimmer.kt` re-encodes every export through FFmpeg reached by reflection on youtubedl-android's static fields (ARCHITECTURE.md "External"); `app/build.gradle.kts:165-168` `useLegacyPackaging = true` with no comment, required by youtubedl-android's `extractNativeLibs` contract; `docs/distribution/native-alignment.json` lists `libffmpeg.zip.so` and `libpython.zip.so` for four ABIs; Media3 release notes for `OggMuxer`, `WavMuxer`, and `EditedMediaItem` speed with pitch preservation. Blocked until the tracked compileSdk 36 item lands — the Media3 releases carrying these need it.
-  Touches: `AudioTrimmer.kt`, `SoundEditorViewModel.kt`, `app/build.gradle.kts` packaging, `tools/native_alignment_check.py`, `docs/distribution/native-alignment.json`.
-  Acceptance: trim, convert, and speed run through the platform media stack with byte-comparable output on a fixture corpus; FFmpeg is retained only for the operations that genuinely require it, with each one named in the docs; if the video-crop path is the last FFmpeg consumer, that is recorded explicitly; APK size before and after is measured, and whether `useLegacyPackaging` can be turned off is answered either way.
-  Complexity: XL
-
-  Update 2026-08-20: per-ABI splits landed and measured 199 MB universal → 60.5 MB arm64-v8a, 54.2 MB armeabi-v7a, 59.2 MB x86, 63.4 MB x86_64. That is a 3.3× cut but still twice IzzyOnDroid's 30 MB per-APK ceiling, so **this item is now the only remaining lever on store eligibility** — the residual bulk is the FFmpeg and Python payload and nothing else. Splitting was never going to reach 30 MB alone; the measurement is recorded in `docs/distribution/native-alignment.json` under `abiSplitEvidence`.
-
 #### P2
 
 - [ ] P2 — Restore validation-only CI

@@ -26,6 +26,7 @@ import com.freevibe.service.losslessCutExportFormat
 import com.freevibe.service.normalizeMediaFileName
 import com.freevibe.service.requireSniffedMediaFile
 import com.freevibe.service.ShareOutbox
+import com.freevibe.service.speedAdjustedDurationMs
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -58,10 +59,10 @@ data class SoundEditorState(
     val fadeInMs: Long = 0,
     val fadeOutMs: Long = 0,
     val fadeCurve: AudioFadeCurve = AudioFadeCurve.LINEAR,
-    val normalizationApplied: Boolean = false,
+    val playbackSpeed: Float = 1f,
     val losslessCut: Boolean = false,
-    val exportFormat: AudioExportFormat = AudioExportFormat.MP3,
-    val exportBitrateKbps: Int? = AudioExportFormat.MP3.defaultBitrateKbps,
+    val exportFormat: AudioExportFormat = AudioExportFormat.M4A,
+    val exportBitrateKbps: Int? = AudioExportFormat.M4A.defaultBitrateKbps,
     val waveformZoom: Float = 1f,
     val waveformViewportStart: Float = 0f,
     val fileName: String = "",
@@ -73,8 +74,10 @@ data class SoundEditorState(
     val trimStartFraction: Float get() = if (durationMs > 0L) trimStartMs.toFloat() / durationMs else 0f
     val trimEndFraction: Float get() = if (durationMs > 0L) trimEndMs.toFloat() / durationMs else 1f
     val trimDurationMs: Long get() = trimEndMs - trimStartMs
+    val processedDurationMs: Long get() = speedAdjustedDurationMs(trimDurationMs, playbackSpeed)
+    val maximumFadeMs: Long get() = (processedDurationMs / 2L).coerceAtLeast(1L)
     val canUseLosslessCut: Boolean
-        get() = isLosslessCutAllowed(fadeInMs, fadeOutMs, normalizationApplied) &&
+        get() = isLosslessCutAllowed(fadeInMs, fadeOutMs, playbackSpeed) &&
             losslessCutExportFormat(localFilePath) != null
     val effectiveExportFormat: AudioExportFormat
         get() = if (losslessCut) losslessCutExportFormat(localFilePath) ?: exportFormat else exportFormat
@@ -88,7 +91,7 @@ data class SoundEditorState(
             playbackPosition == other.playbackPosition &&
             isPlaying == other.isPlaying && isApplying == other.isApplying &&
             fadeInMs == other.fadeInMs && fadeOutMs == other.fadeOutMs &&
-            fadeCurve == other.fadeCurve && normalizationApplied == other.normalizationApplied &&
+            fadeCurve == other.fadeCurve && playbackSpeed == other.playbackSpeed &&
             losslessCut == other.losslessCut && exportFormat == other.exportFormat &&
             exportBitrateKbps == other.exportBitrateKbps && waveformZoom == other.waveformZoom &&
             waveformViewportStart == other.waveformViewportStart &&
@@ -109,7 +112,7 @@ data class SoundEditorState(
         result = 31 * result + fadeInMs.hashCode()
         result = 31 * result + fadeOutMs.hashCode()
         result = 31 * result + fadeCurve.hashCode()
-        result = 31 * result + normalizationApplied.hashCode()
+        result = 31 * result + playbackSpeed.hashCode()
         result = 31 * result + losslessCut.hashCode()
         result = 31 * result + exportFormat.hashCode()
         result = 31 * result + (exportBitrateKbps ?: 0)
@@ -151,6 +154,7 @@ class SoundEditorViewModel @Inject constructor(
         val fadeIn: Long,
         val fadeOut: Long,
         val fadeCurve: AudioFadeCurve,
+        val playbackSpeed: Float,
     )
 
     fun loadSound(sound: Sound, editConfirmed: Boolean = false): Boolean {
@@ -196,7 +200,7 @@ class SoundEditorViewModel @Inject constructor(
                     fadeInMs = 0,
                     fadeOutMs = 0,
                     fadeCurve = AudioFadeCurve.LINEAR,
-                    normalizationApplied = false,
+                    playbackSpeed = 1f,
                     losslessCut = false,
                     waveformZoom = 1f,
                     waveformViewportStart = 0f,
@@ -252,7 +256,7 @@ class SoundEditorViewModel @Inject constructor(
                     fadeInMs = 0,
                     fadeOutMs = 0,
                     fadeCurve = AudioFadeCurve.LINEAR,
-                    normalizationApplied = false,
+                    playbackSpeed = 1f,
                     losslessCut = false,
                     waveformZoom = 1f,
                     waveformViewportStart = 0f,
@@ -291,7 +295,14 @@ class SoundEditorViewModel @Inject constructor(
 
     fun saveUndo() {
         val s = _state.value
-        undoState = UndoSnapshot(s.trimStartMs, s.trimEndMs, s.fadeInMs, s.fadeOutMs, s.fadeCurve)
+        undoState = UndoSnapshot(
+            s.trimStartMs,
+            s.trimEndMs,
+            s.fadeInMs,
+            s.fadeOutMs,
+            s.fadeCurve,
+            s.playbackSpeed,
+        )
     }
 
     fun undo() {
@@ -301,6 +312,7 @@ class SoundEditorViewModel @Inject constructor(
                     trimStartMs = snap.trimStartMs, trimEndMs = snap.trimEndMs,
                     fadeInMs = snap.fadeIn, fadeOutMs = snap.fadeOut,
                     fadeCurve = snap.fadeCurve,
+                    playbackSpeed = snap.playbackSpeed,
                 )
             }
             undoState = null
@@ -327,7 +339,8 @@ class SoundEditorViewModel @Inject constructor(
                 durationMs = state.durationMs,
                 frameDurationMs = state.frameDurationMs,
             )
-            val maxFade = ((state.trimEndMs - start) / 2).coerceAtLeast(0L)
+            val maxFade = (speedAdjustedDurationMs(state.trimEndMs - start, state.playbackSpeed) / 2L)
+                .coerceAtLeast(0L)
             state.copy(
                 trimStartMs = start,
                 fadeInMs = state.fadeInMs.coerceAtMost(maxFade),
@@ -344,7 +357,8 @@ class SoundEditorViewModel @Inject constructor(
                 durationMs = state.durationMs,
                 frameDurationMs = state.frameDurationMs,
             )
-            val maxFade = ((end - state.trimStartMs) / 2).coerceAtLeast(0L)
+            val maxFade = (speedAdjustedDurationMs(end - state.trimStartMs, state.playbackSpeed) / 2L)
+                .coerceAtLeast(0L)
             state.copy(
                 trimEndMs = end,
                 fadeInMs = state.fadeInMs.coerceAtMost(maxFade),
@@ -355,28 +369,50 @@ class SoundEditorViewModel @Inject constructor(
 
     fun setFadeIn(ms: Long) {
         _state.update { state ->
-            val fadeInMs = ms.coerceIn(0, (state.trimDurationMs / 2).coerceAtLeast(1))
+            val fadeInMs = ms.coerceIn(0L, state.maximumFadeMs)
             state.copy(
                 fadeInMs = fadeInMs,
                 losslessCut = state.losslessCut &&
-                    isLosslessCutAllowed(fadeInMs, state.fadeOutMs, state.normalizationApplied),
+                    isLosslessCutAllowed(fadeInMs, state.fadeOutMs, state.playbackSpeed),
             )
         }
     }
 
     fun setFadeOut(ms: Long) {
         _state.update { state ->
-            val fadeOutMs = ms.coerceIn(0, (state.trimDurationMs / 2).coerceAtLeast(1))
+            val fadeOutMs = ms.coerceIn(0L, state.maximumFadeMs)
             state.copy(
                 fadeOutMs = fadeOutMs,
                 losslessCut = state.losslessCut &&
-                    isLosslessCutAllowed(state.fadeInMs, fadeOutMs, state.normalizationApplied),
+                    isLosslessCutAllowed(state.fadeInMs, fadeOutMs, state.playbackSpeed),
             )
         }
     }
 
     fun setFadeCurve(curve: AudioFadeCurve) {
         _state.update { it.copy(fadeCurve = curve) }
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        if (speed !in SOUND_EDITOR_PLAYBACK_SPEEDS) return
+        _state.update { state ->
+            val maximumFadeMs = (speedAdjustedDurationMs(state.trimDurationMs, speed) / 2L)
+                .coerceAtLeast(1L)
+            state.copy(
+                playbackSpeed = speed,
+                fadeInMs = state.fadeInMs.coerceAtMost(maximumFadeMs),
+                fadeOutMs = state.fadeOutMs.coerceAtMost(maximumFadeMs),
+                losslessCut = state.losslessCut &&
+                    isLosslessCutAllowed(state.fadeInMs, state.fadeOutMs, speed),
+            )
+        }
+        player?.let { activePlayer ->
+            runCatching {
+                activePlayer.playbackParams = activePlayer.playbackParams
+                    .setSpeed(speed)
+                    .setPitch(1f)
+            }
+        }
     }
 
     fun setExportFormat(format: AudioExportFormat) {
@@ -451,9 +487,9 @@ class SoundEditorViewModel @Inject constructor(
                     fadeInMs = s.fadeInMs,
                     fadeOutMs = s.fadeOutMs,
                     fadeCurve = s.fadeCurve,
+                    playbackSpeed = s.playbackSpeed,
                     exportFormat = s.exportFormat,
                     bitrateKbps = s.exportBitrateKbps,
-                    normalizationApplied = s.normalizationApplied,
                     losslessCut = s.losslessCut,
                 ).getOrThrow()
 
@@ -491,9 +527,9 @@ class SoundEditorViewModel @Inject constructor(
                     fadeInMs = state.fadeInMs,
                     fadeOutMs = state.fadeOutMs,
                     fadeCurve = state.fadeCurve,
+                    playbackSpeed = state.playbackSpeed,
                     exportFormat = state.exportFormat,
                     bitrateKbps = state.exportBitrateKbps,
-                    normalizationApplied = state.normalizationApplied,
                     losslessCut = state.losslessCut,
                 ).getOrThrow()
                 soundApplier.exportFromLocalFile(outputPath, state.fileName)
@@ -537,6 +573,9 @@ class SoundEditorViewModel @Inject constructor(
                     if (player == null) return@setOnPreparedListener
                     try {
                         mp.seekTo(startMs)
+                        mp.playbackParams = android.media.PlaybackParams()
+                            .setSpeed(_state.value.playbackSpeed)
+                            .setPitch(1f)
                         mp.start()
                     } catch (_: IllegalStateException) {
                         return@setOnPreparedListener
@@ -847,6 +886,8 @@ internal fun updateWaveformViewport(
 }
 
 internal const val MAX_WAVEFORM_ZOOM = 8f
+
+internal val SOUND_EDITOR_PLAYBACK_SPEEDS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)
 
 internal fun shouldReuseLoadedSound(
     loadedSoundKey: String?,

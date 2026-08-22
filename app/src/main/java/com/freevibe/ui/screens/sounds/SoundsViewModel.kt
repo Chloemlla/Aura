@@ -52,7 +52,6 @@ class SoundsViewModel @Inject constructor(
     private val downloadManager: DownloadManager,
     private val selectedContent: SelectedContentHolder,
     private val searchHistoryRepo: SearchHistoryRepository,
-    private val audioTrimmer: com.freevibe.service.AudioTrimmer,
     private val prefs: PreferencesManager,
     val voteRepo: VoteRepository,
     private val reportRepo: CommunityReportRepository,
@@ -298,10 +297,6 @@ class SoundsViewModel @Inject constructor(
     fun isFavorite(sound: Sound): Flow<Boolean> = applyActions.isFavorite(sound)
 
     suspend fun loadSimilar(sound: Sound): List<Sound> = youtubeActions.loadSimilar(sound)
-
-    fun normalizeAudio(inputPath: String, onResult: (Result<String>) -> Unit) {
-        viewModelScope.launch { onResult(audioTrimmer.normalize(inputPath)) }
-    }
 
     fun clearError() = _state.update { it.copy(error = null) }
     fun clearSuccess() = _state.update { it.copy(applySuccess = null) }

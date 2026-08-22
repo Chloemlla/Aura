@@ -54,7 +54,7 @@
           "getDeclaredField(",
           "isAccessible = true"
         ],
-        "reason": "Reads youtubedl-android FFmpeg binary and LD_LIBRARY_PATH values for local audio trimming."
+        "reason": "Reads youtubedl-android FFmpeg binary and LD_LIBRARY_PATH values only for MP3, FLAC, unavailable OGG or Opus encoders, and unsupported lossless stream-copy cuts after Media3 handles the editor transform."
       },
       {
         "path": "app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoCropScreen.kt",
@@ -80,6 +80,13 @@
           "getMethod("
         ],
         "reason": "Supports ML Kit subject segmentation beta API shape differences without broad reflection."
+      },
+      {
+        "path": "app/src/main/java/com/freevibe/service/DepthPortraitComposer.kt",
+        "terms": [
+          "getMethod("
+        ],
+        "reason": "Reads ML Kit beta foreground confidence mask data across API shape differences."
       }
     ]
   },

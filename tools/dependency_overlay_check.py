@@ -45,6 +45,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--overlay", default=DEFAULT_OVERLAY)
     parser.add_argument("--dependency-lock", default=DEFAULT_DEPENDENCY_LOCK)
     parser.add_argument("--native-lock", default=DEFAULT_NATIVE_LOCK)
+    parser.add_argument("--repo-root", default=".")
     return parser.parse_args()
 
 
@@ -90,6 +91,7 @@ def target_matches(
     coordinates: set[str],
     native_coordinate_set: set[str],
     payloads: set[str],
+    repo_root: Path,
 ) -> bool:
     target_type = str(entry.get("targetType", ""))
     target = str(entry.get("target", ""))
@@ -102,6 +104,8 @@ def target_matches(
         return any(group_of(coordinate) == target for coordinate in all_coordinates)
     if target_type == "payload":
         return target in payloads
+    if target_type == "app-resource":
+        return (repo_root / target).is_file()
     raise ValueError(f"Unsupported overlay targetType for {entry.get('id')}: {target_type}")
 
 
@@ -121,6 +125,7 @@ def validate_overlay(
     overlay: dict[str, object],
     dependency_lock: dict[str, object],
     native_lock: dict[str, object],
+    repo_root: Path,
 ) -> list[str]:
     if overlay.get("schemaVersion") != 1:
         return ["overlay schemaVersion must be 1"]
@@ -150,6 +155,7 @@ def validate_overlay(
                 coordinates=coordinates,
                 native_coordinate_set=native_coordinate_set,
                 payloads=payloads,
+                repo_root=repo_root,
             ):
                 errors.append(f"{entry_id}: target does not match dependency/native locks")
         except ValueError as exc:
@@ -163,6 +169,7 @@ def validate_overlay(
 
 def main() -> int:
     args = parse_args()
+    repo_root = Path(args.repo_root)
     overlay = load_json(Path(args.overlay))
     dependency_lock = load_json(Path(args.dependency_lock))
     native_lock = load_json(Path(args.native_lock))
@@ -176,6 +183,7 @@ def main() -> int:
         overlay=overlay,
         dependency_lock=dependency_lock,
         native_lock=native_lock,
+        repo_root=repo_root,
     )
     if errors:
         print("Dependency overlay validation failed:", file=sys.stderr)

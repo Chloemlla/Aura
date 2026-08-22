@@ -209,6 +209,8 @@ android {
 
     packaging {
         jniLibs {
+            // youtubedl-android extracts its zipped FFmpeg and Python payloads at runtime.
+            // This cannot move to modern packaging until that extractor runtime is removed.
             useLegacyPackaging = true
         }
         resources {
@@ -307,7 +309,9 @@ dependencies {
     // Media Playback
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.exoplayer.hls)
+    implementation(libs.media3.muxer)
     implementation(libs.media3.session)
+    implementation(libs.media3.transformer)
     implementation(libs.media3.ui)
 
     // WorkManager

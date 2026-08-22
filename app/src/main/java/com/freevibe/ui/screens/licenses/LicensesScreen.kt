@@ -45,7 +45,7 @@ private val licenses = listOf(
     OssLicense("OkHttp", "https://github.com/square/okhttp", "Apache 2.0", "HTTP engine"),
     OssLicense("Moshi", "https://github.com/square/moshi", "Apache 2.0", "JSON parsing"),
     OssLicense("Coil", "https://github.com/coil-kt/coil", "Apache 2.0", "Image loading"),
-    OssLicense("Media3 ExoPlayer", "https://github.com/androidx/media", "Apache 2.0", "Audio playback"),
+    OssLicense("Media3", "https://github.com/androidx/media", "Apache 2.0", "Audio playback and platform audio export"),
     OssLicense("WorkManager", "https://developer.android.com/topic/libraries/architecture/workmanager", "Apache 2.0", "Background scheduling"),
     OssLicense("DataStore", "https://developer.android.com/topic/libraries/architecture/datastore", "Apache 2.0", "Persistent preferences"),
     OssLicense("Paging 3", "https://developer.android.com/topic/libraries/architecture/paging/v3-overview", "Apache 2.0", "Infinite scroll"),
@@ -60,7 +60,7 @@ private val licenses = listOf(
     OssLicense("NewPipe Extractor", "https://github.com/TeamNewPipe/NewPipeExtractor", "GPL-3.0", "YouTube and streaming-site extraction"),
     OssLicense("youtubedl-android", "https://github.com/yausername/youtubedl-android", "GPL-3.0", "yt-dlp wrapper for Android"),
     OssLicense("yt-dlp", "https://github.com/yt-dlp/yt-dlp", "Unlicense", "YouTube stream extraction payload"),
-    OssLicense("FFmpeg", "https://ffmpeg.org/legal.html", "LGPL/GPL depending on build", "Video crop and audio processing payload"),
+    OssLicense("FFmpeg", "https://ffmpeg.org/legal.html", "LGPL/GPL depending on build", "Video crop, extractor runtime, and fallback audio codec payload"),
     OssLicense("Core library desugaring", "https://developer.android.com/studio/write/java8-support", "Apache 2.0", "Java API backports for Android"),
 )
 

@@ -158,7 +158,7 @@
     }
   ],
   "tempDirectories": [
-    {"path": "cacheDir/trimmed", "purpose": "FFmpeg audio temp output", "sourceFile": "AudioTrimmer.kt"},
+    {"path": "cacheDir/trimmed", "purpose": "Media3 audio export plus short-lived WAV files for final FFmpeg codec fallback", "sourceFile": "AudioTrimmer.kt"},
     {"path": "cacheDir/downloads", "purpose": "Download staging (64 MB cap)", "sourceFile": "DownloadManager.kt"},
     {"path": "cacheDir/audio_edit", "purpose": "Sound editor temp (96 MB cap)", "sourceFile": "SoundEditorViewModel.kt"},
     {"path": "cacheDir/audio_apply", "purpose": "Ringtone apply staging", "sourceFile": "SoundApplier.kt"},

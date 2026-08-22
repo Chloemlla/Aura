@@ -58,7 +58,7 @@ Living architecture overview for contributors. Internal working notes live in `C
 │     WallpaperApplier (applyByLocator: http/file/content/path)      │
 │     SoundApplier (RingtoneManager + MediaStore)                    │
 │     DownloadManager (StateFlow-driven download queue)              │
-│     AudioTrimmer (MediaMuxer + FFmpeg fade/normalize/convert)      │
+│     AudioTrimmer (Media3 transforms + final-codec fallback)        │
 │     ContactRingtoneService (per-contact ringtone assignment)       │
 │     SmartCropDetector (NX-3: ML Kit subject bbox)                  │
 │     SmartCropCalculator (pure geometry, unit-tested)               │
@@ -70,8 +70,10 @@ Living architecture overview for contributors. Internal working notes live in `C
 ├────────────────────────────────────────────────────────────────────┤
 │  External                                                          │
 │   YouTube: NewPipe Extractor + yt-dlp (no API key)                 │
-│   FFmpeg: bundled via yt-dlp Python, accessed via reflection on    │
-│     youtubedl-android's static fields                              │
+│   Media3: clips, fades, pitch-preserving speed, and platform       │
+│     audio encoding in the Sound Editor                             │
+│   FFmpeg/Python: bundled through youtubedl-android for extraction, │
+│     video crop, missing codecs, and unsupported lossless cuts      │
 │   Firebase: RTDB (community voting) + Storage (uploads) + Auth     │
 │     (anonymous default; optional Google sign-in queued)            │
 │   ML Kit: Subject Segmentation (unbundled, Google Play services)   │
@@ -151,7 +153,7 @@ Records every applied wallpaper with extracted Palette colours. Drives:
 
 - ViewModels: scoped to `NavBackStackEntry`. Survive config changes; recreated after process death.
 - `SelectedContentHolder`: persists primary selection to disk on every `select*` call; restores on Hilt construction. Pager list is in-memory only; detail screen collapses to single-item display when list is empty.
-- `WallpaperService` engines: pause render thread on `onVisibilityChanged(false)`. Sensors deregister on invisible. FFmpeg subprocesses survive coroutine cancellation (process-scoped, not coroutine-scoped) — caller must handle via UI guard (see NX-13 VideoCropScreen back-press toast).
+- `WallpaperService` engines: pause render threads on `onVisibilityChanged(false)`. Sensors deregister when invisible. Media3 sound exports cancel with their coroutine. Retained FFmpeg work has a 120-second process timeout, and video crop keeps its back-press guard.
 
 ## Live-wallpaper engine discipline
 

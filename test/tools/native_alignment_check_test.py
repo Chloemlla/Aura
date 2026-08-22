@@ -292,5 +292,83 @@ class ExpectedAbisForApkTest(unittest.TestCase):
         self.assertEqual([library.apk_entry for library in libraries], ["lib/arm64-v8a/libok.so"])
 
 
+class MediaStackMigrationEvidenceTest(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+        self.repo_root = Path(self.temp_dir.name)
+        build_file = self.repo_root / "app/build.gradle.kts"
+        build_file.parent.mkdir(parents=True)
+        build_file.write_text("useLegacyPackaging = true\n", encoding="utf-8")
+        for source_path in (
+            "app/src/main/java/com/freevibe/service/AudioTrimmer.kt",
+            "app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoCropScreen.kt",
+        ):
+            source = self.repo_root / source_path
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text("FFmpeg\n", encoding="utf-8")
+
+    def evidence(self):
+        return {
+            "date": "2026-08-21",
+            "status": "verified",
+            "artifactBytes": {
+                "before": {"app-full-arm64-v8a-release.apk": 100},
+                "after": {"app-full-arm64-v8a-release.apk": 90},
+            },
+            "legacyPackagingDecision": {
+                "useLegacyPackaging": True,
+                "canDisable": False,
+                "reason": "The extractor still expands bundled native archives.",
+            },
+            "retainedFfmpegConsumers": [
+                {
+                    "id": "sound-editor-codec-fallbacks",
+                    "sourcePath": "app/src/main/java/com/freevibe/service/AudioTrimmer.kt",
+                    "mode": "fallback",
+                    "operations": ["MP3 encode"],
+                },
+                {
+                    "id": "video-crop-export",
+                    "sourcePath": "app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoCropScreen.kt",
+                    "mode": "direct",
+                    "operations": ["video crop"],
+                },
+                {
+                    "id": "yt-dlp-extractor-runtime",
+                    "sourcePath": "app/build.gradle.kts",
+                    "mode": "runtime",
+                    "operations": ["stream extraction"],
+                },
+            ],
+            "videoCropIsSoleRemainingConsumer": False,
+            "videoCropStatus": "Last direct video editing consumer, but not the sole consumer.",
+        }
+
+    def test_accepts_measured_artifacts_and_named_ffmpeg_consumers(self):
+        result = native_alignment_check.validate_media_stack_migration_evidence(
+            self.repo_root,
+            self.evidence(),
+        )
+
+        self.assertEqual(result["artifactCount"], 1)
+        self.assertTrue(result["useLegacyPackaging"])
+        self.assertFalse(result["canDisableLegacyPackaging"])
+
+    def test_rejects_an_unnamed_ffmpeg_consumer(self):
+        evidence = self.evidence()
+        evidence["retainedFfmpegConsumers"].pop()
+
+        with self.assertRaisesRegex(native_alignment_check.NativeAlignmentError, "yt-dlp-extractor-runtime"):
+            native_alignment_check.validate_media_stack_migration_evidence(self.repo_root, evidence)
+
+    def test_rejects_artifact_measurements_with_different_keys(self):
+        evidence = self.evidence()
+        evidence["artifactBytes"]["after"] = {"different.apk": 90}
+
+        with self.assertRaisesRegex(native_alignment_check.NativeAlignmentError, "same artifacts"):
+            native_alignment_check.validate_media_stack_migration_evidence(self.repo_root, evidence)
+
+
 if __name__ == "__main__":
     unittest.main()

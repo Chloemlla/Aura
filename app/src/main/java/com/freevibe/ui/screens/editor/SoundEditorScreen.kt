@@ -165,14 +165,9 @@ fun SoundEditorScreen(
         }
     }
 
-    // NX-13: unsaved-changes guard. Audio edits (trim, fade, normalize) survive
-    // FFmpeg invocation cost. Backing out unintentionally costs the user a
-    // careful trim pass and a 2-5 s FFmpeg roundtrip.
-    val hasUnsavedChanges = state.trimStartMs != 0L ||
-        state.trimEndMs != defaultRingtoneTrimEndMs(state.durationMs) ||
-        state.fadeInMs != 0L ||
-        state.fadeOutMs != 0L ||
-        state.fadeCurve != AudioFadeCurve.LINEAR
+    // NX-13: unsaved-changes guard. Backing out unintentionally loses a
+    // careful trim, fade, or speed pass before platform export finishes.
+    val hasUnsavedChanges = hasUnsavedSoundEdits(state)
     var showSoundDiscardConfirm by remember { mutableStateOf(false) }
     androidx.activity.compose.BackHandler(enabled = hasUnsavedChanges && !state.isApplying) {
         showSoundDiscardConfirm = true
@@ -414,6 +409,34 @@ fun SoundEditorScreen(
                     }
                 }
 
+                Text(
+                    stringResource(R.string.editor_sound_playback_speed),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SOUND_EDITOR_PLAYBACK_SPEEDS.forEach { speed ->
+                        FilterChip(
+                            selected = state.playbackSpeed == speed,
+                            onClick = {
+                                viewModel.saveUndo()
+                                viewModel.setPlaybackSpeed(speed)
+                            },
+                            label = { Text(formatPlaybackSpeed(speed)) },
+                            enabled = !state.isApplying,
+                        )
+                    }
+                }
+                Text(
+                    stringResource(R.string.editor_sound_pitch_preserved),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
                 // Fade controls
                 Text(stringResource(R.string.editor_sound_fade_effects), style = MaterialTheme.typography.labelLarge)
                 Row(
@@ -435,7 +458,7 @@ fun SoundEditorScreen(
                                 viewModel.setFadeIn(it.toLong())
                             },
                             onValueChangeFinished = { fadeInUndoSaved = false },
-                            valueRange = 0f..(state.trimDurationMs / 2f).coerceAtLeast(1f),
+                            valueRange = 0f..state.maximumFadeMs.toFloat(),
                             modifier = Modifier
                                 .heightIn(min = 40.dp)
                                 .semantics {
@@ -443,7 +466,7 @@ fun SoundEditorScreen(
                                     stateDescription = fadeInState
                                     progressBarRangeInfo = ProgressBarRangeInfo(
                                         state.fadeInMs.toFloat(),
-                                        0f..(state.trimDurationMs / 2f).coerceAtLeast(1f),
+                                        0f..state.maximumFadeMs.toFloat(),
                                     )
                                 },
                         )
@@ -463,7 +486,7 @@ fun SoundEditorScreen(
                                 viewModel.setFadeOut(it.toLong())
                             },
                             onValueChangeFinished = { fadeOutUndoSaved = false },
-                            valueRange = 0f..(state.trimDurationMs / 2f).coerceAtLeast(1f),
+                            valueRange = 0f..state.maximumFadeMs.toFloat(),
                             modifier = Modifier
                                 .heightIn(min = 40.dp)
                                 .semantics {
@@ -471,7 +494,7 @@ fun SoundEditorScreen(
                                     stateDescription = fadeOutState
                                     progressBarRangeInfo = ProgressBarRangeInfo(
                                         state.fadeOutMs.toFloat(),
-                                        0f..(state.trimDurationMs / 2f).coerceAtLeast(1f),
+                                        0f..state.maximumFadeMs.toFloat(),
                                     )
                                 },
                         )
@@ -930,6 +953,16 @@ private fun DrawScope.drawTrimHandle(x: Float, height: Float, color: Color) {
         center = Offset(x, height - 8.dp.toPx()),
     )
 }
+
+internal fun formatPlaybackSpeed(speed: Float): String = "${speed.toString().removeSuffix(".0")}×"
+
+internal fun hasUnsavedSoundEdits(state: SoundEditorState): Boolean =
+    state.trimStartMs != 0L ||
+        state.trimEndMs != defaultRingtoneTrimEndMs(state.durationMs) ||
+        state.fadeInMs != 0L ||
+        state.fadeOutMs != 0L ||
+        state.fadeCurve != AudioFadeCurve.LINEAR ||
+        state.playbackSpeed != 1f
 
 private fun formatMs(ms: Long): String {
     val totalSec = ms / 1000

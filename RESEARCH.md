@@ -21,9 +21,10 @@ Top opportunities in priority order:
 
 The prior working-tree edits are now committed. The current feed path uses a generation-gated load job so warm-cache rendering and pagination cannot issue overlapping provider requests or overwrite an accepted append.
 
-The Sound Editor now keeps processed exports on the existing FFmpeg path, while an unprocessed
-supported source can use a guarded stream-copy cut. OGG exports include `ANDROID_LOOP=true`,
-and the editor checks the copied packet sequence before accepting a lossless result.
+The Sound Editor now clips, fades, changes speed without shifting pitch, and performs supported
+audio encoding through Media3. M4A is the default. FFmpeg remains only for MP3, FLAC, unavailable
+OGG or Opus encoders, unsupported lossless cuts, video crop, and the yt-dlp runtime. OGG exports
+include `ANDROID_LOOP=true`, and lossless cuts still verify that encoded audio bytes are unchanged.
 
 Per-contact ringtone assignment now checks Do Not Disturb policy state, explains denied access or
 blocked priority callers, opens Android's priority-caller and contact editor flows, and offers a
@@ -39,7 +40,7 @@ repository checks are bypassed.
 
 ### Core workflows
 - Browse provider/community/local wallpaper, video, and sound feeds; search/filter; preview; favorite; download (Room + MediaStore).
-- Edit wallpapers (crop, tone, AMOLED crush, depth portraits, text/sticker overlays) and sounds (trim, fade, normalize, convert, gapless OGG output, and verified lossless cuts) and apply to home/lock/both or as ringtone/notification/alarm/per-contact, with DND-aware contact guidance and a VIP-only ringtone preset.
+- Edit wallpapers (crop, tone, AMOLED crush, depth portraits, text/sticker overlays) and sounds (trim, fade, pitch-preserving speed, convert, gapless OGG output, and verified lossless cuts) and apply to home/lock/both or as ringtone/notification/alarm/per-contact, with DND-aware contact guidance and a VIP-only ringtone preset.
 - Run one of three live-wallpaper engines (video, parallax, weather/shader) with FPS caps, battery caps, touch effects, and a battery dashboard.
 - Automate: interval/clock/day-night/theme rotation, rotation triggers (unlock/screen-off), 24H packs (scheduler shipped, editor missing), sound profiles (same state), scheduled backups, Tasker/tile/widget entry points.
 - Share and back up: collections via link/QR/JSON, whole-library export/import, local theme packs.
@@ -48,7 +49,7 @@ repository checks are bypassed.
 - Privacy-first sideloader (no account, no ads, verifiable APK); collector (multi-folder libraries, rotation); customizer (editors, home/lock separation, per-contact sounds); community uploader (rights/AI disclosure); maintainer/distributor (reproducible, size-conscious artifacts).
 
 ### Platforms and distribution
-- [Verified] Android only, minSdk 26, compile/target 35, `full` + `foss` flavors, Room v17. Signed universal APK + SHA256SUMS via GitHub Releases/Obtainium; IzzyOnDroid is the near-term store target; no CI workflows exist.
+- [Verified] Android only, minSdk 26, compileSdk 36, targetSdk 35, `full` + `foss` flavors, Room v17. Signed universal APK + SHA256SUMS via GitHub Releases/Obtainium; IzzyOnDroid is the near-term store target; no CI workflows exist.
 - [Verified] Release gap: `git tag` has v6.41.0; `gh release list` newest is v6.38.1 (2026-07-29). `obtainium.json` sets `fallbackToOlderReleases: true`, silently holding users at v6.38.1.
 
 ### Integrations and data flows

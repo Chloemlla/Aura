@@ -104,12 +104,108 @@ def require_string_list(value: Any, label: str) -> list[str]:
     return values
 
 
+def require_object_list(value: Any, label: str) -> list[dict[str, Any]]:
+    if not isinstance(value, list) or not value:
+        raise NativeAlignmentError(f"{label} must be a non-empty list")
+    return [require_object(item, f"{label}[{index}]") for index, item in enumerate(value)]
+
+
 def parse_package_name(repo_root: Path) -> str:
     text = (repo_root / "app/build.gradle.kts").read_text(encoding="utf-8")
     match = PACKAGE_RE.search(text)
     if match:
         return match.group(1)
     raise NativeAlignmentError("app/build.gradle.kts is missing applicationId")
+
+
+def validate_media_stack_migration_evidence(repo_root: Path, value: Any) -> dict[str, Any]:
+    evidence = require_object(value, "mediaStackMigrationEvidence")
+    require_string(evidence.get("date"), "mediaStackMigrationEvidence.date")
+    if evidence.get("status") != "verified":
+        raise NativeAlignmentError("mediaStackMigrationEvidence.status must be verified")
+
+    artifact_sizes = require_object(
+        evidence.get("artifactBytes"),
+        "mediaStackMigrationEvidence.artifactBytes",
+    )
+    before = require_object(artifact_sizes.get("before"), "artifactBytes.before")
+    after = require_object(artifact_sizes.get("after"), "artifactBytes.after")
+    if not before or set(before) != set(after):
+        raise NativeAlignmentError("artifactBytes.before and artifactBytes.after must name the same artifacts")
+    for phase, sizes in (("before", before), ("after", after)):
+        for artifact, byte_count in sizes.items():
+            require_string(artifact, f"artifactBytes.{phase} artifact name")
+            if require_int(byte_count, f"artifactBytes.{phase}.{artifact}") <= 0:
+                raise NativeAlignmentError(f"artifactBytes.{phase}.{artifact} must be positive")
+
+    packaging = require_object(
+        evidence.get("legacyPackagingDecision"),
+        "mediaStackMigrationEvidence.legacyPackagingDecision",
+    )
+    legacy_enabled = require_bool(
+        packaging.get("useLegacyPackaging"),
+        "legacyPackagingDecision.useLegacyPackaging",
+    )
+    can_disable = require_bool(
+        packaging.get("canDisable"),
+        "legacyPackagingDecision.canDisable",
+    )
+    require_string(packaging.get("reason"), "legacyPackagingDecision.reason")
+    gradle_text = (repo_root / "app/build.gradle.kts").read_text(encoding="utf-8")
+    declared_legacy = bool(re.search(r"useLegacyPackaging\s*=\s*true", gradle_text))
+    if legacy_enabled != declared_legacy:
+        raise NativeAlignmentError(
+            "legacyPackagingDecision.useLegacyPackaging does not match app/build.gradle.kts"
+        )
+    if legacy_enabled and can_disable:
+        raise NativeAlignmentError("legacy packaging cannot be enabled while canDisable is true")
+
+    consumers = require_object_list(
+        evidence.get("retainedFfmpegConsumers"),
+        "mediaStackMigrationEvidence.retainedFfmpegConsumers",
+    )
+    consumer_ids: set[str] = set()
+    for index, consumer in enumerate(consumers):
+        label = f"retainedFfmpegConsumers[{index}]"
+        consumer_id = require_string(consumer.get("id"), f"{label}.id")
+        if consumer_id in consumer_ids:
+            raise NativeAlignmentError(f"retainedFfmpegConsumers contains duplicate id {consumer_id}")
+        consumer_ids.add(consumer_id)
+        source_path = require_string(consumer.get("sourcePath"), f"{label}.sourcePath")
+        require_string(consumer.get("mode"), f"{label}.mode")
+        require_string_list(consumer.get("operations"), f"{label}.operations")
+        if not (repo_root / source_path).is_file():
+            raise NativeAlignmentError(f"retained FFmpeg consumer source is missing: {source_path}")
+
+    required_consumers = {
+        "sound-editor-codec-fallbacks",
+        "video-crop-export",
+        "yt-dlp-extractor-runtime",
+    }
+    if consumer_ids != required_consumers:
+        missing = sorted(required_consumers - consumer_ids)
+        extra = sorted(consumer_ids - required_consumers)
+        details = []
+        if missing:
+            details.append("missing " + ", ".join(missing))
+        if extra:
+            details.append("unexpected " + ", ".join(extra))
+        raise NativeAlignmentError("retainedFfmpegConsumers mismatch: " + "; ".join(details))
+
+    if require_bool(
+        evidence.get("videoCropIsSoleRemainingConsumer"),
+        "mediaStackMigrationEvidence.videoCropIsSoleRemainingConsumer",
+    ):
+        raise NativeAlignmentError(
+            "videoCropIsSoleRemainingConsumer must be false while codec fallbacks and yt-dlp remain"
+        )
+    require_string(evidence.get("videoCropStatus"), "mediaStackMigrationEvidence.videoCropStatus")
+    return {
+        "artifactCount": len(after),
+        "retainedFfmpegConsumerIds": sorted(consumer_ids),
+        "useLegacyPackaging": legacy_enabled,
+        "canDisableLegacyPackaging": can_disable,
+    }
 
 
 def sha256_file(path: Path) -> str:
@@ -251,6 +347,10 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
         )
     status = require_string(policy.get("status"), "status")
     enforced_by = validate_enforcement(repo_root, status, policy.get("enforcedBy"))
+    media_stack_migration = validate_media_stack_migration_evidence(
+        repo_root,
+        policy.get("mediaStackMigrationEvidence"),
+    )
     return {
         "packageName": package_name,
         "requiredAlignment": required_alignment,
@@ -259,6 +359,7 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
         "require64BitOnly": require_64_bit_only,
         "status": status,
         "enforcedBy": enforced_by,
+        "mediaStackMigrationEvidence": media_stack_migration,
     }
 
 

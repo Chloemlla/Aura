@@ -2,6 +2,7 @@ package com.freevibe.ui.screens.editor
 
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Sound
+import com.freevibe.service.AudioExportFormat
 import com.freevibe.service.isLosslessCutAllowed
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -107,10 +108,10 @@ class SoundEditorViewModelTest {
 
     @Test
     fun `lossless cut requires processing effects to stay disabled`() {
-        assertTrue(isLosslessCutAllowed(0L, 0L, normalizationApplied = false))
-        assertFalse(isLosslessCutAllowed(1L, 0L, normalizationApplied = false))
-        assertFalse(isLosslessCutAllowed(0L, 1L, normalizationApplied = false))
-        assertFalse(isLosslessCutAllowed(0L, 0L, normalizationApplied = true))
+        assertTrue(isLosslessCutAllowed(0L, 0L, playbackSpeed = 1f))
+        assertFalse(isLosslessCutAllowed(1L, 0L, playbackSpeed = 1f))
+        assertFalse(isLosslessCutAllowed(0L, 1L, playbackSpeed = 1f))
+        assertFalse(isLosslessCutAllowed(0L, 0L, playbackSpeed = 1.25f))
     }
 
     @Test
@@ -121,12 +122,48 @@ class SoundEditorViewModelTest {
         assertFalse(
             SoundEditorState(
                 localFilePath = "C:/cache/source.ogg",
-                normalizationApplied = true,
+                playbackSpeed = 1.25f,
             ).canUseLosslessCut,
         )
         assertFalse(
             SoundEditorState(localFilePath = "C:/cache/source.webm").canUseLosslessCut,
         )
+    }
+
+    @Test
+    fun `editor defaults to platform AAC export and offers stable speed steps`() {
+        val state = SoundEditorState()
+
+        assertEquals(AudioExportFormat.M4A, state.exportFormat)
+        assertEquals(AudioExportFormat.M4A.defaultBitrateKbps, state.exportBitrateKbps)
+        assertEquals(1f, state.playbackSpeed, 0f)
+        assertEquals(listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f), SOUND_EDITOR_PLAYBACK_SPEEDS)
+        assertEquals("0.75×", formatPlaybackSpeed(0.75f))
+        assertEquals("1×", formatPlaybackSpeed(1f))
+    }
+
+    @Test
+    fun `playback speed marks the editor as changed`() {
+        val durationMs = 10_000L
+        val unchanged = SoundEditorState(
+            durationMs = durationMs,
+            trimEndMs = defaultRingtoneTrimEndMs(durationMs),
+        )
+
+        assertFalse(hasUnsavedSoundEdits(unchanged))
+        assertTrue(hasUnsavedSoundEdits(unchanged.copy(playbackSpeed = 1.25f)))
+    }
+
+    @Test
+    fun `speed-adjusted duration limits fades on the exported timeline`() {
+        val state = SoundEditorState(
+            trimStartMs = 1_000L,
+            trimEndMs = 5_000L,
+            playbackSpeed = 2f,
+        )
+
+        assertEquals(2_000L, state.processedDurationMs)
+        assertEquals(1_000L, state.maximumFadeMs)
     }
 
     @Test
@@ -210,7 +247,7 @@ class SoundEditorViewModelTest {
         )
 
         assertNotNull(message)
-        assertTrue(message!!.contains("cannot be trimmed", ignoreCase = true))
+        assertTrue(message!!.contains("cannot be edited", ignoreCase = true))
     }
 
     @Test

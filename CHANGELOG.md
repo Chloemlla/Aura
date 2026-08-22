@@ -4,6 +4,15 @@ All notable changes to Aura will be documented in this file.
 
 ## v6.45.0
 
+- **Sound Editor transforms now use Android's media stack**: Media3 owns clipping,
+  fades, pitch-preserving speed from 0.5x to 2x, M4A, WAV, and available OGG or
+  Opus exports. FFmpeg is limited to final MP3, FLAC, unavailable OGG or Opus
+  encoding, unsupported lossless cuts, video crop, and the yt-dlp runtime. M4A is
+  now the default export format, and fixture tests compare the platform WAV path
+  byte for byte. An API 35 device corpus also verifies exact PCM fades,
+  pitch-preserving 2x speed, and AAC output. The native payload remains, so legacy
+  JNI packaging still cannot be disabled. Signed split APKs grew by about 0.15 MB.
+
 - **FOSS builds now omit the external wallpaper generator**: Stability network
   code, encrypted credential binding, generator screens, settings controls,
   provider copy, BuildConfig key, and baseline-profile entries stay out of the

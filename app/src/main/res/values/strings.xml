@@ -441,6 +441,8 @@
     <string name="editor_sound_zoom_reset">Reset waveform zoom</string>
     <string name="editor_sound_zoom_in">Zoom in waveform</string>
     <string name="editor_sound_waveform_state">%1$s, waveform zoom %2$.1f times</string>
+    <string name="editor_sound_playback_speed">Playback speed</string>
+    <string name="editor_sound_pitch_preserved">Pitch stays natural in preview and export.</string>
     <string name="editor_sound_fade_effects">Fade effects</string>
     <string name="editor_sound_fade_in">Fade in: %1$d ms</string>
     <string name="editor_sound_fade_out">Fade out: %1$d ms</string>
@@ -452,7 +454,7 @@
     <string name="editor_sound_bitrate_value">%1$d kbps</string>
     <string name="editor_sound_lossless_export">Lossless export · bitrate follows the source signal.</string>
     <string name="editor_sound_lossless_cut">Lossless cut</string>
-    <string name="editor_sound_lossless_cut_info">Copies source audio packets without re-encoding. Aura checks that the copied bytes stay identical before export completes. Fades and normalization must stay off.</string>
+    <string name="editor_sound_lossless_cut_info">Copies source audio packets without re-encoding. Aura checks that the copied bytes stay identical before export completes. Fades and speed changes must stay off.</string>
     <string name="editor_sound_export_to_music">Export trimmed audio to Music/Aura</string>
     <string name="editor_sound_export_success">Exported %1$s to Music/Aura</string>
     <string name="editor_sound_export_failed">Export failed: %1$s</string>
@@ -461,7 +463,7 @@
     <string name="editor_sound_apply_notification">Notification</string>
     <string name="editor_sound_apply_alarm">Alarm</string>
     <string name="editor_sound_discard_title">Discard edits?</string>
-    <string name="editor_sound_discard_body">Your trim, fade, and normalize settings will be lost. Apply them first or discard?</string>
+    <string name="editor_sound_discard_body">Your trim, fade, and speed settings will be lost. Apply them first or discard?</string>
     <string name="editor_sound_guidance_ready">Ready for ringtone</string>
     <string name="editor_sound_guidance_ready_body">Ringtones usually work best at 8–30s. Fine-tune the handles, then preview before applying.</string>
     <string name="editor_sound_guidance_short">Better for notifications</string>
