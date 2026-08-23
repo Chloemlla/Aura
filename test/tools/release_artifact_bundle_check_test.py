@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.release_artifact_bundle_check import validate_bundle
+from tools.release_artifact_bundle_check import validate_bundle, validate_split_apk_names
 
 
 def write_text(path: Path, text: str) -> None:
@@ -91,7 +91,137 @@ Android developer verification:
     return apk_name, aab_name
 
 
+def add_split_apks(release_dir: Path, version_name: str, version_code: str, abis: list[str]) -> list[str]:
+    """Adds per-ABI APKs to a fixture bundle and folds them into sums and notes."""
+    names = [f"Aura-v{version_name}-versionCode-{version_code}-{abi}-release.apk" for abi in abis]
+    for index, name in enumerate(names):
+        write_text(release_dir / name, f"apk-{index}")
+
+    checksums = (release_dir / "SHA256SUMS.txt").read_text(encoding="utf-8").rstrip("\n")
+    extra = "\n".join(f"{sha256_file(release_dir / name)}  {name}" for name in names)
+    write_text(release_dir / "SHA256SUMS.txt", f"{checksums}\n{extra}\n")
+
+    notes = (release_dir / "RELEASE_NOTES.md").read_text(encoding="utf-8")
+    listed = "\n".join(f"- Split APK: {name}" for name in names)
+    write_text(release_dir / "RELEASE_NOTES.md", f"{notes}\n{listed}\n")
+    return names
+
+
+class SplitApkNameTest(unittest.TestCase):
+    def test_accepts_one_apk_per_declared_abi(self) -> None:
+        names = [
+            "Aura-v6.34.6-versionCode-133-arm64-v8a-release.apk",
+            "Aura-v6.34.6-versionCode-133-x86_64-release.apk",
+        ]
+
+        self.assertEqual([], validate_split_apk_names(names, version_name="6.34.6", version_code="133"))
+
+    def test_rejects_a_stale_version_in_a_split_name(self) -> None:
+        names = ["Aura-v6.34.5-versionCode-133-arm64-v8a-release.apk"]
+
+        errors = validate_split_apk_names(names, version_name="6.34.6", version_code="133")
+
+        self.assertTrue(any("does not match versionName" in error for error in errors))
+
+    def test_rejects_an_unknown_architecture(self) -> None:
+        names = ["Aura-v6.34.6-versionCode-133-mips-release.apk"]
+
+        errors = validate_split_apk_names(names, version_name="6.34.6", version_code="133")
+
+        self.assertTrue(any("does not name a known ABI" in error for error in errors))
+
+    def test_rejects_the_same_abi_twice(self) -> None:
+        """Two artifacts claiming one architecture; a device gets whichever is served."""
+        names = [
+            "Aura-v6.34.6-versionCode-133-arm64-v8a-release.apk",
+            "Aura-v6.34.6-versionCode-133-arm64-v8a-release.apk",
+        ]
+
+        errors = validate_split_apk_names(names, version_name="6.34.6", version_code="133")
+
+        self.assertTrue(any("more than once" in error for error in errors))
+
+
 class ReleaseArtifactBundleCheckTest(unittest.TestCase):
+    def test_accepts_a_bundle_carrying_every_split(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            release_dir = Path(tmpdir)
+            apk_name, aab_name = write_release_fixture(release_dir)
+            splits = add_split_apks(
+                release_dir, "6.34.6", "133", ["arm64-v8a", "armeabi-v7a", "x86", "x86_64"]
+            )
+
+            errors = validate_bundle(
+                release_dir=release_dir,
+                apk_name=apk_name,
+                aab_name=aab_name,
+                version_name="6.34.6",
+                version_code="133",
+                split_apk_names=splits,
+            )
+
+            self.assertEqual([], errors)
+
+    def test_rejects_a_split_that_is_missing_from_the_checksums(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            release_dir = Path(tmpdir)
+            apk_name, aab_name = write_release_fixture(release_dir)
+            splits = add_split_apks(release_dir, "6.34.6", "133", ["arm64-v8a"])
+            checksums = (release_dir / "SHA256SUMS.txt").read_text(encoding="utf-8")
+            write_text(
+                release_dir / "SHA256SUMS.txt",
+                "\n".join(line for line in checksums.splitlines() if splits[0] not in line),
+            )
+
+            errors = validate_bundle(
+                release_dir=release_dir,
+                apk_name=apk_name,
+                aab_name=aab_name,
+                version_name="6.34.6",
+                version_code="133",
+                split_apk_names=splits,
+            )
+
+            self.assertTrue(any("missing entries" in error and splits[0] in error for error in errors))
+
+    def test_rejects_a_split_the_release_notes_never_mention(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            release_dir = Path(tmpdir)
+            apk_name, aab_name = write_release_fixture(release_dir)
+            splits = add_split_apks(release_dir, "6.34.6", "133", ["arm64-v8a"])
+            notes = (release_dir / "RELEASE_NOTES.md").read_text(encoding="utf-8")
+            write_text(
+                release_dir / "RELEASE_NOTES.md",
+                "\n".join(line for line in notes.splitlines() if splits[0] not in line),
+            )
+
+            errors = validate_bundle(
+                release_dir=release_dir,
+                apk_name=apk_name,
+                aab_name=aab_name,
+                version_name="6.34.6",
+                version_code="133",
+                split_apk_names=splits,
+            )
+
+            self.assertTrue(any("missing fragment" in error and splits[0] in error for error in errors))
+
+    def test_rejects_a_split_that_was_never_built(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            release_dir = Path(tmpdir)
+            apk_name, aab_name = write_release_fixture(release_dir)
+
+            errors = validate_bundle(
+                release_dir=release_dir,
+                apk_name=apk_name,
+                aab_name=aab_name,
+                version_name="6.34.6",
+                version_code="133",
+                split_apk_names=["Aura-v6.34.6-versionCode-133-arm64-v8a-release.apk"],
+            )
+
+            self.assertTrue(any("Required file not found" in error for error in errors))
+
     def test_accepts_complete_apk_and_aab_release_bundle(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             release_dir = Path(tmpdir)

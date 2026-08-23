@@ -19,8 +19,9 @@ def write_strings(repo_root: Path) -> None:
 
 
 def write_screen(repo_root: Path, text: str = "Existing title") -> None:
+    (repo_root / "app/src/full/java/com/chloemlla/aura/ui").mkdir(parents=True, exist_ok=True)
     write_text(
-        repo_root / "app/src/main/java/com/freevibe/ui/ExampleScreen.kt",
+        repo_root / "app/src/main/java/com/chloemlla/aura/ui/ExampleScreen.kt",
         "\n".join(
             [
                 "package com.chloemlla.aura.ui",
@@ -31,6 +32,20 @@ def write_screen(repo_root: Path, text: str = "Existing title") -> None:
                 "fun ExampleScreen() {",
                 f"    Text(\"{text}\")",
                 "}",
+            ]
+        ),
+    )
+
+
+def write_state_source(repo_root: Path, text: str = "Existing error") -> None:
+    write_text(
+        repo_root / "app/src/main/java/com/chloemlla/aura/ui/ExampleViewModel.kt",
+        "\n".join(
+            [
+                "package com.chloemlla.aura.ui",
+                "data class ExampleState(val error: String? = null)",
+                "fun control() = FilterControl(\"Existing filter\")",
+                f"val state = ExampleState(error = \"{text}\")",
             ]
         ),
     )
@@ -74,7 +89,7 @@ class ComposeHardcodedStringCheckTest(unittest.TestCase):
             write_screen(repo_root)
             compose_hardcoded_string_check.write_baseline(repo_root, baseline_path)
             write_text(
-                repo_root / "app/src/main/java/com/freevibe/ui/ExampleScreen.kt",
+                repo_root / "app/src/main/java/com/chloemlla/aura/ui/ExampleScreen.kt",
                 "\n".join(
                     [
                         "package com.chloemlla.aura.ui",
@@ -109,6 +124,41 @@ class ComposeHardcodedStringCheckTest(unittest.TestCase):
                 "migrationPlan",
             ):
                 compose_hardcoded_string_check.validate_baseline(repo_root, baseline_path)
+
+    def test_write_preserves_policy_metadata(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            baseline_path = repo_root / "docs/localization/hardcoded-string-baseline.json"
+            write_strings(repo_root)
+            write_screen(repo_root)
+            baseline_path.parent.mkdir(parents=True, exist_ok=True)
+            baseline_path.write_text(
+                json.dumps(
+                    {
+                        "pseudolocaleReleaseGate": {"status": "active"},
+                        "migrationPlan": {"nextSteps": ["Keep this policy"]},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            baseline = compose_hardcoded_string_check.write_baseline(repo_root, baseline_path)
+
+            self.assertEqual(baseline["pseudolocaleReleaseGate"]["status"], "active")
+            self.assertEqual(baseline["migrationPlan"]["nextSteps"], ["Keep this policy"])
+
+    def test_scans_viewmodel_state_and_editor_control_literals(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            baseline_path = repo_root / "docs/localization/hardcoded-string-baseline.json"
+            write_strings(repo_root)
+            write_screen(repo_root)
+            write_state_source(repo_root)
+            baseline = compose_hardcoded_string_check.write_baseline(repo_root, baseline_path)
+
+            findings = {(entry["sink"], entry["text"]) for entry in baseline["baseline"]}
+            self.assertIn(("error", "Existing error"), findings)
+            self.assertIn(("FilterControl", "Existing filter"), findings)
 
     def test_live_baseline_is_valid(self):
         repo_root = Path(__file__).resolve().parents[2]

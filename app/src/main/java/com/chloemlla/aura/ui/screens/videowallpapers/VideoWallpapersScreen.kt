@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -69,6 +70,7 @@ import com.chloemlla.aura.service.VideoWallpaperSelectionResult
 import com.chloemlla.aura.service.VideoWallpaperService
 import com.chloemlla.aura.service.copyStreamCapped
 import com.chloemlla.aura.service.normalizeVideoWallpaperScaleMode
+import com.chloemlla.aura.service.persistVideoWallpaperSelection
 import com.chloemlla.aura.service.videoWallpaperMimeTypes
 import com.chloemlla.aura.ui.components.AuraStateAction
 import com.chloemlla.aura.ui.components.LoadMoreIndicator
@@ -142,11 +144,7 @@ internal fun persistSelectedVideoWallpaper(
     file: File,
     scaleMode: String = VIDEO_WALLPAPER_SCALE_MODE_ZOOM,
 ) {
-    context.getSharedPreferences("freevibe_live_wp", Context.MODE_PRIVATE)
-        .edit()
-        .putString("video_path", file.absolutePath)
-        .putString("scale_mode", normalizeVideoWallpaperScaleMode(scaleMode))
-        .apply()
+    persistVideoWallpaperSelection(context, file, scaleMode)
 }
 
 internal suspend fun exportVideoToGallery(context: Context, file: File): Uri? = withContext(Dispatchers.IO) {
@@ -249,6 +247,8 @@ fun VideoWallpapersScreen(
         else kotlinx.coroutines.flow.flowOf(emptyMap())
     }.collectAsStateWithLifecycle(initialValue = emptyMap())
     val context = LocalContext.current
+    // Reading a string off LocalContext is not a composition read. LocalResources is.
+    val resources = LocalResources.current
     var confirmItem by remember { mutableStateOf<VideoWallpaperItem?>(null) }
     var cropItem by remember { mutableStateOf<Pair<VideoWallpaperItem, String>?>(null) }
     val appContext = context.applicationContext
@@ -327,13 +327,13 @@ fun VideoWallpapersScreen(
                     )
                 ) {
                     LiveWallpaperLaunchMode.DIRECT -> {
-                        Toast.makeText(context, context.getString(R.string.video_wp_toast_direct), Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, resources.getString(R.string.video_wp_toast_direct), Toast.LENGTH_LONG).show()
                     }
                     LiveWallpaperLaunchMode.CHOOSER -> {
-                        Toast.makeText(context, context.getString(R.string.video_wp_toast_chooser), Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, resources.getString(R.string.video_wp_toast_chooser), Toast.LENGTH_LONG).show()
                     }
                     null -> {
-                        Toast.makeText(context, context.getString(R.string.video_wp_toast_fallback), Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, resources.getString(R.string.video_wp_toast_fallback), Toast.LENGTH_LONG).show()
                     }
                 }
                 viewModel.clearGallerySelectionResult()
@@ -624,8 +624,8 @@ fun VideoWallpapersScreen(
                                             viewModel.downvote(hiddenId)
                                             scope.launch {
                                                 val result = snackbarHostState.showSnackbar(
-                                                    message = context.getString(R.string.community_item_hidden),
-                                                    actionLabel = context.getString(R.string.common_undo),
+                                                    message = resources.getString(R.string.community_item_hidden),
+                                                    actionLabel = resources.getString(R.string.common_undo),
                                                     duration = SnackbarDuration.Short,
                                                 )
                                                 if (result == SnackbarResult.ActionPerformed) viewModel.undoDownvote(hiddenId)
@@ -901,7 +901,12 @@ private fun VideoImmersivePager(
     }
 }
 
-@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+// Media3 1.11 reclassified experimentalSetDynamicSchedulingEnabled from UnstableApi
+// to ExperimentalApi, so opting into UnstableApi alone no longer covers it.
+@androidx.annotation.OptIn(
+    androidx.media3.common.util.UnstableApi::class,
+    androidx.media3.common.util.ExperimentalApi::class,
+)
 @Composable
 private fun ImmersiveVideoPage(
     item: VideoWallpaperItem,
@@ -911,6 +916,8 @@ private fun ImmersiveVideoPage(
     onApply: () -> Unit,
 ) {
     val context = LocalContext.current
+    // Reading a string off LocalContext is not a composition read. LocalResources is.
+    val resources = LocalResources.current
     val immersivePreviewDescription = stringResource(R.string.a11y_immersive_video_preview, item.title)
     val isAnimatedStream = streamUrl?.isAnimatedImageStream() == true
     var isBuffering by remember(item.id, streamUrl) { mutableStateOf(streamUrl != null && !isAnimatedStream) }
@@ -1105,9 +1112,12 @@ private fun VideoPreviewUnavailableIndicator(modifier: Modifier = Modifier) {
     }
 }
 
-@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+@androidx.annotation.OptIn(
+    androidx.media3.common.util.UnstableApi::class,
+    androidx.media3.common.util.ExperimentalApi::class,
+)
 @Composable
-private fun VideoCard(
+internal fun VideoCard(
     item: VideoWallpaperItem,
     streamUrl: String?,
     mediaSourceFactory: MediaSource.Factory,
@@ -1120,6 +1130,8 @@ private fun VideoCard(
     onDownvote: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    // Reading a string off LocalContext is not a composition read. LocalResources is.
+    val resources = LocalResources.current
     val feedPreviewHeight = 260.dp
     var showItemActions by remember { mutableStateOf(false) }
     val showUploader = item.uploaderName.isNotBlank() &&

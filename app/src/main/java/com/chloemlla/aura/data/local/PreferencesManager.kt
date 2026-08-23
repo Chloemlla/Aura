@@ -11,8 +11,12 @@ import com.chloemlla.aura.service.ADAPTIVE_TINT_ENABLED_PREF
 import com.chloemlla.aura.service.ADAPTIVE_TINT_INTENSITY_PREF
 import com.chloemlla.aura.service.AgslShaderGallery
 import com.chloemlla.aura.service.DAILY_WALLPAPER_ENABLED_PREF
+import com.chloemlla.aura.service.LIVE_WALLPAPER_COLORS_ENABLED_DEFAULT
+import com.chloemlla.aura.service.LIVE_WALLPAPER_COLORS_ENABLED_PREF
 import com.chloemlla.aura.service.LIVE_WALLPAPER_DIM_ENABLED_PREF
 import com.chloemlla.aura.service.LIVE_WALLPAPER_SHADER_PRESET_PREF
+import com.chloemlla.aura.service.PARALLAX_WALLPAPER_PREFS_NAME
+import com.chloemlla.aura.service.VIDEO_WALLPAPER_PREFS_NAME
 import com.chloemlla.aura.service.REDUCE_ANIMATIONS_PREF
 import com.chloemlla.aura.service.TOUCH_EFFECT_STRENGTH_PREF
 import com.chloemlla.aura.service.WEATHER_WALLPAPER_PREFS_NAME
@@ -23,7 +27,14 @@ import com.chloemlla.aura.service.VIDEO_FPS_LIMIT_PREF
 import com.chloemlla.aura.service.VIDEO_FPS_OVERLAY_PREF
 import com.chloemlla.aura.service.VIDEO_PLAYBACK_SPEED_PREF
 import com.chloemlla.aura.service.VIDEO_PREFS_NAME
+import com.chloemlla.aura.service.VIDEO_STATS_PREFS_NAME
 import com.chloemlla.aura.service.sanitizeVideoFpsLimit
+import com.chloemlla.aura.service.WALLPAPER_CLOCK_OVERLAY_ENABLED_PREF
+import com.chloemlla.aura.service.WALLPAPER_CLOCK_OVERLAY_MODE_PREF
+import com.chloemlla.aura.service.WALLPAPER_CLOCK_OVERLAY_POSITION_PREF
+import com.chloemlla.aura.service.WALLPAPER_CLOCK_OVERLAY_PREFS_NAME
+import com.chloemlla.aura.service.WallpaperClockOverlayMode
+import com.chloemlla.aura.service.WallpaperClockOverlayPosition
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,6 +65,22 @@ internal const val SCHEDULER_DAY_NIGHT_MODE_CLOCK = "clock"
 internal const val SCHEDULER_DAY_NIGHT_MODE_SYSTEM_THEME = "system_theme"
 private val REDDIT_RSS_CURSOR_TOKEN = Regex("[a-zA-Z0-9]{1,64}")
 private val REDDIT_SUBREDDIT_NAME = Regex("[A-Za-z0-9_]{2,40}")
+private const val APP_PREFERENCES_NAME = "freevibe_app"
+private const val ONBOARDING_COMPLETE_KEY = "onboarding_complete"
+
+data class VideoBatteryStatsSnapshot(
+    val lastSeenMs: Long,
+    val batteryPercent: Int?,
+    val charging: Boolean,
+    val requestedFps: Int,
+    val effectiveFps: Int,
+    val lowBatterySaverActive: Boolean,
+    val systemPowerSaveMode: Boolean,
+    val motionPausedForPowerSave: Boolean,
+    val visible: Boolean,
+    val mediaType: String,
+    val scaleMode: String,
+)
 
 internal data class RedditSubredditListValidation(
     val subreddits: List<String>,
@@ -150,6 +177,27 @@ class PreferencesManager @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
     companion object {
+        fun readVideoBatteryStats(context: Context): VideoBatteryStatsSnapshot {
+            val stats = context.getSharedPreferences(VIDEO_STATS_PREFS_NAME, Context.MODE_PRIVATE)
+            return VideoBatteryStatsSnapshot(
+                lastSeenMs = stats.getLong("last_seen_ms", 0L),
+                batteryPercent = if (stats.contains("battery_percent")) {
+                    stats.getInt("battery_percent", -1).takeIf { it >= 0 }
+                } else {
+                    null
+                },
+                charging = stats.getBoolean("charging", false),
+                requestedFps = stats.getInt("requested_fps", 30),
+                effectiveFps = stats.getInt("effective_fps", 30),
+                lowBatterySaverActive = stats.getBoolean("low_battery_saver_active", false),
+                systemPowerSaveMode = stats.getBoolean("system_power_save_mode", false),
+                motionPausedForPowerSave = stats.getBoolean("motion_paused_for_power_save", false),
+                visible = stats.getBoolean("visible", false),
+                mediaType = stats.getString("media_type", "none") ?: "none",
+                scaleMode = stats.getString("scale_mode", "zoom") ?: "zoom",
+            )
+        }
+
         fun defaultRingtoneQuery(): String =
             "Ringtones"
 
@@ -188,8 +236,7 @@ class PreferencesManager @Inject constructor(
         providerCredential(ProviderCredentialKey.PIXABAY, Keys.PIXABAY_KEY, com.chloemlla.aura.BuildConfig.PIXABAY_API_KEY)
     val freesoundApiKey: Flow<String> =
         providerCredential(ProviderCredentialKey.FREESOUND, Keys.FREESOUND_KEY, com.chloemlla.aura.BuildConfig.FREESOUND_API_KEY)
-    val stabilityAiKey: Flow<String> =
-        providerCredential(ProviderCredentialKey.STABILITY_AI, Keys.STABILITY_KEY, com.chloemlla.aura.BuildConfig.STABILITY_AI_KEY)
+    val generatedWallpaperProviderKey: Flow<String> = generatedWallpaperProviderKeyForFlavor()
     val generatedContentProviderEnabled: Flow<Boolean> = get(
         Keys.GENERATED_CONTENT_PROVIDER_ENABLED,
         DEFAULT_GENERATED_CONTENT_PROVIDER_ENABLED,
@@ -229,10 +276,13 @@ class PreferencesManager @Inject constructor(
         setProviderCredential(ProviderCredentialKey.PIXABAY, Keys.PIXABAY_KEY, key)
     suspend fun setFreesoundKey(key: String) =
         setProviderCredential(ProviderCredentialKey.FREESOUND, Keys.FREESOUND_KEY, key)
-    suspend fun setStabilityKey(key: String) =
-        setProviderCredential(ProviderCredentialKey.STABILITY_AI, Keys.STABILITY_KEY, key)
-    suspend fun setGeneratedContentProviderEnabled(enabled: Boolean) =
-        set(Keys.GENERATED_CONTENT_PROVIDER_ENABLED, enabled)
+    suspend fun setGeneratedWallpaperProviderKey(key: String) =
+        setGeneratedWallpaperProviderKeyForFlavor(key)
+    suspend fun setGeneratedContentProviderEnabled(enabled: Boolean) {
+        if (!com.chloemlla.aura.BuildConfig.FOSS_BUILD) {
+            set(Keys.GENERATED_CONTENT_PROVIDER_ENABLED, enabled)
+        }
+    }
     suspend fun setGeneratedContentDisclosureAccepted(accepted: Boolean) =
         set(Keys.GENERATED_CONTENT_DISCLOSURE_ACCEPTED, accepted)
     suspend fun setWallhavenProviderEnabled(enabled: Boolean) = set(Keys.WALLHAVEN_PROVIDER_ENABLED, enabled)
@@ -358,6 +408,47 @@ class PreferencesManager @Inject constructor(
         writeLiveWallpaperFlag(LIVE_WALLPAPER_DIM_ENABLED_PREF, v)
         set(Keys.LIVE_WALLPAPER_DIM_ENABLED, v)
     }
+
+    // Whether the live-wallpaper engines publish WallpaperColors for system theming
+    val liveWallpaperColorsEnabled: Flow<Boolean> =
+        get(Keys.LIVE_WALLPAPER_COLORS_ENABLED, LIVE_WALLPAPER_COLORS_ENABLED_DEFAULT)
+    suspend fun setLiveWallpaperColorsEnabled(v: Boolean) {
+        writeAllLiveWallpaperFlags(LIVE_WALLPAPER_COLORS_ENABLED_PREF, v)
+        set(Keys.LIVE_WALLPAPER_COLORS_ENABLED, v)
+    }
+
+    val wallpaperClockOverlayEnabled: Flow<Boolean> =
+        get(Keys.WALLPAPER_CLOCK_OVERLAY_ENABLED, false)
+    val wallpaperClockOverlayMode: Flow<String> =
+        get(Keys.WALLPAPER_CLOCK_OVERLAY_MODE, WallpaperClockOverlayMode.TIME_AND_DATE.preferenceValue)
+    val wallpaperClockOverlayPosition: Flow<String> =
+        get(Keys.WALLPAPER_CLOCK_OVERLAY_POSITION, WallpaperClockOverlayPosition.BOTTOM_RIGHT.preferenceValue)
+
+    suspend fun setWallpaperClockOverlayEnabled(enabled: Boolean) {
+        wallpaperClockOverlayPrefs().edit()
+            .putBoolean(WALLPAPER_CLOCK_OVERLAY_ENABLED_PREF, enabled)
+            .apply()
+        set(Keys.WALLPAPER_CLOCK_OVERLAY_ENABLED, enabled)
+    }
+
+    suspend fun setWallpaperClockOverlayMode(mode: String) {
+        val normalized = WallpaperClockOverlayMode.fromPreference(mode).preferenceValue
+        wallpaperClockOverlayPrefs().edit()
+            .putString(WALLPAPER_CLOCK_OVERLAY_MODE_PREF, normalized)
+            .apply()
+        set(Keys.WALLPAPER_CLOCK_OVERLAY_MODE, normalized)
+    }
+
+    suspend fun setWallpaperClockOverlayPosition(position: String) {
+        val normalized = WallpaperClockOverlayPosition.fromPreference(position).preferenceValue
+        wallpaperClockOverlayPrefs().edit()
+            .putString(WALLPAPER_CLOCK_OVERLAY_POSITION_PREF, normalized)
+            .apply()
+        set(Keys.WALLPAPER_CLOCK_OVERLAY_POSITION, normalized)
+    }
+
+    private fun wallpaperClockOverlayPrefs() =
+        context.getSharedPreferences(WALLPAPER_CLOCK_OVERLAY_PREFS_NAME, Context.MODE_PRIVATE)
 
     val lastAppliedRingtoneUri: kotlinx.coroutines.flow.Flow<String> = get(Keys.LAST_APPLIED_RINGTONE_URI, "")
     suspend fun setLastAppliedRingtoneUri(uri: String) = set(Keys.LAST_APPLIED_RINGTONE_URI, uri)
@@ -608,8 +699,46 @@ class PreferencesManager @Inject constructor(
     private fun weatherWallpaperPrefs() =
         context.getSharedPreferences(WEATHER_WALLPAPER_PREFS_NAME, Context.MODE_PRIVATE)
 
+    fun isOnboardingComplete(): Boolean = context
+        .getSharedPreferences(APP_PREFERENCES_NAME, Context.MODE_PRIVATE)
+        .getBoolean(ONBOARDING_COMPLETE_KEY, false)
+
+    fun setOnboardingComplete() {
+        context.getSharedPreferences(APP_PREFERENCES_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(ONBOARDING_COMPLETE_KEY, true)
+            .apply()
+    }
+
+    fun isDailyWallpaperEnabled(): Boolean =
+        weatherWallpaperPrefs().getBoolean(DAILY_WALLPAPER_ENABLED_PREF, false)
+
+    fun weatherVfxEffect(): String =
+        weatherWallpaperPrefs().getString(WEATHER_VFX_EFFECT_PREF, "NONE") ?: "NONE"
+
+    fun touchEffectStrength(): String =
+        weatherWallpaperPrefs().getString(TOUCH_EFFECT_STRENGTH_PREF, "OFF") ?: "OFF"
+
     private fun writeLiveWallpaperFlag(key: String, enabled: Boolean) {
         weatherWallpaperPrefs().edit().putBoolean(key, enabled).apply()
+    }
+
+    /**
+     * Writes a flag every live-wallpaper engine honours.
+     *
+     * The three engines each read their own preference file, so a setting the UI
+     * presents as engine-agnostic has to land in all three or it silently applies
+     * to whichever engine happens to own the weather file.
+     */
+    private fun writeAllLiveWallpaperFlags(key: String, enabled: Boolean) {
+        listOf(
+            WEATHER_WALLPAPER_PREFS_NAME,
+            PARALLAX_WALLPAPER_PREFS_NAME,
+            VIDEO_WALLPAPER_PREFS_NAME,
+        ).forEach { name ->
+            context.getSharedPreferences(name, Context.MODE_PRIVATE)
+                .edit().putBoolean(key, enabled).apply()
+        }
     }
 
     // ── Personalization ──────────────────────────────────────────
@@ -629,7 +758,7 @@ class PreferencesManager @Inject constructor(
         dataStore.edit { it[key] = value }
     }
 
-    private fun providerCredential(
+    internal fun providerCredential(
         credentialKey: ProviderCredentialKey,
         legacyKey: Preferences.Key<String>,
         default: String,
@@ -653,7 +782,7 @@ class PreferencesManager @Inject constructor(
         return readProviderCredentialValue(credentialKey) ?: default
     }
 
-    private suspend fun setProviderCredential(
+    internal suspend fun setProviderCredential(
         credentialKey: ProviderCredentialKey,
         legacyKey: Preferences.Key<String>,
         key: String,
@@ -698,7 +827,6 @@ class PreferencesManager @Inject constructor(
         val PEXELS_KEY = stringPreferencesKey("pexels_api_key")
         val PIXABAY_KEY = stringPreferencesKey("pixabay_api_key")
         val FREESOUND_KEY = stringPreferencesKey("freesound_api_key")
-        val STABILITY_KEY = stringPreferencesKey("stability_ai_key")
         val GENERATED_CONTENT_PROVIDER_ENABLED = booleanPreferencesKey("generated_content_provider_enabled")
         val GENERATED_CONTENT_DISCLOSURE_ACCEPTED = booleanPreferencesKey("generated_content_disclosure_accepted")
         val WALLHAVEN_PROVIDER_ENABLED = booleanPreferencesKey("wallhaven_provider_enabled")
@@ -785,6 +913,10 @@ class PreferencesManager @Inject constructor(
         val WALLPAPER_PACK_JSON = stringPreferencesKey("wallpaper_pack_json")
         val WALLPAPER_PACK_LAST_DAYPART = stringPreferencesKey("wallpaper_pack_last_daypart")
         val LIVE_WALLPAPER_DIM_ENABLED = booleanPreferencesKey("live_wallpaper_dim_enabled")
+        val LIVE_WALLPAPER_COLORS_ENABLED = booleanPreferencesKey("live_wallpaper_colors_enabled")
+        val WALLPAPER_CLOCK_OVERLAY_ENABLED = booleanPreferencesKey("wallpaper_clock_overlay_enabled")
+        val WALLPAPER_CLOCK_OVERLAY_MODE = stringPreferencesKey("wallpaper_clock_overlay_mode")
+        val WALLPAPER_CLOCK_OVERLAY_POSITION = stringPreferencesKey("wallpaper_clock_overlay_position")
         val SOUND_PROFILES_ENABLED = booleanPreferencesKey("sound_profiles_enabled")
         val SOUND_PROFILES_JSON = stringPreferencesKey("sound_profiles_json")
         val SOUND_PROFILE_LAST_APPLIED_ID = stringPreferencesKey("sound_profile_last_applied_id")

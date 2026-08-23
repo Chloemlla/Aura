@@ -69,7 +69,7 @@ class RotationBootPermissionCheckTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             copy_required_tree(repo)
-            source = repo / "app/src/main/java/com/freevibe/BootReceiver.kt"
+            source = repo / "app/src/main/java/com/chloemlla/aura/BootReceiver.kt"
             source.parent.mkdir(parents=True, exist_ok=True)
             source.write_text("val action = Intent.ACTION_BOOT_COMPLETED\n", encoding="utf-8")
 

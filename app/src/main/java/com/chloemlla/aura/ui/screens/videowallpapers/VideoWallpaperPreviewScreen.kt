@@ -45,7 +45,12 @@ import java.util.Locale
  * background is an ExoPlayer PlayerView instead of an AsyncImage.
  */
 @OptIn(ExperimentalMaterial3Api::class)
-@androidx.annotation.OptIn(UnstableApi::class)
+// Media3 1.11 reclassified experimentalSetDynamicSchedulingEnabled from UnstableApi
+// to ExperimentalApi, so opting into UnstableApi alone no longer covers it.
+@androidx.annotation.OptIn(
+    UnstableApi::class,
+    androidx.media3.common.util.ExperimentalApi::class,
+)
 @Composable
 fun VideoWallpaperPreviewScreen(
     streamUrl: String,

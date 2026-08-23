@@ -1,5 +1,8 @@
 package com.chloemlla.aura.ui.screens.sounds
 
+import android.content.Context
+import android.net.Uri
+import com.chloemlla.aura.data.model.ContentType
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.Sound
 import com.chloemlla.aura.data.remote.toFavoriteEntity
@@ -9,16 +12,19 @@ import com.chloemlla.aura.service.ContactRingtoneService
 import com.chloemlla.aura.service.SoundUrlResolver
 import com.chloemlla.aura.service.SoundApplier
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Test
 
@@ -67,6 +73,7 @@ class ContactPickerViewModelTest {
         every { bundledContent.getAlarms() } returns emptyList()
 
         val viewModel = ContactPickerViewModel(
+            context = mockk<Context>(relaxed = true),
             contactService = mockk<ContactRingtoneService>(relaxed = true),
             soundApplier = mockk<SoundApplier>(relaxed = true),
             favoritesRepo = favoritesRepo,
@@ -98,6 +105,7 @@ class ContactPickerViewModelTest {
         every { bundledContent.getAlarms() } returns emptyList()
 
         val viewModel = ContactPickerViewModel(
+            context = mockk<Context>(relaxed = true),
             contactService = mockk<ContactRingtoneService>(relaxed = true),
             soundApplier = mockk<SoundApplier>(relaxed = true),
             favoritesRepo = favoritesRepo,
@@ -110,5 +118,56 @@ class ContactPickerViewModelTest {
         assertEquals(true, resolved)
         assertEquals(ContentSource.YOUTUBE, viewModel.state.value.selectedSound?.source)
         assertEquals("Recovered sound", viewModel.state.value.selectedSound?.name)
+    }
+
+    @Test
+    fun `vip preset assigns the contact tone and silences the default ringtone`() = runTest(dispatcher) {
+        val sound = Sound(
+            id = "local_tone",
+            source = ContentSource.LOCAL,
+            name = "VIP tone",
+            previewUrl = "https://example.com/tone.mp3",
+            downloadUrl = "https://example.com/tone.mp3",
+        )
+        val contact = com.chloemlla.aura.service.ContactInfo(
+            id = 42L,
+            lookupKey = "vip",
+            name = "VIP",
+        )
+        val contactService = mockk<ContactRingtoneService>()
+        val soundApplier = mockk<SoundApplier>()
+        val favoritesRepo = mockk<FavoritesRepository>()
+        val bundledContent = mockk<BundledContentProvider>()
+        val soundUrlResolver = mockk<SoundUrlResolver>()
+        coEvery { favoritesRepo.getLatestByIdAndType("local_tone", "SOUND") } returns null
+        every { bundledContent.getRingtones() } returns emptyList()
+        every { bundledContent.getNotifications() } returns emptyList()
+        every { bundledContent.getAlarms() } returns emptyList()
+        coEvery { contactService.getContact(any()) } returns contact
+        every { contactService.getDndGuidance(contact) } returns com.chloemlla.aura.service.ContactDndGuidance.NONE
+        coEvery { soundUrlResolver.resolve(sound) } returns sound.downloadUrl
+        coEvery { soundApplier.downloadOnly(sound.downloadUrl, sound.name, ContentType.RINGTONE) } returns
+            Result.success(mockk<Uri>())
+        coEvery { contactService.setContactRingtone(42L, any()) } returns Result.success(Unit)
+        coEvery { soundApplier.setDefaultRingtoneSilent() } returns Result.success(Unit)
+
+        val viewModel = ContactPickerViewModel(
+            context = mockk<Context>(relaxed = true),
+            contactService = contactService,
+            soundApplier = soundApplier,
+            favoritesRepo = favoritesRepo,
+            bundledContent = bundledContent,
+            soundUrlResolver = soundUrlResolver,
+        )
+
+        assertEquals(true, viewModel.ensureSelectedSound(sound.id, sound))
+        viewModel.loadSelectedContact(mockk<Uri>())
+        advanceUntilIdle()
+        viewModel.assignVipOnlyRinging(42L, confirmed = true)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { contactService.setContactRingtone(42L, any()) }
+        coVerify(exactly = 1) { soundApplier.setDefaultRingtoneSilent() }
+        assertNotNull(viewModel.state.value.success)
     }
 }

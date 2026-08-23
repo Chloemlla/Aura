@@ -1,7 +1,9 @@
 package com.chloemlla.aura.di
 
 import com.chloemlla.aura.service.AndroidBackgroundWorkDiagnosticsReader
+import com.chloemlla.aura.service.AndroidRotationHealthReader
 import com.chloemlla.aura.service.BackgroundWorkDiagnosticsReader
+import com.chloemlla.aura.service.RotationHealthReader
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -16,4 +18,10 @@ abstract class BackgroundWorkDiagnosticsModule {
     abstract fun bindBackgroundWorkDiagnosticsReader(
         impl: AndroidBackgroundWorkDiagnosticsReader,
     ): BackgroundWorkDiagnosticsReader
+
+    @Binds
+    @Singleton
+    abstract fun bindRotationHealthReader(
+        impl: AndroidRotationHealthReader,
+    ): RotationHealthReader
 }

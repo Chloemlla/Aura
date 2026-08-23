@@ -86,6 +86,10 @@ val localProps = Properties().apply {
 
 android {
     namespace = "com.chloemlla.aura"
+    // The fork already took the Android 17 (API 37) upgrade in be02a30e, which
+    // supersedes upstream's compileSdk 36 / targetSdk 35 split. Everything
+    // upstream wanted 36 for (Media3 1.10+, Coil 3.5+, okhttp-android 5.4)
+    // resolves at 37 as well.
     compileSdk = 37
 
     signingConfigs {
@@ -101,8 +105,11 @@ android {
         applicationId = "com.chloemlla.aura"
         minSdk = 26
         targetSdk = 37
-        versionCode = 142
-        versionName = "6.41.0"
+        // Version follows upstream: this merge brings in the 6.42.0-6.45.0
+        // changelog entries, the fastlane changelogs through 146, and the store
+        // metadata that names 6.45.0, so the build has to agree with them.
+        versionCode = 146
+        versionName = "6.45.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -115,7 +122,8 @@ android {
         buildConfigField("String", "PIXABAY_API_KEY", "\"${localProps.getProperty("pixabay.api.key", "")}\"")
         buildConfigField("String", "FREESOUND_API_KEY", "\"${localProps.getProperty("freesound.api.key", "")}\"")
         buildConfigField("String", "SOUNDCLOUD_CLIENT_ID", "\"${localProps.getProperty("soundcloud.client.id", "")}\"")
-        buildConfigField("String", "STABILITY_AI_KEY", "\"${localProps.getProperty("stability.ai.key", "")}\"")
+        // STABILITY_AI_KEY moved to the full flavor upstream so the FOSS flavor
+        // carries no generator credential; see productFlavors below.
         buildConfigField("String", "SHORT_HASH", "\"${localProps.getProperty("short.hash", System.getenv("AURA_SHORT_HASH") ?: "unknown")}\"")
     }
 
@@ -123,6 +131,7 @@ android {
     productFlavors {
         create("full") {
             dimension = "distribution"
+            buildConfigField("String", "STABILITY_AI_KEY", "\"${localProps.getProperty("stability.ai.key", "")}\"")
             buildConfigField("Boolean", "FOSS_BUILD", "false")
         }
         create("foss") {
@@ -177,15 +186,39 @@ android {
         buildConfig = true
     }
 
+    composeCompiler {
+        // Without these, how often a cell recomposes is invisible: the compiler
+        // already knows which models it considers unstable and simply never says.
+        // The reports land in build/ and are read by hand or by
+        // tools/compose_stability_check.py after a build.
+        metricsDestination.set(layout.buildDirectory.dir("compose/metrics"))
+        reportsDestination.set(layout.buildDirectory.dir("compose/reports"))
+        // Third-party types the compiler cannot see into. Without this file every
+        // composable taking one is treated as unstable, which buries Aura's own
+        // models in noise.
+        stabilityConfigurationFiles.add(
+            rootProject.layout.projectDirectory.file("compose-stability.conf")
+        )
+    }
+
     lint {
-        // AGP auto-creates this file on the first lint run; it captures the 53 errors
-        // newly flagged by the upgraded lint/Compose/media3 checks so the upgrade can
-        // land without a mass refactor, while still failing on any NEW lint error.
+        // No detector disables — upstream removed the last one once its lint
+        // artifacts matched AGP. Re-add a disable only with the stack trace that
+        // justifies it.
+        //
+        // The baseline is the fork's: AGP auto-creates it on the first lint run and
+        // it captures the errors newly flagged by the Android 17 lint/Compose/media3
+        // upgrade, so that upgrade can stay without a mass refactor while any NEW
+        // lint error still fails the build.
         baseline = file("lint-baseline.xml")
+        warningsAsErrors = false
+        abortOnError = true
     }
 
     packaging {
         jniLibs {
+            // youtubedl-android extracts its zipped FFmpeg and Python payloads at runtime.
+            // This cannot move to modern packaging until that extractor runtime is removed.
             useLegacyPackaging = true
         }
         resources {
@@ -296,7 +329,9 @@ dependencies {
     // Media Playback
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.exoplayer.hls)
+    implementation(libs.media3.muxer)
     implementation(libs.media3.session)
+    implementation(libs.media3.transformer)
     implementation(libs.media3.ui)
 
     // WorkManager
@@ -355,7 +390,7 @@ dependencies {
     // protobuf-javalite past CVE-2024-7254 (N-2). Kotlin extensions (await, etc.)
     // are still available via kotlinx-coroutines-play-services (pulled in via
     // coroutines-android).
-    add("fullImplementation", platform("com.google.firebase:firebase-bom:34.13.0"))
+    add("fullImplementation", platform("com.google.firebase:firebase-bom:34.17.0"))
     add("fullImplementation", "com.google.firebase:firebase-auth")
     add("fullImplementation", "com.google.firebase:firebase-database")
     add("fullImplementation", "com.google.firebase:firebase-storage")
@@ -368,7 +403,7 @@ dependencies {
     // introduce subtle stream-handling regressions (DownloaderImpl InputStream leak
     // historically, fixed in v5.8). Re-verify YouTubeRepository + DownloaderImpl
     // stream lifecycle on every bump (re-verified clean for v0.26.3).
-    implementation("com.github.teamnewpipe:NewPipeExtractor:v0.26.3")
+    implementation("com.github.teamnewpipe:NewPipeExtractor:v0.26.5")
 
     // yt-dlp for Android (YouTube stream URL extraction)
     implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")

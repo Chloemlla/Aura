@@ -25,7 +25,7 @@ def write_repo(repo_root: Path, manifest_extra: str = "", extra_source: str = ""
     )
     write_text(repo_root / "app/src/main/res/xml/network_security_config.xml", "<network-security-config />")
     write_text(
-        repo_root / "app/src/main/java/com/freevibe/service/PhotoPickerCustomization.kt",
+        repo_root / "app/src/main/java/com/chloemlla/aura/service/PhotoPickerCustomization.kt",
         """
         fun bridge() {
           val cls = Class.forName("android.provider.MediaStore")
@@ -36,14 +36,14 @@ def write_repo(repo_root: Path, manifest_extra: str = "", extra_source: str = ""
         """,
     )
     write_text(
-        repo_root / "app/src/main/java/com/freevibe/service/ContactRingtoneService.kt",
+        repo_root / "app/src/main/java/com/chloemlla/aura/service/ContactRingtoneService.kt",
         "fun selected() = ContactsContract.Contacts.CONTENT_URI",
     )
     write_text(
-        repo_root / "app/src/main/java/com/freevibe/ui/screens/sounds/ContactPickerScreen.kt",
+        repo_root / "app/src/main/java/com/chloemlla/aura/ui/screens/sounds/ContactPickerScreen.kt",
         "fun pick() = ContactsContract.Contacts.CONTENT_URI",
     )
-    write_text(repo_root / "app/src/main/java/com/freevibe/Other.kt", extra_source)
+    write_text(repo_root / "app/src/main/java/com/chloemlla/aura/Other.kt", extra_source)
 
 
 def policy() -> dict:
@@ -66,8 +66,8 @@ def policy() -> dict:
             "decision": "Picker only.",
             "forbiddenManifestPermissions": ["android.permission.READ_CONTACTS"],
             "reviewedContactFiles": [
-                "app/src/main/java/com/freevibe/service/ContactRingtoneService.kt",
-                "app/src/main/java/com/freevibe/ui/screens/sounds/ContactPickerScreen.kt",
+                "app/src/main/java/com/chloemlla/aura/service/ContactRingtoneService.kt",
+                "app/src/main/java/com/chloemlla/aura/ui/screens/sounds/ContactPickerScreen.kt",
             ],
         },
         "reflection": {
@@ -75,7 +75,7 @@ def policy() -> dict:
             "terms": ["Class.forName(", "getDeclaredConstructor(", "getMethod(", "getField("],
             "reviewedOccurrences": [
                 {
-                    "path": "app/src/main/java/com/freevibe/service/PhotoPickerCustomization.kt",
+                    "path": "app/src/main/java/com/chloemlla/aura/service/PhotoPickerCustomization.kt",
                     "terms": [
                         "Class.forName(",
                         "getDeclaredConstructor(",

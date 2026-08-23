@@ -6,8 +6,8 @@
       "licenseId": "GPL-3.0",
       "reviewNote": "Aura packages the official 1.3.1 plugin ZIP as an isolated yt-dlp plugin payload, pins its upstream SHA-256, and only activates it for a user-configured credential-free HTTPS provider URL.",
       "sourceUrl": "https://github.com/Brainicism/bgutil-ytdlp-pot-provider/tree/1.3.1",
-      "target": "bgutil-ytdlp-pot-provider",
-      "targetType": "payload",
+      "target": "app/src/main/res/raw/bgutil_ytdlp_pot_provider.zip",
+      "targetType": "app-resource",
       "usage": "Optional proof-of-origin token provider integration for yt-dlp YouTube stream resolution."
     },
     {
@@ -26,7 +26,7 @@
       "sourceUrl": "https://ffmpeg.org/releases/ffmpeg-7.1.1.tar.xz",
       "target": "ffmpeg",
       "targetType": "payload",
-      "usage": "Video crop/export and sound trim, fade, normalize, and conversion workflows."
+      "usage": "Video crop/export, yt-dlp runtime support, MP3 and FLAC audio encoding, unavailable OGG or Opus encoding, and lossless cuts for containers Media3 cannot remux."
     },
     {
       "id": "google-mlkit-subject-segmentation",
@@ -89,7 +89,7 @@
       "sourceUrl": "https://github.com/yausername/youtubedl-android",
       "target": "io.github.junkfood02.youtubedl-android:",
       "targetType": "coordinate-prefix",
-      "usage": "YouTube stream resolution plus FFmpeg integration for sound and video features."
+      "usage": "YouTube stream resolution plus the bundled FFmpeg and Python runtime used by extraction, video crop, and final audio codec fallbacks."
     },
     {
       "id": "yt-dlp-payload",
@@ -105,7 +105,7 @@
       "licenseId": "Apache-2.0",
       "reviewNote": "ZXing powers QR collection import/export paths. Review upstream release notes and license notices when the coordinate changes.",
       "sourceUrl": "https://github.com/zxing/zxing",
-      "target": "com.google.zxing:core:3.5.3",
+      "target": "com.google.zxing:core:3.5.4",
       "targetType": "coordinate",
       "usage": "QR-code encode/decode support for shareable collection workflows."
     }

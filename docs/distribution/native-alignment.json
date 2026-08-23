@@ -1,22 +1,141 @@
 {
   "schemaVersion": 1,
   "policyKind": "nativePageAlignment",
-  "status": "releaseWorkflowEnforced",
+  "status": "localGateEnforced",
+  "enforcedBy": [
+    "tools/native_alignment_check.py",
+    "test/tools/native_alignment_check_test.py",
+    "docs/distribution/release-dry-run.md"
+  ],
   "packageName": "com.chloemlla.aura",
   "requiredLoadSegmentAlignmentBytes": 16384,
-  "require64BitOnly": true,
+  "require64BitOnly": false,
+  "thirtyTwoBitSupportRationale": "minSdk 26 still admits 32-bit-only Android 8 and 9 devices. Per-ABI splits cut the download for everyone without cutting those devices off, so 32-bit ships and is declared rather than being quietly present under a 64-bit-only claim. Dropping armeabi-v7a and x86 is a separate user-facing decision.",
+  "declaredAbis": [
+    "arm64-v8a",
+    "armeabi-v7a",
+    "x86",
+    "x86_64"
+  ],
   "required64BitAbis": [
     "arm64-v8a",
     "x86_64"
   ],
   "releaseApkGlob": "app/build/outputs/apk/*/release/*release*.apk",
   "verificationCommand": "python3 tools/native_alignment_check.py --policy docs/distribution/native-alignment.json --apk <release-apk>",
-  "latestLocalEvidence": {
-    "date": "2026-07-02",
+  "abiSplitEvidence": {
+    "date": "2026-08-20",
     "status": "verified",
-    "apkPath": "app/build/outputs/apk/full/release/app-full-release.apk",
-    "apkSha256": "f2cfacd78cc35ce229025ba1c8f1147c1c6cd44dc684b1b7fc46f9d8fdbd59db",
-    "checked64BitLoadSegments": 43,
+    "note": "Per-ABI splits cut the download from 199 MB to 60 MB on the architecture every modern phone uses. That is still above IzzyOnDroid's 30 MB per-APK ceiling. The FFmpeg and Python payload remains because yt-dlp extraction, video crop, and codec fallbacks still use it. The Media3 sound-editor migration does not make the artifact eligible by itself.",
+    "artifactBytes": {
+      "app-full-arm64-v8a-release.apk": 63439662,
+      "app-full-armeabi-v7a-release.apk": 56785934,
+      "app-full-universal-release.apk": 208831546,
+      "app-full-x86-release.apk": 62027502,
+      "app-full-x86_64-release.apk": 66431342
+    },
+    "izzyOnDroidPerApkCeilingBytes": 31457280,
+    "arm64UnderIzzyOnDroidCeiling": false
+  },
+  "mediaStackMigrationEvidence": {
+    "date": "2026-08-21",
+    "status": "verified",
+    "implementation": "Media3 Transformer now owns clipping, PCM fades, pitch-preserving speed, M4A, WAV, and device-supported OGG or Opus exports. FFmpeg only encodes codecs without a platform encoder and handles unsupported lossless packet copies.",
+    "fixtureCorpus": {
+      "status": "verified",
+      "device": "Android API 35 x86_64 emulator",
+      "instrumentationClass": "com.chloemlla.aura.service.AudioTrimmerInstrumentedTest",
+      "tests": {
+        "wavTrimFade": "A one-second 8 kHz PCM fixture is trimmed to 600 ms, given exact 200 ms linear fades, and compared sample for sample against 4,800 expected PCM values.",
+        "wavSpeed": "A one-second 440 Hz PCM fixture exports at 2x in 490 to 510 ms while the detected pitch remains between 420 and 460 Hz.",
+        "aacConvert": "A one-second WAV fixture exports as audio/mp4a-latm at 192 kbps within a 975 to 1,025 ms duration window."
+      }
+    },
+    "artifactBytes": {
+      "before": {
+        "app-foss-arm64-v8a-release.apk": 62310147,
+        "app-foss-armeabi-v7a-release.apk": 55656731,
+        "app-foss-universal-release.apk": 207705119,
+        "app-foss-x86_64-release.apk": 65301911,
+        "app-foss-x86-release.apk": 60898123,
+        "app-full-arm64-v8a-release.apk": 63599018,
+        "app-full-armeabi-v7a-release.apk": 56945602,
+        "app-full-universal-release.apk": 208993986,
+        "app-full-x86_64-release.apk": 66590782,
+        "app-full-x86-release.apk": 62186990
+      },
+      "after": {
+        "app-foss-arm64-v8a-release.apk": 62462612,
+        "app-foss-armeabi-v7a-release.apk": 55809196,
+        "app-foss-universal-release.apk": 207857584,
+        "app-foss-x86_64-release.apk": 65454376,
+        "app-foss-x86-release.apk": 61050588,
+        "app-full-arm64-v8a-release.apk": 63755615,
+        "app-full-armeabi-v7a-release.apk": 57102199,
+        "app-full-universal-release.apk": 209150587,
+        "app-full-x86_64-release.apk": 66747379,
+        "app-full-x86-release.apk": 62343591
+      },
+      "delta": {
+        "app-foss-arm64-v8a-release.apk": 152465,
+        "app-foss-armeabi-v7a-release.apk": 152465,
+        "app-foss-universal-release.apk": 152465,
+        "app-foss-x86_64-release.apk": 152465,
+        "app-foss-x86-release.apk": 152465,
+        "app-full-arm64-v8a-release.apk": 156597,
+        "app-full-armeabi-v7a-release.apk": 156597,
+        "app-full-universal-release.apk": 156601,
+        "app-full-x86_64-release.apk": 156597,
+        "app-full-x86-release.apk": 156601
+      }
+    },
+    "artifactBuild": "The final signed public artifacts were rebuilt with optional provider BuildConfig defaults blank, then scanned against the workstation values before measurement.",
+    "sizeFinding": "The native payload remains, so each FOSS split grew by 152,465 bytes and each full split grew by 156,597 to 156,601 bytes for this delivery.",
+    "legacyPackagingDecision": {
+      "useLegacyPackaging": true,
+      "canDisable": false,
+      "reason": "youtubedl-android still expands zipped FFmpeg and Python payloads at runtime for stream extraction, video crop, and final codec fallbacks."
+    },
+    "retainedFfmpegConsumers": [
+      {
+        "id": "sound-editor-codec-fallbacks",
+        "sourcePath": "app/src/main/java/com/chloemlla/aura/service/AudioTrimmer.kt",
+        "mode": "fallback",
+        "operations": [
+          "MP3 final encoding",
+          "FLAC final encoding",
+          "M4A final encoding only if the device AAC encoder is unavailable",
+          "OGG final encoding only if the device Vorbis encoder is unavailable",
+          "Opus final encoding on Android 8 and 9 or when the device Opus encoder is unavailable",
+          "Lossless stream-copy cuts for MP3, FLAC, or source and container pairs Media3 cannot remux"
+        ]
+      },
+      {
+        "id": "video-crop-export",
+        "sourcePath": "app/src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoCropScreen.kt",
+        "mode": "direct",
+        "operations": [
+          "Video crop and portrait export"
+        ]
+      },
+      {
+        "id": "yt-dlp-extractor-runtime",
+        "sourcePath": "app/build.gradle.kts",
+        "mode": "runtime",
+        "operations": [
+          "YouTube stream extraction and segmented download merging"
+        ]
+      }
+    ],
+    "videoCropIsSoleRemainingConsumer": false,
+    "videoCropStatus": "Video crop is the last direct video-editing consumer, but codec fallbacks and yt-dlp also remain."
+  },
+  "latestLocalEvidence": {
+    "date": "2026-08-21",
+    "status": "verified",
+    "apkPath": "app/build/outputs/apk/full/release/app-full-universal-release.apk",
+    "apkSha256": "c25038a64a02686d3e3979cf2039b6407b4865b100618a2601240e2791e715e2",
+    "checked64BitLoadSegments": 46,
     "seen64BitAbis": [
       "arm64-v8a",
       "x86_64"

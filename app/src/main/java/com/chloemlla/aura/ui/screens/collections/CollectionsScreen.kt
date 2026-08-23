@@ -232,6 +232,10 @@ fun CollectionsScreen(
 
     // Observe prepared share/import events and keep system intents out of recomposition.
     val context = androidx.compose.ui.platform.LocalContext.current
+    // Resource lookups go through LocalResources, not the context: reading a
+    // string off LocalContext is not a composition read, so these labels would
+    // survive a language change unchanged until something else recomposed them.
+    val resources = androidx.compose.ui.platform.LocalResources.current
     val clipboard = LocalClipboardManager.current
     val shareEvent by viewModel.shareEvent.collectAsStateWithLifecycle()
     var showEmbeddedQrPicker by remember { mutableStateOf(false) }
@@ -271,10 +275,10 @@ fun CollectionsScreen(
             is ShareCollectionEvent.Ready -> {
                 val intent = android.content.Intent.createChooser(
                     event.intent,
-                    context.getString(R.string.collections_share_chooser, event.collectionName),
+                    resources.getString(R.string.collections_share_chooser, event.collectionName),
                 ).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
                 try { context.startActivity(intent) } catch (_: Exception) {
-                    scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.collections_no_share_target)) }
+                    scope.launch { snackbarHostState.showSnackbar(resources.getString(R.string.collections_no_share_target)) }
                 }
                 viewModel.consumeShareEvent()
             }
@@ -330,7 +334,7 @@ fun CollectionsScreen(
             qrBitmap = remember(state.shareLink) { viewModel.buildQrBitmap(state.shareLink).asImageBitmap() },
             onCopyLink = {
                 clipboard.setText(AnnotatedString(state.shareLink))
-                scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.collections_link_copied)) }
+                scope.launch { snackbarHostState.showSnackbar(resources.getString(R.string.collections_link_copied)) }
             },
             onDismiss = viewModel::dismissQr,
         )
@@ -382,11 +386,11 @@ fun CollectionsScreen(
                                             if (snapshot == null) return@deleteCollection
                                             scope.launch {
                                                 val result = snackbarHostState.showSnackbar(
-                                                    message = context.getString(
+                                                    message = resources.getString(
                                                         R.string.collections_deleted,
                                                         snapshot.collection.name,
                                                     ),
-                                                    actionLabel = context.getString(R.string.common_undo),
+                                                    actionLabel = resources.getString(R.string.common_undo),
                                                     duration = SnackbarDuration.Short,
                                                 )
                                                 if (result == SnackbarResult.ActionPerformed) {
@@ -450,8 +454,8 @@ fun CollectionsScreen(
                                         viewModel.removeItem(cid, item)
                                         scope.launch {
                                             val result = snackbarHostState.showSnackbar(
-                                                message = context.getString(R.string.collections_removed),
-                                                actionLabel = context.getString(R.string.common_undo),
+                                                message = resources.getString(R.string.collections_removed),
+                                                actionLabel = resources.getString(R.string.common_undo),
                                                 duration = SnackbarDuration.Short,
                                             )
                                             if (result == SnackbarResult.ActionPerformed) {
@@ -678,6 +682,10 @@ private fun CollectionCard(
             ) {
                 if (covers.isNotEmpty()) {
                     val gridSize = if (covers.size >= 4) 2 else 1
+                    // covers is a List<String> collected out of the flow above, so
+                    // this is List.take. Lint resolves it through the `by` delegate
+                    // and lands on Flow.take, which would indeed be wrong here.
+                    @Suppress("FlowOperatorInvokedInComposition")
                     val displayCovers = covers.take(gridSize * gridSize)
                     Column {
                         for (row in 0 until gridSize) {

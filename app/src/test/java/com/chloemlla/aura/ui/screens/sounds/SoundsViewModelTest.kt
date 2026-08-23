@@ -1486,7 +1486,6 @@ class SoundsViewModelTest {
             downloadManager = downloadManagerOverride ?: mockk<DownloadManager>(relaxed = true),
             selectedContent = testSelectedContentHolder(),
             searchHistoryRepo = searchHistoryRepo,
-            audioTrimmer = mockk<com.chloemlla.aura.service.AudioTrimmer>(relaxed = true),
             prefs = prefs,
             voteRepo = mockk<VoteRepository>(relaxed = true),
             reportRepo = reportRepoOverride ?: mockk<CommunityReportRepository>(relaxed = true),

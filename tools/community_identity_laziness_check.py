@@ -17,12 +17,12 @@ FORBIDDEN_STARTUP_TERMS = (
 )
 
 REQUIRED_LAZY_WRITE_PATHS = (
-    "app/src/main/java/com/freevibe/data/repository/UploadRepository.kt",
-    "app/src/main/java/com/freevibe/data/repository/WallpaperUploadRepository.kt",
-    "app/src/main/java/com/freevibe/data/repository/VoteRepository.kt",
-    "app/src/main/java/com/freevibe/data/repository/CommunityReportRepository.kt",
-    "app/src/main/java/com/freevibe/data/repository/CreatorProfileRepository.kt",
-    "app/src/main/java/com/freevibe/data/repository/CommunityBlockRepository.kt",
+    "app/src/main/java/com/chloemlla/aura/data/repository/UploadRepository.kt",
+    "app/src/main/java/com/chloemlla/aura/data/repository/WallpaperUploadRepository.kt",
+    "app/src/main/java/com/chloemlla/aura/data/repository/VoteRepository.kt",
+    "app/src/main/java/com/chloemlla/aura/data/repository/CommunityReportRepository.kt",
+    "app/src/main/java/com/chloemlla/aura/data/repository/CreatorProfileRepository.kt",
+    "app/src/main/java/com/chloemlla/aura/data/repository/CommunityBlockRepository.kt",
 )
 
 
@@ -33,7 +33,7 @@ def read_text(path: Path) -> str:
 
 
 def read_settings_surface_text(repo_root: Path) -> str:
-    settings_dir = repo_root / "app/src/main/java/com/freevibe/ui/screens/settings"
+    settings_dir = repo_root / "app/src/main/java/com/chloemlla/aura/ui/screens/settings"
     if not settings_dir.is_dir():
         raise CommunityIdentityLazinessError(f"missing settings package: {settings_dir}")
     return "\n".join(
@@ -43,7 +43,7 @@ def read_settings_surface_text(repo_root: Path) -> str:
     )
 
 
-VOTE_REPOSITORY_PATH = "app/src/main/java/com/freevibe/data/repository/VoteRepository.kt"
+VOTE_REPOSITORY_PATH = "app/src/main/java/com/chloemlla/aura/data/repository/VoteRepository.kt"
 
 CONSENT_PREFERENCES = ("communityProviderEnabled", "communityGuidelinesAccepted")
 
@@ -105,12 +105,12 @@ def validate_moderation_listener_consent(repo_root: Path) -> int:
 
 
 def validate_community_identity_laziness(repo_root: Path) -> dict[str, int | str]:
-    app_text = read_text(repo_root / "app/src/main/java/com/freevibe/FreeVibeApp.kt")
+    app_text = read_text(repo_root / "app/src/main/java/com/chloemlla/aura/AuraApp.kt")
     for term in FORBIDDEN_STARTUP_TERMS:
         if term in app_text:
-            raise CommunityIdentityLazinessError(f"FreeVibeApp must not eagerly create or refresh community identity: {term}")
+            raise CommunityIdentityLazinessError(f"AuraApp must not eagerly create or refresh community identity: {term}")
 
-    provider_text = read_text(repo_root / "app/src/main/java/com/freevibe/service/CommunityIdentityProvider.kt")
+    provider_text = read_text(repo_root / "app/src/main/java/com/chloemlla/aura/service/CommunityIdentityProvider.kt")
     if "currentIdentitySummary" not in provider_text or "hasFirebaseIdentity" not in provider_text:
         raise CommunityIdentityLazinessError("Community identity summary must expose auth state without forcing sign-in")
     if 'identitySuffix = displayId?.let(::communityIdentitySuffix) ?: "Not created"' not in provider_text:

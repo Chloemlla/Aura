@@ -3,7 +3,7 @@
   "policyKind": "privacyPolicyLink",
   "publicUrl": "https://github.com/SysAdminDoc/Aura/blob/main/docs/privacy/privacy-policy.md",
   "policyDoc": "docs/privacy/privacy-policy.md",
-  "settingsScreen": "app/src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt",
+  "settingsScreen": "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt",
   "fastlaneFullDescription": "fastlane/metadata/android/en-US/full_description.txt",
   "readme": "README.md",
   "releaseDryRunDoc": "docs/distribution/release-dry-run.md",

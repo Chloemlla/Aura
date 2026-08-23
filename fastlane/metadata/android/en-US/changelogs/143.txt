@@ -1,0 +1,3 @@
+Aura v6.42.0
+
+Recent highlights: the contributing and architecture guides are published instead of returning 404, and the contributing guide now describes the roadmap and build commands that actually exist; stated version, database, and navigation facts are checked against the build so stale documentation fails the release gate; preference writes moved out of the UI layer and the gate that polices their order now finds new bridges on its own; builds use the Gradle cache, parallel execution, and the configuration cache.

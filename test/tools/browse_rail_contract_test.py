@@ -13,7 +13,7 @@ def assert_contains(source: str, expected: str, label: str) -> None:
 
 
 def test_shared_browse_rail_uses_flat_touch_safe_tabs() -> None:
-    source = read("app/src/main/java/com/freevibe/ui/components/BrowseRail.kt")
+    source = read("app/src/main/java/com/chloemlla/aura/ui/components/BrowseRail.kt")
 
     for expected in (
         "data class BrowseRailItem",
@@ -31,9 +31,9 @@ def test_shared_browse_rail_uses_flat_touch_safe_tabs() -> None:
 
 def test_primary_media_screens_keep_only_the_navigation_they_need() -> None:
     screens = {
-        "wallpapers": read("app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt"),
-        "videos": read("app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersScreen.kt"),
-        "sounds": read("app/src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt"),
+        "wallpapers": read("app/src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpapersScreen.kt"),
+        "videos": read("app/src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersScreen.kt"),
+        "sounds": read("app/src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsScreen.kt"),
     }
 
     for expected in (
@@ -62,10 +62,10 @@ def test_primary_media_screens_keep_only_the_navigation_they_need() -> None:
 
 
 def test_browse_rails_reuse_existing_category_collection_and_local_recovery_paths() -> None:
-    root = read("app/src/main/java/com/freevibe/ui/FreeVibeRoot.kt")
-    wallpapers = read("app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt")
-    videos = read("app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersScreen.kt")
-    sounds = read("app/src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt")
+    root = read("app/src/main/java/com/chloemlla/aura/ui/FreeVibeRoot.kt")
+    wallpapers = read("app/src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpapersScreen.kt")
+    videos = read("app/src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersScreen.kt")
+    sounds = read("app/src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsScreen.kt")
 
     for expected in ("onCategoriesClick", "onCollectionsClick"):
         assert_contains(wallpapers, expected, "wallpapers")
@@ -95,7 +95,7 @@ def test_browse_rails_reuse_existing_category_collection_and_local_recovery_path
     assert "SoundCollectionCarousel(" not in sounds
     assert not (
         ROOT
-        / "app/src/main/java/com/freevibe/ui/screens/sounds/SoundTopHitsLoader.kt"
+        / "app/src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundTopHitsLoader.kt"
     ).exists()
     assert_contains(videos, "VideoImmersivePager(", "videos")
     assert_contains(videos, "VerticalPager(", "videos")

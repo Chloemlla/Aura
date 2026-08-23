@@ -5,6 +5,8 @@ import android.net.Uri
 import android.os.Bundle
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.service.ExternalAutomationGate
+import com.chloemlla.aura.service.ExternalMediaKind
+import com.chloemlla.aura.service.IngestedExternalMedia
 import com.chloemlla.aura.service.TaskerActionReceiver
 import com.chloemlla.aura.ui.navigation.Screen
 import org.junit.Assert.assertEquals
@@ -109,5 +111,48 @@ class MainActivityLaunchNavigationTest {
                 Intent.FLAG_GRANT_READ_URI_PERMISSION,
             ),
         )
+    }
+
+    @Test
+    fun `external image navigation opens the crop route without treating it as a detail launch`() {
+        val navigation = buildExternalMediaNavigation(
+            IngestedExternalMedia(
+                uri = Uri.parse("content://com.chloemlla.aura.fileprovider/share_out/external_media/image.jpg"),
+                kind = ExternalMediaKind.IMAGE,
+            ),
+        )
+
+        assertTrue(navigation.route?.startsWith("wallpaper_crop/") == true)
+        assertNull(navigation.wallpaper)
+    }
+
+    @Test
+    fun `image send is not mistaken for collection import`() {
+        val intent = Intent(Intent.ACTION_SEND)
+            .setType("image/jpeg")
+            .putExtra(Intent.EXTRA_STREAM, Uri.parse("content://picker.example/images/1"))
+
+        assertNull(parseLaunchNavigation(intent))
+    }
+
+    @Test
+    fun `json send remains a collection import`() {
+        val intent = Intent(Intent.ACTION_SEND)
+            .setType("application/json")
+            .putExtra(Intent.EXTRA_STREAM, Uri.parse("content://picker.example/aura.json"))
+
+        assertTrue(parseLaunchNavigation(intent)?.route?.startsWith(Screen.Collections.route) == true)
+    }
+
+    @Test
+    fun `external audio navigation opens the local sound editor route`() {
+        val navigation = buildExternalMediaNavigation(
+            IngestedExternalMedia(
+                uri = Uri.parse("content://com.chloemlla.aura.fileprovider/share_out/external_media/sound.mp3"),
+                kind = ExternalMediaKind.AUDIO,
+            ),
+        )
+
+        assertTrue(navigation.route?.startsWith("sound_editor?localUri=") == true)
     }
 }

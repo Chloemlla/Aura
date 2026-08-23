@@ -9,7 +9,7 @@
       "id": "auto-wallpaper-periodic",
       "uniqueWorkName": "auto_wallpaper",
       "networkPosture": "userSelectableConnectedOrUnmetered",
-      "sourcePath": "app/src/main/java/com/freevibe/service/AutoWallpaperWorker.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/AutoWallpaperWorker.kt",
       "requiredSourceTerms": [
         "!requiresNetwork -> NetworkType.NOT_REQUIRED",
         "requiresWiFiOnly -> NetworkType.UNMETERED",
@@ -21,7 +21,7 @@
         "setRequiresCharging(true)",
         "setRequiresDeviceIdle(true)"
       ],
-      "settingsSourcePath": "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt",
+      "settingsSourcePath": "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsRotationDelegate.kt",
       "requiredSettingsTerms": [
         "setAutoWallpaperRequiresWiFiOnly",
         "setAutoWallpaperRequiresCharging",
@@ -36,13 +36,13 @@
       "id": "auto-backup-periodic",
       "uniqueWorkName": "auto_backup",
       "networkPosture": "notRequired",
-      "sourcePath": "app/src/main/java/com/freevibe/service/AutoBackupWorker.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/AutoBackupWorker.kt",
       "requiredSourceTerms": [
         "PeriodicWorkRequestBuilder<AutoBackupWorker>",
         "setRequiresBatteryNotLow(true)",
         "favoritesExporter.export"
       ],
-      "settingsSourcePath": "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt",
+      "settingsSourcePath": "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsRotationDelegate.kt",
       "requiredSettingsTerms": [
         "AutoBackupWorker.schedule",
         "AutoBackupWorker.cancel"
@@ -56,15 +56,15 @@
       "id": "daily-wallpaper-periodic",
       "uniqueWorkName": "daily_wallpaper",
       "networkPosture": "connected",
-      "sourcePath": "app/src/main/java/com/freevibe/service/DailyWallpaperWorker.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/DailyWallpaperWorker.kt",
       "requiredSourceTerms": [
         "setRequiredNetworkType(NetworkType.CONNECTED)",
         "Bing Daily first, then Wallhaven toplist",
         "POST_NOTIFICATIONS"
       ],
-      "settingsSourcePath": "app/src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt",
+      "settingsSourcePath": "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt",
       "requiredSettingsTerms": [
-        "daily_wallpaper_enabled",
+        "setDailyWallpaperEnabled",
         "DailyWallpaperWorker.schedule",
         "DailyWallpaperWorker.cancel"
       ],
@@ -77,13 +77,13 @@
       "id": "ringtone-restoration-one-shot",
       "uniqueWorkName": "ringtone_restoration",
       "networkPosture": "notRequired",
-      "sourcePath": "app/src/main/java/com/freevibe/service/RingtoneRestorationReceiver.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/RingtoneRestorationReceiver.kt",
       "requiredSourceTerms": [
         "OneTimeWorkRequestBuilder<RingtoneRestorationWorker>",
         "Intent.ACTION_BOOT_COMPLETED",
         "RingtoneManager.setActualDefaultRingtoneUri"
       ],
-      "settingsSourcePath": "app/src/main/java/com/freevibe/service/RingtoneRestorationReceiver.kt",
+      "settingsSourcePath": "app/src/main/java/com/chloemlla/aura/service/RingtoneRestorationReceiver.kt",
       "requiredSettingsTerms": [
         "Intent.ACTION_MY_PACKAGE_REPLACED",
         "ExistingWorkPolicy.REPLACE"
@@ -97,13 +97,13 @@
       "id": "ringtone-shuffle-periodic",
       "uniqueWorkName": "ringtone_shuffle",
       "networkPosture": "notRequired",
-      "sourcePath": "app/src/main/java/com/freevibe/service/RingtoneShuffleWorker.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/RingtoneShuffleWorker.kt",
       "requiredSourceTerms": [
         "PeriodicWorkRequestBuilder<RingtoneShuffleWorker>",
         "downloadDao.getByType(\"SOUND\")",
         "RingtoneManager.setActualDefaultRingtoneUri"
       ],
-      "settingsSourcePath": "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt",
+      "settingsSourcePath": "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsMediaDelegate.kt",
       "requiredSettingsTerms": [
         "RingtoneShuffleWorker.schedule",
         "RingtoneShuffleWorker.cancel"
@@ -117,13 +117,13 @@
       "id": "sound-profile-periodic",
       "uniqueWorkName": "sound_profile",
       "networkPosture": "notRequired",
-      "sourcePath": "app/src/main/java/com/freevibe/service/SoundProfileManager.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/SoundProfileManager.kt",
       "requiredSourceTerms": [
         "PeriodicWorkRequestBuilder<SoundProfileWorker>",
         "parseProfiles",
         "RingtoneManager.setActualDefaultRingtoneUri"
       ],
-      "settingsSourcePath": "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt",
+      "settingsSourcePath": "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsMediaDelegate.kt",
       "requiredSettingsTerms": [
         "SoundProfileWorker.schedule",
         "SoundProfileWorker.cancel"
@@ -137,13 +137,13 @@
       "id": "wallpaper-pack-periodic",
       "uniqueWorkName": "wallpaper_pack",
       "networkPosture": "notRequired",
-      "sourcePath": "app/src/main/java/com/freevibe/service/WallpaperPackManager.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/WallpaperPackManager.kt",
       "requiredSourceTerms": [
         "PeriodicWorkRequestBuilder<WallpaperPackWorker>",
         "parsePack",
         "wallpaperApplier.applyByLocator"
       ],
-      "settingsSourcePath": "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt",
+      "settingsSourcePath": "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsMediaDelegate.kt",
       "requiredSettingsTerms": [
         "WallpaperPackWorker.schedule",
         "WallpaperPackWorker.cancel"
@@ -157,14 +157,14 @@
       "id": "weather-update-periodic",
       "uniqueWorkName": "weather_update",
       "networkPosture": "connected",
-      "sourcePath": "app/src/main/java/com/freevibe/service/WeatherUpdateWorker.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/WeatherUpdateWorker.kt",
       "requiredSourceTerms": [
         "setRequiredNetworkType(NetworkType.CONNECTED)",
         "ACCESS_COARSE_LOCATION",
         "roundWeatherCoordinate(location.first)",
         "location_present"
       ],
-      "settingsSourcePath": "app/src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt",
+      "settingsSourcePath": "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt",
       "requiredSettingsTerms": [
         "WeatherUpdateWorker.schedule",
         "WeatherUpdateWorker.cancel",
@@ -179,14 +179,14 @@
       "id": "aura-originals-one-shot",
       "uniqueWorkName": "aura_originals_download",
       "networkPosture": "unmetered",
-      "sourcePath": "app/src/main/java/com/freevibe/service/AuraOriginalsDownloader.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/AuraOriginalsDownloader.kt",
       "requiredSourceTerms": [
         "setRequiredNetworkType(NetworkType.UNMETERED)",
         "MAX_TOTAL_BYTES",
         "MAX_PER_FILE_BYTES",
         "verifyHash"
       ],
-      "settingsSourcePath": "app/src/main/java/com/freevibe/FreeVibeApp.kt",
+      "settingsSourcePath": "app/src/main/java/com/chloemlla/aura/AuraApp.kt",
       "requiredSettingsTerms": [
         "enqueueAuraOriginalsDownload",
         "AuraOriginalsDownloader.enqueue"
@@ -200,13 +200,13 @@
       "id": "rotation-trigger-one-shot",
       "uniqueWorkName": "rotation_trigger_oneshot",
       "networkPosture": "connected",
-      "sourcePath": "app/src/main/java/com/freevibe/service/RotationTriggerService.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/RotationTriggerService.kt",
       "requiredSourceTerms": [
         "setRequiredNetworkType(NetworkType.CONNECTED)",
         "setRequiresBatteryNotLow(true)",
         "OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST"
       ],
-      "settingsSourcePath": "app/src/main/java/com/freevibe/service/TaskerActionReceiver.kt",
+      "settingsSourcePath": "app/src/main/java/com/chloemlla/aura/service/TaskerActionReceiver.kt",
       "requiredSettingsTerms": [
         "ACTION_ROTATE_NOW",
         "ACTION_SHUFFLE_NOW",

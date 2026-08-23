@@ -2,7 +2,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-WALLPAPER_PACKAGE = ROOT / "app/src/main/java/com/freevibe/ui/screens/wallpapers"
+WALLPAPER_PACKAGE = ROOT / "app/src/main/java/com/chloemlla/aura/ui/screens/wallpapers"
 
 
 def read(path: Path) -> str:

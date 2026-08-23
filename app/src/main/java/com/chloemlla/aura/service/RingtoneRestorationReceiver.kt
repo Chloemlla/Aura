@@ -33,6 +33,15 @@ class RingtoneRestorationReceiver : BroadcastReceiver() {
             intent?.action != Intent.ACTION_MY_PACKAGE_REPLACED
         ) return
 
+        // Nothing the platform keeps can answer "did the boot broadcast reach
+        // Aura?" after the fact, so it has to be written down while it is true.
+        // One small put, inside the broadcast deadline. A device that has plainly
+        // rebooted with no record here is an OEM that never delivered it, and
+        // Rotation Health reports exactly that.
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+            runCatching { BootObservationStore.recordBoot(context) }
+        }
+
         WorkManager.getInstance(context).enqueueUniqueWork(
             RingtoneRestorationWorker.WORK_NAME,
             ExistingWorkPolicy.REPLACE,
@@ -46,6 +55,7 @@ class RingtoneRestorationWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
     private val prefs: PreferencesManager,
+    private val livenessMonitor: LiveWallpaperLivenessMonitor,
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
@@ -53,6 +63,11 @@ class RingtoneRestorationWorker @AssistedInject constructor(
             restoreIfNeeded(RingtoneManager.TYPE_RINGTONE, prefs.lastAppliedRingtoneUri.first())
             restoreIfNeeded(RingtoneManager.TYPE_NOTIFICATION, prefs.lastAppliedNotificationUri.first())
             restoreIfNeeded(RingtoneManager.TYPE_ALARM, prefs.lastAppliedAlarmUri.first())
+            // A reboot and a package replace are the two moments the platform is
+            // known to drop a live wallpaper, and this worker already runs on
+            // exactly those. Reading it here keeps the binder call off the boot
+            // broadcast deadline and out of any render thread.
+            runCatching { livenessMonitor.refresh() }
             Result.success()
         } catch (e: Exception) {
             if (e is CancellationException) throw e

@@ -8,53 +8,30 @@
 
 ---
 
-## Blocker: Unreleased External Dependency
-
-- **P2 — Firebase BoM 34.13.0 -> 34.16.0 (full flavor)**
-  - Blocker: Firebase's official Android release notes currently publish BoM 34.15.0;
-    the requested 34.16.0 release does not exist yet.
-  - Resume when 34.16.0 is published, then run the full-flavor build and community-path
-    tests while confirming the FOSS flavor remains unaffected.
-
----
-
 ## Blocker: N-1 Toolchain Upgrade (AGP 9 / Gradle 9 / Kotlin 2.3)
 
 N-1 itself is the largest single gate. Until it lands, these items cannot proceed:
 
-- **N-1 — Toolchain upgrade triad** (AGP 9 + Gradle 9 + Kotlin 2.3 + Compose BOM + Hilt 2.59)
-  - Scope: AGP 8.7.3 -> 9.2.x, Gradle 8.12 -> 9.5+, Kotlin 2.1.0 -> 2.3.20, KSP1 -> KSP2, Compose BOM -> 2026.05.00, Hilt 2.53.1 -> 2.59.x, Navigation 3.x, etc.
+- **N-1 — Toolchain upgrade triad** (AGP 9 + Gradle 9 + Kotlin 2.3 + Hilt 2.59)
+  - Scope: AGP 8.9.3 -> 9.2.x, Gradle 8.12 -> 9.5+, Kotlin 2.1.0 -> 2.3.20, KSP1 -> KSP2, Hilt 2.53.1 -> 2.59.x, Navigation 3.x, etc.
+  - Rescoped 2026-08-20: compileSdk 36 landed on AGP 8.9.3 at targetSdk 35, so this no
+    longer gates anything that only needed a compileSdk of 36. The Compose BOM moves
+    independently and is out of this scope. OkHttp 5.4, Coil 3.5, and Media3 1.10+ came
+    off this blocker and were taken in the dependency refresh.
+  - Compose BOM ceiling 2026-08-20: 2026.06.01 (Compose 1.11.4) is the highest this
+    stack accepts. 2026.07+ ships Compose 1.12.x, whose AAR metadata demands compileSdk
+    37 and AGP 9.1, so the Compose line is capped here until this item lands after all.
   - Risk: Memory-heavy Gradle runs on this workstation. R8 keep-rule regressions, KSP2 cache issues.
   - Gates: N-3/N-4/NX-2/NX-7 and most Next-tier items.
-
-- **N-4 (remaining)** — WallpaperDescription scaffolding is comment-only until N-1 unlocks compileSdk 36+.
+  - Scope notes 2026-08-20: AGP 9.x ships built-in Kotlin — the standalone `org.jetbrains.kotlin.android` plugin must be removed or the build fails; Gradle 9.1+ is the floor; use Hilt **2.59.2**, not 2.59 (2.59 shipped a broken Gradle plugin, dagger#5099); Kotlin stable is now 2.4.x with the K1 frontend removed; AGP 9.3 adds an `analyzeReleaseR8Config` keep-rule analyzer useful for the queued R8 item.
 
 - **P0 — API 37 toolchain and target-SDK release gate** (Cycle 10)
-  - Needs compileSdk 37 + AGP 8.9.0-rc01+ minimum. Blocked until N-1 completes.
+  - Needs compileSdk 37, which needs an AGP beyond the 8.9.3 the project now pins.
+    Blocked until N-1 completes.
+  - Note 2026-08-20: budget for the targetSdk 36 behavior trio on the way — predictive back on by default (`onBackPressed` no longer called), edge-to-edge opt-out removed, and orientation/resize flags ignored on sw>=600dp (opt-out dies entirely at targetSdk 37).
 
 - **P2 — Direct Android 17 API cleanup for shipped bridges** (Cycle 10)
   - EyeDropper and Photo Picker 9:16 shipped through reflection; direct API needs compileSdk 37.
-
-- **P2 — OkHttp 5.3.2 -> 5.4.0**
-  - Blocker: `com.squareup.okhttp3:okhttp-android:5.4.0` requires compileSdk 36 or later,
-    while Aura is on compileSdk 35 and AGP 8.7.3 (whose supported maximum is 35).
-  - Evidence: `:app:checkFullDebugAarMetadata` fails on the dependency's published AAR
-    metadata before compilation. Resume with N-1, then re-run RateLimitInterceptor,
-    redirect, Full/FOSS build, and dependency-verification checks.
-
-- **P1 — Coil 3.4.0 -> 3.5.0**
-  - Blocker: `io.coil-kt.coil3:coil-*:3.5.0` requires compileSdk 36 (AGP 8.7.3 max is 35).
-  - Evidence: `:app:checkFullDebugAarMetadata` lists coil-android/coil-compose/coil-gif/
-    coil-network-okhttp 3.5.0 as requiring compileSdk >= 36. Aura shipped Coil 3.4.0 (the
-    compileSdk-35 ceiling) with `memoryCacheMaxSizePercentWhileInBackground` enabled; resume
-    the 3.5.0 bump after N-1 (3.5.0 also makes that background-cap API stable).
-
-- **P1 — Media3 1.9.4 -> 1.10.1**
-  - Blocker: `androidx.media3:*:1.10.1` requires compileSdk 36 (AGP 8.7.3 max is 35).
-  - Evidence: `:app:checkFullDebugAarMetadata` lists media3-exoplayer/-ui/-session/-common
-    1.10.1 as requiring compileSdk >= 36. Aura shipped Media3 1.9.4 (the compileSdk-35 ceiling)
-    with `experimentalSetDynamicSchedulingEnabled(true)` on the video players; resume the
-    1.10.1 bump (Compose player composables) after N-1.
 
 - **P2 — Video wallpaper playlists and per-video behavior profiles** (Cycle 1)
   - Depends on NX-1 GL/AGSL/ExoPlayer engine migration, which itself depends on N-1.
@@ -66,6 +43,7 @@ N-1 itself is the largest single gate. Until it lands, these items cannot procee
   - Blocker: Room 2.8.4 KSP failed locally with `AbstractMethodError` in Room's kotlinx-serialization bundle serializer under Kotlin 2.1.0 / KSP 2.1.0-1.0.29.
   - Current state: Aura is on Room 2.7.2 to satisfy WorkManager 2.11.2 without taking the larger Kotlin/KSP/toolchain upgrade.
   - Resume when N-1 upgrades Kotlin/KSP. Acceptance remains: all schema versions migrate cleanly, KSP succeeds with Kotlin codegen, and favorites/downloads/collections behavior is unchanged.
+  - Note 2026-08-20: Room 3.0.1 is now the stable line (KSP-only, coroutine-first, package renames) — the 2.8.x target is superseded, and the move is a real migration to plan inside N-1, not a version bump.
 
 ### N-1-gated Next items (NX)
 
@@ -162,6 +140,32 @@ These items have code shipped but require Firebase Console access, production RT
 
 These items require adb-connected device or Android 17 emulator testing:
 
+- **P2 — Cover the pre-export half of the Room migration chain (1 → 8)**
+  - The downgrade half landed 2026-08-20 and is fully covered by JVM tests: an older APK
+    now opens without crashing, the previous database is copied aside first, and the user
+    gets an explicit warning pointing at backup/restore instead of a silent wipe.
+  - Already covered on device: `migrate8To9` and `migrateEveryExportedSchemaVersionToCurrent`
+    (every exported start version 9..15 through to 16).
+  - Blocker: `MIGRATION_1_2` … `MIGRATION_7_8` have no exported schema JSON — the export
+    floor of 9 is deliberate policy — so testing them means hand-writing a v1 schema in SQL
+    and running the chain through `MigrationTestHelper`, which is instrumentation-only.
+    Writing 200 lines of hand-authored schema that cannot be run here would be guessing.
+  - Resume by extending `DatabaseMigrationTest` with a `createVersion1Database()` built the
+    way `createVersion8Database()` already is, then
+    `helper.runMigrationsAndValidate(TEST_DB, 16, true, *DatabaseMigrations.ALL_MIGRATIONS)`.
+
+- **P2 — Record the GridScrollBenchmark frame timings the stability work was meant to move**
+  - The stability half landed 2026-08-20: every model rendered in a Compose list carries
+    `@Immutable`, `composeCompiler` emits metrics and reports, `compose-stability.conf` is
+    checked in, and `tools/compose_stability_check.py` fails when a list-rendered model
+    loses its annotation. The first report reads 11 stable classes and 0 unstable.
+  - Blocker: the remaining acceptance is a before-and-after frame-timing measurement, and
+    `GridScrollBenchmark` is a Macrobenchmark that only produces real numbers on a physical
+    device. A compiler report says the cells *can* skip recomposition; only the benchmark
+    says what that was worth.
+  - Resume by running `:baselineprofile:connectedFullBenchmarkAndroidTest` on a phone,
+    against the commit before the annotations and the commit after, and recording both.
+
 - **P2 — Split VideoWallpapersViewModel into delegates (1318 lines)**
   - The pure top-level helpers (feed parsing, cache codec, Reddit motion selection) are fully
     covered by `VideoWallpapersViewModelTest` and could move safely. The blocker is the other
@@ -250,6 +254,14 @@ These items require adb-connected device or Android 17 emulator testing:
     re-wiring one as an opt-in source is a product/scope call. Both directions need owner
     judgment, not an autonomous edit. Resolve by either confirming deletion or picking a source
     to re-wire, then move back to ROADMAP.md.
+
+- **P3 — Microsoft Spotlight daily-image source**
+  - Blocker: Microsoft documents Spotlight content endpoints as Windows product endpoints, not
+    as a supported public image API with redistribution and attribution terms. Community clients
+    reverse-engineer the endpoint, but that is not enough to pass Aura's provider policy gate.
+  - Resume when Microsoft publishes a stable third-party endpoint and terms that permit the
+    requested opt-in wallpaper use, or when the release owner records an explicit legal decision
+    accepting the current terms and endpoint risk.
 
 ---
 

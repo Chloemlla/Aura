@@ -1,5 +1,7 @@
 package com.chloemlla.aura.service
 
+import android.app.WallpaperColors
+import android.app.wallpaper.WallpaperDescription
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Matrix
@@ -12,6 +14,8 @@ import android.provider.Settings
 import android.service.wallpaper.WallpaperService
 import android.view.MotionEvent
 import android.view.SurfaceHolder
+import androidx.annotation.RequiresApi
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.remote.weather.WeatherEffect
 
 /**
@@ -24,7 +28,13 @@ class WeatherWallpaperService : WallpaperService() {
 
     override fun onCreateEngine(): Engine = WeatherEngine()
 
-    inner class WeatherEngine : Engine(), LiveWallpaperResourceReporter {
+    @RequiresApi(36)
+    override fun onCreateEngine(description: WallpaperDescription): Engine =
+        WeatherEngine(readAuraWallpaperDescriptionContent(description))
+
+    private inner class WeatherEngine(
+        private val describedContent: AuraWallpaperDescriptionContent? = null,
+    ) : Engine(), LiveWallpaperResourceReporter {
         private val receiptStore by lazy { LiveWallpaperReceiptStore.create(this@WeatherWallpaperService) }
         private var renderer: WeatherParticleRenderer? = null
         private var vfxRenderer: VfxParticleRenderer? = null
@@ -66,6 +76,50 @@ class WeatherWallpaperService : WallpaperService() {
         private val dimming = LiveWallpaperDimming(
             onRevealChanged = { if (visible) postDraw(0L) },
         )
+        private val colorPublisher = LiveWallpaperColorPublisher()
+
+        private fun wallpaperPath(): String? =
+            describedContent?.source ?: weatherPrefs().getString("wallpaper_path", null)
+
+        private fun shaderPresetId(): String? =
+            describedContent?.shaderPresetId
+                ?: weatherPrefs().getString(
+                    LIVE_WALLPAPER_SHADER_PRESET_PREF,
+                    AgslShaderGallery.NONE_ID,
+                )
+
+        private fun weatherEffectName(): String =
+            describedContent?.weatherEffect
+                ?: weatherPrefs().getString("weather_effect", "CLEAR_DAY")
+                ?: "CLEAR_DAY"
+
+        private fun windSpeed(): Double =
+            describedContent?.windSpeed
+                ?: weatherPrefs().getFloat("wind_speed", 0f).toDouble()
+
+        @RequiresApi(36)
+        override fun onApplyWallpaper(which: Int): WallpaperDescription {
+            val prefs = weatherPrefs()
+            val content = describedContent ?: AuraWallpaperDescriptionContent(
+                source = prefs.getString("wallpaper_path", null),
+                shaderPresetId = AgslShaderGallery.sanitizeId(
+                    prefs.getString(LIVE_WALLPAPER_SHADER_PRESET_PREF, AgslShaderGallery.NONE_ID),
+                ),
+                weatherEffect = prefs.getString("weather_effect", "CLEAR_DAY") ?: "CLEAR_DAY",
+                windSpeed = prefs.getFloat("wind_speed", 0f).toDouble(),
+            )
+            return buildAuraWallpaperDescription(
+                id = auraWallpaperDescriptionId("weather", content),
+                title = getString(R.string.weather_wallpaper_label),
+                description = getString(R.string.weather_wallpaper_desc),
+                content = auraWallpaperDescriptionContent(
+                    source = content.source,
+                    shaderPresetId = content.shaderPresetId,
+                    weatherEffect = content.weatherEffect,
+                    windSpeed = content.windSpeed,
+                ),
+            )
+        }
 
         override fun onCreate(surfaceHolder: SurfaceHolder) {
             super.onCreate(surfaceHolder)
@@ -100,6 +154,7 @@ class WeatherWallpaperService : WallpaperService() {
             loadShaderPresetFromPrefs()
             loadAdaptiveTintFromPrefs()
             loadDimmingFromPrefs()
+            loadColorPublicationFromPrefs()
             if (visible) scheduleDraw()
         }
 
@@ -115,6 +170,7 @@ class WeatherWallpaperService : WallpaperService() {
                 loadShaderPresetFromPrefs()
                 loadAdaptiveTintFromPrefs()
                 loadDimmingFromPrefs()
+                loadColorPublicationFromPrefs()
                 scheduleDraw()
             } else {
                 cancelDraw()
@@ -153,11 +209,12 @@ class WeatherWallpaperService : WallpaperService() {
                 wallpaperBitmap = null
             }
             shaderRenderer.clear()
+            colorPublisher.clear()
         }
 
         private fun loadWallpaperBitmap() {
             val prefs = weatherPrefs()
-            val path = prefs.getString("wallpaper_path", null) ?: return
+            val path = wallpaperPath() ?: return
             mediaLoader.request {
                 try {
                     val file = java.io.File(path)
@@ -165,8 +222,13 @@ class WeatherWallpaperService : WallpaperService() {
                     val (targetWidth, targetHeight) = resolveDecodeTarget()
                     val bmp = BitmapSampling.decodeSampledBitmap(path, targetWidth, targetHeight)
                         ?: return@request
+                    // Quantize on the loader thread, before the bitmap is handed to
+                    // the main thread where it can be recycled out from under us.
+                    // The publisher keeps colors, never the bitmap.
+                    val colorsChanged = colorPublisher.update(path, bmp)
                     handler.post {
                         if (destroyed) { bmp.recycle(); return@post }
+                        if (colorsChanged) notifyWallpaperColorsChanged()
                         synchronized(bitmapLock) {
                             val oldWallpaper = wallpaperBitmap
                             val oldScaled = scaledBitmap
@@ -226,25 +288,23 @@ class WeatherWallpaperService : WallpaperService() {
         }
 
         private fun loadShaderPresetFromPrefs() {
-            val presetId = weatherPrefs().getString(
-                LIVE_WALLPAPER_SHADER_PRESET_PREF,
-                AgslShaderGallery.NONE_ID,
-            )
+            val presetId = shaderPresetId()
             val nextPreset = AgslShaderGallery.find(AgslShaderGallery.sanitizeId(presetId))
             if (nextPreset?.id != shaderPreset?.id) {
                 shaderPreset = nextPreset
                 shaderRenderer.clear()
+                publishShaderPresetColors()
             }
         }
 
         private fun currentWallpaperLocator(): String? =
             shaderPreset?.let { "shader:${it.id}" }
-                ?: weatherPrefs().getString("wallpaper_path", null)
+                ?: wallpaperPath()
 
         private fun loadWeatherFromPrefs() {
             val prefs = weatherPrefs()
-            val effectName = prefs.getString("weather_effect", "CLEAR_DAY") ?: "CLEAR_DAY"
-            val wind = prefs.getFloat("wind_speed", 0f).toDouble()
+            val effectName = weatherEffectName()
+            val wind = windSpeed()
             try {
                 renderer?.setWeather(WeatherEffect.valueOf(effectName), wind)
             } catch (_: Exception) {
@@ -255,6 +315,33 @@ class WeatherWallpaperService : WallpaperService() {
         private fun loadDimmingFromPrefs() {
             dimEnabled = weatherPrefs().getBoolean("live_wallpaper_dim_enabled", false)
         }
+
+        private fun loadColorPublicationFromPrefs() {
+            val enabled = weatherPrefs().getBoolean(
+                LIVE_WALLPAPER_COLORS_ENABLED_PREF,
+                LIVE_WALLPAPER_COLORS_ENABLED_DEFAULT,
+            )
+            if (colorPublisher.setEnabled(enabled)) notifyWallpaperColorsChanged()
+        }
+
+        /**
+         * A shader preset draws its own palette and never loads a bitmap, so its
+         * authored colors are what the system should theme from. Bitmap-backed
+         * wallpapers publish from the decode instead, in [loadWallpaperBitmap].
+         */
+        private fun publishShaderPresetColors() {
+            val preset = shaderPreset ?: return
+            val changed = colorPublisher.updateFromColors(
+                token = "shader:${preset.id}",
+                primary = preset.fallbackStartColor,
+                secondary = preset.fallbackEndColor,
+                tertiary = preset.fallbackAccentColor,
+            )
+            if (changed) notifyWallpaperColorsChanged()
+        }
+
+        @RequiresApi(android.os.Build.VERSION_CODES.O_MR1)
+        override fun onComputeColors(): WallpaperColors? = colorPublisher.current
 
         private fun loadAdaptiveTintFromPrefs() {
             val prefs = weatherPrefs()
@@ -390,6 +477,7 @@ class WeatherWallpaperService : WallpaperService() {
                         dimming.tick()
                         dimming.drawDimOverlay(canvas, canvas.width, canvas.height)
                     }
+                    drawWallpaperClockOverlay(this@WeatherWallpaperService, canvas)
                 }
             } catch (_: Exception) {
             } finally {

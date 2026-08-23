@@ -4,7 +4,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.target37_toolchain_gate import Target37ToolchainError, validate_toolchain
+from tools.target37_toolchain_gate import (
+    MIN_TARGET37_AGP,
+    MIN_TARGET37_GRADLE,
+    Target37ToolchainError,
+    parse_agp_version,
+    parse_gradle_wrapper_version,
+    parse_module_sdks,
+    validate_toolchain,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -48,11 +56,29 @@ def write_sdk(root: Path) -> Path:
 
 
 class Target37ToolchainGateTest(unittest.TestCase):
-    def test_live_repo_keeps_gate_armed_but_pending_until_sdk_bump(self) -> None:
-        result = validate_toolchain(REPO_ROOT)
+    def test_live_repo_has_taken_the_target37_bump(self) -> None:
+        # The fork compiles and targets 37, so the gate is no longer armed-and-pending:
+        # validate_toolchain runs the full target-37 path, which ends in a local SDK
+        # probe this suite cannot depend on. What is checkable here is that every
+        # module took the bump together and the toolchain clears the 37 floors.
+        for module_path in ("app/build.gradle.kts", "baselineprofile/build.gradle.kts"):
+            sdks = parse_module_sdks(REPO_ROOT, module_path)
+            self.assertEqual(37, sdks["compileSdk"], module_path)
+            self.assertEqual(37, sdks["targetSdk"], module_path)
 
-        self.assertEqual("pending", result["status"])
-        self.assertEqual(35, result["modules"]["app"]["compileSdk"])
+        self.assertGreaterEqual(parse_agp_version(REPO_ROOT), MIN_TARGET37_AGP)
+        self.assertGreaterEqual(parse_gradle_wrapper_version(REPO_ROOT), MIN_TARGET37_GRADLE)
+
+    def test_pending_until_a_repo_takes_the_sdk_bump(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            write_repo(repo_root, compile_sdk=36, target_sdk=35)
+
+            result = validate_toolchain(repo_root)
+
+            self.assertEqual("pending", result["status"])
+            self.assertEqual(36, result["modules"]["app"]["compileSdk"])
+            self.assertEqual(35, result["modules"]["app"]["targetSdk"])
 
     def test_rejects_target37_with_old_agp(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

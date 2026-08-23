@@ -5,13 +5,13 @@
 
 <h1 align="center">Aura</h1>
 
-![Version](https://img.shields.io/badge/version-6.41.0-blue)
+![Version](https://img.shields.io/badge/version-6.45.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Android%208.0+-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.1.0-7F52FF?logo=kotlin&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4)
 
-> Open-source alternative to Zedge — wallpapers, video wallpapers, ringtones, and sounds for Android. **YouTube integration, yt-dlp powered.**
+> Open-source alternative to Zedge: wallpapers, video wallpapers, ringtones, and sounds for Android. **YouTube integration, yt-dlp powered.**
 
 ![Aura Screenshot](screenshot.png)
 
@@ -23,31 +23,44 @@ Aura is built as a local-first tool rather than an ad-and-credit marketplace:
 |------|---------------|
 | **Advertising** | No ad SDK, sponsored placements, or cross-app tracking. |
 | **Account** | Browsing, downloading, editing, applying, and backing up content do not require an Aura account; community features use an anonymous app identity. |
-| **Credits and paywalls** | No Aura credit balance, subscription, or in-app paywall. Optional Stability AI generation uses the user's own provider key and may consume Stability credits. |
-| **AI-generated content** | Generation is off by default. Declared AI uploads are labeled, Aura-generated uploads are labeled automatically, and community feeds provide a Hide AI filter. |
+| **Credits and paywalls** | No Aura credit balance, subscription, or in-app paywall. In full builds, optional Stability AI generation uses the user's own provider key and may consume Stability credits. |
+| **AI-generated content** | Generation is off by default in full builds and omitted from FOSS builds. Declared AI uploads are labeled, Aura-generated uploads are labeled automatically, and community feeds provide a Hide AI filter. |
 | **Offline library** | Downloads and offline favorites stay on the device for local use. Portable backups carry favorites, collections, searches, wallpaper packs, and sound profiles without exporting device-specific download paths. |
 
-- **Quality-ranked YouTube sounds** — ringtones, notifications, and alarms use intent-specific YouTube searches with tight duration windows and cleaner result filtering.
-- **Reddit-first discovery** — mobile wallpaper and motion communities lead the home feeds, with real cached Atom cursor pagination instead of a fixed recent slice.
-- **Video wallpapers from multiple sources** — browse Reddit live wallpapers/cinemagraphs first, followed by YouTube, Pixabay, and Pexels; import local videos/GIFs, then tune loop, crop, Fill, or Fit before applying.
-- **Multi-source personalization** — Reddit RSS, Wallhaven, Bing, Pexels, Pixabay, YouTube, legacy Freesound attributions, and community uploads.
-- **Instant startup** — Discover feed is cached locally. On subsequent launches wallpapers appear immediately while fresh results load in the background.
-- **Performance proof path** — Baseline Profile and Macrobenchmark tests cover startup, Wallpaper Detail, and the main media grids on a physical-device runner.
-- **5 bottom nav tabs** — Wallpapers, Videos, Sounds, Library, Settings.
+- **Quality-ranked YouTube sounds**: ringtones, notifications, and alarms use intent-specific YouTube searches with tight duration windows and cleaner result filtering.
+- **Reddit-first discovery**: mobile wallpaper and motion communities lead the home feeds, with real cached Atom cursor pagination instead of a fixed recent slice.
+- **Video wallpapers from multiple sources**: browse Reddit live wallpapers/cinemagraphs first, followed by YouTube, Pixabay, and Pexels; import local videos/GIFs, then tune loop, crop, Fill, or Fit before applying.
+- **Multi-source personalization**: Reddit RSS, Wallhaven, Bing, Pexels, Pixabay, YouTube, legacy Freesound attributions, and community uploads.
+- **Instant startup**: Discover feed is cached locally. On subsequent launches wallpapers appear immediately while fresh results load in the background.
+- **Performance proof path**: Baseline Profile and Macrobenchmark tests cover startup, Wallpaper Detail, and the main media grids on a physical-device runner.
+- **5 bottom nav tabs**: Wallpapers, Videos, Sounds, Library, Settings.
 
 ## Installing Aura
 
-Download the signed universal APK and `SHA256SUMS.txt` from the same
-[GitHub Release](https://github.com/SysAdminDoc/Aura/releases). Obtainium users
-should select the asset named
-`Aura-vX.Y.Z-versionCode-N-universal-release.apk`; do not install debug or
-third-party re-signed builds.
+Every release ships one APK per CPU architecture plus a universal one, and a
+single `SHA256SUMS.txt` covering all of them, on the same
+[GitHub Release](https://github.com/SysAdminDoc/Aura/releases).
+
+Pick the one that matches your phone. Almost every Android phone made since 2017
+is `arm64-v8a`, and that build is roughly a third the size of the universal one
+because it carries native code for one architecture instead of four. `armeabi-v7a`
+is for older 32-bit devices; the `x86` builds are for emulators. If you are not
+sure, the universal APK installs anywhere. Obtainium picks the right one on its
+own with `autoApkFilterByArch` enabled, which the bundled
+[`obtainium.json`](obtainium.json) already sets.
+
+Do not install debug or third-party re-signed builds.
+
+FOSS store builds omit the Stability AI generator, its provider key field, and
+Firebase-backed community features. Full GitHub builds retain those optional
+features, with generation disabled until the user enables it and accepts its
+disclosure.
 
 Verify the download, then install or update it with ADB:
 
 ```powershell
-Get-FileHash .\Aura-vX.Y.Z-versionCode-N-universal-release.apk -Algorithm SHA256
-adb install --user 0 -r .\Aura-vX.Y.Z-versionCode-N-universal-release.apk
+Get-FileHash .\Aura-vX.Y.Z-versionCode-N-arm64-v8a-release.apk -Algorithm SHA256
+adb install --user 0 -r .\Aura-vX.Y.Z-versionCode-N-arm64-v8a-release.apk
 ```
 
 Compare the printed digest with `SHA256SUMS.txt` before installing. The `-r`
@@ -81,6 +94,10 @@ accepts the credential-free HTTPS base URL of a self-hosted
 ships its hash-pinned yt-dlp plugin but sends attestation data only after this
 optional URL is configured; see yt-dlp's [PO Token Guide](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide).
 
+Choosing **Update yt-dlp** in Settings downloads a replacement executable at
+runtime. Aura requires a separate confirmation that explains this bypasses
+F-Droid or other repository review checks before the download can start.
+
 ## Privacy
 
 Aura has no ads, no subscription, and no cross-app tracking. The public privacy
@@ -99,6 +116,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Creator Profiles** | View upload stats, votes, followed creators, followed uploads, and top creator leaderboard |
 | **Shareable Collections** | Share wallpaper collections as Aura links, QR codes, or JSON files and import them on another device |
 | **Video Wallpapers** | Browse YouTube video wallpapers with ExoPlayer auto-preview or import local clips/GIFs |
+| **Video Feed Pagination** | Warm-cache loading and pagination share one request gate, so provider results aren't duplicated or dropped |
 | **Video Quality Hints** | Loop-safe, low-battery, and phone-fit filters plus per-card motion hints |
 | **Video Fit Modes** | Fill for full-screen crop or Fit to preserve the full frame |
 | **Video Loop & Crop Editor** | Trim intros/outros with frame thumbnails, preview the loop, and convert landscape videos to portrait |
@@ -106,6 +124,8 @@ the same link is available in Settings > About > Privacy policy.
 | **Parallax Wallpapers** | ML Kit depth segmentation for layered tilt-responsive live wallpapers |
 | **Weather Wallpapers** | Live weather effects overlay on wallpapers |
 | **Shader Wallpapers** | Curated AGSL live wallpaper backgrounds with static fallback on older Android releases |
+| **Live Wallpaper Instances** | Android 16 descriptions keep selected video, parallax, and weather settings with a legacy fallback on older releases |
+| **Download Progress** | Download notifications use the Android 16 progress style when available and retain the compatibility progress bar elsewhere |
 | **Touch-Reactive Effects** | Optional ripple and sparkle bursts on live wallpaper touches |
 | **YouTube Sounds** | YouTube-first ringtone, notification, and alarm discovery with duration-aware searches powered by NewPipe + yt-dlp |
 | **Community Sound Uploads** | Pick or record sounds, tag them, vote on community picks, and share via Firebase Storage |
@@ -114,7 +134,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Real-Time Waveform** | Mini waveform on each sound card tracks actual playback position |
 | **Configurable Search** | Customize YouTube search queries and blocked words per sound tab |
 | **Ringtones & Sounds** | Tab-based browsing: Ringtones (5-45s), Notifications (0-8s), Alarms (5-60s) |
-| **Sound Editor** | Waveform trim, fade in/out, normalize, format convert (MP3/OGG/WAV/FLAC/M4A) |
+| **Sound Editor** | Waveform trim, fades, pitch-preserving 0.5x to 2x speed, Media3 audio export, gapless OGG output, verified lossless cuts, and MP3/FLAC fallback encoding |
 | **Wallpaper Editor** | Brightness, contrast, saturation, blur, depth portraits, and local text/sticker layers |
 | **Crop & Position** | Pinch-zoom with aspect ratio presets (9:16, 16:9, 1:1) |
 | **Collections** | Organize wallpapers into named folders with 2x2 cover previews |
@@ -122,7 +142,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Quick Settings Action** | Add “Next wallpaper” from the system tile editor for one-tap rotation, even while automatic rotation is off |
 | **Auto Wallpaper** | Rotation schedule with one source, clock-based day/night sources, or system light/dark theme matching |
 | **Shuffle FAB** | One-tap random wallpaper from current tab |
-| **Per-Contact Ringtones** | Assign custom ringtones to individual contacts |
+| **Per-Contact Ringtones** | Assign custom ringtones with DND priority guidance and a VIP-only silent-default preset |
 | **Dual Wallpapers** | Coordinated home + lock screen wallpaper pairs |
 | **Favorites Export** | JSON export/import with full metadata via Android SAF |
 | **Theme Packs** | Local zip export/import for wallpaper, video, sound, widget tint, and launcher shortcut recipes |
@@ -142,7 +162,7 @@ com.chloemlla.aura.action.SHUFFLE_NOW
 Enable them in Settings > Wallpaper rotation > External automation before
 sending broadcasts. Aura ignores external broadcasts by default, accepts at most
 one every 30 seconds, and records the last action plus the optional
-`com.freevibe.extra.CALLER_PACKAGE` diagnostic extra in Settings > Diagnostics.
+`com.chloemlla.aura.extra.CALLER_PACKAGE` diagnostic extra in Settings > Diagnostics.
 Broadcasts only enqueue the existing rotation worker, so charging, Wi-Fi, idle,
 battery, Doze, and WorkManager quota can still delay the wallpaper change.
 The same one-shot path powers the optional **Next wallpaper** Quick Settings
@@ -174,8 +194,9 @@ ViewModels (Hilt) + Cache Layer
             ParallaxWallpaperService, WeatherWallpaperService, DualWallpaperService,
             DownloadManager, AudioTrimmer, BatchDownload,
             ContactRingtone, FavoritesExporter, OfflineFavorites
+  Audio: Media3 platform transforms + bounded FFmpeg codec fallbacks
   YouTube: NewPipe Extractor (search) + yt-dlp (stream extraction + FFmpeg crop)
-Room DB v16 (Favorites, Downloads, Search History, Wallpaper Cache,
+Room DB v17 (Favorites, Downloads, Search History, Wallpaper Cache,
             Wallpaper History, Collections)
 DataStore (Settings, Onboarding)
 Firebase RTDB (Community Voting + Uploads + Admin Moderation)
@@ -188,9 +209,9 @@ Firebase RTDB (Community Voting + Uploads + Admin Moderation)
 | UI | Jetpack Compose + Material 3 |
 | DI | Hilt 2.53.1 |
 | Database | Room 2.7.2 |
-| Network | Retrofit 3.0.0 + OkHttp 5.3.2 |
+| Network | Retrofit 3.0.0 + OkHttp 5.4.0 |
 | JSON | Moshi + KSP codegen |
-| Images | Coil 3.4.0 with OkHttp network loading and GIF support |
+| Images | Coil 3.5.0 with OkHttp network loading and GIF support |
 | Audio/Video | Media3 ExoPlayer |
 | ML | ML Kit Selfie Segmentation |
 | YouTube Search | NewPipe Extractor |
@@ -204,7 +225,7 @@ Firebase RTDB (Community Voting + Uploads + Admin Moderation)
 
 ## Building
 
-Requires JDK 17+ and Android SDK 35. Android Studio Ladybug (2024.2.1) or later recommended.
+Requires JDK 21 and Android SDK 36. Android Studio Ladybug (2024.2.1) or later recommended.
 
 ```bash
 ./gradlew assembleDebug      # use gradlew.bat on Windows
@@ -213,7 +234,7 @@ Requires JDK 17+ and Android SDK 35. Android Studio Ladybug (2024.2.1) or later 
 ./gradlew assembleFullRelease bundleFullRelease  # requires signing config
 ```
 
-> Always use the included Gradle wrapper. It pins Gradle 8.12 which is required by AGP 8.7.3.
+> Always use the included Gradle wrapper. It pins Gradle 8.12, which is what AGP 8.9.3 needs.
 
 Run debug build, unit tests, lint, signed APK/AAB dry runs, checksum checks, and release metadata guards locally before publishing.
 Debug builds include Android pseudolocales; the route screenshot gate covers compact English XA and Arabic XB RTL fixtures before real translation packs are added.
@@ -238,6 +259,6 @@ Issues and PRs welcome. Please follow existing code style (Kotlin, Compose, Hilt
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License. See [LICENSE](LICENSE) for details.
 
 Content from third-party sources retains its original license. YouTube content is accessed via NewPipe Extractor and yt-dlp under their respective open-source licenses.

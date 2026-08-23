@@ -25,12 +25,34 @@ from pathlib import Path
 
 PREFERENCES_MANAGER = "app/src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt"
 SETTINGS_VIEW_MODEL = "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsViewModel.kt"
-SETTINGS_SOURCE_ROOT = "app/src/main/java/com/chloemlla/aura/ui/screens/settings"
+UI_SOURCE_ROOT = "app/src/main/java/com/chloemlla/aura/ui"
 
-# Bridge setters: each writes SharedPreferences for the live-wallpaper runtime and
-# DataStore for the UI, and the SharedPreferences write must come first.
-BRIDGE_FUNCTIONS = (
+SHARED_PREF_WRITE = re.compile(
+    r"(writeLiveWallpaperFlags?|writeAllLiveWallpaperFlags|weatherWallpaperPrefs\(\)"
+    r"|getSharedPreferences)"
+)
+UI_SHARED_PREF_WRITE = re.compile(
+    r"getSharedPreferences[\s\S]{0,300}?\.edit\s*\(\s*\)",
+)
+DATASTORE_WRITE = re.compile(r"\bset\(Keys\.")
+FUNCTION_DECLARATION = re.compile(r"(?:suspend\s+)?fun\s+([A-Za-z_]\w*)\s*\(")
+
+# An expression body ends where the next declaration begins. Without this, a
+# one-line `fun a() = set(Keys.X, v)` sitting directly above a block-bodied
+# bridge absorbs that bridge's body and is misreported as a wrong-order bridge.
+DECLARATION_START = re.compile(
+    r"\s*(?:\}|@\w|/\*|\*|//"
+    r"|(?:(?:public|private|internal|protected|suspend|inline|override|open)\s+)*"
+    r"(?:fun|val|var|class|object|companion|init)\b)"
+)
+
+# Bridges that must keep bridging. Discovery below catches any *new* bridge that
+# writes in the wrong order; this floor catches the opposite regression — an
+# existing bridge that is renamed or quietly stops writing SharedPreferences,
+# which discovery alone cannot see because it stops being a bridge at all.
+REQUIRED_BRIDGES = (
     "setLiveWallpaperDimEnabled",
+    "setLiveWallpaperColorsEnabled",
     "setAdaptiveTintEnabled",
     "setAdaptiveTintIntensity",
     "setReduceAnimations",
@@ -40,14 +62,6 @@ BRIDGE_FUNCTIONS = (
     "setVideoFpsOverlayEnabled",
     "setVideoAutoBatterySaver",
 )
-
-SHARED_PREF_WRITE = re.compile(
-    r"(writeLiveWallpaperFlag|weatherWallpaperPrefs\(\)|getSharedPreferences)"
-)
-UI_SHARED_PREF_WRITE = re.compile(
-    r"getSharedPreferences[\s\S]{0,300}?\.edit\s*\(\s*\)",
-)
-DATASTORE_WRITE = re.compile(r"\bset\(Keys\.")
 
 
 class PreferenceWriteOrderError(ValueError):
@@ -87,7 +101,13 @@ def extract_function_body(text: str, name: str) -> str:
     brace = rest.find("{")
     equals = rest.find("=")
     if brace == -1 or (equals != -1 and equals < brace):
-        return rest.split("\n\n", 1)[0]
+        lines = rest.split("\n")
+        body = [lines[0]]
+        for line in lines[1:]:
+            if not line.strip() or DECLARATION_START.match(line):
+                break
+            body.append(line)
+        return "\n".join(body)
     depth = 0
     for position in range(brace, len(rest)):
         if rest[position] == "{":
@@ -97,6 +117,20 @@ def extract_function_body(text: str, name: str) -> str:
             if depth == 0:
                 return rest[brace : position + 1]
     raise PreferenceWriteOrderError(f"could not parse the body of {name}")
+
+
+def discover_bridge_functions(manager: str) -> tuple[str, ...]:
+    """Find every PreferencesManager function that bridges both preference stores."""
+    bridges: list[str] = []
+    for match in FUNCTION_DECLARATION.finditer(manager):
+        name = match.group(1)
+        try:
+            body = extract_function_body(manager, name)
+        except PreferenceWriteOrderError:
+            continue
+        if SHARED_PREF_WRITE.search(body) and DATASTORE_WRITE.search(body):
+            bridges.append(name)
+    return tuple(bridges)
 
 
 def validate_preference_write_order(repo_root: Path) -> dict[str, object]:
@@ -111,17 +145,26 @@ def validate_preference_write_order(repo_root: Path) -> dict[str, object]:
             "belong in PreferencesManager so the write order is enforced in one place"
         )
 
-    settings_root = repo_root / SETTINGS_SOURCE_ROOT
-    for source_path in sorted(settings_root.glob("*.kt")) if settings_root.is_dir() else ():
+    ui_root = repo_root / UI_SOURCE_ROOT
+    ui_sources = sorted(ui_root.rglob("*.kt")) if ui_root.is_dir() else ()
+    for source_path in ui_sources:
         source = source_path.read_text(encoding="utf-8")
-        if UI_SHARED_PREF_WRITE.search(source):
+        if "getSharedPreferences" in source:
             errors.append(
-                f"{source_path.relative_to(repo_root)} writes SharedPreferences directly; "
-                "route runtime settings through PreferencesManager"
+                f"{source_path.relative_to(repo_root)} touches SharedPreferences directly; "
+                "route persistence through the data or service layer"
             )
 
+    discovered = discover_bridge_functions(manager)
+    for name in REQUIRED_BRIDGES:
+        if name in discovered:
+            continue
+        # Distinguish "renamed or deleted" from "still declared but stopped bridging".
+        extract_function_body(manager, name)
+        errors.append(f"{name} no longer writes SharedPreferences for the live-wallpaper runtime")
+
     checked = 0
-    for name in BRIDGE_FUNCTIONS:
+    for name in discovered:
         body = extract_function_body(manager, name)
         shared = SHARED_PREF_WRITE.search(body)
         datastore = DATASTORE_WRITE.search(body)

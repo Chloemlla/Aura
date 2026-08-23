@@ -85,7 +85,7 @@ class ProviderCredentialStorageCheckTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = seed_repo(Path(tmpdir))
             policy = minimal_policy()
-            write(repo / "app/src/main/java/com/freevibe/data/local/ProviderCredentialStore.kt", "class ProviderCredentialStore\n")
+            write(repo / "app/src/main/java/com/chloemlla/aura/data/local/ProviderCredentialStore.kt", "class ProviderCredentialStore\n")
 
             with self.assertRaises(ProviderCredentialStorageError):
                 validate_policy(repo, policy)
@@ -190,7 +190,7 @@ def seed_repo(repo: Path) -> Path:
         'providerCredentialStorageUnavailable\n',
     )
     write(
-        repo / "app/src/main/java/com/freevibe/data/local/ProviderCredentialStore.kt",
+        repo / "app/src/main/java/com/chloemlla/aura/data/local/ProviderCredentialStore.kt",
         'AndroidKeyStore\nKeyGenParameterSpec\nKeyProperties.KEY_ALGORITHM_AES\n'
         'KeyProperties.BLOCK_MODE_GCM\nsetRandomizedEncryptionRequired(true)\n'
         'GCMParameterSpec\nAES/GCM/NoPadding\naura_provider_credentials\n'

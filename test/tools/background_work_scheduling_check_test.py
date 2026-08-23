@@ -60,7 +60,7 @@ class BackgroundWorkSchedulingCheckTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             copy_required_tree(repo)
-            source = repo / "app/src/main/java/com/freevibe/service/AutoWallpaperWorker.kt"
+            source = repo / "app/src/main/java/com/chloemlla/aura/service/AutoWallpaperWorker.kt"
             source.write_text(
                 source.read_text(encoding="utf-8").replace(
                     "ExistingPeriodicWorkPolicy.UPDATE",
@@ -91,7 +91,7 @@ class BackgroundWorkSchedulingCheckTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             copy_required_tree(repo)
-            source = repo / "app/src/main/java/com/freevibe/service/AutoBackupWorker.kt"
+            source = repo / "app/src/main/java/com/chloemlla/aura/service/AutoBackupWorker.kt"
             source.write_text(
                 source.read_text(encoding="utf-8") + "\nimport android.app.job.JobScheduler\n",
                 encoding="utf-8",

@@ -3,10 +3,15 @@ package com.chloemlla.aura.di
 import android.content.Context
 import androidx.room.Room
 import com.chloemlla.aura.data.local.CollectionDao
+import com.chloemlla.aura.data.local.DatabaseDowngradeGuard
+import com.chloemlla.aura.data.local.DatabaseDowngradeReceiptStore
 import com.chloemlla.aura.data.local.DatabaseMigrations
+import com.chloemlla.aura.data.local.FREEVIBE_DATABASE_VERSION
 import com.chloemlla.aura.data.local.DownloadDao
 import com.chloemlla.aura.data.local.FavoriteDao
 import com.chloemlla.aura.data.local.FreeVibeDatabase
+import com.chloemlla.aura.data.local.LocalWallpaperDao
+import com.chloemlla.aura.data.local.LocalWallpaperFolderDao
 import com.chloemlla.aura.data.local.SearchHistoryDao
 import com.chloemlla.aura.data.local.WallpaperCacheDao
 import com.chloemlla.aura.data.local.WallpaperHistoryDao
@@ -17,7 +22,6 @@ import com.chloemlla.aura.data.remote.bing.BingDailyApi
 import com.chloemlla.aura.data.remote.ccmixter.CcMixterApi
 import com.chloemlla.aura.data.remote.lemmy.LemmyApi
 import com.chloemlla.aura.data.remote.nasa.NasaApodApi
-import com.chloemlla.aura.data.remote.stability.StabilityAiApi
 import com.chloemlla.aura.data.remote.wikimedia.WikimediaPotdApi
 import com.chloemlla.aura.data.remote.freesound.FreesoundV2Api
 import com.chloemlla.aura.data.remote.weather.OpenMeteoApi
@@ -251,25 +255,33 @@ object AppModule {
             .build()
             .create(CcMixterApi::class.java)
 
-    @Provides
-    @Singleton
-    fun provideStabilityAiApi(client: OkHttpClient): StabilityAiApi =
-        Retrofit.Builder()
-            .baseUrl(StabilityAiApi.BASE_URL)
-            .client(client.newBuilder()
-                .readTimeout(120, TimeUnit.SECONDS)
-                .writeTimeout(60, TimeUnit.SECONDS)
-                .build())
-            .build()
-            .create(StabilityAiApi::class.java)
-
     // -- Database --
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): FreeVibeDatabase =
-        Room.databaseBuilder(context, FreeVibeDatabase::class.java, "freevibe.db")
+    fun provideDatabase(
+        @ApplicationContext context: Context,
+        downgradeReceipts: DatabaseDowngradeReceiptStore,
+    ): FreeVibeDatabase {
+        // Before Room touches the file. Opening a database whose schema is ahead
+        // of this build is exactly what throws, so the check has to happen first,
+        // and it reads the version out of the SQLite header rather than opening a
+        // connection to ask.
+        DatabaseDowngradeGuard
+            .inspect(
+                databaseFile = DatabaseDowngradeGuard.databaseFile(context),
+                currentVersion = FREEVIBE_DATABASE_VERSION,
+            )
+            ?.let(downgradeReceipts::record)
+
+        return Room.databaseBuilder(context, FreeVibeDatabase::class.java, "freevibe.db")
             .addMigrations(*DatabaseMigrations.ALL_MIGRATIONS)
+            // Only on downgrade. An upgrade with a missing migration must still
+            // fail loudly, because that is a bug in this build rather than a user
+            // installing an older APK. The guard above has already copied the
+            // database aside and recorded a receipt the UI turns into a warning,
+            // so this drops tables that are provably recoverable.
+            .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
             .addCallback(object : androidx.room.RoomDatabase.Callback() {
                 override fun onOpen(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                     super.onOpen(db)
@@ -277,6 +289,7 @@ object AppModule {
                 }
             })
             .build()
+    }
 
     @Provides
     fun provideFavoriteDao(db: FreeVibeDatabase): FavoriteDao = db.favoriteDao()
@@ -295,4 +308,10 @@ object AppModule {
 
     @Provides
     fun provideCollectionDao(db: FreeVibeDatabase): CollectionDao = db.collectionDao()
+
+    @Provides
+    fun provideLocalWallpaperFolderDao(db: FreeVibeDatabase): LocalWallpaperFolderDao = db.localWallpaperFolderDao()
+
+    @Provides
+    fun provideLocalWallpaperDao(db: FreeVibeDatabase): LocalWallpaperDao = db.localWallpaperDao()
 }

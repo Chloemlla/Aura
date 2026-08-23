@@ -95,6 +95,74 @@ class DocsLinkCheckTest(unittest.TestCase):
 
         self.assertIn("is missing", str(ctx.exception))
 
+    def test_live_scan_covers_every_tracked_root_guide(self) -> None:
+        references = collect_references(REPO_ROOT)
+        cited_by = set()
+        for sources in references.values():
+            cited_by.update(sources)
+
+        self.assertIn("CONTRIBUTING.md", cited_by)
+        self.assertIn("ARCHITECTURE.md", cited_by)
+
+    def test_live_contributing_and_architecture_are_published(self) -> None:
+        result = validate_docs_links(REPO_ROOT)
+
+        self.assertIn("CONTRIBUTING.md", result["linkedDocuments"])
+        self.assertIn("ARCHITECTURE.md", result["linkedDocuments"])
+
+    def test_untracked_root_guide_is_rejected(self) -> None:
+        root = self._scratch_repo(
+            "Read the [contributing guide](CONTRIBUTING.md).\n", track_doc=True
+        )
+        (root / "CONTRIBUTING.md").write_text("# contributing\n", encoding="utf-8")
+
+        with self.assertRaises(DocsLinkError) as ctx:
+            validate_docs_links(root)
+
+        self.assertIn("CONTRIBUTING.md", str(ctx.exception))
+        self.assertIn("not tracked in git", str(ctx.exception))
+
+    def test_links_outside_the_docs_prefix_are_checked(self) -> None:
+        root = self._scratch_repo("See the [licence](LICENSE).\n", track_doc=True)
+
+        with self.assertRaises(DocsLinkError) as ctx:
+            validate_docs_links(root)
+
+        self.assertIn("LICENSE", str(ctx.exception))
+
+    def test_links_in_a_tracked_root_guide_are_followed(self) -> None:
+        root = self._scratch_repo(
+            "See [policy](docs/privacy/privacy-policy.md).\n", track_doc=True
+        )
+        (root / "CONTRIBUTING.md").write_text("Read [the architecture](ARCHITECTURE.md).\n", encoding="utf-8")
+        git(root, "add", "CONTRIBUTING.md")
+
+        with self.assertRaises(DocsLinkError) as ctx:
+            validate_docs_links(root)
+
+        self.assertIn("ARCHITECTURE.md", str(ctx.exception))
+
+    def test_external_and_anchor_links_are_ignored(self) -> None:
+        root = self._scratch_repo(
+            "See [site](https://example.invalid/x.md), [mail](mailto:a@b.invalid), "
+            "[section](#heading), and [policy](docs/privacy/privacy-policy.md).\n",
+            track_doc=True,
+        )
+
+        result = validate_docs_links(root)
+
+        self.assertEqual("ok", result["status"])
+        self.assertEqual(["docs/privacy/privacy-policy.md"], result["linkedDocuments"])
+
+    def test_anchor_is_stripped_before_resolution(self) -> None:
+        root = self._scratch_repo(
+            "See [policy](docs/privacy/privacy-policy.md#retention).\n", track_doc=True
+        )
+
+        result = validate_docs_links(root)
+
+        self.assertEqual(["docs/privacy/privacy-policy.md"], result["linkedDocuments"])
+
     def test_scanner_finding_nothing_is_an_error(self) -> None:
         tmpdir = tempfile.TemporaryDirectory()
         self.addCleanup(tmpdir.cleanup)

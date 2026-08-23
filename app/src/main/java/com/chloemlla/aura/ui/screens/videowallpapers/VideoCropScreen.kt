@@ -138,7 +138,12 @@ internal fun timelineFrameTimes(
  * The visible area is cropped to match the phone's screen ratio exactly.
  */
 @OptIn(ExperimentalMaterial3Api::class)
-@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+// Media3 1.11 reclassified experimentalSetDynamicSchedulingEnabled from UnstableApi
+// to ExperimentalApi, so opting into UnstableApi alone no longer covers it.
+@androidx.annotation.OptIn(
+    androidx.media3.common.util.UnstableApi::class,
+    androidx.media3.common.util.ExperimentalApi::class,
+)
 @Composable
 fun VideoCropScreen(
     videoUrl: String,

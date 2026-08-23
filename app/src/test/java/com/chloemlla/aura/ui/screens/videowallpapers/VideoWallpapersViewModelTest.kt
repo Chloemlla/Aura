@@ -1,17 +1,50 @@
 package com.chloemlla.aura.ui.screens.videowallpapers
 
+import android.content.Context
+import android.content.SharedPreferences
+import com.chloemlla.aura.data.local.PreferencesManager
+import com.chloemlla.aura.data.remote.pexels.PexelsApi
+import com.chloemlla.aura.data.remote.pixabay.PixabayApi
 import com.chloemlla.aura.data.remote.pixabay.PixabayVideo
 import com.chloemlla.aura.data.remote.pixabay.PixabayVideoFile
 import com.chloemlla.aura.data.remote.pixabay.PixabayVideoFiles
+import com.chloemlla.aura.data.remote.pixabay.PixabayVideoResponse
+import com.chloemlla.aura.data.repository.VoteRepository
 import com.chloemlla.aura.data.repository.parseRedditRssPage
+import com.chloemlla.aura.data.repository.YouTubeRepository
 import com.chloemlla.aura.data.repository.YouTubeVideoMetadata
 import com.chloemlla.aura.data.repository.sanitizeVoteKey
+import com.chloemlla.aura.service.SourceMetrics
+import com.chloemlla.aura.service.VideoPreviewCache
+import com.chloemlla.aura.service.VideoWallpaperStorage
+import com.chloemlla.aura.service.YouTubeYtDlpRequestFactory
+import com.chloemlla.aura.service.YtDlpUpdateManager
 import com.chloemlla.aura.util.rethrowIfCancelled
+import io.mockk.coEvery
+import io.mockk.every
+import io.mockk.just
+import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.runs
+import io.mockk.unmockkStatic
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import okhttp3.Headers
 import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.ResponseBody.Companion.toResponseBody
+import org.junit.After
+import org.junit.Before
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -23,8 +56,184 @@ import org.junit.Assert.fail
 import org.junit.Test
 import retrofit2.HttpException
 import retrofit2.Response
+import java.util.concurrent.atomic.AtomicInteger
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class VideoWallpapersViewModelTest {
+
+    private val dispatcher = StandardTestDispatcher()
+
+    @Before
+    fun setUp() {
+        Dispatchers.setMain(dispatcher)
+        mockkStatic(android.util.Log::class)
+        every { android.util.Log.d(any<String>(), any<String>()) } returns 0
+        every { android.util.Log.e(any<String>(), any<String>()) } returns 0
+        every { android.util.Log.e(any<String>(), any<String>(), any<Throwable>()) } returns 0
+        every { android.util.Log.w(any<String>(), any<String>()) } returns 0
+    }
+
+    @After
+    fun tearDown() {
+        unmockkStatic(android.util.Log::class)
+        Dispatchers.resetMain()
+    }
+
+    @Test
+    fun `warm cache keeps one cold load in flight and later pagination appends`() = runTest(dispatcher) {
+        val context = mockk<Context>()
+        val cachePreferences = mockk<SharedPreferences>()
+        val cacheEditor = mockk<SharedPreferences.Editor>()
+        val cacheValues = mutableMapOf<String, Any?>()
+        every { context.applicationContext } returns context
+        every {
+            context.getSharedPreferences("freevibe_pixabay_video_cache", Context.MODE_PRIVATE)
+        } returns cachePreferences
+        every { cachePreferences.getString(any(), any()) } answers {
+            cacheValues[firstArg<String>()] as? String ?: secondArg()
+        }
+        every { cachePreferences.getLong(any(), any()) } answers {
+            cacheValues[firstArg<String>()] as? Long ?: secondArg()
+        }
+        every { cachePreferences.edit() } returns cacheEditor
+        every { cacheEditor.clear() } answers { cacheValues.clear(); cacheEditor }
+        every { cacheEditor.putString(any(), any()) } answers {
+            cacheValues[firstArg<String>()] = secondArg<String?>()
+            cacheEditor
+        }
+        every { cacheEditor.putLong(any(), any()) } answers {
+            cacheValues[firstArg<String>()] = secondArg<Long>()
+            cacheEditor
+        }
+        every { cacheEditor.apply() } just runs
+        every { cacheEditor.commit() } returns true
+
+        val cachedItem = VideoWallpaperItem(
+            id = "cached",
+            title = "Cached loop",
+            thumbnailUrl = "https://example.com/cached.jpg",
+            source = "Pixabay",
+            duration = 12,
+        )
+        cacheValues[videoFeedCacheKey("", OrientationFilter.PORTRAIT, VideoFocusFilter.BEST)] =
+            encodePixabayVideoCache(
+                CachedPixabayVideoMetadata(
+                    result = PixabayVideoMetadataResult(
+                        items = listOf(cachedItem),
+                        streamUrls = mapOf("cached" to "file:///cached.mp4"),
+                    ),
+                    cachedAtMs = System.currentTimeMillis(),
+                ),
+            )
+
+        val prefs = mockk<PreferencesManager>()
+        every { prefs.youtubeProviderEnabled } returns flowOf(false)
+        every { prefs.redditProviderEnabled } returns flowOf(false)
+        every { prefs.pexelsProviderEnabled } returns flowOf(false)
+        every { prefs.pixabayProviderEnabled } returns flowOf(true)
+        every { prefs.redditVideoSubreddits } returns flowOf("")
+        every { prefs.pexelsApiKey } returns flowOf("")
+        every { prefs.pixabayApiKey } returns flowOf("test-key")
+
+        val pixabayApi = mockk<PixabayApi>()
+        val requestCount = AtomicInteger(0)
+        val firstRequestStarted = CompletableDeferred<Unit>()
+        val releaseFirstRequest = CompletableDeferred<Unit>()
+        val firstRequestFinished = CompletableDeferred<Unit>()
+        val secondRequestStarted = CompletableDeferred<Unit>()
+        val secondRequestFinished = CompletableDeferred<Unit>()
+        coEvery {
+            pixabayApi.searchVideos(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+            )
+        } coAnswers {
+            when (requestCount.incrementAndGet()) {
+                1 -> {
+                    firstRequestStarted.complete(Unit)
+                    releaseFirstRequest.await()
+                    firstRequestFinished.complete(Unit)
+                    PixabayVideoResponse()
+                }
+                else -> {
+                    secondRequestStarted.complete(Unit)
+                    val response = PixabayVideoResponse(
+                        hits = listOf(
+                            PixabayVideo(
+                                id = 42,
+                                duration = 12,
+                                pictureId = "append",
+                                videos = PixabayVideoFiles(
+                                    medium = PixabayVideoFile(
+                                        url = "https://example.com/appended.mp4",
+                                        width = 1080,
+                                        height = 1920,
+                                    ),
+                                ),
+                            ),
+                        ),
+                    )
+                    secondRequestFinished.complete(Unit)
+                    response
+                }
+            }
+        }
+
+        val viewModel = VideoWallpapersViewModel(
+            context = context,
+            youtubeRepo = mockk<YouTubeRepository>(relaxed = true),
+            pexelsApi = mockk<PexelsApi>(relaxed = true),
+            pixabayApi = pixabayApi,
+            prefs = prefs,
+            okHttpClient = mockk(relaxed = true),
+            videoWallpaperStorage = mockk<VideoWallpaperStorage>(relaxed = true),
+            sourceMetrics = SourceMetrics(),
+            ytDlpUpdateManager = mockk<YtDlpUpdateManager>(relaxed = true),
+            ytDlpRequestFactory = mockk<YouTubeYtDlpRequestFactory>(relaxed = true),
+            videoPreviewCache = mockk<VideoPreviewCache>(relaxed = true),
+            voteRepo = mockk<VoteRepository>(relaxed = true),
+        )
+
+        runCurrent()
+        firstRequestStarted.await()
+        runCurrent()
+        assertEquals(listOf("cached"), viewModel.state.value.items.map { it.id })
+
+        viewModel.loadMore()
+        runCurrent()
+        assertEquals(1, requestCount.get())
+
+        releaseFirstRequest.complete(Unit)
+        firstRequestFinished.await()
+        awaitFeedJobCompletion(viewModel)
+        advanceUntilIdle()
+        assertEquals(listOf("cached"), viewModel.state.value.items.map { it.id })
+        assertTrue("Unexpected state after cold load: ${viewModel.state.value}", viewModel.state.value.hasMore)
+        assertFalse("Cold load still marked active: ${viewModel.state.value}", viewModel.state.value.isLoading)
+        assertFalse("Pagination still marked active: ${viewModel.state.value}", viewModel.state.value.isLoadingMore)
+
+        viewModel.loadMore()
+        runCurrent()
+        assertTrue("Pagination did not start: ${viewModel.state.value}", viewModel.state.value.isLoadingMore)
+        secondRequestStarted.await()
+        secondRequestFinished.await()
+        awaitFeedJobCompletion(viewModel)
+        advanceUntilIdle()
+
+        assertEquals(2, requestCount.get())
+        assertEquals(listOf("cached", "pbv_42"), viewModel.state.value.items.map { it.id })
+        cacheValues.clear()
+    }
+
+    private suspend fun awaitFeedJobCompletion(viewModel: VideoWallpapersViewModel) {
+        val loadJobField = VideoWallpapersViewModel::class.java
+            .getDeclaredField("loadJob")
+            .apply { isAccessible = true }
+        while (true) {
+            val job = loadJobField.get(viewModel) as? Job ?: return
+            job.join()
+            if (loadJobField.get(viewModel) == null) return
+        }
+    }
 
     @Test
     fun `resolveVideoLoadProgress keeps discovery open through a few empty batches then stops`() {

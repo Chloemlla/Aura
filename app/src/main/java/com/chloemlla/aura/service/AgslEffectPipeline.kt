@@ -4,9 +4,15 @@ import android.graphics.Bitmap
 import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.RectF
+import android.graphics.RuntimeColorFilter
 import android.graphics.RuntimeShader
+import android.graphics.RuntimeXfermode
 import android.graphics.Shader
 import android.os.Build
+import androidx.annotation.RequiresApi
 
 /**
  * AGSL (Android Graphics Shading Language) runtime-shader pipeline. Roadmap N-3.
@@ -39,6 +45,8 @@ import android.os.Build
 class AgslEffectPipeline {
 
     val isSupported: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+    val isColorFilterSupported: Boolean get() = Build.VERSION.SDK_INT >= 36
+    val isXfermodeSupported: Boolean get() = Build.VERSION.SDK_INT >= 36
 
     /**
      * Apply an effect to a source bitmap and return a new bitmap with the result.
@@ -65,7 +73,15 @@ class AgslEffectPipeline {
             return copyOrFallback(source)
         }
         return try {
-            applyAgsl(source, effect)
+            if (Build.VERSION.SDK_INT >= 36 && effect.colorFilterAgsl != null) {
+                try {
+                    applyColorFilter(source, effect)
+                } catch (_: Exception) {
+                    applyAgsl(source, effect)
+                }
+            } else {
+                applyAgsl(source, effect)
+            }
         } catch (e: Exception) {
             // RuntimeShader can throw IllegalArgumentException on a malformed AGSL
             // program. Effects are hard-coded, but a future bad authoring change
@@ -76,11 +92,108 @@ class AgslEffectPipeline {
         }
     }
 
+    /**
+     * Blend an overlay onto a source bitmap. Android 16 uses the AGSL blender;
+     * earlier releases retain the Canvas SCREEN fallback.
+     */
+    fun blend(
+        source: Bitmap,
+        overlay: Bitmap,
+        mode: AgslBlendMode = AgslBlendMode.SCREEN,
+    ): Bitmap {
+        if (source.isRecycled || overlay.isRecycled) return copyOrFallback(source)
+        return try {
+            if (Build.VERSION.SDK_INT >= 36) {
+                try {
+                    blendWithRuntimeXfermode(source, overlay, mode)
+                } catch (_: Exception) {
+                    blendWithCanvasXfermode(source, overlay, mode)
+                }
+            } else {
+                blendWithCanvasXfermode(source, overlay, mode)
+            }
+        } catch (_: Exception) {
+            copyOrFallback(source)
+        } catch (_: OutOfMemoryError) {
+            copyOrFallback(source)
+        }
+    }
+
     private fun copyOrFallback(source: Bitmap): Bitmap = try {
         source.copy(source.config ?: Bitmap.Config.ARGB_8888, false)
             ?: Bitmap.createBitmap(source.width.coerceAtLeast(1), source.height.coerceAtLeast(1), Bitmap.Config.ARGB_8888)
     } catch (_: Throwable) {
         Bitmap.createBitmap(source.width.coerceAtLeast(1), source.height.coerceAtLeast(1), Bitmap.Config.ARGB_8888)
+    }
+
+    @RequiresApi(36)
+    private fun applyColorFilter(source: Bitmap, effect: AgslEffect): Bitmap {
+        val width = source.width
+        val height = source.height
+        val program = effect.colorFilterAgsl ?: return copyOrFallback(source)
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        try {
+            val filter = RuntimeColorFilter(program)
+            effect.applyColorFilterUniforms(filter)
+            Canvas(output).drawBitmap(
+                source,
+                0f,
+                0f,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply { colorFilter = filter },
+            )
+            return output
+        } catch (t: Throwable) {
+            try { output.recycle() } catch (_: Throwable) {}
+            throw t
+        }
+    }
+
+    private fun blendWithCanvasXfermode(
+        source: Bitmap,
+        overlay: Bitmap,
+        mode: AgslBlendMode,
+    ): Bitmap = blendWithXfermode(
+        source,
+        overlay,
+        when (mode) {
+            AgslBlendMode.SCREEN -> PorterDuffXfermode(PorterDuff.Mode.SCREEN)
+        },
+    )
+
+    @RequiresApi(36)
+    private fun blendWithRuntimeXfermode(
+        source: Bitmap,
+        overlay: Bitmap,
+        mode: AgslBlendMode,
+    ): Bitmap = blendWithXfermode(
+        source,
+        overlay,
+        when (mode) {
+            AgslBlendMode.SCREEN -> RuntimeXfermode(SCREEN_BLEND_AGSL)
+        },
+    )
+
+    private fun blendWithXfermode(
+        source: Bitmap,
+        overlay: Bitmap,
+        xfermode: android.graphics.Xfermode,
+    ): Bitmap {
+        val output = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
+        try {
+            val canvas = Canvas(output)
+            val destination = RectF(0f, 0f, source.width.toFloat(), source.height.toFloat())
+            canvas.drawBitmap(source, null, destination, null)
+            canvas.drawBitmap(
+                overlay,
+                null,
+                destination,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply { this.xfermode = xfermode },
+            )
+            return output
+        } catch (t: Throwable) {
+            try { output.recycle() } catch (_: Throwable) {}
+            throw t
+        }
     }
 
     @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -114,6 +227,8 @@ class AgslEffectPipeline {
 sealed class AgslEffect(internal val agsl: String) {
 
     internal open fun applyUniforms(@Suppress("UNUSED_PARAMETER") shader: Any) = Unit
+    internal open val colorFilterAgsl: String? = null
+    internal open fun applyColorFilterUniforms(@Suppress("UNUSED_PARAMETER") filter: Any) = Unit
 
     /**
      * Passthrough — used by the fallback path. Kept as an explicit variant so callers
@@ -142,9 +257,33 @@ sealed class AgslEffect(internal val agsl: String) {
         }
         """.trimIndent()
     ) {
+        internal override val colorFilterAgsl: String =
+            """
+            uniform half intensity;
+            half4 main(half4 in_color) {
+                return half4(in_color.rgb * (1.0 - intensity), in_color.a);
+            }
+            """.trimIndent()
+
         @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
         override fun applyUniforms(shader: Any) {
             (shader as RuntimeShader).setFloatUniform("intensity", intensity.coerceIn(0f, 1f))
         }
+
+        @androidx.annotation.RequiresApi(36)
+        override fun applyColorFilterUniforms(filter: Any) {
+            (filter as RuntimeColorFilter).setFloatUniform("intensity", intensity.coerceIn(0f, 1f))
+        }
     }
 }
+
+enum class AgslBlendMode {
+    SCREEN,
+}
+
+internal const val SCREEN_BLEND_AGSL = """
+    half4 main(half4 src, half4 dst) {
+        half3 rgb = 1.0 - (1.0 - src.rgb) * (1.0 - dst.rgb);
+        return half4(rgb, max(src.a, dst.a));
+    }
+"""

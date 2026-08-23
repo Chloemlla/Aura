@@ -6,6 +6,7 @@ plugins {
 
 android {
     namespace = "com.chloemlla.aura.benchmark"
+    // Tracks :app — see the compileSdk note there.
     compileSdk = 37
     targetProjectPath = ":app"
     experimentalProperties["android.experimental.self-instrumenting"] = true

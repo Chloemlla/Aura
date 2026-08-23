@@ -11,12 +11,13 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-enum class ProviderCredentialKey(val storageKey: String) {
-    WALLHAVEN("wallhaven_api_key"),
-    PEXELS("pexels_api_key"),
-    PIXABAY("pixabay_api_key"),
-    FREESOUND("freesound_api_key"),
-    STABILITY_AI("stability_ai_key"),
+data class ProviderCredentialKey(val storageKey: String) {
+    companion object {
+        val WALLHAVEN = ProviderCredentialKey("wallhaven_api_key")
+        val PEXELS = ProviderCredentialKey("pexels_api_key")
+        val PIXABAY = ProviderCredentialKey("pixabay_api_key")
+        val FREESOUND = ProviderCredentialKey("freesound_api_key")
+    }
 }
 
 class ProviderCredentialStoreException(

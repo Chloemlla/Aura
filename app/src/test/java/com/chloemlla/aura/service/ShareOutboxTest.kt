@@ -57,4 +57,14 @@ class ShareOutboxTest {
         assertFalse(oldDir.exists())
         assertTrue(freshFile.exists())
     }
+
+    @Test
+    fun deleteExternalMediaRejectsPathTraversalAndDeletesOwnedFile() {
+        val root = temp.newFolder("external_media")
+        val owned = File(root, "external_test.jpg").apply { writeText("image") }
+
+        assertTrue(ShareOutbox.deleteExternalMedia(root, owned.name))
+        assertFalse(owned.exists())
+        assertFalse(ShareOutbox.deleteExternalMedia(root, "../external_test.jpg"))
+    }
 }

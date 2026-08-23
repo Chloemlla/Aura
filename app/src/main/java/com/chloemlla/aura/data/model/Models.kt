@@ -146,6 +146,7 @@ fun FavoriteEntity.stableKey(): String = favoriteIdentity().stableKey()
 
 // -- Download history (Room entity) --
 
+@Immutable
 @Entity(tableName = "downloads", indices = [Index("type"), Index("downloadedAt")])
 data class DownloadEntity(
     @PrimaryKey val id: String,
@@ -177,6 +178,7 @@ data class SearchResult<T>(
 
 // -- Search history (Room entity) --
 
+@Immutable
 @Entity(
     tableName = "search_history",
     primaryKeys = ["query", "type"],
@@ -216,6 +218,7 @@ data class WallpaperCacheEntity(
 
 // -- Wallpaper history (#11) --
 
+@Immutable
 @Entity(tableName = "wallpaper_history", indices = [Index("appliedAt")])
 data class WallpaperHistoryEntity(
     @PrimaryKey(autoGenerate = true) val historyId: Long = 0,
@@ -231,6 +234,7 @@ data class WallpaperHistoryEntity(
 
 // -- Wallpaper collections --
 
+@Immutable
 @Entity(tableName = "wallpaper_collections")
 data class WallpaperCollectionEntity(
     @PrimaryKey(autoGenerate = true) val collectionId: Long = 0,
@@ -251,6 +255,7 @@ data class WallpaperCollectionEntity(
     ],
     indices = [androidx.room.Index("collectionId")],
 )
+@Immutable
 data class WallpaperCollectionItemEntity(
     val collectionId: Long,
     val wallpaperId: String,
@@ -267,6 +272,7 @@ fun WallpaperCollectionItemEntity.stableKey(): String =
 
 // -- Dual wallpaper pair --
 
+@Immutable
 data class WallpaperPair(
     val home: Wallpaper,
     val lock: Wallpaper,

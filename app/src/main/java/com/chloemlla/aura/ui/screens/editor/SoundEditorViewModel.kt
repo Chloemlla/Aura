@@ -17,9 +17,16 @@ import com.chloemlla.aura.service.AudioExportFormat
 import com.chloemlla.aura.service.AudioFadeCurve
 import com.chloemlla.aura.service.AudioTrimmer
 import com.chloemlla.aura.service.MediaIngestionLimitExceeded
+import com.chloemlla.aura.service.MediaFamily
 import com.chloemlla.aura.service.SoundUrlResolver
 import com.chloemlla.aura.service.SoundApplier
 import com.chloemlla.aura.service.copyStreamCapped
+import com.chloemlla.aura.service.isLosslessCutAllowed
+import com.chloemlla.aura.service.losslessCutExportFormat
+import com.chloemlla.aura.service.normalizeMediaFileName
+import com.chloemlla.aura.service.requireSniffedMediaFile
+import com.chloemlla.aura.service.ShareOutbox
+import com.chloemlla.aura.service.speedAdjustedDurationMs
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -52,8 +59,10 @@ data class SoundEditorState(
     val fadeInMs: Long = 0,
     val fadeOutMs: Long = 0,
     val fadeCurve: AudioFadeCurve = AudioFadeCurve.LINEAR,
-    val exportFormat: AudioExportFormat = AudioExportFormat.MP3,
-    val exportBitrateKbps: Int? = AudioExportFormat.MP3.defaultBitrateKbps,
+    val playbackSpeed: Float = 1f,
+    val losslessCut: Boolean = false,
+    val exportFormat: AudioExportFormat = AudioExportFormat.M4A,
+    val exportBitrateKbps: Int? = AudioExportFormat.M4A.defaultBitrateKbps,
     val waveformZoom: Float = 1f,
     val waveformViewportStart: Float = 0f,
     val fileName: String = "",
@@ -65,6 +74,13 @@ data class SoundEditorState(
     val trimStartFraction: Float get() = if (durationMs > 0L) trimStartMs.toFloat() / durationMs else 0f
     val trimEndFraction: Float get() = if (durationMs > 0L) trimEndMs.toFloat() / durationMs else 1f
     val trimDurationMs: Long get() = trimEndMs - trimStartMs
+    val processedDurationMs: Long get() = speedAdjustedDurationMs(trimDurationMs, playbackSpeed)
+    val maximumFadeMs: Long get() = (processedDurationMs / 2L).coerceAtLeast(1L)
+    val canUseLosslessCut: Boolean
+        get() = isLosslessCutAllowed(fadeInMs, fadeOutMs, playbackSpeed) &&
+            losslessCutExportFormat(localFilePath) != null
+    val effectiveExportFormat: AudioExportFormat
+        get() = if (losslessCut) losslessCutExportFormat(localFilePath) ?: exportFormat else exportFormat
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -75,7 +91,8 @@ data class SoundEditorState(
             playbackPosition == other.playbackPosition &&
             isPlaying == other.isPlaying && isApplying == other.isApplying &&
             fadeInMs == other.fadeInMs && fadeOutMs == other.fadeOutMs &&
-            fadeCurve == other.fadeCurve && exportFormat == other.exportFormat &&
+            fadeCurve == other.fadeCurve && playbackSpeed == other.playbackSpeed &&
+            losslessCut == other.losslessCut && exportFormat == other.exportFormat &&
             exportBitrateKbps == other.exportBitrateKbps && waveformZoom == other.waveformZoom &&
             waveformViewportStart == other.waveformViewportStart &&
             fileName == other.fileName && localFilePath == other.localFilePath &&
@@ -95,6 +112,8 @@ data class SoundEditorState(
         result = 31 * result + fadeInMs.hashCode()
         result = 31 * result + fadeOutMs.hashCode()
         result = 31 * result + fadeCurve.hashCode()
+        result = 31 * result + playbackSpeed.hashCode()
+        result = 31 * result + losslessCut.hashCode()
         result = 31 * result + exportFormat.hashCode()
         result = 31 * result + (exportBitrateKbps ?: 0)
         result = 31 * result + waveformZoom.hashCode()
@@ -135,6 +154,7 @@ class SoundEditorViewModel @Inject constructor(
         val fadeIn: Long,
         val fadeOut: Long,
         val fadeCurve: AudioFadeCurve,
+        val playbackSpeed: Float,
     )
 
     fun loadSound(sound: Sound, editConfirmed: Boolean = false): Boolean {
@@ -180,6 +200,8 @@ class SoundEditorViewModel @Inject constructor(
                     fadeInMs = 0,
                     fadeOutMs = 0,
                     fadeCurve = AudioFadeCurve.LINEAR,
+                    playbackSpeed = 1f,
+                    losslessCut = false,
                     waveformZoom = 1f,
                     waveformViewportStart = 0f,
                     fileName = name,
@@ -234,6 +256,8 @@ class SoundEditorViewModel @Inject constructor(
                     fadeInMs = 0,
                     fadeOutMs = 0,
                     fadeCurve = AudioFadeCurve.LINEAR,
+                    playbackSpeed = 1f,
+                    losslessCut = false,
                     waveformZoom = 1f,
                     waveformViewportStart = 0f,
                     error = null,
@@ -241,8 +265,9 @@ class SoundEditorViewModel @Inject constructor(
                     success = null,
                 )
             }
+            var cachedFile: File? = null
             try {
-                val file = withContext(Dispatchers.IO) { copyUriToCache(uri) }
+                val file = withContext(Dispatchers.IO) { copyUriToCache(uri).also { cachedFile = it } }
                 val name = file.nameWithoutExtension
                 val waveform = withContext(Dispatchers.Default) { extractWaveform(file.absolutePath) }
                 val timing = withContext(Dispatchers.IO) { getAudioTiming(file.absolutePath) }
@@ -260,6 +285,9 @@ class SoundEditorViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
+                // A revoked or malformed local URI can fail after the bounded copy
+                // succeeds. Do not leave that unusable cache entry behind.
+                cachedFile?.delete()
                 _state.update { it.copy(isLoading = false, error = "Failed to load file: ${e.message}") }
             }
         }
@@ -267,7 +295,14 @@ class SoundEditorViewModel @Inject constructor(
 
     fun saveUndo() {
         val s = _state.value
-        undoState = UndoSnapshot(s.trimStartMs, s.trimEndMs, s.fadeInMs, s.fadeOutMs, s.fadeCurve)
+        undoState = UndoSnapshot(
+            s.trimStartMs,
+            s.trimEndMs,
+            s.fadeInMs,
+            s.fadeOutMs,
+            s.fadeCurve,
+            s.playbackSpeed,
+        )
     }
 
     fun undo() {
@@ -277,6 +312,7 @@ class SoundEditorViewModel @Inject constructor(
                     trimStartMs = snap.trimStartMs, trimEndMs = snap.trimEndMs,
                     fadeInMs = snap.fadeIn, fadeOutMs = snap.fadeOut,
                     fadeCurve = snap.fadeCurve,
+                    playbackSpeed = snap.playbackSpeed,
                 )
             }
             undoState = null
@@ -303,7 +339,8 @@ class SoundEditorViewModel @Inject constructor(
                 durationMs = state.durationMs,
                 frameDurationMs = state.frameDurationMs,
             )
-            val maxFade = ((state.trimEndMs - start) / 2).coerceAtLeast(0L)
+            val maxFade = (speedAdjustedDurationMs(state.trimEndMs - start, state.playbackSpeed) / 2L)
+                .coerceAtLeast(0L)
             state.copy(
                 trimStartMs = start,
                 fadeInMs = state.fadeInMs.coerceAtMost(maxFade),
@@ -320,7 +357,8 @@ class SoundEditorViewModel @Inject constructor(
                 durationMs = state.durationMs,
                 frameDurationMs = state.frameDurationMs,
             )
-            val maxFade = ((end - state.trimStartMs) / 2).coerceAtLeast(0L)
+            val maxFade = (speedAdjustedDurationMs(end - state.trimStartMs, state.playbackSpeed) / 2L)
+                .coerceAtLeast(0L)
             state.copy(
                 trimEndMs = end,
                 fadeInMs = state.fadeInMs.coerceAtMost(maxFade),
@@ -330,15 +368,51 @@ class SoundEditorViewModel @Inject constructor(
     }
 
     fun setFadeIn(ms: Long) {
-        _state.update { it.copy(fadeInMs = ms.coerceIn(0, (it.trimDurationMs / 2).coerceAtLeast(1))) }
+        _state.update { state ->
+            val fadeInMs = ms.coerceIn(0L, state.maximumFadeMs)
+            state.copy(
+                fadeInMs = fadeInMs,
+                losslessCut = state.losslessCut &&
+                    isLosslessCutAllowed(fadeInMs, state.fadeOutMs, state.playbackSpeed),
+            )
+        }
     }
 
     fun setFadeOut(ms: Long) {
-        _state.update { it.copy(fadeOutMs = ms.coerceIn(0, (it.trimDurationMs / 2).coerceAtLeast(1))) }
+        _state.update { state ->
+            val fadeOutMs = ms.coerceIn(0L, state.maximumFadeMs)
+            state.copy(
+                fadeOutMs = fadeOutMs,
+                losslessCut = state.losslessCut &&
+                    isLosslessCutAllowed(state.fadeInMs, fadeOutMs, state.playbackSpeed),
+            )
+        }
     }
 
     fun setFadeCurve(curve: AudioFadeCurve) {
         _state.update { it.copy(fadeCurve = curve) }
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        if (speed !in SOUND_EDITOR_PLAYBACK_SPEEDS) return
+        _state.update { state ->
+            val maximumFadeMs = (speedAdjustedDurationMs(state.trimDurationMs, speed) / 2L)
+                .coerceAtLeast(1L)
+            state.copy(
+                playbackSpeed = speed,
+                fadeInMs = state.fadeInMs.coerceAtMost(maximumFadeMs),
+                fadeOutMs = state.fadeOutMs.coerceAtMost(maximumFadeMs),
+                losslessCut = state.losslessCut &&
+                    isLosslessCutAllowed(state.fadeInMs, state.fadeOutMs, speed),
+            )
+        }
+        player?.let { activePlayer ->
+            runCatching {
+                activePlayer.playbackParams = activePlayer.playbackParams
+                    .setSpeed(speed)
+                    .setPitch(1f)
+            }
+        }
     }
 
     fun setExportFormat(format: AudioExportFormat) {
@@ -346,6 +420,7 @@ class SoundEditorViewModel @Inject constructor(
             it.copy(
                 exportFormat = format,
                 exportBitrateKbps = format.defaultBitrateKbps,
+                losslessCut = false,
             )
         }
     }
@@ -353,6 +428,14 @@ class SoundEditorViewModel @Inject constructor(
     fun setExportBitrate(kbps: Int) {
         _state.update { state ->
             if (kbps in state.exportFormat.bitratesKbps) state.copy(exportBitrateKbps = kbps) else state
+        }
+    }
+
+    fun setLosslessCut(enabled: Boolean) {
+        _state.update { state ->
+            if (!enabled) state.copy(losslessCut = false)
+            else if (state.canUseLosslessCut) state.copy(losslessCut = true)
+            else state
         }
     }
 
@@ -404,8 +487,10 @@ class SoundEditorViewModel @Inject constructor(
                     fadeInMs = s.fadeInMs,
                     fadeOutMs = s.fadeOutMs,
                     fadeCurve = s.fadeCurve,
+                    playbackSpeed = s.playbackSpeed,
                     exportFormat = s.exportFormat,
                     bitrateKbps = s.exportBitrateKbps,
+                    losslessCut = s.losslessCut,
                 ).getOrThrow()
 
                 soundApplier.applyFromLocalFile(trimmedPath, s.fileName, type)
@@ -442,8 +527,10 @@ class SoundEditorViewModel @Inject constructor(
                     fadeInMs = state.fadeInMs,
                     fadeOutMs = state.fadeOutMs,
                     fadeCurve = state.fadeCurve,
+                    playbackSpeed = state.playbackSpeed,
                     exportFormat = state.exportFormat,
                     bitrateKbps = state.exportBitrateKbps,
+                    losslessCut = state.losslessCut,
                 ).getOrThrow()
                 soundApplier.exportFromLocalFile(outputPath, state.fileName)
                     .getOrThrow()
@@ -452,7 +539,7 @@ class SoundEditorViewModel @Inject constructor(
                         isApplying = false,
                         success = context.getString(
                             R.string.editor_sound_export_success,
-                            state.exportFormat.name,
+                            state.effectiveExportFormat.name,
                         ),
                     )
                 }
@@ -475,8 +562,8 @@ class SoundEditorViewModel @Inject constructor(
 
     private fun startPlayback() {
         val path = _state.value.localFilePath ?: return
-        val startMs = _state.value.trimStartMs.toInt()
-        val endMs = _state.value.trimEndMs.toInt()
+        val startMs = _state.value.trimStartMs.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+        val endMs = _state.value.trimEndMs.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
 
         stopPlayback()
         try {
@@ -486,6 +573,9 @@ class SoundEditorViewModel @Inject constructor(
                     if (player == null) return@setOnPreparedListener
                     try {
                         mp.seekTo(startMs)
+                        mp.playbackParams = android.media.PlaybackParams()
+                            .setSpeed(_state.value.playbackSpeed)
+                            .setPitch(1f)
                         mp.start()
                     } catch (_: IllegalStateException) {
                         return@setOnPreparedListener
@@ -498,8 +588,18 @@ class SoundEditorViewModel @Inject constructor(
                             while (_state.value.isPlaying) {
                                 val p = player ?: break
                                 val pos = try { p.currentPosition } catch (_: IllegalStateException) { break }
-                                if (pos >= endMs) break
                                 val dur = try { p.duration } catch (_: IllegalStateException) { break }
+                                if (shouldLoopTrimPreview(pos, startMs, endMs)) {
+                                    try {
+                                        p.seekTo(startMs)
+                                        p.start()
+                                        if (dur > 0) _state.update { it.copy(playbackPosition = startMs.toFloat() / dur) }
+                                    } catch (_: IllegalStateException) {
+                                        break
+                                    }
+                                    kotlinx.coroutines.delay(20)
+                                    continue
+                                }
                                 if (dur > 0) _state.update { it.copy(playbackPosition = pos.toFloat() / dur) }
                                 kotlinx.coroutines.delay(50)
                             }
@@ -509,7 +609,18 @@ class SoundEditorViewModel @Inject constructor(
                         stopPlayback()
                     }
                 }
-                setOnCompletionListener { stopPlayback() }
+                setOnCompletionListener { mp ->
+                    if (_state.value.isPlaying && endMs > startMs) {
+                        try {
+                            mp.seekTo(startMs)
+                            mp.start()
+                        } catch (_: IllegalStateException) {
+                            stopPlayback()
+                        }
+                    } else {
+                        stopPlayback()
+                    }
+                }
                 setOnErrorListener { _, _, _ -> stopPlayback(); true }
                 prepareAsync()
             }
@@ -594,13 +705,27 @@ class SoundEditorViewModel @Inject constructor(
         cacheDir.mkdirs()
         val fileName = uri.lastPathSegment?.substringAfterLast('/') ?: "local_audio"
         val safeName = fileName.replace(FILE_SANITIZE_REGEX, "_")
-        val file = File(cacheDir, safeName)
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            FileOutputStream(file).use { output ->
-                copyStreamCapped(input, output, MAX_EDIT_DOWNLOAD_BYTES)
+        val tempFile = File(cacheDir, ".${safeName}.${System.nanoTime()}.part")
+        try {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(tempFile).use { output ->
+                    copyStreamCapped(input, output, MAX_EDIT_DOWNLOAD_BYTES)
+                }
+            } ?: throw IllegalStateException("Cannot read file")
+            if (tempFile.length() <= 0L) throw IllegalStateException("The selected file is empty")
+
+            val sniffed = requireSniffedMediaFile(tempFile, MediaFamily.AUDIO, "Sound")
+            val file = File(cacheDir, normalizeMediaFileName(safeName, sniffed))
+            if (!tempFile.renameTo(file)) {
+                tempFile.copyTo(file, overwrite = true)
+                tempFile.delete()
             }
-        } ?: throw IllegalStateException("Cannot read file")
-        file
+            ShareOutbox.deleteExternalMedia(context, uri)
+            file
+        } catch (error: Exception) {
+            tempFile.delete()
+            throw error
+        }
     }
 
     private fun extractWaveform(path: String, numSamples: Int = 200): FloatArray {
@@ -701,6 +826,9 @@ internal fun buildLocalAudioEditorIdentity(uri: String): String = "local::$uri"
 internal const val MIN_RINGTONE_TRIM_MS: Long = 8_000L
 internal const val MAX_RINGTONE_TRIM_MS: Long = 30_000L
 
+internal fun shouldLoopTrimPreview(positionMs: Int, startMs: Int, endMs: Int): Boolean =
+    endMs > startMs && positionMs >= endMs
+
 internal fun defaultRingtoneTrimEndMs(durationMs: Long): Long =
     when {
         durationMs <= 0L -> 0L
@@ -758,6 +886,8 @@ internal fun updateWaveformViewport(
 }
 
 internal const val MAX_WAVEFORM_ZOOM = 8f
+
+internal val SOUND_EDITOR_PLAYBACK_SPEEDS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)
 
 internal fun shouldReuseLoadedSound(
     loadedSoundKey: String?,

@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -64,6 +65,8 @@ fun FavoritesScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    // Reading a string off LocalContext is not a composition read. LocalResources is.
+    val resources = LocalResources.current
     val tabs = listOf(
         stringResource(R.string.favorites_tab_wallpapers, wallpapers.size),
         stringResource(R.string.favorites_tab_sounds, sounds.size),
@@ -158,11 +161,11 @@ fun FavoritesScreen(
                                 exitSelection()
                                 scope.launch {
                                     val removedMsg = if (snapshot.size == 1) {
-                                        context.getString(R.string.favorites_removed_one, snapshot.size)
+                                        resources.getString(R.string.favorites_removed_one, snapshot.size)
                                     } else {
-                                        context.getString(R.string.favorites_removed_many, snapshot.size)
+                                        resources.getString(R.string.favorites_removed_many, snapshot.size)
                                     }
-                                    val undoLabel = context.getString(R.string.favorites_undo)
+                                    val undoLabel = resources.getString(R.string.favorites_undo)
                                     val result = snackbarHostState.showSnackbar(
                                         message = removedMsg,
                                         actionLabel = undoLabel,
@@ -574,9 +577,9 @@ fun FavoritesScreen(
                                         modifier = Modifier.semantics(mergeDescendants = true) {
                                             contentDescription = soundSummary
                                             stateDescription = if (sourceUnavailable) {
-                                                context.getString(R.string.favorites_state_source_unavailable)
+                                                resources.getString(R.string.favorites_state_source_unavailable)
                                             } else {
-                                                context.getString(R.string.favorites_state_saved_sound)
+                                                resources.getString(R.string.favorites_state_saved_sound)
                                             }
                                             onClick(label = openLabel, action = null)
                                         },

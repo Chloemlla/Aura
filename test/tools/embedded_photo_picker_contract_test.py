@@ -10,7 +10,7 @@ class EmbeddedPhotoPickerContractTest(unittest.TestCase):
         return (REPO_ROOT / relative_path).read_text(encoding="utf-8")
 
     def test_bridge_is_extension_gated_and_image_only(self):
-        source = self.read("app/src/main/java/com/freevibe/service/PhotoPickerCustomization.kt")
+        source = self.read("app/src/main/java/com/chloemlla/aura/service/PhotoPickerCustomization.kt")
 
         self.assertIn("EMBEDDED_PICKER_MIN_EXTENSION = 15", source)
         self.assertIn("Build.VERSION_CODES.UPSIDE_DOWN_CAKE", source)
@@ -22,7 +22,7 @@ class EmbeddedPhotoPickerContractTest(unittest.TestCase):
         self.assertIn('"image/*"', source)
 
     def test_portrait_grid_customization_uses_current_and_legacy_keys(self):
-        source = self.read("app/src/main/java/com/freevibe/service/PhotoPickerCustomization.kt")
+        source = self.read("app/src/main/java/com/chloemlla/aura/service/PhotoPickerCustomization.kt")
 
         self.assertIn("android.widget.photopicker.PhotoPickerUiCustomizationParams", source)
         self.assertIn("ASPECT_RATIO_PORTRAIT_9_16", source)
@@ -30,8 +30,8 @@ class EmbeddedPhotoPickerContractTest(unittest.TestCase):
         self.assertIn("EXTRA_PHOTO_PICKER_UI_CUSTOMIZATION_PARAMS", source)
 
     def test_wallpaper_and_collection_imports_have_classic_picker_fallback(self):
-        wallpaper_screen = self.read("app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt")
-        collections_screen = self.read("app/src/main/java/com/freevibe/ui/screens/collections/CollectionsScreen.kt")
+        wallpaper_screen = self.read("app/src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpapersScreen.kt")
+        collections_screen = self.read("app/src/main/java/com/chloemlla/aura/ui/screens/collections/CollectionsScreen.kt")
 
         for source in (wallpaper_screen, collections_screen):
             self.assertIn("EmbeddedImagePickerSheet", source)

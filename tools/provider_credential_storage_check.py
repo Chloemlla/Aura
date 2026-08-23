@@ -92,14 +92,34 @@ def read_settings_surface_text(repo_root: Path, relative_path: str) -> str:
     text = read_text(repo_root, relative_path)
     if path.name != "SettingsScreen.kt":
         return text
-    settings_dir = path.parent
+    settings_dirs = (
+        path.parent,
+        repo_root / "app/src/full/java/com/chloemlla/aura/ui/screens/settings",
+    )
     section_text = "\n".join(
         section.read_text(encoding="utf-8")
+        for settings_dir in settings_dirs
+        if settings_dir.is_dir()
         for section in sorted(settings_dir.glob("*.kt"))
         if section.is_file() and section != path
     )
-    strings_text = read_text(repo_root, "app/src/main/res/values/strings.xml")
+    strings_text = "\n".join(
+        strings_path.read_text(encoding="utf-8")
+        for strings_path in (
+            repo_root / "app/src/main/res/values/strings.xml",
+            repo_root / "app/src/full/res/values/strings.xml",
+        )
+        if strings_path.is_file()
+    )
     return "\n".join([text, section_text, strings_text])
+
+
+def read_preferences_surface_text(repo_root: Path, relative_path: str) -> str:
+    sources = [read_text(repo_root, relative_path)]
+    full_binding = repo_root / "app/src/full/java/com/chloemlla/aura/data/local/GeneratedWallpaperCredentialBinding.kt"
+    if full_binding.is_file():
+        sources.append(full_binding.read_text(encoding="utf-8"))
+    return "\n".join(sources)
 
 
 def validate_backup_exclusion(xml_text: str, domain: str, path: str, label: str) -> None:
@@ -155,7 +175,7 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
         raise ProviderCredentialStorageError("encryptedStore.cipher must be AES/GCM/NoPadding")
 
     docs_text = read_text(repo_root, docs_path)
-    preferences_manager_text = read_text(repo_root, preferences_manager_path)
+    preferences_manager_text = read_preferences_surface_text(repo_root, preferences_manager_path)
     settings_screen_text = read_settings_surface_text(repo_root, settings_screen_path)
     app_gradle_text = read_text(repo_root, app_gradle_path)
     backup_rules_text = read_text(repo_root, backup_rules_path)
@@ -231,7 +251,7 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
                 raise ProviderCredentialStorageError(f"{credential_id} encrypted rows require legacy preferenceKey")
             if f'stringPreferencesKey("{preference_key}")' not in preferences_manager_text:
                 raise ProviderCredentialStorageError(f"PreferencesManager missing legacy key {preference_key}")
-            if f'ProviderCredentialKey.{provider_credential_enum_name(preference_key)}' not in preferences_manager_text:
+            if provider_credential_source_marker(preference_key) not in preferences_manager_text:
                 raise ProviderCredentialStorageError(f"PreferencesManager missing encrypted mapping for {preference_key}")
             if not settings_label or settings_label not in settings_screen_text:
                 raise ProviderCredentialStorageError(f"Settings screen missing label for {credential_id}")
@@ -273,13 +293,13 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def provider_credential_enum_name(preference_key: str) -> str:
+def provider_credential_source_marker(preference_key: str) -> str:
     mapping = {
-        "wallhaven_api_key": "WALLHAVEN",
-        "pexels_api_key": "PEXELS",
-        "pixabay_api_key": "PIXABAY",
-        "freesound_api_key": "FREESOUND",
-        "stability_ai_key": "STABILITY_AI",
+        "wallhaven_api_key": "ProviderCredentialKey.WALLHAVEN",
+        "pexels_api_key": "ProviderCredentialKey.PEXELS",
+        "pixabay_api_key": "ProviderCredentialKey.PIXABAY",
+        "freesound_api_key": "ProviderCredentialKey.FREESOUND",
+        "stability_ai_key": 'ProviderCredentialKey("stability_ai_key")',
     }
     if preference_key not in mapping:
         raise ProviderCredentialStorageError(f"missing ProviderCredentialKey mapping for {preference_key}")
@@ -296,7 +316,7 @@ def validate_encrypted_store_source(
     key_alias: str,
     cipher: str,
 ) -> None:
-    store_text = read_text(repo_root, "app/src/main/java/com/freevibe/data/local/ProviderCredentialStore.kt")
+    store_text = read_text(repo_root, "app/src/main/java/com/chloemlla/aura/data/local/ProviderCredentialStore.kt")
     for required in (
         "AndroidKeyStore",
         "KeyGenParameterSpec",

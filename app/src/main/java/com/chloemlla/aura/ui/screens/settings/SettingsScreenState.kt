@@ -2,9 +2,13 @@ package com.chloemlla.aura.ui.screens.settings
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.chloemlla.aura.data.model.LocalWallpaperEntity
+import com.chloemlla.aura.data.model.LocalWallpaperFolderEntity
+import com.chloemlla.aura.data.model.LocalWallpaperFolderScanStatus
 import com.chloemlla.aura.data.model.WallpaperHistoryEntity
 import com.chloemlla.aura.data.repository.CommunityBlockedUser
 import com.chloemlla.aura.data.repository.GeneratedAssetAudit
@@ -14,6 +18,30 @@ import com.chloemlla.aura.service.CrashDiagnosticsSummary
 import com.chloemlla.aura.service.ExternalAutomationDiagnostics
 import com.chloemlla.aura.service.SourceMetrics
 import com.chloemlla.aura.service.VideoWallpaperSelectionResult
+import com.chloemlla.aura.service.WallpaperClockOverlayMode
+import com.chloemlla.aura.service.WallpaperClockOverlayPosition
+
+/**
+ * Where Settings can send you.
+ *
+ * These were nine loose lambda parameters on `SettingsScreen`, which is held to a
+ * 500-line ceiling it kept bumping into — every new destination cost a line in
+ * the signature and a line at the call site. Grouping them also stops the
+ * parameter list from being the place a reader has to look to find out what
+ * Settings links to.
+ */
+@Immutable
+data class SettingsNavigation(
+    val onDownloadsClick: () -> Unit = {},
+    val onLicensesClick: () -> Unit = {},
+    val onCategoriesClick: () -> Unit = {},
+    val onHistoryClick: () -> Unit = {},
+    val onCollectionsClick: () -> Unit = {},
+    val onCreatorProfileClick: () -> Unit = {},
+    val onCommunityReportsClick: () -> Unit = {},
+    val onGeneratedWallpapersClick: () -> Unit = {},
+    val onRotationHealthClick: () -> Unit = {},
+)
 
 internal data class SettingsScreenState(
     val autoWpEnabled: Boolean,
@@ -21,6 +49,9 @@ internal data class SettingsScreenState(
     val autoWpSource: String,
     val localWallpaperFolderUri: String,
     val localFolderPermissionActive: Boolean,
+    val localWallpaperFolders: List<LocalWallpaperFolderEntity>,
+    val localWallpaperItems: List<LocalWallpaperEntity>,
+    val localWallpaperCatalogReady: Boolean,
     val autoWpRequiresCharging: Boolean,
     val autoWpRequiresWiFi: Boolean,
     val autoWpRequiresIdle: Boolean,
@@ -49,6 +80,10 @@ internal data class SettingsScreenState(
     val alarmShuffleEnabled: Boolean,
     val soundProfilesEnabled: Boolean,
     val liveWallpaperDimEnabled: Boolean,
+    val liveWallpaperColorsEnabled: Boolean,
+    val wallpaperClockOverlayEnabled: Boolean,
+    val wallpaperClockOverlayMode: WallpaperClockOverlayMode,
+    val wallpaperClockOverlayPosition: WallpaperClockOverlayPosition,
     val soundProfilesJson: String,
     val wallpaperPackEnabled: Boolean,
     val wallpaperPackJson: String,
@@ -79,7 +114,7 @@ internal data class SettingsScreenState(
     val pexelsApiKey: String,
     val pixabayApiKey: String,
     val freesoundApiKey: String,
-    val stabilityAiKey: String,
+    val generatedWallpaperProviderKey: String,
     val providerCredentialStorageUnavailable: Boolean,
     val generatedContentProviderEnabled: Boolean,
     val generatedContentDisclosureAccepted: Boolean,
@@ -105,6 +140,7 @@ internal data class SettingsScreenState(
     val generatedAssets: GeneratedAssetAudit,
     val diagnostics: List<SourceMetrics.SourceStats>,
     val crashDiagnostics: CrashDiagnosticsSummary,
+    val liveWallpaperLiveness: com.chloemlla.aura.service.LiveWallpaperLivenessState?,
     val backgroundWorkDiagnostics: BackgroundWorkDiagnostics,
     val externalAutomationDiagnostics: ExternalAutomationDiagnostics,
     val videoWallpaperSelectionResult: VideoWallpaperSelectionResult?,
@@ -125,6 +161,15 @@ internal fun rememberSettingsScreenState(
     val autoWpInterval by viewModel.autoWpInterval.collectAsStateWithLifecycle()
     val autoWpSource by viewModel.autoWpSource.collectAsStateWithLifecycle()
     val localWallpaperFolderUri by viewModel.localWallpaperFolderUri.collectAsStateWithLifecycle()
+    val localWallpaperFolders by viewModel.localWallpaperFolders.collectAsStateWithLifecycle()
+    val localWallpaperItems by viewModel.localWallpaperItems.collectAsStateWithLifecycle()
+    val localWallpaperCatalogReady = remember(localWallpaperFolders) {
+        localWallpaperFolders.any {
+            it.scanStatus == LocalWallpaperFolderScanStatus.READY ||
+                it.scanStatus == LocalWallpaperFolderScanStatus.READY_LIMITED ||
+                it.scanStatus == LocalWallpaperFolderScanStatus.READY_PARTIAL
+        }
+    }
     val autoWpRequiresCharging by viewModel.autoWpRequiresCharging.collectAsStateWithLifecycle()
     val autoWpRequiresWiFi by viewModel.autoWpRequiresWiFi.collectAsStateWithLifecycle()
     val autoWpRequiresIdle by viewModel.autoWpRequiresIdle.collectAsStateWithLifecycle()
@@ -152,6 +197,10 @@ internal fun rememberSettingsScreenState(
     val alarmShuffleEnabled by viewModel.alarmShuffleEnabled.collectAsStateWithLifecycle()
     val soundProfilesEnabled by viewModel.soundProfilesEnabled.collectAsStateWithLifecycle()
     val liveWallpaperDimEnabled by viewModel.liveWallpaperDimEnabled.collectAsStateWithLifecycle()
+    val liveWallpaperColorsEnabled by viewModel.liveWallpaperColorsEnabled.collectAsStateWithLifecycle()
+    val wallpaperClockOverlayEnabled by viewModel.wallpaperClockOverlayEnabled.collectAsStateWithLifecycle()
+    val wallpaperClockOverlayMode by viewModel.wallpaperClockOverlayMode.collectAsStateWithLifecycle()
+    val wallpaperClockOverlayPosition by viewModel.wallpaperClockOverlayPosition.collectAsStateWithLifecycle()
     val soundProfilesJson by viewModel.soundProfilesJson.collectAsStateWithLifecycle()
     val wallpaperPackEnabled by viewModel.wallpaperPackEnabled.collectAsStateWithLifecycle()
     val wallpaperPackJson by viewModel.wallpaperPackJson.collectAsStateWithLifecycle()
@@ -182,7 +231,7 @@ internal fun rememberSettingsScreenState(
     val pexelsApiKey by viewModel.pexelsApiKey.collectAsStateWithLifecycle()
     val pixabayApiKey by viewModel.pixabayApiKey.collectAsStateWithLifecycle()
     val freesoundApiKey by viewModel.freesoundApiKey.collectAsStateWithLifecycle()
-    val stabilityAiKey by viewModel.stabilityAiKey.collectAsStateWithLifecycle()
+    val generatedWallpaperProviderKey by viewModel.generatedWallpaperProviderKey.collectAsStateWithLifecycle()
     val providerCredentialStorageUnavailable by viewModel.providerCredentialStorageUnavailable.collectAsStateWithLifecycle()
     val generatedContentProviderEnabled by viewModel.generatedContentProviderEnabled.collectAsStateWithLifecycle()
     val generatedContentDisclosureAccepted by viewModel.generatedContentDisclosureAccepted.collectAsStateWithLifecycle()
@@ -208,6 +257,7 @@ internal fun rememberSettingsScreenState(
     val generatedAssets by viewModel.generatedAssets.collectAsStateWithLifecycle()
     val diagnostics by viewModel.diagnostics.collectAsStateWithLifecycle()
     val crashDiagnostics by viewModel.crashDiagnostics.collectAsStateWithLifecycle()
+    val liveWallpaperLiveness by viewModel.liveWallpaperLiveness.collectAsStateWithLifecycle()
     val backgroundWorkDiagnostics by viewModel.backgroundWorkDiagnostics.collectAsStateWithLifecycle()
     val externalAutomationDiagnostics by viewModel.externalAutomationDiagnostics.collectAsStateWithLifecycle()
     val videoWallpaperSelectionResult by viewModel.videoWallpaperSelectionResult.collectAsStateWithLifecycle()
@@ -232,9 +282,9 @@ internal fun rememberSettingsScreenState(
         pexelsApiKey,
         pixabayApiKey,
         freesoundApiKey,
-        stabilityAiKey,
+        generatedWallpaperProviderKey,
     ) {
-        listOf(wallhavenApiKey, pexelsApiKey, pixabayApiKey, freesoundApiKey, stabilityAiKey)
+        listOf(wallhavenApiKey, pexelsApiKey, pixabayApiKey, freesoundApiKey, generatedWallpaperProviderKey)
             .count { it.isNotBlank() }
     }
 
@@ -244,6 +294,9 @@ internal fun rememberSettingsScreenState(
         autoWpSource = autoWpSource,
         localWallpaperFolderUri = localWallpaperFolderUri,
         localFolderPermissionActive = localFolderPermissionActive,
+        localWallpaperFolders = localWallpaperFolders,
+        localWallpaperItems = localWallpaperItems,
+        localWallpaperCatalogReady = localWallpaperCatalogReady,
         autoWpRequiresCharging = autoWpRequiresCharging,
         autoWpRequiresWiFi = autoWpRequiresWiFi,
         autoWpRequiresIdle = autoWpRequiresIdle,
@@ -272,6 +325,10 @@ internal fun rememberSettingsScreenState(
         alarmShuffleEnabled = alarmShuffleEnabled,
         soundProfilesEnabled = soundProfilesEnabled,
         liveWallpaperDimEnabled = liveWallpaperDimEnabled,
+        liveWallpaperColorsEnabled = liveWallpaperColorsEnabled,
+        wallpaperClockOverlayEnabled = wallpaperClockOverlayEnabled,
+        wallpaperClockOverlayMode = WallpaperClockOverlayMode.fromPreference(wallpaperClockOverlayMode),
+        wallpaperClockOverlayPosition = WallpaperClockOverlayPosition.fromPreference(wallpaperClockOverlayPosition),
         soundProfilesJson = soundProfilesJson,
         wallpaperPackEnabled = wallpaperPackEnabled,
         wallpaperPackJson = wallpaperPackJson,
@@ -302,7 +359,7 @@ internal fun rememberSettingsScreenState(
         pexelsApiKey = pexelsApiKey,
         pixabayApiKey = pixabayApiKey,
         freesoundApiKey = freesoundApiKey,
-        stabilityAiKey = stabilityAiKey,
+        generatedWallpaperProviderKey = generatedWallpaperProviderKey,
         providerCredentialStorageUnavailable = providerCredentialStorageUnavailable,
         generatedContentProviderEnabled = generatedContentProviderEnabled,
         generatedContentDisclosureAccepted = generatedContentDisclosureAccepted,
@@ -328,6 +385,7 @@ internal fun rememberSettingsScreenState(
         generatedAssets = generatedAssets,
         diagnostics = diagnostics,
         crashDiagnostics = crashDiagnostics,
+        liveWallpaperLiveness = liveWallpaperLiveness,
         backgroundWorkDiagnostics = backgroundWorkDiagnostics,
         externalAutomationDiagnostics = externalAutomationDiagnostics,
         videoWallpaperSelectionResult = videoWallpaperSelectionResult,

@@ -268,18 +268,7 @@ val providerDisclosures = listOf(
         userActions = "Preview, favorite, edit, apply, and download only after curation metadata is present.",
         storeDisclosure = "Bundled third-party assets with upstream attribution.",
     ),
-    ProviderDisclosure(
-        source = ContentSource.AI_GENERATED,
-        displayName = "AI-generated",
-        content = "User-generated AI wallpapers",
-        status = ProviderStatus.GENERATED,
-        termsUrl = "https://platform.stability.ai/legal",
-        licenseSummary = "Generator/provider terms plus user prompt context",
-        attribution = "Preserve generator/provider, creation time, and prompt/style metadata where available.",
-        cachePolicy = "Store only user-generated outputs and metadata needed for restore/export/apply flows.",
-        userActions = "Generate, favorite, export, and apply under user control.",
-        storeDisclosure = "Optional AI generation through user-configured provider access.",
-    ),
+    generatedWallpaperProviderDisclosure(),
     ProviderDisclosure(
         source = ContentSource.OPEN_METEO,
         displayName = "Open-Meteo",
@@ -467,7 +456,7 @@ val providerRuntimeControls = listOf(
         surfaces = "Generated wallpaper flow backed by user/provider key settings.",
         status = ProviderRuntimeControlStatus.COVERED,
         currentControl = "Settings exposes a generated-wallpapers source flag in addition to the provider key.",
-        disabledBehavior = "Disabled mode hides generation entry points and blocks Stability requests before provider-key validation while saved generated outputs can remain visible.",
+        disabledBehavior = "Disabled mode hides generation entry points and blocks provider requests before key validation while saved generated outputs can remain visible.",
         followUp = "Carry the flag into channel-specific distribution defaults when store profiles are added.",
     ),
     ProviderRuntimeControl(

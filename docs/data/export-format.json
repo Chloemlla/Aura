@@ -3,7 +3,7 @@
   "formats": {
     "favorites": {
       "currentVersion": 1,
-      "sourceFile": "app/src/main/java/com/freevibe/service/FavoritesExporter.kt",
+      "sourceFile": "app/src/main/java/com/chloemlla/aura/service/FavoritesExporter.kt",
       "rootClass": "FavoritesExportFile",
       "itemClass": "FavoriteExportItem",
       "mimeType": "application/json",
@@ -63,7 +63,7 @@
     },
     "collections": {
       "currentVersion": 1,
-      "sourceFile": "app/src/main/java/com/freevibe/service/CollectionExporter.kt",
+      "sourceFile": "app/src/main/java/com/chloemlla/aura/service/CollectionExporter.kt",
       "rootClass": "CollectionExportFile",
       "itemClass": "CollectionExportItem",
       "mimeType": "application/json",

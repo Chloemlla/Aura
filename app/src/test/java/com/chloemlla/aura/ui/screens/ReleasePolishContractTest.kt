@@ -261,7 +261,7 @@ class ReleasePolishContractTest {
             "src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperStyleActions.kt",
             "src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundCommunityActions.kt",
             "src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsViewModel.kt",
-            "src/main/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperViewModel.kt",
+            "src/full/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperViewModel.kt",
         ).map { File(it).readText() }
         val source = feedbackFiles.joinToString("\n")
 
@@ -279,8 +279,8 @@ class ReleasePolishContractTest {
 
     @Test
     fun `settings viewmodel schedules and cancels local backup work`() {
-        val source = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsViewModel.kt").readText()
-        val backupSlice = source.substringAfter("fun setAutoBackupEnabled(").substringBefore("// T-6: Source diagnostics")
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsRotationDelegate.kt").readText()
+        val backupSlice = source.substringAfter("fun setAutoBackupEnabled(").substringBefore("fun setSchedulerEnabled")
 
         assertTrue(source.contains("val autoBackupEnabled = prefs.autoBackupEnabled.stateIn"))
         assertTrue(source.contains("val autoBackupFolderUri = prefs.autoBackupFolderUri.stateIn"))
@@ -295,7 +295,7 @@ class ReleasePolishContractTest {
 
     @Test
     fun `settings folder grants are released when replaced or cleared`() {
-        val source = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsViewModel.kt").readText()
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsRotationDelegate.kt").readText()
 
         assertTrue(source.contains("private fun releasePersistedUriPermission(uriString: String, flags: Int)"))
         assertTrue(source.contains("prefs.localWallpaperFolderUri.first().trim()"))
@@ -329,7 +329,7 @@ class ReleasePolishContractTest {
     fun `settings credential and youtube edit dialogs avoid ime occlusion`() {
         val servicesSource = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsServicesSection.kt").readText()
         val soundSource = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsSoundSection.kt").readText()
-        val apiDialog = servicesSource.substringAfter("private fun ProviderApiKeyDialog(")
+        val apiDialog = servicesSource.substringAfter("internal fun ProviderApiKeyDialog(")
         val ytQueriesDialog = soundSource.substringAfter("private fun YouTubeSoundQueriesDialog(").substringBefore("private fun YouTubeBlockedWordsDialog(")
         val blockedWordsDialog = soundSource.substringAfter("private fun YouTubeBlockedWordsDialog(")
 
@@ -371,7 +371,7 @@ class ReleasePolishContractTest {
         val videoRefineSheet = videoSource.substringAfter("private fun VideoFiltersSheet(").substringBefore("private fun videoSourceHealthSummary(")
         val soundSource = File("src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsScreen.kt").readText()
         val soundModeBar = soundSource.substringAfter("private fun SoundModeBar(").substringBefore("// -- Sounds List --")
-        val aiSource = File("src/main/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperScreen.kt").readText()
+        val aiSource = File("src/full/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperScreen.kt").readText()
         val aiStylePicker = aiSource.substringAfter("// ── Style picker").substringBefore("// ── Generate button")
 
         assertTrue(!browseRailSource.contains("FilterChip("))
@@ -390,7 +390,7 @@ class ReleasePolishContractTest {
     @Test
     fun `long disclosure dialogs keep policy copy scrollable on compact screens`() {
         val guidelines = File("src/main/java/com/chloemlla/aura/ui/components/CommunityGuidelinesDialog.kt").readText()
-        val aiDisclosure = File("src/main/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperScreen.kt")
+        val aiDisclosure = File("src/full/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperScreen.kt")
             .readText()
             .substringAfter("fun GeneratedWallpaperDisclosureDialog(")
             .substringBefore("@OptIn(")

@@ -29,7 +29,7 @@ class ProviderNetworkPolicyContractTest(unittest.TestCase):
                 self.assertNotIn(phrase, combined, endpoint["id"])
 
     def test_provider_policy_model_exposes_active_diagnostic_fields(self):
-        source = self.read("app/src/main/java/com/freevibe/data/model/ProviderNetworkPolicy.kt")
+        source = self.read("app/src/main/java/com/chloemlla/aura/data/model/ProviderNetworkPolicy.kt")
 
         for field in (
             "timeoutPolicy",

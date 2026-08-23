@@ -1,11 +1,11 @@
 package com.chloemlla.aura.ui.screens.videowallpapers
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chloemlla.aura.data.local.PixabayVideoCacheStore
 import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.util.rethrowIfCancelled
 import com.chloemlla.aura.data.remote.pexels.PexelsApi
@@ -25,10 +25,13 @@ import com.chloemlla.aura.service.shouldPrebufferVideoPreview
 import com.chloemlla.aura.service.YtDlpUpdateManager
 import com.chloemlla.aura.service.YouTubeYtDlpRequestFactory
 import com.chloemlla.aura.service.advertisedLengthExceeds
+import com.chloemlla.aura.service.applyYtDlpDownloadBounds
+import com.chloemlla.aura.service.moveIntoPlace
 import com.chloemlla.aura.service.copyStreamCapped
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -57,7 +60,6 @@ import javax.inject.Inject
 
 internal const val PIXABAY_VIDEO_CACHE_TTL_MS = 24 * 60 * 60 * 1000L
 internal const val REDDIT_RSS_MOTION_CACHE_TTL_MS = 2 * 60 * 60 * 1000L
-private const val PIXABAY_VIDEO_CACHE_PREFS = "freevibe_pixabay_video_cache"
 private const val PIXABAY_VIDEO_RATE_LIMITED_UNTIL_KEY = "pixabay_video_rate_limited_until_ms"
 private const val YOUTUBE_VIDEO_METADATA_PROBE_LIMIT = 30
 private const val MAX_CACHED_VIDEO_FEED_ITEMS = 120
@@ -442,9 +444,7 @@ class VideoWallpapersViewModel @Inject constructor(
     val state = _state.asStateFlow()
     private val _gallerySelectionResult = MutableStateFlow<VideoWallpaperSelectionResult?>(null)
     val gallerySelectionResult = _gallerySelectionResult.asStateFlow()
-    private val pixabayVideoCachePrefs: SharedPreferences by lazy(LazyThreadSafetyMode.NONE) {
-        context.getSharedPreferences(PIXABAY_VIDEO_CACHE_PREFS, Context.MODE_PRIVATE)
-    }
+    private val pixabayVideoCache = PixabayVideoCacheStore(context)
     @Volatile
     private var pixabayVideoRateLimitedUntilMs: Long = 0L
 
@@ -465,6 +465,9 @@ class VideoWallpapersViewModel @Inject constructor(
         }
     }.let { java.util.Collections.synchronizedMap(it) }
     private val previewResolveInFlight = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val loadLock = Any()
+    private var loadJob: Job? = null
+    private var loadGeneration = 0L
 
     private val junkPatterns = listOf(
         "top \\d+", "\\d+ best", "how to", "tutorial", "review", "setup",
@@ -552,8 +555,6 @@ class VideoWallpapersViewModel @Inject constructor(
     }
 
     fun loadMore() {
-        if (_state.value.isLoading || _state.value.isLoadingMore || !_state.value.hasMore) return
-        _state.update { it.copy(isLoadingMore = true) }
         load(loadMore = true)
     }
 
@@ -575,6 +576,7 @@ class VideoWallpapersViewModel @Inject constructor(
             )
         }
         streamUrls.clear()
+        previewResolveInFlight.clear()
         _resolvedIds.value = emptySet()
         load()
     }
@@ -604,6 +606,7 @@ class VideoWallpapersViewModel @Inject constructor(
             )
         }
         streamUrls.clear()
+        previewResolveInFlight.clear()
         _resolvedIds.value = emptySet()
         load()
     }
@@ -709,12 +712,15 @@ class VideoWallpapersViewModel @Inject constructor(
                             request.addOption("-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best")
                             request.addOption("--merge-output-format", "mp4")
                             request.addOption("--remux-video", "mp4")
-                            request.addOption("--no-playlist")
                             request.addOption("--force-overwrites")
                             request.addOption("-o", hlsOutput.absolutePath)
+                            applyYtDlpDownloadBounds(request)
                             com.yausername.youtubedl_android.YoutubeDL.getInstance().execute(request)
                             if (!hlsOutput.exists()) throw java.io.IOException("HLS download did not produce an MP4")
-                            hlsOutput.copyTo(cacheFile, overwrite = true)
+                            // Move rather than copy: both files live in the same
+                            // directory, so a copy would briefly need twice the
+                            // video's size on a device already near its cap.
+                            moveIntoPlace(hlsOutput, cacheFile)
                             ytDlpUpdateManager.recordExtractionSuccess()
                         } catch (e: Exception) {
                             if (e is kotlinx.coroutines.CancellationException) throw e
@@ -731,6 +737,7 @@ class VideoWallpapersViewModel @Inject constructor(
                             request.addOption("-f", "bestvideo[ext=mp4][height<=1080]/best[ext=mp4]/best")
                             request.addOption("-o", cacheFile.absolutePath)
                             request.addOption("--force-overwrites")
+                            applyYtDlpDownloadBounds(request)
                             com.yausername.youtubedl_android.YoutubeDL.getInstance().execute(request)
                             ytDlpUpdateManager.recordExtractionSuccess()
                         } catch (e: Exception) {
@@ -790,17 +797,29 @@ class VideoWallpapersViewModel @Inject constructor(
         }
     }
 
-    private var loadJob: Job? = null
-
     override fun onCleared() {
-        loadJob?.cancel()
+        synchronized(loadLock) {
+            loadGeneration++
+            loadJob?.cancel()
+            loadJob = null
+        }
         super.onCleared()
     }
 
     private fun load(loadMore: Boolean = false) {
-        if (!loadMore) loadJob?.cancel()
-        loadJob = viewModelScope.launch {
-            val thisJob = kotlin.coroutines.coroutineContext[Job]
+        val job = synchronized(loadLock) {
+            if (loadMore) {
+                val current = _state.value
+                val feedLoadPending = loadJob != null
+                if (current.isLoading || current.isLoadingMore || !current.hasMore || feedLoadPending) {
+                    return
+                }
+                _state.update { it.copy(isLoadingMore = true) }
+            } else {
+                loadJob?.cancel()
+            }
+            val generation = ++loadGeneration
+            viewModelScope.launch(start = CoroutineStart.LAZY) {
             try {
             if (!loadMore) {
                 _state.update {
@@ -1036,7 +1055,7 @@ class VideoWallpapersViewModel @Inject constructor(
             val sourceFailureSet = sourceFailures.toSet()
             val attemptedCount = attemptedSources.size
             val allAttemptedFailed = attemptedCount > 0 && sourceFailures.size == attemptedCount
-            val preserveCurrentFeed = !loadMore && mixed.isEmpty() && s.items.isNotEmpty()
+            val preserveCurrentFeed = !loadMore && mixed.isEmpty() && _state.value.items.isNotEmpty()
 
             currentCoroutineContext().ensureActive()
             _state.update {
@@ -1100,11 +1119,16 @@ class VideoWallpapersViewModel @Inject constructor(
                 // Only the CURRENT load may clear the flags: a cancelled load's finally
                 // runs after its replacement already set isLoading = true, and clearing
                 // here would flash the empty-state card for the whole new load.
-                if (loadJob === thisJob) {
-                    _state.update { it.copy(isLoading = false, isLoadingMore = false, isRefreshing = false) }
+                synchronized(loadLock) {
+                    if (loadGeneration == generation) {
+                        loadJob = null
+                        _state.update { it.copy(isLoading = false, isLoadingMore = false, isRefreshing = false) }
+                    }
                 }
             }
+            }.also { loadJob = it }
         }
+        job.start()
     }
 
     private suspend fun loadPixabayVideoMetadata(
@@ -1255,7 +1279,7 @@ class VideoWallpapersViewModel @Inject constructor(
         freshnessTtlMs: Long,
     ): CachedPixabayVideoMetadata? =
         decodePixabayVideoCache(
-            raw = pixabayVideoCachePrefs.getString(cacheKey, null),
+            raw = pixabayVideoCache.readString(cacheKey),
             nowMs = System.currentTimeMillis(),
             requireFresh = freshOnly,
             freshnessTtlMs = freshnessTtlMs,
@@ -1267,19 +1291,17 @@ class VideoWallpapersViewModel @Inject constructor(
         nextAfter: String? = null,
         pageExhausted: Boolean? = null,
     ) {
-        pixabayVideoCachePrefs.edit()
-            .putString(
-                cacheKey,
-                encodePixabayVideoCache(
-                    CachedPixabayVideoMetadata(
-                        result = result,
-                        cachedAtMs = System.currentTimeMillis(),
-                        nextAfter = nextAfter,
-                        pageExhausted = pageExhausted,
-                    ),
+        pixabayVideoCache.writeString(
+            cacheKey,
+            encodePixabayVideoCache(
+                CachedPixabayVideoMetadata(
+                    result = result,
+                    cachedAtMs = System.currentTimeMillis(),
+                    nextAfter = nextAfter,
+                    pageExhausted = pageExhausted,
                 ),
-            )
-            .apply()
+            ),
+        )
     }
 
     private fun rememberPixabayVideoMetadata(result: PixabayVideoMetadataResult) {
@@ -1303,7 +1325,7 @@ class VideoWallpapersViewModel @Inject constructor(
     }
 
     private fun activePixabayVideoRateLimitUntilMs(): Long {
-        val persisted = pixabayVideoCachePrefs.getLong(PIXABAY_VIDEO_RATE_LIMITED_UNTIL_KEY, 0L)
+        val persisted = pixabayVideoCache.readLong(PIXABAY_VIDEO_RATE_LIMITED_UNTIL_KEY)
         pixabayVideoRateLimitedUntilMs = maxOf(pixabayVideoRateLimitedUntilMs, persisted)
         return pixabayVideoRateLimitedUntilMs
     }
@@ -1311,9 +1333,7 @@ class VideoWallpapersViewModel @Inject constructor(
     private fun updatePixabayVideoRateLimit(backoffMs: Long) {
         val untilMs = System.currentTimeMillis() + backoffMs
         pixabayVideoRateLimitedUntilMs = maxOf(pixabayVideoRateLimitedUntilMs, untilMs)
-        pixabayVideoCachePrefs.edit()
-            .putLong(PIXABAY_VIDEO_RATE_LIMITED_UNTIL_KEY, pixabayVideoRateLimitedUntilMs)
-            .apply()
+        pixabayVideoCache.writeLong(PIXABAY_VIDEO_RATE_LIMITED_UNTIL_KEY, pixabayVideoRateLimitedUntilMs)
     }
 
 }

@@ -13,6 +13,7 @@ class ContactPermissionContractTest {
 
         assertFalse(manifest.contains("android.permission.READ_CONTACTS"))
         assertTrue(manifest.contains("android.permission.WRITE_CONTACTS"))
+        assertTrue(manifest.contains("android.permission.ACCESS_NOTIFICATION_POLICY"))
     }
 
     @Test
@@ -22,6 +23,9 @@ class ContactPermissionContractTest {
         assertTrue(screen.contains("Intent.ACTION_PICK"))
         assertTrue(screen.contains("ContactsContract.Contacts.CONTENT_URI"))
         assertTrue(screen.contains("ActivityResultContracts.RequestPermission"))
+        assertTrue(screen.contains("ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS"))
+        assertTrue(screen.contains("ACTION_ZEN_MODE_PRIORITY_SETTINGS"))
+        assertTrue(screen.contains("ACTION_EDIT"))
         assertFalse(screen.contains("ActivityResultContracts.RequestMultiplePermissions"))
         assertFalse(screen.contains("Manifest.permission.READ_CONTACTS"))
     }

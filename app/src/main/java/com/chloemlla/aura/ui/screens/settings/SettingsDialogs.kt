@@ -48,10 +48,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.chloemlla.aura.R
+import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.model.WALLPAPER_SOURCE_LOCAL_FOLDER
 import com.chloemlla.aura.data.repository.CommunityBlockedUser
 import com.chloemlla.aura.service.CommunityIdentitySummary
-import com.chloemlla.aura.service.VIDEO_STATS_PREFS_NAME
 import com.chloemlla.aura.service.effectiveVideoFpsLimit
 import com.chloemlla.aura.service.shouldUseVideoBatterySaver
 import com.chloemlla.aura.service.shouldPauseVideoMotionForPowerSave
@@ -341,11 +341,12 @@ internal fun SourcePickerDialog(
     pixabayProviderEnabled: Boolean,
     localFolderUri: String,
     localFolderPermissionActive: Boolean,
+    localCatalogReady: Boolean = false,
     onDismiss: () -> Unit,
     onChooseLocalFolder: () -> Unit,
     onSelect: (String) -> Unit,
 ) {
-    val localFolderReady = isLocalWallpaperFolderReady(localFolderUri, localFolderPermissionActive)
+    val localFolderReady = isLocalWallpaperFolderReady(localFolderUri, localFolderPermissionActive) || localCatalogReady
     val sources = listOf(
         "discover" to stringResource(R.string.settings_dialogs_source_discover),
         "favorites" to stringResource(R.string.settings_dialogs_source_favorites),
@@ -451,38 +452,33 @@ private fun readVideoBatteryDashboardState(
     autoBatterySaverEnabled: Boolean,
 ): VideoBatteryDashboardState {
     val battery = readSettingsBatterySnapshot(context)
-    val stats = context.getSharedPreferences(VIDEO_STATS_PREFS_NAME, Context.MODE_PRIVATE)
+    val stats = PreferencesManager.readVideoBatteryStats(context)
     val now = System.currentTimeMillis()
-    val lastSeenMs = stats.getLong("last_seen_ms", 0L)
-    val serviceFresh = lastSeenMs > 0L && now - lastSeenMs <= 45_000L
-    val statsBatteryPercent = if (serviceFresh && stats.contains("battery_percent")) {
-        stats.getInt("battery_percent", -1).takeIf { it >= 0 }
-    } else {
-        null
-    }
+    val serviceFresh = stats.lastSeenMs > 0L && now - stats.lastSeenMs <= 45_000L
+    val statsBatteryPercent = stats.batteryPercent.takeIf { serviceFresh }
     val batteryPercent = battery.percent ?: statsBatteryPercent
-    val isCharging = battery.isCharging || (serviceFresh && stats.getBoolean("charging", false))
-    val statsRequestedFps = if (serviceFresh) stats.getInt("requested_fps", requestedFps) else requestedFps
+    val isCharging = battery.isCharging || (serviceFresh && stats.charging)
+    val statsRequestedFps = if (serviceFresh) stats.requestedFps else requestedFps
     val localLowBatterySaver = shouldUseVideoBatterySaver(
         batteryPercent = batteryPercent,
         isCharging = isCharging,
         autoSaverEnabled = autoBatterySaverEnabled,
     )
     val lowBatterySaverActive = localLowBatterySaver ||
-        (serviceFresh && stats.getBoolean("low_battery_saver_active", false))
+        (serviceFresh && stats.lowBatterySaverActive)
     val localSystemPowerSaveMode = try {
         context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
     } catch (_: Exception) {
         false
     }
     val systemPowerSaveMode = localSystemPowerSaveMode ||
-        (serviceFresh && stats.getBoolean("system_power_save_mode", false))
+        (serviceFresh && stats.systemPowerSaveMode)
     val motionPausedForPowerSave = shouldPauseVideoMotionForPowerSave(
         systemPowerSaveMode = systemPowerSaveMode,
         autoSaverEnabled = autoBatterySaverEnabled,
-    ) || (serviceFresh && stats.getBoolean("motion_paused_for_power_save", false))
+    ) || (serviceFresh && stats.motionPausedForPowerSave)
     val effectiveFps = if (serviceFresh) {
-        stats.getInt("effective_fps", effectiveVideoFpsLimit(statsRequestedFps, lowBatterySaverActive))
+        stats.effectiveFps
     } else {
         effectiveVideoFpsLimit(statsRequestedFps, lowBatterySaverActive)
     }
@@ -490,15 +486,15 @@ private fun readVideoBatteryDashboardState(
         batteryPercent = batteryPercent,
         isCharging = isCharging,
         serviceFresh = serviceFresh,
-        serviceVisible = serviceFresh && stats.getBoolean("visible", false),
-        mediaType = if (serviceFresh) stats.getString("media_type", "none") ?: "none" else "none",
+        serviceVisible = serviceFresh && stats.visible,
+        mediaType = if (serviceFresh) stats.mediaType else "none",
         requestedFps = statsRequestedFps,
         effectiveFps = effectiveFps,
         fpsOverlayEnabled = fpsOverlayEnabled,
         lowBatterySaverActive = lowBatterySaverActive,
         systemPowerSaveMode = systemPowerSaveMode,
         motionPausedForPowerSave = motionPausedForPowerSave,
-        scaleMode = if (serviceFresh) stats.getString("scale_mode", "zoom") ?: "zoom" else "zoom",
+        scaleMode = if (serviceFresh) stats.scaleMode else "zoom",
     )
 }
 
@@ -683,6 +679,9 @@ internal fun SettingsOverviewCard(
     cacheUsage: CacheUsageState,
     configuredApiKeys: Int,
 ) {
+    val storageLabel = cacheUsage.fileUsageLabel.ifBlank {
+        stringResource(R.string.settings_storage_calculating)
+    }
     val strStyleCount = stringResource(R.string.settings_dialogs_overview_style_count, selectedStyleCount)
     val strRotationEvery = stringResource(R.string.settings_dialogs_overview_rotation_every, formatInterval(schedulerInterval))
     val strWeatherOverlays = stringResource(R.string.settings_dialogs_overview_weather_overlays)
@@ -773,7 +772,7 @@ internal fun SettingsOverviewCard(
             SettingsMetric(
                 modifier = Modifier.weight(1f),
                 label = stringResource(R.string.settings_dialogs_overview_storage),
-                value = cacheUsage.fileUsageLabel,
+                value = storageLabel,
                 icon = Icons.Default.Folder,
                 tint = MaterialTheme.colorScheme.secondary,
             )
@@ -828,10 +827,11 @@ internal fun wallpaperRotationSourceLabel(
     source: String,
     localFolderUri: String,
     localFolderPermissionActive: Boolean,
+    localCatalogReady: Boolean = false,
 ): String = when (source) {
     WALLPAPER_SOURCE_LOCAL_FOLDER -> when {
+        localFolderPermissionActive || localCatalogReady -> stringResource(R.string.settings_dialogs_source_local_folder)
         localFolderUri.isBlank() -> stringResource(R.string.settings_dialogs_source_local_folder_choose)
-        localFolderPermissionActive -> stringResource(R.string.settings_dialogs_source_local_folder)
         else -> stringResource(R.string.settings_dialogs_source_local_folder_permission)
     }
     else -> sourceDisplayName(source)
@@ -948,17 +948,25 @@ internal fun touchEffectSummary(raw: String): String = when (raw.uppercase(java.
 }
 
 @Composable
-internal fun cacheUsageSubtitle(cacheUsage: CacheUsageState): String =
-    if (cacheUsage.hasWallpaperMetadataCache) {
-        stringResource(R.string.settings_storage_cache_usage_with_feed, cacheUsage.fileUsageLabel)
-    } else {
-        stringResource(R.string.settings_storage_cache_usage, cacheUsage.fileUsageLabel)
+internal fun cacheUsageSubtitle(cacheUsage: CacheUsageState): String {
+    val storageLabel = cacheUsage.fileUsageLabel.ifBlank {
+        stringResource(R.string.settings_storage_calculating)
     }
+    return if (cacheUsage.hasWallpaperMetadataCache) {
+        stringResource(R.string.settings_storage_cache_usage_with_feed, storageLabel)
+    } else {
+        stringResource(R.string.settings_storage_cache_usage, storageLabel)
+    }
+}
 
 @Composable
-internal fun clearCacheConfirmation(cacheUsage: CacheUsageState): String =
-    if (cacheUsage.hasWallpaperMetadataCache) {
-        stringResource(R.string.settings_storage_clear_cache_confirmation_with_feed, cacheUsage.fileUsageLabel)
-    } else {
-        stringResource(R.string.settings_storage_clear_cache_confirmation, cacheUsage.fileUsageLabel)
+internal fun clearCacheConfirmation(cacheUsage: CacheUsageState): String {
+    val storageLabel = cacheUsage.fileUsageLabel.ifBlank {
+        stringResource(R.string.settings_storage_calculating)
     }
+    return if (cacheUsage.hasWallpaperMetadataCache) {
+        stringResource(R.string.settings_storage_clear_cache_confirmation_with_feed, storageLabel)
+    } else {
+        stringResource(R.string.settings_storage_clear_cache_confirmation, storageLabel)
+    }
+}

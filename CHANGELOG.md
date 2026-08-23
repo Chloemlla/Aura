@@ -2,24 +2,274 @@
 
 All notable changes to Aura will be documented in this file.
 
-## Unreleased
+## v6.45.0
 
-- **Reliability: route weather-wallpaper settings through the data layer** — daily wallpaper,
+- **Sound Editor transforms now use Android's media stack**: Media3 owns clipping,
+  fades, pitch-preserving speed from 0.5x to 2x, M4A, WAV, and available OGG or
+  Opus exports. FFmpeg is limited to final MP3, FLAC, unavailable OGG or Opus
+  encoding, unsupported lossless cuts, video crop, and the yt-dlp runtime. M4A is
+  now the default export format, and fixture tests compare the platform WAV path
+  byte for byte. An API 35 device corpus also verifies exact PCM fades,
+  pitch-preserving 2x speed, and AAC output. The native payload remains, so legacy
+  JNI packaging still cannot be disabled. Signed split APKs grew by about 0.15 MB.
+
+- **FOSS builds now omit the external wallpaper generator**: Stability network
+  code, encrypted credential binding, generator screens, settings controls,
+  provider copy, BuildConfig key, and baseline-profile entries stay out of the
+  FOSS source set. The F-Droid preflight locks that boundary and confirms that
+  the FOSS route is a no-op.
+
+- **Runtime yt-dlp updates now require explicit consent**: the update manager
+  accepts only a typed confirmation from the Settings warning. Its copy explains
+  that a replacement binary bypasses F-Droid or other repository review checks.
+
+- **Screenshot and accessibility gates now exercise production route renderers**: the old
+  debug-only route drawings have been removed. Wallpaper, sound, settings, video, and
+  editor states now run through the same composables used by the app, with localized
+  pseudo-locale, RTL, theme, compact, expanded, and large-font coverage.
+
+- **Settings state and side effects now live in feature delegates**: the ViewModel remains
+  the existing screen facade, while rotation, media providers, community identity, and
+  diagnostics each own their flows and jobs under the ViewModel lifecycle.
+
+- **Settings search now finds controls, not only sections**: localized row titles and
+  descriptions are indexed alongside intentional aliases such as OLED, Wi-Fi, backup,
+  App Check, YouTube, and battery saver. Selecting a result scrolls to and highlights the
+  exact setting, with production tests covering the supported routes and no-result state.
+
+- **Runtime feedback now follows the localization path**: editor presets and filters,
+  editor processing messages, Favorites actions, Settings feedback, and storage sizes use
+  resources. The hardcoded-string gate now checks these ViewModel states and editor controls,
+  while its baseline keeps unrelated legacy findings visible for later extraction.
+
+- **Shared image and audio entry now opens the existing editors**: granted user-owned
+  `ACTION_SEND` and `ACTION_EDIT` files are copied to the bounded app outbox, sniffed, and
+  routed to wallpaper crop or Sound Editor. Remote links, multi-file shares, revoked grants,
+  malformed payloads, and oversized inputs get a visible recovery message.
+
+- **Local wallpaper rotation now has an indexed catalog**: users can add several SAF folders,
+  rescan them incrementally, search and tag indexed images, see duplicate content, repair
+  revoked grants, and assign each folder to home, lock screen, or both. Rotation keeps the
+  old single-folder preference working while using the catalog without broad storage access.
+
+- **Clock and date overlays are now optional**: new static applications and the weather,
+  parallax, and GIF live-wallpaper paths can show localized time, date, or both in one of four
+  corner positions. The device's time format and time zone are used, and disabling the setting
+  adds no overlay work to the existing live render loops.
+
+- **The Glance widget pin is now documented**: Aura stays on Glance 1.2.0-rc01 because the
+  widget's generated-preview API arrived in the 1.2 line, while stable remains 1.1.1 and the
+  1.2.0 stable release has not shipped. The catalog records the upgrade trigger and prerelease
+  risk next to the pin.
+
+- **Android 16 platform APIs now have guarded integrations**: live wallpaper services publish
+  per-instance descriptions and restore their selected media or weather settings, downloads
+  use the Android 16 progress-centric notification with a compatibility fallback, and the
+  AGSL bitmap pipeline uses RuntimeColorFilter and RuntimeXfermode when they are available.
+
+- **Video wallpaper feed loading is now serialized**: warm-cache results stay visible while the
+  network refresh finishes, an immediate pagination request is ignored instead of duplicating
+  provider calls, and the next accepted page appends without dropping cached items.
+
+- **Sound Editor exports now support gapless ringtone loops**: OGG output writes Android's
+  `ANDROID_LOOP=true` marker, the trim preview wraps from the selected end back to its start,
+  and supported unprocessed source files can use a stream-copy cut whose packet bytes are
+  checked before export completes.
+
+- **Per-contact ringtones now understand Do Not Disturb**: assignment explains missing
+  notification-policy access, blocked calls, disabled priority calls, and unstarred
+  contacts. The contact flow opens Android's priority-caller or contact editor screens,
+  keeps an explicit assign-anyway path, and adds a VIP-only preset that silences the
+  default ringtone after assigning the selected contact tone.
+
+- **New Rotation health screen, in Settings under Diagnostics**: when automatic
+  wallpaper change quietly stops, there was nothing to look at. The five reasons it can
+  stop all look the same from the home screen: rotation is off, it's waiting for its
+  turn, Android is holding it back to save battery, the schedule got dropped after a
+  restart, or the last run failed. Each needs a different response. The screen names
+  which one it is, shows when rotation last ran and when it is next due, whether Android
+  is restricting Aura's background use, and whether a restart was ever seen. There's a
+  Run now button, so you can watch a rotation happen instead of guessing. When the device
+  refuses to answer something, it says so rather than showing a plausible-looking value.
+
+- **Media playback, image loading, and networking libraries all moved up**: Media3,
+  Coil, OkHttp, Navigation, Paging, DataStore, Compose, and the YouTube extractor had all
+  been stuck behind one toolchain blocker. Compiling against Android 16's SDK cleared it.
+  Nothing changes on screen; this is the groundwork the video playlist and gapless seam
+  work needs.
+
+- **Fixed a crash on Android 8.0 when a live wallpaper published its colours**: the call
+  that tells the system a wallpaper's colours changed only exists from Android 8.1, and
+  Aura made it on all seven of its publish paths. On Android 8.0 that is an immediate
+  crash of the wallpaper service. Every engine now goes through one guarded helper, so
+  adding a publish point cannot bring the crash back, and a release gate fails the build
+  if one calls the platform directly again.
+
+- **Android Lint runs again, and now has nothing muted**: it had been unable to complete
+  a single run: three Compose detectors threw against the old build plugin's lint API and
+  took the whole analysis down with them, so none of the other checks reported either.
+  It had been broken long enough that a detector was switched off to work around it. The
+  build plugin is now on a version whose lint matches, the run completes, the workaround
+  is gone, and the thirteen real errors hiding behind the failure are fixed.
+
+- **The app compiles against Android 16's SDK while still targeting Android 15**:
+  compiling against a newer platform only widens what Aura can call behind version
+  checks. None of Android 16's behaviour changes apply, because those follow the target,
+  which has not moved. This is what let the media, image-loading, and networking
+  libraries move off a blocker they had been stuck behind.
+
+## v6.44.0
+
+- **Aura notices when its live wallpaper is no longer the one running**: a wallpaper
+  service dropped after a reboot, replaced by another app, or killed by an OEM battery
+  manager looked exactly like a working one: the phone showed a stock wallpaper while
+  Aura's settings still read "on". Aura now asks the system which live wallpaper is
+  actually running, after a reboot or app update and whenever you open Diagnostics, and
+  offers to set yours back in one tap. It stays quiet unless it is certain: if the device
+  will not answer, or you never applied an Aura live wallpaper in the first place, nothing
+  is shown.
+
+- **Installing an older Aura no longer crashes it on every launch, and no longer wipes
+  your library in silence**: Room refuses to open a database written by a newer build,
+  and nothing caught that, so an ordinary rollback left the app dead on startup with no
+  way out but clearing app data. Aura now recognises the situation before it opens the
+  database, copies the existing library aside, and tells you what happened with a pointer
+  to backup and restore. If you reinstall the newer version, the copy is picked up again
+  and nothing is lost. Where the copy could not be written, usually for lack of space, it
+  says that instead of implying your data is still there.
+
+## v6.43.0
+
+- **Grid cells stop redrawing when nothing about them changed**: the models behind the
+  wallpaper, video, download, history, and collection lists are now all declared immutable
+  to the Compose compiler, so a cell can skip recomposition when its contents have not
+  moved. Several of them were not, which meant every cell redrew whenever anything above
+  it did. The compiler also emits stability reports again, and a check fails the build if
+  a list model quietly loses its annotation, so this cannot drift back. The first report
+  reads eleven stable classes and none unstable.
+
+- **A download that is a third the size, because it carries code for your phone only**:
+  The single universal APK was 199 MB, and roughly three quarters of that was native
+  code for architectures your device will never run. Releases now ship one APK per
+  architecture alongside the universal one. On `arm64-v8a`, which is nearly every phone
+  made since 2017, that is 60 MB. Obtainium picks the right one automatically; if you
+  install by hand and are not sure, the universal APK still works everywhere. Nobody
+  loses support: 32-bit `armeabi-v7a` is still built, because Android 8 and 9 devices
+  that need it are still in the supported range.
+
+  This does not reach the 30 MB per-APK limit IzzyOnDroid sets, and splitting was never
+  going to. What is left is the FFmpeg and Python payload the sound editor depends on,
+  and that is tracked separately.
+
+- **Release gates check what is published, not just what is on disk**: a document can
+  satisfy every content check while returning 404 to users, which is how the in-app
+  privacy policy button opened a dead link for months with every gate reporting ok. The
+  gates can now ask whether a link actually resolves and whether a policy that claims
+  something enforces it names a mechanism that exists. Both answers are three-valued: an
+  unreachable host is "not checked", never "broken", so an offline build is never failed
+  over someone else's outage. The native-alignment policy claimed enforcement by a
+  release workflow that was deleted a year ago; it now names the local gates that really
+  do enforce it, and deleting one of them fails the build.
+
+- **The wallpaper editor stops throwing away full-size bitmaps, and stops losing your
+  depth portrait without a word**: every filter render allocated a new bitmap and
+  dropped the one it replaced, so dragging a slider handed the collector up to 64 MiB
+  per frame. Displaced bitmaps are now freed a generation later, which is late enough
+  that nothing can still be painting them and early enough that the editor never holds
+  more than one. Composing a depth portrait and then touching any filter used to discard
+  the composition in silence; the editor now says so. Apply, export, and parallax also
+  read the editor's current state instead of a snapshot taken before their work started,
+  so they no longer write out the previous frame.
+
+- **Name the Android 17 memory-limiter shutdown instead of letting it look like nothing**:
+  Android 17 caps how much memory any app may hold, whatever SDK it targets, and when
+  it kills a process there is no exception and no stack trace. The diagnostics bundle
+  reported such a death as an ordinary exit and the crash log stayed empty, so the one
+  failure mode Aura is most exposed to was the one users could not report. Recent exits
+  are now labelled when Android attributed them to the limiter, the count appears in
+  Settings beside the crash-log state, and the bundle records the wallpaper editor's
+  worst-case peak allocation against the ceiling it is held to. Raising the editor's
+  size cap past that ceiling now fails a test.
+
+- **Live wallpapers now theme the rest of your phone**: none of the three wallpaper
+  engines answered the system's request for wallpaper colors, so while an Aura live
+  wallpaper was on screen the launcher, quick settings, and every app that follows
+  Material You themed from nothing. All three now publish a palette: the weather and
+  parallax engines derive it from the image they decoded, the video engine from one
+  representative frame, and a shader preset publishes the palette it was authored with.
+  Colors are recomputed only when the wallpaper source actually changes, never per
+  frame, and the quantizing happens on the decode thread rather than the render path.
+  A new Settings toggle turns publication off for anyone who does not want their
+  launcher recolored.
+
+- **Security: bound yt-dlp downloads before any bytes are written**: the video-wallpaper
+  import passed no size cap, and the 256 MB ceiling was only checked once the file had
+  already been written in full, so a long video wrote gigabytes to the device and was then
+  rejected. Both download branches now pass `--max-filesize` and `--no-playlist` up front.
+  The Reddit HLS path also moves its finished file into place instead of copying it, so a
+  download no longer needs twice the video's size on disk at once. A gate counts yt-dlp
+  executions against bounded downloads, so a new branch that forgets the cap fails the
+  build rather than shipping, a forbidden-option scan cannot see an option nobody passed.
+
+## v6.42.0
+
+- **Release: publish the versions that were finished but never shipped**: v6.39.0,
+  v6.40.0, and v6.41.0 were tagged and left unreleased, so the download page still served
+  v6.38.1 and Obtainium silently held everyone there. A gate now fails when the declared
+  `versionName` has no matching git tag *and* no published GitHub Release, closing the half
+  that a tag-only check missed. The release check is skipped rather than guessed at when
+  GitHub cannot be reached, so an offline checkout still builds.
+
+- **Build: enable the Gradle build cache, parallel execution, and the configuration
+  cache**: a clean `:app:testFullDebugUnitTest` drops from 7m08s to 5m35s, and 28s when
+  the caches are warm. No task reported a configuration-cache problem. The heap moved to
+  3072m because parallel workers need more headroom than a serial build, with metaspace
+  capped so a runaway processor fails instead of taking the machine down. Isolated
+  Projects stays off while it is incubating.
+- **Reliability: keep SharedPreferences out of the UI layer, and let the gate find its own
+  scope**: onboarding state, the Pixabay video feed cache, and the video-wallpaper
+  selection now persist through the data and service layers instead of composables reaching
+  for `getSharedPreferences`. The write-order gate discovers preference bridges by reading
+  `PreferencesManager` rather than consulting a hand-written list, so a newly added bridge
+  is policed the moment it is written, and it now rejects direct preference access anywhere
+  under `ui/`. A known set of bridges is still required to keep bridging, which discovery
+  alone cannot detect.
+- **Docs: check stated version facts against the build**: README and the working notes
+  are now compared with `app/build.gradle.kts`, the exported Room schema, and the real
+  bottom-navigation destinations, so a stale Room version, version badge, versionCode, or
+  tab list fails the release-metadata gate instead of shipping. The first run caught a tab
+  list naming a "Favorites" tab the app has not built since it became Library, and the
+  release dry-run walkthrough was still worked through v6.34.6.
+- **Docs: publish the contributor guides that returned 404**: `CONTRIBUTING.md` and
+  `ARCHITECTURE.md` were caught by the blanket `*.md` ignore rule, so GitHub showed no
+  contributing guidelines and the architecture overview was unreachable. Both are tracked
+  now, and the link gate walks every tracked root-level markdown file and resolves every
+  relative target instead of only `docs/`-prefixed ones.
+- **Docs: correct the contributing guide**: it described a roadmap with item IDs, an
+  Appendix, and Now/Next/Later tiers that no longer exist, told contributors to run
+  ambiguous unqualified Gradle tasks, said screenshot tests were still queued when
+  Roborazzi has been running for months, and linked a `docs/plugins/` directory that was
+  never created.
+- **Build: restore dependency verification on a cold cache**: four Maven metadata
+  artifacts had no recorded checksum, so `checkFullDebugAarMetadata` failed before
+  compiling anything on a fresh clone. Each added digest was verified against the
+  checksum published by repo1.maven.org rather than trusted from the local cache.
+- **Reliability: route weather-wallpaper settings through the data layer**: daily wallpaper,
   VFX, and touch-effect writes now go through `PreferencesManager`; the preference gate scans
   every settings source file for direct runtime `SharedPreferences` writes.
-- **Reliability: stream ordinary wallpaper applies** — URL, file, and content sources now go
+- **Reliability: stream ordinary wallpaper applies**: URL, file, and content sources now go
   through `WallpaperManager.setStream` with the existing 64 MiB cap; bitmap decoding remains
   for edited and pixel-transformed output, and oversized chunked responses fail visibly.
-- **UX: shuffle no longer immediately repeats** — rotation excludes a recent history window
+- **UX: shuffle no longer immediately repeats**: rotation excludes a recent history window
   scaled to the fetched candidate pool, while one-item sources still make progress and
   sequential rotation remains unchanged.
-- **Security: make inbound wallpaper and cleartext policy explicit** — the network security
+- **Security: make inbound wallpaper and cleartext policy explicit**: the network security
   config now denies cleartext in a declared base policy, and `ACTION_ATTACH_DATA` accepts only
   provider-backed image URIs carrying an explicit read grant.
 
 ## v6.41.0 (2026-08-10)
 
-- **Fix: the JVM unit test suite could not compile** — `groupingBy` emits an anonymous
+- **Fix: the JVM unit test suite could not compile**: `groupingBy` emits an anonymous
   `Grouping` class carrying no Kotlin metadata, and Kotlin 2.1.0's incremental compiler asserts
   when it reads that class back (`Couldn't load KotlinClass`). In `app/src/test` this was fatal:
   `compileFullDebugUnitTestKotlin` aborted, so no unit test in the project could run. The two
@@ -27,45 +277,45 @@ All notable changes to Aura will be documented in this file.
   non-incremental recompile on every build while still reporting `BUILD SUCCESSFUL`. All three
   now use `groupBy`, and `tools/kotlin_toolchain_hazard_check.py` fails the build if the
   construct returns.
-- **Fix: source files no longer carry bytes that hide them from tooling** — a raw NUL byte in
+- **Fix: source files no longer carry bytes that hide them from tooling**: a raw NUL byte in
   `AuraOriginalsDownloader.kt` made ripgrep report `binary file matches` and refuse to display
   the file; the line it concealed was the path-traversal guard. Repaired that byte, three U+FFFD
   replacement characters in `VoteRepository.kt`, and the line endings of 54 files. A new
-  `.gitattributes` pins tracked text to LF — 14 files had mixed endings, including two that
-  release gates hash — and `tools/source_byte_hygiene_check.py` now rejects NUL bytes, U+FFFD,
+  `.gitattributes` pins tracked text to LF, 14 files had mixed endings, including two that
+  release gates hash, and `tools/source_byte_hygiene_check.py` now rejects NUL bytes, U+FFFD,
   invalid UTF-8, and stray carriage returns across all 784 tracked text files.
-- **Security: patched two live advisories in the community backend** — `functions` resolved
+- **Security: patched two live advisories in the community backend**: `functions` resolved
   `protobufjs` 7.6.4 (GHSA-j3f2-48v5-ccww, denial of service via infinite loop in `.proto` option
   parsing) and `body-parser` 1.20.5 (GHSA-v422-hmwv-36x6, request size enforcement silently
   disabled by an invalid `limit`). `protobufjs` was held at the vulnerable version by an override
   originally added *as* a security pin.
-- **Fix: every documentation link in README and the app now resolves** — `.gitignore` excluded
+- **Fix: every documentation link in README and the app now resolves**: `.gitignore` excluded
   all markdown except README, so none of `docs/` was ever published. All 11 documentation links
   in README returned 404, as did the privacy policy that Settings > About opens. The 50
   documents README, the app, and the release gates reference are now tracked; the 162-file
   factory-loop research archive stays local, and agent working notes remain untracked.
-- **New gate: links are checked against what is published, not what is on disk** —
+- **New gate: links are checked against what is published, not what is on disk**:
   `tools/published_state.py` adds tracked-in-git and tag-exists predicates, and
   `tools/docs_link_check.py` walks every `docs/*.md` link in README and app source and fails
   when one would 404. The privacy policy gate now uses the same predicate, so it can no longer
   report `ok` for a document nobody can open.
-- **Fix: live-wallpaper settings no longer strand on the old value** — five Settings toggles
+- **Fix: live-wallpaper settings no longer strand on the old value**: five Settings toggles
   (reduce animations, adaptive tint, tint intensity, live-wallpaper dimming, shader preset)
   wrote DataStore before the SharedPreferences bridge the wallpaper engines actually read.
   Backing out of Settings cancelled the coroutine between the two writes, leaving the live
   wallpaper on the old value permanently while the toggle read as changed. All five bridges
   moved into `PreferencesManager`, which already codified the correct order for the video
   settings, and `tools/preference_write_order_check.py` now holds all nine bridges to it.
-- **Privacy: community voting no longer touches the network before you opt in** —
+- **Privacy: community voting no longer touches the network before you opt in**:
   `VoteRepository` attached a Firebase Realtime Database moderation listener from its `init`
   block with no consent check, while every other entry point in the class gates on
   `isCommunityAccessEnabled()`. Both consent preferences default to off and the class is a
   singleton constructed as soon as the Videos or Settings tab opens, so a user who never
-  enabled community features still opened an RTDB socket for the lifetime of the process — and
+  enabled community features still opened an RTDB socket for the lifetime of the process, and
   the listener was never removed. The listener now follows the consent preferences: it attaches
   only once community features and the guidelines are both accepted, detaches when either is
   withdrawn, and clears cached moderation hides with the socket.
-- **New gate: npm overrides cannot silently rot** — `tools/npm_override_policy_check.py` and
+- **New gate: npm overrides cannot silently rot**: `tools/npm_override_policy_check.py` and
   `docs/security/npm-override-policy.json` record the advisory floor behind every pin and fail
   when the manifest or the resolved lockfile drops below it, when a shipped override is not
   policed, when a pin uses a range operator instead of an exact version, or when an entry cites
@@ -73,20 +323,20 @@ All notable changes to Aura will be documented in this file.
 
 ## v6.40.0 (2026-07-29)
 
-- **Fix: live wallpapers no longer pile up decode threads** — the weather and parallax engines both
+- **Fix: live wallpapers no longer pile up decode threads**: the weather and parallax engines both
   start a wallpaper decode from `onSurfaceCreated` *and* `onSurfaceChanged`, each on a bare thread
   with no coordination, so every surface churn (rotation, unlock, launcher restart, preview
-  teardown) started another full-screen decode alongside the ones still running — inside a process
+  teardown) started another full-screen decode alongside the ones still running, inside a process
   that is never restarted. Decodes are now serialized per engine with at most one waiting behind
   the one running, since a third request would only produce the state the waiting one is about to.
 
-- **Fix: parallax frees its layers when the surface goes away** — the engine held up to four
+- **Fix: parallax frees its layers when the surface goes away**: the engine held up to four
   full-screen bitmaps and a native ML Kit segmentation client until the engine itself was
   destroyed, even though a destroyed surface cannot draw any of it. They are now released with the
   surface and rebuilt on the next one, and the accelerometer listener is registered and released
   exactly once instead of relying on repeated unregister calls.
 
-- **New: cross-engine live-wallpaper lifecycle soak harness** — video, GIF, weather, and parallax
+- **New: cross-engine live-wallpaper lifecycle soak harness**: video, GIF, weather, and parallax
   are driven through repeated surface create/change/destroy, visibility, battery-saver,
   unlock, and file-replacement cycles, and each engine now reports what it holds (players, posted
   callbacks, sensor listeners, receivers, decoded bitmaps, segmenters, decode threads) straight
@@ -96,13 +346,13 @@ All notable changes to Aura will be documented in this file.
 
 ## v6.39.0 (2026-07-29)
 
-- **Fix: offline favorites render offline** — wallpaper favorites are cached to a managed local
+- **Fix: offline favorites render offline**: wallpaper favorites are cached to a managed local
   file when saved, but the grid still requested the remote thumbnail, so airplane mode or a cold
   image cache showed broken cards over bytes already on disk. The grid now prefers the existing
   local file (no second copy), falling back to the remote URL when it has been evicted; sound
   favorites are unaffected.
 
-- **Fix: every wallpaper apply commits through one coordinator** — browsing recorded history,
+- **Fix: every wallpaper apply commits through one coordinator**: browsing recorded history,
   undo, style learning, the night-variant locator, and feedback, while the editor, crop, and AI
   screens called `WallpaperApplier` directly and skipped all of it, so a wallpaper applied from
   the editor never appeared in history and could not be undone. Each surface now declares a
@@ -111,14 +361,14 @@ All notable changes to Aura will be documented in this file.
   happens exactly once, and cancellation or failure leaves no history row, no stale locator, and
   no false success.
 
-- **Deleting downloads and collections is now undoable** — a downloaded file was destroyed the
+- **Deleting downloads and collections is now undoable**: a downloaded file was destroyed the
   moment you tapped delete, and a whole collection vanished outright, even though removing a
   single item from a collection already offered Undo. Deleting a download now moves its file
   into a bounded staging area (100 entries, 24-hour retention) and keeps its row, so Undo
   restores both; a `content://` MediaStore entry is only released at purge time. Deleting a
   collection returns a snapshot that restores the collection and every membership row.
 
-- **Release truth comes from one manifest** — versionName, versionCode, and the Room schema
+- **Release truth comes from one manifest**: versionName, versionCode, and the Room schema
   version are read from `app/build.gradle.kts` and `Database.kt`, and the README badge, the
   release-metadata policy JSON, and the Fastlane changelog are generated from them by
   `tools/release_manifest.py`. The two release gates that had the version hardcoded now derive
@@ -126,7 +376,7 @@ All notable changes to Aura will be documented in this file.
   mandatory and fails closed if the capability registry ever puts YouTube on the Play channel
   without recorded owner-approved evidence.
 
-- **Fix: video wallpapers recover from silent decoder death** — the engine had no error
+- **Fix: video wallpapers recover from silent decoder death**: the engine had no error
   listener, no progress watchdog, and no rebuild budget, so a decoder that died across an OEM
   sleep/wake cycle left a frozen wallpaper until the video was re-picked. Prepare errors,
   runtime errors, and a player that reports "playing" while its position stays frozen now all
@@ -135,7 +385,7 @@ All notable changes to Aura will be documented in this file.
   on exhaustion hold the last rendered frame instead of entering a restart loop. Every
   transition is recorded as a diagnostic receipt, and a long healthy run restores the budget.
 
-- **Fix: wallpaper editor source-loading races** — Apply stayed enabled while the image was
+- **Fix: wallpaper editor source-loading races**: Apply stayed enabled while the image was
   still downloading, filter sliders moved before the decode finished were recorded but never
   rendered, and an older URL's decoded bitmap could land on top of a newer source because loads
   had no ownership. Loads now cancel and carry an ownership token, so a stale success is dropped
@@ -143,21 +393,21 @@ All notable changes to Aura will be documented in this file.
   replaced; Apply, export, and parallax wait for a decoded source; and pending filter parameters
   replay as soon as the source lands.
 
-- **Fix: Sound detail readability at default font scale** — on a 411x891 phone the four
+- **Fix: Sound detail readability at default font scale**: on a 411x891 phone the four
   secondary actions shared one row and ellipsized "Contact", while the source-policy and
   permission explanations were capped at two lines and cut mid-sentence. The action row now
   reflows to a 2x2 grid from the real available width (not just font scale), and the policy and
-  permission copy wrap in full. Source badge colors gained per-theme tones so every provider —
-  YouTube red was ~4.0:1 on white — now meets the WCAG 2.2 4.5:1 normal-text target on both the
+  permission copy wrap in full. Source badge colors gained per-theme tones so every provider,
+  YouTube red was ~4.0:1 on white, now meets the WCAG 2.2 4.5:1 normal-text target on both the
   light and AMOLED surfaces, verified by a contrast test over every `ContentSource`.
 
-- **Fix: a transient 403 no longer permanently disables a saved item** — any failure mentioning
+- **Fix: a transient 403 no longer permanently disables a saved item**: any failure mentioning
   403 was treated as proof the source was gone, so a refused or throttled request stuck a
   permanent "unavailable" badge on a wallpaper or sound that was fine. Failures are now
   classified: only an explicit removal or a 404/410 is permanent; 401/403/408/429/5xx, timeouts,
   and transport errors are transient and persist nothing. A later successful apply or download
   clears any previously recorded unavailable state.
-- **Provider capability registry** — lifecycle, build flavor, distribution channel,
+- **Provider capability registry**: lifecycle, build flavor, distribution channel,
   configuration, permission, health, attribution, default state, kill switch, and network
   endpoints now live once per content source in `ProviderCapability`. A contract gate fails the
   build when the disclosure list, runtime-control list, or endpoint manifest disagrees with it,
@@ -168,7 +418,7 @@ All notable changes to Aura will be documented in this file.
   its disclosure, runtime control, and network policy now say so. Diagnostics and the licenses
   screen render the registry rather than a second hand-maintained description.
 
-- **Fix: whole-library restore is versioned, atomic, and honest about what it dropped** —
+- **Fix: whole-library restore is versioned, atomic, and honest about what it dropped**:
   import previously ignored the payload version, wrote favourites, collections, search history,
   and preference blobs one after another, and silently discarded every `file://`/`content://`
   locator, so one failure could leave a half-merged library and a device transfer could quietly
@@ -177,10 +427,10 @@ All notable changes to Aura will be documented in this file.
   (their `downloads` section is reported, not dropped); payloads with a missing, corrupt, or
   future version are refused outright; all database writes run in one Room transaction with the
   two preference blobs rolled back on failure, so an error leaves the pre-import state intact;
-  and the result now reports every skipped row grouped by reason — invalid, non-portable,
-  duplicate, over-limit, dropped-by-migration — instead of a bare count.
+  and the result now reports every skipped row grouped by reason, invalid, non-portable,
+  duplicate, over-limit, dropped-by-migration, instead of a bare count.
 
-- **Fix: generated wallpapers are deleted only after the last reference goes** — pruning past
+- **Fix: generated wallpapers are deleted only after the last reference goes**: pruning past
   the 50-file cap, and unfavouriting, deleted the PNG outright, so a generated wallpaper that
   was still in a collection, in history, pinned to a day/night slot, or used by a 24H wallpaper
   pack turned into a broken card or a rotation that silently stopped working. A new
@@ -190,19 +440,19 @@ All notable changes to Aura will be documented in this file.
   count against the cap, orphan cleanup can only ever touch Aura's own managed directory, and
   Settings › Storage now reports in-use, reclaimable, and stale-reference counts.
 
-- **Security: one automation gate for every exported entry point** — `MainActivity` is exported
+- **Security: one automation gate for every exported entry point**: `MainActivity` is exported
   and accepted the `ROTATE_NOW` / `SHUFFLE_NOW` actions directly, enqueueing rotation work
   without the opt-in consent and 30-second throttle that `TaskerActionReceiver` applies. Both
   surfaces now route through a shared `ExternalAutomationDispatcher`, so a disabled, malformed,
   or rate-limited request enqueues nothing from either path, an accepted one enqueues exactly
   once, ordinary launcher shortcuts are untouched, and diagnostics record which entry point the
   request arrived on.
-- **Security: bounded archive extraction** — theme-pack import now runs through a shared
+- **Security: bounded archive extraction**: theme-pack import now runs through a shared
   `ArchiveExtractionGuard` that rejects path traversal, absolute/UNC/drive-letter names, control
   characters, link entries, entry floods (512 max), oversize entries, oversize archives, and
   entries expanding past a 200:1 compression ratio, deleting the staging directory on any
   failure.
-- **Security: commons-compress 1.28.0** — `youtubedl-android` 0.18.1 resolved commons-compress
+- **Security: commons-compress 1.28.0**: `youtubedl-android` 0.18.1 resolved commons-compress
   1.12, which carries published archive-expansion DoS advisories. A dependency constraint now
   pins the reviewed 1.28.0 release (binary-compatible with the `ZipFile` /
   `ZipArchiveInputStream` API `youtubedl-common`'s `ZipUtils` binds to) across full and FOSS
@@ -216,7 +466,7 @@ All notable changes to Aura will be documented in this file.
   Opus in a WebM container, whose EBML signature the media sniffer did not recognize, so valid
   downloads were rejected before they could be applied. WebM is now sniffed as a container and
   resolved to `audio/webm` in audio flows.
-- **Build: release lint** — disabled the `NullSafeMutableLiveData` lint check, whose detector
+- **Build: release lint**: disabled the `NullSafeMutableLiveData` lint check, whose detector
   crashes under the pinned AGP 8.7.3 / Kotlin 2.1.0 toolchain and blocked release builds; the
   app uses StateFlow, so the check had nothing to inspect.
 
@@ -233,7 +483,7 @@ All notable changes to Aura will be documented in this file.
 - **Rotation reliability coverage**: added a WorkManager-integration test harness
   (`AutoWallpaperWorkerSchedulingTest`, via `androidx.work:work-testing`) that verifies the
   auto-wallpaper periodic work re-arms idempotently and that the Wi-Fi-only preference produces
-  an UNMETERED constraint — guarding the changer-stall/metered-fetch failure class.
+  an UNMETERED constraint, guarding the changer-stall/metered-fetch failure class.
 - **Undo when hiding a sound or video**: hiding a community sound or video now shows a snackbar
   with an Undo action (backed by `VoteRepository.undoDownvote`, mirroring the existing
   favorite-removal pattern), so an accidental Hide is recoverable instead of permanent.
@@ -243,7 +493,7 @@ All notable changes to Aura will be documented in this file.
 
 - **Coil 3.2.0 → 3.4.0**: upgraded the image pipeline and enabled
   `memoryCacheMaxSizePercentWhileInBackground` (15%) so the bitmap cache shrinks while the app
-  is backgrounded — lower off-screen RAM for a wallpaper app. (3.5.0 requires compileSdk 36 →
+  is backgrounded, lower off-screen RAM for a wallpaper app. (3.5.0 requires compileSdk 36 →
   blocked on N-1.)
 - **Media3 1.8.0 → 1.9.4**: enabled `experimentalSetDynamicSchedulingEnabled(true)` on the
   video-wallpaper ExoPlayer players (feed, immersive, preview, crop) for a more power-efficient
@@ -415,9 +665,9 @@ provider handoff, whole-library export/import round-trip through SAF, wallpaper
 apply, and reboots with the weather live wallpaper active. A persistent logcat
 crash monitor during the session caught two P1s that only reproduce on-device:
 - **Fixed weather wallpaper crash loop on Android 16**: calling
-  `setTouchEventsEnabled(true)` from `onSurfaceCreated` recurses on SDK 36 —
+  `setTouchEventsEnabled(true)` from `onSurfaceCreated` recurses on SDK 36,
   the framework re-runs `updateSurface()`, which re-dispatches
-  `onSurfaceCreated` — ending in `StackOverflowError` every time the system
+  `onSurfaceCreated`, ending in `StackOverflowError` every time the system
   recreates the wallpaper surface (observed as a repeating wallpaper-process
   crash starting minutes after reboot). The call now happens once in
   `Engine.onCreate`, before any surface exists.
@@ -430,14 +680,14 @@ crash monitor during the session caught two P1s that only reproduce on-device:
   "Applied to …" with Undo). Feedback now goes through the global bus only,
   which survives navigation and carries the Undo action. Same fix on the undo
   path ("Reverted" + "Reverted to previous wallpaper").
-- **Fixed "1 items" grammar** in the whole-library export/import feedback —
+- **Fixed "1 items" grammar** in the whole-library export/import feedback:
   proper plurals resources.
 - Version-consistency gates synced (fastlane changelogs 134/135, release
-  metadata JSON) — these had drifted red with the v6.35.0 bump.
+  metadata JSON), these had drifted red with the v6.35.0 bump.
 
 ## v6.35.0 (2026-07-15)
 
-Deep audit release — ~45 verified fixes across correctness, data safety, UX, i18n, and theming.
+Deep audit release, ~45 verified fixes across correctness, data safety, UX, i18n, and theming.
 
 ### Critical / high
 - **Live wallpapers crash-looped on the lock screen after reboot**: the direct-boot
@@ -473,7 +723,7 @@ Deep audit release — ~45 verified fixes across correctness, data safety, UX, i
 - Sounds tab: switching to Community mid-load no longer lets the stale load
   overwrite the community feed; exiting search cancels the in-flight search.
 - Wallpaper search actions (find similar, random, color) now cancel and replace
-  each other and the browse load — no more feed clobbering across tabs.
+  each other and the browse load, no more feed clobbering across tabs.
 - Video wallpapers: searching after scrolling no longer 400s Pixabay with a stale
   page number; a cancelled load no longer clears the new load's spinner (showing
   a false "No matches" during search); the applying overlay blocks input and
@@ -522,7 +772,7 @@ Deep audit release — ~45 verified fixes across correctness, data safety, UX, i
 - Settings: permission-scope badges no longer break in non-English locales
   (enum-based), the hardcoded green "granted" tint uses a theme token, ~120
   hardcoded English strings across diagnostics/dialogs/subtitles moved to
-  resources (with proper plurals — also fixing "90 min → 1 hours"), shader/VFX/
+  resources (with proper plurals, also fixing "90 min → 1 hours"), shader/VFX/
   interval pickers scroll on short screens, theme-pack rows disable while a
   transfer runs, and progress bars use on-scale 4 dp radii.
 - Sound detail: a failed similar-sounds load shows an honest error with Retry
@@ -651,12 +901,12 @@ Deep audit release — ~45 verified fixes across correctness, data safety, UX, i
 - **Ringtone shuffle from downloads**: new Settings toggle under Sounds
   periodically sets a random downloaded sound as the system ringtone via
   WorkManager. Configurable interval (hourly to every 3 days), avoids
-  repeating the last-applied sound. No new permissions required — uses
+  repeating the last-applied sound. No new permissions required, uses
   already-downloaded sounds in MediaStore.
 - **SoundsViewModel decomposition**: community operations (voting, recording,
   uploading, reporting, blocking, deletion) extracted to focused
   `SoundCommunityActions` class. SoundsViewModel delegates to it via thin
-  one-liner methods. Constructor unchanged — all existing tests pass
+  one-liner methods. Constructor unchanged, all existing tests pass
   without modification.
 - **Compose @Preview fixtures**: added preview composables for AuraStateCard
   (empty/error/light variants), SettingsSection (dark/light), SettingsToggle,
@@ -733,7 +983,7 @@ Deep audit release — ~45 verified fixes across correctness, data safety, UX, i
 
 ## v6.32.1 (2026-06-17)
 - **Reddit provider restored**: `isProviderEnabled()` always returned false
-  (pref value read and discarded) — Reddit wallpaper feeds were completely dead.
+  (pref value read and discarded), Reddit wallpaper feeds were completely dead.
 - **Bitmap leak fixes**: QR decode in CollectionExporter now recycles bitmap
   after pixel extraction; applyDarken recycles result on canvas draw failure;
   ParallaxWallpaperService handles Bitmap.copy null on OOM.
@@ -819,7 +1069,7 @@ Deep audit release — ~45 verified fixes across correctness, data safety, UX, i
   paths callable/admin-owned while preserving public reads and owner delete
   authority for existing upload records.
 - **Deep audit pass**: Fixed callable fallback bypass in both upload repositories
-  (sound + wallpaper) — if the Cloud Function returned an unexpected status or
+  (sound + wallpaper), if the Cloud Function returned an unexpected status or
   threw a non-`CommunityCallableException` error, the already-uploaded Storage
   file was deleted without falling through to the direct-database metadata write.
   Removed wasted API calls in `AutoWallpaperWorker` when rotation source
@@ -976,7 +1226,7 @@ Deep audit release — ~45 verified fixes across correctness, data safety, UX, i
   instance is correctly null: icons inside labeled Buttons (text provides the
   label), icons inside IconButtons with `.semantics { onClick(label = ...) }`
   blocks, decorative status icons adjacent to text, thumbnail images, or
-  leading/trailing chip/menu icons. No changes needed — the codebase already
+  leading/trailing chip/menu icons. No changes needed, the codebase already
   follows proper Compose accessibility patterns via semantics blocks.
 - **Centralized notification channels**: extracted all notification channel
   definitions into `NotificationChannels.kt` singleton. `FreeVibeApp.onCreate()`
@@ -1209,7 +1459,7 @@ Deep audit release — ~45 verified fixes across correctness, data safety, UX, i
 - **Android 17 EyeDropper API (NX-10)**: new "Pick colour" FAB on the wallpaper Discover tab opens the system EyeDropper overlay on Android 17+ devices. The picked colour seeds a Wallhaven `colors=` search. Raw-string Intent integration is compatible with compileSdk 35 today and resolves to a direct API call once the toolchain bumps. FAB auto-hides on builds where the system EyeDropper app isn't installed (un-updated GSI).
 - **Photo Picker 9:16 portrait grid (NX-11)**: wallpaper community upload, collection QR import, and parallax-from-photo gallery picker now request the Android 17 `PhotoPickerUiCustomizationParams` 9:16 portrait aspect ratio via a drop-in `AuraPickVisualMedia` subclass. Reflection ships the runtime behaviour at compileSdk 35; becomes a straight-line API call once the toolchain bumps. Android 16 and below pass through transparently to the existing 1:1 grid.
 - **Smart Crop video variant (NX-3)**: TopAppBar "Smart" action on the video crop screen extracts the loop-start frame, runs the same subject segmentation wallpaper crop uses, and pans the video so the subject lands at the viewport centre. Keeps the user's chosen zoom (different from the wallpaper variant, which auto-zooms). Toasts a "drag to position" fallback when segmentation can't find a subject.
-- **Smart Crop (NX-3)**: new "Smart Crop" chip on the wallpaper crop screen runs ML Kit Subject Segmentation against the loaded bitmap, then centres the detected subject in the 9:16 viewport at ~75 % coverage with a fill-viewport floor. Falls back to "Couldn't detect a subject — drag to position manually" when segmentation returns no foreground subject. Seven unit tests cover the pure-geometry helper.
+- **Smart Crop (NX-3)**: new "Smart Crop" chip on the wallpaper crop screen runs ML Kit Subject Segmentation against the loaded bitmap, then centres the detected subject in the 9:16 viewport at ~75 % coverage with a fill-viewport floor. Falls back to "Couldn't detect a subject, drag to position manually" when segmentation returns no foreground subject. Seven unit tests cover the pure-geometry helper.
 - **Editor unsaved-changes guard (NX-13)**: backing out of the wallpaper editor with non-default filters or the sound editor with active trim / fade settings now prompts a "Discard edits?" confirmation instead of silently throwing away the work. Discard resets state and exits; Keep editing dismisses.
 - **Contributor docs (U-12)**: new `CONTRIBUTING.md` covers the charter (no ads, no tracking, AMOLED-first, free by default), build steps, code style, commit conventions, and test guidance. New `ARCHITECTURE.md` describes the layered model, package map, key abstractions, process-death + live-wallpaper engine discipline, and design system rules.
 - **Rotation triggers (NX-6)**: opt-in per-unlock and screen-off pre-stage rotation via a new `RotationTriggerService` foreground service. Two Settings toggles ("Change on every unlock" + "Pre-stage on screen off") gate the service lifecycle; users see a low-priority notification only when at least one trigger is on. Each fire enqueues a one-shot expedited `AutoWallpaperWorker` that respects the existing rotation source / target / constraint prefs.
@@ -1221,7 +1471,7 @@ Deep audit release — ~45 verified fixes across correctness, data safety, UX, i
 - **Fastlane refresh (NX-8 partial)**: fastlane metadata bumped from stale FreeVibe naming to Aura with current feature set; `changelogs/111.txt` lands v6.31.0 release notes; new `obtainium.json` at repo root lets Obtainium users track Aura via the GitHub Releases feed.
 
 ## v6.31.1
-- **Fix: Sounds/search crash on Android < 13 (issue #2)**: enabled core library desugaring (`desugar_jdk_libs:2.1.5`). NewPipeExtractor's `Utils.encodeUrlUtf8` calls `URLEncoder.encode(String, Charset)` — an API 33 method — on every YouTube search, which threw `NoSuchMethodError` and crashed the app the moment the Sounds tab loaded on Android 8–12. Desugaring backports the method down to the minSdk 26 floor.
+- **Fix: Sounds/search crash on Android < 13 (issue #2)**: enabled core library desugaring (`desugar_jdk_libs:2.1.5`). NewPipeExtractor's `Utils.encodeUrlUtf8` calls `URLEncoder.encode(String, Charset)`, an API 33 method, on every YouTube search, which threw `NoSuchMethodError` and crashed the app the moment the Sounds tab loaded on Android 8 to 12. Desugaring backports the method down to the minSdk 26 floor.
 
 ## v6.31.0
 - **Shareable collections**: wallpaper collections now publish Firebase-backed Aura links, include those links in the system share sheet, and can display scannable QR codes.
@@ -1302,73 +1552,73 @@ Deep audit release — ~45 verified fixes across correctness, data safety, UX, i
 - **Verification**: `assembleDebug`, `testDebugUnitTest`, and `lintDebug` are green. USB install was not performed because the connected phone already has `com.freevibe` installed with a different signing key; uninstalling it would remove or disturb the user's installed app.
 
 ## v6.15.0
-- **Deep audit pass** — eleven real bugs found in the v6.13–v6.14 deltas (AI wallpaper, Phase 6.2 dark/light auto-switch, Phase 6.4 adaptive tint, Phase 2.5 seasonal/Pexels). All fixes ship with unit-test regression nets.
-- **Data integrity (P0)**: `WeatherUpdateWorker` was storing latitude/longitude with `putLong(value.toLong())` — silently truncating fractional degrees. A user at 39.7392° was stored as `39`, a user near the equator at 0.5° was stored as `0`. The reader then used the `tintLat != 0.0 && tintLon != 0.0` sentinel to gate adaptive tinting, so anyone within 1° of Null Island had tinting disabled entirely. Switched to `putFloat` (~7 sig figs, sub-meter precision) plus a `location_present` boolean sentinel. Reader falls back to the legacy Long keys for a single update cycle so existing installs don't lose tinting between upgrade and the next 30-min worker tick.
+- **Deep audit pass**: eleven real bugs found in the v6.13 to v6.14 deltas (AI wallpaper, Phase 6.2 dark/light auto-switch, Phase 6.4 adaptive tint, Phase 2.5 seasonal/Pexels). All fixes ship with unit-test regression nets.
+- **Data integrity (P0)**: `WeatherUpdateWorker` was storing latitude/longitude with `putLong(value.toLong())`, silently truncating fractional degrees. A user at 39.7392° was stored as `39`, a user near the equator at 0.5° was stored as `0`. The reader then used the `tintLat != 0.0 && tintLon != 0.0` sentinel to gate adaptive tinting, so anyone within 1° of Null Island had tinting disabled entirely. Switched to `putFloat` (~7 sig figs, sub-meter precision) plus a `location_present` boolean sentinel. Reader falls back to the legacy Long keys for a single update cycle so existing installs don't lose tinting between upgrade and the next 30-min worker tick.
 - **Correctness (P1)**: `SolarCalculator.sunTimes` default UTC-offset arg used `TimeZone.getDefault().rawOffset` which ignores DST. Every region observing daylight saving had sunrise/sunset shifted by an hour for ~half the year, which the adaptive-tint phase math depends on. Switched to `getOffset(System.currentTimeMillis())`.
-- **Battery + correctness (P1)**: `SystemThemeListener` (Phase 6.2 new code) ran a 500 ms `while (true)` polling loop that (a) never stopped when the user disabled auto-switch, (b) trapped the outer flow-collector so further preference emissions couldn't propagate, and (c) woke the CPU twice a second forever. Replaced with `ComponentCallbacks.onConfigurationChanged` — an actual event, delivered even while the app is fully backgrounded.
-- **Reliability (P1)**: `SystemThemeListener.applyStoredWallpaper` called `WallpaperApplier.applyFromUrl`, which only speaks HTTP — `OkHttp.Request.Builder().url(...)` throws `IllegalArgumentException` for `file://` or `content://` schemes. Users whose last applied wallpaper was AI-generated (`file:/data/.../foo.png`) silently lost auto-switch. New `WallpaperApplier.applyByLocator` dispatches on scheme: http(s) → existing OkHttp path, file/content/absolute-path → bounded two-pass `BitmapFactory` decode with the same 64 MB ceiling and `inSampleSize` sampling.
-- **Storage leak (P1)**: `AiWallpaperRepository.pruneOldFiles` was defined but never called — the 50-image cap was a promise, not an enforcement. Now invoked after every successful generation. Also sweeps stale `.tmp` files left by interrupted writes.
-- **Thread safety + responsiveness (P1)**: `AiWallpaperViewModel.applyWallpaper` decoded the full-resolution PNG via `BitmapFactory.decodeFile` on the Main coroutine context (a 3–4 MB PNG → ~10 MB bitmap synchronously on the UI thread). Re-routed through `applyByLocator` so the disk read + decode + sampling all happen on `Dispatchers.IO`.
+- **Battery + correctness (P1)**: `SystemThemeListener` (Phase 6.2 new code) ran a 500 ms `while (true)` polling loop that (a) never stopped when the user disabled auto-switch, (b) trapped the outer flow-collector so further preference emissions couldn't propagate, and (c) woke the CPU twice a second forever. Replaced with `ComponentCallbacks.onConfigurationChanged`, an actual event, delivered even while the app is fully backgrounded.
+- **Reliability (P1)**: `SystemThemeListener.applyStoredWallpaper` called `WallpaperApplier.applyFromUrl`, which only speaks HTTP, `OkHttp.Request.Builder().url(...)` throws `IllegalArgumentException` for `file://` or `content://` schemes. Users whose last applied wallpaper was AI-generated (`file:/data/.../foo.png`) silently lost auto-switch. New `WallpaperApplier.applyByLocator` dispatches on scheme: http(s) → existing OkHttp path, file/content/absolute-path → bounded two-pass `BitmapFactory` decode with the same 64 MB ceiling and `inSampleSize` sampling.
+- **Storage leak (P1)**: `AiWallpaperRepository.pruneOldFiles` was defined but never called, the 50-image cap was a promise, not an enforcement. Now invoked after every successful generation. Also sweeps stale `.tmp` files left by interrupted writes.
+- **Thread safety + responsiveness (P1)**: `AiWallpaperViewModel.applyWallpaper` decoded the full-resolution PNG via `BitmapFactory.decodeFile` on the Main coroutine context (a 3 to 4 MB PNG → ~10 MB bitmap synchronously on the UI thread). Re-routed through `applyByLocator` so the disk read + decode + sampling all happen on `Dispatchers.IO`.
 - **Structured concurrency (P2)**: `AiWallpaperRepository.generate` wrapped the body in `runCatching` which captures `CancellationException`. A back-navigation mid-generation was surfaced as a generic error message instead of a clean coroutine teardown. Switched to explicit `try`/`catch` with cancellation rethrow.
 - **Performance (P2)**: `WeatherWallpaperService.draw` allocated a new `ColorMatrix` + `Paint` every frame at 30 FPS whenever adaptive tint was enabled (~30 allocations/sec under steady-state). Cached the `Paint` by 5-minute time bucket; only rebuilds when the bucket changes. Also short-circuits to the no-tint draw path during the neutral-midday window.
-- **UX (P2)**: Settings dark/light mode wallpaper slot opened an `AlertDialog` only when wallpaper history was non-empty — a fresh install / cleared history made the slot affordance a dead click. Now opens regardless and shows a "No wallpapers applied yet" explanatory empty state with guidance.
+- **UX (P2)**: Settings dark/light mode wallpaper slot opened an `AlertDialog` only when wallpaper history was non-empty, a fresh install / cleared history made the slot affordance a dead click. Now opens regardless and shows a "No wallpapers applied yet" explanatory empty state with guidance.
 - **UX (P3)**: Settings VFX picker confirm button was labeled "Cancel" even though each radio click already committed synchronously. Relabeled to "Close". Mirrored to the dark/light slot picker.
 - **Error messages (P2)**: `AiWallpaperRepository` now maps Stability AI HTTP codes (401/402/403/422/429/5xx) to actionable user copy ("API key invalid", "Out of credits", "Content policy", "Rate limited") instead of "Generation failed (HTTP 429): {raw JSON}".
 - **Maintenance**: Hoisted the per-call `\\s+` regex in `AiWallpaperRepository` to a file-level constant. Restored DRY between WallpaperApplier's HTTP and local decode paths via shared `computeSampleSize`.
-- **Tests**: 30 new unit tests across `SolarCalculatorTest` (10 — DST regression, polar day/night clamps, equinox day length, golden-hour tint band, intensity scaling), `AiWallpaperRepositoryFriendlyErrorTest` (10 — per-status-code copy, body-append rules), `WallpaperLocatorSchemeTest` (10 — http/file/content/path/unknown classification, case-insensitivity, three-part split with URLs containing pipes). Fixed pre-existing `SettingsViewModelTest` fixture gap (missing mocks for `adaptiveTintIntensity`, `darkModeWallpaperId`, `lightModeWallpaperId`, `stabilityAiKey` added in v6.13/6.14). 248/248 unit tests green.
+- **Tests**: 30 new unit tests across `SolarCalculatorTest` (10, DST regression, polar day/night clamps, equinox day length, golden-hour tint band, intensity scaling), `AiWallpaperRepositoryFriendlyErrorTest` (10, per-status-code copy, body-append rules), `WallpaperLocatorSchemeTest` (10, http/file/content/path/unknown classification, case-insensitivity, three-part split with URLs containing pipes). Fixed pre-existing `SettingsViewModelTest` fixture gap (missing mocks for `adaptiveTintIntensity`, `darkModeWallpaperId`, `lightModeWallpaperId`, `stabilityAiKey` added in v6.13/6.14). 248/248 unit tests green.
 
 ## v6.14.0
 - **AI Wallpaper Generation (Phase 3.1)**: New dedicated screen accessible via the "AI" chip in the Wallpapers header row. Enter a text prompt, pick a style (Photographic, Anime, Digital Art, Cinematic, Fantasy, Neon, Pixel Art, or None), and generate a 9:16 PNG via the Stability AI API. The result can be set as Home screen, Lock screen, or Both, and saved to Favorites. API key is entered in-screen (animated field, password-masked) and persisted in DataStore. Generated images are stored in `filesDir/ai_wallpapers/` with automatic pruning to the 50 most recent.
 - **ContentSource.AI_GENERATED**: New enum value in `ContentSource`; `sourceDisplayName()` updated to return "AI Generated".
 - **Version fix**: `build.gradle.kts` was still at 6.12.0/versionCode 92 despite the 6.13.0 commit. Bumped directly to 6.14.0/versionCode 94 since Phase 3.1 lands here.
-- **ROADMAP cleanup**: Marked Phase 2.4 "Change your style" Settings entry and Phase 5.3 VFX Particle Overlays as done — both were already implemented in prior sessions but left unchecked.
+- **ROADMAP cleanup**: Marked Phase 2.4 "Change your style" Settings entry and Phase 5.3 VFX Particle Overlays as done, both were already implemented in prior sessions but left unchecked.
 
 ## v6.13.0
-- **Seasonal content**: `SeasonalContentManager` provides date-driven themes — Holiday (Dec), Halloween (Oct 15–31), New Year (Jan 1–3), Valentine (Feb 10–14), Summer (Jun 21–Sep 1). Returns null off-season; fully injectable singleton.
+- **Seasonal content**: `SeasonalContentManager` provides date-driven themes, Holiday (Dec), Halloween (Oct 15 to 31), New Year (Jan 1 to 3), Valentine (Feb 10 to 14), Summer (Jun 21 to Sep 1). Returns null off-season; fully injectable singleton.
 - **Sounds tab seasonal carousel**: When a seasonal theme is active, a `SoundCollectionSpec` with the seasonal query and amber-gold `SEASONAL` tone is prepended to the sound collection carousel on all three tone tabs (Ringtones, Notifications, Alarms).
 - **Wallpapers Discover seasonal banner**: A `SeasonalBannerCard` full-line item appears in the staggered grid between the daily pick hero and the curated collection shortcuts. Tapping it searches for the seasonal wallpaper query.
 - **Style-personalized Discover feed**: `WallpaperRepository.getDiscover()` now accepts `userStyles` from the user's onboarding preferences. When styles are non-empty, an additional style-biased Wallhaven search runs alongside the toplist, widening the feed toward the user's aesthetic preferences.
-- **ROADMAP reconciliation**: Marked 1.2 (Freesound v2), 1.3 (SoundCloud CC), 1.4 (Drop IA), 2.3 (QuickApplySheet), 2.6 (Sound Detail redesign) as done — all were previously implemented but left unchecked.
+- **ROADMAP reconciliation**: Marked 1.2 (Freesound v2), 1.3 (SoundCloud CC), 1.4 (Drop IA), 2.3 (QuickApplySheet), 2.6 (Sound Detail redesign) as done, all were previously implemented but left unchecked.
 - **Tests**: 19 new unit tests in `SeasonalContentManagerTest` covering all season windows, boundary dates, and off-season null returns. Existing ViewModel tests updated for new constructor params.
 
 ## v6.12.0
-- Round 20 audit — Wallhaven SafeSearch toggles, auto-wallpaper rotation constraints, in-session source diagnostics, NewPipe stream-leak re-verify
-- **Privacy / control**: Settings → API Keys now exposes the long-orphaned `showNsfwContent` toggle as a real UI control, plus a new `showSketchyContent` toggle for Wallhaven's intermediate sketchy tier. Without an API key both opt-ins coerce back to SFW-only — Wallhaven would otherwise reject the request and leave the user with an empty grid. `computeWallhavenPurity` extracted as a pure helper with full 8-combo unit coverage
-- **Battery / data hygiene**: Auto-wallpaper rotation gains three opt-in execution constraints — Charging only, Wi-Fi only (sets `NetworkType.UNMETERED`), and Device idle only. ViewModel re-schedules the WorkManager job on every toggle change so the running worker picks up new constraints without waiting for the next interval boundary. `buildAutoWallpaperConstraints` extracted as a pure helper for unit testing
+- Round 20 audit, Wallhaven SafeSearch toggles, auto-wallpaper rotation constraints, in-session source diagnostics, NewPipe stream-leak re-verify
+- **Privacy / control**: Settings → API Keys now exposes the long-orphaned `showNsfwContent` toggle as a real UI control, plus a new `showSketchyContent` toggle for Wallhaven's intermediate sketchy tier. Without an API key both opt-ins coerce back to SFW-only, Wallhaven would otherwise reject the request and leave the user with an empty grid. `computeWallhavenPurity` extracted as a pure helper with full 8-combo unit coverage
+- **Battery / data hygiene**: Auto-wallpaper rotation gains three opt-in execution constraints, Charging only, Wi-Fi only (sets `NetworkType.UNMETERED`), and Device idle only. ViewModel re-schedules the WorkManager job on every toggle change so the running worker picks up new constraints without waiting for the next interval boundary. `buildAutoWallpaperConstraints` extracted as a pure helper for unit testing
 - **Observability**: New `SourceMetrics` singleton tracks per-source request count, success ratio, last error, and rolling p50/p95 latency for the current session. Settings → Diagnostics surfaces a snapshot dialog with a Reset button. Initial hooks land in `WallpaperRepository.getWallhaven` and `FreesoundV2Repository.search`; pattern is documented for follow-up coverage of the remaining content sources. CancellationException intentionally excluded from failure stats (it's structured-concurrency teardown, not a source failure)
 - **Maintenance**: NewPipe Extractor v0.24.8 stream lifecycle re-verified clean (no `InputStream` / `BufferedReader` without `.use { }`). Version pinned with a documenting comment in `build.gradle.kts` so future bumps trigger a re-audit
 - **Tests**: 19 new unit tests (5 `WallhavenPurityTest`, 5 `AutoWallpaperConstraintsTest`, 9 `SourceMetricsTest`); 186/186 total green
 
 ## v6.11.0
-- Round 19 audit — Freesound rate-limit resilience, smarter Material You accent fallback, cancellation rethrow sweep
-- **Reliability**: New `RateLimitInterceptor` wraps the OkHttp client and bounds-retries Freesound v2 API on HTTP 429. Honors `Retry-After` (capped at 30 s ceiling so a pathological response can't stall the app), max 2 retries, 1.5 s default fallback when the header is missing or negative. Scoped to `freesound.org` only — Wallhaven / Reddit / Pexels / Pixabay / SoundCloud pass through unchanged. Previously a routine search past Freesound's 60 req/min limit would silently blank the Sounds tab
-- **Theming**: `ColorExtractor` now exposes `bestAccentColor` — a saturation/lightness-gated fallback ladder (dominant → vibrantDark → vibrant → vibrantLight → mutedDark → muted → mutedLight → dominant). Cartoon, monochrome, or near-greyscale wallpapers no longer hand the widget a dim grey "accent" via `Palette.getDominantColor`. The widget reads the new `tint_accent` SP key with a graceful fallback to legacy `tint_vibrant_light` for palettes cached before the upgrade
-- **Structured concurrency**: 5 catch sites now rethrow `CancellationException` — `WallpaperHistoryManager.record` (widget palette write + widget refresh), `WallpapersViewModel.loadRandom`, `VideoWallpapersViewModel.applyVideoWallpaper` yt-dlp branch, `AudioTrimmer.applyFadeViaFfmpeg`. Cancellation now tears down cleanly instead of being surfaced as a generic state error or a swallowed log line
+- Round 19 audit, Freesound rate-limit resilience, smarter Material You accent fallback, cancellation rethrow sweep
+- **Reliability**: New `RateLimitInterceptor` wraps the OkHttp client and bounds-retries Freesound v2 API on HTTP 429. Honors `Retry-After` (capped at 30 s ceiling so a pathological response can't stall the app), max 2 retries, 1.5 s default fallback when the header is missing or negative. Scoped to `freesound.org` only, Wallhaven / Reddit / Pexels / Pixabay / SoundCloud pass through unchanged. Previously a routine search past Freesound's 60 req/min limit would silently blank the Sounds tab
+- **Theming**: `ColorExtractor` now exposes `bestAccentColor`, a saturation/lightness-gated fallback ladder (dominant → vibrantDark → vibrant → vibrantLight → mutedDark → muted → mutedLight → dominant). Cartoon, monochrome, or near-greyscale wallpapers no longer hand the widget a dim grey "accent" via `Palette.getDominantColor`. The widget reads the new `tint_accent` SP key with a graceful fallback to legacy `tint_vibrant_light` for palettes cached before the upgrade
+- **Structured concurrency**: 5 catch sites now rethrow `CancellationException`, `WallpaperHistoryManager.record` (widget palette write + widget refresh), `WallpapersViewModel.loadRandom`, `VideoWallpapersViewModel.applyVideoWallpaper` yt-dlp branch, `AudioTrimmer.applyFadeViaFfmpeg`. Cancellation now tears down cleanly instead of being surfaced as a generic state error or a swallowed log line
 - **Tests**: 16 new unit tests (7 for `RateLimitInterceptor`, 9 for `ColorAccentSelector`); 167/167 total green
 
 ## v6.10.0
-- Round 18 audit — finalized writes, widget intent safety, editor download caps, startup concurrency
-- **Reliability**: `SoundEditorViewModel.downloadToCache` now checks the return value of `tmpFile.renameTo(file)`. Previously a rename failure (cross-volume rename on some OEM scoped-cache dirs, stale target file, or SELinux) was silent — the editor then tried to open a file that wasn't there. Falls back to `copyRecursively` + delete before throwing
+- Round 18 audit, finalized writes, widget intent safety, editor download caps, startup concurrency
+- **Reliability**: `SoundEditorViewModel.downloadToCache` now checks the return value of `tmpFile.renameTo(file)`. Previously a rename failure (cross-volume rename on some OEM scoped-cache dirs, stale target file, or SELinux) was silent, the editor then tried to open a file that wasn't there. Falls back to `copyRecursively` + delete before throwing
 - **Intent safety**: Three remaining widget callbacks (`OpenFavoritesAction`, `OpenCurrentWallpaperAction`, `OpenAppAction`) now wrap `startActivity` in try/catch. A missing or disabled launch activity no longer crashes the widget host process
 - **Structured concurrency**: `FreeVibeApp.evictStaleCaches` now rethrows `CancellationException` instead of swallowing it. This matched the already-corrected `warmCommunityIdentity` pattern; the full app-startup background block now uniformly respects cancellation
 - **Bounds**: `WallpaperCropViewModel.load` and `WallpaperEditorViewModel.loadFromUrl` now cap buffered image downloads at 64 MB (Content-Length + streamed), matching `WallpaperApplier` / `DualWallpaperService` / `DownloadManager`. A hostile CDN URL can no longer OOM the crop/edit flow
 
 ## v6.9.0
-- Round 17 audit — last-mile download caps
+- Round 17 audit, last-mile download caps
 - **Bounds**: `ColorExtractor.extractFromUrl` caps buffered response at 32 MB (palette tinting only needs a 200×200 downsample; a hostile redirect to a giant image would otherwise balloon the heap just for widget tint extraction). Also hardened `calculateSampleSize` against `sample` integer overflow on pathological near-Int.MAX dimensions
 - **Bounds**: `SoundApplier.saveUrlToMediaStore` caps downloads at 64 MB (matches `DownloadManager`). Previously a misresolved URL returning an endless stream could write to MediaStore until the user's storage filled
 
 ## v6.8.0
-- Round 16 audit — video cropper hardening, offline-cache bounds, preferences consistency
+- Round 16 audit, video cropper hardening, offline-cache bounds, preferences consistency
 - **Safety**: `VideoCropScreen` HTTP download for remote crop input now caps at 256 MB (Content-Length + streamed). Local file paths are validated with `File.exists() + canRead()` before handing to FFmpeg (previously surfaced as cryptic "Invalid data found" errors)
-- **Resources**: `VideoCropScreen` FFmpeg process now uses a 4 KB bounded drain for its merged stdout/stderr instead of `readText()` — a chatty ffmpeg run could previously allocate MBs of String data just to log the last 500 chars
+- **Resources**: `VideoCropScreen` FFmpeg process now uses a 4 KB bounded drain for its merged stdout/stderr instead of `readText()`, a chatty ffmpeg run could previously allocate MBs of String data just to log the last 500 chars
 - **Structured concurrency**: `VideoCropScreen` outer and inner catch blocks now rethrow `CancellationException`
 - **Bounds**: `OfflineFavoritesManager.cacheOffline` enforces an 80 MB per-file ceiling (in addition to the existing 512 MB total budget) so one hostile favorite URL can't blow the whole offline cache in a single download. Also added `CancellationException` rethrow
-- **Bounds**: `SoundEditorViewModel.downloadToCache` caps audio downloads at 96 MB — the editor is for short clips, and a misresolved YouTube URL previously could fill cacheDir while the user waits
+- **Bounds**: `SoundEditorViewModel.downloadToCache` caps audio downloads at 96 MB, the editor is for short clips, and a misresolved YouTube URL previously could fill cacheDir while the user waits
 - **Consistency**: `PreferencesManager.setVideoFpsLimit` / `setVideoPlaybackSpeed` now write SharedPreferences FIRST, then DataStore. `VideoWallpaperService` (which can only read SharedPreferences because WallpaperService can't easily subscribe to DataStore) always sees the new value even if the suspending DataStore write is cancelled mid-flight. Previously the opposite order could leave the runtime service stale for the remainder of its lifetime
 
 ## v6.7.0
-- Round 15 audit — deeper sweep across bitmap download paths, locale correctness, intent safety, and startup hardening
+- Round 15 audit, deeper sweep across bitmap download paths, locale correctness, intent safety, and startup hardening
 - **Safety**: `WallpaperApplier.downloadBitmap` and `DualWallpaperService.downloadBitmap` now enforce a 64 MB ceiling on the buffered byte array (Content-Length + actual size) so a hostile CDN can't OOM us during decode
 - **Safety**: `DailyWallpaperWorker` notification-thumbnail download now caps at 4 MB + propagates `CancellationException` (previously swallowed, which let a cancelled worker continue allocating)
 - **Reliability**: `WeatherWallpaperService.scaleBitmap` no longer leaks the intermediate `scaled` bitmap when `Bitmap.createBitmap(scaled, x, y, …)` throws, and now uses the real `scaled.width/height` consistently (previous code computed crop coordinates from a theoretical value that could diverge from the actual bitmap size, causing slightly off-center crops)
@@ -1378,13 +1628,13 @@ Deep audit release — ~45 verified fixes across correctness, data safety, UX, i
 - **Schema resilience**: `WallhavenWallpaper.id` and `url` fields now have `""` defaults, so a malformed Wallhaven response (null id/url) yields a filterable Wallpaper with blank fields instead of a JsonDataException that kills the whole page
 
 ## v6.6.0
-- Round 14 audit — reliability, safety, resource bounds, and unit-test recovery
+- Round 14 audit, reliability, safety, resource bounds, and unit-test recovery
 - **Security/safety**: `DownloadManager` now enforces a 64 MB ceiling per file for both images and audio (rejects both Content-Length-advertised and streamed overruns) to prevent a malicious/broken server from filling storage
 - **Reliability**: `ParallaxWallpaperService` no longer double-closes the ML Kit segmenter when a new image arrives before the previous segmentation callback fires (tracked per-segmenter with explicit nulling + synchronized guard in success/failure listeners)
 - **Reliability**: `ParallaxWallpaperService.scaleBitmapCenterCrop` no longer leaks the intermediate `scaled` bitmap when `Bitmap.createBitmap(scaled, x, y, …)` throws OOM/IllegalArgument
 - **Reliability**: `VideoWallpaperService` now tracks the last-played path in addition to `lastModified`, so picking a different video file that happens to share the previous file's timestamp triggers re-init instead of silently keeping the old stream
-- **Resources**: `AudioTrimmer` replaced four unbounded `readText()` calls on FFmpeg's merged stdout/stderr with a bounded drain (8 KB chunks, unlimited reads but no retention) — previously a chatty FFmpeg run could allocate MBs of throwaway String data
-- **Structured concurrency**: Added missing `CancellationException` rethrow across 8 more catch sites — `FreeVibeWidget` (OpenCurrentWallpaper, applyFromSource, applyRandom), `WallpapersViewModel` (loadWallpapers, findSimilar), `ContactPickerViewModel` (search), `VoteRepository` (moderateHide, getTopVotedIds), `FavoritesExporter.parseJson`
+- **Resources**: `AudioTrimmer` replaced four unbounded `readText()` calls on FFmpeg's merged stdout/stderr with a bounded drain (8 KB chunks, unlimited reads but no retention), previously a chatty FFmpeg run could allocate MBs of throwaway String data
+- **Structured concurrency**: Added missing `CancellationException` rethrow across 8 more catch sites, `FreeVibeWidget` (OpenCurrentWallpaper, applyFromSource, applyRandom), `WallpapersViewModel` (loadWallpapers, findSimilar), `ContactPickerViewModel` (search), `VoteRepository` (moderateHide, getTopVotedIds), `FavoritesExporter.parseJson`
 - **Cleanup**: Removed unused `Canvas`/`Matrix`/`Paint`/`SurfaceTexture` imports from `VideoWallpaperService`
 - **Testability**: `MainActivity.isAllowedLaunchUrl` now uses pure-JVM scheme extraction instead of `android.net.Uri.parse`, so launch-URL validation is directly unit-testable (was previously broken in local unit tests with a "Method parse in android.net.Uri not mocked" runtime failure)
 - **Tests**: Fixed pre-existing `MainActivityLaunchNavigationTest.buildLaunchWallpaper preserves wallpaper metadata` failure; updated `FavoritesExporterValidationTest` to match v6.5.0's HTTPS-only policy; added a new test covering unsafe launch-URL rejection (http/file/content/javascript schemes); 151 total unit tests pass.
@@ -1441,7 +1691,7 @@ Deep audit release — ~45 verified fixes across correctness, data safety, UX, i
 ## v5.20.0
 - Parallax atomicity, bitmap decode safety, widget feedback, locale
 
-## Roadmap archive — 2026-08-10 — ROADMAP.md
+## Roadmap archive, 2026-08-10, ROADMAP.md
 
 <details>
 <summary>Original roadmap snapshot</summary>
@@ -1458,7 +1708,7 @@ This file contains incomplete, actionable work only. Completed work lives in git
 
 ### P1
 
-- [ ] P1 — Test production composables instead of look-alike route fixtures
+- [ ] P1: Test production composables instead of look-alike route fixtures
   Why: screenshot/accessibility gates can stay green while real screens regress because debug fixtures redraw simplified UIs.
   Evidence: `debug/.../AuraRouteStateFixtures.kt`; `AuraRouteStateScreenshotTest.kt`; `tools/accessibility_release_gate_check.py`; Android Compose testing guidance.
   Touches: production screen state injection, Roborazzi tests, accessibility gate, pseudo/RTL/theme fixtures.
@@ -1467,35 +1717,35 @@ This file contains incomplete, actionable work only. Completed work lives in git
 
 ### P2
 
-- [ ] P2 — Trim SettingsViewModel into feature-slice delegates (960 lines)
+- [ ] P2: Trim SettingsViewModel into feature-slice delegates (960 lines)
   Why: settings keeps growing across providers, rotation, community, and diagnostics, concentrating state/job ownership in one ViewModel.
   Evidence: `ui/screens/settings/SettingsViewModel.kt` (960 lines).
   Touches: `SettingsViewModel.kt`, feature delegates, tests and split gate.
   Acceptance: the file is under about 500 lines, behavior is unchanged, delegate job ownership is explicit, a split gate exists, and tests pass.
   Complexity: M
 
-- [ ] P2 — Extend Settings search from sections to row-level anchors
+- [ ] P2: Extend Settings search from sections to row-level anchors
   Why: the shipped section-title/description search cannot find visible controls such as OLED theme, Wi-Fi, backup, or App Check.
   Evidence: `SettingsSearch.kt`; isolated API 35 queries “theme” and “OLED.”
   Touches: settings search index, row metadata/anchors, localized resources, navigation/highlight tests.
   Acceptance: localized row labels, descriptions, and intentional aliases match; selecting a result expands and scrolls/highlights the exact row; tests cover OLED, Wi-Fi, backup, App Check, YouTube, battery saver, and no-result behavior.
   Complexity: M
 
-- [ ] P2 — Close residual runtime localization gaps
+- [ ] P2: Close residual runtime localization gaps
   Why: the pseudo/RTL gate exists, but user-visible editor labels and ViewModel messages remain outside resources and outside the current scanner.
   Evidence: `WallpaperEditorScreen.kt`; `WallpaperEditorViewModel.kt`; `FavoritesViewModel.kt`; `SettingsViewModel.kt`; `tools/compose_hardcoded_string_check.py`.
   Touches: residual string resources/formatters, ViewModels/models, hardcoded-string gate, production pseudo-locale tests.
   Acceptance: identified runtime literals are resource-backed and locale-formatted, the gate scans composables plus ViewModels/models, production route tests exercise them under XA/XB, and real translations/language picker remain deferred until reviewed.
   Complexity: M
 
-- [ ] P2 — Accept user-owned shared image and audio through bounded ingestion
+- [ ] P2: Accept user-owned shared image and audio through bounded ingestion
   Why: Aura supports JSON sharing and image “Set as,” but not normal share/edit entry into its existing image crop and Sound Editor workflows.
   Evidence: `AndroidManifest.xml`; `MainActivity.kt`; DarkModeLiveWallpaper sharing; Ringdroid open/edit flow.
   Touches: manifest filters, external-media dispatcher, `MediaIngestion`/`ShareOutbox`, image editor/crop and Sound Editor navigation/tests.
   Acceptance: user-owned/generated `ACTION_SEND`/`ACTION_EDIT` image/audio routes to a target preview; MIME is sniffed, copy is bounded, `content://` ClipData/read grants are used, cleanup is tested, and malformed/revoked inputs recover; remote items remain link-only/disabled until the blocked per-license capability model permits them.
   Complexity: M
 
-- [ ] P2 — Build an indexed multi-folder local wallpaper catalog
+- [ ] P2: Build an indexed multi-folder local wallpaper catalog
   Why: one rotation folder cannot represent collectors' existing libraries, tags, missing folders, or independent home/lock source sets.
   Evidence: current single-folder preferences/SAF path; Paperize, Peristyle, Muzei, and Fossify Gallery.
   Touches: persisted SAF grants, Room media index/tags, scanner/dedupe, local browse/search, rotation source picker/diagnostics.
@@ -1504,14 +1754,14 @@ This file contains incomplete, actionable work only. Completed work lives in git
 
 ### P3
 
-- [ ] P3 — Add Microsoft Spotlight as an opt-in daily-image source after terms validation
+- [ ] P3: Add Microsoft Spotlight as an opt-in daily-image source after terms validation
   Why: a keyless daily-image source adds low-frequency breadth without another high-volume feed.
   Evidence: WallYou source registry; existing Bing/NASA/Wikimedia daily-source plumbing.
   Touches: provider registry/client, attribution/licensing, network-endpoints manifest, source toggle UI/tests.
   Acceptance: after the P0 capability registry lands, a stable endpoint and use/attribution terms pass its policy gate; Spotlight is opt-in, preserves source URL/provenance, degrades visibly, and is recorded in the endpoint manifest. Lorem Picsum is intentionally excluded because `ProviderDisclosure.kt` forbids new default sourcing.
   Complexity: M
 
-- [ ] P3 — Optional clock/date overlay on applied/live wallpapers
+- [ ] P3: Optional clock/date overlay on applied/live wallpapers
   Why: Paperize issue 533 validates the niche, and Aura already has an overlay composer; it adds no background cost while off.
   Evidence: Paperize issue 533; `WallpaperEditorScreen.kt` overlay pipeline.
   Touches: editor overlay composer, live-wallpaper renderer, settings/format controls, screenshots.

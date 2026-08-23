@@ -5,11 +5,11 @@
   "docsPath": "docs/rotation-trigger-fgs-policy.md",
   "manifestPath": "app/src/main/AndroidManifest.xml",
   "serviceName": ".service.RotationTriggerService",
-  "serviceSource": "app/src/main/java/com/freevibe/service/RotationTriggerService.kt",
+  "serviceSource": "app/src/main/java/com/chloemlla/aura/service/RotationTriggerService.kt",
   "settingsSources": [
-    "app/src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt",
-    "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt",
-    "app/src/main/java/com/freevibe/ui/screens/settings/SettingsWallpaperSection.kt",
+    "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt",
+    "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsRotationDelegate.kt",
+    "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsWallpaperSection.kt",
     "app/src/main/res/values/strings.xml"
   ],
   "playPacketDocs": "docs/distribution/play-app-content.md",

@@ -35,11 +35,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chloemlla.aura.R
-import com.chloemlla.aura.data.model.WALLPAPER_SOURCE_LOCAL_FOLDER
 import com.chloemlla.aura.service.AuraPickVisualMedia
 import com.chloemlla.aura.service.DailyWallpaperWorker
 import com.chloemlla.aura.service.ParallaxWallpaperService
@@ -57,28 +57,20 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(
     initialSection: String? = null,
-    onDownloadsClick: () -> Unit = {},
-    onLicensesClick: () -> Unit = {},
-    onCategoriesClick: () -> Unit = {},
-    onHistoryClick: () -> Unit = {},
-    onCollectionsClick: () -> Unit = {},
-    onCreatorProfileClick: () -> Unit = {},
-    onCommunityReportsClick: () -> Unit = {},
-    onGeneratedWallpapersClick: () -> Unit = {},
+    navigation: SettingsNavigation = SettingsNavigation(),
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
+    // Reading a string off LocalContext is not a composition read. LocalResources is.
+    val resources = LocalResources.current
     val feedbackScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     fun showSettingsFeedback(message: String) {
         feedbackScope.launch { snackbarHostState.showSnackbar(message) }
     }
     val settingsState = rememberSettingsScreenState(viewModel, context)
-    var dailyWallpaperEnabled by remember {
-        mutableStateOf(
-            context.getSharedPreferences("freevibe_weather_wp", Context.MODE_PRIVATE)
-                .getBoolean("daily_wallpaper_enabled", false),
-        )
+    var dailyWallpaperEnabled by remember(viewModel) {
+        mutableStateOf(viewModel.isDailyWallpaperEnabled())
     }
     fun setDailyWallpaperEnabled(enabled: Boolean) {
         dailyWallpaperEnabled = enabled
@@ -121,46 +113,13 @@ fun SettingsScreen(
         }
     }
 
-    var pendingLocalFolderSource by remember { mutableStateOf<String?>(null) }
-    val localFolderPickerLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocumentTree(),
-    ) { uri: Uri? ->
-        val target = pendingLocalFolderSource
-        pendingLocalFolderSource = null
-        if (uri != null) {
-            val persisted = runCatching {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
-                )
-            }.isSuccess
-            viewModel.setLocalWallpaperFolderUri(uri.toString())
-            when (target) {
-                "auto" -> viewModel.setAutoWpSource(WALLPAPER_SOURCE_LOCAL_FOLDER)
-                "scheduler" -> viewModel.setSchedulerSource(WALLPAPER_SOURCE_LOCAL_FOLDER)
-                "scheduler_day" -> viewModel.setSchedulerSource(
-                    SchedulerSourceTarget.DAY,
-                    WALLPAPER_SOURCE_LOCAL_FOLDER,
-                )
-                "scheduler_night" -> viewModel.setSchedulerSource(
-                    SchedulerSourceTarget.NIGHT,
-                    WALLPAPER_SOURCE_LOCAL_FOLDER,
-                )
-            }
-            showSettingsFeedback(
-                if (persisted) {
-                    context.getString(R.string.settings_feedback_local_folder_saved)
-                } else {
-                    context.getString(R.string.settings_feedback_local_folder_no_persist)
-                },
-            )
-        }
-    }
-
-    fun chooseLocalWallpaperFolder(target: String? = null) {
-        pendingLocalFolderSource = target
-        localFolderPickerLauncher.launch(null)
-    }
+    var showLocalWallpaperCatalog by remember { mutableStateOf(false) }
+    val chooseLocalWallpaperFolder = rememberLocalWallpaperFolderPicker(
+        context = context,
+        resources = resources,
+        viewModel = viewModel,
+        onFeedback = ::showSettingsFeedback,
+    )
     var enableAutoBackupAfterFolder by remember { mutableStateOf(false) }
     val backupFolderPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
@@ -177,11 +136,11 @@ fun SettingsScreen(
             viewModel.setAutoBackupFolderUri(uri.toString())
             if (persisted && shouldEnableAfterFolder) {
                 viewModel.setAutoBackupEnabled(true)
-                showSettingsFeedback(context.getString(R.string.settings_feedback_backup_folder_on))
+                showSettingsFeedback(resources.getString(R.string.settings_feedback_backup_folder_on))
             } else if (persisted) {
-                showSettingsFeedback(context.getString(R.string.settings_feedback_backup_folder_saved))
+                showSettingsFeedback(resources.getString(R.string.settings_feedback_backup_folder_saved))
             } else {
-                showSettingsFeedback(context.getString(R.string.settings_feedback_backup_folder_no_persist))
+                showSettingsFeedback(resources.getString(R.string.settings_feedback_backup_folder_no_persist))
             }
         }
     }
@@ -211,14 +170,14 @@ fun SettingsScreen(
                         tag = "SettingsParallaxGallery",
                     )
                 ) {
-                    LiveWallpaperLaunchMode.DIRECT -> showSettingsFeedback(context.getString(R.string.settings_feedback_parallax_direct))
-                    LiveWallpaperLaunchMode.CHOOSER -> showSettingsFeedback(context.getString(R.string.settings_feedback_parallax_chooser))
-                    null -> showSettingsFeedback(context.getString(R.string.settings_feedback_parallax_manual))
+                    LiveWallpaperLaunchMode.DIRECT -> showSettingsFeedback(resources.getString(R.string.settings_feedback_parallax_direct))
+                    LiveWallpaperLaunchMode.CHOOSER -> showSettingsFeedback(resources.getString(R.string.settings_feedback_parallax_chooser))
+                    null -> showSettingsFeedback(resources.getString(R.string.settings_feedback_parallax_manual))
                 }
                 viewModel.clearParallaxGalleryResult()
             }
             is ParallaxGalleryResult.Failure -> {
-                showSettingsFeedback(context.getString(R.string.settings_feedback_parallax_failed, result.message))
+                showSettingsFeedback(resources.getString(R.string.settings_feedback_parallax_failed, result.message))
                 viewModel.clearParallaxGalleryResult()
             }
             else -> Unit
@@ -235,9 +194,9 @@ fun SettingsScreen(
                         tag = "SettingsVideoWallpaper",
                     )
                 ) {
-                    LiveWallpaperLaunchMode.DIRECT -> showSettingsFeedback(context.getString(R.string.settings_feedback_video_direct))
-                    LiveWallpaperLaunchMode.CHOOSER -> showSettingsFeedback(context.getString(R.string.settings_feedback_video_chooser))
-                    null -> showSettingsFeedback(context.getString(R.string.settings_feedback_video_manual))
+                    LiveWallpaperLaunchMode.DIRECT -> showSettingsFeedback(resources.getString(R.string.settings_feedback_video_direct))
+                    LiveWallpaperLaunchMode.CHOOSER -> showSettingsFeedback(resources.getString(R.string.settings_feedback_video_chooser))
+                    null -> showSettingsFeedback(resources.getString(R.string.settings_feedback_video_manual))
                 }
                 viewModel.clearVideoWallpaperSelectionResult()
             }
@@ -251,6 +210,7 @@ fun SettingsScreen(
 
     var settingsPermissionPrompt by remember { mutableStateOf<SettingsPermissionPrompt?>(null) }
     var settingsSearchQuery by remember { mutableStateOf("") }
+    val settingsSearchRegistry = remember { SettingsSearchRegistry() }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -289,6 +249,14 @@ fun SettingsScreen(
         )
     }
 
+    LocalWallpaperCatalogDialogHost(
+        show = showLocalWallpaperCatalog,
+        state = settingsState,
+        viewModel = viewModel,
+        onDismiss = { showLocalWallpaperCatalog = false },
+        onAddFolder = { chooseLocalWallpaperFolder("catalog") },
+    )
+
     with(settingsState) {
     Scaffold(
         snackbarHost = { AuraSnackbarHost(snackbarHostState) },
@@ -310,8 +278,12 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 12.dp),
             )
-            val visibleSectionKeys = remember(settingsSearchQuery) { visibleSettingsSectionKeys(context, settingsSearchQuery) }
-            SettingsSearchBar(settingsSearchQuery, { settingsSearchQuery = it }, visibleSectionKeys.isEmpty())
+            SettingsSearchScope(
+                context = context,
+                registry = settingsSearchRegistry,
+                query = settingsSearchQuery,
+                onQueryChange = { settingsSearchQuery = it },
+            ) { visibleSectionKeys ->
             if (SettingsSectionKeys.WALLPAPERS in visibleSectionKeys) WallpaperRotationSettingsSection(
                 context = context,
                 viewModel = viewModel,
@@ -320,6 +292,8 @@ fun SettingsScreen(
                 autoWpSource = autoWpSource,
                 localWallpaperFolderUri = localWallpaperFolderUri,
                 localFolderPermissionActive = localFolderPermissionActive,
+                localWallpaperFolderCount = localWallpaperFolders.size,
+                localCatalogReady = localWallpaperCatalogReady,
                 autoWpRequiresCharging = autoWpRequiresCharging,
                 autoWpRequiresWiFi = autoWpRequiresWiFi,
                 autoWpRequiresIdle = autoWpRequiresIdle,
@@ -342,19 +316,22 @@ fun SettingsScreen(
                 wallhavenProviderEnabled = wallhavenProviderEnabled,
                 pixabayProviderEnabled = pixabayProviderEnabled,
                 wallpaperHistoryCount = wallpaperHistory.size,
-                onChooseLocalWallpaperFolder = ::chooseLocalWallpaperFolder,
+                wallpaperClockOverlayEnabled = wallpaperClockOverlayEnabled,
+                wallpaperClockOverlayMode = wallpaperClockOverlayMode,
+                wallpaperClockOverlayPosition = wallpaperClockOverlayPosition,
+                onChooseLocalWallpaperFolder = chooseLocalWallpaperFolder,
+                onManageLocalWallpaperFolders = { showLocalWallpaperCatalog = true },
                 onPickVideoWallpaper = { videoPickerLauncher.launch(videoWallpaperMimeTypes()) },
                 onPickParallaxImage = {
                     parallaxGalleryLauncher.launch(
                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
                     )
                 },
-                onCategoriesClick = onCategoriesClick,
-                onCollectionsClick = onCollectionsClick,
-                onHistoryClick = onHistoryClick,
+                onCategoriesClick = navigation.onCategoriesClick,
+                onCollectionsClick = navigation.onCollectionsClick,
+                onHistoryClick = navigation.onHistoryClick,
                 onFeedback = ::showSettingsFeedback,
             )
-
             if (SettingsSectionKeys.SCHEDULER in visibleSectionKeys) SchedulerSettingsSection(
                 context = context,
                 viewModel = viewModel,
@@ -371,12 +348,12 @@ fun SettingsScreen(
                 schedulerShuffle = schedulerShuffle,
                 localWallpaperFolderUri = localWallpaperFolderUri,
                 localFolderPermissionActive = localFolderPermissionActive,
+                localCatalogReady = localWallpaperCatalogReady,
                 wallhavenProviderEnabled = wallhavenProviderEnabled,
                 pixabayProviderEnabled = pixabayProviderEnabled,
                 bingProviderEnabled = bingProviderEnabled,
-                onChooseLocalWallpaperFolder = ::chooseLocalWallpaperFolder,
+                onChooseLocalWallpaperFolder = chooseLocalWallpaperFolder,
             )
-
             if (SettingsSectionKeys.BACKUP in visibleSectionKeys) SettingsSectionAnchorTarget(Screen.Settings.BACKUP_SECTION, initialSection) {
                 BackupSettingsSection(
                     context = context,
@@ -391,7 +368,6 @@ fun SettingsScreen(
                     onFeedback = ::showSettingsFeedback,
                 )
             }
-
             if (SettingsSectionKeys.SMART in visibleSectionKeys) SmartLiveWallpaperSettingsSection(
                 context = context,
                 viewModel = viewModel,
@@ -406,9 +382,10 @@ fun SettingsScreen(
                 wallpaperHistory = wallpaperHistory,
                 reduceAnimations = reduceAnimations,
                 liveWallpaperDimEnabled = liveWallpaperDimEnabled,
+                liveWallpaperColorsEnabled = liveWallpaperColorsEnabled,
+                initialVfxEffect = viewModel.weatherVfxEffect(),
+                initialTouchEffectStrength = viewModel.touchEffectStrength(),
                 onSetDailyWallpaperEnabled = ::setDailyWallpaperEnabled,
-                onSetVfxEffect = viewModel::setWeatherVfxEffect,
-                onSetTouchEffectStrength = viewModel::setTouchEffectStrength,
                 onEnableWeatherEffects = ::enableWeatherEffects,
                 onDisableWeatherEffects = ::disableWeatherEffects,
                 onPermissionPrompt = { settingsPermissionPrompt = it },
@@ -430,7 +407,7 @@ fun SettingsScreen(
                 soundProfilesEnabled = soundProfilesEnabled,
                 soundProfilesJson = soundProfilesJson,
                 ytDlpUpdate = ytDlpUpdate,
-                onLicensesClick = onLicensesClick,
+                onLicensesClick = navigation.onLicensesClick,
                 onFeedback = ::showSettingsFeedback,
             )
 
@@ -457,7 +434,7 @@ fun SettingsScreen(
                 pexelsApiKey = pexelsApiKey,
                 pixabayApiKey = pixabayApiKey,
                 freesoundApiKey = freesoundApiKey,
-                stabilityAiKey = stabilityAiKey,
+                generatedWallpaperProviderKey = generatedWallpaperProviderKey,
                 providerCredentialStorageUnavailable = providerCredentialStorageUnavailable,
                 generatedContentProviderEnabled = generatedContentProviderEnabled,
                 generatedContentDisclosureAccepted = generatedContentDisclosureAccepted,
@@ -466,9 +443,9 @@ fun SettingsScreen(
                 pixabayProviderEnabled = pixabayProviderEnabled,
                 showSketchyContent = showSketchyContent,
                 showNsfwContent = showNsfwContent,
-                onCreatorProfileClick = onCreatorProfileClick,
-                onCommunityReportsClick = onCommunityReportsClick,
-                onGeneratedWallpapersClick = onGeneratedWallpapersClick,
+                onCreatorProfileClick = navigation.onCreatorProfileClick,
+                onCommunityReportsClick = navigation.onCommunityReportsClick,
+                onGeneratedWallpapersClick = navigation.onGeneratedWallpapersClick,
                 onFeedback = ::showSettingsFeedback,
             )
 
@@ -476,7 +453,7 @@ fun SettingsScreen(
                 viewModel = viewModel,
                 cacheUsage = cacheUsage,
                 generatedAssets = generatedAssets,
-                onDownloadsClick = onDownloadsClick,
+                onDownloadsClick = navigation.onDownloadsClick,
             )
 
             if (SettingsSectionKeys.DIAGNOSTICS in visibleSectionKeys) DiagnosticsSettingsSection(
@@ -484,14 +461,19 @@ fun SettingsScreen(
                 viewModel = viewModel,
                 diagnostics = diagnostics,
                 crashDiagnostics = crashDiagnostics,
+                liveWallpaperLiveness = liveWallpaperLiveness,
                 backgroundWorkDiagnostics = backgroundWorkDiagnostics,
                 externalAutomationDiagnostics = externalAutomationDiagnostics,
                 onFeedback = ::showSettingsFeedback,
+                onRotationHealth = navigation.onRotationHealthClick,
             )
 
             if (SettingsSectionKeys.PERMISSIONS in visibleSectionKeys) PermissionsSettingsSection(context)
             if (SettingsSectionKeys.LANGUAGE in visibleSectionKeys) LanguageSettingsSection(viewModel, context)
-            if (SettingsSectionKeys.ABOUT in visibleSectionKeys) AboutSettingsSection(context, onLicensesClick)
+            if (SettingsSectionKeys.ABOUT in visibleSectionKeys) {
+                AboutSettingsSection(context = context, onLicensesClick = navigation.onLicensesClick)
+            }
+            }
             Spacer(Modifier.height(24.dp))
         }
     }

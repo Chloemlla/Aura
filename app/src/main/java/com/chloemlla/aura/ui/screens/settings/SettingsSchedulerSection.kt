@@ -48,6 +48,7 @@ internal fun SchedulerSettingsSection(
     schedulerShuffle: Boolean,
     localWallpaperFolderUri: String,
     localFolderPermissionActive: Boolean,
+    localCatalogReady: Boolean,
     wallhavenProviderEnabled: Boolean,
     pixabayProviderEnabled: Boolean,
     bingProviderEnabled: Boolean,
@@ -60,6 +61,7 @@ internal fun SchedulerSettingsSection(
     var startHourTarget by remember { mutableStateOf<SchedulerSourceTarget?>(null) }
 
     SettingsSection(
+        sectionKey = SettingsSectionKeys.SCHEDULER,
         title = stringResource(R.string.settings_scheduler_section_title),
         description = stringResource(R.string.settings_scheduler_section_description),
     ) {
@@ -102,6 +104,7 @@ internal fun SchedulerSettingsSection(
                         source = source,
                         localFolderUri = localWallpaperFolderUri,
                         localFolderPermissionActive = localFolderPermissionActive,
+                        localCatalogReady = localCatalogReady,
                     )
                 }
             }
@@ -259,7 +262,7 @@ internal fun SchedulerSettingsSection(
                                     !isLocalWallpaperFolderReady(
                                         localWallpaperFolderUri,
                                         localFolderPermissionActive,
-                                    )
+                                    ) && !localCatalogReady
                                 ) {
                                     schedulerSourceTarget = null
                                     onChooseLocalWallpaperFolder(

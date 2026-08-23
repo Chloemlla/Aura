@@ -27,6 +27,7 @@ internal fun StorageSettingsSection(
     var showClearCacheConfirm by remember { mutableStateOf(false) }
 
     SettingsSection(
+        sectionKey = SettingsSectionKeys.STORAGE,
         title = stringResource(R.string.settings_storage_section_title),
         description = stringResource(R.string.settings_storage_section_description),
     ) {

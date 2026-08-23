@@ -24,6 +24,10 @@ enum class YtDlpUpdateStatus {
     FAILED,
 }
 
+enum class YtDlpUpdateConsent {
+    REPOSITORY_CHECKS_BYPASS_CONFIRMED,
+}
+
 data class YtDlpUpdateSnapshot(
     val activeVersion: String? = null,
     val activeVersionName: String? = null,
@@ -85,8 +89,11 @@ class YtDlpUpdateManager @Inject constructor(
 
     fun snapshot(): YtDlpUpdateSnapshot = readSnapshot()
 
-    suspend fun updateStable(): YtDlpUpdateResult = withContext(ioDispatcher) {
+    suspend fun updateStable(consent: YtDlpUpdateConsent): YtDlpUpdateResult = withContext(ioDispatcher) {
         mutex.withLock {
+            check(consent == YtDlpUpdateConsent.REPOSITORY_CHECKS_BYPASS_CONFIRMED) {
+                "Explicit consent is required before downloading a replacement yt-dlp binary"
+            }
             val existing = readSnapshot()
             if (existing.pendingValidation && rollbackDir().exists()) {
                 return@withLock YtDlpUpdateResult(

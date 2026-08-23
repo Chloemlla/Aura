@@ -1,0 +1,3 @@
+Aura v6.43.0
+
+Recent highlights: live wallpapers now publish their colours, so your launcher and Material You theme from what is actually on screen; downloads are a third the size because each release ships an APK built for your phone's architecture instead of all four; the wallpaper editor stops throwing away full-size bitmaps while you drag a filter, and tells you when a filter replaces a depth portrait instead of losing it silently; yt-dlp downloads are size-capped before any bytes are written; Android 17 memory-limiter shutdowns are named in the diagnostics bundle rather than looking like an ordinary exit; grid cells skip redrawing when nothing about them changed.

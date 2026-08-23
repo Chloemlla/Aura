@@ -5,7 +5,6 @@ import androidx.room.Room
 import com.chloemlla.aura.data.local.FreeVibeDatabase
 import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.model.FavoriteEntity
-import com.chloemlla.aura.data.remote.stability.StabilityAiApi
 import io.mockk.every
 import io.mockk.mockk
 import java.io.File
@@ -50,7 +49,7 @@ class AiWallpaperRepositoryPruneTest {
         every { prefs.wallpaperPackJson } returns flowOf("")
         repository = AiWallpaperRepository(
             context = context,
-            api = mockk<StabilityAiApi>(relaxed = true),
+            backend = mockk<GeneratedWallpaperBackend>(relaxed = true),
             referenceIndex = GeneratedAssetReferenceIndex(
                 favoriteDao = db.favoriteDao(),
                 collectionDao = db.collectionDao(),

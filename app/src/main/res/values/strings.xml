@@ -2,6 +2,8 @@
 <resources>
     <string name="app_name">Aura</string>
     <string name="video_wallpaper_label">Aura Video Wallpaper</string>
+    <string name="weather_wallpaper_label">Aura Weather</string>
+    <string name="parallax_wallpaper_label">Aura Parallax</string>
     <string name="weather_wallpaper_desc">Wallpaper with live weather effects (rain, snow, fog)</string>
     <string name="parallax_wallpaper_desc">Depth parallax wallpaper that responds to device tilt</string>
     <string name="widget_description">Quick wallpaper changer - shuffle, set home, or set lock screen</string>
@@ -67,6 +69,9 @@
     <string name="nav_collections">Collections</string>
     <string name="nav_wallpaper_history">Wallpaper History</string>
     <string name="nav_ai_generate">AI Generate</string>
+    <string name="external_media_too_large">That file is too large. Choose a file smaller than 64 MB.</string>
+    <string name="external_media_unsupported">Aura accepts one image or audio file at a time.</string>
+    <string name="external_media_open_failed">Aura couldn\'t open that file.</string>
     <string name="favorites_batch_downloading">Downloading %1$d/%2$d</string>
     <string name="favorites_batch_downloading_with_outcomes">Downloading %1$d/%2$d (%3$d failed, %4$d blocked)</string>
     <string name="a11y_download_complete">Download complete</string>
@@ -210,6 +215,10 @@
     <string name="settings_diagnostics_policy">Policy: %1$s</string>
     <string name="settings_ytdlp_update_title">Update YouTube extractor</string>
     <string name="settings_ytdlp_update_disabled">Enable YouTube features before updating the extractor</string>
+    <string name="settings_ytdlp_consent_title">Allow a runtime extractor update?</string>
+    <string name="settings_ytdlp_consent_body">Aura will download and run a replacement yt-dlp binary at runtime to refresh YouTube support.</string>
+    <string name="settings_ytdlp_consent_warning">This bypasses the version reviewed and shipped by your app repository, including F-Droid review checks. Continue only if you accept that the downloaded binary is outside the repository review path.</string>
+    <string name="settings_ytdlp_consent_confirm">Download update</string>
     <string name="settings_ytdlp_update_checking">Checking the stable yt-dlp release...</string>
     <string name="settings_ytdlp_update_checking_short">Checking</string>
     <string name="settings_ytdlp_update_version_unknown">bundled version</string>
@@ -229,44 +238,6 @@
     <string name="ytdlp_video_url_update_hint">Could not get video URL. Try updating the YouTube extractor in Settings.</string>
 
     <!-- AI generation screen -->
-    <string name="ai_disclosure_title">Generated wallpaper disclosure</string>
-    <string name="ai_disclosure_prompt_body">Your prompt is sent to Stability to generate an image. The request uses your Stability key and may spend provider credits.</string>
-    <string name="ai_disclosure_pricing_body">Provider pricing and rate limits can change; review your Stability account page before repeated generations.</string>
-    <string name="ai_disclosure_storage_body">Generated images are stored locally in Aura so you can preview, save, apply, or delete them. Do not include private, identifying, or unsafe content in prompts.</string>
-    <string name="ai_disclosure_done">Done</string>
-    <string name="ai_disclosure_accept">Accept</string>
-    <string name="ai_header_title">Generate AI Wallpaper</string>
-    <string name="ai_header_subtitle">Describe your perfect wallpaper</string>
-    <string name="ai_provider_stability">Stability AI</string>
-    <string name="ai_api_key_label">Stability AI API Key</string>
-    <string name="ai_api_key_placeholder">sk-…</string>
-    <string name="ai_api_key_hint">Get a free key at platform.stability.ai</string>
-    <string name="ai_api_key_save">Save</string>
-    <string name="ai_api_key_show">Show API key</string>
-    <string name="ai_api_key_hide">Hide API key</string>
-    <string name="ai_api_key_settings">API key settings</string>
-    <string name="ai_prompt_label">Prompt</string>
-    <string name="ai_prompt_placeholder">A misty Japanese forest at dawn, soft golden light filtering through ancient cedar trees, 4K, ultra detail…</string>
-    <string name="ai_prompt_counter">%1$d/500</string>
-    <string name="ai_style_label">Style</string>
-    <string name="ai_generate_disabled">Generated wallpapers disabled</string>
-    <string name="ai_generating">Generating…</string>
-    <string name="ai_generate_button">Generate wallpaper</string>
-    <string name="ai_credit_note">One request may spend Stability credits. Session requests: %1$d. Duplicate prompt/style retries ask before another request.</string>
-    <string name="ai_duplicate_title">Generate again?</string>
-    <string name="ai_duplicate_body">This prompt and %1$s style already produced a wallpaper this session.</string>
-    <string name="ai_duplicate_credit_warning">Running it again may spend another Stability credit charge.</string>
-    <string name="ai_duplicate_confirm">Generate Again</string>
-    <string name="ai_result_cd">Generated wallpaper</string>
-    <string name="ai_save">Save</string>
-    <string name="ai_saved">Saved</string>
-    <string name="ai_set_wallpaper">Set wallpaper</string>
-    <string name="ai_target_home">Home screen</string>
-    <string name="ai_target_lock">Lock screen</string>
-    <string name="ai_target_both">Both</string>
-    <string name="ai_report_button">Report generated content</string>
-    <string name="ai_report_title">Report generated wallpaper</string>
-    <string name="ai_report_body">Reports are sent for generated-content review. Stability keys and local file paths are not included.</string>
     <string name="common_back">Back</string>
     <string name="common_save">Save</string>
     <string name="common_discard">Discard</string>
@@ -399,6 +370,41 @@
     <string name="editor_wallpaper_layers_move_right">Move layer right</string>
     <string name="editor_wallpaper_layers_move_up">Move layer up</string>
     <string name="editor_wallpaper_layers_move_down">Move layer down</string>
+    <string name="editor_wallpaper_default_overlay_text">Aura</string>
+    <string name="editor_wallpaper_applied">Applied</string>
+    <string name="editor_wallpaper_depth_ready">Depth portrait ready</string>
+    <string name="editor_wallpaper_depth_fallback">Subject segmentation unavailable. The original wallpaper was kept.</string>
+    <string name="editor_wallpaper_depth_failed">Depth portrait failed</string>
+    <string name="editor_wallpaper_depth_exported">Depth portrait saved to Pictures/Aura</string>
+    <string name="editor_wallpaper_exported">Edited wallpaper saved to Pictures/Aura</string>
+    <string name="editor_wallpaper_export_failed">Export failed</string>
+    <string name="editor_wallpaper_parallax_failed">Parallax setup failed</string>
+    <string name="editor_wallpaper_text_layer_added">Text layer added</string>
+    <string name="editor_wallpaper_sticker_layer_added">Sticker layer added</string>
+    <string name="editor_wallpaper_http_error">Server returned HTTP %1$d</string>
+    <string name="editor_wallpaper_empty_response">The image response was empty</string>
+    <string name="editor_wallpaper_image_too_large">This image is too large to edit</string>
+    <string name="editor_wallpaper_load_image_failed">Failed to load image</string>
+    <string name="editor_wallpaper_depth_replaced_notice">Filters replaced your depth portrait. Compose it again to bring it back.</string>
+    <string name="editor_wallpaper_quality_warning_message">Memory was tight, so this edit is rendered at about %1$d%% resolution. It can still be applied, but a smaller source image will preserve full detail.</string>
+    <string name="editor_filter_brightness">Brightness</string>
+    <string name="editor_filter_contrast">Contrast</string>
+    <string name="editor_filter_saturation">Saturation</string>
+    <string name="editor_filter_warmth">Warmth</string>
+    <string name="editor_filter_blur">Blur</string>
+    <string name="editor_filter_amoled">AMOLED</string>
+    <string name="editor_filter_vignette">Vignette</string>
+    <string name="editor_filter_grain">Grain</string>
+    <string name="editor_preset_amoled">AMOLED</string>
+    <string name="editor_preset_warm">Warm</string>
+    <string name="editor_preset_cool">Cool</string>
+    <string name="editor_preset_vivid">Vivid</string>
+    <string name="editor_preset_cinematic">Cinematic</string>
+    <string name="editor_preset_dreamy">Dreamy</string>
+    <string name="editor_preset_bw">B&amp;W</string>
+    <string name="editor_preset_noir">Noir</string>
+    <string name="editor_preset_film">Film</string>
+    <string name="editor_preset_moody">Moody</string>
 
     <!-- Wallpaper crop -->
     <string name="editor_crop_title">Crop &amp; Position</string>
@@ -435,6 +441,8 @@
     <string name="editor_sound_zoom_reset">Reset waveform zoom</string>
     <string name="editor_sound_zoom_in">Zoom in waveform</string>
     <string name="editor_sound_waveform_state">%1$s, waveform zoom %2$.1f times</string>
+    <string name="editor_sound_playback_speed">Playback speed</string>
+    <string name="editor_sound_pitch_preserved">Pitch stays natural in preview and export.</string>
     <string name="editor_sound_fade_effects">Fade effects</string>
     <string name="editor_sound_fade_in">Fade in: %1$d ms</string>
     <string name="editor_sound_fade_out">Fade out: %1$d ms</string>
@@ -445,6 +453,8 @@
     <string name="editor_sound_export_bitrate">Bitrate</string>
     <string name="editor_sound_bitrate_value">%1$d kbps</string>
     <string name="editor_sound_lossless_export">Lossless export · bitrate follows the source signal.</string>
+    <string name="editor_sound_lossless_cut">Lossless cut</string>
+    <string name="editor_sound_lossless_cut_info">Copies source audio packets without re-encoding. Aura checks that the copied bytes stay identical before export completes. Fades and speed changes must stay off.</string>
     <string name="editor_sound_export_to_music">Export trimmed audio to Music/Aura</string>
     <string name="editor_sound_export_success">Exported %1$s to Music/Aura</string>
     <string name="editor_sound_export_failed">Export failed: %1$s</string>
@@ -453,7 +463,7 @@
     <string name="editor_sound_apply_notification">Notification</string>
     <string name="editor_sound_apply_alarm">Alarm</string>
     <string name="editor_sound_discard_title">Discard edits?</string>
-    <string name="editor_sound_discard_body">Your trim, fade, and normalize settings will be lost. Apply them first or discard?</string>
+    <string name="editor_sound_discard_body">Your trim, fade, and speed settings will be lost. Apply them first or discard?</string>
     <string name="editor_sound_guidance_ready">Ready for ringtone</string>
     <string name="editor_sound_guidance_ready_body">Ringtones usually work best at 8–30s. Fine-tune the handles, then preview before applying.</string>
     <string name="editor_sound_guidance_short">Better for notifications</string>
@@ -688,6 +698,10 @@
     <string name="video_crop_full_clip">Full clip</string>
 
     <!-- Downloads -->
+    <string name="download_notification_title">Downloading %1$s</string>
+    <string name="download_notification_complete">Downloaded %1$s</string>
+    <string name="download_notification_failed">Couldn\'t download %1$s</string>
+    <string name="download_notification_preparing">Preparing download</string>
     <string name="downloads_title">Downloads</string>
     <string name="downloads_tab_all">All</string>
     <string name="downloads_active">Active</string>
@@ -721,6 +735,20 @@
     <string name="contact_picker_selected_from_picker">Selected from Android contact picker</string>
     <string name="contact_picker_permission_off">Contact update permission is off. Open Android settings to let Aura write the ringtone to this contact.</string>
     <string name="contact_picker_permission_prompt">Aura asks for contact update permission only when you apply the ringtone.</string>
+    <string name="contact_picker_dnd_title">Do Not Disturb may block this ringtone</string>
+    <string name="contact_picker_dnd_policy_access_body">Do Not Disturb is active, and Aura cannot inspect its priority-caller rules yet. Grant notification policy access, then mark this contact as starred if Android is set to allow starred callers.</string>
+    <string name="contact_picker_dnd_calls_blocked_body">Do Not Disturb is blocking calls right now. Open DND settings to choose priority callers, mark this contact as starred, or assign the ringtone anyway.</string>
+    <string name="contact_picker_dnd_priority_calls_disabled_body">Do Not Disturb is active, but priority calls are disabled. Open DND settings and allow calls from starred contacts, then mark this contact as starred.</string>
+    <string name="contact_picker_dnd_contact_not_starred_body">Do Not Disturb is allowing starred callers only. Open this contact and mark it as starred so the assigned ringtone can ring.</string>
+    <string name="contact_picker_dnd_grant_access">Grant DND access</string>
+    <string name="contact_picker_dnd_open_settings">Open DND settings</string>
+    <string name="contact_picker_dnd_mark_priority">Mark contact as priority</string>
+    <string name="contact_picker_dnd_assign_anyway">Assign anyway</string>
+    <string name="contact_picker_dnd_settings_unavailable">Android DND settings could not be opened.</string>
+    <string name="contact_picker_dnd_contact_unavailable">The contact editor could not be opened.</string>
+    <string name="contact_picker_vip_preset">VIP-only preset</string>
+    <string name="contact_picker_vip_success">VIP-only ringing preset applied</string>
+    <string name="contact_picker_vip_default_failed">The contact ringtone was set, but the default ringtone could not be silenced: %1$s</string>
 
     <!-- Wallpaper history -->
     <string name="history_title">Wallpaper History</string>
@@ -740,6 +768,34 @@
     <string name="favorites_sort_name">Sort: Name A–Z</string>
     <string name="favorites_sort_oldest">Sort: Oldest first</string>
     <string name="favorites_source_unavailable">Source unavailable</string>
+    <plurals name="favorites_exported">
+        <item quantity="one">Exported %1$d favorite</item>
+        <item quantity="other">Exported %1$d favorites</item>
+    </plurals>
+    <plurals name="favorites_imported">
+        <item quantity="one">Imported %1$d favorite</item>
+        <item quantity="other">Imported %1$d favorites</item>
+    </plurals>
+    <plurals name="favorites_removed">
+        <item quantity="one">Removed %1$d favorite</item>
+        <item quantity="other">Removed %1$d favorites</item>
+    </plurals>
+    <string name="favorites_export_failed">Favorites export failed: %1$s</string>
+    <string name="favorites_import_failed">Favorites import failed: %1$s</string>
+    <string name="favorites_select_wallpaper">Select at least one wallpaper</string>
+    <string name="favorites_batch_already_running">A batch download is already running</string>
+    <plurals name="favorites_batch_provider_blocked">
+        <item quantity="one">Provider policy blocked %1$d wallpaper</item>
+        <item quantity="other">Provider policy blocked %1$d wallpapers</item>
+    </plurals>
+    <plurals name="favorites_batch_downloading_with_blocked">
+        <item quantity="one">Downloading %1$d wallpaper; %2$d blocked by provider policy</item>
+        <item quantity="other">Downloading %1$d wallpapers; %2$d blocked by provider policy</item>
+    </plurals>
+    <plurals name="favorites_batch_downloading">
+        <item quantity="one">Downloading %1$d wallpaper...</item>
+        <item quantity="other">Downloading %1$d wallpapers...</item>
+    </plurals>
 
     <!-- Settings dialogs -->
     <string name="settings_dialogs_identity_title">Community identity</string>
@@ -1013,12 +1069,15 @@
     <string name="settings_feedback_diagnostics_failed">Could not build diagnostics</string>
     <string name="settings_feedback_diagnostics_copied">Diagnostics copied</string>
     <string name="settings_feedback_deletion_code_copied">Deletion request code copied</string>
+    <string name="settings_feedback_prepare_photo_failed">Could not prepare photo</string>
+    <string name="settings_feedback_prepare_video_failed">Could not prepare video</string>
     <string name="settings_feedback_share_deletion_unavailable">No app can share deletion requests</string>
     <string name="settings_feedback_share_diagnostics_unavailable">No app can share diagnostics</string>
     <string name="settings_share_deletion_request_title">Share deletion request</string>
     <string name="settings_share_diagnostics_subject">Aura diagnostics bundle</string>
     <string name="settings_share_diagnostics_title">Share diagnostics</string>
     <string name="settings_search_hint">Search settings</string>
+    <string name="settings_search_matches_title">Matching settings</string>
     <string name="settings_search_no_results">No settings match “%1$s”</string>
     <string name="settings_wallpapers_section_title">Wallpapers</string>
     <string name="settings_wallpapers_section_description">Tune discovery quality, density, and the overall look of your feed.</string>
@@ -1034,6 +1093,7 @@
     <string name="settings_services_section_description">Provider keys and opt-in cloud features. Generated wallpapers and community actions stay off until you enable them here.</string>
     <string name="settings_storage_section_title">Storage</string>
     <string name="settings_storage_section_description">Keep downloads accessible while trimming temporary media and cached feeds when needed.</string>
+    <string name="settings_storage_calculating">Calculating...</string>
     <string name="settings_diagnostics_section_title">Diagnostics</string>
     <string name="settings_diagnostics_section_description">Local-only troubleshooting details. Nothing is uploaded automatically.</string>
     <string name="settings_permissions_section_title">Permissions and sources</string>
@@ -1060,6 +1120,19 @@
     <string name="settings_wp_night_variant_title">Automatic dark/OLED variant</string>
     <string name="settings_wp_night_variant_on_subtitle">Black-point darkening follows system dark mode or the scheduler night window</string>
     <string name="settings_wp_night_variant_off_subtitle">Keep applied and rotated wallpapers identical in light and dark modes</string>
+    <string name="settings_wp_clock_overlay_title">Clock and date overlay</string>
+    <string name="settings_wp_clock_overlay_on_subtitle">Shows localized time or date on new static applications and supported live wallpapers</string>
+    <string name="settings_wp_clock_overlay_off_subtitle">Keep applied wallpapers clean with no overlay rendering</string>
+    <string name="settings_wp_clock_overlay_mode_title">Overlay content</string>
+    <string name="settings_wp_clock_overlay_mode_time">Time</string>
+    <string name="settings_wp_clock_overlay_mode_date">Date</string>
+    <string name="settings_wp_clock_overlay_mode_both">Time and date</string>
+    <string name="settings_wp_clock_overlay_position_title">Overlay position</string>
+    <string name="settings_wp_clock_overlay_position_top_left">Top left corner</string>
+    <string name="settings_wp_clock_overlay_position_top_right">Top right corner</string>
+    <string name="settings_wp_clock_overlay_position_bottom_left">Bottom left corner</string>
+    <string name="settings_wp_clock_overlay_position_bottom_right">Bottom right corner</string>
+    <string name="wallpaper_clock_overlay_time_date">%1$s • %2$s</string>
     <string name="settings_wp_oem_battery_title">%1$s battery optimization</string>
     <string name="settings_wp_local_folder_title">Local rotation folder</string>
     <string name="settings_wp_local_folder_choose_subtitle">Choose a local image folder for offline rotation</string>
@@ -1067,6 +1140,39 @@
     <string name="settings_folder_permission_repair">Permission needs repair; choose the folder again</string>
     <string name="settings_wp_clear_local_folder_title">Clear local rotation folder</string>
     <string name="settings_wp_clear_local_folder_subtitle">Remove the saved folder grant from Aura</string>
+    <string name="settings_local_catalog_title">Local wallpaper catalog</string>
+    <string name="settings_local_catalog_subtitle_count">%1$d local folders indexed</string>
+    <string name="settings_local_catalog_add">Add folder</string>
+    <string name="settings_local_catalog_rescan_all">Rescan all</string>
+    <string name="settings_local_catalog_search_hint">Search names or tags</string>
+    <string name="settings_local_catalog_folders_heading">Folders</string>
+    <string name="settings_local_catalog_no_folders">No local folders added yet</string>
+    <string name="settings_local_catalog_items_heading">Wallpapers (%1$d)</string>
+    <string name="settings_local_catalog_no_items">No indexed wallpapers match this search</string>
+    <string name="settings_local_catalog_folder_summary">%1$d images, %2$s, %3$s</string>
+    <string name="settings_local_catalog_status_never">Not scanned</string>
+    <string name="settings_local_catalog_status_scanning">Scanning</string>
+    <string name="settings_local_catalog_status_ready">Ready</string>
+    <string name="settings_local_catalog_status_limited">Ready, capped at the catalog limit</string>
+    <string name="settings_local_catalog_status_partial">Partial scan</string>
+    <string name="settings_local_catalog_status_revoked">Permission revoked</string>
+    <string name="settings_local_catalog_status_failed">Scan failed</string>
+    <string name="settings_local_catalog_status_unknown">Unknown status</string>
+    <string name="settings_local_catalog_permission_error">Folder permission needs repair</string>
+    <string name="settings_local_catalog_scan_error">The folder could not be scanned</string>
+    <string name="settings_local_catalog_rescan">Rescan folder</string>
+    <string name="settings_local_catalog_remove">Remove folder</string>
+    <string name="settings_local_catalog_target_button">Rotation: %1$s</string>
+    <string name="settings_local_catalog_target_home">Home</string>
+    <string name="settings_local_catalog_target_lock">Lock screen</string>
+    <string name="settings_local_catalog_target_both">Home and lock</string>
+    <string name="settings_local_catalog_repair">Repair</string>
+    <string name="settings_local_catalog_item_summary">%1$s, %2$d bytes</string>
+    <string name="settings_local_catalog_duplicate">Duplicate content: %1$d indexed copies</string>
+    <string name="settings_local_catalog_tags_hint">Tags, separated by commas</string>
+    <string name="settings_local_catalog_add_tags">Add tags</string>
+    <string name="settings_local_catalog_tags">Tags: %1$s</string>
+    <string name="settings_local_catalog_save_tags">Save tags</string>
     <string name="settings_wp_unlock_title">Change on every unlock</string>
     <string name="settings_wp_unlock_subtitle">Rotate when you wake the phone (runs a low-priority notification while active)</string>
     <string name="settings_wp_screen_off_title">Pre-stage on screen off</string>
@@ -1204,6 +1310,10 @@
     <string name="settings_theme_pack_default_filename">aura-theme-pack.zip</string>
     <string name="settings_theme_pack_instructions_title">Theme pack setup steps</string>
     <string name="settings_theme_pack_instruction_row">- %1$s</string>
+    <string name="settings_theme_pack_exported">Theme pack exported: %1$d recipes, %2$d local assets</string>
+    <string name="settings_theme_pack_export_failed">Theme pack export failed: %1$s</string>
+    <string name="settings_theme_pack_imported">Theme pack imported: %1$d settings restored</string>
+    <string name="settings_theme_pack_import_failed">Theme pack import failed: %1$s</string>
     <string name="settings_smart_daily_wp_title">Daily wallpaper</string>
     <string name="settings_smart_daily_wp_subtitle">Get a daily wallpaper recommendation notification</string>
     <string name="settings_smart_tint_title">Time-of-day tint</string>
@@ -1310,6 +1420,11 @@
     <string name="settings_services_blocked_count_subtitle">%1$d community creators hidden</string>
     <string name="settings_services_reports_title">Community reports</string>
     <string name="settings_services_reports_subtitle">Review open rights, source, and safety reports</string>
+    <string name="settings_community_creator_unblocked">Creator unblocked</string>
+    <string name="settings_community_unblock_failed">Unblock failed: %1$s</string>
+    <string name="settings_community_identity_cleared">Local community identity cleared</string>
+    <string name="settings_community_identity_missing">No local community identity was stored</string>
+    <string name="settings_community_cleanup_failed">Local cleanup failed: %1$s</string>
     <string name="settings_services_wallhaven_key_title">Wallhaven API Key</string>
     <string name="settings_services_wallhaven_key_subtitle">Optional: higher limits + NSFW (wallhaven.cc/settings)</string>
     <string name="settings_services_provider_key_storage_warning_title">Provider key storage needs attention</string>
@@ -1347,19 +1462,6 @@
     <string name="settings_services_freesound_dialog_title">Freesound API Key</string>
     <string name="settings_services_freesound_dialog_desc">Paste a Freesound API token for sound search.</string>
     <string name="settings_services_freesound_dialog_placeholder">Paste API token here</string>
-    <string name="settings_services_generated_enable_title">Enable external generated wallpapers</string>
-    <string name="settings_services_generated_on_subtitle">Shows generation entry points and allows Stability requests</string>
-    <string name="settings_services_generated_off_subtitle">Off by default. Hides generation entry points and blocks Stability requests</string>
-    <string name="settings_services_generated_disclosure_title">Generated wallpaper disclosure</string>
-    <string name="settings_services_generated_disclosure_accepted_subtitle">Accepted; review prompt sharing, key use, and local storage</string>
-    <string name="settings_services_generated_disclosure_subtitle">Review prompt sharing, provider credits, and local storage</string>
-    <string name="settings_services_generated_studio_title">Open generation studio</string>
-    <string name="settings_services_generated_studio_subtitle">Create wallpapers with Stability after disclosure and key setup</string>
-    <string name="settings_services_stability_key_title">Stability AI API Key</string>
-    <string name="settings_services_stability_key_subtitle">For advanced image generation (stability.ai)</string>
-    <string name="settings_services_stability_dialog_title">Stability AI API Key</string>
-    <string name="settings_services_stability_dialog_desc">Get a free key at stability.ai/account/keys</string>
-    <string name="settings_services_stability_dialog_placeholder">Paste API key here</string>
     <string name="settings_storage_downloads_title">Downloads</string>
     <string name="settings_storage_downloads_subtitle">Review wallpapers, sounds, and videos saved by Aura</string>
     <string name="settings_storage_free_up_title">Free up storage</string>
@@ -1372,10 +1474,18 @@
     <string name="settings_storage_cache_usage_with_feed">Using %1$s of temp files and offline saves + wallpaper feed cache</string>
     <string name="settings_storage_clear_cache_confirmation">This will remove %1$s of temporary media and offline favorites. Downloaded files are not affected.</string>
     <string name="settings_storage_clear_cache_confirmation_with_feed">This will remove %1$s of temporary media and offline favorites, and reset cached wallpaper feeds. Downloaded files are not affected.</string>
+    <string name="settings_storage_bytes_b">%1$d B</string>
+    <string name="settings_storage_bytes_kb">%1$.1f KB</string>
+    <string name="settings_storage_bytes_mb">%1$.1f MB</string>
+    <string name="settings_storage_bytes_gb">%1$.1f GB</string>
     <string name="settings_diag_crash_title">Crash diagnostics bundle</string>
     <string name="settings_diag_crash_last_subtitle">Last crash %1$s • Copy or share a sanitized issue bundle</string>
     <string name="settings_diag_crash_recorded">recorded</string>
     <string name="settings_diag_crash_none_subtitle">No local crash log yet • Copy or share environment details if the app freezes</string>
+    <plurals name="settings_diag_memory_limiter_exits">
+        <item quantity="one">• %1$d memory-limiter shutdown</item>
+        <item quantity="other">• %1$d memory-limiter shutdowns</item>
+    </plurals>
     <string name="settings_diag_background_title">Background work</string>
     <string name="settings_diag_source_title">Source diagnostics</string>
     <string name="settings_diag_source_empty_subtitle">Live provider health appears here after browsing</string>
@@ -1472,6 +1582,8 @@
     <string name="settings_perm_location_desc">Weather wallpaper effects fetch local conditions from Open-Meteo. Coordinates are rounded and cleared when weather effects are disabled.</string>
     <string name="settings_perm_contacts">Contacts</string>
     <string name="settings_perm_contacts_desc">Assign per-contact ringtones. Contact data stays on-device and is never uploaded.</string>
+    <string name="settings_perm_dnd">Do Not Disturb access</string>
+    <string name="settings_perm_dnd_desc">Check whether priority callers can ring while Do Not Disturb is active. Aura uses this for per-contact ringtone guidance.</string>
     <string name="settings_perm_microphone">Microphone</string>
     <string name="settings_perm_microphone_desc">Record audio for custom sounds. Recording starts only on tap and stays local until you choose to upload.</string>
     <string name="settings_perm_modify_settings">Modify settings</string>
@@ -1719,6 +1831,16 @@
     <!-- Live wallpaper dimming -->
     <string name="settings_smart_dim_title">Dim behind icons</string>
     <string name="settings_smart_dim_subtitle">Reduce live wallpaper brightness for icon readability; double-tap to reveal full image</string>
+    <string name="settings_diag_live_wallpaper_inactive_title">Your Aura live wallpaper is no longer active</string>
+    <string name="settings_diag_live_wallpaper_replaced_subtitle">Another app (%1$s) is running the live wallpaper now • Tap to set Aura back</string>
+    <string name="settings_diag_live_wallpaper_static_subtitle">A static wallpaper is showing instead • Tap to set Aura back</string>
+    <string name="database_downgrade_title">Your library was reset</string>
+    <string name="database_downgrade_preserved_body">You installed an older version of Aura. It cannot read the library the newer version wrote (format %1$d, this build reads %2$d), so favorites, collections, and history have been cleared to let the app start.\n\nNothing is lost yet. A copy of the old library is still on this device. Reinstall the newer Aura and it will be picked up again. If you would rather stay on this version, restore from a backup instead.</string>
+    <string name="database_downgrade_lost_body">You installed an older version of Aura. It cannot read the library the newer version wrote (format %1$d, this build reads %2$d), so favorites, collections, and history have been cleared to let the app start.\n\nA copy could not be kept, most likely because the device was out of space. Restore from a backup to get your library back.</string>
+    <string name="database_downgrade_open_backup">Open backup</string>
+    <string name="database_downgrade_dismiss">Got it</string>
+    <string name="settings_smart_wallpaper_colors_title">Theme the system from your wallpaper</string>
+    <string name="settings_smart_wallpaper_colors_subtitle">Let your launcher and Material You pick up colors from the live wallpaper on screen</string>
 
     <!-- Sound profiles -->
     <string name="settings_sounds_profiles_title">Time-of-day sound profiles</string>
@@ -1790,28 +1912,51 @@
     <string name="sound_feedback_upload_failed">Upload failed: %1$s</string>
     <string name="sound_feedback_unblockable_uploader">This sound does not expose a blockable community uploader</string>
     <string name="community_guidelines_action_required">Review and accept the community guidelines in Settings first.</string>
-    <string name="ai_feedback_generation_failed">Generation failed</string>
-    <string name="ai_feedback_generation_failed_detail">Generation failed: %1$s</string>
-    <string name="ai_feedback_generation_cancelled">Generation cancelled</string>
-    <string name="ai_feedback_provider_disabled">Generated wallpapers are disabled in Settings.</string>
-    <string name="ai_feedback_prompt_required">Describe your wallpaper to get started.</string>
-    <string name="ai_feedback_key_required">Enter your Stability AI key to generate images.</string>
-    <string name="ai_feedback_disclosure_required">Review and accept the generated wallpaper disclosure before generating.</string>
-    <string name="ai_feedback_generation_in_progress">Generation already in progress. Wait for it to finish before starting another Stability request.</string>
     <string name="community_ai_generated_badge">AI-generated</string>
     <string name="community_hide_ai_filter">Hide AI</string>
     <string name="community_ai_upload_declaration">Created with generative AI</string>
     <string name="community_ai_upload_declaration_hint">Check this when AI generated or materially transformed the upload.</string>
-    <string name="ai_share_community">Share to community</string>
-    <string name="ai_share_community_unavailable">Enable Community and accept its guidelines in Settings to share.</string>
-    <string name="ai_share_community_auto_label">Aura will automatically label this wallpaper as AI-generated.</string>
-    <string name="ai_share_community_title">Share generated wallpaper</string>
-    <string name="ai_share_community_default_name">Generated wallpaper</string>
-    <string name="ai_share_community_complete">Generated wallpaper shared to Community</string>
-    <string name="ai_share_community_failed">Community upload failed: %1$s</string>
-
     <!-- Lumen Crash SDK integration -->
     <string name="crash_report_title">Crash report saved</string>
     <string name="crash_report_message">Aura recovered from a crash. Review, copy, or share this report before continuing.</string>
     <string name="crash_report_share_subject">Aura crash report</string>
+
+    <!-- Rotation Health -->
+    <string name="nav_rotation_health">Rotation health</string>
+    <string name="action_back">Back</string>
+    <string name="rotation_health_title">Rotation health</string>
+    <string name="rotation_health_entry_title">Rotation health</string>
+    <string name="rotation_health_entry_subtitle">Why your wallpaper is or is not changing</string>
+    <string name="rotation_health_refresh">Refresh</string>
+    <string name="rotation_health_run_now">Run now</string>
+    <string name="rotation_health_running">Checking…</string>
+    <string name="rotation_health_run_now_queued">A rotation has been queued. It runs in the background, so give it a moment and refresh.</string>
+    <string name="rotation_health_battery_settings">Battery settings</string>
+    <string name="rotation_health_healthy_body">Rotation is scheduled and the last run succeeded.</string>
+    <string name="rotation_health_verdict_healthy">Rotation is working</string>
+    <string name="rotation_health_verdict_disabled">Rotation is off</string>
+    <string name="rotation_health_verdict_throttled">Android is holding rotation back</string>
+    <string name="rotation_health_verdict_not_scheduled">Rotation is on but nothing is scheduled</string>
+    <string name="rotation_health_verdict_failing">The last rotation failed</string>
+    <string name="rotation_health_row_enabled">Automatic change</string>
+    <string name="rotation_health_row_interval">Interval</string>
+    <string name="rotation_health_row_source">Source</string>
+    <string name="rotation_health_row_last_fire">Last change</string>
+    <string name="rotation_health_row_next_fire">Next change</string>
+    <string name="rotation_health_row_work_state">Scheduler state</string>
+    <string name="rotation_health_row_stop_reason">Last stop reason</string>
+    <string name="rotation_health_row_boot_receiver">Last restart seen</string>
+    <string name="rotation_health_row_battery_exemption">Background battery use</string>
+    <string name="rotation_health_row_last_failure">Last failure</string>
+    <string name="rotation_health_row_deferral">Last deferral reason</string>
+    <string name="rotation_health_row_read_error">Diagnostic read error</string>
+    <string name="rotation_health_on">On</string>
+    <string name="rotation_health_off">Off</string>
+    <string name="rotation_health_never">Never</string>
+    <string name="rotation_health_unknown">This device will not say</string>
+    <string name="rotation_health_next_fire_unscheduled">Not scheduled</string>
+    <string name="rotation_health_boot_never_seen">No restart recorded yet</string>
+    <string name="rotation_health_battery_exempt">Unrestricted</string>
+    <string name="rotation_health_battery_restricted">Restricted, which can stop rotation</string>
+    <string name="rotation_health_interval_minutes">%1$d minutes</string>
 </resources>

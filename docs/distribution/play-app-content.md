@@ -130,7 +130,7 @@ Evidence:
 
 Current checked coverage:
 
-- 14 manifest permissions.
+- 15 manifest permissions.
 - 15 reviewed network endpoint rows.
 - 12 source-backed local storage rows.
 - 6 Gradle-marker-backed SDK rows.
@@ -220,8 +220,8 @@ Evidence:
 | `android.permission.FOREGROUND_SERVICE_SPECIAL_USE` | Opt-in wallpaper rotation triggers for screen-off and unlock, with Play foreground-service declaration evidence required before Play production. |
 | `android.permission.POST_NOTIFICATIONS` | Foreground service and worker notifications when Android requires visible status. |
 | `android.permission.ACCESS_COARSE_LOCATION` | Optional weather wallpaper effects. |
-| `android.permission.READ_CONTACTS` | Local per-contact ringtone picker. |
 | `android.permission.WRITE_CONTACTS` | Local write of selected ringtone URI to a chosen contact. |
+| `android.permission.ACCESS_NOTIFICATION_POLICY` | Local inspection of Do Not Disturb priority-caller rules so Aura can explain per-contact ringtone behavior. |
 | `android.permission.WRITE_EXTERNAL_STORAGE` | Legacy API 28-and-below user-directed downloads and exports. |
 
 Use `docs/privacy/data-safety.md` for the complete permission ledger, denial

@@ -51,6 +51,8 @@ import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.WALLPAPER_SOURCE_LOCAL_FOLDER
 import com.chloemlla.aura.service.ExternalAutomationDiagnostics
 import com.chloemlla.aura.service.OemBatteryGuidance
+import com.chloemlla.aura.service.WallpaperClockOverlayMode
+import com.chloemlla.aura.service.WallpaperClockOverlayPosition
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -63,6 +65,8 @@ internal fun WallpaperRotationSettingsSection(
     autoWpSource: String,
     localWallpaperFolderUri: String,
     localFolderPermissionActive: Boolean,
+    localWallpaperFolderCount: Int,
+    localCatalogReady: Boolean,
     autoWpRequiresCharging: Boolean,
     autoWpRequiresWiFi: Boolean,
     autoWpRequiresIdle: Boolean,
@@ -85,7 +89,11 @@ internal fun WallpaperRotationSettingsSection(
     wallhavenProviderEnabled: Boolean,
     pixabayProviderEnabled: Boolean,
     wallpaperHistoryCount: Int,
+    wallpaperClockOverlayEnabled: Boolean,
+    wallpaperClockOverlayMode: WallpaperClockOverlayMode,
+    wallpaperClockOverlayPosition: WallpaperClockOverlayPosition,
     onChooseLocalWallpaperFolder: (String?) -> Unit,
+    onManageLocalWallpaperFolders: () -> Unit,
     onPickVideoWallpaper: () -> Unit,
     onPickParallaxImage: () -> Unit,
     onCategoriesClick: () -> Unit,
@@ -98,8 +106,11 @@ internal fun WallpaperRotationSettingsSection(
     var showColumnsPicker by remember { mutableStateOf(false) }
     var showResPicker by remember { mutableStateOf(false) }
     var showStylePicker by remember { mutableStateOf(false) }
+    var showClockModePicker by remember { mutableStateOf(false) }
+    var showClockPositionPicker by remember { mutableStateOf(false) }
 
     SettingsSection(
+        sectionKey = SettingsSectionKeys.WALLPAPERS,
         title = stringResource(R.string.settings_wallpapers_section_title),
         description = stringResource(R.string.settings_wallpapers_section_description),
     ) {
@@ -124,6 +135,7 @@ internal fun WallpaperRotationSettingsSection(
                     source = autoWpSource,
                     localFolderUri = localWallpaperFolderUri,
                     localFolderPermissionActive = localFolderPermissionActive,
+                    localCatalogReady = localCatalogReady,
                 ),
                 onClick = { showSourcePicker = true },
             )
@@ -140,6 +152,7 @@ internal fun WallpaperRotationSettingsSection(
                 subtitle = stringResource(R.string.settings_wp_wifi_only_subtitle),
                 checked = autoWpRequiresWiFi,
                 onCheckedChange = viewModel::setAutoWallpaperRequiresWiFiOnly,
+                searchAliases = setOf("wifi", "wi-fi", "network"),
             )
             SettingsToggle(
                 icon = Icons.Default.Bedtime,
@@ -163,6 +176,40 @@ internal fun WallpaperRotationSettingsSection(
             onValueChange = { viewModel.setAutoWallpaperDarkenPercent(it.roundToInt()) },
         )
         SettingsToggle(
+            icon = Icons.Default.Schedule,
+            title = stringResource(R.string.settings_wp_clock_overlay_title),
+            subtitle = if (wallpaperClockOverlayEnabled) {
+                stringResource(R.string.settings_wp_clock_overlay_on_subtitle)
+            } else {
+                stringResource(R.string.settings_wp_clock_overlay_off_subtitle)
+            },
+            checked = wallpaperClockOverlayEnabled,
+            onCheckedChange = viewModel::setWallpaperClockOverlayEnabled,
+        )
+        if (wallpaperClockOverlayEnabled) {
+            SettingsItem(
+                icon = Icons.Default.Schedule,
+                title = stringResource(R.string.settings_wp_clock_overlay_mode_title),
+                subtitle = when (wallpaperClockOverlayMode) {
+                    WallpaperClockOverlayMode.TIME -> stringResource(R.string.settings_wp_clock_overlay_mode_time)
+                    WallpaperClockOverlayMode.DATE -> stringResource(R.string.settings_wp_clock_overlay_mode_date)
+                    WallpaperClockOverlayMode.TIME_AND_DATE -> stringResource(R.string.settings_wp_clock_overlay_mode_both)
+                },
+                onClick = { showClockModePicker = true },
+            )
+            SettingsItem(
+                icon = Icons.Default.GridView,
+                title = stringResource(R.string.settings_wp_clock_overlay_position_title),
+                subtitle = when (wallpaperClockOverlayPosition) {
+                    WallpaperClockOverlayPosition.TOP_LEFT -> stringResource(R.string.settings_wp_clock_overlay_position_top_left)
+                    WallpaperClockOverlayPosition.TOP_RIGHT -> stringResource(R.string.settings_wp_clock_overlay_position_top_right)
+                    WallpaperClockOverlayPosition.BOTTOM_LEFT -> stringResource(R.string.settings_wp_clock_overlay_position_bottom_left)
+                    WallpaperClockOverlayPosition.BOTTOM_RIGHT -> stringResource(R.string.settings_wp_clock_overlay_position_bottom_right)
+                },
+                onClick = { showClockPositionPicker = true },
+            )
+        }
+        SettingsToggle(
             icon = Icons.Default.Bedtime,
             title = stringResource(R.string.settings_wp_night_variant_title),
             subtitle = if (autoWallpaperNightVariantEnabled) {
@@ -172,6 +219,7 @@ internal fun WallpaperRotationSettingsSection(
             },
             checked = autoWallpaperNightVariantEnabled,
             onCheckedChange = viewModel::setAutoWallpaperNightVariantEnabled,
+            searchAliases = setOf("oled", "theme", "dark mode"),
         )
         val rotationActive = autoWpEnabled || schedulerEnabled || rotateOnUnlock || rotateOnScreenOff
         if (rotationActive) {
@@ -199,11 +247,15 @@ internal fun WallpaperRotationSettingsSection(
         SettingsItem(
             icon = Icons.Default.FolderOpen,
             title = stringResource(R.string.settings_wp_local_folder_title),
-            subtitle = localWallpaperFolderSubtitle(
-                localWallpaperFolderUri,
-                localFolderPermissionActive,
-            ),
-            onClick = { onChooseLocalWallpaperFolder(null) },
+            subtitle = if (localWallpaperFolderCount > 0) {
+                stringResource(R.string.settings_local_catalog_subtitle_count, localWallpaperFolderCount)
+            } else {
+                localWallpaperFolderSubtitle(
+                    localWallpaperFolderUri,
+                    localFolderPermissionActive,
+                )
+            },
+            onClick = onManageLocalWallpaperFolders,
         )
         if (localWallpaperFolderUri.isNotBlank()) {
             SettingsItem(
@@ -364,6 +416,7 @@ internal fun WallpaperRotationSettingsSection(
             pixabayProviderEnabled = pixabayProviderEnabled,
             localFolderUri = localWallpaperFolderUri,
             localFolderPermissionActive = localFolderPermissionActive,
+            localCatalogReady = localCatalogReady,
             onDismiss = { showSourcePicker = false },
             onChooseLocalFolder = {
                 showSourcePicker = false
@@ -504,6 +557,67 @@ internal fun WallpaperRotationSettingsSection(
             },
             dismissButton = {
                 TextButton(onClick = { showStylePicker = false }) { Text(stringResource(R.string.common_cancel)) }
+            },
+        )
+    }
+
+    if (showClockModePicker) {
+        AlertDialog(
+            onDismissRequest = { showClockModePicker = false },
+            title = { Text(stringResource(R.string.settings_wp_clock_overlay_mode_title)) },
+            text = {
+                Column {
+                    listOf(
+                        WallpaperClockOverlayMode.TIME to stringResource(R.string.settings_wp_clock_overlay_mode_time),
+                        WallpaperClockOverlayMode.DATE to stringResource(R.string.settings_wp_clock_overlay_mode_date),
+                        WallpaperClockOverlayMode.TIME_AND_DATE to stringResource(R.string.settings_wp_clock_overlay_mode_both),
+                    ).forEach { (mode, label) ->
+                        SettingsRadioOptionRow(
+                            label = label,
+                            selected = wallpaperClockOverlayMode == mode,
+                            onClick = {
+                                viewModel.setWallpaperClockOverlayMode(mode.preferenceValue)
+                                showClockModePicker = false
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showClockModePicker = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
+    }
+
+    if (showClockPositionPicker) {
+        AlertDialog(
+            onDismissRequest = { showClockPositionPicker = false },
+            title = { Text(stringResource(R.string.settings_wp_clock_overlay_position_title)) },
+            text = {
+                Column {
+                    listOf(
+                        WallpaperClockOverlayPosition.TOP_LEFT to stringResource(R.string.settings_wp_clock_overlay_position_top_left),
+                        WallpaperClockOverlayPosition.TOP_RIGHT to stringResource(R.string.settings_wp_clock_overlay_position_top_right),
+                        WallpaperClockOverlayPosition.BOTTOM_LEFT to stringResource(R.string.settings_wp_clock_overlay_position_bottom_left),
+                        WallpaperClockOverlayPosition.BOTTOM_RIGHT to stringResource(R.string.settings_wp_clock_overlay_position_bottom_right),
+                    ).forEach { (position, label) ->
+                        SettingsRadioOptionRow(
+                            label = label,
+                            selected = wallpaperClockOverlayPosition == position,
+                            onClick = {
+                                viewModel.setWallpaperClockOverlayPosition(position.preferenceValue)
+                                showClockPositionPicker = false
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showClockPositionPicker = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
             },
         )
     }

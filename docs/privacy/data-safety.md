@@ -27,13 +27,15 @@ coverage.
 | `android.permission.POST_NOTIFICATIONS` | Show required foreground-service and worker notifications. | App interactions; local only. | Not shared. | Runtime notification permission. |
 | `android.permission.ACCESS_COARSE_LOCATION` | Fetch approximate weather for optional weather wallpaper effects. | Approximate location. | Shared with Open-Meteo when weather is enabled. | Location disclosure required. |
 | `android.permission.WRITE_CONTACTS` | Write the selected ringtone URI to the contact selected through Android's contact picker. | Contacts and audio files; local only. | Not shared. | Sensitive permission requested only when applying a per-contact ringtone. |
+| `android.permission.ACCESS_NOTIFICATION_POLICY` | Inspect Do Not Disturb priority-caller rules for per-contact ringtone guidance. | App interactions and notification policy state; local only. | Not shared. | Special access used only to explain DND behavior; Aura does not change the policy silently. |
 
 ## Data Safety Answer Notes
 
 - Approximate location is used only for optional weather effects and is shared
   with the weather provider when that feature is enabled.
 - Contacts are selected through Android's contact picker for per-contact
-  ringtone assignment and are not uploaded by Aura.
+  ringtone assignment and are not uploaded by Aura. DND policy state is read
+  locally only when Aura needs to explain whether that ringtone can ring.
 - Microphone recordings are local until the user uploads a community sound.
 - Community uploads, votes, follows, reports, creator profiles, and collection
   shares use Firebase when the user uses those community features.
@@ -66,7 +68,7 @@ must have a matching `networkSurfaces` row in `docs/privacy/data-safety.json`.
 | `audius-api` | Search queries and provider response metadata shared with Audius during sound browsing. | Sound browsing controls and local cache cleanup. |
 | `ccmixter-api` | Search queries and provider response metadata shared with ccMixter during sound browsing. | Sound browsing controls and local cache cleanup. |
 | `open-meteo-api` | Approximate location shared with Open-Meteo only when weather effects are enabled. | Weather effects toggle and Android location permission. |
-| `stability-api` | Prompt, key-authenticated request metadata, and generated output handled through Stability when the user starts generation. | Generated wallpaper switch, disclosure, and Stability key controls. |
+| `generated-wallpaper-api` | Prompt, key-authenticated request metadata, and generated output handled through Stability when the user starts generation. | Generated wallpaper switch, disclosure, and Stability key controls. |
 | `youtube-newpipe` | Video IDs and provider response metadata shared with YouTube tooling during enabled YouTube flows. | YouTube source switch and sound query settings. |
 | `youtube-pot-provider` | YouTube attestation challenge, video-bound token context, and response metadata shared only with the HTTPS provider selected by the user. | PO-token provider URL, YouTube source switch, and clear-app-data controls. |
 | `aura-collection-links` | No app-initiated network collection; links are import locators. | User chooses whether to import a collection link. |

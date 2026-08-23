@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "contractKind": "communityCallableWireProtocol",
   "androidClient": {
-    "sourcePath": "app/src/main/java/com/freevibe/data/repository/CommunityCallableClient.kt",
-    "testPath": "app/src/test/java/com/freevibe/data/repository/CommunityCallableClientTest.kt",
+    "sourcePath": "app/src/main/java/com/chloemlla/aura/data/repository/CommunityCallableClient.kt",
+    "testPath": "app/src/test/java/com/chloemlla/aura/data/repository/CommunityCallableClientTest.kt",
     "envelopeBuilder": "buildCommunityCallableEnvelope",
     "resultType": "CommunityCallableWriteResult"
   },

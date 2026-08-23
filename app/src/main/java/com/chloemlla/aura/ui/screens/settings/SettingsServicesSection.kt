@@ -10,12 +10,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.ImageSearch
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
@@ -44,7 +42,6 @@ import com.chloemlla.aura.R
 import com.chloemlla.aura.data.repository.CommunityBlockedUser
 import com.chloemlla.aura.service.CommunityIdentitySummary
 import com.chloemlla.aura.ui.components.CommunityGuidelinesDialog
-import com.chloemlla.aura.ui.screens.aigenerate.GeneratedWallpaperDisclosureDialog
 
 @Composable
 internal fun ServicesCommunitySettingsSection(
@@ -61,7 +58,7 @@ internal fun ServicesCommunitySettingsSection(
     pexelsApiKey: String,
     pixabayApiKey: String,
     freesoundApiKey: String,
-    stabilityAiKey: String,
+    generatedWallpaperProviderKey: String,
     providerCredentialStorageUnavailable: Boolean,
     generatedContentProviderEnabled: Boolean,
     generatedContentDisclosureAccepted: Boolean,
@@ -82,8 +79,6 @@ internal fun ServicesCommunitySettingsSection(
     var showPexelsKey by remember { mutableStateOf(false) }
     var showPixabayKey by remember { mutableStateOf(false) }
     var showFreesoundKey by remember { mutableStateOf(false) }
-    var showStabilityKey by remember { mutableStateOf(false) }
-    var showGeneratedDisclosure by remember { mutableStateOf(false) }
 
     LaunchedEffect(communityBlockAction.message, communityBlockAction.error) {
         communityBlockAction.message?.let {
@@ -105,11 +100,8 @@ internal fun ServicesCommunitySettingsSection(
             viewModel.clearCommunityIdentityCleanupState()
         }
     }
-    LaunchedEffect(generatedContentProviderEnabled) {
-        if (!generatedContentProviderEnabled) showStabilityKey = false
-    }
-
     SettingsSection(
+        sectionKey = SettingsSectionKeys.SERVICES,
         title = stringResource(R.string.settings_services_section_title),
         description = stringResource(R.string.settings_services_section_description),
     ) {
@@ -123,6 +115,7 @@ internal fun ServicesCommunitySettingsSection(
             },
             checked = communityProviderEnabled,
             onCheckedChange = viewModel::setCommunityProviderEnabled,
+            searchAliases = setOf("firebase", "app check", "integrity"),
         )
         if (communityProviderEnabled) {
             SettingsItem(
@@ -258,41 +251,13 @@ internal fun ServicesCommunitySettingsSection(
             subtitle = stringResource(R.string.settings_services_freesound_key_subtitle),
             onClick = { showFreesoundKey = true },
         )
-        SettingsToggle(
-            icon = Icons.Default.AutoAwesome,
-            title = stringResource(R.string.settings_services_generated_enable_title),
-            subtitle = if (generatedContentProviderEnabled) {
-                stringResource(R.string.settings_services_generated_on_subtitle)
-            } else {
-                stringResource(R.string.settings_services_generated_off_subtitle)
-            },
-            checked = generatedContentProviderEnabled,
-            onCheckedChange = viewModel::setGeneratedContentProviderEnabled,
+        GeneratedWallpaperProviderSettings(
+            viewModel = viewModel,
+            providerKey = generatedWallpaperProviderKey,
+            enabled = generatedContentProviderEnabled,
+            disclosureAccepted = generatedContentDisclosureAccepted,
+            onOpenStudio = onGeneratedWallpapersClick,
         )
-        SettingsItem(
-            icon = Icons.Default.Info,
-            title = stringResource(R.string.settings_services_generated_disclosure_title),
-            subtitle = if (generatedContentDisclosureAccepted) {
-                stringResource(R.string.settings_services_generated_disclosure_accepted_subtitle)
-            } else {
-                stringResource(R.string.settings_services_generated_disclosure_subtitle)
-            },
-            onClick = { showGeneratedDisclosure = true },
-        )
-        if (generatedContentProviderEnabled) {
-            SettingsItem(
-                icon = Icons.Default.AutoAwesome,
-                title = stringResource(R.string.settings_services_generated_studio_title),
-                subtitle = stringResource(R.string.settings_services_generated_studio_subtitle),
-                onClick = onGeneratedWallpapersClick,
-            )
-            SettingsItem(
-                icon = Icons.Default.Key,
-                title = stringResource(R.string.settings_services_stability_key_title),
-                subtitle = stringResource(R.string.settings_services_stability_key_subtitle),
-                onClick = { showStabilityKey = true },
-            )
-        }
     }
 
     if (showCommunityIdentity) {
@@ -375,28 +340,10 @@ internal fun ServicesCommunitySettingsSection(
             onDismiss = { showFreesoundKey = false },
         )
     }
-    if (showGeneratedDisclosure) {
-        GeneratedWallpaperDisclosureDialog(
-            accepted = generatedContentDisclosureAccepted,
-            onAccept = viewModel::acceptGeneratedContentDisclosure,
-            onReset = viewModel::resetGeneratedContentDisclosure,
-            onDismiss = { showGeneratedDisclosure = false },
-        )
-    }
-    if (generatedContentProviderEnabled && showStabilityKey) {
-        ProviderApiKeyDialog(
-            title = stringResource(R.string.settings_services_stability_dialog_title),
-            description = stringResource(R.string.settings_services_stability_dialog_desc),
-            value = stabilityAiKey,
-            placeholder = stringResource(R.string.settings_services_stability_dialog_placeholder),
-            onSave = viewModel::setStabilityKey,
-            onDismiss = { showStabilityKey = false },
-        )
-    }
 }
 
 @Composable
-private fun ProviderApiKeyDialog(
+internal fun ProviderApiKeyDialog(
     title: String,
     description: String,
     value: String,

@@ -24,8 +24,8 @@ from pathlib import Path
 from typing import Any
 
 GRADLE_PATH = "app/build.gradle.kts"
-DATABASE_PATH = "app/src/main/java/com/freevibe/data/local/Database.kt"
-CAPABILITY_PATH = "app/src/main/java/com/freevibe/data/legal/ProviderCapability.kt"
+DATABASE_PATH = "app/src/main/java/com/chloemlla/aura/data/local/Database.kt"
+CAPABILITY_PATH = "app/src/main/java/com/chloemlla/aura/data/legal/ProviderCapability.kt"
 README_PATH = "README.md"
 CHANGELOG_PATH = "CHANGELOG.md"
 POLICY_PATH = "docs/distribution/release-metadata-consistency.json"

@@ -15,6 +15,13 @@ from pathlib import Path
 from typing import Any
 
 
+if __package__ in (None, ""):
+    # Executed as `python tools/native_alignment_check.py`, where only tools/ is
+    # on sys.path. Tests import this as `tools.native_alignment_check`.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from tools.published_state import PublishedStateError, assert_enforcement_mechanism
+
 PACKAGE_RE = re.compile(r'applicationId\s*=\s*"([^"]+)"')
 PT_LOAD = 1
 ELF_MAGIC = b"\x7fELF"
@@ -97,12 +104,108 @@ def require_string_list(value: Any, label: str) -> list[str]:
     return values
 
 
+def require_object_list(value: Any, label: str) -> list[dict[str, Any]]:
+    if not isinstance(value, list) or not value:
+        raise NativeAlignmentError(f"{label} must be a non-empty list")
+    return [require_object(item, f"{label}[{index}]") for index, item in enumerate(value)]
+
+
 def parse_package_name(repo_root: Path) -> str:
     text = (repo_root / "app/build.gradle.kts").read_text(encoding="utf-8")
     match = PACKAGE_RE.search(text)
     if match:
         return match.group(1)
     raise NativeAlignmentError("app/build.gradle.kts is missing applicationId")
+
+
+def validate_media_stack_migration_evidence(repo_root: Path, value: Any) -> dict[str, Any]:
+    evidence = require_object(value, "mediaStackMigrationEvidence")
+    require_string(evidence.get("date"), "mediaStackMigrationEvidence.date")
+    if evidence.get("status") != "verified":
+        raise NativeAlignmentError("mediaStackMigrationEvidence.status must be verified")
+
+    artifact_sizes = require_object(
+        evidence.get("artifactBytes"),
+        "mediaStackMigrationEvidence.artifactBytes",
+    )
+    before = require_object(artifact_sizes.get("before"), "artifactBytes.before")
+    after = require_object(artifact_sizes.get("after"), "artifactBytes.after")
+    if not before or set(before) != set(after):
+        raise NativeAlignmentError("artifactBytes.before and artifactBytes.after must name the same artifacts")
+    for phase, sizes in (("before", before), ("after", after)):
+        for artifact, byte_count in sizes.items():
+            require_string(artifact, f"artifactBytes.{phase} artifact name")
+            if require_int(byte_count, f"artifactBytes.{phase}.{artifact}") <= 0:
+                raise NativeAlignmentError(f"artifactBytes.{phase}.{artifact} must be positive")
+
+    packaging = require_object(
+        evidence.get("legacyPackagingDecision"),
+        "mediaStackMigrationEvidence.legacyPackagingDecision",
+    )
+    legacy_enabled = require_bool(
+        packaging.get("useLegacyPackaging"),
+        "legacyPackagingDecision.useLegacyPackaging",
+    )
+    can_disable = require_bool(
+        packaging.get("canDisable"),
+        "legacyPackagingDecision.canDisable",
+    )
+    require_string(packaging.get("reason"), "legacyPackagingDecision.reason")
+    gradle_text = (repo_root / "app/build.gradle.kts").read_text(encoding="utf-8")
+    declared_legacy = bool(re.search(r"useLegacyPackaging\s*=\s*true", gradle_text))
+    if legacy_enabled != declared_legacy:
+        raise NativeAlignmentError(
+            "legacyPackagingDecision.useLegacyPackaging does not match app/build.gradle.kts"
+        )
+    if legacy_enabled and can_disable:
+        raise NativeAlignmentError("legacy packaging cannot be enabled while canDisable is true")
+
+    consumers = require_object_list(
+        evidence.get("retainedFfmpegConsumers"),
+        "mediaStackMigrationEvidence.retainedFfmpegConsumers",
+    )
+    consumer_ids: set[str] = set()
+    for index, consumer in enumerate(consumers):
+        label = f"retainedFfmpegConsumers[{index}]"
+        consumer_id = require_string(consumer.get("id"), f"{label}.id")
+        if consumer_id in consumer_ids:
+            raise NativeAlignmentError(f"retainedFfmpegConsumers contains duplicate id {consumer_id}")
+        consumer_ids.add(consumer_id)
+        source_path = require_string(consumer.get("sourcePath"), f"{label}.sourcePath")
+        require_string(consumer.get("mode"), f"{label}.mode")
+        require_string_list(consumer.get("operations"), f"{label}.operations")
+        if not (repo_root / source_path).is_file():
+            raise NativeAlignmentError(f"retained FFmpeg consumer source is missing: {source_path}")
+
+    required_consumers = {
+        "sound-editor-codec-fallbacks",
+        "video-crop-export",
+        "yt-dlp-extractor-runtime",
+    }
+    if consumer_ids != required_consumers:
+        missing = sorted(required_consumers - consumer_ids)
+        extra = sorted(consumer_ids - required_consumers)
+        details = []
+        if missing:
+            details.append("missing " + ", ".join(missing))
+        if extra:
+            details.append("unexpected " + ", ".join(extra))
+        raise NativeAlignmentError("retainedFfmpegConsumers mismatch: " + "; ".join(details))
+
+    if require_bool(
+        evidence.get("videoCropIsSoleRemainingConsumer"),
+        "mediaStackMigrationEvidence.videoCropIsSoleRemainingConsumer",
+    ):
+        raise NativeAlignmentError(
+            "videoCropIsSoleRemainingConsumer must be false while codec fallbacks and yt-dlp remain"
+        )
+    require_string(evidence.get("videoCropStatus"), "mediaStackMigrationEvidence.videoCropStatus")
+    return {
+        "artifactCount": len(after),
+        "retainedFfmpegConsumerIds": sorted(consumer_ids),
+        "useLegacyPackaging": legacy_enabled,
+        "canDisableLegacyPackaging": can_disable,
+    }
 
 
 def sha256_file(path: Path) -> str:
@@ -218,16 +321,77 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
     )
     if required_alignment < 16384 or required_alignment & (required_alignment - 1) != 0:
         raise NativeAlignmentError("requiredLoadSegmentAlignmentBytes must be a power of two at least 16384")
-    if not require_bool(policy.get("require64BitOnly"), "require64BitOnly"):
-        raise NativeAlignmentError("require64BitOnly must remain true")
+    # This used to insist require64BitOnly stay true while the shipped APK carried
+    # armeabi-v7a and x86, and the library loop skipped every 32-bit library, so
+    # the contradiction was unobservable. The flag now means what it says, and the
+    # declared set below is what records reality.
+    require_64_bit_only = require_bool(policy.get("require64BitOnly"), "require64BitOnly")
     required_abis = set(require_string_list(policy.get("required64BitAbis"), "required64BitAbis"))
     if not required_abis <= ABI_64_BIT:
         raise NativeAlignmentError("required64BitAbis contains an unknown 64-bit ABI")
+    declared_abis = set(require_string_list(policy.get("declaredAbis"), "declaredAbis"))
+    if not required_abis <= declared_abis:
+        raise NativeAlignmentError(
+            "required64BitAbis names ABIs missing from declaredAbis: "
+            + ", ".join(sorted(required_abis - declared_abis))
+        )
+    if require_64_bit_only and not declared_abis <= ABI_64_BIT:
+        raise NativeAlignmentError(
+            "require64BitOnly is true but declaredAbis includes 32-bit ABIs: "
+            + ", ".join(sorted(declared_abis - ABI_64_BIT))
+        )
+    if not require_64_bit_only:
+        require_string(
+            policy.get("thirtyTwoBitSupportRationale"),
+            "thirtyTwoBitSupportRationale",
+        )
+    status = require_string(policy.get("status"), "status")
+    enforced_by = validate_enforcement(repo_root, status, policy.get("enforcedBy"))
+    media_stack_migration = validate_media_stack_migration_evidence(
+        repo_root,
+        policy.get("mediaStackMigrationEvidence"),
+    )
     return {
         "packageName": package_name,
         "requiredAlignment": required_alignment,
         "requiredAbis": required_abis,
+        "declaredAbis": declared_abis,
+        "require64BitOnly": require_64_bit_only,
+        "status": status,
+        "enforcedBy": enforced_by,
+        "mediaStackMigrationEvidence": media_stack_migration,
     }
+
+
+def validate_enforcement(repo_root: Path, status: str, enforced_by: Any) -> list[str]:
+    """Hold an `...Enforced` status to naming a mechanism that actually exists.
+
+    This file said `releaseWorkflowEnforced` long after the workflows it meant
+    were deleted, and nothing noticed because no gate read the field. A status
+    string is a claim; the file it names is the mechanism.
+    """
+    if not status.endswith("Enforced"):
+        return []
+    paths = [] if enforced_by is None else require_string_list(enforced_by, "enforcedBy")
+    try:
+        assert_enforcement_mechanism(repo_root, status, paths, "native alignment policy")
+    except PublishedStateError as exc:
+        raise NativeAlignmentError(str(exc)) from exc
+    return paths
+
+
+def expected_abis_for_apk(apk_name: str, declared_abis: set[str]) -> tuple[str, set[str]]:
+    """What this particular artifact should contain, decided by its file name.
+
+    Which ABIs an APK *should* have cannot be inferred from the ones it has: a
+    universal build that lost three of its four ABIs looks exactly like a split.
+    Gradle names the artifacts, so the name is the declaration — `...-arm64-v8a-`
+    must hold that ABI and nothing else, and anything else must hold all of them.
+    """
+    for abi in sorted(declared_abis, key=len, reverse=True):
+        if f"-{abi}-" in apk_name or apk_name.endswith(f"-{abi}.apk"):
+            return f"split:{abi}", {abi}
+    return "universal", set(declared_abis)
 
 
 def validate_libraries(
@@ -235,15 +399,44 @@ def validate_libraries(
     *,
     required_alignment: int,
     required_abis: set[str],
+    expected_abis: set[str],
+    require_64_bit_only: bool,
+    variant: str = "universal",
 ) -> dict[str, object]:
     errors: list[str] = []
+    seen_abis = {library.abi for library in libraries}
     seen_64_bit_abis = {library.abi for library in libraries if library.is_64_bit}
-    missing_abis = sorted(required_abis - seen_64_bit_abis)
-    if missing_abis:
-        errors.append("APK missing required 64-bit ABIs: " + ", ".join(missing_abis))
+
+    # Checked in both directions. An ABI the artifact should not carry is payload
+    # nobody signed up to ship; one it should carry but does not is a device
+    # silently losing support. The old gate could see neither, because it skipped
+    # every non-64-bit library before it looked at anything.
+    unexpected = sorted(seen_abis - expected_abis)
+    if unexpected:
+        errors.append(f"{variant} APK ships unexpected ABIs: " + ", ".join(unexpected))
+    absent = sorted(expected_abis - seen_abis)
+    if absent:
+        errors.append(f"{variant} APK is missing expected ABIs: " + ", ".join(absent))
+
+    if require_64_bit_only:
+        thirty_two_bit = sorted({library.abi for library in libraries if not library.is_64_bit})
+        if thirty_two_bit:
+            errors.append(
+                "policy requires 64-bit only but the APK ships 32-bit ABIs: "
+                + ", ".join(thirty_two_bit)
+            )
+
+    # A per-ABI split holds one ABI by definition, so demanding the full 64-bit
+    # set of it would fail every split including the correct ones.
+    if variant == "universal":
+        missing_abis = sorted(required_abis - seen_64_bit_abis)
+        if missing_abis:
+            errors.append("APK missing required 64-bit ABIs: " + ", ".join(missing_abis))
 
     checked_segments = 0
     for library in libraries:
+        # 16 KB page alignment is a 64-bit requirement; 32-bit libraries have no
+        # such contract, so they are counted above but not measured here.
         if not library.is_64_bit:
             continue
         for segment in library.load_segments:
@@ -259,6 +452,9 @@ def validate_libraries(
         "checked64BitLoadSegments": checked_segments,
         "nativeLibraryCount": len(libraries),
         "seen64BitAbis": sorted(seen_64_bit_abis),
+        "seenAbis": sorted(seen_abis),
+        "expectedAbis": sorted(expected_abis),
+        "apkVariant": variant,
     }
 
 
@@ -266,14 +462,20 @@ def validate_release_apk(repo_root: Path, policy: dict[str, Any], apk_path: Path
     policy_info = validate_policy(repo_root, policy)
     skipped_archive_entries: list[str] = []
     libraries = inspect_apk(apk_path, skipped_archive_entries=skipped_archive_entries)
+    variant, expected_abis = expected_abis_for_apk(apk_path.name, policy_info["declaredAbis"])
     library_result = validate_libraries(
         libraries,
         required_alignment=policy_info["requiredAlignment"],
         required_abis=policy_info["requiredAbis"],
+        expected_abis=expected_abis,
+        require_64_bit_only=policy_info["require64BitOnly"],
+        variant=variant,
     )
     return {
         "status": "ok",
         "policyKind": "nativePageAlignment",
+        "enforcementStatus": policy_info["status"],
+        "enforcedBy": policy_info["enforcedBy"],
         "packageName": policy_info["packageName"],
         "apk": str(apk_path),
         "apkSha256": sha256_file(apk_path),

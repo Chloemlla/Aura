@@ -47,9 +47,9 @@
       "id": "auto-wallpaper-periodic",
       "uniqueWorkName": "auto_wallpaper",
       "workerClass": "AutoWallpaperWorker",
-      "sourcePath": "app/src/main/java/com/freevibe/service/AutoWallpaperWorker.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/AutoWallpaperWorker.kt",
       "settingsSources": [
-        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt"
+        "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsRotationDelegate.kt"
       ],
       "workKind": "periodic",
       "enqueueApi": "enqueueUniquePeriodicWork",
@@ -98,9 +98,9 @@
       "id": "auto-backup-periodic",
       "uniqueWorkName": "auto_backup",
       "workerClass": "AutoBackupWorker",
-      "sourcePath": "app/src/main/java/com/freevibe/service/AutoBackupWorker.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/AutoBackupWorker.kt",
       "settingsSources": [
-        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt"
+        "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsRotationDelegate.kt"
       ],
       "workKind": "periodic",
       "enqueueApi": "enqueueUniquePeriodicWork",
@@ -134,9 +134,9 @@
       "id": "daily-wallpaper-periodic",
       "uniqueWorkName": "daily_wallpaper",
       "workerClass": "DailyWallpaperWorker",
-      "sourcePath": "app/src/main/java/com/freevibe/service/DailyWallpaperWorker.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/DailyWallpaperWorker.kt",
       "settingsSources": [
-        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt"
+        "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt"
       ],
       "workKind": "periodic",
       "enqueueApi": "enqueueUniquePeriodicWork",
@@ -172,9 +172,9 @@
       "id": "ringtone-restoration-one-shot",
       "uniqueWorkName": "ringtone_restoration",
       "workerClass": "RingtoneRestorationWorker",
-      "sourcePath": "app/src/main/java/com/freevibe/service/RingtoneRestorationReceiver.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/RingtoneRestorationReceiver.kt",
       "settingsSources": [
-        "app/src/main/java/com/freevibe/service/RingtoneRestorationReceiver.kt"
+        "app/src/main/java/com/chloemlla/aura/service/RingtoneRestorationReceiver.kt"
       ],
       "workKind": "oneTime",
       "enqueueApi": "enqueueUniqueWork",
@@ -205,9 +205,9 @@
       "id": "ringtone-shuffle-periodic",
       "uniqueWorkName": "ringtone_shuffle",
       "workerClass": "RingtoneShuffleWorker",
-      "sourcePath": "app/src/main/java/com/freevibe/service/RingtoneShuffleWorker.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/RingtoneShuffleWorker.kt",
       "settingsSources": [
-        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt"
+        "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsMediaDelegate.kt"
       ],
       "workKind": "periodic",
       "enqueueApi": "enqueueUniquePeriodicWork",
@@ -239,9 +239,9 @@
       "id": "sound-profile-periodic",
       "uniqueWorkName": "sound_profile",
       "workerClass": "SoundProfileWorker",
-      "sourcePath": "app/src/main/java/com/freevibe/service/SoundProfileManager.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/SoundProfileManager.kt",
       "settingsSources": [
-        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt"
+        "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsMediaDelegate.kt"
       ],
       "workKind": "periodic",
       "enqueueApi": "enqueueUniquePeriodicWork",
@@ -273,9 +273,9 @@
       "id": "wallpaper-pack-periodic",
       "uniqueWorkName": "wallpaper_pack",
       "workerClass": "WallpaperPackWorker",
-      "sourcePath": "app/src/main/java/com/freevibe/service/WallpaperPackManager.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/WallpaperPackManager.kt",
       "settingsSources": [
-        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt"
+        "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsMediaDelegate.kt"
       ],
       "workKind": "periodic",
       "enqueueApi": "enqueueUniquePeriodicWork",
@@ -307,9 +307,9 @@
       "id": "weather-update-periodic",
       "uniqueWorkName": "weather_update",
       "workerClass": "WeatherUpdateWorker",
-      "sourcePath": "app/src/main/java/com/freevibe/service/WeatherUpdateWorker.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/WeatherUpdateWorker.kt",
       "settingsSources": [
-        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt"
+        "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt"
       ],
       "workKind": "periodic",
       "enqueueApi": "enqueueUniquePeriodicWork",
@@ -344,9 +344,9 @@
       "id": "aura-originals-one-shot",
       "uniqueWorkName": "aura_originals_download",
       "workerClass": "AuraOriginalsDownloader",
-      "sourcePath": "app/src/main/java/com/freevibe/service/AuraOriginalsDownloader.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/AuraOriginalsDownloader.kt",
       "settingsSources": [
-        "app/src/main/java/com/freevibe/FreeVibeApp.kt"
+        "app/src/main/java/com/chloemlla/aura/AuraApp.kt"
       ],
       "workKind": "oneTime",
       "enqueueApi": "enqueueUniqueWork",
@@ -382,10 +382,10 @@
       "id": "rotation-trigger-one-shot",
       "uniqueWorkName": "rotation_trigger_oneshot",
       "workerClass": "AutoWallpaperWorker",
-      "sourcePath": "app/src/main/java/com/freevibe/service/RotationTriggerService.kt",
+      "sourcePath": "app/src/main/java/com/chloemlla/aura/service/RotationTriggerService.kt",
       "settingsSources": [
-        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt",
-        "app/src/main/java/com/freevibe/service/TaskerActionReceiver.kt"
+        "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsRotationDelegate.kt",
+        "app/src/main/java/com/chloemlla/aura/service/TaskerActionReceiver.kt"
       ],
       "workKind": "oneTime",
       "enqueueApi": "enqueueUniqueWork",

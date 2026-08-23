@@ -2,6 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+
+# The Compose BOM that first carried the UI-test artifacts this gate relies on.
+# A floor, not a pin: newer BOMs are the expected state.
+MINIMUM_COMPOSE_BOM = (2025, 6, 0)
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +32,8 @@ REQUIRED_EXECUTED_SURFACES = {
     "video-wallpapers",
     "wallpaper-editor",
 }
+
+PRODUCTION_ROUTE_SOURCE = "app/src/main/java/com/chloemlla/aura/ui/qa/ProductionRouteState.kt"
 
 FORBIDDEN_DIRECT_PRIMITIVES = {
     "SettingsSection(",
@@ -89,16 +96,17 @@ def validate_accessibility_release_gate(repo_root: Path, policy_path: str) -> di
         "createAndroidComposeRule",
         "tryPerformAccessibilityChecks",
         "@SdkSuppress(minSdkVersion = 34)",
-        "AuraRouteStateFixture",
-        "renderFixture",
+        "ProductionRouteScenario",
+        "ProductionRouteState",
+        "renderScenario",
     ):
         if term not in test_text:
             raise AccessibilityReleaseGateError(f"{test_path} missing automated accessibility term: {term}")
     for term in FORBIDDEN_DIRECT_PRIMITIVES:
         if term in test_text:
-            raise AccessibilityReleaseGateError(f"{test_path} must render Aura route fixtures, not {term} directly")
+            raise AccessibilityReleaseGateError(f"{test_path} must render production route states, not {term} directly")
 
-    fixture_text = read_text(repo_root / "app/src/debug/java/com/freevibe/ui/screens/fixtures/AuraRouteStateFixtures.kt")
+    production_route_text = read_text(repo_root / PRODUCTION_ROUTE_SOURCE)
     executed_rows = [
         require_object(item, "automatedGate.executedSurfaces[]")
         for item in require_list(automated.get("executedSurfaces"), "automatedGate.executedSurfaces")
@@ -109,22 +117,41 @@ def validate_accessibility_release_gate(repo_root: Path, policy_path: str) -> di
         raise AccessibilityReleaseGateError("automatedGate.executedSurfaces missing: " + ", ".join(missing_executed))
     for row in executed_rows:
         require_string(row.get("surface"), f"{row.get('id')}.surface")
-        fixture = require_string(row.get("fixture"), f"{row.get('id')}.fixture")
-        assertion = require_string(row.get("assertion"), f"{row.get('id')}.assertion")
-        if not fixture.startswith("AuraRouteFixture."):
-            raise AccessibilityReleaseGateError(f"{row.get('id')}.fixture must name an AuraRouteFixture")
-        fixture_name = fixture.rsplit(".", 1)[-1]
-        if fixture not in test_text:
-            raise AccessibilityReleaseGateError(f"{test_path} missing executed fixture: {fixture}")
-        if assertion not in test_text:
-            raise AccessibilityReleaseGateError(f"{test_path} missing executed assertion: {assertion}")
-        if fixture_name not in fixture_text:
-            raise AccessibilityReleaseGateError(f"debug route fixtures missing enum case: {fixture_name}")
+        scenario = require_string(row.get("scenario"), f"{row.get('id')}.scenario")
+        assertion_resource = require_string(
+            row.get("assertionResource"), f"{row.get('id')}.assertionResource"
+        )
+        if not scenario.startswith("ProductionRouteScenario."):
+            raise AccessibilityReleaseGateError(f"{row.get('id')}.scenario must name a ProductionRouteScenario")
+        scenario_name = scenario.rsplit(".", 1)[-1]
+        if scenario not in test_text:
+            raise AccessibilityReleaseGateError(f"{test_path} missing executed scenario: {scenario}")
+        if assertion_resource not in production_route_text:
+            raise AccessibilityReleaseGateError(
+                f"production route source missing executed assertion resource: {assertion_resource}"
+            )
+        if scenario_name not in production_route_text:
+            raise AccessibilityReleaseGateError(f"production route source missing scenario: {scenario_name}")
 
     version_catalog = read_text(repo_root / "gradle/libs.versions.toml")
     app_gradle = read_text(repo_root / "app/build.gradle.kts")
-    if 'compose-bom = "2025.06.00"' not in version_catalog:
-        raise AccessibilityReleaseGateError("version catalog must align Compose UI test artifacts with the June 2025 BOM or newer")
+    # This said "or newer" while matching one exact string, so it was a pin
+    # wearing a floor's label and it failed on the first upgrade. The BOM version
+    # is calendar-versioned (YYYY.MM.PP), which compares correctly as a tuple.
+    bom_match = re.search(r'compose-bom\s*=\s*"(\d{4})\.(\d{2})\.(\d{2})"', version_catalog)
+    if not bom_match:
+        raise AccessibilityReleaseGateError(
+            "version catalog declares no calendar-versioned compose-bom, so Compose UI "
+            "test artifacts are not aligned by a BOM at all"
+        )
+    bom_version = tuple(int(part) for part in bom_match.groups())
+    if bom_version < MINIMUM_COMPOSE_BOM:
+        declared = ".".join(f"{part:02d}" if index else str(part) for index, part in enumerate(bom_version))
+        raise AccessibilityReleaseGateError(
+            f"compose-bom {declared} is older than the "
+            f"{'.'.join(f'{p:02d}' if i else str(p) for i, p in enumerate(MINIMUM_COMPOSE_BOM))} "
+            "floor the accessibility test artifacts need"
+        )
     for coordinate in required_dependencies:
         group, name = coordinate.split(":", 1)
         if group not in version_catalog or name not in version_catalog:

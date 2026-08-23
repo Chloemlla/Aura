@@ -4,10 +4,10 @@
   "docsPath": "docs/security/network-endpoints.md",
   "scan": {
     "sourceRoots": [
-      "app/src/main/java/com/freevibe/di",
-      "app/src/main/java/com/freevibe/data/remote",
-      "app/src/main/java/com/freevibe/data/repository",
-      "app/src/main/java/com/freevibe/service"
+      "app/src/main/java/com/chloemlla/aura/di",
+      "app/src/main/java/com/chloemlla/aura/data/remote",
+      "app/src/main/java/com/chloemlla/aura/data/repository",
+      "app/src/main/java/com/chloemlla/aura/service"
     ]
   },
   "endpoints": [
@@ -24,9 +24,9 @@
       "killSwitch": "wallhaven_provider_enabled",
       "releaseOwner": "maintainer",
       "sourceFiles": [
-        "app/src/main/java/com/freevibe/di/AppModule.kt",
-        "app/src/main/java/com/freevibe/data/remote/wallhaven/WallhavenApi.kt",
-        "app/src/main/java/com/freevibe/data/repository/WallpaperRepository.kt"
+        "app/src/main/java/com/chloemlla/aura/di/AppModule.kt",
+        "app/src/main/java/com/chloemlla/aura/data/remote/wallhaven/WallhavenApi.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/WallpaperRepository.kt"
       ]
     },
     {
@@ -42,8 +42,8 @@
       "killSwitch": "bing_provider_enabled",
       "releaseOwner": "maintainer",
       "sourceFiles": [
-        "app/src/main/java/com/freevibe/data/remote/bing/BingDailyApi.kt",
-        "app/src/main/java/com/freevibe/data/repository/WallpaperRepository.kt"
+        "app/src/main/java/com/chloemlla/aura/data/remote/bing/BingDailyApi.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/WallpaperRepository.kt"
       ]
     },
     {
@@ -59,8 +59,8 @@
       "killSwitch": "pexels_provider_enabled",
       "releaseOwner": "maintainer",
       "sourceFiles": [
-        "app/src/main/java/com/freevibe/data/remote/pexels/PexelsApi.kt",
-        "app/src/main/java/com/freevibe/data/repository/WallpaperRepository.kt"
+        "app/src/main/java/com/chloemlla/aura/data/remote/pexels/PexelsApi.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/WallpaperRepository.kt"
       ]
     },
     {
@@ -76,8 +76,8 @@
       "killSwitch": "pixabay_provider_enabled",
       "releaseOwner": "maintainer",
       "sourceFiles": [
-        "app/src/main/java/com/freevibe/data/remote/pixabay/PixabayApi.kt",
-        "app/src/main/java/com/freevibe/data/repository/WallpaperRepository.kt"
+        "app/src/main/java/com/chloemlla/aura/data/remote/pixabay/PixabayApi.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/WallpaperRepository.kt"
       ]
     },
     {
@@ -93,8 +93,8 @@
       "killSwitch": "reddit_provider_enabled",
       "releaseOwner": "maintainer",
       "sourceFiles": [
-        "app/src/main/java/com/freevibe/data/repository/RedditRssParser.kt",
-        "app/src/main/java/com/freevibe/data/repository/RedditRepository.kt"
+        "app/src/main/java/com/chloemlla/aura/data/repository/RedditRssParser.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/RedditRepository.kt"
       ]
     },
     {
@@ -110,8 +110,8 @@
       "killSwitch": "provider controls",
       "releaseOwner": "maintainer",
       "sourceFiles": [
-        "app/src/main/java/com/freevibe/data/remote/nasa/NasaApodApi.kt",
-        "app/src/main/java/com/freevibe/data/remote/Mappers.kt"
+        "app/src/main/java/com/chloemlla/aura/data/remote/nasa/NasaApodApi.kt",
+        "app/src/main/java/com/chloemlla/aura/data/remote/Mappers.kt"
       ]
     },
     {
@@ -127,7 +127,7 @@
       "killSwitch": "provider controls",
       "releaseOwner": "maintainer",
       "sourceFiles": [
-        "app/src/main/java/com/freevibe/data/remote/wikimedia/WikimediaPotdApi.kt"
+        "app/src/main/java/com/chloemlla/aura/data/remote/wikimedia/WikimediaPotdApi.kt"
       ]
     },
     {
@@ -143,9 +143,9 @@
       "killSwitch": "provider controls",
       "releaseOwner": "maintainer",
       "sourceFiles": [
-        "app/src/main/java/com/freevibe/data/remote/lemmy/LemmyApi.kt",
-        "app/src/main/java/com/freevibe/data/remote/Mappers.kt",
-        "app/src/main/java/com/freevibe/data/model/ProviderNetworkPolicy.kt"
+        "app/src/main/java/com/chloemlla/aura/data/remote/lemmy/LemmyApi.kt",
+        "app/src/main/java/com/chloemlla/aura/data/remote/Mappers.kt",
+        "app/src/main/java/com/chloemlla/aura/data/model/ProviderNetworkPolicy.kt"
       ]
     },
     {
@@ -161,8 +161,8 @@
       "killSwitch": "none",
       "releaseOwner": "maintainer",
       "sourceFiles": [
-        "app/src/main/java/com/freevibe/di/AppModule.kt",
-        "app/src/main/java/com/freevibe/data/remote/freesound/FreesoundApi.kt"
+        "app/src/main/java/com/chloemlla/aura/di/AppModule.kt",
+        "app/src/main/java/com/chloemlla/aura/data/remote/freesound/FreesoundApi.kt"
       ]
     },
     {
@@ -178,10 +178,10 @@
       "killSwitch": "none",
       "releaseOwner": "maintainer",
       "sourceFiles": [
-        "app/src/main/java/com/freevibe/data/remote/freesound/FreesoundV2Api.kt",
-        "app/src/main/java/com/freevibe/data/repository/FreesoundV2Repository.kt",
-        "app/src/main/java/com/freevibe/service/BundledContentProvider.kt",
-        "app/src/main/java/com/freevibe/service/SoundUrlResolver.kt"
+        "app/src/main/java/com/chloemlla/aura/data/remote/freesound/FreesoundV2Api.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/FreesoundV2Repository.kt",
+        "app/src/main/java/com/chloemlla/aura/service/BundledContentProvider.kt",
+        "app/src/main/java/com/chloemlla/aura/service/SoundUrlResolver.kt"
       ]
     },
     {
@@ -197,8 +197,8 @@
       "killSwitch": "none",
       "releaseOwner": "maintainer",
       "sourceFiles": [
-        "app/src/main/java/com/freevibe/data/remote/soundcloud/SoundCloudApi.kt",
-        "app/src/main/java/com/freevibe/data/repository/SoundCloudRepository.kt"
+        "app/src/main/java/com/chloemlla/aura/data/remote/soundcloud/SoundCloudApi.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/SoundCloudRepository.kt"
       ]
     },
     {
@@ -214,8 +214,8 @@
       "killSwitch": "none",
       "releaseOwner": "maintainer",
       "sourceFiles": [
-        "app/src/main/java/com/freevibe/data/remote/audius/AudiusApi.kt",
-        "app/src/main/java/com/freevibe/data/repository/AudiusRepository.kt"
+        "app/src/main/java/com/chloemlla/aura/data/remote/audius/AudiusApi.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/AudiusRepository.kt"
       ]
     },
     {
@@ -231,8 +231,8 @@
       "killSwitch": "none",
       "releaseOwner": "maintainer",
       "sourceFiles": [
-        "app/src/main/java/com/freevibe/data/remote/ccmixter/CcMixterApi.kt",
-        "app/src/main/java/com/freevibe/data/repository/CcMixterRepository.kt"
+        "app/src/main/java/com/chloemlla/aura/data/remote/ccmixter/CcMixterApi.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/CcMixterRepository.kt"
       ]
     },
     {
@@ -248,11 +248,11 @@
       "killSwitch": "weather_effects_enabled",
       "releaseOwner": "maintainer",
       "sourceFiles": [
-        "app/src/main/java/com/freevibe/data/remote/weather/OpenMeteoApi.kt"
+        "app/src/main/java/com/chloemlla/aura/data/remote/weather/OpenMeteoApi.kt"
       ]
     },
     {
-      "id": "stability-api",
+      "id": "generated-wallpaper-api",
       "hosts": ["api.stability.ai"],
       "schemes": ["https"],
       "surface": "Generated wallpaper image generation",
@@ -264,8 +264,8 @@
       "killSwitch": "generated_content_provider_enabled",
       "releaseOwner": "maintainer",
       "sourceFiles": [
-        "app/src/main/java/com/freevibe/data/remote/stability/StabilityAiApi.kt",
-        "app/src/main/java/com/freevibe/data/repository/AiWallpaperRepository.kt"
+        "app/src/full/java/com/chloemlla/aura/data/remote/stability/StabilityAiApi.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/AiWallpaperRepository.kt"
       ]
     },
     {
@@ -281,7 +281,7 @@
       "killSwitch": "youtube_provider_enabled",
       "releaseOwner": "maintainer",
       "sourceFiles": [
-        "app/src/main/java/com/freevibe/data/repository/YouTubeRepository.kt"
+        "app/src/main/java/com/chloemlla/aura/data/repository/YouTubeRepository.kt"
       ]
     },
     {
@@ -297,8 +297,8 @@
       "killSwitch": "clear the provider URL or disable youtube_provider_enabled",
       "releaseOwner": "user-configured",
       "sourceFiles": [
-        "app/src/main/java/com/freevibe/service/YouTubeYtDlpRequestFactory.kt",
-        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsSoundSection.kt"
+        "app/src/main/java/com/chloemlla/aura/service/YouTubeYtDlpRequestFactory.kt",
+        "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsSoundSection.kt"
       ]
     },
     {
@@ -314,7 +314,7 @@
       "killSwitch": "none",
       "releaseOwner": "maintainer",
       "sourceFiles": [
-        "app/src/main/java/com/freevibe/service/CollectionExporter.kt"
+        "app/src/main/java/com/chloemlla/aura/service/CollectionExporter.kt"
       ]
     },
     {
@@ -338,8 +338,8 @@
       "releaseOwner": "maintainer",
       "sourceFiles": [
         "app/google-services.json",
-        "app/src/main/java/com/freevibe/data/repository",
-        "app/src/main/java/com/freevibe/service/CommunityCallableClient.kt"
+        "app/src/main/java/com/chloemlla/aura/data/repository",
+        "app/src/main/java/com/chloemlla/aura/data/repository/CommunityCallableClient.kt"
       ]
     }
   ]

@@ -3,9 +3,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-GALLERY = ROOT / "app/src/main/java/com/freevibe/service/AgslShaderGallery.kt"
-SETTINGS = ROOT / "app/src/main/java/com/freevibe/ui/screens/settings/SettingsSmartLiveSection.kt"
-WEATHER = ROOT / "app/src/main/java/com/freevibe/service/WeatherWallpaperService.kt"
+GALLERY = ROOT / "app/src/main/java/com/chloemlla/aura/service/AgslShaderGallery.kt"
+SETTINGS = ROOT / "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsSmartLiveSection.kt"
+WEATHER = ROOT / "app/src/main/java/com/chloemlla/aura/service/WeatherWallpaperService.kt"
 
 
 def test_curated_shader_gallery_has_static_fallback_and_no_custom_input():

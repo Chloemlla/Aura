@@ -26,7 +26,7 @@ class CommunityIdentityLazinessCheckTest(unittest.TestCase):
     def test_rejects_startup_sign_in(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = copy_required_tree(Path(tmpdir))
-            app = repo / "app/src/main/java/com/freevibe/FreeVibeApp.kt"
+            app = repo / "app/src/main/java/com/chloemlla/aura/AuraApp.kt"
             app.write_text(app.read_text(encoding="utf-8") + "\nfun eager() { ensureSignedIn() }\n", encoding="utf-8")
 
             with self.assertRaises(CommunityIdentityLazinessError):
@@ -35,7 +35,7 @@ class CommunityIdentityLazinessCheckTest(unittest.TestCase):
     def test_rejects_missing_lazy_write_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = copy_required_tree(Path(tmpdir))
-            upload_repo = repo / "app/src/main/java/com/freevibe/data/repository/UploadRepository.kt"
+            upload_repo = repo / "app/src/main/java/com/chloemlla/aura/data/repository/UploadRepository.kt"
             upload_repo.write_text(upload_repo.read_text(encoding="utf-8").replace("ensureSignedIn(", "currentUserId("), encoding="utf-8")
 
             with self.assertRaises(CommunityIdentityLazinessError):
@@ -44,11 +44,11 @@ class CommunityIdentityLazinessCheckTest(unittest.TestCase):
 
 def copy_required_tree(destination: Path) -> Path:
     paths = [
-        "app/src/main/java/com/freevibe/FreeVibeApp.kt",
-        "app/src/main/java/com/freevibe/service/CommunityIdentityProvider.kt",
-        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt",
+        "app/src/main/java/com/chloemlla/aura/AuraApp.kt",
+        "app/src/main/java/com/chloemlla/aura/service/CommunityIdentityProvider.kt",
+        "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt",
         *[
-            "app/src/main/java/com/freevibe/data/repository/" + name
+            "app/src/main/java/com/chloemlla/aura/data/repository/" + name
             for name in (
                 "UploadRepository.kt",
                 "WallpaperUploadRepository.kt",
@@ -68,7 +68,7 @@ def copy_required_tree(destination: Path) -> Path:
 
 
 class ModerationListenerConsentTest(unittest.TestCase):
-    VOTE_REPOSITORY = "app/src/main/java/com/freevibe/data/repository/VoteRepository.kt"
+    VOTE_REPOSITORY = "app/src/main/java/com/chloemlla/aura/data/repository/VoteRepository.kt"
 
     def _stage(self, source: str) -> Path:
         tmpdir = tempfile.TemporaryDirectory()

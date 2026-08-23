@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -25,6 +26,7 @@ import androidx.navigation.navArgument
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import com.chloemlla.aura.R
+import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.Sound
 import com.chloemlla.aura.data.model.Wallpaper
@@ -52,6 +54,8 @@ import com.chloemlla.aura.ui.screens.licenses.LicensesScreen
 import com.chloemlla.aura.ui.screens.library.LibraryScreen
 import com.chloemlla.aura.ui.screens.onboarding.OnboardingScreen
 import com.chloemlla.aura.ui.screens.settings.SettingsScreen
+import com.chloemlla.aura.ui.screens.settings.RotationHealthScreen
+import com.chloemlla.aura.ui.screens.settings.SettingsNavigation
 import com.chloemlla.aura.ui.screens.settings.WallpaperHistoryScreen
 import com.chloemlla.aura.ui.screens.search.UniversalSearchScreen
 import com.chloemlla.aura.ui.screens.sounds.ContactPickerScreen
@@ -59,20 +63,18 @@ import com.chloemlla.aura.ui.screens.sounds.SoundDetailScreen
 import com.chloemlla.aura.ui.screens.sounds.SoundsScreen
 import com.chloemlla.aura.ui.screens.wallpapers.WallpaperDetailScreen
 import com.chloemlla.aura.ui.screens.wallpapers.WallpapersScreen
-import com.chloemlla.aura.ui.screens.aigenerate.AiWallpaperScreen
 import com.chloemlla.aura.ui.components.AuraSnackbarHost
 import com.chloemlla.aura.ui.components.CountBadge
-
-private const val PREFS_KEY = "freevibe_app"
-private const val ONBOARDING_DONE = "onboarding_complete"
 
 @EntryPoint
 @InstallIn(SingletonComponent::class)
 interface FreeVibeRootEntryPoint {
+    fun preferencesManager(): PreferencesManager
     fun favoritesRepository(): com.chloemlla.aura.data.repository.FavoritesRepository
     fun applyFeedbackBus(): com.chloemlla.aura.service.ApplyFeedbackBus
     fun wallpaperApplier(): com.chloemlla.aura.service.WallpaperApplier
     fun wallpaperHistoryManager(): com.chloemlla.aura.service.WallpaperHistoryManager
+    fun databaseDowngradeReceiptStore(): com.chloemlla.aura.data.local.DatabaseDowngradeReceiptStore
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,12 +85,14 @@ fun FreeVibeRoot(
     navigationToken: Long = 0L,
 ) {
     val context = LocalContext.current
+    // Reading a string off LocalContext is not a composition read. LocalResources is.
+    val resources = LocalResources.current
     val entryPoint = remember {
         EntryPointAccessors.fromApplication(context, FreeVibeRootEntryPoint::class.java)
     }
     val favoritesCount by remember { entryPoint.favoritesRepository().count() }.collectAsStateWithLifecycle(initialValue = 0)
-    val prefs = remember { context.getSharedPreferences(PREFS_KEY, Context.MODE_PRIVATE) }
-    var onboardingDone by remember { mutableStateOf(prefs.getBoolean(ONBOARDING_DONE, false)) }
+    val preferencesManager = remember { entryPoint.preferencesManager() }
+    var onboardingDone by remember { mutableStateOf(preferencesManager.isOnboardingComplete()) }
     val navigationRootRoute = if (onboardingDone) Screen.Wallpapers.route else Screen.Onboarding.route
 
     val navController = rememberNavController()
@@ -99,6 +103,13 @@ fun FreeVibeRoot(
     // sounds. Warn once per app run while on a metered connection; dismissal sticks for the session.
     val onMeteredConnection = com.chloemlla.aura.ui.components.rememberOnMeteredConnection()
     var dataWarningDismissed by rememberSaveable { mutableStateOf(false) }
+
+    // A downgrade reset the library before any screen existed. The user's next
+    // move is to wonder where their favorites went, so this is raised at the root
+    // rather than buried in Settings, and it survives process death until it has
+    // actually been read.
+    val downgradeReceiptStore = remember { entryPoint.databaseDowngradeReceiptStore() }
+    var downgradeReceipt by remember { mutableStateOf(downgradeReceiptStore.read()) }
 
     // Handle deep-link navigation from widget or notification
     LaunchedEffect(navigationToken, initialNavigateTo, initialWallpaper?.id) {
@@ -139,7 +150,7 @@ fun FreeVibeRoot(
         entryPoint.applyFeedbackBus().events.collect { event ->
             val result = snackbarHostState.showSnackbar(
                 message = event.message,
-                actionLabel = if (event.undoTarget != null) context.getString(R.string.apply_feedback_undo) else null,
+                actionLabel = if (event.undoTarget != null) resources.getString(R.string.apply_feedback_undo) else null,
                 duration = SnackbarDuration.Short,
                 withDismissAction = true,
             )
@@ -156,7 +167,7 @@ fun FreeVibeRoot(
                             entryPoint.wallpaperHistoryManager().recordRestore(entry)
                             entryPoint.applyFeedbackBus().post(
                                 com.chloemlla.aura.service.ApplyFeedbackEvent(
-                                    message = context.getString(R.string.apply_feedback_reverted),
+                                    message = resources.getString(R.string.apply_feedback_reverted),
                                     undoTarget = null,
                                 )
                             )
@@ -164,9 +175,9 @@ fun FreeVibeRoot(
                         .onFailure { e ->
                             entryPoint.applyFeedbackBus().post(
                                 com.chloemlla.aura.service.ApplyFeedbackEvent(
-                                    message = context.getString(
+                                    message = resources.getString(
                                         R.string.apply_feedback_undo_failed,
-                                        e.message ?: context.getString(R.string.apply_feedback_unknown_error),
+                                        e.message ?: resources.getString(R.string.apply_feedback_unknown_error),
                                     ),
                                     undoTarget = null,
                                 )
@@ -194,6 +205,24 @@ fun FreeVibeRoot(
         val useNavigationRail = showBottomBar && navigationLayout.isExpanded
 
         CompositionLocalProvider(LocalAuraNavigationLayout provides navigationLayout) {
+        downgradeReceipt?.let { receipt ->
+            com.chloemlla.aura.ui.components.DatabaseDowngradeWarningDialog(
+                receipt = receipt,
+                onAcknowledge = {
+                    downgradeReceiptStore.acknowledge()
+                    downgradeReceipt = null
+                },
+                onOpenBackup = {
+                    downgradeReceiptStore.acknowledge()
+                    downgradeReceipt = null
+                    runCatching {
+                        navController.navigate(
+                            Screen.Settings.createRoute(Screen.Settings.BACKUP_SECTION),
+                        )
+                    }
+                },
+            )
+        }
         Scaffold(
             containerColor = Color.Transparent,
             snackbarHost = {
@@ -316,7 +345,7 @@ fun FreeVibeRoot(
             composable(Screen.Onboarding.route) {
                 OnboardingScreen(
                     onComplete = {
-                        prefs.edit().putBoolean(ONBOARDING_DONE, true).apply()
+                        preferencesManager.setOnboardingComplete()
                         onboardingDone = true
                         navController.navigate(Screen.Wallpapers.route) {
                             popUpTo(Screen.Onboarding.route) { inclusive = true }
@@ -494,23 +523,21 @@ fun FreeVibeRoot(
             ) { backStackEntry ->
                 SettingsScreen(
                     initialSection = backStackEntry.arguments?.getString("section")?.ifBlank { null },
-                    onDownloadsClick = { navController.navigate(Screen.Downloads.route) { launchSingleTop = true } },
-                    onLicensesClick = { navController.navigate(Screen.Licenses.route) { launchSingleTop = true } },
-                    onCategoriesClick = { navController.navigate(Screen.Categories.route) { launchSingleTop = true } },
-                    onHistoryClick = { navController.navigate(Screen.WallpaperHistory.route) { launchSingleTop = true } },
-                    onCollectionsClick = { navController.navigate(Screen.Collections.route) { launchSingleTop = true } },
-                    onCreatorProfileClick = { navController.navigate(Screen.CreatorProfile.route) { launchSingleTop = true } },
-                    onCommunityReportsClick = { navController.navigate(Screen.CommunityReports.route) { launchSingleTop = true } },
-                    onGeneratedWallpapersClick = { navController.navigate(Screen.AiWallpaper.route) { launchSingleTop = true } },
+                    navigation = SettingsNavigation(
+                        onDownloadsClick = { navController.navigate(Screen.Downloads.route) { launchSingleTop = true } },
+                        onLicensesClick = { navController.navigate(Screen.Licenses.route) { launchSingleTop = true } },
+                        onCategoriesClick = { navController.navigate(Screen.Categories.route) { launchSingleTop = true } },
+                        onHistoryClick = { navController.navigate(Screen.WallpaperHistory.route) { launchSingleTop = true } },
+                        onCollectionsClick = { navController.navigate(Screen.Collections.route) { launchSingleTop = true } },
+                        onCreatorProfileClick = { navController.navigate(Screen.CreatorProfile.route) { launchSingleTop = true } },
+                        onCommunityReportsClick = { navController.navigate(Screen.CommunityReports.route) { launchSingleTop = true } },
+                        onGeneratedWallpapersClick = { navController.navigate(Screen.AiWallpaper.route) { launchSingleTop = true } },
+                        onRotationHealthClick = { navController.navigate(Screen.RotationHealth.route) { launchSingleTop = true } },
+                    ),
                 )
             }
 
-            // ── AI Wallpaper Generator ────────────────────────────
-            composable(Screen.AiWallpaper.route) {
-                AiWallpaperScreen(
-                    onBack = { navController.navigateUp() },
-                )
-            }
+            generatedWallpaperRoute(navController)
 
             // ── Detail screens ────────────────────────────────────
             composable(
@@ -791,13 +818,13 @@ fun FreeVibeRoot(
                                     entryPoint.wallpaperHistoryManager().record(wallpaper, target)
                                     val undoTarget = entryPoint.wallpaperHistoryManager().previousSnapshot()
                                     val label = when (target) {
-                                        com.chloemlla.aura.data.model.WallpaperTarget.HOME -> context.getString(R.string.apply_target_home)
-                                        com.chloemlla.aura.data.model.WallpaperTarget.LOCK -> context.getString(R.string.apply_target_lock)
-                                        com.chloemlla.aura.data.model.WallpaperTarget.BOTH -> context.getString(R.string.apply_target_both)
+                                        com.chloemlla.aura.data.model.WallpaperTarget.HOME -> resources.getString(R.string.apply_target_home)
+                                        com.chloemlla.aura.data.model.WallpaperTarget.LOCK -> resources.getString(R.string.apply_target_lock)
+                                        com.chloemlla.aura.data.model.WallpaperTarget.BOTH -> resources.getString(R.string.apply_target_both)
                                     }
                                     entryPoint.applyFeedbackBus().post(
                                         com.chloemlla.aura.service.ApplyFeedbackEvent(
-                                            message = context.getString(R.string.apply_feedback_applied_to, label),
+                                            message = resources.getString(R.string.apply_feedback_applied_to, label),
                                             undoTarget = undoTarget,
                                         )
                                     )
@@ -807,9 +834,9 @@ fun FreeVibeRoot(
                                     // only signal the apply didn't happen.
                                     entryPoint.applyFeedbackBus().post(
                                         com.chloemlla.aura.service.ApplyFeedbackEvent(
-                                            message = context.getString(
+                                            message = resources.getString(
                                                 R.string.apply_feedback_apply_failed,
-                                                e.message ?: context.getString(R.string.apply_feedback_unknown_error),
+                                                e.message ?: resources.getString(R.string.apply_feedback_unknown_error),
                                             ),
                                             undoTarget = null,
                                         )
@@ -1054,6 +1081,11 @@ fun FreeVibeRoot(
                 CommunityReportsScreen(
                     onBack = { navController.popBackStack() },
                 )
+            }
+
+            // ── Rotation Health ──────────────────────────────────
+            composable(Screen.RotationHealth.route) {
+                RotationHealthScreen(onBack = { navController.popBackStack() })
             }
 
             // ── Wallpaper History ────────────────────────────────

@@ -138,9 +138,9 @@
       "answer": "Aura requires users to accept versioned Community Guidelines before community feeds, uploads, votes, reports, blocks, follows, or profiles can proceed. Fresh installs do not create a Firebase community identity until an explicit community action needs one.",
       "evidenceRefs": [
         "docs/legal/community-guidelines.md",
-        "app/src/main/java/com/freevibe/data/model/CommunityGuidelinesPolicy.kt",
-        "app/src/main/java/com/freevibe/data/local/PreferencesManager.kt",
-        "app/src/main/java/com/freevibe/ui/components/CommunityGuidelinesDialog.kt",
+        "app/src/main/java/com/chloemlla/aura/data/model/CommunityGuidelinesPolicy.kt",
+        "app/src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt",
+        "app/src/main/java/com/chloemlla/aura/ui/components/CommunityGuidelinesDialog.kt",
         "docs/support/community-reporting.md",
         "docs/community-block-user-policy.md",
         "docs/community-upload-deletion.md",
@@ -188,6 +188,11 @@
         "name": "android.permission.WRITE_CONTACTS",
         "declaration": "Used locally after contact picker selection to assign the selected ringtone URI to the chosen contact.",
         "evidenceRefs": ["docs/privacy/data-safety.md"]
+      },
+      {
+        "name": "android.permission.ACCESS_NOTIFICATION_POLICY",
+        "declaration": "Used locally to inspect Do Not Disturb priority-caller rules and explain per-contact ringtone behavior; Aura does not change the policy silently.",
+        "evidenceRefs": ["docs/privacy/data-safety.md", "app/src/main/AndroidManifest.xml"]
       },
       {
         "name": "android.permission.WRITE_EXTERNAL_STORAGE",

@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -52,37 +53,46 @@ import com.chloemlla.aura.R
 
 @Composable
 internal fun SettingsSection(
+    sectionKey: String = "unscoped",
     title: String,
     description: String,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .widthIn(max = 760.dp)
-            .padding(top = 16.dp, start = 16.dp, end = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+    val query = LocalSettingsSearchQuery.current
+    val sectionMatches = settingsSectionMatchesQuery(query, "$title $description")
+    CompositionLocalProvider(
+        LocalSettingsSearchSectionKey provides sectionKey,
+        LocalSettingsSearchSectionTitle provides title,
+        LocalSettingsSearchSectionMatches provides sectionMatches,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = title,
-                modifier = Modifier.semantics { heading() },
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            HorizontalDivider(
-                modifier = Modifier.padding(top = 6.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f),
-            )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 760.dp)
+                .padding(top = 16.dp, start = 16.dp, end = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = title,
+                    modifier = Modifier.semantics { heading() },
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                HorizontalDivider(
+                    modifier = Modifier.padding(top = 6.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f),
+                )
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(0.dp), content = content)
         }
-        Column(verticalArrangement = Arrangement.spacedBy(0.dp), content = content)
     }
 }
 
@@ -93,12 +103,16 @@ internal fun SettingsItem(
     subtitle: String,
     onClick: () -> Unit,
     enabled: Boolean = true,
+    searchAliases: Set<String> = emptySet(),
 ) {
+    val searchRow = rememberSettingsSearchRow(title, subtitle, searchAliases)
+    if (searchRow == null) return
     val itemDescription = stringResource(R.string.a11y_title_subtitle, title, subtitle)
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 68.dp)
+            .then(searchRow.modifier)
             .semantics(mergeDescendants = true) {
                 contentDescription = itemDescription
                 onClick(label = title, action = null)
@@ -155,7 +169,10 @@ internal fun SettingsToggle(
     subtitle: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    searchAliases: Set<String> = emptySet(),
 ) {
+    val searchRow = rememberSettingsSearchRow(title, subtitle, searchAliases)
+    if (searchRow == null) return
     val toggleStateDescription = stringResource(if (checked) R.string.a11y_on else R.string.a11y_off)
     val toggleActionLabel = stringResource(
         if (checked) R.string.a11y_turn_off else R.string.a11y_turn_on,
@@ -166,6 +183,7 @@ internal fun SettingsToggle(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 68.dp)
+            .then(searchRow.modifier)
             .semantics(mergeDescendants = true) {
                 contentDescription = toggleDescription
                 stateDescription = toggleStateDescription
@@ -224,12 +242,16 @@ internal fun SettingsValueSlider(
     valueRange: ClosedFloatingPointRange<Float>,
     steps: Int,
     onValueChange: (Float) -> Unit,
+    searchAliases: Set<String> = emptySet(),
 ) {
+    val searchRow = rememberSettingsSearchRow(title, subtitle, searchAliases)
+    if (searchRow == null) return
     val description = stringResource(R.string.a11y_title_subtitle, title, "$subtitle. $valueLabel")
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 96.dp)
+            .then(searchRow.modifier)
             .semantics(mergeDescendants = false) {
                 contentDescription = description
             },
@@ -289,9 +311,13 @@ internal fun SettingsRadioOptionRow(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    searchAliases: Set<String> = emptySet(),
 ) {
+    val searchRow = rememberSettingsSearchRow(label, "", searchAliases)
+    if (searchRow == null) return
     Row(
         modifier = modifier
+            .then(searchRow.modifier)
             .fillMaxWidth()
             .heightIn(min = 48.dp)
             .selectable(

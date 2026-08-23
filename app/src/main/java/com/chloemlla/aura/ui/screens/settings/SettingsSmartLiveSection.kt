@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Brightness4
 import androidx.compose.material.icons.filled.Brightness6
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.WbSunny
@@ -67,9 +68,10 @@ internal fun SmartLiveWallpaperSettingsSection(
     wallpaperHistory: List<WallpaperHistoryEntity>,
     reduceAnimations: Boolean,
     liveWallpaperDimEnabled: Boolean,
+    liveWallpaperColorsEnabled: Boolean,
+    initialVfxEffect: String,
+    initialTouchEffectStrength: String,
     onSetDailyWallpaperEnabled: (Boolean) -> Unit,
-    onSetVfxEffect: (String) -> Unit,
-    onSetTouchEffectStrength: (String) -> Unit,
     onEnableWeatherEffects: () -> Unit,
     onDisableWeatherEffects: () -> Unit,
     onPermissionPrompt: (SettingsPermissionPrompt) -> Unit,
@@ -79,14 +81,12 @@ internal fun SmartLiveWallpaperSettingsSection(
     var showShaderPicker by remember { mutableStateOf(false) }
     var showVfxPicker by remember { mutableStateOf(false) }
     var showTouchEffectsPicker by remember { mutableStateOf(false) }
-    var touchEffectStrength by remember {
-        mutableStateOf(
-            context.getSharedPreferences("freevibe_weather_wp", Context.MODE_PRIVATE)
-                .getString("touch_effect_strength", "OFF") ?: "OFF",
-        )
+    var touchEffectStrength by remember(initialTouchEffectStrength) {
+        mutableStateOf(initialTouchEffectStrength)
     }
 
     SettingsSection(
+        sectionKey = SettingsSectionKeys.SMART,
         title = stringResource(R.string.settings_smart_section_title),
         description = stringResource(R.string.settings_smart_section_description),
     ) {
@@ -210,12 +210,19 @@ internal fun SmartLiveWallpaperSettingsSection(
             checked = liveWallpaperDimEnabled,
             onCheckedChange = viewModel::setLiveWallpaperDimEnabled,
         )
+        SettingsToggle(
+            icon = Icons.Default.Palette,
+            title = stringResource(R.string.settings_smart_wallpaper_colors_title),
+            subtitle = stringResource(R.string.settings_smart_wallpaper_colors_subtitle),
+            checked = liveWallpaperColorsEnabled,
+            onCheckedChange = viewModel::setLiveWallpaperColorsEnabled,
+        )
     }
 
     if (showVfxPicker) {
         VfxPickerDialog(
-            context = context,
-            onSelect = onSetVfxEffect,
+            initialVfxEffect = initialVfxEffect,
+            onSelect = viewModel::setWeatherVfxEffect,
             onDismiss = { showVfxPicker = false },
         )
     }
@@ -231,7 +238,7 @@ internal fun SmartLiveWallpaperSettingsSection(
             touchEffectStrength = touchEffectStrength,
             onSelect = {
                 touchEffectStrength = it
-                onSetTouchEffectStrength(it)
+                viewModel.setTouchEffectStrength(it)
             },
             onDismiss = { showTouchEffectsPicker = false },
         )
@@ -414,7 +421,7 @@ private fun WallpaperSlotCard(
 
 @Composable
 private fun VfxPickerDialog(
-    context: Context,
+    initialVfxEffect: String,
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -427,11 +434,8 @@ private fun VfxPickerDialog(
         "LEAVES" to stringResource(R.string.settings_smart_vfx_leaves),
         "SPARKLES" to stringResource(R.string.settings_smart_vfx_sparkles),
     )
-    var currentVfx by remember {
-        mutableStateOf(
-            context.getSharedPreferences("freevibe_weather_wp", Context.MODE_PRIVATE)
-                .getString("vfx_effect", "NONE") ?: "NONE",
-        )
+    var currentVfx by remember(initialVfxEffect) {
+        mutableStateOf(initialVfxEffect)
     }
     AlertDialog(
         onDismissRequest = onDismiss,

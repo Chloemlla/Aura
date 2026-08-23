@@ -17,8 +17,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 MIRRORED_PATHS = (
     "app/build.gradle.kts",
-    "app/src/main/java/com/freevibe/data/local/Database.kt",
-    "app/src/main/java/com/freevibe/data/legal/ProviderCapability.kt",
+    "app/src/main/java/com/chloemlla/aura/data/local/Database.kt",
+    "app/src/main/java/com/chloemlla/aura/data/legal/ProviderCapability.kt",
     "README.md",
     "CHANGELOG.md",
     "docs/distribution/release-metadata-consistency.json",
@@ -117,7 +117,7 @@ class ReleaseManifestTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             mirror_repo(repo)
-            capability_path = repo / "app/src/main/java/com/freevibe/data/legal/ProviderCapability.kt"
+            capability_path = repo / "app/src/main/java/com/chloemlla/aura/data/legal/ProviderCapability.kt"
             capability_path.write_text(
                 capability_path.read_text(encoding="utf-8").replace(
                     "channels = GITHUB_ONLY,", "channels = ALL_CHANNELS,"

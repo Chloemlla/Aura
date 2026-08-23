@@ -2,6 +2,7 @@ package com.chloemlla.aura.ui.screens.settings
 
 import android.content.Context
 import android.net.Uri
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.local.WallpaperCacheManager
 import com.chloemlla.aura.data.model.CommunityBlockReason
@@ -17,6 +18,7 @@ import com.chloemlla.aura.service.CommunityIdentityProvider
 import com.chloemlla.aura.service.CommunityIdentitySummary
 import com.chloemlla.aura.service.CrashDiagnosticsCollector
 import com.chloemlla.aura.service.OfflineFavoritesManager
+import com.chloemlla.aura.service.LocalWallpaperCatalog
 import com.chloemlla.aura.service.ThemePackExportReport
 import com.chloemlla.aura.service.ThemePackImportReport
 import com.chloemlla.aura.service.ThemePackRecipeManager
@@ -24,6 +26,7 @@ import com.chloemlla.aura.service.VideoWallpaperSelectionResult
 import com.chloemlla.aura.service.VideoWallpaperStorage
 import com.chloemlla.aura.service.WallpaperHistoryManager
 import com.chloemlla.aura.service.YtDlpUpdateManager
+import com.chloemlla.aura.service.YtDlpUpdateConsent
 import com.chloemlla.aura.service.YtDlpUpdateResult
 import com.chloemlla.aura.service.YtDlpUpdateSnapshot
 import com.chloemlla.aura.service.YtDlpUpdateStatus
@@ -320,7 +323,7 @@ class SettingsViewModelTest {
             rollbackAvailable = true,
         )
         every { manager.snapshot() } returns initial
-        coEvery { manager.updateStable() } returns YtDlpUpdateResult(
+        coEvery { manager.updateStable(YtDlpUpdateConsent.REPOSITORY_CHECKS_BYPASS_CONFIRMED) } returns YtDlpUpdateResult(
             status = YtDlpUpdateStatus.UPDATED_PENDING_VALIDATION,
             snapshot = updated,
         )
@@ -329,13 +332,13 @@ class SettingsViewModelTest {
             ytDlpUpdateManagerOverride = manager,
         )
 
-        viewModel.updateYtDlp()
+        viewModel.updateYtDlp(YtDlpUpdateConsent.REPOSITORY_CHECKS_BYPASS_CONFIRMED)
         advanceUntilIdle()
 
         assertFalse(viewModel.ytDlpUpdate.value.isUpdating)
         assertEquals(YtDlpUpdateStatus.UPDATED_PENDING_VALIDATION, viewModel.ytDlpUpdate.value.completedStatus)
         assertEquals(updated, viewModel.ytDlpUpdate.value.snapshot)
-        coVerify(exactly = 1) { manager.updateStable() }
+        coVerify(exactly = 1) { manager.updateStable(YtDlpUpdateConsent.REPOSITORY_CHECKS_BYPASS_CONFIRMED) }
     }
 
     @Test
@@ -431,6 +434,16 @@ class SettingsViewModelTest {
             every { it.cacheDir } returns cacheDir
             every { it.filesDir } returns cacheDir.parentFile ?: cacheDir
             every { it.applicationContext } returns it
+            every { it.getString(R.string.settings_community_creator_unblocked) } returns "Creator unblocked"
+            every { it.getString(R.string.settings_community_identity_cleared) } returns "Local community identity cleared"
+            every { it.getString(R.string.settings_storage_bytes_b, 0L) } returns "0 B"
+            every { it.getString(R.string.settings_storage_bytes_kb, 3.0) } returns "3.0 KB"
+            every {
+                it.getString(R.string.settings_theme_pack_exported, 7, 2)
+            } returns "Theme pack exported: 7 recipes, 2 local assets"
+            every {
+                it.getString(R.string.settings_theme_pack_imported, 3)
+            } returns "Theme pack imported: 3 settings restored"
         }
         val prefs = prefsOverride ?: mockPreferences()
         val historyManager = mockk<WallpaperHistoryManager>(relaxed = true).also {
@@ -449,6 +462,11 @@ class SettingsViewModelTest {
             every { it.getAll() } returns flowOf(emptyList())
         }
         val wallpaperApplier = mockk<com.chloemlla.aura.service.WallpaperApplier>(relaxed = true)
+        val localWallpaperCatalog = mockk<LocalWallpaperCatalog>().also {
+            every { it.folders } returns flowOf(emptyList())
+            every { it.items } returns flowOf(emptyList())
+            coEvery { it.migrateLegacyFolder(any()) } returns null
+        }
         val videoWallpaperStorage = videoWallpaperStorageOverride ?: mockk(relaxed = true)
         val voteRepo = mockk<VoteRepository>(relaxed = true).also {
             every { it.isAdmin } returns isAdmin
@@ -474,6 +492,7 @@ class SettingsViewModelTest {
             wallpaperCacheManager = wallpaperCacheManager,
             collectionRepo = collectionRepo,
             wallpaperApplier = wallpaperApplier,
+            localWallpaperCatalog = localWallpaperCatalog,
             videoWallpaperStorage = videoWallpaperStorage,
             sourceMetrics = com.chloemlla.aura.service.SourceMetrics(),
             crashDiagnosticsCollector = CrashDiagnosticsCollector(
@@ -485,6 +504,7 @@ class SettingsViewModelTest {
                 ytDlpUpdateManager = ytDlpUpdateManager,
                 liveWallpaperReceiptStore = mockk(relaxed = true),
             ),
+            liveWallpaperLivenessMonitor = mockk(relaxed = true),
             backgroundWorkDiagnosticsReader = backgroundWorkDiagnosticsReaderOverride
                 ?: FakeBackgroundWorkDiagnosticsReader(BackgroundWorkDiagnostics()),
             voteRepo = voteRepo,
@@ -580,6 +600,10 @@ class SettingsViewModelTest {
             every { prefs.alarmShuffleEnabled } returns flowOf(false)
             every { prefs.soundProfilesEnabled } returns flowOf(false)
             every { prefs.liveWallpaperDimEnabled } returns flowOf(false)
+            every { prefs.liveWallpaperColorsEnabled } returns flowOf(true)
+            every { prefs.wallpaperClockOverlayEnabled } returns flowOf(false)
+            every { prefs.wallpaperClockOverlayMode } returns flowOf("time_and_date")
+            every { prefs.wallpaperClockOverlayPosition } returns flowOf("bottom_right")
             every { prefs.liveWallpaperShaderPreset } returns flowOf(AgslShaderGallery.NONE_ID)
             every { prefs.soundProfilesJson } returns flowOf("")
             every { prefs.soundProfileLastAppliedId } returns flowOf("")
@@ -592,11 +616,14 @@ class SettingsViewModelTest {
             every { prefs.adaptiveTintIntensity } returns flowOf(0.3f)
             every { prefs.darkModeWallpaperId } returns flowOf("") // Phase 6.2 dark slot
             every { prefs.lightModeWallpaperId } returns flowOf("") // Phase 6.2 light slot
-            every { prefs.stabilityAiKey } returns flowOf("")       // Phase 3.1 AI
+            every { prefs.generatedWallpaperProviderKey } returns flowOf("")       // Phase 3.1 AI
             every { prefs.reduceAnimations } returns flowOf(false) // Reduced-motion a11y
             every { prefs.ringtoneShuffleEnabled } returns flowOf(false)
             every { prefs.ringtoneShuffleIntervalHours } returns flowOf(24L)
             coEvery { prefs.setLiveWallpaperShaderPreset(any()) } returns Unit
+            coEvery { prefs.setWallpaperClockOverlayEnabled(any()) } returns Unit
+            coEvery { prefs.setWallpaperClockOverlayMode(any()) } returns Unit
+            coEvery { prefs.setWallpaperClockOverlayPosition(any()) } returns Unit
             coEvery { prefs.clearWallpaperStyleLearning() } returns Unit
         }
 

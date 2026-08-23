@@ -199,7 +199,7 @@ class WallpaperApplyCoordinatorTest {
             "src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperApplyActions.kt",
             "src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperEditorViewModel.kt",
             "src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperCropViewModel.kt",
-            "src/main/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperViewModel.kt",
+            "src/full/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperViewModel.kt",
         )
         surfaces.forEach { relative ->
             val source = File(relative).readText()

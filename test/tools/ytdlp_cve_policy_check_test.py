@@ -35,8 +35,19 @@ def write_policy_v1(repo_root: Path) -> Path:
                 "requiredYtDlpCallSites": [
                     {
                         "id": "youtube-audio-stream-resolution",
-                        "path": "app/src/main/java/com/freevibe/data/repository/YouTubeRepository.kt",
+                        "path": "app/src/main/java/com/chloemlla/aura/data/repository/YouTubeRepository.kt",
                         "requiredTerms": ["YoutubeDLRequest", "YoutubeDL.getInstance().execute"],
+                    }
+                ],
+                "downloadBoundsHelper": {
+                    "path": BOUNDS_HELPER,
+                    "requiredTerms": ["--max-filesize", "--no-playlist"],
+                },
+                "downloadCallSites": [
+                    {
+                        "id": "video-wallpaper-download",
+                        "path": DOWNLOAD_SITE,
+                        "requiredTerms": ["applyYtDlpDownloadBounds"],
                     }
                 ],
             }
@@ -70,8 +81,19 @@ def write_policy_v2(repo_root: Path) -> Path:
                 "requiredYtDlpCallSites": [
                     {
                         "id": "youtube-audio-stream-resolution",
-                        "path": "app/src/main/java/com/freevibe/data/repository/YouTubeRepository.kt",
+                        "path": "app/src/main/java/com/chloemlla/aura/data/repository/YouTubeRepository.kt",
                         "requiredTerms": ["YoutubeDLRequest", "YoutubeDL.getInstance().execute"],
+                    }
+                ],
+                "downloadBoundsHelper": {
+                    "path": BOUNDS_HELPER,
+                    "requiredTerms": ["--max-filesize", "--no-playlist"],
+                },
+                "downloadCallSites": [
+                    {
+                        "id": "video-wallpaper-download",
+                        "path": DOWNLOAD_SITE,
+                        "requiredTerms": ["applyYtDlpDownloadBounds"],
                     }
                 ],
             }
@@ -89,7 +111,7 @@ def write_lock(repo_root: Path, version: str) -> None:
 
 def write_call_site(repo_root: Path, extra: str = "") -> None:
     write_text(
-        repo_root / "app/src/main/java/com/freevibe/data/repository/YouTubeRepository.kt",
+        repo_root / "app/src/main/java/com/chloemlla/aura/data/repository/YouTubeRepository.kt",
         "\n".join(
             [
                 "fun resolve(url: String) {",
@@ -103,6 +125,31 @@ def write_call_site(repo_root: Path, extra: str = "") -> None:
     )
 
 
+DOWNLOAD_SITE = "app/src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersViewModel.kt"
+BOUNDS_HELPER = "app/src/main/java/com/chloemlla/aura/service/YtDlpDownloadSafety.kt"
+
+
+def write_download_bounds(repo_root: Path, *, bounded_downloads: int = 1) -> None:
+    """A bounds helper plus a download site with `bounded_downloads` bounded executions."""
+    write_text(
+        repo_root / BOUNDS_HELPER,
+        "\n".join(
+            [
+                "internal fun applyYtDlpDownloadBounds(request: YoutubeDLRequest) {",
+                "    request.addOption(\"--max-filesize\", maxBytes.toString())",
+                "    request.addOption(\"--no-playlist\")",
+                "}",
+            ]
+        ),
+    )
+    body = ["fun download() {"]
+    for index in range(bounded_downloads):
+        body.append(f"    applyYtDlpDownloadBounds(request{index})")
+        body.append(f"    YoutubeDL.getInstance().execute(request{index})")
+    body.append("}")
+    write_text(repo_root / DOWNLOAD_SITE, "\n".join(body))
+
+
 class YtDlpCvePolicyCheckV1Test(unittest.TestCase):
     def test_allows_affected_bundled_version_when_netrc_cmd_is_absent(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -110,6 +157,7 @@ class YtDlpCvePolicyCheckV1Test(unittest.TestCase):
             policy_path = write_policy_v1(repo_root)
             write_lock(repo_root, "2025.11.12")
             write_call_site(repo_root)
+            write_download_bounds(repo_root)
 
             result = ytdlp_cve_policy_check.validate_policy(repo_root, policy_path)
 
@@ -135,6 +183,7 @@ class YtDlpCvePolicyCheckV1Test(unittest.TestCase):
             policy_path = write_policy_v1(repo_root)
             write_lock(repo_root, "2026.02.21")
             write_call_site(repo_root)
+            write_download_bounds(repo_root)
 
             result = ytdlp_cve_policy_check.validate_policy(repo_root, policy_path)
 
@@ -146,6 +195,7 @@ class YtDlpCvePolicyCheckV1Test(unittest.TestCase):
             policy_path = write_policy_v1(repo_root)
             write_text(repo_root / "docs/legal/native-compliance.lock.json", json.dumps({"records": []}))
             write_call_site(repo_root)
+            write_download_bounds(repo_root)
 
             with self.assertRaisesRegex(
                 ytdlp_cve_policy_check.YtDlpCvePolicyError,
@@ -161,6 +211,7 @@ class YtDlpCvePolicyCheckV2Test(unittest.TestCase):
             policy_path = write_policy_v2(repo_root)
             write_lock(repo_root, "2025.11.12")
             write_call_site(repo_root)
+            write_download_bounds(repo_root)
 
             result = ytdlp_cve_policy_check.validate_policy(repo_root, policy_path)
 
@@ -218,6 +269,7 @@ class YtDlpCvePolicyCheckV2Test(unittest.TestCase):
             policy_path = write_policy_v2(repo_root)
             write_lock(repo_root, "2025.11.12")
             write_call_site(repo_root)
+            write_download_bounds(repo_root)
 
             result = ytdlp_cve_policy_check.validate_policy(repo_root, policy_path)
 
@@ -246,6 +298,7 @@ class YtDlpCvePolicyCheckV2Test(unittest.TestCase):
             write_text(policy_path, json.dumps(policy))
             write_lock(repo_root, "2025.11.12")
             write_call_site(repo_root)
+            write_download_bounds(repo_root)
 
             result = ytdlp_cve_policy_check.validate_policy(repo_root, policy_path)
 
@@ -274,10 +327,93 @@ class YtDlpCvePolicyCheckV2Test(unittest.TestCase):
             write_text(policy_path, json.dumps(policy))
             write_lock(repo_root, "2025.11.12")
             write_call_site(repo_root)
+            write_download_bounds(repo_root)
 
             with self.assertRaisesRegex(
                 ytdlp_cve_policy_check.YtDlpCvePolicyError,
                 "SHA-256 mismatch",
+            ):
+                ytdlp_cve_policy_check.validate_policy(repo_root, policy_path)
+
+
+class YtDlpDownloadBoundsTest(unittest.TestCase):
+    """A forbidden-option scan cannot see an option that was never passed."""
+
+    REPO_ROOT = Path(__file__).resolve().parents[2]
+
+    def _staged(self, repo_root: Path) -> Path:
+        policy_path = write_policy_v2(repo_root)
+        write_lock(repo_root, "2026.07.04")
+        write_call_site(repo_root)
+        return policy_path
+
+    def test_live_downloads_are_bounded(self):
+        result = ytdlp_cve_policy_check.validate_policy(
+            self.REPO_ROOT, self.REPO_ROOT / "docs/security/ytdlp-cve-policy.json"
+        )
+
+        self.assertIn("video-wallpaper-download", result["boundedDownloadSites"])
+
+    def test_rejects_a_download_site_that_never_bounds(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            policy_path = self._staged(repo_root)
+            write_download_bounds(repo_root)
+            # A download that executes without ever calling the bounds helper.
+            write_text(
+                repo_root / DOWNLOAD_SITE,
+                "fun download() {\n    YoutubeDL.getInstance().execute(request)\n}",
+            )
+
+            with self.assertRaisesRegex(
+                ytdlp_cve_policy_check.YtDlpCvePolicyError,
+                "without bounding it first",
+            ):
+                ytdlp_cve_policy_check.validate_policy(repo_root, policy_path)
+
+    def test_rejects_a_second_branch_that_forgets_the_cap(self):
+        """Two executions, one bounded: the new branch must fail the gate."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            policy_path = self._staged(repo_root)
+            write_download_bounds(repo_root, bounded_downloads=1)
+            existing = (repo_root / DOWNLOAD_SITE).read_text(encoding="utf-8")
+            write_text(
+                repo_root / DOWNLOAD_SITE,
+                existing + "\nfun second() {\n    YoutubeDL.getInstance().execute(other)\n}",
+            )
+
+            with self.assertRaisesRegex(
+                ytdlp_cve_policy_check.YtDlpCvePolicyError,
+                "2 yt-dlp executions but only 1 bounded",
+            ):
+                ytdlp_cve_policy_check.validate_policy(repo_root, policy_path)
+
+    def test_rejects_a_helper_that_drops_the_size_cap(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            policy_path = self._staged(repo_root)
+            write_download_bounds(repo_root)
+            write_text(
+                repo_root / BOUNDS_HELPER,
+                "internal fun applyYtDlpDownloadBounds() {\n"
+                "    request.addOption(\"--no-playlist\")\n}",
+            )
+
+            with self.assertRaisesRegex(
+                ytdlp_cve_policy_check.YtDlpCvePolicyError,
+                "no longer passes the required download option: --max-filesize",
+            ):
+                ytdlp_cve_policy_check.validate_policy(repo_root, policy_path)
+
+    def test_rejects_a_missing_bounds_helper(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            policy_path = self._staged(repo_root)
+
+            with self.assertRaisesRegex(
+                ytdlp_cve_policy_check.YtDlpCvePolicyError,
+                "download bounds helper is missing",
             ):
                 ytdlp_cve_policy_check.validate_policy(repo_root, policy_path)
 

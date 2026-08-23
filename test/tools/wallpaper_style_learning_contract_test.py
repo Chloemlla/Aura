@@ -2,14 +2,14 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-MODEL = ROOT / "app/src/main/java/com/freevibe/service/WallpaperStyleLearning.kt"
-RANKER = ROOT / "app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperFeedQuality.kt"
-VIEWMODEL = ROOT / "app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersViewModel.kt"
-STYLE_ACTIONS = ROOT / "app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperStyleActions.kt"
-APPLY = ROOT / "app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperApplyActions.kt"
-SCREEN = ROOT / "app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt"
-SETTINGS = ROOT / "app/src/main/java/com/freevibe/ui/screens/settings/SettingsWallpaperSection.kt"
-PREFS = ROOT / "app/src/main/java/com/freevibe/data/local/PreferencesManager.kt"
+MODEL = ROOT / "app/src/main/java/com/chloemlla/aura/service/WallpaperStyleLearning.kt"
+RANKER = ROOT / "app/src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperFeedQuality.kt"
+VIEWMODEL = ROOT / "app/src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpapersViewModel.kt"
+STYLE_ACTIONS = ROOT / "app/src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperStyleActions.kt"
+APPLY = ROOT / "app/src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperApplyActions.kt"
+SCREEN = ROOT / "app/src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpapersScreen.kt"
+SETTINGS = ROOT / "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsWallpaperSection.kt"
+PREFS = ROOT / "app/src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt"
 
 
 def test_wallpaper_style_learning_stays_local_and_has_threshold():

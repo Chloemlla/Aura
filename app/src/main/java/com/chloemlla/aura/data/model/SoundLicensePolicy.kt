@@ -90,7 +90,7 @@ fun Sound.soundLicenseCapabilities(): SoundLicenseCapabilities {
         ContentSource.YOUTUBE -> {
             requireConfirmation(actions, SoundAction.APPLY, "Confirm YouTube source terms before applying this sound.")
             requireConfirmation(actions, SoundAction.DOWNLOAD, "Confirm YouTube source terms before downloading this sound.")
-            disable(actions, SoundAction.EDIT, "YouTube sounds cannot be trimmed or normalized in Aura.")
+            disable(actions, SoundAction.EDIT, "YouTube sounds cannot be edited in Aura.")
             disable(actions, SoundAction.BUNDLE, "YouTube sounds cannot be included in Aura Originals.")
         }
         ContentSource.SOUNDCLOUD -> {
@@ -127,7 +127,7 @@ fun Sound.soundLicenseCapabilities(): SoundLicenseCapabilities {
         requireConfirmation(actions, SoundAction.EDIT, "Confirm non-commercial license terms before editing this sound.")
         disable(actions, SoundAction.BUNDLE, "Non-commercial sounds cannot be included in Aura Originals.")
     } else if (isNoDerivatives) {
-        disable(actions, SoundAction.EDIT, "No-derivatives sounds cannot be trimmed or normalized.")
+        disable(actions, SoundAction.EDIT, "No-derivatives sounds cannot be edited.")
         disable(actions, SoundAction.BUNDLE, "No-derivatives sounds cannot be included in Aura Originals.")
     } else if (!isCc0Compatible && source != ContentSource.BUNDLED) {
         disable(actions, SoundAction.BUNDLE, "Only reviewed CC0-compatible sounds can be included in Aura Originals.")

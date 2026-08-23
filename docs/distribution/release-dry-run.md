@@ -116,10 +116,21 @@ The final directory is validated before upload:
 python3 tools/release_artifact_bundle_check.py \
   --release-dir "$RELEASE_DIR" \
   --apk-name "$APK_NAME" \
+  --split-apk-name "Aura-v$VERSION_NAME-versionCode-$VERSION_CODE-arm64-v8a-release.apk" \
+  --split-apk-name "Aura-v$VERSION_NAME-versionCode-$VERSION_CODE-armeabi-v7a-release.apk" \
+  --split-apk-name "Aura-v$VERSION_NAME-versionCode-$VERSION_CODE-x86-release.apk" \
+  --split-apk-name "Aura-v$VERSION_NAME-versionCode-$VERSION_CODE-x86_64-release.apk" \
   --aab-name "$AAB_NAME" \
   --version-name "$VERSION_NAME" \
   --version-code "$VERSION_CODE"
 ```
+
+`assembleFullRelease` produces five APKs: one per architecture plus the universal
+one. All five are published, all five belong in `SHA256SUMS.txt`, and all five have
+to be named in the release notes, because a split nobody mentions is a split nobody
+downloads. Pass each per-ABI file with its own `--split-apk-name`; the check
+verifies each one exists, is checksummed, matches the version, and claims a
+distinct architecture.
 
 The check fails when:
 
@@ -147,8 +158,8 @@ behavior only; it does not replace a signed local release build.
 $tmp = Join-Path $env:TEMP "aura-release-bundle-smoke"
 Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $tmp | Out-Null
-$apk = "Aura-v6.34.6-versionCode-133-universal-release.apk"
-$aab = "Aura-v6.34.6-versionCode-133-play-release.aab"
+$apk = "Aura-v6.42.0-versionCode-143-universal-release.apk"
+$aab = "Aura-v6.42.0-versionCode-143-play-release.aab"
 "apk" | Set-Content -Encoding ascii (Join-Path $tmp $apk)
 "aab" | Set-Content -Encoding ascii (Join-Path $tmp $aab)
 "third-party" | Set-Content -Encoding ascii (Join-Path $tmp "THIRD-PARTY-NOTICES.md")
@@ -157,7 +168,7 @@ $aab = "Aura-v6.34.6-versionCode-133-play-release.aab"
 '{"status":"ok","policyKind":"nativePageAlignment","packageName":"com.freevibe","requiredLoadSegmentAlignmentBytes":16384,"checked64BitLoadSegments":2,"seen64BitAbis":["arm64-v8a","x86_64"]}' | Set-Content -Encoding ascii (Join-Path $tmp "NATIVE-ALIGNMENT.json")
 "Signer #1 certificate SHA-256 digest: test" | Set-Content -Encoding ascii (Join-Path $tmp "apksigner.txt")
 "package: name='com.freevibe'" | Set-Content -Encoding ascii (Join-Path $tmp "aapt-badging.txt")
-'manifest package="com.freevibe" android:versionCode="133" android:versionName="6.34.6"' | Set-Content -Encoding ascii (Join-Path $tmp "aab-manifest.txt")
+'manifest package="com.freevibe" android:versionCode="143" android:versionName="6.42.0"' | Set-Content -Encoding ascii (Join-Path $tmp "aab-manifest.txt")
 "bundletool validate passed: $aab" | Set-Content -Encoding ascii (Join-Path $tmp "bundletool-validate.txt")
 "jar verified." | Set-Content -Encoding ascii (Join-Path $tmp "aab-jarsigner.txt")
 "Certificate fingerprints:`n`t SHA256: upload-test" | Set-Content -Encoding ascii (Join-Path $tmp "aab-keytool.txt")
@@ -168,7 +179,7 @@ $sumLines | Set-Content -Encoding ascii (Join-Path $tmp "SHA256SUMS.txt")
 $apkHash = (Get-FileHash (Join-Path $tmp $apk) -Algorithm SHA256).Hash.ToLower()
 $aabHash = (Get-FileHash (Join-Path $tmp $aab) -Algorithm SHA256).Hash.ToLower()
 @"
-Aura 6.34.6 (versionCode 133)
+Aura 6.42.0 (versionCode 143)
 
 Signed release artifacts:
 - APK: $apk
@@ -188,13 +199,13 @@ Signed release artifacts:
 Android developer verification:
 - Package: com.freevibe
 "@ | Set-Content -Encoding ascii (Join-Path $tmp "RELEASE_NOTES.md")
-python tools\release_artifact_bundle_check.py --release-dir $tmp --apk-name $apk --aab-name $aab --version-name 6.34.6 --version-code 133
+python tools\release_artifact_bundle_check.py --release-dir $tmp --apk-name $apk --aab-name $aab --version-name 6.42.0 --version-code 143
 ```
 
 Expected output:
 
 ```json
-{"aab": "Aura-v6.34.6-versionCode-133-play-release.aab", "apk": "Aura-v6.34.6-versionCode-133-universal-release.apk", "releaseDir": "<temp path>", "status": "ok", "versionCode": "133", "versionName": "6.34.6"}
+{"aab": "Aura-v6.42.0-versionCode-143-play-release.aab", "apk": "Aura-v6.42.0-versionCode-143-universal-release.apk", "releaseDir": "<temp path>", "status": "ok", "versionCode": "143", "versionName": "6.42.0"}
 ```
 
 ## Sources

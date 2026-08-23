@@ -11,10 +11,10 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SERVICE_DIR = ROOT / "app/src/main/java/com/freevibe/service"
-HARNESS = "app/src/debug/java/com/freevibe/service/soak/LiveWallpaperSoak.kt"
-JVM_SOAK = "app/src/test/java/com/freevibe/service/LiveWallpaperSoakTest.kt"
-DEVICE_SOAK = "app/src/androidTest/java/com/freevibe/service/LiveWallpaperSoakInstrumentedTest.kt"
+SERVICE_DIR = ROOT / "app/src/main/java/com/chloemlla/aura/service"
+HARNESS = "app/src/debug/java/com/chloemlla/aura/service/soak/LiveWallpaperSoak.kt"
+JVM_SOAK = "app/src/test/java/com/chloemlla/aura/service/LiveWallpaperSoakTest.kt"
+DEVICE_SOAK = "app/src/androidTest/java/com/chloemlla/aura/service/LiveWallpaperSoakInstrumentedTest.kt"
 
 
 def read(path: str) -> str:
@@ -110,7 +110,7 @@ def test_bitmap_engines_serialize_decodes_instead_of_spawning_threads():
         assert "mediaLoader.shutdown()" in source, name
         assert "Thread {" not in source, name
 
-    loader = read("app/src/main/java/com/freevibe/service/LiveWallpaperMediaLoader.kt")
+    loader = read("app/src/main/java/com/chloemlla/aura/service/LiveWallpaperMediaLoader.kt")
     assert "newSingleThreadExecutor" in loader
     assert "MAX_OUTSTANDING" in loader
 

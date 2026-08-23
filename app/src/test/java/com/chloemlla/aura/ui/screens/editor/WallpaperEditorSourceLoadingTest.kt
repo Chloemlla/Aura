@@ -1,5 +1,6 @@
 package com.chloemlla.aura.ui.screens.editor
 
+import android.content.Context
 import android.graphics.Bitmap
 import com.chloemlla.aura.service.DepthPortraitComposer
 import com.chloemlla.aura.service.WallpaperApplier
@@ -43,6 +44,7 @@ class WallpaperEditorSourceLoadingTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         viewModel = WallpaperEditorViewModel(
+            context = mockk<Context>(relaxed = true),
             wallpaperApplier = mockk<WallpaperApplier>(relaxed = true),
             depthPortraitComposer = mockk<DepthPortraitComposer>(relaxed = true),
             okHttpClient = mockk(relaxed = true),

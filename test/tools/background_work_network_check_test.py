@@ -67,7 +67,7 @@ class BackgroundWorkNetworkCheckTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             copy_required_tree(repo)
-            source = repo / "app/src/main/java/com/freevibe/service/AuraOriginalsDownloader.kt"
+            source = repo / "app/src/main/java/com/chloemlla/aura/service/AuraOriginalsDownloader.kt"
             source.write_text(
                 source.read_text(encoding="utf-8").replace(
                     "setRequiredNetworkType(NetworkType.UNMETERED)",

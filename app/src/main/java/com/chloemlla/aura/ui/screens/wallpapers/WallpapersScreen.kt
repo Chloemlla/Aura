@@ -44,6 +44,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.chloemlla.aura.BuildConfig
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -135,7 +136,9 @@ fun WallpapersScreen(
     val pixabayProviderEnabled by viewModel.pixabayProviderEnabled.collectAsStateWithLifecycle()
     val communityProviderEnabled by viewModel.communityProviderEnabled.collectAsStateWithLifecycle()
     val communityGuidelinesAccepted by viewModel.communityGuidelinesAccepted.collectAsStateWithLifecycle()
-    val generatedContentProviderEnabled by viewModel.generatedContentProviderEnabled.collectAsStateWithLifecycle()
+    val generatedContentProviderEnabled by viewModel.generatedContentProviderEnabled
+        .collectAsStateWithLifecycle()
+    val showGeneratedContentEntry = !BuildConfig.FOSS_BUILD && generatedContentProviderEnabled
     var hideAiGeneratedCommunity by rememberSaveable { mutableStateOf(false) }
     val feedWallpapers = remember(state.wallpapers, state.selectedTab, hideAiGeneratedCommunity) {
         if (state.selectedTab == WallpaperTab.COMMUNITY && hideAiGeneratedCommunity) {
@@ -472,7 +475,7 @@ fun WallpapersScreen(
                                     },
                                 )
                             }
-                            if (generatedContentProviderEnabled) {
+                            if (showGeneratedContentEntry) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.feed_generate)) },
                                     leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
@@ -1076,7 +1079,7 @@ private fun WallpaperFiltersSheet(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun WallpaperGrid(
+internal fun WallpaperGrid(
     wallpapers: List<Wallpaper>,
     isLoadingMore: Boolean,
     columns: Int = 2,
@@ -1298,14 +1301,14 @@ private fun WallpaperCard(
     }
 }
 
-private data class WallpaperStateAction(
+internal data class WallpaperStateAction(
     val label: String,
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val onClick: () -> Unit,
 )
 
 @Composable
-private fun WallpaperStateCard(
+internal fun WallpaperStateCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
     description: String,

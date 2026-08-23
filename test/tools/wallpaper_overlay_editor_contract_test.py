@@ -9,7 +9,7 @@ def read(path: str) -> str:
 
 
 def test_overlay_state_and_renderer_are_local_only():
-    source = read("app/src/main/java/com/freevibe/ui/screens/editor/WallpaperEditorViewModel.kt")
+    source = read("app/src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperEditorViewModel.kt")
 
     for token in [
         "data class WallpaperOverlayLayer",
@@ -32,23 +32,28 @@ def test_overlay_state_and_renderer_are_local_only():
 
 
 def test_apply_export_and_parallax_use_rendered_overlay_bitmap():
-    source = read("app/src/main/java/com/freevibe/ui/screens/editor/WallpaperEditorViewModel.kt")
+    source = read("app/src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperEditorViewModel.kt")
 
-    assert "renderBitmapForOutput()" in source
-    assert "renderBitmapForOutputAsync()" in source
-    assert source.count("renderBitmapForOutputAsync()") >= 4
-    assert "recycleRenderedBitmap(bitmap, snapshot)" in source
+    assert "renderBitmapForOutput(defaultOverlayText)" in source
+    assert "renderBitmapForOutputAsync(defaultOverlayText: String)" in source
+    assert source.count("renderBitmapForOutputAsync(") >= 4
+    # The rendered bitmap is checked against the state the render read *and* the
+    # state as it is now. A filter render finishing during the write puts a
+    # different bitmap on screen, so the snapshot alone would free something the
+    # editor is still painting.
+    assert "recycleRenderedBitmap(bitmap, snapshot, _state.value)" in source
+    assert source.count("recycleRenderedBitmap(bitmap, snapshot, _state.value)") >= 3
     assert "wallpaperApplier.applyFromBitmap(bitmap, target)" in source
     assert "depthPortraitComposer.exportToGallery(bitmap)" in source
     assert "wallpaperApplier.prepareParallaxFromBitmap(bitmap" in source
 
 
 def test_overlay_preview_and_controls_are_wired():
-    source = read("app/src/main/java/com/freevibe/ui/screens/editor/WallpaperEditorScreen.kt")
+    source = read("app/src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperEditorScreen.kt")
     strings = read("app/src/main/res/values/strings.xml")
 
     for token in [
-        "LAYERS_FILTER_NAME",
+        "R.string.editor_wallpaper_layers_chip",
         "WallpaperEditorPreview",
         "OverlayLayerPreview",
         "WallpaperLayerControls",

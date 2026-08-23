@@ -2,7 +2,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOUNDS_PACKAGE = ROOT / "app/src/main/java/com/freevibe/ui/screens/sounds"
+SOUNDS_PACKAGE = ROOT / "app/src/main/java/com/chloemlla/aura/ui/screens/sounds"
 
 
 def read(path: Path) -> str:

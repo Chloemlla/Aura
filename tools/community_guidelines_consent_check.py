@@ -19,50 +19,50 @@ REQUIRED_DOC_TERMS = {
 }
 
 REQUIRED_CODE_MARKERS = {
-    "app/src/main/java/com/freevibe/data/model/CommunityGuidelinesPolicy.kt": [
+    "app/src/main/java/com/chloemlla/aura/data/model/CommunityGuidelinesPolicy.kt": [
         "COMMUNITY_GUIDELINES_VERSION",
         "COMMUNITY_GUIDELINES_REQUIRED_MESSAGE",
         "CommunityGuidelinesPolicy",
         "postingRules",
     ],
-    "app/src/main/java/com/freevibe/data/local/PreferencesManager.kt": [
+    "app/src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt": [
         "communityGuidelinesAcceptedVersion",
         "communityGuidelinesAccepted",
         "community_guidelines_accepted_version",
         "acceptCommunityGuidelines",
     ],
-    "app/src/main/java/com/freevibe/ui/components/CommunityGuidelinesDialog.kt": [
+    "app/src/main/java/com/chloemlla/aura/ui/components/CommunityGuidelinesDialog.kt": [
         "CommunityGuidelinesDialog",
         "community_guidelines_intro",
         "Reset",
     ],
-    "app/src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt": [
+    "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt": [
         "CommunityGuidelinesDialog",
         "Community guidelines",
         "Required before uploads, votes, reports, blocks, follows, and profiles",
         "resetCommunityGuidelines",
     ],
-    "app/src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt": [
+    "app/src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsScreen.kt": [
         "CommunityGuidelinesDialog",
         "communityGuidelinesAccepted",
     ],
-    "app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt": [
+    "app/src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpapersScreen.kt": [
         "CommunityGuidelinesDialog",
         "communityGuidelinesAccepted",
     ],
-    "app/src/main/java/com/freevibe/data/repository/UploadRepository.kt": [
+    "app/src/main/java/com/chloemlla/aura/data/repository/UploadRepository.kt": [
         "prefs.communityGuidelinesAccepted.first()",
     ],
-    "app/src/main/java/com/freevibe/data/repository/WallpaperUploadRepository.kt": [
+    "app/src/main/java/com/chloemlla/aura/data/repository/WallpaperUploadRepository.kt": [
         "prefs.communityGuidelinesAccepted.first()",
     ],
-    "app/src/main/java/com/freevibe/data/repository/CommunityBlockRepository.kt": [
+    "app/src/main/java/com/chloemlla/aura/data/repository/CommunityBlockRepository.kt": [
         "prefs.communityGuidelinesAccepted.first()",
     ],
-    "app/src/main/java/com/freevibe/data/repository/CreatorProfileRepository.kt": [
+    "app/src/main/java/com/chloemlla/aura/data/repository/CreatorProfileRepository.kt": [
         "prefs.communityGuidelinesAccepted.first()",
     ],
-    "app/src/main/java/com/freevibe/data/repository/VoteRepository.kt": [
+    "app/src/main/java/com/chloemlla/aura/data/repository/VoteRepository.kt": [
         "prefs.communityGuidelinesAccepted.first()",
     ],
 }
@@ -128,9 +128,9 @@ def validate_play_packet(repo_root: Path, packet_path: str) -> None:
     refs = set(ugc.get("evidenceRefs", []))
     required_refs = {
         "docs/legal/community-guidelines.md",
-        "app/src/main/java/com/freevibe/data/model/CommunityGuidelinesPolicy.kt",
-        "app/src/main/java/com/freevibe/data/local/PreferencesManager.kt",
-        "app/src/main/java/com/freevibe/ui/components/CommunityGuidelinesDialog.kt",
+        "app/src/main/java/com/chloemlla/aura/data/model/CommunityGuidelinesPolicy.kt",
+        "app/src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt",
+        "app/src/main/java/com/chloemlla/aura/ui/components/CommunityGuidelinesDialog.kt",
     }
     missing = sorted(required_refs - refs)
     if missing:

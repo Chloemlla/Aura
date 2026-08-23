@@ -9,7 +9,7 @@ def read(path: str) -> str:
 
 
 def test_depth_portrait_composer_uses_segmentation_with_gallery_export():
-    source = read("app/src/main/java/com/freevibe/service/DepthPortraitComposer.kt")
+    source = read("app/src/main/java/com/chloemlla/aura/service/DepthPortraitComposer.kt")
 
     for token in (
         "SubjectSegmentation.getClient",
@@ -24,8 +24,8 @@ def test_depth_portrait_composer_uses_segmentation_with_gallery_export():
 
 
 def test_editor_exposes_depth_actions_and_parallax_handoff():
-    screen = read("app/src/main/java/com/freevibe/ui/screens/editor/WallpaperEditorScreen.kt")
-    view_model = read("app/src/main/java/com/freevibe/ui/screens/editor/WallpaperEditorViewModel.kt")
+    screen = read("app/src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperEditorScreen.kt")
+    view_model = read("app/src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperEditorViewModel.kt")
 
     for token in (
         "editor_wallpaper_depth_chip",
@@ -47,7 +47,7 @@ def test_editor_exposes_depth_actions_and_parallax_handoff():
 
 
 def test_wallpaper_applier_accepts_generated_bitmaps_for_parallax():
-    source = read("app/src/main/java/com/freevibe/service/WallpaperApplier.kt")
+    source = read("app/src/main/java/com/chloemlla/aura/service/WallpaperApplier.kt")
 
     assert "prepareParallaxFromBitmap" in source
     assert "Bitmap.CompressFormat.JPEG" in source

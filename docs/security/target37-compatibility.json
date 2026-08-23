@@ -31,8 +31,8 @@
       "android.permission.READ_CONTACTS"
     ],
     "reviewedContactFiles": [
-      "app/src/main/java/com/freevibe/ui/screens/sounds/ContactPickerScreen.kt",
-      "app/src/main/java/com/freevibe/service/ContactRingtoneService.kt"
+      "app/src/main/java/com/chloemlla/aura/ui/screens/sounds/ContactPickerScreen.kt",
+      "app/src/main/java/com/chloemlla/aura/service/ContactRingtoneService.kt"
     ]
   },
   "reflection": {
@@ -49,15 +49,15 @@
     ],
     "reviewedOccurrences": [
       {
-        "path": "app/src/main/java/com/freevibe/service/AudioTrimmer.kt",
+        "path": "app/src/main/java/com/chloemlla/aura/service/AudioTrimmer.kt",
         "terms": [
           "getDeclaredField(",
           "isAccessible = true"
         ],
-        "reason": "Reads youtubedl-android FFmpeg binary and LD_LIBRARY_PATH values for local audio trimming."
+        "reason": "Reads youtubedl-android FFmpeg binary and LD_LIBRARY_PATH values only for MP3, FLAC, unavailable OGG or Opus encoders, and unsupported lossless stream-copy cuts after Media3 handles the editor transform."
       },
       {
-        "path": "app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoCropScreen.kt",
+        "path": "app/src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoCropScreen.kt",
         "terms": [
           "getDeclaredField(",
           "isAccessible = true"
@@ -65,7 +65,7 @@
         "reason": "Reads youtubedl-android FFmpeg binary and LD_LIBRARY_PATH values for local video crop/export."
       },
       {
-        "path": "app/src/main/java/com/freevibe/service/PhotoPickerCustomization.kt",
+        "path": "app/src/main/java/com/chloemlla/aura/service/PhotoPickerCustomization.kt",
         "terms": [
           "Class.forName(",
           "getDeclaredConstructor(",
@@ -75,11 +75,18 @@
         "reason": "Bridges Android 17 Photo Picker 9:16 customization before compileSdk 37 is installed."
       },
       {
-        "path": "app/src/main/java/com/freevibe/service/SmartCropDetector.kt",
+        "path": "app/src/main/java/com/chloemlla/aura/service/SmartCropDetector.kt",
         "terms": [
           "getMethod("
         ],
         "reason": "Supports ML Kit subject segmentation beta API shape differences without broad reflection."
+      },
+      {
+        "path": "app/src/main/java/com/chloemlla/aura/service/DepthPortraitComposer.kt",
+        "terms": [
+          "getMethod("
+        ],
+        "reason": "Reads ML Kit beta foreground confidence mask data across API shape differences."
       }
     ]
   },

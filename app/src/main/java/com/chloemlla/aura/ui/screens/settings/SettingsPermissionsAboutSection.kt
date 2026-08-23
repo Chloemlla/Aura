@@ -1,6 +1,7 @@
 package com.chloemlla.aura.ui.screens.settings
 
 import android.Manifest
+import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -120,6 +121,7 @@ internal fun SettingsPermissionPromptDialog(
 @Composable
 internal fun PermissionsSettingsSection(context: Context) {
     SettingsSection(
+        sectionKey = SettingsSectionKeys.PERMISSIONS,
         title = stringResource(R.string.settings_permissions_section_title),
         description = stringResource(R.string.settings_permissions_section_description),
     ) {
@@ -161,6 +163,14 @@ internal fun PermissionsSettingsSection(context: Context) {
             granted = ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED,
         )
         PermissionTransparencyRow(
+            icon = Icons.Default.Notifications,
+            permission = stringResource(R.string.settings_perm_dnd),
+            scope = PermissionScope.LOCAL,
+            description = stringResource(R.string.settings_perm_dnd_desc),
+            granted = context.getSystemService(NotificationManager::class.java)
+                ?.isNotificationPolicyAccessGranted == true,
+        )
+        PermissionTransparencyRow(
             icon = Icons.Default.Mic,
             permission = stringResource(R.string.settings_perm_microphone),
             scope = PermissionScope.LOCAL,
@@ -188,6 +198,7 @@ internal fun AboutSettingsSection(
     onLicensesClick: () -> Unit,
 ) {
     SettingsSection(
+        sectionKey = SettingsSectionKeys.ABOUT,
         title = stringResource(R.string.settings_about_section_title),
         description = stringResource(R.string.settings_about_section_description),
     ) {

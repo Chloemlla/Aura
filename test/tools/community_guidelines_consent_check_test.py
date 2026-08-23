@@ -38,7 +38,7 @@ class CommunityGuidelinesConsentCheckTest(unittest.TestCase):
                 target = temp_repo / relative_path
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
-            settings_path = temp_repo / "app/src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt"
+            settings_path = temp_repo / "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt"
             settings_path.write_text(
                 settings_path.read_text(encoding="utf-8").replace("Community guidelines", "Community rules"),
                 encoding="utf-8",

@@ -9,9 +9,24 @@ import com.chloemlla.aura.data.model.WallpaperCacheEntity
 import com.chloemlla.aura.data.model.WallpaperCollectionEntity
 import com.chloemlla.aura.data.model.WallpaperCollectionItemEntity
 import com.chloemlla.aura.data.model.WallpaperHistoryEntity
+import com.chloemlla.aura.data.model.LocalWallpaperEntity
+import com.chloemlla.aura.data.model.LocalWallpaperFolderEntity
 import kotlinx.coroutines.flow.Flow
 
 // -- Database --
+
+/**
+ * The schema version this build knows how to open.
+ *
+ * Duplicated as a literal in the `@Database` annotation below because an
+ * annotation argument has to be a compile-time constant the Room processor can
+ * see. `tools/room_schema_history_check.py` fails when the two disagree, so the
+ * duplication cannot drift.
+ *
+ * Read by [DatabaseDowngradeGuard] to recognise a database written by a newer
+ * Aura before Room tries to open it and throws.
+ */
+const val FREEVIBE_DATABASE_VERSION = 17
 
 @Database(
     entities = [
@@ -22,8 +37,10 @@ import kotlinx.coroutines.flow.Flow
         WallpaperHistoryEntity::class,
         WallpaperCollectionEntity::class,
         WallpaperCollectionItemEntity::class,
+        LocalWallpaperFolderEntity::class,
+        LocalWallpaperEntity::class,
     ],
-    version = 16,
+    version = 17,
     exportSchema = true,
 )
 abstract class FreeVibeDatabase : RoomDatabase() {
@@ -33,6 +50,8 @@ abstract class FreeVibeDatabase : RoomDatabase() {
     abstract fun wallpaperCacheDao(): WallpaperCacheDao
     abstract fun wallpaperHistoryDao(): WallpaperHistoryDao
     abstract fun collectionDao(): CollectionDao
+    abstract fun localWallpaperFolderDao(): LocalWallpaperFolderDao
+    abstract fun localWallpaperDao(): LocalWallpaperDao
 }
 
 // -- Favorite DAO --

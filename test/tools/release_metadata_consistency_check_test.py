@@ -14,6 +14,9 @@ from tools.release_metadata_consistency_check import (
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+SCREEN_NAV = "app/src/main/java/com/chloemlla/aura/ui/navigation/Screen.kt"
+SCHEMA_DIR = "app/schemas/com.chloemlla.aura.data.local.FreeVibeDatabase"
+FASTLANE_DIR = "fastlane/metadata/android/en-US"
 
 
 def live_policy() -> dict[str, object]:
@@ -25,6 +28,19 @@ def copy_required_tree(destination: Path) -> None:
     paths = set(policy["requiredEvidencePaths"])  # type: ignore[arg-type]
     paths.add(policy["docsPath"])  # type: ignore[arg-type]
     paths.add("docs/distribution/release-metadata-consistency.json")
+    # Sources of truth the fact-surface checks compare prose against.
+    paths.add(SCREEN_NAV)
+    paths.update(
+        path.relative_to(REPO_ROOT).as_posix()
+        for path in (REPO_ROOT / SCHEMA_DIR).glob("*.json")
+    )
+    # Fastlane metadata is validated before the fact surfaces, so a fixture
+    # without it fails early and hides whatever the test was actually asserting.
+    paths.update(
+        path.relative_to(REPO_ROOT).as_posix()
+        for path in (REPO_ROOT / FASTLANE_DIR).rglob("*")
+        if path.is_file()
+    )
     for relative_path in paths:
         source = REPO_ROOT / str(relative_path)
         target = destination / str(relative_path)
@@ -96,6 +112,63 @@ class ReleaseMetadataConsistencyCheckTest(unittest.TestCase):
 
             with self.assertRaises(ReleaseMetadataConsistencyError):
                 validate_policy(repo, live_policy())
+
+    def _drifted(self, mutate) -> str:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            copy_required_tree(repo)
+            readme = repo / "README.md"
+            readme.write_text(mutate(readme.read_text(encoding="utf-8")), encoding="utf-8")
+
+            with self.assertRaises(ReleaseMetadataConsistencyError) as ctx:
+                validate_policy(repo, live_policy())
+            return str(ctx.exception)
+
+    def test_live_fact_surfaces_are_actually_read(self) -> None:
+        result = validate_policy(REPO_ROOT, live_policy())
+
+        self.assertIn("README.md", result["factSurfaces"])
+        manifest = read_manifest(REPO_ROOT)
+        self.assertEqual(manifest["roomSchemaVersion"], result["roomSchemaVersion"])
+
+    def test_rejects_a_stale_room_schema_claim(self) -> None:
+        message = self._drifted(lambda text: text.replace("Room DB v17", "Room DB v14"))
+
+        self.assertIn("Room v14", message)
+        self.assertIn("v17", message)
+
+    def test_rejects_a_stale_version_badge(self) -> None:
+        # Derived, not hardcoded: a literal version here becomes the stale
+        # fixture this gate exists to catch the moment the app is bumped.
+        current = str(read_manifest(REPO_ROOT)["versionName"])
+        stale = "0.0.1"
+        message = self._drifted(
+            lambda text: text.replace(f"version-{current}-blue", f"version-{stale}-blue")
+        )
+
+        self.assertIn(stale, message)
+
+    def test_rejects_a_tab_count_that_does_not_match_the_app(self) -> None:
+        message = self._drifted(lambda text: text.replace("5 bottom nav tabs", "4 bottom nav tabs"))
+
+        self.assertIn("4 bottom nav tabs", message)
+
+    def test_rejects_a_tab_name_the_app_does_not_build(self) -> None:
+        message = self._drifted(
+            lambda text: text.replace(
+                "Wallpapers, Videos, Sounds, Library, Settings",
+                "Wallpapers, Videos, Sounds, Favorites, Settings",
+            )
+        )
+
+        self.assertIn("Favorites", message)
+
+    def test_accepts_the_videos_alias_for_the_video_destination(self) -> None:
+        """Prose says "Videos"; the destination is VideoWallpapers. Both are correct."""
+        result = validate_policy(REPO_ROOT, live_policy())
+
+        self.assertIn("VideoWallpapers", result["bottomNavDestinations"])
+        self.assertEqual("ok", result["status"])
 
 
 if __name__ == "__main__":

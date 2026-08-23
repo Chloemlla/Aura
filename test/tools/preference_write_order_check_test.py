@@ -5,10 +5,11 @@ import unittest
 from pathlib import Path
 
 from tools.preference_write_order_check import (
-    BRIDGE_FUNCTIONS,
     PREFERENCES_MANAGER,
     SETTINGS_VIEW_MODEL,
+    SHARED_PREF_WRITE,
     PreferenceWriteOrderError,
+    discover_bridge_functions,
     extract_function_body,
     validate_preference_write_order,
 )
@@ -48,15 +49,21 @@ class PreferenceWriteOrderCheckTest(unittest.TestCase):
         result = validate_preference_write_order(REPO_ROOT)
 
         self.assertEqual("ok", result["status"])
-        self.assertEqual(len(BRIDGE_FUNCTIONS), result["bridgeCount"])
+        self.assertEqual(
+            len(discover_bridge_functions(self._live_manager())),
+            result["bridgeCount"],
+        )
 
     def test_every_bridge_writes_both_stores(self) -> None:
         manager = self._live_manager()
-        for name in BRIDGE_FUNCTIONS:
+        for name in discover_bridge_functions(manager):
             body = extract_function_body(manager, name)
+            # Use the gate's own pattern rather than a copy: a duplicated regex here
+            # would go stale the next time a new write helper is added, and would
+            # fail on the gate's behalf instead of on the code's.
             self.assertRegex(
                 body,
-                r"writeLiveWallpaperFlag|weatherWallpaperPrefs\(\)|getSharedPreferences",
+                SHARED_PREF_WRITE,
                 f"{name} must write SharedPreferences",
             )
             self.assertIn("set(Keys.", body, f"{name} must write DataStore")
@@ -85,6 +92,20 @@ class PreferenceWriteOrderCheckTest(unittest.TestCase):
 
         self.assertIn("no longer writes SharedPreferences", str(ctx.exception))
 
+    def test_discovers_and_rejects_a_new_wrong_order_bridge_without_gate_edit(self) -> None:
+        manager = self._live_manager() + """
+
+    suspend fun setDiscoveredBridge(enabled: Boolean) {
+        set(Keys.REDUCE_ANIMATIONS, enabled)
+        writeLiveWallpaperFlag(REDUCE_ANIMATIONS_PREF, enabled)
+    }
+"""
+
+        with self.assertRaises(PreferenceWriteOrderError) as ctx:
+            validate_preference_write_order(self._stage(manager))
+
+        self.assertIn("setDiscoveredBridge", str(ctx.exception))
+
     def test_rejects_settings_view_model_touching_shared_preferences(self) -> None:
         view_model = (
             "class SettingsViewModel {\n"
@@ -107,7 +128,7 @@ class PreferenceWriteOrderCheckTest(unittest.TestCase):
         with self.assertRaises(PreferenceWriteOrderError) as ctx:
             validate_preference_write_order(root)
 
-        self.assertIn("writes SharedPreferences directly", str(ctx.exception))
+        self.assertIn("touches SharedPreferences directly", str(ctx.exception))
 
     def test_rejects_a_removed_bridge(self) -> None:
         manager = self._live_manager().replace("fun setReduceAnimations", "fun setReduceAnimationsRenamed", 1)

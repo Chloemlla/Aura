@@ -30,6 +30,7 @@ internal fun VideoSettingsSection(
     var showFpsPicker by remember { mutableStateOf(false) }
 
     SettingsSection(
+        sectionKey = SettingsSectionKeys.VIDEO,
         title = stringResource(R.string.settings_video_section_title),
         description = stringResource(R.string.settings_video_section_description),
     ) {
@@ -52,6 +53,7 @@ internal fun VideoSettingsSection(
             },
             checked = videoAutoBatterySaver,
             onCheckedChange = viewModel::setVideoAutoBatterySaver,
+            searchAliases = setOf("battery saver", "battery", "power"),
         )
         SettingsToggle(
             icon = Icons.Default.Speed,

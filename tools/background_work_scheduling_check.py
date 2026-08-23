@@ -162,7 +162,7 @@ def validate_work_item(repo_root: Path, row: dict[str, Any], index: int) -> dict
 
 
 def discover_coroutine_workers(repo_root: Path) -> dict[str, str]:
-    service_root = repo_root / "app/src/main/java/com/freevibe/service"
+    service_root = repo_root / "app/src/main/java/com/chloemlla/aura/service"
     workers: dict[str, str] = {}
     pattern = re.compile(
         r"class\s+(\w+)\s+@AssistedInject\s+constructor\(.*?\)\s*:\s*CoroutineWorker\b",
@@ -238,7 +238,7 @@ def validate_android16_audit(
         raise BackgroundWorkSchedulingError("foreground-service concurrency audit must cover rotation_trigger_oneshot")
     rotation_source = read_text(
         repo_root,
-        "app/src/main/java/com/freevibe/service/RotationTriggerService.kt",
+        "app/src/main/java/com/chloemlla/aura/service/RotationTriggerService.kt",
         "rotation trigger service",
     )
     for term in ("startForeground(", "setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)"):

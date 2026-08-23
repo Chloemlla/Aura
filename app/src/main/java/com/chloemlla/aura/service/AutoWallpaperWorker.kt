@@ -38,6 +38,7 @@ class AutoWallpaperWorker @AssistedInject constructor(
     private val wallpaperApplier: WallpaperApplier,
     private val historyManager: WallpaperHistoryManager,
     private val prefs: PreferencesManager,
+    private val localWallpaperCatalog: LocalWallpaperCatalog,
     private val receiptStore: BackgroundWorkReceiptStore,
 ) : CoroutineWorker(appContext, workerParams) {
 
@@ -103,7 +104,20 @@ class AutoWallpaperWorker @AssistedInject constructor(
         if (source == "pixabay" && !prefs.pixabayProviderEnabled.first()) return Result.success()
         if (source == "bing" && !prefs.bingProviderEnabled.first()) return Result.success()
 
-        val rawWallpapers = fetchWallpapers(source)
+        val target = when {
+            homeEnabled && !lockEnabled -> WallpaperTarget.HOME
+            lockEnabled && !homeEnabled -> WallpaperTarget.LOCK
+            else -> null
+        }
+        if (source == WALLPAPER_SOURCE_LOCAL_FOLDER && homeEnabled && lockEnabled) {
+            val homePick = pickLocalScheduledWallpaper(WallpaperTarget.HOME, shuffle)
+            val lockPick = pickLocalScheduledWallpaper(WallpaperTarget.LOCK, shuffle)
+            if (homePick == null && lockPick == null) return Result.retry()
+            if (homePick != null) applyAndRecord(homePick, WallpaperTarget.HOME)
+            if (lockPick != null) applyAndRecord(lockPick, WallpaperTarget.LOCK)
+            return Result.success()
+        }
+        val rawWallpapers = fetchWallpapers(source, target)
         if (rawWallpapers.isEmpty()) return Result.retry()
 
         val wallpapers = filterRecentRepeats(rawWallpapers)
@@ -135,7 +149,7 @@ class AutoWallpaperWorker @AssistedInject constructor(
         if (source == "pixabay" && !prefs.pixabayProviderEnabled.first()) return Result.success()
         if (source == "bing" && !prefs.bingProviderEnabled.first()) return Result.success()
 
-        val wallpapers = filterRecentRepeats(fetchWallpapers(source))
+        val wallpapers = filterRecentRepeats(fetchWallpapers(source, target))
         val wallpaper = pickScheduledWallpaper(
             wallpapers = wallpapers,
             shuffle = true,
@@ -166,7 +180,21 @@ class AutoWallpaperWorker @AssistedInject constructor(
         return historyManager.getRecent(window).first().map { it.rotationKey() }.toSet()
     }
 
-    private suspend fun fetchWallpapers(source: String): List<Wallpaper> {
+    private suspend fun pickLocalScheduledWallpaper(
+        target: WallpaperTarget,
+        shuffle: Boolean,
+    ): Wallpaper? {
+        val rawWallpapers = fetchWallpapers(WALLPAPER_SOURCE_LOCAL_FOLDER, target)
+        if (rawWallpapers.isEmpty()) return null
+        val wallpapers = filterRecentRepeats(rawWallpapers)
+        return pickScheduledWallpaper(
+            wallpapers = wallpapers,
+            shuffle = shuffle,
+            recentKeys = recentShuffleKeys(wallpapers.size),
+        )
+    }
+
+    private suspend fun fetchWallpapers(source: String, target: WallpaperTarget? = null): List<Wallpaper> {
         val collectionId = prefs.schedulerCollectionId.first()
         return when (source) {
             "collection" -> {
@@ -192,10 +220,10 @@ class AutoWallpaperWorker @AssistedInject constructor(
             "bing" -> wallpaperRepo.getBingDaily(page = 1).items
             "reddit" -> redditRepo.getMultiSubreddit().items
             "pixabay" -> wallpaperRepo.getPixabay(page = (1..5).random()).items
-            WALLPAPER_SOURCE_LOCAL_FOLDER -> queryLocalFolderWallpapers(
-                context = applicationContext,
-                folderUriString = prefs.localWallpaperFolderUri.first(),
-            )
+            WALLPAPER_SOURCE_LOCAL_FOLDER -> {
+                localWallpaperCatalog.migrateLegacyFolder(prefs.localWallpaperFolderUri.first())
+                localWallpaperCatalog.rotationWallpapers(target)
+            }
             "discover" -> wallpaperRepo.getDiscover(page = (1..3).random()).items
             else -> wallpaperRepo.getDiscover(page = 1).items
         }

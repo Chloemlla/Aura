@@ -7,7 +7,7 @@
         errorLine1="        super.onCleared()"
         errorLine2="              ~~~~~~~~~">
         <location
-            file="src/main/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperViewModel.kt"
+            file="src/full/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperViewModel.kt"
             line="334"
             column="15"/>
     </issue>
@@ -2368,7 +2368,7 @@
         errorLine1="                localUri = Uri.parse(wallpaper.fullUrl),"
         errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperViewModel.kt"
+            file="src/full/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperViewModel.kt"
             line="397"
             column="28"/>
     </issue>

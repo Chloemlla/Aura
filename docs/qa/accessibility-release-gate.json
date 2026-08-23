@@ -3,7 +3,7 @@
   "policyKind": "accessibilityReleaseGate",
   "status": "releaseGateReadyManualEvidenceRequired",
   "automatedGate": {
-    "instrumentedTest": "app/src/androidTest/java/com/freevibe/ui/accessibility/AccessibilityReleaseGateTest.kt",
+    "instrumentedTest": "app/src/androidTest/java/com/chloemlla/aura/ui/accessibility/AccessibilityReleaseGateTest.kt",
     "requiredApi": "enableAccessibilityChecks",
     "requiredDependencies": [
       "androidx.compose.ui:ui-test-junit4",
@@ -13,38 +13,38 @@
       {
         "id": "wallpapers-grid",
         "surface": "Wallpapers feed success state with search, local cache status, and wallpaper cards",
-        "fixture": "AuraRouteFixture.WallpapersGridSuccess",
-        "assertion": "Fresh AMOLED picks"
+        "scenario": "ProductionRouteScenario.WallpapersGridSuccess",
+        "assertionResource": "R.string.nav_wallpapers"
       },
       {
         "id": "wallpapers-offline",
         "surface": "Wallpapers offline/local empty state with provider failure messaging",
-        "fixture": "AuraRouteFixture.WallpapersOfflineEmpty",
-        "assertion": "Offline wallpaper search"
+        "scenario": "ProductionRouteScenario.WallpapersOfflineEmpty",
+        "assertionResource": "R.string.wallpapers_empty_default_title"
       },
       {
         "id": "sounds-detail",
         "surface": "Sound detail state with waveform, playback controls, metadata, and cache status",
-        "fixture": "AuraRouteFixture.SoundDetailReady",
-        "assertion": "Midnight Pulse"
+        "scenario": "ProductionRouteScenario.SoundDetailReady",
+        "assertionResource": "R.string.nav_sounds"
       },
       {
         "id": "settings-diagnostics",
         "surface": "Settings diagnostics/provider-disabled state at large font scale",
-        "fixture": "AuraRouteFixture.SettingsProviderDisabled",
-        "assertion": "Local-first controls"
+        "scenario": "ProductionRouteScenario.SettingsProviderDisabled",
+        "assertionResource": "R.string.nav_settings"
       },
       {
         "id": "video-wallpapers",
         "surface": "Video wallpapers degraded-provider state with preview metadata",
-        "fixture": "AuraRouteFixture.VideoWallpapersError",
-        "assertion": "Video wallpaper metadata"
+        "scenario": "ProductionRouteScenario.VideoWallpapersError",
+        "assertionResource": "R.string.nav_videos"
       },
       {
         "id": "wallpaper-editor",
         "surface": "Wallpaper editor loading/recovery state with tool controls",
-        "fixture": "AuraRouteFixture.WallpaperEditorLoading",
-        "assertion": "Wallpaper editor recovery"
+        "scenario": "ProductionRouteScenario.WallpaperEditorLoading",
+        "assertionResource": "R.string.editor_wallpaper_title"
       }
     ],
     "verifyCommand": "./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.chloemlla.aura.ui.accessibility.AccessibilityReleaseGateTest"

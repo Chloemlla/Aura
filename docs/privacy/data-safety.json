@@ -179,6 +179,19 @@
       "deletionPath": "Change the contact ringtone through Aura or Android Contacts/settings.",
       "denialBehavior": "Aura cannot assign the selected ringtone to the contact.",
       "playDeclaration": "Sensitive permission; targeted per-contact ringtone feature."
+    },
+    {
+      "name": "android.permission.ACCESS_NOTIFICATION_POLICY",
+      "category": "notifications",
+      "purpose": "Inspect Do Not Disturb priority-caller rules so Aura can explain whether a selected contact ringtone can ring.",
+      "userAction": "User assigns a per-contact ringtone or opens the permissions section.",
+      "dataTypes": ["App interactions", "Notification policy state"],
+      "collectionStatus": "localOnly",
+      "sharingStatus": "notShared",
+      "retention": "Aura does not store notification policy details; Android remains the source of truth.",
+      "deletionPath": "Revoke Aura's Do Not Disturb access in Android settings or clear app data.",
+      "denialBehavior": "Aura explains that it cannot inspect DND priority rules and leaves the user an explicit assign-anyway choice.",
+      "playDeclaration": "Local DND policy inspection for per-contact ringtone guidance; Aura does not alter policy silently."
     }
   ],
   "networkSurfaces": [
@@ -309,7 +322,7 @@
       "deletionPath": "Disable weather effects, revoke location permission, or clear app data."
     },
     {
-      "endpointId": "stability-api",
+      "endpointId": "generated-wallpaper-api",
       "dataTypes": ["Generated wallpaper prompts", "Provider API key", "Generated images"],
       "collectionStatus": "userInitiatedCollection",
       "sharingStatus": "sharedWithSelectedProviders",
@@ -359,7 +372,7 @@
       "surfaceId": "preferences-datastore",
       "storageLocation": "datastore/freevibe_prefs.preferences_pb",
       "sourcePaths": [
-        "app/src/main/java/com/freevibe/data/local/PreferencesManager.kt",
+        "app/src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt",
         "app/src/main/res/xml/backup_rules.xml",
         "app/src/main/res/xml/data_extraction_rules.xml"
       ],
@@ -375,8 +388,8 @@
       "surfaceId": "provider-credential-store",
       "storageLocation": "shared_prefs/aura_provider_credentials.xml",
       "sourcePaths": [
-        "app/src/main/java/com/freevibe/data/local/ProviderCredentialStore.kt",
-        "app/src/main/java/com/freevibe/data/local/PreferencesManager.kt",
+        "app/src/main/java/com/chloemlla/aura/data/local/ProviderCredentialStore.kt",
+        "app/src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt",
         "app/src/main/res/xml/backup_rules.xml",
         "app/src/main/res/xml/data_extraction_rules.xml"
       ],
@@ -392,8 +405,8 @@
       "surfaceId": "room-database",
       "storageLocation": "databases/freevibe.db",
       "sourcePaths": [
-        "app/src/main/java/com/freevibe/data/local/Database.kt",
-        "app/src/main/java/com/freevibe/di/AppModule.kt",
+        "app/src/main/java/com/chloemlla/aura/data/local/Database.kt",
+        "app/src/main/java/com/chloemlla/aura/di/AppModule.kt",
         "app/src/main/res/xml/backup_rules.xml",
         "app/src/main/res/xml/data_extraction_rules.xml"
       ],
@@ -409,8 +422,8 @@
       "surfaceId": "community-identity-and-vote-prefs",
       "storageLocation": "shared_prefs/aura_community_identity.xml and shared_prefs/aura_votes.xml",
       "sourcePaths": [
-        "app/src/main/java/com/freevibe/service/CommunityIdentityProvider.kt",
-        "app/src/main/java/com/freevibe/data/repository/VoteRepository.kt",
+        "app/src/main/java/com/chloemlla/aura/service/CommunityIdentityProvider.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/VoteRepository.kt",
         "app/src/main/res/xml/backup_rules.xml",
         "app/src/main/res/xml/data_extraction_rules.xml"
       ],
@@ -426,10 +439,10 @@
       "surfaceId": "widget-and-selection-prefs",
       "storageLocation": "shared_prefs/freevibe_widget.xml and selected-content snapshot preferences",
       "sourcePaths": [
-        "app/src/main/java/com/freevibe/widget/FreeVibeWidget.kt",
-        "app/src/main/java/com/freevibe/service/WallpaperHistoryManager.kt",
-        "app/src/main/java/com/freevibe/service/SelectedContentHolder.kt",
-        "app/src/main/java/com/freevibe/ui/FreeVibeRoot.kt"
+        "app/src/main/java/com/chloemlla/aura/widget/AuraWidget.kt",
+        "app/src/main/java/com/chloemlla/aura/service/WallpaperHistoryManager.kt",
+        "app/src/main/java/com/chloemlla/aura/service/SelectedContentHolder.kt",
+        "app/src/main/java/com/chloemlla/aura/ui/FreeVibeRoot.kt"
       ],
       "dataTypes": ["Wallpaper metadata", "Sound metadata", "Widget tint colors", "Recent selection state"],
       "collectionStatus": "localOnly",
@@ -443,11 +456,11 @@
       "surfaceId": "live-wallpaper-prefs-and-media",
       "storageLocation": "shared_prefs/freevibe_live_wp.xml, shared_prefs/freevibe_weather_wp.xml, shared_prefs/freevibe_parallax.xml, files/live_wallpaper.*, and files/parallax/",
       "sourcePaths": [
-        "app/src/main/java/com/freevibe/data/local/PreferencesManager.kt",
-        "app/src/main/java/com/freevibe/service/VideoWallpaperStorage.kt",
-        "app/src/main/java/com/freevibe/service/VideoWallpaperService.kt",
-        "app/src/main/java/com/freevibe/service/WeatherWallpaperService.kt",
-        "app/src/main/java/com/freevibe/service/WallpaperApplier.kt",
+        "app/src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt",
+        "app/src/main/java/com/chloemlla/aura/service/VideoWallpaperStorage.kt",
+        "app/src/main/java/com/chloemlla/aura/service/VideoWallpaperService.kt",
+        "app/src/main/java/com/chloemlla/aura/service/WeatherWallpaperService.kt",
+        "app/src/main/java/com/chloemlla/aura/service/WallpaperApplier.kt",
         "app/src/main/res/xml/backup_rules.xml",
         "app/src/main/res/xml/data_extraction_rules.xml"
       ],
@@ -463,8 +476,8 @@
       "surfaceId": "crash-diagnostics-log",
       "storageLocation": "files/crash.log",
       "sourcePaths": [
-        "app/src/main/java/com/freevibe/FreeVibeApp.kt",
-        "app/src/main/java/com/freevibe/service/CrashDiagnosticsCollector.kt",
+        "app/src/main/java/com/chloemlla/aura/AuraApp.kt",
+        "app/src/main/java/com/chloemlla/aura/service/CrashDiagnosticsCollector.kt",
         "app/src/main/res/xml/backup_rules.xml",
         "app/src/main/res/xml/data_extraction_rules.xml"
       ],
@@ -480,11 +493,11 @@
       "surfaceId": "coil-and-audio-caches",
       "storageLocation": "cache/coil_cache, cache/audio-preview-cache, cache/trimmed, and cache/audio_edit",
       "sourcePaths": [
-        "app/src/main/java/com/freevibe/FreeVibeApp.kt",
-        "app/src/main/java/com/freevibe/service/AudioPreviewCache.kt",
-        "app/src/main/java/com/freevibe/service/AudioTrimmer.kt",
-        "app/src/main/java/com/freevibe/ui/screens/editor/SoundEditorViewModel.kt",
-        "app/src/main/java/com/freevibe/ui/screens/settings/SettingsViewModel.kt"
+        "app/src/main/java/com/chloemlla/aura/AuraApp.kt",
+        "app/src/main/java/com/chloemlla/aura/service/AudioPreviewCache.kt",
+        "app/src/main/java/com/chloemlla/aura/service/AudioTrimmer.kt",
+        "app/src/main/java/com/chloemlla/aura/ui/screens/editor/SoundEditorViewModel.kt",
+        "app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsViewModel.kt"
       ],
       "dataTypes": ["Photos or images", "Audio files", "Provider response media"],
       "collectionStatus": "localOnly",
@@ -498,7 +511,7 @@
       "surfaceId": "offline-favorite-files",
       "storageLocation": "files/offline_favorites/",
       "sourcePaths": [
-        "app/src/main/java/com/freevibe/service/OfflineFavoritesManager.kt",
+        "app/src/main/java/com/chloemlla/aura/service/OfflineFavoritesManager.kt",
         "app/src/main/res/xml/file_paths.xml",
         "app/src/main/res/xml/backup_rules.xml",
         "app/src/main/res/xml/data_extraction_rules.xml"
@@ -515,7 +528,7 @@
       "surfaceId": "generated-wallpaper-files",
       "storageLocation": "files/ai_wallpapers/",
       "sourcePaths": [
-        "app/src/main/java/com/freevibe/data/repository/AiWallpaperRepository.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/AiWallpaperRepository.kt",
         "app/src/main/res/xml/backup_rules.xml",
         "app/src/main/res/xml/data_extraction_rules.xml",
         "docs/privacy/ai-generation.md"
@@ -532,7 +545,7 @@
       "surfaceId": "community-recording-temp-files",
       "storageLocation": "cache/sounds/community_recordings/",
       "sourcePaths": [
-        "app/src/main/java/com/freevibe/service/CommunityAudioRecorder.kt",
+        "app/src/main/java/com/chloemlla/aura/service/CommunityAudioRecorder.kt",
         "app/src/main/res/xml/file_paths.xml"
       ],
       "dataTypes": ["Voice or sound recordings", "User-generated content"],
@@ -547,7 +560,7 @@
       "surfaceId": "share-out-temp-files",
       "storageLocation": "cache/share_out/",
       "sourcePaths": [
-        "app/src/main/java/com/freevibe/service/CollectionExporter.kt",
+        "app/src/main/java/com/chloemlla/aura/service/CollectionExporter.kt",
         "app/src/main/res/xml/file_paths.xml"
       ],
       "dataTypes": ["Collection metadata", "Wallpaper metadata", "Files and docs"],
@@ -562,7 +575,7 @@
       "surfaceId": "aura-originals-files",
       "storageLocation": "files/aura_originals/",
       "sourcePaths": [
-        "app/src/main/java/com/freevibe/service/AuraOriginalsDownloader.kt",
+        "app/src/main/java/com/chloemlla/aura/service/AuraOriginalsDownloader.kt",
         "app/src/main/res/xml/backup_rules.xml",
         "app/src/main/res/xml/data_extraction_rules.xml",
         "docs/aura-originals-curation.md"
@@ -581,8 +594,8 @@
       "surfaceId": "firebase-auth-sdk",
       "dependencyMarkers": ["com.google.firebase:firebase-auth"],
       "sourcePaths": [
-        "app/src/main/java/com/freevibe/service/CommunityIdentityProvider.kt",
-        "app/src/main/java/com/freevibe/data/repository/VoteRepository.kt",
+        "app/src/main/java/com/chloemlla/aura/service/CommunityIdentityProvider.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/VoteRepository.kt",
         "docs/support/community-account-deletion.md"
       ],
       "dataTypes": ["Firebase UID", "Anonymous authentication state", "Deletion request code"],
@@ -597,11 +610,11 @@
       "surfaceId": "firebase-realtime-database-sdk",
       "dependencyMarkers": ["com.google.firebase:firebase-database"],
       "sourcePaths": [
-        "app/src/main/java/com/freevibe/data/repository/VoteRepository.kt",
-        "app/src/main/java/com/freevibe/data/repository/CommunityReportRepository.kt",
-        "app/src/main/java/com/freevibe/data/repository/CommunityBlockRepository.kt",
-        "app/src/main/java/com/freevibe/data/repository/CreatorProfileRepository.kt",
-        "app/src/main/java/com/freevibe/service/CollectionExporter.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/VoteRepository.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/CommunityReportRepository.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/CommunityBlockRepository.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/CreatorProfileRepository.kt",
+        "app/src/main/java/com/chloemlla/aura/service/CollectionExporter.kt",
         "docs/firebase-rules-harness.md"
       ],
       "dataTypes": ["Firebase UID", "Community votes", "Reports", "Blocks", "Creator profiles", "Collection share metadata"],
@@ -616,10 +629,10 @@
       "surfaceId": "firebase-storage-sdk",
       "dependencyMarkers": ["com.google.firebase:firebase-storage"],
       "sourcePaths": [
-        "app/src/main/java/com/freevibe/data/repository/UploadRepository.kt",
-        "app/src/main/java/com/freevibe/data/repository/WallpaperUploadRepository.kt",
-        "app/src/main/java/com/freevibe/data/repository/CommunityReportRepository.kt",
-        "app/src/main/java/com/freevibe/data/repository/CommunityUploadDeletionHelpers.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/UploadRepository.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/WallpaperUploadRepository.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/CommunityReportRepository.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/CommunityUploadDeletionHelpers.kt",
         "docs/community-storage-lifecycle-policy.md"
       ],
       "dataTypes": ["Voice or sound recordings", "User-provided photos", "Storage upload handles", "Community report attachments"],
@@ -634,8 +647,8 @@
       "surfaceId": "firebase-functions-sdk",
       "dependencyMarkers": ["firebase-functions"],
       "sourcePaths": [
-        "app/src/main/java/com/freevibe/data/repository/CommunityCallableClient.kt",
-        "app/src/main/java/com/freevibe/data/model/CommunityQuotaPolicy.kt",
+        "app/src/main/java/com/chloemlla/aura/data/repository/CommunityCallableClient.kt",
+        "app/src/main/java/com/chloemlla/aura/data/model/CommunityQuotaPolicy.kt",
         "docs/community-callable-quota-enforcement.md",
         "docs/community-backend-runbook.md"
       ],
@@ -651,9 +664,9 @@
       "surfaceId": "firebase-app-check-sdk",
       "dependencyMarkers": ["firebase-appcheck-playintegrity", "firebase-appcheck-debug"],
       "sourcePaths": [
-        "app/src/main/java/com/freevibe/FreeVibeApp.kt",
-        "app/src/debug/java/com/freevibe/service/AppCheckInstaller.kt",
-        "app/src/release/java/com/freevibe/service/AppCheckInstaller.kt",
+        "app/src/main/java/com/chloemlla/aura/AuraApp.kt",
+        "app/src/debug/java/com/chloemlla/aura/service/AppCheckInstaller.kt",
+        "app/src/release/java/com/chloemlla/aura/service/AppCheckInstaller.kt",
         "docs/community-app-check-rollout.md"
       ],
       "dataTypes": ["App integrity tokens", "App/device attestation signals", "Debug App Check token"],
@@ -671,8 +684,8 @@
         "play-services-base"
       ],
       "sourcePaths": [
-        "app/src/main/java/com/freevibe/service/SmartCropDetector.kt",
-        "app/src/main/java/com/freevibe/service/ParallaxWallpaperService.kt",
+        "app/src/main/java/com/chloemlla/aura/service/SmartCropDetector.kt",
+        "app/src/main/java/com/chloemlla/aura/service/ParallaxWallpaperService.kt",
         "docs/distribution/channel-strategy.md"
       ],
       "dataTypes": ["User-provided photos", "Local segmentation masks", "Model module install request metadata"],

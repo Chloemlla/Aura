@@ -23,6 +23,14 @@ internal object ShareOutbox {
             file,
         )
 
+    fun deleteExternalMedia(context: Context, uri: Uri): Boolean {
+        if (uri.authority != "${context.packageName}.fileprovider") return false
+        return deleteExternalMedia(
+            root = directory(context, "external_media"),
+            fileName = uri.lastPathSegment,
+        )
+    }
+
     internal fun directory(cacheDir: File, vararg childSegments: String): File {
         var dir = File(cacheDir, SHARE_OUT_DIR)
         childSegments.forEach { segment ->
@@ -48,5 +56,13 @@ internal object ShareOutbox {
                 file.delete()
             }
         }
+    }
+
+    internal fun deleteExternalMedia(root: File, fileName: String?): Boolean {
+        val safeName = fileName?.takeIf { it.isNotBlank() } ?: return false
+        val canonicalRoot = root.canonicalFile
+        val candidate = File(canonicalRoot, safeName).canonicalFile
+        if (candidate.parentFile != canonicalRoot) return false
+        return candidate.delete()
     }
 }

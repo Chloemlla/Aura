@@ -223,6 +223,43 @@ object DatabaseMigrations {
         }
     }
 
+    // v16→17: Add the indexed multi-folder local wallpaper catalog.
+    val MIGRATION_16_17 = object : Migration(16, 17) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `local_wallpaper_folders` (" +
+                    "`folderUri` TEXT NOT NULL, " +
+                    "`displayName` TEXT NOT NULL, " +
+                    "`target` TEXT NOT NULL DEFAULT 'BOTH', " +
+                    "`addedAt` INTEGER NOT NULL, " +
+                    "`lastScannedAt` INTEGER NOT NULL DEFAULT 0, " +
+                    "`scanStatus` TEXT NOT NULL DEFAULT 'NEVER_SCANNED', " +
+                    "`lastError` TEXT NOT NULL DEFAULT '', " +
+                    "`itemCount` INTEGER NOT NULL DEFAULT 0, " +
+                    "PRIMARY KEY(`folderUri`))",
+            )
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `local_wallpapers` (" +
+                    "`documentUri` TEXT NOT NULL, " +
+                    "`folderUri` TEXT NOT NULL, " +
+                    "`documentId` TEXT NOT NULL, " +
+                    "`displayName` TEXT NOT NULL, " +
+                    "`mimeType` TEXT NOT NULL, " +
+                    "`sizeBytes` INTEGER NOT NULL, " +
+                    "`modifiedAt` INTEGER NOT NULL, " +
+                    "`contentHash` TEXT NOT NULL DEFAULT '', " +
+                    "`tags` TEXT NOT NULL DEFAULT '', " +
+                    "`lastSeenScanToken` TEXT NOT NULL DEFAULT '', " +
+                    "`addedAt` INTEGER NOT NULL, " +
+                    "PRIMARY KEY(`documentUri`))",
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_local_wallpapers_folderUri` ON `local_wallpapers` (`folderUri`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_local_wallpapers_contentHash` ON `local_wallpapers` (`contentHash`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_local_wallpapers_displayName` ON `local_wallpapers` (`displayName`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_local_wallpapers_folderUri_lastSeenScanToken` ON `local_wallpapers` (`folderUri`, `lastSeenScanToken`)")
+        }
+    }
+
     val ALL_MIGRATIONS = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
@@ -239,5 +276,6 @@ object DatabaseMigrations {
         MIGRATION_13_14,
         MIGRATION_14_15,
         MIGRATION_15_16,
+        MIGRATION_16_17,
     )
 }
