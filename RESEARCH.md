@@ -1,184 +1,199 @@
 # Research — Aura
-Date: 2026-08-20 — replaces all prior research (previous pass: 2026-08-11).
-Confidence: unqualified project facts are **Verified** by direct inspection of the current v6.45.0 working tree; external claims are labeled **Likely**, **Assumption**, or **Needs live validation**.
+Date: 2026-08-23 — replaces all prior research.
+
+Confidence labels: **Verified** means confirmed in the current repository, tracker, release artifacts, or primary documentation. **Likely** means several credible sources point the same way but Aura has no direct measurement. **Needs live validation** means the evidence is specific enough to test but does not yet prove Aura is affected.
 
 ## Executive Summary
 
-Aura is a mature local-first Android personalization suite (wallpapers, live/video wallpapers, YouTube-powered ringtones/notifications/alarms, community uploads) at 257 main-source Kotlin files (~70k LOC), 142 JVM test files, 82 Python release gates, and zero TODO debt in code. Since the 2026-08-11 pass, four commits closed four of its top findings: streaming wallpaper applies (`1295544`), shuffle no-repeat (`bee5a2b`), cleartext/intent hardening (`070d9a8`), and settings preference-write cleanup (`ab1153b`); uncommitted work bounding the Pixabay video cache (`PixabayVideoCacheStore.kt`) is in the working tree. The competitive picture is unusually favorable: AlternativeTo already lists Aura as *the* OSS Zedge alternative, the commercial category's three monetization models (ads, subscriptions, credits) are the top three documented reasons users leave those apps, Nova Launcher's collapse displaced a large personalization-enthusiast audience, and features competitors' trackers beg for (custom subreddits, Lemmy source, AMOLED crush filter, battery dashboards, time-of-day rotation machinery) are already shipped in Aura. The largest risks are unchanged in kind: the release-publication gap (tag `v6.41.0` pushed, newest GitHub Release still `v6.38.1` from 2026-07-29, so Obtainium users are three versions of security fixes behind) and the 2026-09-30 Android developer-verification enforcement start. The genuinely new findings this pass are three features shipped without their promised follow-up UI — the 24H wallpaper-pack editor, the sound-profile editor (both are Settings toggles that schedule a 15-minute periodic worker which can never do anything, because no UI can create the packs/profiles the workers read), and live-wallpaper dimming wired into only one of three engines — plus a small set of reliability/positioning items (OEM ringtone-write failures, rotation prefetch, manual-apply timer reset, signing transparency, and an offline procedural generator that would neutralize Tapet's only differentiator).
+**Verified:** Aura v6.45.0 is already broader than the serious open source alternatives: it combines remote and local wallpaper feeds, static and three live-wallpaper engines, a sound editor and system-sound apply paths, automation, backup, import/export, diagnostics, and full/FOSS variants without accounts or payment rails (`README.md`, `app/build.gradle.kts`, `app/src/main/java/com/freevibe/`). Its highest-value direction is proof and consolidation, not more surface area. Close the unresolved legacy-Android crash, make native payload verification recursive, finish the live translation contribution already in flight, validate the exact ML Kit beta on Android 16, then reduce package weight without dropping advertised media behavior.
 
-Top opportunities in priority order:
+Top opportunities, in priority order:
 
-1. Publish the v6.39–v6.41 GitHub Releases (existing P0 item; the gap now includes the commons-compress bound, intent hardening, and consent gating fixes).
-2. Ship or gate the two dead scheduling toggles: the 24H wallpaper-pack and sound-profile workers poll empty DataStore JSON every 15 minutes forever.
-3. Finish live-wallpaper dimming on the video and parallax engines (promised in `517f642`, Weather-only today).
-4. Classify OEM ringtone-write failures (Samsung secure-settings `IllegalArgumentException`) instead of failing generically — ringtone-setting pain is the category's most-reported unsolved problem.
-5. Prefetch the next rotation wallpaper so rotation survives a dead network at fire time.
-6. Decide developer-verification enrollment before 2026-09-30 (owner action, tracked in Roadmap_Blocked.md).
-7. Publish signing-cert transparency (README/fastlane SHA-256) and register the reproducible FOSS lane with IzzyOnDroid's rbtlog when submission proceeds.
-8. Longer bets: offline procedural wallpaper generator (Tapet-class, charter-perfect), rotation-notification inline actions, and the already-queued FFmpeg retirement.
-
-## Working-tree note (2026-08-20)
-
-The prior working-tree edits are now committed. The current feed path uses a generation-gated load job so warm-cache rendering and pagination cannot issue overlapping provider requests or overwrite an accepted append.
-
-The Sound Editor now clips, fades, changes speed without shifting pitch, and performs supported
-audio encoding through Media3. M4A is the default. FFmpeg remains only for MP3, FLAC, unavailable
-OGG or Opus encoders, unsupported lossless cuts, video crop, and the yt-dlp runtime. OGG exports
-include `ANDROID_LOOP=true`, and lossless cuts still verify that encoded audio bytes are unchanged.
-
-Per-contact ringtone assignment now checks Do Not Disturb policy state, explains denied access or
-blocked priority callers, opens Android's priority-caller and contact editor flows, and offers a
-VIP-only preset that silences the default ringtone after assigning the selected contact tone.
-
-The FOSS flavor now excludes the Stability network client, encrypted credential
-binding, generator screens, provider settings, and related resources at the
-source-set boundary. Its generated wallpaper route is a no-op. Runtime yt-dlp
-replacement downloads also require a separate warning confirmation that states
-repository checks are bypassed.
+1. **Verified:** Reopen the evidence behind [issue #2](https://github.com/SysAdminDoc/Aura/issues/2). The reporter reproduced the same `URLEncoder.encode(String, Charset)` `NoSuchMethodError` on Android 10 after v6.31.1 claimed to fix it, while current tests do not exercise release-minified NewPipe search on API 26 to 29 (`app/build.gradle.kts`, `app/src/main/java/com/freevibe/data/repository/YouTubeRepository.kt`).
+2. **Verified:** Recursively inspect nested `.zip.so` payloads in the 16 KB gate. The current report explicitly skips the Python and FFmpeg archives, so it cannot prove every packaged 64-bit ELF is compliant (`tools/native_alignment_check.py`, `docs/distribution/native-alignment.json`).
+3. **Verified:** Rebase and finish [PR #48](https://github.com/SysAdminDoc/Aura/pull/48) for [issue #47](https://github.com/SysAdminDoc/Aura/issues/47). Its 1,700 translated keys are missing 189 current keys, retain 66 obsolete keys, and come from a base 43 commits behind the current 1,823-key resource set (`app/src/main/res/values/strings.xml`).
+4. **Verified:** Complete the existing service/editor reliability and silent-failure roadmap items before adding new product surfaces. Commit history repeatedly returns to service lifecycle, cancellation, bitmap/media cleanup, and feed race defects (`ROADMAP.md`, `app/src/main/java/com/freevibe/service/`, `app/src/main/java/com/freevibe/ui/`).
+5. **Needs live validation:** Run the full build through all three subject-segmentation call sites on API 36. [ML Kit issue #1017](https://github.com/googlesamples/mlkit/issues/1017) reports an uncatchable native crash in Aura's exact beta1 artifact (`SmartCropDetector.kt`, `DepthPortraitComposer.kt`, `ParallaxWallpaperService.kt`).
+6. **Verified:** Add a documentation-truth gate. `ARCHITECTURE.md` still names Favorites and database schema version 14, while the app ships Library and schema version 17; `CONTRIBUTING.md` also disagrees with `README.md` and `app/build.gradle.kts` on the required SDK/JDK.
+7. **Likely:** Remove the separate youtubedl FFmpeg module by moving crop, trim, remux, and playlist work onto Media3 or narrowly scoped codecs. Its arm64 archive is 35,624,931 bytes inside a roughly 63.8 MB APK, so removal can put arm64 below the 30 MB IzzyOnDroid review threshold (`docs/distribution/native-alignment.json`, `app/build.gradle.kts`).
+8. **Verified:** Keep the existing accessibility, translation, store-metadata, signing-transparency, and recovery work ahead of marketplace or social features (`ROADMAP.md`, `Roadmap_Blocked.md`, `README.md`).
 
 ## Product Map
 
 ### Core workflows
-- Browse provider/community/local wallpaper, video, and sound feeds; search/filter; preview; favorite; download (Room + MediaStore).
-- Edit wallpapers (crop, tone, AMOLED crush, depth portraits, text/sticker overlays) and sounds (trim, fade, pitch-preserving speed, convert, gapless OGG output, and verified lossless cuts) and apply to home/lock/both or as ringtone/notification/alarm/per-contact, with DND-aware contact guidance and a VIP-only ringtone preset.
-- Run one of three live-wallpaper engines (video, parallax, weather/shader) with FPS caps, battery caps, touch effects, and a battery dashboard.
-- Automate: interval/clock/day-night/theme rotation, rotation triggers (unlock/screen-off), 24H packs (scheduler shipped, editor missing), sound profiles (same state), scheduled backups, Tasker/tile/widget entry points.
-- Share and back up: collections via link/QR/JSON, whole-library export/import, local theme packs.
 
-### Personas
-- Privacy-first sideloader (no account, no ads, verifiable APK); collector (multi-folder libraries, rotation); customizer (editors, home/lock separation, per-contact sounds); community uploader (rights/AI disclosure); maintainer/distributor (reproducible, size-conscious artifacts).
+- **Verified:** Browse, search, filter, favorite, download, and apply wallpapers from remote providers, community content, and local storage; target home, lock, or both (`WallpapersScreen.kt`, `WallpaperDetailScreen.kt`, `WallpaperApplier.kt`).
+- **Verified:** Edit images and sounds, including crop, color treatment, depth portrait, overlays, trim, fades, speed, conversion, lossless cuts, and system ringtone/notification/alarm application (`EditorScreen.kt`, `WallpaperEditorViewModel.kt`, `SoundEditorScreen.kt`, `AudioTrimmer.kt`, `SoundApplier.kt`).
+- **Verified:** Run video, parallax, and weather/shader live wallpapers with battery controls, then automate changes by interval, clock, day/night, theme, unlock, or screen-off triggers (`VideoWallpaperService.kt`, `ParallaxWallpaperService.kt`, `WeatherWallpaperService.kt`, `AutoWallpaperWorker.kt`, `RotationTriggerService.kt`).
+- **Verified:** Export/import favorites and libraries, share collections, schedule backups, inspect diagnostics, and recover wallpaper/rotation state after process or device events (`FavoritesExporter.kt`, `LibraryExporter.kt`, `AutoBackupWorker.kt`, `CrashDiagnosticsCollector.kt`, `VideoWallpaperRecovery.kt`, `RotationTriggerRecovery.kt`).
+
+### User personas
+
+- **Verified:** The current product serves privacy-first sideloaders, collectors with local libraries, users who automate home/lock personalization, sound customizers, and community contributors without requiring an account (`README.md`, `docs/privacy/`, `app/src/main/java/com/freevibe/ui/`).
+- **Verified:** Maintainers and alternative-store users are a first-class persona because the repo ships full/FOSS flavors, per-ABI artifacts, checksums, Fastlane metadata, reproducibility checks, and Obtainium metadata (`app/build.gradle.kts`, `fastlane/metadata/android/`, `obtainium.json`, `tools/foss_reproducibility_check.py`).
 
 ### Platforms and distribution
-- [Verified] Android only, minSdk 26, compileSdk 36, targetSdk 35, `full` + `foss` flavors, Room v17. Signed universal APK + SHA256SUMS via GitHub Releases/Obtainium; IzzyOnDroid is the near-term store target; no CI workflows exist.
-- [Verified] Release gap: `git tag` has v6.41.0; `gh release list` newest is v6.38.1 (2026-07-29). `obtainium.json` sets `fallbackToOlderReleases: true`, silently holding users at v6.38.1.
 
-### Integrations and data flows
-- Providers: Wallhaven, Pexels, Pixabay, Bing, Reddit (user-configurable up to 12 subreddits, validated), Lemmy, NASA, Wikimedia, YouTube (NewPipe v0.26.3 + yt-dlp 2026.07.04 payload), Open-Meteo, Stability AI (full flavor, off by default), Firebase community. Five legacy sound providers (Freesound/FreesoundV2/SoundCloud/Audius/ccMixter) remain constructed-but-never-called behind documented `ProviderStatus.LEGACY` disclosures; their fate is an owner decision tracked in Roadmap_Blocked.md.
-- Local: Room schema v17, DataStore + six SharedPreferences bridge files (write-order gated), SAF, MediaStore, WorkManager, Media3, Coil, ML Kit subject segmentation (Play-services beta), AGSL presets.
+- **Verified:** Aura is Android-only with package `com.freevibe`, minSdk 26, compileSdk 36, targetSdk 35, versionName 6.45.0, and versionCode 146. Release builds minify, shrink resources, split by ABI, and also produce a universal APK (`app/build.gradle.kts`).
+- **Verified:** GitHub Release v6.45.0 was published on 2026-08-20 with four ABI APKs, a universal APK, and checksums. The arm64 release APK is 63,481,458 bytes ([release](https://github.com/SysAdminDoc/Aura/releases/tag/v6.45.0)).
+- **Verified:** GitHub/Obtainium is the current install path. IzzyOnDroid is planned but still depends on open store-image, signing, reproducibility, and size work (`README.md`, `obtainium.json`, `ROADMAP.md`, `Roadmap_Blocked.md`).
+
+### Key integrations and data flows
+
+- **Verified:** Wallpaper and media inputs include Wallhaven, Pexels, Pixabay, Bing, Reddit, Lemmy, NASA, Wikimedia, local storage, YouTube extraction, Open-Meteo, Firebase community data, and optional Stability AI in the full flavor (`app/src/main/java/com/freevibe/data/remote/`, `app/src/main/java/com/freevibe/data/repository/`, `app/src/full/`, `app/src/foss/`).
+- **Verified:** Room 2.7.2 with database schema version 17 stores library state; DataStore and a limited SharedPreferences bridge store preferences; SAF and MediaStore handle user files; WorkManager handles scheduled work (`Database.kt`, `PreferencesManager.kt`, `app/src/main/java/com/freevibe/service/`, `app/build.gradle.kts`).
+- **Verified:** NewPipeExtractor is the primary YouTube path and yt-dlp is the fallback. Runtime yt-dlp updates require consent, hash validation, rollback, and bounded command construction (`YouTubeRepository.kt`, `YouTubeYtDlpRequestFactory.kt`, `YtDlpUpdateManager.kt`, `YtDlpDownloadSafety.kt`).
+- **Verified:** Media3 now covers standard sound encoding and can cover more crop, trim, composition, and remux work. FFmpeg remains for codec fallbacks, direct video crop/export, and yt-dlp merge/remux paths (`AudioTrimmer.kt`, `VideoCropScreen.kt`, `VideoWallpapersViewModel.kt`, `app/build.gradle.kts`).
 
 ## Competitive Landscape
 
-- **Zedge** — 20M+ MAU, ~1.3M subscriptions, now pivoting to selling creator content as AI training data ("DataSeeds.AI") and pushing AI generation. Complaint profile: heaviest ad load in the category, credit-pack denominations deliberately misaligned with item prices, billing disputes, a botched ringtone-section removal, and hijacking the system ringtone picker. Learn: cross-content discovery and creator attribution as visible product features. Avoid: everything else. Aura's "no payment rails at all" and "uploads are never sold as training data" are direct, documentable counter-positions.
-- **Wallpapers by Google (Pixel)** — free, ad-free bar for stock UX: cinematic 2D→3D parallax, on-device AI generation, daily rotation — but Pixel-gated. Aura already ships depth parallax from any photo on any OEM device; that comparison is worth stating in the README.
-- **Tapet** — offline procedural generation at exact screen resolution with palette controls (paywalled) is its entire differentiator. An Aura procedural generator seeded by Material You/user palettes would neutralize it and is charter-perfect (offline, deterministic, no AI, feeds rotation). Distinct from the previously rejected R-1 AI generation.
-- **Walli / Backdrops** — artist curation + revenue share; both drifting toward heavier monetization (Backdrops added a coin shop in Oct 2025; reviews now complain of "AI slop" replacing artist work). Learn: artist attribution costs nothing and buys trust. Avoid: locked-tier content and dual currencies.
-- **Wallpaper Engine (Android)** — free companion, no ads/tracking; its praised feature is time-of-day playlists — exactly what Aura's shipped-but-editorless 24H packs would be. Useless standalone (PC required); Aura should stay standalone.
-- **Paperize** (same Kotlin/Compose/M3 stack) — offline albums, per-screen sources, wide decode support, apply-time effects. Its tracker documents two defects Aura should fix preemptively: manual change not resetting the rotation timer (#591) and Android's dynamic-color engine failing to re-trigger on programmatic apply (#588).
-- **Peristyle** — local-first manager; recent releases added swipe gestures on live wallpaper and delete-from-notification. Its crash fix for delayed storage mounts after reboot is a warning for Aura's boot-time rotation paths.
-- **WallYou / WallFlow** — Wallhaven-client benchmarks; their trackers beg for features Aura ships (multi-subreddit, Lemmy, position lock is queued). WallFlow's TFLite smart crop parallels Aura's shipped SmartCropDetector. Both show constant source-rot firefighting — Aura's provider-policy seam is the right defense. Note: the "Villain" Wallhaven client cited in some comparisons does not exist as a findable project; WallFlow is the real benchmark.
-- **Muzei** — plugin API outlived its host app; recede mode (dim/blur + double-tap reveal) is the category reference for Aura's dimming work. The plugin ABI remains correctly blocked in Roadmap_Blocked.md.
-- **Doodle Android** — the battery-model reference: render-only-on-input, tilt+swipe parallax, zoom-on-unlock, direct-boot support. Its "power-efficient animations + auto dark mode" framing is the positioning language that wins the Material You audience.
-- **UndeadWallpaper** — per-clip zoom/offset/speed/volume, gapless playlists via one GL+ExoPlayer pipeline, one-shot freeze-frame mode; the design reference for the queued video-playlist item (Media3 1.11's preload APIs are the intended mechanism for that feature).
-- **Wallora** — closest philosophical twin (MIT, multi-source); notable for rotation prefetch (next wallpaper cached for instant apply) and on-unlock triggers. Aura has the triggers; prefetch is the gap.
-- **Seal / NewPipe** — the yt-dlp/extraction references. Seal embeds metadata/thumbnails in extracted audio and keeps yt-dlp updatable at runtime (Aura does, hash-pinned + opt-in, which IzzyOnDroid requires). NewPipe's 2026 SABR breakage (fixed in extractor 0.26.3, which Aura pins) shows a 6–10 week breakage cadence — the dependency-refresh path is availability work, not hygiene.
-- **Ringdroid (althafvly fork)** — the only maintained OSS ringtone editor; v2.7.5 (2025-11) crossed the scoped-storage minefield up to Android 16. Aura's editor already exceeds it; the uncontested shelf is device-sound browsing + restore-original (already queued) and OEM-quirk handling (new this pass).
-- **Atmo Engine** — Nothing-OS-style unlock transition (blur sharpens on unlock) built on the same shader primitives Aura owns. Noted as a differentiator candidate; deliberately not queued (battery and always-active-engine cost; revisit after NX-1).
+- **Paperize:** **Verified:** Strong offline albums, independent static/live targets, apply-time effects, and careful apply queueing. Aura should copy its device/foldable compatibility discipline and avoid raising minSdk to Paperize's API 31 baseline because Aura promises API 26 support ([repository](https://github.com/Anthonyy232/Paperize), [issues](https://github.com/Anthonyy232/Paperize/issues)).
+- **Muzei:** **Verified:** Its long-lived plugin API and recede/dimming behavior are category references. Aura should keep recede parity across all three engines, but defer a public plugin ABI until the blocked compatibility and maintenance questions are resolved ([repository](https://github.com/muzei/muzei), `Roadmap_Blocked.md`).
+- **WallFlow and WallYou:** **Verified:** They combine remote feeds, local content, per-display behavior, saved searches, widgets/tiles, and smart crop. Aura already covers most of that breadth. It should learn from WallFlow's separate ML-enabled variant and avoid hiding model bloat or flavor differences ([WallFlow](https://github.com/ammargitham/WallFlow), [WallYou](https://github.com/you-apps/WallYou)).
+- **Wallora:** **Verified:** Prefetch, multiple sources, fail-soft rotation, widgets, tiles, and Tasker integration fit Aura's automation model. The prefetch pattern supports Aura's existing rotation-cache item; duplicating Wallora's already-shipped integrations does not ([repository](https://github.com/thissayantan/wallora), `ROADMAP.md`).
+- **Peristyle:** **Verified:** Tags and multi-folder local organization are useful, but its broad storage and battery permissions are a poor fit for Aura's permission posture. Learn the library organization, not the access model ([repository](https://github.com/Hamza417/Peristyle), `docs/privacy/`).
+- **UndeadWallpaper:** **Verified:** Per-clip framing, speed, mute, shuffle, and a single gapless playback pipeline are the best implementation reference for Aura's existing video-playlist item. Aura should preserve its battery caps and bounded storage rather than copy an always-hot engine ([repository](https://github.com/maocide/UndeadWallpaper), `ROADMAP.md`).
+- **Ringdroid:** **Verified:** The maintained fork offers offline waveform editing, recording, scoped-storage support, and current Android compatibility in an APK measured in hundreds of KiB. It supports removing Aura's broad FFmpeg runtime, but not dropping Aura's richer format and video workflows ([repository](https://github.com/althafvly/ringdroid), [F-Droid](https://f-droid.org/en/packages/org.thayyil.ringdroid/)).
+- **Zedge:** **Verified:** It validates demand for one app spanning wallpapers, live content, and sounds, but its ads, credits, subscription, marketplace, and AI model conflict with Aura's local-first, no-payment charter. Learn cross-content navigation and attribution; avoid payment rails and account dependency ([site](https://www.zedge.net/), [FAQ](https://help.zedge.net/hc/en-us/articles/360024313191-ZEDGE-for-Android-FAQ), `README.md`).
+- **Backdrops and Walli:** **Verified:** Curated originals, visible artists, follows, and playlists make provenance understandable. Aura should expose attribution clearly, but not copy locked tiers, currencies, or creator-payment infrastructure ([Backdrops](https://play.google.com/store/apps/details?id=com.backdrops.wallpapers), [Walli](https://play.google.com/store/apps/details?id=com.shanga.walli)).
+- **Tapet:** **Verified:** Deterministic, on-device, exact-resolution pattern generation is its distinctive offline value. Aura's existing procedural-generator roadmap item is a good fit because it can reuse palette, AGSL, and rotation infrastructure without an AI model ([Play listing](https://play.google.com/store/apps/details?id=com.sharpregion.tapet), `ROADMAP.md`).
+- **Wallpaper Engine:** **Verified:** Time, interval, login, and application-driven playlists set the scheduling benchmark. Aura should finish its existing 24H pack and video-playlist work while remaining standalone rather than requiring a PC companion ([site](https://www.wallpaperengine.io/en), [playlist documentation](https://store.steampowered.com/news/posts/?appgroupname=Wallpaper+Engine&appids=431960&enddate=1643300588&feed=steam_community_announcements)).
+- **Pixel wallpaper tools:** **Verified:** Emoji, cinematic, AI, and weather effects show the platform's visual direction, but several capabilities are Pixel-gated. Aura should keep its OEM-neutral depth and weather paths and avoid tying core behavior to a single vendor service ([Pixel Help](https://support.google.com/pixelphone/answer/16517561), `DepthPortraitComposer.kt`, `WeatherWallpaperService.kt`).
+
+## Reported Issues
+
+- **Verified, bug:** [Issue #2](https://github.com/SysAdminDoc/Aura/issues/2) reports a Sounds crash on Samsung S9+/Android 10. The reporter installed v6.31.1 after core-library desugaring was enabled and reproduced the same NewPipe `URLEncoder.encode(String, Charset)` `NoSuchMethodError`. The issue was closed without a later successful device result. Add a release-minified API 26/27/29 compatibility gate around `YouTubeRepository.kt`.
+- **Verified, feature request with code:** [Issue #47](https://github.com/SysAdminDoc/Aura/issues/47) asks for Simplified Chinese and [PR #48](https://github.com/SysAdminDoc/Aura/pull/48) is open and mergeable. The contribution is useful but stale against the current resource set: 1,700 submitted keys, 189 current keys missing, 66 obsolete keys retained, and a base 43 commits behind main. Rebase and validate placeholders, plurals, pseudolocale behavior, RTL gates, and Android 13+ locale selection.
+- **Verified, resolved:** [Issue #44](https://github.com/SysAdminDoc/Aura/issues/44) reported WebM/Opus editing failure. The Media3 fix landed and the reporter confirmed it. Do not create another codec-parity item.
+- **Verified, low signal:** [Discussions #45](https://github.com/SysAdminDoc/Aura/discussions/45) and [#46](https://github.com/SysAdminDoc/Aura/discussions/46) have no comments or independent demand. Keep them below tracker reports with reproductions.
+- **Verified, not product demand:** Open automated dependency PRs #35 through #43 are stale bot output and conflict with repository policy. They do not justify a feature item (`CLAUDE.md`, [open pull requests](https://github.com/SysAdminDoc/Aura/pulls)).
 
 ## Security, Privacy, and Reliability
 
-- [Verified] **Release gap is the top trust issue**: v6.39.0–v6.41.0 (including the bounded archive extraction, automation-intent gating, cleartext config, and moderation-consent fixes) are unreachable by every Obtainium user. Existing P0 item; evidence refreshed 2026-08-20 (`gh release list` newest = v6.38.1).
-- [Verified] **Two dead toggles schedule perpetual no-op work**: `SettingsWallpaperSection.kt:249` and `SettingsSoundSection.kt:198` enable 15-minute periodic workers (`WallpaperPackManager.kt`, `SoundProfileManager.kt:82-93` — defers with "no sound profiles defined") whose DataStore JSON no UI can write. Battery cost with zero user value, and a shipped promise the product cannot keep. New items queued.
-- [Verified] **OEM ringtone writes fail generically**: `SoundApplier.kt:70,109` call `RingtoneManager.setActualDefaultRingtoneUri` with no OEM-failure classification; Samsung devices throw `IllegalArgumentException` ("cannot keep your settings in the secure settings") on notification-sound writes per Samsung developer-forum reports. New item queued.
-- [Verified] **Per-contact ringtone DND behavior is now explicit**: contact assignment reads Android's interruption filter and priority-call policy when access is available, offers the platform priority-caller/contact-editor flows, and provides a silent-default VIP preset. Denied policy access leaves a visible assign-anyway path and does not change DND policy silently.
-- [Verified] **yt-dlp CVE posture is current**: the bundled 2026.07.04 payload post-dates all four 2026 advisories (CVE-2026-26331 `--netrc-cmd` injection, CVE-2026-50023 filename-sanitization bypass, CVE-2026-50574 aria2c file write — all fixed by 2026.06.09). The remaining tracked work (size caps before write, flag-set gate asserting no `--exec`/`--netrc-cmd`/aria2c) stands; no emergency payload bump needed.
-- [Verified] **Non-issues confirmed this pass**: `AudioPlaybackService.onGetSession` rejects untrusted controllers; the adaptive icon carries a `<monochrome>` layer (Android 16 QPR2 auto-theming safe); `freevibe.jks` and `local.properties` are gitignored and untracked; custom subreddits (12, validated), Lemmy, the AMOLED crush filter, battery dashboards, and AI-content labeling/filtering are all already shipped — several are features competitors' trackers still request.
-- [Verified] **Dynamic color re-trigger** ([Likely] platform flakiness, Paperize #588): Android sometimes fails to recompute Material You colors on programmatic applies. Aura's queued `WallpaperColors` engine item covers live engines; static applies should be spot-checked on device when that item lands.
-- [Verified] Android 16 job quotas, Android 17 memory limiter, background-audio hardening, Room downgrade, and live-wallpaper liveness are all already tracked (ROADMAP.md / Roadmap_Blocked.md); nothing new to add there.
-- [Likely] **Developer verification timeline**: first enforcement 2026-09-30 (BR/ID/SG/TH), global 2027; ADB exempt; the power-user "advanced flow" ships via Play Services and can be tightened at any time. The register-vs-abstain decision is owner-gated (Roadmap_Blocked.md) and is now ~6 weeks from first enforcement.
+- **Verified:** The 16 KB native check has a proof gap, not a demonstrated shipped 64-bit failure. `inspect_apk()` in `tools/native_alignment_check.py` records nested `.zip.so` files as skipped; `docs/distribution/native-alignment.json` therefore cannot attest to every arm64-v8a and x86_64 ELF. Upstream [issue #334](https://github.com/yausername/youtubedl-android/issues/334) shows why recursive ABI-aware inspection is required.
+- **Verified:** yt-dlp command and update handling is unusually defensive. The bundled 2026.07.04 payload is hash-pinned, update consent and rollback are explicit, unsafe execution/write-link/cookie/downloader options are forbidden, and the reviewed write-link advisory is fixed in the bundled version (`YtDlpUpdateManager.kt`, `YtDlpDownloadSafety.kt`, `docs/security/ytdlp-cve-policy.json`, [GHSA-6v4j-43gg-vj32](https://github.com/yt-dlp/yt-dlp/security/advisories/GHSA-6v4j-43gg-vj32)).
+- **Needs live validation:** `play-services-mlkit-subject-segmentation:16.0.0-beta1` can terminate the process through native code on API 36 according to [upstream issue #1017](https://github.com/googlesamples/mlkit/issues/1017). Kotlin/Java `catch (Exception)` cannot recover from that failure. Exercise `SmartCropDetector.kt`, `DepthPortraitComposer.kt`, and `ParallaxWallpaperService.kt` before selecting or coding a fallback.
+- **Verified:** Recovery coverage is broad: scheduled backups, bounded import validation, favorites/library export, wallpaper history, video-wallpaper recovery, rotation-trigger recovery, and crash diagnostics all exist (`AutoBackupWorker.kt`, `ImportPayloadValidation.kt`, `FavoritesExporter.kt`, `LibraryExporter.kt`, `WallpaperHistoryManager.kt`, `VideoWallpaperRecovery.kt`, `RotationTriggerRecovery.kt`, `CrashDiagnosticsCollector.kt`). New data formats should extend these paths instead of creating parallel stores.
+- **Verified:** The current legacy-Android risk is concentrated in dependency bytecode and release transformation, not the source-level SDK declaration. Desugaring is enabled in `app/build.gradle.kts`, but no release-minified API 26 to 29 test proves the NewPipe call path behaves as intended.
+- **Likely:** Package size is now a reliability and distribution concern. The arm64 FFmpeg archive is 35,624,931 bytes, more than half of the current arm64 APK; smaller downloads reduce interrupted sideloads and make the IzzyOnDroid path more practical (`docs/distribution/native-alignment.json`, [IzzyOnDroid policy](https://izzyondroid.org/docs/general/AppInclusionPolicy/)).
 
 ## Architecture Assessment
 
-- Boundaries are healthy: provider policy/disclosure seam, apply coordinator (`fb53812`), delegate-split ViewModels under a 500-line gate, soak-tested live engines. The oversized files are now concentrated in Compose screens: `WallpapersScreen.kt` (1,848), `SoundsScreen.kt` (1,844), `VideoWallpapersScreen.kt` (1,602), `WallpaperDetailScreen.kt` (1,308), `FreeVibeRoot.kt` (1,215), `SettingsDialogs.kt` (959). Screen decomposition should follow the queued production-composable test item — splitting untested 1,800-line screens first would repeat the reason the VideoWallpapersViewModel split was blocked.
-- Video feed concurrency is now guarded in the ViewModel. Warm-cache display remains immediate, while the active generation owns provider pagination until its final state merge. Resetting orientation or search also clears pending preview-resolution IDs with the URL cache.
-- Toolchain reality check (updates the blocked N-1 scope): AGP 9.x ships built-in Kotlin (the standalone KGP must be removed), needs Gradle 9.1+, and Hilt must be ≥ 2.59.2 (2.59 shipped broken, dagger#5099). Room 3.0.1 is stable, KSP-only, with package renames — the blocked "Room 2.8.x refresh" target is superseded by a real migration. Kotlin stable is 2.4.x with K1 removed. Notes added to Roadmap_Blocked.md.
-- The queued dependency item targets these, all of which resolve at the current compileSdk 36: Compose BOM 2026.08.00 (mesh gradients; pausable composition default since 2025.12.00), material3 1.4.0 stable (Expressive — adopt tokens selectively; wholesale adoption conflicts with the documented 4–12dp/no-pill design charter), NewPipeExtractor v0.26.5 (2026-08-15), Roborazzi 1.70.0, Firebase BoM 34.17.0.
-- The compileSdk 36 platform pass is now landed for the Android 16 APIs that had direct owners: `WallpaperDescription` instance payloads for live wallpapers, `RuntimeColorFilter`/`RuntimeXfermode` in the AGSL bitmap pipeline, and `Notification.ProgressStyle` for downloads. Media3 1.11.0 preload APIs, Coil 3.5.0, and embedded photo picker direct APIs remain separate feature work.
-- targetSdk 36 (later, separate from compileSdk): predictive back on by default (`onBackPressed` dead), edge-to-edge opt-out removed, large-screen orientation/resize flags ignored on sw≥600dp. Noted on the blocked API-37 item.
-- Test/docs gaps: unchanged from 2026-08-11 (3 androidTest files, no CI, no testTags — all queued). New: `docs/distribution/release-dry-run.md` still references 6.34.6; folded into the queued release-manifest consistency item.
+- **Verified:** Flavor separation is sound. ML Kit and Stability are full-only, FOSS stubs preserve compilation, and release artifacts split by ABI (`app/build.gradle.kts`, `app/src/full/`, `app/src/foss/`). New optional heavy capabilities should follow this boundary.
+- **Verified:** The UI has several oversized ownership units: `WallpapersScreen.kt` and `SoundsScreen.kt` are about 1,850 lines each; `VideoWallpapersScreen.kt` is about 1,600; `VideoWallpapersViewModel.kt` is about 1,340. Refactor only while implementing an accepted item, extracting stateful feed/editor sections with their tests rather than performing a broad rewrite.
+- **Verified:** The native media boundary is the largest packaging seam. `AudioTrimmer.kt`, `VideoCropScreen.kt`, and `VideoWallpapersViewModel.kt` retain FFmpeg-specific fallbacks while Media3 already handles the common path. A staged adapter around trim/crop/remux lets each retained operation move independently and keeps behavioral fixtures stable.
+- **Verified:** `tools/native_alignment_check.py` is the right release gate but needs recursive archive inspection and ABI-specific fixtures in `test/tools/native_alignment_check_test.py`.
+- **Verified:** Documentation has machine-checkable drift. `ARCHITECTURE.md` says Favorites and database schema version 14, `Database.kt` declares schema version 17, navigation uses Library, and `CONTRIBUTING.md:20` conflicts with its own later build steps and `README.md`. Extend `tools/manifest_consistency_check.py` instead of relying on another manual checklist.
+- **Verified:** Migration and upgrade work already has two clear seams: Room migrations and schema snapshots for internal state, plus `LibraryImportPlan.kt` and `ImportPayloadValidation.kt` for portable imports. Any accepted item that changes stored content should update both seams and add forward, rollback, and malformed-input fixtures rather than creating another store (`Database.kt`, `app/schemas/`, `LibraryImportPlan.kt`, `ImportPayloadValidation.kt`).
+- **Verified:** Test volume is strong at the JVM and Python-gate layers, but device compatibility evidence is thin: only four Android test files cover a minSdk 26 app. The two new P1 gates target the highest-risk holes without introducing prohibited cloud CI (`app/src/test/`, `test/tools/`, `app/src/androidTest/`, `CLAUDE.md`).
+- **Verified:** The shipped Roborazzi states cover themes, sizes, RTL, loading, empty, and error variants. Existing design-token, TalkBack, and production-composable roadmap items already capture the remaining visual/accessibility work, so this pass adds no duplicate UI-polish item (`app/src/test/roborazzi/`, `ROADMAP.md`).
 
 ## Rejected Ideas
 
-- **Material 3 Expressive wholesale adoption** — conflicts with the documented neutral/rectangular design charter (ARCHITECTURE.md; the queued design-token gate). Adopt motion/typography tokens selectively instead. Source: material3 1.4.0 release notes.
-- **Sub-15-minute rotation intervals via AlarmManager** (WallYou #229) — contradicts the battery charter and WorkManager posture for marginal value.
-- **Unlock-transition engine (Atmo-style) and zoom-on-unlock** — requires an always-active engine per effect; revisit only after NX-1 consolidates live rendering. Source: NOSAtmosphereEffect, doodle-android.
-- **WebDAV/Nextcloud/SMB sources** — the queued user-supplied HTTPS source item covers the need with less protocol surface; add WebDAV only if users ask after it ships. Source: NCarousel.
-- **Audio metadata/thumbnail embedding in saved ringtones** (Seal/mutagen) — MediaStore rows already carry title/type; embedding art in a ringtone file has no consumer on-device.
-- **Ringtone/wallpaper marketplace, accounts, sync, AI-generation expansion** — unchanged from prior passes; anti-AI-slop sentiment (Backdrops reviews, Wallhaven's praised AI ban) reinforces keeping generation opt-in, labeled, and filterable.
-- **Muzei-API compatibility layer / plugin ABI** — still correctly blocked on the ownership/security contract (Roadmap_Blocked.md NX-5).
-- **"Fossify Wallpapers" as a reference** — no such app exists (org has zero wallpaper repos); do not cite it. Same for the "Villain" Wallhaven client.
+- **Verified:** Restore GitHub Actions validation. Rejected because repository policy explicitly requires local builds/tests and prohibits `.github/workflows/`; the obsolete roadmap item was removed (`CLAUDE.md`).
+- **Verified:** Add accounts, paid tiers, credits, creator payouts, or a social graph. Zedge, Walli, and Backdrops use these systems, but they contradict Aura's local-first, no-account, no-payment charter ([Zedge](https://www.zedge.net/), [Walli](https://play.google.com/store/apps/details?id=com.shanga.walli), [Backdrops](https://play.google.com/store/apps/details?id=com.backdrops.wallpapers), `README.md`).
+- **Verified:** Add a Muzei-compatible plugin ABI now. The compatibility and long-term maintenance requirements remain explicitly blocked, while Aura already supports local, remote, widget, tile, Tasker, and broadcast paths ([Muzei](https://github.com/muzei/muzei), `Roadmap_Blocked.md`).
+- **Verified:** Add multi-user or cloud synchronization. It requires an account, identity, server, conflict-resolution, and deletion model that Aura intentionally does not own; the existing decision stays blocked unless the product charter changes (`README.md`, `Roadmap_Blocked.md`).
+- **Verified:** Raise minSdk to 31 to match newer competitors. That would abandon supported API 26 to 30 devices and evade issue #2 instead of fixing it (`app/build.gradle.kts`, [Paperize](https://github.com/Anthonyy232/Paperize)).
+- **Needs live validation:** Replace ML Kit immediately. One upstream API 36 report is enough to require a release-device test, not enough to choose a larger or less accurate dependency before Aura reproduces the crash ([issue #1017](https://github.com/googlesamples/mlkit/issues/1017), `ROADMAP.md`).
+- **Verified:** Remove FFmpeg by deleting formats or yt-dlp workflows. The package-size benefit is real, but the accepted path must preserve advertised sound, crop, YouTube, and Reddit behavior through Media3 or a smaller audited codec layer (`AudioTrimmer.kt`, `VideoCropScreen.kt`, `VideoWallpapersViewModel.kt`).
+- **Verified:** Re-add table-stakes features already shipped: multiple remote sources, local folders, per-screen apply, rotation triggers, day/night scheduling, widgets, tiles, Tasker, backup/export, and recovery. Competitors confirm demand, but duplicates would only expand the roadmap (`README.md`, `app/src/main/java/com/freevibe/`, `ROADMAP.md`).
+- **Verified:** Add cloud or network AI wallpaper generation as a core feature. It conflicts with the FOSS/local charter, adds credential and moderation burden, and duplicates an existing rejected direction; deterministic offline generation is the compatible alternative (`README.md`, `Roadmap_Blocked.md`, `ROADMAP.md`).
 
 ## Sources
 
-### OSS competitors and adjacent projects
-- https://github.com/muzei/muzei
-- https://github.com/you-apps/WallYou
-- https://github.com/ammargitham/WallFlow
+### Project and tracker
+
+- https://github.com/SysAdminDoc/Aura
+- https://github.com/SysAdminDoc/Aura/issues/2
+- https://github.com/SysAdminDoc/Aura/issues/44
+- https://github.com/SysAdminDoc/Aura/issues/47
+- https://github.com/SysAdminDoc/Aura/pull/48
+- https://github.com/SysAdminDoc/Aura/releases/tag/v6.45.0
+
+### Direct OSS competitors
+
 - https://github.com/Anthonyy232/Paperize
-- https://github.com/Anthonyy232/Paperize/issues/588
-- https://github.com/Anthonyy232/Paperize/issues/591
-- https://github.com/Hamza417/Peristyle
+- https://github.com/Anthonyy232/Paperize/issues
+- https://github.com/muzei/muzei
+- https://github.com/ammargitham/WallFlow
+- https://github.com/you-apps/WallYou
 - https://github.com/thissayantan/wallora
-- https://github.com/patzly/doodle-android
+- https://github.com/Hamza417/Peristyle
 - https://github.com/maocide/UndeadWallpaper
-- https://github.com/cvzi/darkmodewallpaper
-- https://github.com/saad-khan-rind/NOSAtmosphereEffect
-- https://github.com/AlynxZhou/alynx-live-wallpaper
 - https://github.com/althafvly/ringdroid
-- https://github.com/JunkFood02/Seal
-- https://github.com/TeamNewPipe/NewPipe
-- https://github.com/TeamNewPipe/NewPipeExtractor/releases
-- https://f-droid.org/en/categories/wallpaper/
-- https://github.com/offa/android-foss
-- https://alternativeto.net/software/zedge/
+- https://f-droid.org/en/packages/org.thayyil.ringdroid/
 
-### Commercial and community signal
-- https://www.stocktitan.net/sec-filings/ZDGE/8-k-zedge-inc-reports-material-event-5745c4ed5741.html
-- https://unstar.app/blog/zedge-walli-backdrops-vellum-wlppr-wallpaper-apps-ranked-2026
-- https://zedge.pissedconsumer.com/review.html
-- https://www.complaintsboard.com/zedge-wallpapers-b149194
-- https://r1.community.samsung.com/t5/galaxy-s/ringtone-app/td-p/30258588
-- https://forum.developer.samsung.com/t/ringtonemanager-setactualdefaultringtoneuri-not-working-for-some-samsu/30610
-- https://xdaforums.com/t/zedge-alternative.4226753/
-- https://store.google.com/intl/en/ideas/articles/pixel-custom-wallpaper/
+### Commercial competitors
+
+- https://help.zedge.net/hc/en-us/articles/360024313191-ZEDGE-for-Android-FAQ
+- https://play.google.com/store/apps/details?id=com.backdrops.wallpapers
+- https://play.google.com/store/apps/details?id=com.shanga.walli
 - https://play.google.com/store/apps/details?id=com.sharpregion.tapet
-- https://play.google.com/store/apps/details?id=io.wallpaperengine.weclient
-- https://9to5google.com/2025/09/08/nova-launcher-shutting-down/
-- https://hmmr.online/posts/wallpaper-sources/
-- https://github.com/nyas1/Material-You-app-list
+- https://www.wallpaperengine.io/en
+- https://support.google.com/pixelphone/answer/16517561
 
-### Distribution
-- https://izzyondroid.org/docs/general/AppInclusionPolicy/
-- https://izzyondroid.org/about/security/ReproducibleBuilds/
-- https://codeberg.org/IzzyOnDroid/rbtlog
-- https://developer.android.com/developer-verification
-- https://android.gadgethacks.com/news/google-android-developer-verification-rollout-explained-policy-impact-and-backlash/
-- https://forum.f-droid.org/t/google-will-require-developer-verification-to-install-android-apps-including-sideloading/33123
+### Adjacent-domain projects
+
 - https://github.com/ImranR98/Obtainium
+- https://github.com/soupslurpr/AppVerifier
+- https://github.com/JunkFood02/Seal
+- https://github.com/TeamNewPipe/NewPipeExtractor/issues
+- https://github.com/yausername/youtubedl-android
+- https://github.com/yausername/youtubedl-android/issues/248
+- https://github.com/yausername/youtubedl-android/issues/334
 
-### Platform, dependencies, security
-- https://developer.android.com/about/versions/16/behavior-changes-16
+### Awesome-lists
+
+- https://github.com/pcqpcq/open-source-android-apps/blob/master/categories/personalization.md
+- https://github.com/Axorax/awesome-free-apps/blob/main/filter/android-only.md
+- https://github.com/mobilenetworkltd/openapk/blob/main/categories/theming.md
+
+### Community signal
+
+- https://www.reddit.com/r/androidapps/comments/1e1xwms/
+- https://www.reddit.com/r/androidapps/comments/1tq2c59/
+- https://stackoverflow.com/questions/68247766/default-live-wallpaperservice-leaks-memory-in-android
+
+### Standards and platform APIs
+
+- https://developer.android.com/guide/topics/resources/app-languages
 - https://developer.android.com/about/versions/16/behavior-changes-all
-- https://developer.android.com/about/versions/17/behavior-changes-17
-- https://android-developers.googleblog.com/2026/06/Android-17.html
-- https://developer.android.com/jetpack/androidx/releases/compose-material3
-- https://android-developers.googleblog.com/2025/12/whats-new-in-jetpack-compose-december.html
-- https://android-developers.googleblog.com/2026/08/jetpack-compose-august-2026-release.html
-- https://android-developers.googleblog.com/2026/03/media3-110-is-out.html
-- https://github.com/androidx/media/releases
-- https://coil-kt.github.io/coil/changelog/
-- https://android-developers.googleblog.com/2026/03/room-30-modernizing-room.html
-- https://blog.jetbrains.com/kotlin/2026/01/update-your-projects-for-agp9/
-- https://github.com/google/dagger/issues/5099
+- https://developer.android.com/guide/practices/page-sizes
+- https://developer.android.com/studio/write/java8-support
+- https://developer.android.com/studio/test/managed-devices
+- https://izzyondroid.org/docs/general/AppInclusionPolicy/
+- https://f-droid.org/docs/Reproducible_Builds/
+- https://www.rfc-editor.org/rfc/rfc9111
+
+### Academic and engineering sources
+
+- https://www.sciencedirect.com/science/article/pii/S1574119221000481
+- https://www.sciencedirect.com/science/article/pii/S2210537923000744
+- https://android-developers.googleblog.com/2025/03/media-processing-performance-jetpack-media3-transformer.html
+- https://www.youtube.com/watch?v=7vmiYP4vNUE
+
+### Dependency changelogs and documentation
+
+- https://developer.android.com/media/media3/transformer
+- https://developer.android.com/media/media3/transformer/transformations
+- https://developer.android.com/media/media3/transformer/composition
+- https://developer.android.com/jetpack/androidx/releases/media3
 - https://developer.android.com/jetpack/androidx/releases/work
-- https://developer.android.com/jetpack/androidx/releases/glance
-- https://www.sentinelone.com/vulnerability-database/cve-2026-26331/
-- https://advisories.gitlab.com/pypi/yt-dlp/CVE-2026-50023/
-- https://github.com/yt-dlp/yt-dlp/security/advisories/GHSA-79w7-vh3h-8g4j
-- https://github.com/advisories/GHSA-735f-pc8j-v9w8
-- https://developers.google.com/ml-kit/vision/subject-segmentation
+- https://developer.android.com/jetpack/androidx/releases/room
+- https://coil-kt.github.io/coil/changelog/
+- https://github.com/square/retrofit/blob/trunk/CHANGELOG.md
+- https://github.com/square/okhttp/blob/master/CHANGELOG.md
+- https://github.com/google/dagger/releases
+
+### Security advisories
+
+- https://github.com/advisories
+- https://github.com/yt-dlp/yt-dlp/security
+- https://github.com/yt-dlp/yt-dlp/security/advisories/GHSA-6v4j-43gg-vj32
+- https://github.com/googlesamples/mlkit/issues/1017
 
 ## Open Questions
 
-- [Owner decision, time-boxed] Register `com.freevibe` for Android developer verification before the 2026-09-30 first-country enforcement, or rely on the advanced flow/ADB? Tracked in Roadmap_Blocked.md; the window is now ~6 weeks.
-- [Owner decision] Publish the release backlog as v6.41.0, or fold the in-flight working-tree fixes into a v6.42.0 and release that? Either way the tag-without-release gate must land with it.
-- [Needs live validation] Does Android's dynamic-color engine re-trigger reliably on Aura's streaming apply path (Paperize #588 class)? Requires a device pass when the `WallpaperColors` item lands.
+- **Needs live validation:** Does the current full and FOSS release-minified build reproduce issue #2 on API 26, API 27, or API 29 after the present desugaring and NewPipe changes?
+- **Needs live validation:** Does the exact ML Kit beta crash in Aura on API 36, and if so which of `SmartCropDetector`, `DepthPortraitComposer`, and `ParallaxWallpaperService` can trigger it on affected hardware?
