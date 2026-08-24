@@ -207,8 +207,8 @@ Firebase RTDB (Community Voting + Uploads + Admin Moderation)
 | Component | Library |
 |-----------|---------|
 | UI | Jetpack Compose + Material 3 |
-| DI | Hilt 2.53.1 |
-| Database | Room 2.7.2 |
+| DI | Hilt 2.60.1 |
+| Database | Room 2.8.4 |
 | Network | Retrofit 3.0.0 + OkHttp 5.4.0 |
 | JSON | Moshi + KSP codegen |
 | Images | Coil 3.5.0 with OkHttp network loading and GIF support |
