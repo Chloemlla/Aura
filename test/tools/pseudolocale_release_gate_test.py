@@ -39,14 +39,20 @@ class PseudolocaleReleaseGateTest(unittest.TestCase):
         self.assertIn("ProductionRouteScenario.WallpapersGridSuccess", gate["compactRouteScenarios"])
         self.assertIn("ProductionRouteScenario.SettingsProviderDisabled", gate["compactRouteScenarios"])
 
-    def test_no_real_translation_pack_was_added(self):
-        values_dirs = {
-            path.name
-            for path in (REPO_ROOT / "app/src/main/res").glob("values-*")
-            if path.is_dir()
-        }
+    def test_only_reviewed_translation_packs_exist(self):
+        # Real translation packs need a human-reviewed submission (see issue #47).
+        # values-zh landed via PR #48, written and reviewed by a native speaker.
+        # Full-only provider strings live in app/src/full/res/values-zh instead,
+        # so the FOSS flavor never packages a translation without a default.
+        reviewed_packs = {"values-zh"}
 
-        self.assertEqual(set(), values_dirs)
+        for res_root in ("app/src/main/res", "app/src/full/res"):
+            values_dirs = {
+                path.name
+                for path in (REPO_ROOT / res_root).glob("values-*")
+                if path.is_dir()
+            }
+            self.assertEqual(reviewed_packs, values_dirs, res_root)
 
 
 if __name__ == "__main__":
