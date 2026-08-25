@@ -1,0 +1,3 @@
+Aura v6.45.2
+
+Build fix release. The Play app bundle lane broke after a toolchain upgrade and now builds again. Nothing changes inside the app itself.
