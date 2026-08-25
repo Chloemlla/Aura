@@ -198,9 +198,21 @@ android {
     //
     // Every split keeps the same versionCode. Only one ever installs on a given
     // device, and Obtainium's autoApkFilterByArch picks it by asset name.
+    //
+    // Splits must switch OFF whenever a bundle task is requested: since AGP 8.9.0,
+    // PerModuleBundleTask.getResourcesFile calls single() over the shrunk-resources
+    // artifact, which holds one converted file per enabled ABI split, so
+    // :app:bundleFullRelease dies with "Sequence contains more than one matching
+    // element" (issuetracker.google.com/402800800, won't-fix — multi-APK output is
+    // unsupported while bundling). AABs ignore splits anyway; Play serves per-ABI
+    // from the bundle. Consequence: run assemble* and bundle* as SEPARATE Gradle
+    // invocations — a combined invocation would build universal-only APKs.
+    val requestedBundleBuild = requestedGradleTasks.any { task ->
+        task.gradleTaskLeaf().contains("bundle", ignoreCase = true)
+    }
     splits {
         abi {
-            isEnable = true
+            isEnable = !requestedBundleBuild
             reset()
             include("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
             isUniversalApk = true
