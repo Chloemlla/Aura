@@ -2,6 +2,14 @@
 
 All notable changes to Aura will be documented in this file.
 
+## v6.45.1
+
+- **Simplified Chinese**: Aura now speaks Chinese. The full interface translation
+  was written and reviewed by native speaker Chloemlla (#48). The app follows the
+  system language, and Android 13 and newer list Aura in per-app language
+  settings. Wallpaper generator strings ship only in the Full flavor, so FOSS
+  builds carry no orphaned translations.
+
 ## v6.45.0
 
 - **Sound Editor transforms now use Android's media stack**: Media3 owns clipping,
