@@ -2,6 +2,25 @@
 
 All notable changes to Aura will be documented in this file.
 
+## v6.45.2
+
+- **App bundle builds work again**: `bundleFullRelease` had failed with a
+  resource duplication error ever since the AGP 8.9 upgrade, because that plugin
+  line no longer supports per-ABI APK splits while a bundle task runs. Splits now
+  turn themselves off for bundle builds and stay on for APK builds. The AAB still
+  carries every ABI, so nothing changes for users. One build note: run
+  assemble and bundle tasks as separate Gradle invocations from now on, since a
+  combined one would build a single all-ABI APK instead of the per-ABI set this
+  fork publishes.
+
+## v6.45.1
+
+- **Simplified Chinese**: Aura now speaks Chinese. The full interface translation
+  was written and reviewed by native speaker Chloemlla (#48). The app follows the
+  system language, and Android 13 and newer list Aura in per-app language
+  settings. Wallpaper generator strings ship only in the Full flavor, so FOSS
+  builds carry no orphaned translations.
+
 ## v6.45.0
 
 - **Sound Editor transforms now use Android's media stack**: Media3 owns clipping,

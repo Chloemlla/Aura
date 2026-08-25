@@ -71,11 +71,15 @@ After real assets are committed, the future asset-mode command is:
 python3 tools/store_metadata_preflight.py --repo-root . --require-assets --min-phone-screenshots 4
 ```
 
-Build the signed release artifacts with the flavor-specific release tasks:
+Build the signed release artifacts with the flavor-specific release tasks. Run the
+APK and bundle tasks as separate invocations: ABI splits turn off whenever a
+`bundle*` task is requested, so a combined invocation would emit one all-ABI APK
+instead of the per-ABI set this fork publishes.
 
 ```powershell
 $env:JAVA_HOME = "C:/Program Files/Android/Android Studio/jbr"
-.\gradlew.bat :app:assembleFullRelease :app:bundleFullRelease --stacktrace --no-daemon
+.\gradlew.bat :app:assembleFullRelease --stacktrace --no-daemon
+.\gradlew.bat :app:bundleFullRelease --stacktrace --no-daemon
 ```
 
 Copy and name the release artifacts:

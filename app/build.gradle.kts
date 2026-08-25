@@ -105,11 +105,13 @@ android {
         applicationId = "com.chloemlla.aura"
         minSdk = 26
         targetSdk = 37
-        // Version follows upstream: this merge brings in the 6.42.0-6.45.0
-        // changelog entries, the fastlane changelogs through 146, and the store
-        // metadata that names 6.45.0, so the build has to agree with them.
-        versionCode = 146
-        versionName = "6.45.0"
+        // Version follows upstream: this merge brings in the 6.45.1-6.45.2
+        // changelog entries, the fastlane changelogs through 148, and the store
+        // metadata that names 6.45.2, so the build has to agree with them.
+        // targetSdk stays at 37 (the fork's Android 17 upgrade, be02a30e), which
+        // supersedes upstream's 35.
+        versionCode = 148
+        versionName = "6.45.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -162,9 +164,22 @@ android {
     // dramatically reducing per-APK download size. arm64-v8a covers ~95% of modern
     // Android devices; armeabi-v7a and x86_64 are included for legacy + emulator
     // compatibility. No universal APK — users get the exact variant they need.
+    //
+    // Splits must switch OFF whenever a bundle task is requested (upstream 407fbeb8):
+    // since AGP 8.9.0, PerModuleBundleTask.getResourcesFile calls single() over the
+    // shrunk-resources artifact, which holds one converted file per enabled ABI split,
+    // so :app:bundleFullRelease dies with "Sequence contains more than one matching
+    // element" (issuetracker.google.com/402800800, won't-fix — multi-APK output is
+    // unsupported while bundling). AABs ignore splits anyway; Play serves per-ABI from
+    // the bundle. Consequence: run assemble* and bundle* as SEPARATE Gradle
+    // invocations — a combined invocation would emit one all-ABI APK instead of the
+    // per-ABI set this fork publishes.
+    val requestedBundleBuild = requestedGradleTasks.any { task ->
+        task.gradleTaskLeaf().contains("bundle", ignoreCase = true)
+    }
     splits {
         abi {
-            isEnable = true
+            isEnable = !requestedBundleBuild
             reset()
             include("armeabi-v7a", "arm64-v8a", "x86_64")
             isUniversalApk = false

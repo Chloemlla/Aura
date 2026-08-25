@@ -31,7 +31,7 @@ Before publishing a GitHub Release:
 
 1. Set `JAVA_HOME` to Android Studio's bundled JBR.
 2. Run every release preflight command listed below.
-3. Build the signed release APK and AAB with `.\gradlew.bat :app:assembleFullRelease :app:bundleFullRelease --stacktrace --no-daemon`.
+3. Build the signed release APK and AAB with `.\gradlew.bat :app:assembleFullRelease --stacktrace --no-daemon` followed by `.\gradlew.bat :app:bundleFullRelease --stacktrace --no-daemon`. They must be separate invocations: ABI splits turn off whenever a `bundle*` task is requested, so a combined invocation would emit one all-ABI APK instead of the per-ABI set.
 4. Copy the APK to `release/Aura-vX.Y.Z-versionCode-N-universal-release.apk`.
 5. Copy the AAB to `release/Aura-vX.Y.Z-versionCode-N-play-release.aab`.
 6. Generate `THIRD-PARTY-NOTICES.md`, `GOOGLE-OSS-RAW-INPUTS.zip`, `NATIVE-COMPLIANCE.md`, and `NATIVE-ALIGNMENT.json`.
@@ -70,7 +70,8 @@ python tools\play_app_content_packet_check.py --policy docs\distribution\play-ap
 python tools\alt_store_metadata_check.py --policy docs\distribution\alt-store-metadata.json --repo-root .
 python tools\release_metadata_consistency_check.py --policy docs\distribution\release-metadata-consistency.json --repo-root .
 python tools\sbom_readiness_check.py --policy docs\distribution\sbom-readiness.json --repo-root .
-.\gradlew.bat :app:assembleFullRelease :app:bundleFullRelease --stacktrace --no-daemon
+.\gradlew.bat :app:assembleFullRelease --stacktrace --no-daemon
+.\gradlew.bat :app:bundleFullRelease --stacktrace --no-daemon
 python tools\provider_credential_apk_scan.py --local-properties local.properties --apk app\build\outputs\apk\full\release\app-full-release.apk
 ```
 

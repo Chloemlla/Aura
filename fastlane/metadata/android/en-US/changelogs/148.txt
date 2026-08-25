@@ -1,0 +1,5 @@
+Aura v6.45.2
+
+Build fix release. The Play app bundle lane broke after a toolchain upgrade and now builds again. Nothing changes inside the app itself.
+
+Recent highlights: the Play app bundle lane builds again after per-ABI APK splits started colliding with bundle tasks, and Aura now ships a complete Simplified Chinese translation written and reviewed by a native speaker.
