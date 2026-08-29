@@ -264,6 +264,16 @@ kotlin {
     }
 }
 
+// CI surfaces only the assertion class + frame by default; full text makes a
+// failing unit test immediately readable from the Actions log.
+tasks.withType<Test>().configureEach {
+    testLogging {
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showCauses = true
+        showStackTraces = true
+    }
+}
+
 baselineProfile {
     automaticGenerationDuringBuild = false
     saveInSrc = true

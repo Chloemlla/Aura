@@ -9,6 +9,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * The reset happens during database construction, before any screen exists. The
@@ -16,6 +17,7 @@ import org.robolectric.RobolectricTestRunner
  * lost exactly when it matters.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class DatabaseDowngradeReceiptStoreTest {
 
     private fun store() = DatabaseDowngradeReceiptStore(ApplicationProvider.getApplicationContext())
