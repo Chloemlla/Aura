@@ -74,8 +74,13 @@ class CrashDiagnosticsCollector @Inject constructor(
         }.getOrNull().orEmpty()
     }
 
-    private fun memoryLimiterExitCount(): Int =
-        AndroidMemoryLimiter.countMemoryLimiterExits(recentExits().map { it.description })
+    private fun memoryLimiterExitCount(): Int {
+        // Same reason as formatRecentExitInfo(): recentExits() is already empty below
+        // API 30, but the guard must sit in the function that reads `description`
+        // or lint cannot see it.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return 0
+        return AndroidMemoryLimiter.countMemoryLimiterExits(recentExits().map { it.description })
+    }
 
     suspend fun buildBundle(): String {
         val summary = readSummary()
