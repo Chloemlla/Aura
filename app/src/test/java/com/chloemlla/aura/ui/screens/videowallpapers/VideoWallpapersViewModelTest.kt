@@ -141,6 +141,7 @@ class VideoWallpapersViewModelTest {
         val releaseFirstRequest = CompletableDeferred<Unit>()
         val firstRequestFinished = CompletableDeferred<Unit>()
         val secondRequestStarted = CompletableDeferred<Unit>()
+        val releaseSecondRequest = CompletableDeferred<Unit>()
         val secondRequestFinished = CompletableDeferred<Unit>()
         coEvery {
             pixabayApi.searchVideos(
@@ -156,6 +157,7 @@ class VideoWallpapersViewModelTest {
                 }
                 else -> {
                     secondRequestStarted.complete(Unit)
+                    releaseSecondRequest.await()
                     val response = PixabayVideoResponse(
                         hits = listOf(
                             PixabayVideo(
@@ -215,6 +217,7 @@ class VideoWallpapersViewModelTest {
         runCurrent()
         assertTrue("Pagination did not start: ${viewModel.state.value}", viewModel.state.value.isLoadingMore)
         secondRequestStarted.await()
+        releaseSecondRequest.complete(Unit)
         secondRequestFinished.await()
         awaitFeedJobCompletion(viewModel)
         advanceUntilIdle()
