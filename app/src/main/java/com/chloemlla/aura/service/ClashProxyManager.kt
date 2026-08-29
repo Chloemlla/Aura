@@ -26,6 +26,51 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import javax.net.SocketFactory
 
+/** CMFA 授予 Aura 的 `partnerStatus` 读取层级，对应 provider 的 `accessTier` 字段。 */
+enum class ClashAccess { Unavailable, Denied, Basic, Full }
+
+/**
+ * 读出 CMFA 授予的层级。
+ *
+ * apiVersion 3 起 `accessTier` 明确回传 `denied` / `basic` / `full`；更早的 CMFA 不带这个字段，
+ * 但那时只要能读到内容就等于拿到了全部字段，所以按 [ClashAccess.Full] 处理。
+ */
+internal fun parseClashAccess(values: Map<String, Any?>): ClashAccess =
+    when (values["accessTier"] as? String) {
+        "denied" -> ClashAccess.Denied
+        "basic" -> ClashAccess.Basic
+        "full" -> ClashAccess.Full
+        else -> if (values.isEmpty()) ClashAccess.Unavailable else ClashAccess.Full
+    }
+
+/**
+ * 把 CMFA 的机器可读 `deniedReason` 翻成用户能照着做的一句中文。
+ *
+ * 这些取值来自 CMFA 的 `PartnerAccessResolver`；未知取值原样带出，便于对着 logcat 排查。
+ */
+internal fun describeDeniedReason(reason: String?): String = when (reason) {
+    "pending_user_approval" -> "等待在 Clash 中确认配对：打开 Clash 主页或点击配对通知即可授权"
+    "denied_by_user" -> "已在 Clash 中拒绝授权，可在 Clash 主页「伙伴应用」里撤销"
+    "signer_unverified" -> "Clash 未登记 Aura 的签名证书，只开放基础状态；在「伙伴应用」里允许即可读取完整状态"
+    "not_partner" -> "Clash 没把 Aura 认成伙伴应用，请更新 Clash 到支持伙伴配对的版本"
+    "no_signature" -> "Clash 读不到 Aura 的签名信息，无法完成配对"
+    null -> "Clash 未说明原因"
+    else -> "Clash 返回原因：$reason"
+}
+
+/**
+ * 一次 `partnerStatus` 查询的结果：层级、拒绝原因，以及真正读到的字段。
+ * [values] 只在层级可读（Basic/Full）时非空——被拒时返回的 bundle 也非空，但只带
+ * apiVersion/accessTier/deniedReason，绝不能把它当成一份全 false 的状态。
+ */
+private data class PartnerRead(
+    val access: ClashAccess,
+    val deniedReason: String?,
+    val values: Map<String, Any?>?,
+)
+
+private val UNAVAILABLE_PARTNER = PartnerRead(ClashAccess.Unavailable, null, null)
+
 /**
  * Holder for a static [ClashProxyManager] reference, set during app startup
  * so that standalone OkHttp clients (e.g. [VideoCropScreen]'s sharedHttpClient)
@@ -97,7 +142,7 @@ class ClashProxyManager @Inject constructor(
     private val _vpnNetwork = AtomicReference<Network?>(null)
     private val _processBound = AtomicBoolean(false)
     private val _autoAdaptEnabled = AtomicBoolean(true)
-    private val _partnerStatus = AtomicReference<Bundle?>(null)
+    private val _partnerRead = AtomicReference(UNAVAILABLE_PARTNER)
     private val _proxyAddress = AtomicReference(defaultClashProxyAddress)
 
     private val listeners = CopyOnWriteArrayList<ClashStateListener>()
@@ -112,6 +157,8 @@ class ClashProxyManager @Inject constructor(
         val autoAdaptEnabled: Boolean,
         val processBound: Boolean,
         val proxyAddress: InetSocketAddress?,
+        val partnerAccess: ClashAccess = ClashAccess.Unavailable,
+        val partnerDeniedReason: String? = null,
     ) {
         val isClashRouting: Boolean
             get() = autoAdaptEnabled && clashVpnRunning
@@ -311,7 +358,7 @@ class ClashProxyManager @Inject constructor(
     fun refresh() {
         val detected = detectClashPackage()
         _clashPackage.set(detected)
-        _partnerStatus.set(queryPartnerStatus(detected))
+        _partnerRead.set(queryPartnerStatus(detected))
         val vpn = findVpnNetwork()
         _vpnNetwork.set(vpn)
         applyVpnBinding()
@@ -323,9 +370,14 @@ class ClashProxyManager @Inject constructor(
     private fun buildState(): ClashState {
         val pkg = _clashPackage.get()
         val vpn = _vpnNetwork.get()
-        val status = _partnerStatus.get()
+        val read = _partnerRead.get()
+        val status = read.values
+        // Provider 状态可信（Basic/Full）时以它为准。被拒时返回的 bundle 也非空但没有任何
+        // 状态字段，必须退回「Clash 已装且 VPN 活跃」的启发式——否则会把一次拒绝误判成
+        // 「Clash 没在路由」，在一条活着的隧道上再叠一层手动代理。
         val clashVpnRunning = if (status != null) {
-            status.getBoolean("vpnRunning", false) && status.getBoolean("partnerAppAutoAdapt", false)
+            status["vpnRunning"] as? Boolean == true &&
+                status["partnerAppAutoAdapt"] as? Boolean == true
         } else {
             pkg != null && vpn != null
         }
@@ -337,6 +389,8 @@ class ClashProxyManager @Inject constructor(
             autoAdaptEnabled = _autoAdaptEnabled.get(),
             processBound = _processBound.get(),
             proxyAddress = _proxyAddress.get(),
+            partnerAccess = read.access,
+            partnerDeniedReason = read.deniedReason,
         )
     }
 
@@ -353,9 +407,16 @@ class ClashProxyManager @Inject constructor(
         return null
     }
 
-    private fun queryPartnerStatus(pkg: String?): Bundle? {
-        if (pkg == null) return null
-        return try {
+    /**
+     * 查一次 `partnerStatus`，返回层级、拒绝原因与真正读到的字段。
+     *
+     * 三种失败要分开：Provider 缺失或 binder 异常（旧版 Clash，没有伙伴接口）、CMFA 明确拒绝
+     * （带 `deniedReason`，用户照着做就能解决）、以及只授予基础层。混成一句「读不到状态」时
+     * 用户无从下手，这也是路由决策会踩坑的根因。
+     */
+    private fun queryPartnerStatus(pkg: String?): PartnerRead {
+        if (pkg == null) return UNAVAILABLE_PARTNER
+        val bundle = try {
             val uri = android.net.Uri.parse("content://$pkg$partnerAuthoritySuffix")
             context.contentResolver.call(uri, "partnerStatus", null, null)
         } catch (e: Exception) {
@@ -363,8 +424,23 @@ class ClashProxyManager @Inject constructor(
                 Log.d(TAG, "Partner status query failed for $pkg: ${e.message}")
             }
             null
+        } ?: return UNAVAILABLE_PARTNER
+        val values = bundle.toValueMap()
+        val access = parseClashAccess(values)
+        val reason = values["deniedReason"] as? String
+        if (access != ClashAccess.Full) {
+            Log.d(TAG, "伙伴状态受限：$pkg tier=$access reason=$reason")
         }
+        return PartnerRead(
+            access = access,
+            deniedReason = reason,
+            values = values.takeIf { access != ClashAccess.Denied },
+        )
     }
+
+    @Suppress("DEPRECATION")
+    private fun Bundle.toValueMap(): Map<String, Any?> =
+        keySet().associateWith { get(it) }
 
     private fun findVpnNetwork(): Network? {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager

@@ -2,6 +2,16 @@
 
 All notable changes to Aura will be documented in this file.
 
+## Unreleased
+
+- **Reliability: a Clash partner refusal no longer masquerades as "not routing"** — CMFA
+  `partnerStatus` v3 returns a non-null bundle even when the partner app is refused access, and
+  that refusal was previously read as a live "VPN off" status: the VPN-active fallback was
+  dropped and a manual proxy could be stacked on a live tunnel. Aura now reads the tier
+  (`accessTier`: denied/basic/full) and trusts status fields only when the provider actually
+  granted them. Refusals carry the provider's actionable reason (pending approval / denied by
+  user / signer unverified / not a partner / no signature) instead of a silent all-false status.
+
 ## v6.45.2
 
 - **App bundle builds work again**: `bundleFullRelease` had failed with a
