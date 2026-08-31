@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -386,22 +387,22 @@ private fun StylePickerPage(selectedStyles: Set<String>, onToggle: (String) -> U
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     row.forEach { option ->
-                        val selected = option.id in selectedStyles
+                        val isSelected = option.id in selectedStyles
                         Surface(
                             onClick = { onToggle(option.id) },
                             modifier = Modifier
                                 .weight(1f)
                                 .height(132.dp)
                                 .semantics {
-                                    selected = selected
+                                    selected = isSelected
                                     role = Role.Checkbox
                                 },
                             shape = RoundedCornerShape(8.dp),
-                            color = if (selected) option.tint.copy(alpha = 0.18f)
+                            color = if (isSelected) option.tint.copy(alpha = 0.18f)
                             else MaterialTheme.colorScheme.surface.copy(alpha = 0.58f),
                             border = BorderStroke(
-                                width = if (selected) 1.5.dp else 1.dp,
-                                color = if (selected) option.tint.copy(alpha = 0.65f)
+                                width = if (isSelected) 1.5.dp else 1.dp,
+                                color = if (isSelected) option.tint.copy(alpha = 0.65f)
                                 else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
                             ),
                         ) {
