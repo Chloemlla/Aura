@@ -422,7 +422,6 @@ class WallpapersViewModel @Inject constructor(
 
     private val voteCountIds = MutableStateFlow<List<String>>(emptyList())
     private val voteCountsFlow = voteCountIds
-        .distinctUntilChanged()
         .flatMapLatest { ids ->
             if (ids.isEmpty()) flowOf(emptyMap<String, Int>())
             else community.getVoteCounts(ids)

@@ -42,7 +42,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -462,7 +461,6 @@ class VideoWallpapersViewModel @Inject constructor(
 
     private val voteCountIds = MutableStateFlow<List<String>>(emptyList())
     private val voteCountsFlow = voteCountIds
-        .distinctUntilChanged()
         .flatMapLatest { ids ->
             if (ids.isEmpty()) flowOf(emptyMap<String, Int>())
             else voteRepo.getVoteCounts(ids)
