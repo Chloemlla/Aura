@@ -27,6 +27,8 @@ import com.chloemlla.aura.BuildConfig
 import com.chloemlla.aura.R
 import com.google.android.gms.common.moduleinstall.ModuleInstall
 import com.google.android.gms.common.moduleinstall.ModuleInstallRequest
+import com.google.android.gms.tasks.OnFailureListener
+import com.google.android.gms.tasks.OnSuccessListener
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmentation
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmentationResult
@@ -404,12 +406,12 @@ class ParallaxWallpaperService : WallpaperService() {
                 val inputImage = InputImage.fromBitmap(bitmap, 0)
 
                 segmenter.process(inputImage)
-                    .addOnSuccessListener(segmentExecutor) { result ->
+                    .addOnSuccessListener(segmentExecutor, OnSuccessListener<SubjectSegmentationResult> { result ->
                         handleSegmentSuccess(segmenter, bitmap, generation, result)
-                    }
-                    .addOnFailureListener(segmentExecutor) { e ->
+                    })
+                    .addOnFailureListener(segmentExecutor, OnFailureListener { e ->
                         handleSegmentFailure(segmenter, bitmap, generation, e)
-                    }
+                    })
             } catch (e: Exception) {
                 synchronized(bitmapLock) { inFlightSegmentInputs.remove(bitmap) }
                 if (BuildConfig.DEBUG) android.util.Log.e("ParallaxWP", "Segmenter init error: ${e.message}")
