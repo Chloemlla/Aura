@@ -8,6 +8,15 @@
     <string name="parallax_wallpaper_desc">Depth parallax wallpaper that responds to device tilt</string>
     <string name="widget_description">Quick wallpaper changer - shuffle, set home, or set lock screen</string>
     <string name="widget_loading_title">Aura</string>
+    <string name="widget_current_wallpaper_cd">Current wallpaper</string>
+    <string name="widget_shuffle_count">%1$d shuffled</string>
+    <string name="widget_last_shuffle_time">Last: %1$s</string>
+    <string name="widget_favorites_short">Faves</string>
+    <string name="widget_tap_to_open_app">Tap to open app</string>
+    <string name="widget_toast_shuffling">Shuffling…</string>
+    <string name="widget_toast_no_wallpapers">No wallpapers available</string>
+    <string name="widget_toast_failed">Failed: %1$s</string>
+    <string name="widget_toast_shuffle_failed">Shuffle failed: %1$s</string>
     <string name="shortcut_shuffle_short">Shuffle</string>
     <string name="shortcut_shuffle_long">Shuffle wallpaper</string>
     <string name="shortcut_rotate_short">Rotate</string>

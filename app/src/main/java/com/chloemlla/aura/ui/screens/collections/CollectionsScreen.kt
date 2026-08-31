@@ -73,6 +73,13 @@ data class CollectionQrState(
     val itemCount: Int,
 )
 
+@Immutable
+data class CollectionSummary(
+    val collection: WallpaperCollectionEntity,
+    val itemCount: Int,
+    val coverThumbnails: List<String>,
+)
+
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class CollectionsViewModel @Inject constructor(
@@ -172,6 +179,24 @@ class CollectionsViewModel @Inject constructor(
     val collections = collectionRepo.getAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /** Single grid-level state: every collection combined with its count and cover thumbnails. */
+    val collectionSummaries: StateFlow<List<CollectionSummary>> = collections
+        .flatMapLatest { collections ->
+            if (collections.isEmpty()) {
+                flowOf(emptyList())
+            } else {
+                collections.map { collection ->
+                    combine(
+                        collectionRepo.getItemCount(collection.collectionId),
+                        collectionRepo.getCoverThumbnails(collection.collectionId),
+                    ) { count, covers ->
+                        CollectionSummary(collection, count, covers)
+                    }
+                }.combine { summaries -> summaries.toList() }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     private val _selectedCollectionId = MutableStateFlow<Long?>(null)
     val selectedCollectionId = _selectedCollectionId.asStateFlow()
 
@@ -221,9 +246,6 @@ class CollectionsViewModel @Inject constructor(
     fun renameCollection(id: Long, name: String) {
         viewModelScope.launch { collectionRepo.rename(id, name) }
     }
-
-    fun getItemCount(collectionId: Long): Flow<Int> = collectionRepo.getItemCount(collectionId)
-    fun getCoverThumbnails(collectionId: Long): Flow<List<String>> = collectionRepo.getCoverThumbnails(collectionId)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -235,10 +257,10 @@ fun CollectionsScreen(
     initialImportUri: String? = null,
     viewModel: CollectionsViewModel = hiltViewModel(),
 ) {
-    val collections by viewModel.collections.collectAsStateWithLifecycle()
+    val collectionSummaries by viewModel.collectionSummaries.collectAsStateWithLifecycle()
     val selectedCollectionId by viewModel.selectedCollectionId.collectAsStateWithLifecycle()
     val selectedItems by viewModel.selectedItems.collectAsStateWithLifecycle()
-    val selectedCollection = collections.find { it.collectionId == selectedCollectionId }
+    val selectedCollection = collectionSummaries.find { it.collection.collectionId == selectedCollectionId }?.collection
     val qrState by viewModel.qrState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -501,7 +523,7 @@ fun CollectionsScreen(
             }
         } else {
             // Collection list
-            if (collections.isEmpty()) {
+            if (collectionSummaries.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize().padding(padding),
                     contentAlignment = Alignment.Center,
@@ -519,11 +541,10 @@ fun CollectionsScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize().padding(padding),
                 ) {
-                    items(collections, key = { it.collectionId }) { collection ->
+                    items(collectionSummaries, key = { it.collection.collectionId }) { summary ->
                         CollectionCard(
-                            collection = collection,
-                            viewModel = viewModel,
-                            onClick = { viewModel.selectCollection(collection.collectionId) },
+                            summary = summary,
+                            onClick = { viewModel.selectCollection(summary.collection.collectionId) },
                         )
                     }
                 }
@@ -674,14 +695,11 @@ private fun WallpaperCollectionItemEntity.toWallpaper() = Wallpaper(
 
 @Composable
 private fun CollectionCard(
-    collection: WallpaperCollectionEntity,
-    viewModel: CollectionsViewModel,
+    summary: CollectionSummary,
     onClick: () -> Unit,
 ) {
-    val countFlow = remember(collection.collectionId) { viewModel.getItemCount(collection.collectionId) }
-    val coversFlow = remember(collection.collectionId) { viewModel.getCoverThumbnails(collection.collectionId) }
-    val count by countFlow.collectAsStateWithLifecycle(initialValue = 0)
-    val covers by coversFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    val count = summary.itemCount
+    val covers = summary.coverThumbnails
 
     Card(
         onClick = onClick,
@@ -705,10 +723,6 @@ private fun CollectionCard(
             ) {
                 if (covers.isNotEmpty()) {
                     val gridSize = if (covers.size >= 4) 2 else 1
-                    // covers is a List<String> collected out of the flow above, so
-                    // this is List.take. Lint resolves it through the `by` delegate
-                    // and lands on Flow.take, which would indeed be wrong here.
-                    @Suppress("FlowOperatorInvokedInComposition")
                     val displayCovers = covers.take(gridSize * gridSize)
                     Column {
                         for (row in 0 until gridSize) {
@@ -748,7 +762,7 @@ private fun CollectionCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    collection.name,
+                    summary.collection.name,
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

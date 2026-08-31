@@ -6,6 +6,7 @@ import com.chloemlla.aura.data.local.DownloadDao
 import com.chloemlla.aura.data.local.FavoriteDao
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import java.io.FileNotFoundException
 import java.net.URI
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
@@ -56,9 +57,13 @@ class PathBackedRecordReconciler @Inject constructor(
         )
 
     private fun contentUriExists(rawUri: String): Boolean =
-        runCatching {
+        try {
             context.contentResolver.openFileDescriptor(Uri.parse(rawUri), "r")?.use { true } ?: false
-        }.getOrDefault(false)
+        } catch (_: FileNotFoundException) {
+            false
+        } catch (_: Exception) {
+            true // Permission loss (e.g. revoked SAF grant) must not read as "file missing".
+        }
 }
 
 internal fun shouldClearPathBackedRecord(

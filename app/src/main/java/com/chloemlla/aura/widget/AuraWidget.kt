@@ -26,6 +26,7 @@ import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import coil3.toBitmap
 import kotlinx.coroutines.flow.first
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.WallpaperTarget
 import com.chloemlla.aura.data.repository.WallpaperRepository
 import com.chloemlla.aura.service.WallpaperApplier
@@ -149,6 +150,7 @@ private fun WidgetContent(
     primaryTint: ColorProvider = Primary,
     accentTint: ColorProvider = Secondary,
 ) {
+    val context = LocalContext.current
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
@@ -160,7 +162,7 @@ private fun WidgetContent(
         if (backgroundBitmap != null) {
             Image(
                 provider = ImageProvider(backgroundBitmap),
-                contentDescription = "Current wallpaper",
+                contentDescription = context.getString(R.string.widget_current_wallpaper_cd),
                 contentScale = ContentScale.Crop,
                 modifier = GlanceModifier
                     .fillMaxSize()
@@ -188,7 +190,7 @@ private fun WidgetContent(
                 verticalAlignment = Alignment.Vertical.CenterVertically,
             ) {
                 Text(
-                    text = "Aura",
+                    text = context.getString(R.string.app_name),
                     style = TextStyle(
                         color = accentTint,
                         fontWeight = FontWeight.Bold,
@@ -198,7 +200,7 @@ private fun WidgetContent(
                 if (shuffleCount > 0 && size.width >= 200.dp) {
                     Spacer(GlanceModifier.width(8.dp))
                     Text(
-                        text = "$shuffleCount shuffled",
+                        text = context.getString(R.string.widget_shuffle_count, shuffleCount),
                         style = TextStyle(color = TextDim, fontSize = 10.sp),
                     )
                 }
@@ -208,10 +210,10 @@ private fun WidgetContent(
 
             // Last shuffle timestamp — honor the device's 12/24-hour setting.
             if (lastShuffleTime > 0 && size.height >= 200.dp) {
-                val timeStr = android.text.format.DateFormat.getTimeFormat(LocalContext.current)
+                val timeStr = android.text.format.DateFormat.getTimeFormat(context)
                     .format(Date(lastShuffleTime))
                 Text(
-                    text = "Last: $timeStr",
+                    text = context.getString(R.string.widget_last_shuffle_time, timeStr),
                     style = TextStyle(color = TextDim, fontSize = 10.sp),
                 )
                 Spacer(GlanceModifier.height(4.dp))
@@ -228,7 +230,7 @@ private fun WidgetContent(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "Shuffle",
+                    text = context.getString(R.string.shortcut_shuffle_short),
                     style = TextStyle(
                         color = White,
                         fontWeight = FontWeight.Medium,
@@ -244,11 +246,11 @@ private fun WidgetContent(
                     modifier = GlanceModifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
                 ) {
-                    QuickActionBtn("Home", GlanceModifier.defaultWeight(), actionRunCallback<ApplyHomeAction>())
+                    QuickActionBtn(context.getString(R.string.common_home), GlanceModifier.defaultWeight(), actionRunCallback<ApplyHomeAction>())
                     Spacer(GlanceModifier.width(4.dp))
-                    QuickActionBtn("Lock", GlanceModifier.defaultWeight(), actionRunCallback<ApplyLockAction>())
+                    QuickActionBtn(context.getString(R.string.common_lock), GlanceModifier.defaultWeight(), actionRunCallback<ApplyLockAction>())
                     Spacer(GlanceModifier.width(4.dp))
-                    QuickActionBtn("Faves", GlanceModifier.defaultWeight(), actionRunCallback<OpenFavoritesAction>(), Tertiary)
+                    QuickActionBtn(context.getString(R.string.widget_favorites_short), GlanceModifier.defaultWeight(), actionRunCallback<OpenFavoritesAction>(), Tertiary)
                 }
                 Spacer(GlanceModifier.height(4.dp))
                 Row(
@@ -265,7 +267,7 @@ private fun WidgetContent(
             if (size.height >= 200.dp) {
                 Spacer(GlanceModifier.height(8.dp))
                 Text(
-                    text = "Tap to open app",
+                    text = context.getString(R.string.widget_tap_to_open_app),
                     style = TextStyle(color = TextDim, fontSize = 11.sp),
                     modifier = GlanceModifier.clickable(actionRunCallback<OpenAppAction>()),
                 )
@@ -431,7 +433,7 @@ private suspend fun applyFromSource(context: Context, source: String, target: Wa
     // Immediate feedback — a widget tap that kicks off a 3–10 s network call with no visible
     // response used to feel unresponsive. Show the toast before the IO hop so the user knows
     // the tap was registered.
-    withContext(Dispatchers.Main) { Toast.makeText(context, "Shuffling…", Toast.LENGTH_SHORT).show() }
+    withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.widget_toast_shuffling), Toast.LENGTH_SHORT).show() }
     return withContext(Dispatchers.IO) {
         try {
             val ep = getEntryPoint(context)
@@ -442,7 +444,7 @@ private suspend fun applyFromSource(context: Context, source: String, target: Wa
             }
             val wp = items.randomOrNull()
             if (wp == null) {
-                withContext(Dispatchers.Main) { Toast.makeText(context, "No wallpapers available", Toast.LENGTH_SHORT).show() }
+                withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.widget_toast_no_wallpapers), Toast.LENGTH_SHORT).show() }
                 return@withContext false
             }
             ep.wallpaperApplier().applyFromUrl(wp.fullUrl, target).fold(
@@ -452,28 +454,28 @@ private suspend fun applyFromSource(context: Context, source: String, target: Wa
                 },
                 onFailure = { error ->
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Failed: ${error.message?.take(50)}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.widget_toast_failed, error.message?.take(50)), Toast.LENGTH_SHORT).show()
                     }
                     false
                 },
             )
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
-            withContext(Dispatchers.Main) { Toast.makeText(context, "Failed: ${e.message?.take(50)}", Toast.LENGTH_SHORT).show() }
+            withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.widget_toast_failed, e.message?.take(50)), Toast.LENGTH_SHORT).show() }
             false
         }
     }
 }
 
 private suspend fun applyRandom(context: Context, target: WallpaperTarget): Boolean {
-    withContext(Dispatchers.Main) { Toast.makeText(context, "Shuffling…", Toast.LENGTH_SHORT).show() }
+    withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.widget_toast_shuffling), Toast.LENGTH_SHORT).show() }
     return withContext(Dispatchers.IO) {
         try {
             val ep = getEntryPoint(context)
             val wp = ep.wallpaperRepository().getWallhaven(page = (1..5).random()).items.randomOrNull()
             if (wp == null) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "No wallpapers available", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.widget_toast_no_wallpapers), Toast.LENGTH_SHORT).show()
                 }
                 return@withContext false
             }
@@ -484,7 +486,7 @@ private suspend fun applyRandom(context: Context, target: WallpaperTarget): Bool
                 },
                 onFailure = { error ->
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Shuffle failed: ${error.message?.take(50)}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.widget_toast_shuffle_failed, error.message?.take(50)), Toast.LENGTH_SHORT).show()
                     }
                     false
                 },
@@ -492,7 +494,7 @@ private suspend fun applyRandom(context: Context, target: WallpaperTarget): Bool
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             withContext(Dispatchers.Main) {
-                Toast.makeText(context, "Shuffle failed: ${e.message?.take(50)}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.widget_toast_shuffle_failed, e.message?.take(50)), Toast.LENGTH_SHORT).show()
             }
             false
         }
