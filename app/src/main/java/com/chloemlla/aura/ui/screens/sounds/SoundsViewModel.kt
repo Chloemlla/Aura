@@ -1,13 +1,15 @@
 package com.chloemlla.aura.ui.screens.sounds
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.net.Uri
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
-import androidx.navigation.NavBackStackEntry
 import com.chloemlla.aura.R
 import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.model.CommunityReportReason
@@ -410,15 +412,21 @@ class SoundsViewModel @Inject constructor(
  * The sounds list, detail and editor screens each used to request their own
  * [SoundsViewModel] (scoped to their own back stack entry): opening detail re-ran
  * the whole feed load, and clearing the auxiliary instance stopped the shared
- * player. Scope to the parent entry so all three share one instance.
+ * player. They are sibling top-level destinations with no addressable parent graph,
+ * so scope to the activity to share one instance across all three.
  */
 @Composable
 internal fun rememberSharedSoundsViewModel(): SoundsViewModel {
-    val backStackEntry = LocalViewModelStoreOwner.current as? NavBackStackEntry
-    val owner = backStackEntry?.parentEntry
+    val owner = LocalContext.current.findActivity() as? ViewModelStoreOwner
     return if (owner != null) {
         hiltViewModel(viewModelStoreOwner = owner)
     } else {
         hiltViewModel()
     }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

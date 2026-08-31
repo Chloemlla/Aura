@@ -26,6 +26,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import okhttp3.OkHttpClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -770,25 +771,25 @@ class WallpaperEditorViewModel @Inject constructor(
             val matrixResult = applyColorMatrix(source, s.brightness, s.contrast, s.saturation, s.warmth)
             bmp = matrixResult.bitmap
             if (s.blurRadius > 0.5f) {
-                ensureActive()
+                currentCoroutineContext().ensureActive()
                 val prev = bmp
                 bmp = stackBlur(bmp, s.blurRadius.toInt().coerceIn(1, 25))
                 recycleFilterIntermediate(prev, source, bmp)
             }
             if (s.amoledCrush > 0.01f) {
-                ensureActive()
+                currentCoroutineContext().ensureActive()
                 val prev = bmp
                 bmp = applyAmoledCrush(bmp, s.amoledCrush)
                 recycleFilterIntermediate(prev, source, bmp)
             }
             if (s.vignette > 0.01f) {
-                ensureActive()
+                currentCoroutineContext().ensureActive()
                 val prev = bmp
                 bmp = applyVignette(bmp, s.vignette)
                 recycleFilterIntermediate(prev, source, bmp)
             }
             if (s.grain > 0.01f) {
-                ensureActive()
+                currentCoroutineContext().ensureActive()
                 val prev = bmp
                 bmp = applyGrain(bmp, s.grain)
                 recycleFilterIntermediate(prev, source, bmp)
@@ -917,7 +918,7 @@ class WallpaperEditorViewModel @Inject constructor(
         // IntArray(w*h) on the Java heap, and so the loop can stop on cancellation.
         val pixels = IntArray(result.width * PIXEL_ROW_BLOCK)
         for (blockStart in 0 until result.height step PIXEL_ROW_BLOCK) {
-            ensureActive()
+            currentCoroutineContext().ensureActive()
             val blockHeight = min(PIXEL_ROW_BLOCK, result.height - blockStart)
             result.getPixels(pixels, 0, result.width, 0, blockStart, result.width, blockHeight)
             for (i in 0 until result.width * blockHeight) {
@@ -960,7 +961,7 @@ class WallpaperEditorViewModel @Inject constructor(
         val random = java.util.Random(42)
         val pixels = IntArray(result.width * PIXEL_ROW_BLOCK)
         for (blockStart in 0 until result.height step PIXEL_ROW_BLOCK) {
-            ensureActive()
+            currentCoroutineContext().ensureActive()
             val blockHeight = min(PIXEL_ROW_BLOCK, result.height - blockStart)
             result.getPixels(pixels, 0, result.width, 0, blockStart, result.width, blockHeight)
             for (i in 0 until result.width * blockHeight) {
