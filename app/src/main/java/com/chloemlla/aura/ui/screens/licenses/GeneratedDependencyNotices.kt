@@ -8,7 +8,7 @@ import java.util.Locale
 data class GeneratedDependencyNotice(
     val name: String,
     val licenseLabel: String,
-    val licenseText: String,
+    val licenseText: String? = null,
     @StringRes val reviewLabelRes: Int? = null,
 )
 
@@ -20,8 +20,40 @@ internal object GoogleOssNoticeReader {
                 .use { it.readText() }
             val licenseBytes = resources.openRawResource(R.raw.third_party_licenses)
                 .use { it.readBytes() }
+            // Retain only the fields the list UI needs. Full license text is
+            // fetched on demand for the single selected notice instead of being
+            // held in memory for every dependency.
             parse(metadataText = metadataText, licenseBytes = licenseBytes)
+                .map { it.copy(licenseText = null) }
         }.getOrDefault(emptyList())
+
+    /**
+     * Returns the full license text for [name] on demand (used by the notice
+     * detail dialog), or null when the name has no matching metadata entry.
+     */
+    fun licenseText(resources: Resources, name: String): String? =
+        runCatching {
+            val metadataText = resources.openRawResource(R.raw.third_party_license_metadata)
+                .bufferedReader(Charsets.UTF_8)
+                .use { it.readText() }
+            val licenseBytes = resources.openRawResource(R.raw.third_party_licenses)
+                .use { it.readBytes() }
+            val target = name.trim()
+            metadataText.lineSequence()
+                .mapNotNull { parseMetadataLine(it) }
+                .firstOrNull { it.name == target }
+                ?.let { entry ->
+                    val end = entry.offset + entry.length
+                    if (entry.offset < 0 || entry.length <= 0 || end > licenseBytes.size) {
+                        null
+                    } else {
+                        licenseBytes
+                            .copyOfRange(entry.offset, end)
+                            .toString(Charsets.UTF_8)
+                            .trim()
+                    }
+                }
+        }.getOrNull()
 
     fun parse(metadataText: String, licenseBytes: ByteArray): List<GeneratedDependencyNotice> =
         metadataText

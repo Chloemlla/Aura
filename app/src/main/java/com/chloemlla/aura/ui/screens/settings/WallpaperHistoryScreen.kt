@@ -25,9 +25,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.chloemlla.aura.data.model.WallpaperHistoryEntity
 import com.chloemlla.aura.ui.components.AuraStateCard
-import java.text.SimpleDateFormat
+import java.text.DateFormat
 import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,13 +44,13 @@ fun WallpaperHistoryScreen(
                 title = { Text(stringResource(R.string.history_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.common_back))
                     }
                 },
                 actions = {
                     if (history.isNotEmpty()) {
                         IconButton(onClick = { showClearConfirm = true }) {
-                            Icon(Icons.Default.DeleteSweep, "Clear history")
+                            Icon(Icons.Default.DeleteSweep, stringResource(R.string.history_clear_cd))
                         }
                     }
                 },
@@ -113,13 +112,15 @@ private fun HistoryCard(
     onClick: () -> Unit,
 ) {
     val dateStr = remember(entry.appliedAt) {
-        SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(entry.appliedAt))
+        DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(entry.appliedAt))
     }
-    val targetLabel = when (entry.target) {
-        "HOME" -> "Home"
-        "LOCK" -> "Lock"
-        else -> "Both"
-    }
+    val targetLabel = stringResource(
+        when (entry.target) {
+            "HOME" -> R.string.common_home
+            "LOCK" -> R.string.common_lock
+            else -> R.string.common_both
+        },
+    )
 
     Card(
         modifier = Modifier

@@ -37,6 +37,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,6 +46,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -84,6 +87,9 @@ internal fun SmartLiveWallpaperSettingsSection(
     var touchEffectStrength by remember(initialTouchEffectStrength) {
         mutableStateOf(initialTouchEffectStrength)
     }
+    var vfxEffect by remember(initialVfxEffect) {
+        mutableStateOf(initialVfxEffect)
+    }
 
     SettingsSection(
         sectionKey = SettingsSectionKeys.SMART,
@@ -120,6 +126,12 @@ internal fun SmartLiveWallpaperSettingsSection(
             onCheckedChange = viewModel::setAdaptiveTint,
         )
         if (adaptiveTint) {
+            var tintIntensity by remember { mutableStateOf(adaptiveTintIntensity) }
+            var tintDragging by remember { mutableStateOf(false) }
+            LaunchedEffect(adaptiveTintIntensity) {
+                if (!tintDragging) tintIntensity = adaptiveTintIntensity
+            }
+            val tintSliderDescription = stringResource(R.string.settings_smart_tint_intensity_slider_a11y)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -131,11 +143,21 @@ internal fun SmartLiveWallpaperSettingsSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Slider(
-                    value = adaptiveTintIntensity,
-                    onValueChange = viewModel::setAdaptiveTintIntensity,
+                    value = tintIntensity,
+                    onValueChange = {
+                        tintIntensity = it
+                        tintDragging = true
+                    },
+                    onValueChangeFinished = {
+                        tintDragging = false
+                        viewModel.setAdaptiveTintIntensity(tintIntensity)
+                    },
                     valueRange = 0.1f..1f,
                     steps = 8,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .semantics { contentDescription = tintSliderDescription },
                 )
                 Text(
                     stringResource(R.string.settings_smart_tint_range),
@@ -221,8 +243,11 @@ internal fun SmartLiveWallpaperSettingsSection(
 
     if (showVfxPicker) {
         VfxPickerDialog(
-            initialVfxEffect = initialVfxEffect,
-            onSelect = viewModel::setWeatherVfxEffect,
+            initialVfxEffect = vfxEffect,
+            onSelect = { key ->
+                vfxEffect = key
+                viewModel.setWeatherVfxEffect(key)
+            },
             onDismiss = { showVfxPicker = false },
         )
     }
@@ -281,20 +306,22 @@ private fun ShaderPresetPickerDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.settings_smart_shader_dialog_title)) },
         text = {
-            Column(
-                modifier = Modifier
-                    .heightIn(max = 420.dp)
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                options.forEach { presetId ->
-                    SettingsRadioOptionRow(
-                        label = shaderPresetLabel(presetId),
-                        selected = selectedId == presetId,
-                        onClick = {
-                            onSelect(presetId)
-                            onDismiss()
-                        },
-                    )
+            SettingsSearchIsolatedDialogScope {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    options.forEach { presetId ->
+                        SettingsRadioOptionRow(
+                            label = shaderPresetLabel(presetId),
+                            selected = selectedId == presetId,
+                            onClick = {
+                                onSelect(presetId)
+                                onDismiss()
+                            },
+                        )
+                    }
                 }
             }
         },
@@ -441,21 +468,23 @@ private fun VfxPickerDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.settings_smart_vfx_dialog_title)) },
         text = {
-            Column(
-                modifier = Modifier
-                    .heightIn(max = 420.dp)
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                effects.forEach { (key, label) ->
-                    SettingsRadioOptionRow(
-                        label = label,
-                        selected = currentVfx == key,
-                        onClick = {
-                            currentVfx = key
-                            onSelect(key)
-                            onDismiss()
-                        },
-                    )
+            SettingsSearchIsolatedDialogScope {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    effects.forEach { (key, label) ->
+                        SettingsRadioOptionRow(
+                            label = label,
+                            selected = currentVfx == key,
+                            onClick = {
+                                currentVfx = key
+                                onSelect(key)
+                                onDismiss()
+                            },
+                        )
+                    }
                 }
             }
         },
@@ -480,16 +509,18 @@ private fun TouchEffectsPickerDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.settings_smart_touch_dialog_title)) },
         text = {
-            Column {
-                modes.forEach { (key, label) ->
-                    SettingsRadioOptionRow(
-                        label = label,
-                        selected = touchEffectStrength == key,
-                        onClick = {
-                            onSelect(key)
-                            onDismiss()
-                        },
-                    )
+            SettingsSearchIsolatedDialogScope {
+                Column {
+                    modes.forEach { (key, label) ->
+                        SettingsRadioOptionRow(
+                            label = label,
+                            selected = touchEffectStrength == key,
+                            onClick = {
+                                onSelect(key)
+                                onDismiss()
+                            },
+                        )
+                    }
                 }
             }
         },

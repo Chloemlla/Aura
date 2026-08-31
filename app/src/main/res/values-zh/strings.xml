@@ -152,6 +152,14 @@
     <string name="community_report_details_optional">详情（可选）</string>
     <string name="community_report_note_counter">%1$d/500</string>
     <string name="community_report_submit">提交举报</string>
+    <!-- Community upload policy -->
+    <string name="policy_upload_public_title">公开社区列表</string>
+    <string name="policy_upload_public_body">上传后，此%1$s将公开。其分类、所选许可证、来源链接、上传者标签、标签、公共下载 URL 以及经过处理的存储路径都会与列表一起存储。</string>
+    <string name="policy_upload_takedown_body">在此社区身份可用时，您可以从详情界面删除自己的列表。如果您失去访问权限，请使用“设置”&gt;“社区身份”复制或分享删除请求代码；如果 Aura 不可用，请使用隐私政策中托管的网络请求路径。权利人可以举报该列表。经确认的权利举报可以隐藏或删除%1$s及其%2$s。</string>
+    <string name="policy_upload_attestation">我拥有或有权在此%1$s的所选许可证下分享它。</string>
+    <string name="policy_owner_delete_confirmation">这将移除您的%1$s、公开列表、所有者索引和%2$s。私人删除或下架记录可能会保留，用于审核和滥用审查。</string>
+    <string name="policy_block_confirmation">这将在 Aura 中对此上传者隐藏社区%1$s，仅对您的账户生效。不会通知上传者，管理员仍可单独审核举报。</string>
+    <string name="policy_report_takedown">涉及权利或许可的下架请求请使用专用路径。举报内容仅对管理员可见；经确认的权利举报可以隐藏或删除社区上传内容。</string>
     <string name="search_history_title">最近搜索</string>
     <string name="search_history_clear_all">全部清除</string>
     <string name="search_history_recent_query_cd">最近搜索：%1$s</string>
@@ -689,6 +697,7 @@
     <string name="history_clear_title">清除壁纸历史？</string>
     <string name="history_clear_body">这将删除所有以前应用的壁纸记录。</string>
     <string name="history_clear_confirm">清除</string>
+    <string name="history_clear_cd">清除历史记录</string>
     <string name="history_empty_title">还没有壁纸历史</string>
     <string name="history_empty_body">已应用的壁纸将显示在这里，以便您重新查看、比较和恢复以前的风格。</string>
     <string name="history_applied_wallpaper_cd">已应用的壁纸</string>
@@ -760,24 +769,6 @@
     <string name="settings_dialogs_battery_fill">填充</string>
     <string name="settings_dialogs_battery_overlay_on">叠加开</string>
     <string name="settings_dialogs_battery_overlay_off">叠加关</string>
-    <string name="settings_dialogs_overview_pill">个性化概览</string>
-    <string name="settings_dialogs_overview_title">让 Aura 更贴合心意</string>
-    <string name="settings_dialogs_overview_style_count">%1$d 个风格偏好</string>
-    <string name="settings_dialogs_overview_rotation_every">每 %1$s 轮换</string>
-    <string name="settings_dialogs_overview_weather_overlays">天气叠加层</string>
-    <string name="settings_dialogs_overview_time_tint">时段色调</string>
-    <string name="settings_dialogs_overview_sound_previews">声音预览</string>
-    <string name="settings_dialogs_overview_default_summary">Aura 已设置为平静的默认配置。您随时可以在这里调整发现、自动化和播放。</string>
-    <string name="settings_dialogs_overview_active_summary">当前配置：%1$s。</string>
-    <string name="settings_dialogs_overview_no_style">还没有风格偏好</string>
-    <string name="settings_dialogs_overview_styles_selected">已选择 %1$d 个风格</string>
-    <string name="settings_dialogs_overview_rotation_on">轮换开启</string>
-    <string name="settings_dialogs_overview_rotation_off">轮换关闭</string>
-    <string name="settings_dialogs_overview_fps_video">%1$d FPS 视频</string>
-    <string name="settings_dialogs_overview_provider_keys">%1$d 个提供方密钥</string>
-    <string name="settings_dialogs_overview_automation">自动化</string>
-    <string name="settings_dialogs_overview_manual">手动</string>
-    <string name="settings_dialogs_overview_storage">存储</string>
 
     <!-- Sounds screen -->
     <string name="sounds_fab_record_community">录制社区声音</string>
@@ -955,6 +946,10 @@
     <string name="settings_title">设置</string>
     <string name="settings_apikey_save">保存</string>
     <string name="settings_apikey_clear">清除</string>
+    <string name="settings_apikey_show">显示密钥</string>
+    <string name="settings_apikey_hide">隐藏密钥</string>
+    <string name="settings_apikey_stored_placeholder">••••••（已存储）</string>
+    <string name="settings_apikey_stored_hint">已保存密钥。留空可保留现有密钥，输入新值可替换。</string>
     <string name="settings_feedback_local_folder_saved">本地壁纸文件夹已保存</string>
     <string name="settings_feedback_local_folder_no_persist">已选择文件夹。如果轮换无法读取它，请重新选择该文件夹。</string>
     <string name="settings_feedback_backup_folder_on">备份文件夹已保存。定时备份已开启。</string>
@@ -1029,6 +1024,9 @@
     <string name="settings_folder_permission_repair">权限需要修复；请重新选择文件夹</string>
     <string name="settings_wp_clear_local_folder_title">清除本地轮换文件夹</string>
     <string name="settings_wp_clear_local_folder_subtitle">撤销 Aura 已保存的文件夹授权</string>
+    <string name="settings_wp_clear_local_folder_confirm_title">清除本地轮换文件夹？</string>
+    <string name="settings_wp_clear_local_folder_confirm_body">这将停止从该文件夹轮换壁纸，并撤销已保存的访问权限。设备上的文件不会被删除。</string>
+    <string name="settings_wp_clear_local_folder_confirm_action">清除</string>
     <string name="settings_wp_unlock_title">每次解锁时更换</string>
     <string name="settings_wp_unlock_subtitle">唤醒手机时轮换（激活期间会运行低优先级通知）</string>
     <string name="settings_wp_screen_off_title">屏幕关闭时预载</string>
@@ -1049,6 +1047,9 @@
     <string name="settings_wp_style_no_preference">无风格偏好</string>
     <string name="settings_wp_style_learning_reset_title">重置学习到的壁纸偏好</string>
     <string name="settings_wp_style_learning_reset_subtitle">%1$d 个本地信号</string>
+    <string name="settings_wp_style_learning_reset_confirm_title">重置学习到的壁纸偏好？</string>
+    <string name="settings_wp_style_learning_reset_confirm_body">这将清除用于调整壁纸轮换的 %1$d 个本地风格信号，且无法撤销。</string>
+    <string name="settings_wp_style_learning_reset_confirm_action">重置</string>
     <string name="settings_wp_reddit_title">Reddit 壁纸</string>
     <string name="settings_wp_reddit_subtitle">带帖子和创作者署名的缓存公共 RSS</string>
     <string name="settings_wp_reddit_on_subtitle">缓存公共 RSS；无需 OAuth 客户端 ID</string>
@@ -1131,6 +1132,9 @@
     <string name="settings_backup_folder_title">备份文件夹</string>
     <string name="settings_backup_clear_title">清除备份文件夹</string>
     <string name="settings_backup_clear_subtitle">禁用定时备份并撤销 Aura 已保存的文件夹授权</string>
+    <string name="settings_backup_clear_confirm_title">清除备份文件夹？</string>
+    <string name="settings_backup_clear_confirm_message">这将停用定时备份并移除 Aura 的文件夹授权。已存在的备份文件不会被删除。</string>
+    <string name="settings_backup_clear_confirm">清除</string>
     <string name="settings_backup_interval_title">备份间隔</string>
     <string name="settings_backup_keep_title">保留的备份数</string>
     <!-- Scheduled backup subtitle formatters -->
@@ -1172,6 +1176,7 @@
     <string name="settings_smart_tint_subtitle">日出/日落时使用暖色调，夜间使用冷色调</string>
     <string name="settings_smart_tint_intensity">强度</string>
     <string name="settings_smart_tint_range">轻微 ← → 强烈</string>
+    <string name="settings_smart_tint_intensity_slider_a11y">色调强度滑块</string>
     <string name="settings_smart_weather_data">天气数据由 Open-Meteo.com 提供</string>
     <string name="settings_smart_weather_license">根据 CC BY 4.0 许可</string>
     <string name="settings_smart_dark_switch_title">深色模式自动切换壁纸</string>
@@ -1220,6 +1225,7 @@
     <string name="settings_sounds_volume_title">预览音量</string>
     <string name="settings_sounds_volume_subtitle">选择浏览声音时预览的响亮程度。</string>
     <string name="settings_sounds_volume_percent">%1$d%%</string>
+    <string name="settings_sounds_volume_slider_a11y">预览音量滑块</string>
     <string name="settings_sounds_yt_queries_title">YouTube 搜索查询</string>
     <string name="settings_sounds_yt_queries_subtitle">为每个标签页优化铃声、通知和闹钟搜索</string>
     <string name="settings_sounds_yt_enable_title">启用 YouTube 功能</string>
@@ -1884,6 +1890,9 @@
     <string name="settings_local_catalog_scan_error">无法扫描该文件夹</string>
     <string name="settings_local_catalog_rescan">重新扫描文件夹</string>
     <string name="settings_local_catalog_remove">移除文件夹</string>
+    <string name="settings_local_catalog_remove_confirm_title">移除文件夹？</string>
+    <string name="settings_local_catalog_remove_confirm_message">移除 %1$s 及其中已索引的所有壁纸和标签？此操作无法撤销。</string>
+    <string name="settings_local_catalog_remove_confirm">移除</string>
     <string name="settings_local_catalog_target_button">轮换：%1$s</string>
     <string name="settings_local_catalog_target_home">主屏幕</string>
     <string name="settings_local_catalog_target_lock">锁屏</string>

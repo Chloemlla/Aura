@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,7 +52,9 @@ import com.chloemlla.aura.ui.LiveWallpaperLaunchMode
 import com.chloemlla.aura.ui.components.AuraSnackbarHost
 import com.chloemlla.aura.ui.launchLiveWallpaperPicker
 import com.chloemlla.aura.ui.navigation.Screen
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,8 +72,10 @@ fun SettingsScreen(
         feedbackScope.launch { snackbarHostState.showSnackbar(message) }
     }
     val settingsState = rememberSettingsScreenState(viewModel, context)
-    var dailyWallpaperEnabled by remember(viewModel) {
-        mutableStateOf(viewModel.isDailyWallpaperEnabled())
+    var dailyWallpaperEnabled by remember(viewModel) { mutableStateOf(false) }
+    LaunchedEffect(viewModel) {
+        // Prefs first load can hit disk; keep it off the composition / main thread.
+        dailyWallpaperEnabled = withContext(Dispatchers.IO) { viewModel.isDailyWallpaperEnabled() }
     }
     fun setDailyWallpaperEnabled(enabled: Boolean) {
         dailyWallpaperEnabled = enabled
@@ -113,14 +118,14 @@ fun SettingsScreen(
         }
     }
 
-    var showLocalWallpaperCatalog by remember { mutableStateOf(false) }
+    var showLocalWallpaperCatalog by rememberSaveable { mutableStateOf(false) }
     val chooseLocalWallpaperFolder = rememberLocalWallpaperFolderPicker(
         context = context,
         resources = resources,
         viewModel = viewModel,
         onFeedback = ::showSettingsFeedback,
     )
-    var enableAutoBackupAfterFolder by remember { mutableStateOf(false) }
+    var enableAutoBackupAfterFolder by rememberSaveable { mutableStateOf(false) }
     val backupFolderPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
     ) { uri: Uri? ->
@@ -208,8 +213,8 @@ fun SettingsScreen(
         }
     }
 
-    var settingsPermissionPrompt by remember { mutableStateOf<SettingsPermissionPrompt?>(null) }
-    var settingsSearchQuery by remember { mutableStateOf("") }
+    var settingsPermissionPrompt by rememberSaveable { mutableStateOf<SettingsPermissionPrompt?>(null) }
+    var settingsSearchQuery by rememberSaveable { mutableStateOf("") }
     val settingsSearchRegistry = remember { SettingsSearchRegistry() }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),

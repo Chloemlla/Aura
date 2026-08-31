@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -25,6 +26,8 @@ import com.chloemlla.aura.data.legal.providerCapability
 import com.chloemlla.aura.data.legal.providerDisclosures
 import com.chloemlla.aura.ui.components.CompactSearchField
 import com.chloemlla.aura.ui.util.openExternalUrl
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class OssLicense(
     val name: String,
@@ -113,12 +116,26 @@ private val contentSources = providerDisclosures.map { disclosure ->
 @Composable
 fun LicensesScreen(onBack: () -> Unit) {
     val context = LocalContext.current
-    val generatedNotices = remember(context) {
-        GoogleOssNoticeReader.load(context.resources)
+    var generatedNotices by remember { mutableStateOf<List<GeneratedDependencyNotice>>(emptyList()) }
+    var generatedNoticeQuery by rememberSaveable { mutableStateOf("") }
+    var selectedGeneratedNoticeName by rememberSaveable { mutableStateOf<String?>(null) }
+
+    // Parse the raw OSS notice resources off the main thread, once. The loaded
+    // list keeps only the fields the list UI needs; the dialog fetches the full
+    // license text of the single selected notice on demand.
+    LaunchedEffect(context) {
+        val loaded = withContext(Dispatchers.IO) {
+            GoogleOssNoticeReader.load(context.resources)
+        }
+        generatedNotices = loaded
     }
-    var generatedNoticeQuery by remember {
-        mutableStateOf("")
+
+    val selectedGeneratedNotice = remember(generatedNotices, selectedGeneratedNoticeName) {
+        selectedGeneratedNoticeName?.let { name ->
+            generatedNotices.firstOrNull { it.name == name }
+        }
     }
+
     val reviewNotices = remember(generatedNotices, generatedNoticeQuery) {
         GoogleOssNoticeReader.filter(
             notices = generatedNotices,
@@ -132,14 +149,11 @@ fun LicensesScreen(onBack: () -> Unit) {
             query = generatedNoticeQuery,
         )
     }
-    var selectedGeneratedNotice by remember {
-        mutableStateOf<GeneratedDependencyNotice?>(null)
-    }
 
     selectedGeneratedNotice?.let { notice ->
         GeneratedNoticeDialog(
             notice = notice,
-            onDismiss = { selectedGeneratedNotice = null },
+            onDismiss = { selectedGeneratedNoticeName = null },
         )
     }
 
@@ -202,7 +216,7 @@ fun LicensesScreen(onBack: () -> Unit) {
                     items(reviewNotices) { notice ->
                         GeneratedNoticeCard(
                             notice = notice,
-                            onClick = { selectedGeneratedNotice = notice },
+                            onClick = { selectedGeneratedNoticeName = notice.name },
                         )
                     }
                 }
@@ -222,7 +236,7 @@ fun LicensesScreen(onBack: () -> Unit) {
                     items(visibleGeneratedNotices) { notice ->
                         GeneratedNoticeCard(
                             notice = notice,
-                            onClick = { selectedGeneratedNotice = notice },
+                            onClick = { selectedGeneratedNoticeName = notice.name },
                         )
                     }
                 }
@@ -335,6 +349,13 @@ private fun GeneratedNoticeDialog(
     notice: GeneratedDependencyNotice,
     onDismiss: () -> Unit,
 ) {
+    val context = LocalContext.current
+    var licenseText by remember(notice.name) { mutableStateOf<String?>(null) }
+    LaunchedEffect(notice.name) {
+        licenseText = withContext(Dispatchers.IO) {
+            GoogleOssNoticeReader.licenseText(context.resources, notice.name)
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -352,14 +373,26 @@ private fun GeneratedNoticeDialog(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
-                SelectionContainer {
-                    Text(
-                        notice.licenseText,
+                val text = licenseText
+                if (text != null) {
+                    SelectionContainer {
+                        Text(
+                            text,
+                            modifier = Modifier
+                                .heightIn(max = 360.dp)
+                                .verticalScroll(rememberScrollState()),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                } else {
+                    Box(
                         modifier = Modifier
-                            .heightIn(max = 360.dp)
-                            .verticalScroll(rememberScrollState()),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp, max = 360.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    }
                 }
             }
         },

@@ -22,8 +22,16 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.chloemlla.aura.R
 import com.chloemlla.aura.ui.util.openExternalUrl
 
@@ -120,6 +128,37 @@ internal fun SettingsPermissionPromptDialog(
 
 @Composable
 internal fun PermissionsSettingsSection(context: Context) {
+    var notificationsGranted by remember { mutableStateOf(notificationsPermissionGranted(context)) }
+    var locationGranted by remember {
+        mutableStateOf(checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION))
+    }
+    var contactsGranted by remember {
+        mutableStateOf(checkSelfPermission(context, Manifest.permission.WRITE_CONTACTS))
+    }
+    var dndAccessGranted by remember {
+        mutableStateOf(context.getSystemService(NotificationManager::class.java)?.isNotificationPolicyAccessGranted == true)
+    }
+    var microphoneGranted by remember {
+        mutableStateOf(checkSelfPermission(context, Manifest.permission.RECORD_AUDIO))
+    }
+    // Re-read on every resume so badges refresh after the user returns from the
+    // system settings screen where a permission was toggled (AURA-G8-20).
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                notificationsGranted = notificationsPermissionGranted(context)
+                locationGranted = checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
+                contactsGranted = checkSelfPermission(context, Manifest.permission.WRITE_CONTACTS)
+                dndAccessGranted = context.getSystemService(NotificationManager::class.java)
+                    ?.isNotificationPolicyAccessGranted == true
+                microphoneGranted = checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     SettingsSection(
         sectionKey = SettingsSectionKeys.PERMISSIONS,
         title = stringResource(R.string.settings_permissions_section_title),
@@ -142,40 +181,35 @@ internal fun PermissionsSettingsSection(context: Context) {
             permission = stringResource(R.string.settings_perm_notifications),
             scope = PermissionScope.LOCAL,
             description = stringResource(R.string.settings_perm_notifications_desc),
-            granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-            } else {
-                true
-            },
+            granted = notificationsGranted,
         )
         PermissionTransparencyRow(
             icon = Icons.Default.LocationOn,
             permission = stringResource(R.string.settings_perm_location),
             scope = PermissionScope.REMOTE,
             description = stringResource(R.string.settings_perm_location_desc),
-            granted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED,
+            granted = locationGranted,
         )
         PermissionTransparencyRow(
             icon = Icons.Default.Contacts,
             permission = stringResource(R.string.settings_perm_contacts),
             scope = PermissionScope.LOCAL,
             description = stringResource(R.string.settings_perm_contacts_desc),
-            granted = ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED,
+            granted = contactsGranted,
         )
         PermissionTransparencyRow(
             icon = Icons.Default.Notifications,
             permission = stringResource(R.string.settings_perm_dnd),
             scope = PermissionScope.LOCAL,
             description = stringResource(R.string.settings_perm_dnd_desc),
-            granted = context.getSystemService(NotificationManager::class.java)
-                ?.isNotificationPolicyAccessGranted == true,
+            granted = dndAccessGranted,
         )
         PermissionTransparencyRow(
             icon = Icons.Default.Mic,
             permission = stringResource(R.string.settings_perm_microphone),
             scope = PermissionScope.LOCAL,
             description = stringResource(R.string.settings_perm_microphone_desc),
-            granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
+            granted = microphoneGranted,
         )
         PermissionTransparencyRow(
             icon = Icons.Default.Settings,
@@ -191,6 +225,16 @@ internal fun PermissionsSettingsSection(context: Context) {
         )
     }
 }
+
+private fun checkSelfPermission(context: Context, permission: String): Boolean =
+    ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+
+private fun notificationsPermissionGranted(context: Context): Boolean =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+    } else {
+        true
+    }
 
 @Composable
 internal fun AboutSettingsSection(

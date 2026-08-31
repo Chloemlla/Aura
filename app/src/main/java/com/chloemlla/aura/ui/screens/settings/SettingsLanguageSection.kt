@@ -40,6 +40,7 @@ internal fun LanguageSettingsSection(
     val chineseLabel = stringResource(R.string.settings_language_chinese)
 
     SettingsSection(
+        sectionKey = SettingsSectionKeys.LANGUAGE,
         title = stringResource(R.string.settings_language_section_title),
         description = stringResource(R.string.settings_language_subtitle),
     ) {

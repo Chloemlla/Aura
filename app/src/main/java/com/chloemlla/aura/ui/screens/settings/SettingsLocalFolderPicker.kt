@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import com.chloemlla.aura.R
@@ -21,7 +22,7 @@ internal fun rememberLocalWallpaperFolderPicker(
     viewModel: SettingsViewModel,
     onFeedback: (String) -> Unit,
 ): (String?) -> Unit {
-    var pendingTarget by remember { mutableStateOf<String?>(null) }
+    var pendingTarget by rememberSaveable { mutableStateOf<String?>(null) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
         val target = pendingTarget
         pendingTarget = null

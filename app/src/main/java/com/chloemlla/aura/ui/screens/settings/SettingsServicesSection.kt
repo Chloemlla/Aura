@@ -21,8 +21,11 @@ import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -31,12 +34,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.chloemlla.aura.R
 import com.chloemlla.aura.data.repository.CommunityBlockedUser
@@ -72,13 +77,13 @@ internal fun ServicesCommunitySettingsSection(
     onGeneratedWallpapersClick: () -> Unit,
     onFeedback: (String) -> Unit,
 ) {
-    var showCommunityIdentity by remember { mutableStateOf(false) }
-    var showBlockedCreators by remember { mutableStateOf(false) }
-    var showCommunityGuidelines by remember { mutableStateOf(false) }
-    var showWallhavenKey by remember { mutableStateOf(false) }
-    var showPexelsKey by remember { mutableStateOf(false) }
-    var showPixabayKey by remember { mutableStateOf(false) }
-    var showFreesoundKey by remember { mutableStateOf(false) }
+    var showCommunityIdentity by rememberSaveable { mutableStateOf(false) }
+    var showBlockedCreators by rememberSaveable { mutableStateOf(false) }
+    var showCommunityGuidelines by rememberSaveable { mutableStateOf(false) }
+    var showWallhavenKey by rememberSaveable { mutableStateOf(false) }
+    var showPexelsKey by rememberSaveable { mutableStateOf(false) }
+    var showPixabayKey by rememberSaveable { mutableStateOf(false) }
+    var showFreesoundKey by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(communityBlockAction.message, communityBlockAction.error) {
         communityBlockAction.message?.let {
@@ -351,8 +356,10 @@ internal fun ProviderApiKeyDialog(
     onSave: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var keyText by remember(value) { mutableStateOf(value) }
-    val canClear = keyText.isNotBlank() || value.isNotBlank()
+    val hasStoredValue = value.isNotBlank()
+    var keyText by rememberSaveable { mutableStateOf("") }
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    val canClear = hasStoredValue || keyText.isNotBlank()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -369,12 +376,50 @@ internal fun ProviderApiKeyDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (hasStoredValue) {
+                    Text(
+                        stringResource(R.string.settings_apikey_stored_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 OutlinedTextField(
                     value = keyText,
                     onValueChange = { keyText = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text(placeholder) },
+                    placeholder = {
+                        Text(
+                            if (hasStoredValue && keyText.isBlank()) {
+                                stringResource(R.string.settings_apikey_stored_placeholder)
+                            } else {
+                                placeholder
+                            },
+                        )
+                    },
                     singleLine = true,
+                    visualTransformation = if (passwordVisible) {
+                        VisualTransformation.None
+                    } else {
+                        PasswordVisualTransformation()
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible) {
+                                    Icons.Default.VisibilityOff
+                                } else {
+                                    Icons.Default.Visibility
+                                },
+                                contentDescription = stringResource(
+                                    if (passwordVisible) {
+                                        R.string.settings_apikey_hide
+                                    } else {
+                                        R.string.settings_apikey_show
+                                    },
+                                ),
+                            )
+                        }
+                    },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Password,
                         imeAction = ImeAction.Done,
@@ -385,7 +430,9 @@ internal fun ProviderApiKeyDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    onSave(keyText.trim())
+                    if (keyText.isNotBlank()) {
+                        onSave(keyText.trim())
+                    }
                     onDismiss()
                 },
             ) {

@@ -166,6 +166,14 @@
     <string name="community_report_details_optional">Details optional</string>
     <string name="community_report_note_counter">%1$d/500</string>
     <string name="community_report_submit">Submit report</string>
+    <!-- Community upload policy -->
+    <string name="policy_upload_public_title">Public community listing</string>
+    <string name="policy_upload_public_body">This %1$s becomes public after upload. Its category, selected license, source link, uploader label, tags, public download URL, and sanitized Storage path are stored with the listing.</string>
+    <string name="policy_upload_takedown_body">You can delete your own listing from its detail screen while this community identity is available. If you lose access, use Settings &gt; Community identity to copy or share a deletion request code, or use the privacy-policy hosted web request path if Aura is unavailable. Rights holders can report the listing. Confirmed rights reports can hide or delete the %1$s and its %2$s.</string>
+    <string name="policy_upload_attestation">I own or have rights to share this %1$s under the selected license.</string>
+    <string name="policy_owner_delete_confirmation">This removes your %1$s, public listing, owner index, and %2$s. Private deletion or takedown records may remain for moderation and abuse review.</string>
+    <string name="policy_block_confirmation">This hides community %1$s from this uploader across Aura for your account. The uploader is not notified, and admins can still review reports separately.</string>
+    <string name="policy_report_takedown">Use Rights or license for takedown requests. Reports are private to admins; confirmed rights reports can hide or delete community uploads.</string>
     <string name="search_history_title">Recent searches</string>
     <string name="search_history_clear_all">Clear all</string>
     <string name="search_history_recent_query_cd">Recent search: %1$s</string>
@@ -816,6 +824,7 @@
     <string name="history_clear_title">Clear wallpaper history?</string>
     <string name="history_clear_body">This will remove all records of previously applied wallpapers.</string>
     <string name="history_clear_confirm">Clear</string>
+    <string name="history_clear_cd">Clear history</string>
     <string name="history_empty_title">No wallpaper history yet</string>
     <string name="history_empty_body">Applied wallpapers will appear here so you can revisit, compare, and restore prior looks.</string>
     <string name="history_applied_wallpaper_cd">Applied wallpaper</string>
@@ -915,24 +924,6 @@
     <string name="settings_dialogs_battery_fill">Fill</string>
     <string name="settings_dialogs_battery_overlay_on">Overlay on</string>
     <string name="settings_dialogs_battery_overlay_off">Overlay off</string>
-    <string name="settings_dialogs_overview_pill">Personalization overview</string>
-    <string name="settings_dialogs_overview_title">Make Aura feel intentional</string>
-    <string name="settings_dialogs_overview_style_count">%1$d style preferences</string>
-    <string name="settings_dialogs_overview_rotation_every">rotation every %1$s</string>
-    <string name="settings_dialogs_overview_weather_overlays">weather overlays</string>
-    <string name="settings_dialogs_overview_time_tint">time-of-day tint</string>
-    <string name="settings_dialogs_overview_sound_previews">sound previews</string>
-    <string name="settings_dialogs_overview_default_summary">Aura is set up with calm defaults. Adjust discovery, automation, and playback here whenever you want.</string>
-    <string name="settings_dialogs_overview_active_summary">Active setup: %1$s.</string>
-    <string name="settings_dialogs_overview_no_style">No style bias yet</string>
-    <string name="settings_dialogs_overview_styles_selected">%1$d styles selected</string>
-    <string name="settings_dialogs_overview_rotation_on">Rotation on</string>
-    <string name="settings_dialogs_overview_rotation_off">Rotation off</string>
-    <string name="settings_dialogs_overview_fps_video">%1$d FPS video</string>
-    <string name="settings_dialogs_overview_provider_keys">%1$d provider keys</string>
-    <string name="settings_dialogs_overview_automation">Automation</string>
-    <string name="settings_dialogs_overview_manual">Manual</string>
-    <string name="settings_dialogs_overview_storage">Storage</string>
 
     <!-- Sounds screen -->
     <string name="sounds_fab_record_community">Record community sound</string>
@@ -1110,6 +1101,10 @@
     <string name="settings_title">Settings</string>
     <string name="settings_apikey_save">Save</string>
     <string name="settings_apikey_clear">Clear</string>
+    <string name="settings_apikey_show">Show key</string>
+    <string name="settings_apikey_hide">Hide key</string>
+    <string name="settings_apikey_stored_placeholder">•••••• (saved)</string>
+    <string name="settings_apikey_stored_hint">A key is already saved. Leave the field empty to keep it, or type a new key to replace it.</string>
     <string name="settings_feedback_local_folder_saved">Local wallpaper folder saved</string>
     <string name="settings_feedback_local_folder_no_persist">Folder selected. If rotation cannot read it, choose the folder again.</string>
     <string name="settings_feedback_backup_folder_on">Backup folder saved. Scheduled backup is on.</string>
@@ -1201,6 +1196,9 @@
     <string name="settings_folder_permission_repair">Permission needs repair; choose the folder again</string>
     <string name="settings_wp_clear_local_folder_title">Clear local rotation folder</string>
     <string name="settings_wp_clear_local_folder_subtitle">Remove the saved folder grant from Aura</string>
+    <string name="settings_wp_clear_local_folder_confirm_title">Clear local rotation folder?</string>
+    <string name="settings_wp_clear_local_folder_confirm_body">This stops rotating wallpapers from this folder and revokes the saved access. Files on your device are not deleted.</string>
+    <string name="settings_wp_clear_local_folder_confirm_action">Clear</string>
     <string name="settings_local_catalog_title">Local wallpaper catalog</string>
     <string name="settings_local_catalog_subtitle_count">%1$d local folders indexed</string>
     <string name="settings_local_catalog_add">Add folder</string>
@@ -1223,6 +1221,9 @@
     <string name="settings_local_catalog_scan_error">The folder could not be scanned</string>
     <string name="settings_local_catalog_rescan">Rescan folder</string>
     <string name="settings_local_catalog_remove">Remove folder</string>
+    <string name="settings_local_catalog_remove_confirm_title">Remove folder?</string>
+    <string name="settings_local_catalog_remove_confirm_message">Remove %1$s and all its indexed wallpapers and tags? This cannot be undone.</string>
+    <string name="settings_local_catalog_remove_confirm">Remove</string>
     <string name="settings_local_catalog_target_button">Rotation: %1$s</string>
     <string name="settings_local_catalog_target_home">Home</string>
     <string name="settings_local_catalog_target_lock">Lock screen</string>
@@ -1254,6 +1255,9 @@
     <string name="settings_wp_style_no_preference">No style preference</string>
     <string name="settings_wp_style_learning_reset_title">Reset learned wallpaper taste</string>
     <string name="settings_wp_style_learning_reset_subtitle">%1$d local signals</string>
+    <string name="settings_wp_style_learning_reset_confirm_title">Reset learned wallpaper taste?</string>
+    <string name="settings_wp_style_learning_reset_confirm_body">This clears %1$d local style signals used to tune wallpaper rotation. This cannot be undone.</string>
+    <string name="settings_wp_style_learning_reset_confirm_action">Reset</string>
     <string name="settings_wp_reddit_title">Reddit wallpapers</string>
     <string name="settings_wp_reddit_subtitle">Cached public RSS with post and creator attribution</string>
     <string name="settings_wp_reddit_on_subtitle">Cached public RSS; no OAuth client ID required</string>
@@ -1336,6 +1340,9 @@
     <string name="settings_backup_folder_title">Backup folder</string>
     <string name="settings_backup_clear_title">Clear backup folder</string>
     <string name="settings_backup_clear_subtitle">Disable scheduled backup and remove Aura\'s saved folder grant</string>
+    <string name="settings_backup_clear_confirm_title">Clear backup folder?</string>
+    <string name="settings_backup_clear_confirm_message">This disables scheduled backups and removes Aura\'s saved folder grant. Existing backup files are not deleted.</string>
+    <string name="settings_backup_clear_confirm">Clear</string>
     <string name="settings_backup_interval_title">Backup interval</string>
     <string name="settings_backup_keep_title">Backups to keep</string>
     <!-- Scheduled backup subtitle formatters -->
@@ -1381,6 +1388,7 @@
     <string name="settings_smart_tint_subtitle">Warm tones at sunrise/sunset, cool at night</string>
     <string name="settings_smart_tint_intensity">Intensity</string>
     <string name="settings_smart_tint_range">Subtle ← → Intense</string>
+    <string name="settings_smart_tint_intensity_slider_a11y">Tint intensity slider</string>
     <string name="settings_smart_weather_data">Weather data by Open-Meteo.com</string>
     <string name="settings_smart_weather_license">Licensed under CC BY 4.0</string>
     <string name="settings_smart_dark_switch_title">Auto-switch wallpaper for dark mode</string>
@@ -1429,6 +1437,7 @@
     <string name="settings_sounds_volume_title">Preview volume</string>
     <string name="settings_sounds_volume_subtitle">Choose how assertive previews should feel while browsing sounds.</string>
     <string name="settings_sounds_volume_percent">%1$d%%</string>
+    <string name="settings_sounds_volume_slider_a11y">Preview volume slider</string>
     <string name="settings_sounds_yt_queries_title">YouTube search queries</string>
     <string name="settings_sounds_yt_queries_subtitle">Refine ringtone, notification, and alarm searches for each tab</string>
     <string name="settings_sounds_yt_enable_title">Enable YouTube features</string>

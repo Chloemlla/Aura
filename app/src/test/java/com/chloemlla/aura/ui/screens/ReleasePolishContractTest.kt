@@ -48,18 +48,6 @@ class ReleasePolishContractTest {
     }
 
     @Test
-    fun `settings overview active setup is a complete sentence`() {
-        val source = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsDialogs.kt").readText()
-        val overview = source.substringAfter("internal fun SettingsOverviewCard(")
-
-        assertTrue(
-            "SettingsOverviewCard must reference both the active summary and the empty-state string resource",
-            overview.contains("settings_dialogs_overview_active_summary") &&
-                overview.contains(".isEmpty()"),
-        )
-    }
-
-    @Test
     fun `settings toggle exposes one labeled accessibility target`() {
         val source = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsComponents.kt").readText()
         val toggle = source.substringAfter("internal fun SettingsToggle(").substringBefore("internal fun SettingsValueSlider(")

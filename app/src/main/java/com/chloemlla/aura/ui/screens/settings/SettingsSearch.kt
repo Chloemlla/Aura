@@ -143,6 +143,23 @@ internal fun rememberSettingsSearchRow(
     )
 }
 
+/**
+ * Dialog option rows are not search results. Wrapping a picker dialog's option
+ * list in this scope keeps every option visible regardless of the active search
+ * query (AURA-G8-03) and stops those options from being indexed as searchable
+ * rows (AURA-G8-04). Search filtering must apply only to the section list rows
+ * that open the dialogs, never inside the dialogs.
+ */
+@Composable
+internal fun SettingsSearchIsolatedDialogScope(content: @Composable () -> Unit) {
+    CompositionLocalProvider(
+        LocalSettingsSearchRegistry provides null,
+        LocalSettingsSearchQuery provides "",
+    ) {
+        content()
+    }
+}
+
 internal object SettingsSectionKeys {
     const val WALLPAPERS = "wallpapers"
     const val SCHEDULER = "scheduler"

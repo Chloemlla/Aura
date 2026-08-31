@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -68,9 +69,10 @@ internal fun LocalWallpaperCatalogDialog(
     onSetFolderTarget: (String, WallpaperTarget) -> Unit,
     onUpdateTags: (String, String) -> Unit,
 ) {
-    var query by remember { mutableStateOf("") }
-    var editingUri by remember { mutableStateOf<String?>(null) }
-    var editingTags by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
+    var editingUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var editingTags by rememberSaveable { mutableStateOf("") }
+    var folderPendingRemovalUri by rememberSaveable { mutableStateOf<String?>(null) }
     val normalizedQuery = query.trim().lowercase(Locale.ROOT)
     val duplicateCounts = remember(items) {
         items.asSequence()
@@ -135,7 +137,7 @@ internal fun LocalWallpaperCatalogDialog(
                             LocalWallpaperFolderRow(
                                 folder = folder,
                                 onRescan = { onRescanFolder(folder.folderUri) },
-                                onRemove = { onRemoveFolder(folder.folderUri) },
+                                onRemove = { folderPendingRemovalUri = folder.folderUri },
                                 onRepair = onAddFolder,
                                 onSetTarget = { onSetFolderTarget(folder.folderUri, it) },
                             )
@@ -180,6 +182,39 @@ internal fun LocalWallpaperCatalogDialog(
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_close)) }
         },
     )
+
+    val pendingRemovalFolder = folderPendingRemovalUri?.let { uri ->
+        folders.firstOrNull { it.folderUri == uri }
+    }
+    if (pendingRemovalFolder != null) {
+        AlertDialog(
+            onDismissRequest = { folderPendingRemovalUri = null },
+            title = { Text(stringResource(R.string.settings_local_catalog_remove_confirm_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.settings_local_catalog_remove_confirm_message,
+                        pendingRemovalFolder.displayName,
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onRemoveFolder(pendingRemovalFolder.folderUri)
+                        folderPendingRemovalUri = null
+                    },
+                ) {
+                    Text(stringResource(R.string.settings_local_catalog_remove_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { folderPendingRemovalUri = null }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
+    }
 }
 
 @Composable

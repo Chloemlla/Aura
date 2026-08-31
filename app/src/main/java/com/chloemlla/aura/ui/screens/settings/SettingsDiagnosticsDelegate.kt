@@ -76,9 +76,9 @@ internal class SettingsDiagnosticsDelegate(
     val liveWallpaperLiveness = _liveWallpaperLiveness.asStateFlow()
     private val _backgroundWorkDiagnostics = MutableStateFlow(BackgroundWorkDiagnostics())
     val backgroundWorkDiagnostics = _backgroundWorkDiagnostics.asStateFlow()
-    private val _externalAutomationDiagnostics = MutableStateFlow(ExternalAutomationGate.readDiagnostics(context))
+    private val _externalAutomationDiagnostics = MutableStateFlow(ExternalAutomationDiagnostics())
     val externalAutomationDiagnostics = _externalAutomationDiagnostics.asStateFlow()
-    private val _ytDlpUpdate = MutableStateFlow(YtDlpUpdateUiState(snapshot = ytDlpUpdateManager.snapshot()))
+    private val _ytDlpUpdate = MutableStateFlow(YtDlpUpdateUiState())
     val ytDlpUpdate = _ytDlpUpdate.asStateFlow()
     private val _themePackTransfer = MutableStateFlow(ThemePackTransferState())
     val themePackTransfer = _themePackTransfer.asStateFlow()
@@ -86,7 +86,7 @@ internal class SettingsDiagnosticsDelegate(
     val generatedAssets = _generatedAssets.asStateFlow()
     val diagnostics = sourceMetrics.version
         .map { sourceMetrics.snapshotAll() }
-        .stateIn(scope, sharing, sourceMetrics.snapshotAll())
+        .stateIn(scope, sharing, emptyList())
 
     init {
         refreshCacheUsage()
@@ -94,6 +94,11 @@ internal class SettingsDiagnosticsDelegate(
         refreshBackgroundWorkDiagnostics()
         refreshExternalAutomationDiagnostics()
         refreshGeneratedAssetAudit()
+        scope.launch {
+            _ytDlpUpdate.value = withContext(ioDispatcher) {
+                YtDlpUpdateUiState(snapshot = ytDlpUpdateManager.snapshot())
+            }
+        }
     }
 
     fun clearParallaxGalleryResult() {
@@ -342,9 +347,11 @@ internal class SettingsDiagnosticsDelegate(
         _cacheUsage.value = withContext(ioDispatcher) {
             val cacheBytes = context.cacheDir
                 .takeIf { it.exists() }
-                ?.walkTopDown()
-                ?.filter { it.isFile && it.parentFile?.name != "trimmed" }
-                ?.sumOf { it.length() }
+                ?.listFiles()
+                // Mirrors clearCache()'s exclusion: the whole "trimmed" subtree is
+                // deliberately kept, so the reported reclaimable size must not count it.
+                ?.filter { it.name != "trimmed" }
+                ?.sumOf { entry -> entry.walkTopDown().filter { it.isFile }.sumOf { it.length() } }
                 ?: 0L
             CacheUsageState(
                 fileUsageLabel = formatBytes(cacheBytes + offlineFavorites.getCacheSize()),

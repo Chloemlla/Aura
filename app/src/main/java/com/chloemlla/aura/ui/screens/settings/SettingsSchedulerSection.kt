@@ -200,16 +200,18 @@ internal fun SchedulerSettingsSection(
             onDismissRequest = { showSchedulerInterval = false },
             title = { Text(stringResource(R.string.settings_sched_interval_title)) },
             text = {
-                Column {
-                    intervals.forEach { (min, label) ->
-                        SettingsRadioOptionRow(
-                            label = label,
-                            selected = schedulerInterval == min,
-                            onClick = {
-                                viewModel.setSchedulerInterval(min)
-                                showSchedulerInterval = false
-                            },
-                        )
+                SettingsSearchIsolatedDialogScope {
+                    Column {
+                        intervals.forEach { (min, label) ->
+                            SettingsRadioOptionRow(
+                                label = label,
+                                selected = schedulerInterval == min,
+                                onClick = {
+                                    viewModel.setSchedulerInterval(min)
+                                    showSchedulerInterval = false
+                                },
+                            )
+                        }
                     }
                 }
             },
@@ -248,36 +250,38 @@ internal fun SchedulerSettingsSection(
             onDismissRequest = { schedulerSourceTarget = null },
             title = { Text(stringResource(R.string.settings_sched_wp_source_title)) },
             text = {
-                Column {
-                    sources.forEach { (key, label) ->
-                        SettingsRadioOptionRow(
-                            label = label,
-                            selected = selectedSource == key,
-                            onClick = {
-                                if (key == "collection") {
-                                    schedulerSourceTarget = null
-                                    collectionPickerTarget = sourceTarget
-                                } else if (
-                                    key == WALLPAPER_SOURCE_LOCAL_FOLDER &&
-                                    !isLocalWallpaperFolderReady(
-                                        localWallpaperFolderUri,
-                                        localFolderPermissionActive,
-                                    ) && !localCatalogReady
-                                ) {
-                                    schedulerSourceTarget = null
-                                    onChooseLocalWallpaperFolder(
-                                        when (sourceTarget) {
-                                            SchedulerSourceTarget.DEFAULT -> "scheduler"
-                                            SchedulerSourceTarget.DAY -> "scheduler_day"
-                                            SchedulerSourceTarget.NIGHT -> "scheduler_night"
-                                        },
-                                    )
-                                } else {
-                                    viewModel.setSchedulerSource(sourceTarget, key)
-                                    schedulerSourceTarget = null
-                                }
-                            },
-                        )
+                SettingsSearchIsolatedDialogScope {
+                    Column {
+                        sources.forEach { (key, label) ->
+                            SettingsRadioOptionRow(
+                                label = label,
+                                selected = selectedSource == key,
+                                onClick = {
+                                    if (key == "collection") {
+                                        schedulerSourceTarget = null
+                                        collectionPickerTarget = sourceTarget
+                                    } else if (
+                                        key == WALLPAPER_SOURCE_LOCAL_FOLDER &&
+                                        !isLocalWallpaperFolderReady(
+                                            localWallpaperFolderUri,
+                                            localFolderPermissionActive,
+                                        ) && !localCatalogReady
+                                    ) {
+                                        schedulerSourceTarget = null
+                                        onChooseLocalWallpaperFolder(
+                                            when (sourceTarget) {
+                                                SchedulerSourceTarget.DEFAULT -> "scheduler"
+                                                SchedulerSourceTarget.DAY -> "scheduler_day"
+                                                SchedulerSourceTarget.NIGHT -> "scheduler_night"
+                                            },
+                                        )
+                                    } else {
+                                        viewModel.setSchedulerSource(sourceTarget, key)
+                                        schedulerSourceTarget = null
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
             },
@@ -294,33 +298,35 @@ internal fun SchedulerSettingsSection(
             onDismissRequest = { collectionPickerTarget = null },
             title = { Text(stringResource(R.string.settings_sched_collection_picker_title)) },
             text = {
-                if (collections.isEmpty()) {
-                    Column {
-                        Text(
-                            stringResource(R.string.settings_sched_collection_empty),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Text(
-                            stringResource(R.string.settings_sched_collection_empty_hint),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .heightIn(max = 360.dp)
-                            .verticalScroll(rememberScrollState()),
-                    ) {
-                        collections.forEach { collection ->
-                            SettingsRadioOptionRow(
-                                label = collection.name,
-                                selected = activeId == collection.collectionId,
-                                onClick = {
-                                    viewModel.setSchedulerCollection(collection.collectionId, sourceTarget)
-                                    collectionPickerTarget = null
-                                },
+                SettingsSearchIsolatedDialogScope {
+                    if (collections.isEmpty()) {
+                        Column {
+                            Text(
+                                stringResource(R.string.settings_sched_collection_empty),
+                                style = MaterialTheme.typography.bodyMedium,
                             )
+                            Text(
+                                stringResource(R.string.settings_sched_collection_empty_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .heightIn(max = 360.dp)
+                                .verticalScroll(rememberScrollState()),
+                        ) {
+                            collections.forEach { collection ->
+                                SettingsRadioOptionRow(
+                                    label = collection.name,
+                                    selected = activeId == collection.collectionId,
+                                    onClick = {
+                                        viewModel.setSchedulerCollection(collection.collectionId, sourceTarget)
+                                        collectionPickerTarget = null
+                                    },
+                                )
+                            }
                         }
                     }
                 }
@@ -341,16 +347,18 @@ internal fun SchedulerSettingsSection(
             onDismissRequest = { showDayNightMode = false },
             title = { Text(stringResource(R.string.settings_sched_day_night_mode_title)) },
             text = {
-                Column {
-                    modes.forEach { (mode, label) ->
-                        SettingsRadioOptionRow(
-                            label = label,
-                            selected = schedulerDayNightMode == mode,
-                            onClick = {
-                                viewModel.setSchedulerDayNightMode(mode)
-                                showDayNightMode = false
-                            },
-                        )
+                SettingsSearchIsolatedDialogScope {
+                    Column {
+                        modes.forEach { (mode, label) ->
+                            SettingsRadioOptionRow(
+                                label = label,
+                                selected = schedulerDayNightMode == mode,
+                                onClick = {
+                                    viewModel.setSchedulerDayNightMode(mode)
+                                    showDayNightMode = false
+                                },
+                            )
+                        }
                     }
                 }
             },
@@ -376,24 +384,26 @@ internal fun SchedulerSettingsSection(
                 )
             },
             text = {
-                Column(
-                    modifier = Modifier
-                        .heightIn(max = 420.dp)
-                        .verticalScroll(rememberScrollState()),
-                ) {
-                    (0..23).forEach { hour ->
-                        SettingsRadioOptionRow(
-                            label = formatSchedulerHour(context, hour),
-                            selected = selectedHour == hour,
-                            onClick = {
-                                if (target == SchedulerSourceTarget.DAY) {
-                                    viewModel.setSchedulerDayStartHour(hour)
-                                } else {
-                                    viewModel.setSchedulerNightStartHour(hour)
-                                }
-                                startHourTarget = null
-                            },
-                        )
+                SettingsSearchIsolatedDialogScope {
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = 420.dp)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        (0..23).forEach { hour ->
+                            SettingsRadioOptionRow(
+                                label = formatSchedulerHour(context, hour),
+                                selected = selectedHour == hour,
+                                onClick = {
+                                    if (target == SchedulerSourceTarget.DAY) {
+                                        viewModel.setSchedulerDayStartHour(hour)
+                                    } else {
+                                        viewModel.setSchedulerNightStartHour(hour)
+                                    }
+                                    startHourTarget = null
+                                },
+                            )
+                        }
                     }
                 }
             },

@@ -44,8 +44,16 @@ internal class SettingsCommunityDelegate(
     val communityBlockAction = _communityBlockAction.asStateFlow()
     private val _communityIdentityCleanup = MutableStateFlow(CommunityIdentityCleanupState())
     val communityIdentityCleanup = _communityIdentityCleanup.asStateFlow()
-    private val _communityIdentitySummary = MutableStateFlow(communityIdentityProvider.currentIdentitySummary())
+    private val _communityIdentitySummary = MutableStateFlow(CommunityIdentitySummary())
     val communityIdentitySummary = _communityIdentitySummary.asStateFlow()
+
+    init {
+        scope.launch {
+            _communityIdentitySummary.value = withContext(ioDispatcher) {
+                communityIdentityProvider.currentIdentitySummary()
+            }
+        }
+    }
 
     fun setShowSketchy(show: Boolean) = scope.launch { prefs.setShowSketchy(show) }
     fun setShowNsfw(show: Boolean) = scope.launch { prefs.setShowNsfw(show) }

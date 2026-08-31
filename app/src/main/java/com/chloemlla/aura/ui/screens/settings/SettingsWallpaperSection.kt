@@ -5,7 +5,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Brightness4
@@ -37,15 +44,24 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.WALLPAPER_SOURCE_LOCAL_FOLDER
@@ -101,13 +117,15 @@ internal fun WallpaperRotationSettingsSection(
     onHistoryClick: () -> Unit,
     onFeedback: (String) -> Unit,
 ) {
-    var showIntervalPicker by remember { mutableStateOf(false) }
-    var showSourcePicker by remember { mutableStateOf(false) }
-    var showColumnsPicker by remember { mutableStateOf(false) }
-    var showResPicker by remember { mutableStateOf(false) }
-    var showStylePicker by remember { mutableStateOf(false) }
-    var showClockModePicker by remember { mutableStateOf(false) }
-    var showClockPositionPicker by remember { mutableStateOf(false) }
+    var showIntervalPicker by rememberSaveable { mutableStateOf(false) }
+    var showSourcePicker by rememberSaveable { mutableStateOf(false) }
+    var showColumnsPicker by rememberSaveable { mutableStateOf(false) }
+    var showResPicker by rememberSaveable { mutableStateOf(false) }
+    var showStylePicker by rememberSaveable { mutableStateOf(false) }
+    var showClockModePicker by rememberSaveable { mutableStateOf(false) }
+    var showClockPositionPicker by rememberSaveable { mutableStateOf(false) }
+    var showClearFolderConfirm by rememberSaveable { mutableStateOf(false) }
+    var showResetStyleLearningConfirm by rememberSaveable { mutableStateOf(false) }
 
     SettingsSection(
         sectionKey = SettingsSectionKeys.WALLPAPERS,
@@ -162,18 +180,10 @@ internal fun WallpaperRotationSettingsSection(
                 onCheckedChange = viewModel::setAutoWallpaperRequiresIdle,
             )
         }
-        SettingsValueSlider(
-            icon = Icons.Default.Brightness4,
-            title = stringResource(R.string.settings_wp_dimming_title),
-            subtitle = rotationDarkenSubtitle(
-                percent = autoWallpaperDarkenPercent,
-                rotationActive = autoWpEnabled || schedulerEnabled || rotateOnUnlock || rotateOnScreenOff,
-            ),
-            valueLabel = darkenPercentLabel(autoWallpaperDarkenPercent),
-            value = autoWallpaperDarkenPercent.toFloat(),
-            valueRange = 0f..100f,
-            steps = 9,
-            onValueChange = { viewModel.setAutoWallpaperDarkenPercent(it.roundToInt()) },
+        RotationDimmingSlider(
+            percent = autoWallpaperDarkenPercent,
+            rotationActive = autoWpEnabled || schedulerEnabled || rotateOnUnlock || rotateOnScreenOff,
+            onCommitPercent = { viewModel.setAutoWallpaperDarkenPercent(it) },
         )
         SettingsToggle(
             icon = Icons.Default.Schedule,
@@ -262,7 +272,7 @@ internal fun WallpaperRotationSettingsSection(
                 icon = Icons.Default.DeleteOutline,
                 title = stringResource(R.string.settings_wp_clear_local_folder_title),
                 subtitle = stringResource(R.string.settings_wp_clear_local_folder_subtitle),
-                onClick = viewModel::clearLocalWallpaperFolderUri,
+                onClick = { showClearFolderConfirm = true },
             )
         }
         SettingsToggle(
@@ -345,7 +355,7 @@ internal fun WallpaperRotationSettingsSection(
                     R.string.settings_wp_style_learning_reset_subtitle,
                     wallpaperStyleLearningSignalCount,
                 ),
-                onClick = viewModel::resetWallpaperStyleLearning,
+                onClick = { showResetStyleLearningConfirm = true },
             )
         }
         SettingsToggle(
@@ -398,35 +408,39 @@ internal fun WallpaperRotationSettingsSection(
     }
 
     if (showIntervalPicker) {
-        IntervalPickerDialog(
-            currentInterval = autoWpInterval,
-            onDismiss = { showIntervalPicker = false },
-            onSelect = { hours ->
-                viewModel.setAutoWpInterval(hours)
-                showIntervalPicker = false
-            },
-        )
+        SettingsSearchIsolatedDialogScope {
+            IntervalPickerDialog(
+                currentInterval = autoWpInterval,
+                onDismiss = { showIntervalPicker = false },
+                onSelect = { hours ->
+                    viewModel.setAutoWpInterval(hours)
+                    showIntervalPicker = false
+                },
+            )
+        }
     }
 
     if (showSourcePicker) {
-        SourcePickerDialog(
-            currentSource = autoWpSource,
-            wallhavenProviderEnabled = wallhavenProviderEnabled,
-            bingProviderEnabled = bingProviderEnabled,
-            pixabayProviderEnabled = pixabayProviderEnabled,
-            localFolderUri = localWallpaperFolderUri,
-            localFolderPermissionActive = localFolderPermissionActive,
-            localCatalogReady = localCatalogReady,
-            onDismiss = { showSourcePicker = false },
-            onChooseLocalFolder = {
-                showSourcePicker = false
-                onChooseLocalWallpaperFolder("auto")
-            },
-            onSelect = { source ->
-                viewModel.setAutoWpSource(source)
-                showSourcePicker = false
-            },
-        )
+        SettingsSearchIsolatedDialogScope {
+            SourcePickerDialog(
+                currentSource = autoWpSource,
+                wallhavenProviderEnabled = wallhavenProviderEnabled,
+                bingProviderEnabled = bingProviderEnabled,
+                pixabayProviderEnabled = pixabayProviderEnabled,
+                localFolderUri = localWallpaperFolderUri,
+                localFolderPermissionActive = localFolderPermissionActive,
+                localCatalogReady = localCatalogReady,
+                onDismiss = { showSourcePicker = false },
+                onChooseLocalFolder = {
+                    showSourcePicker = false
+                    onChooseLocalWallpaperFolder("auto")
+                },
+                onSelect = { source ->
+                    viewModel.setAutoWpSource(source)
+                    showSourcePicker = false
+                },
+            )
+        }
     }
 
     if (showColumnsPicker) {
@@ -434,21 +448,23 @@ internal fun WallpaperRotationSettingsSection(
             onDismissRequest = { showColumnsPicker = false },
             title = { Text(stringResource(R.string.settings_picker_grid_columns_title)) },
             text = {
-                Column {
-                    listOf(
-                        1 to stringResource(R.string.settings_picker_grid_1),
-                        2 to stringResource(R.string.settings_picker_grid_2),
-                        3 to stringResource(R.string.settings_picker_grid_3),
-                        4 to stringResource(R.string.settings_picker_grid_4),
-                    ).forEach { (count, label) ->
-                        SettingsRadioOptionRow(
-                            label = label,
-                            selected = gridColumns == count,
-                            onClick = {
-                                viewModel.setGridColumns(count)
-                                showColumnsPicker = false
-                            },
-                        )
+                SettingsSearchIsolatedDialogScope {
+                    Column {
+                        listOf(
+                            1 to stringResource(R.string.settings_picker_grid_1),
+                            2 to stringResource(R.string.settings_picker_grid_2),
+                            3 to stringResource(R.string.settings_picker_grid_3),
+                            4 to stringResource(R.string.settings_picker_grid_4),
+                        ).forEach { (count, label) ->
+                            SettingsRadioOptionRow(
+                                label = label,
+                                selected = gridColumns == count,
+                                onClick = {
+                                    viewModel.setGridColumns(count)
+                                    showColumnsPicker = false
+                                },
+                            )
+                        }
                     }
                 }
             },
@@ -463,21 +479,23 @@ internal fun WallpaperRotationSettingsSection(
             onDismissRequest = { showResPicker = false },
             title = { Text(stringResource(R.string.settings_picker_resolution_title)) },
             text = {
-                Column {
-                    listOf(
-                        "" to stringResource(R.string.settings_picker_resolution_any),
-                        "1920x1080" to stringResource(R.string.settings_picker_resolution_fhd),
-                        "2560x1440" to stringResource(R.string.settings_picker_resolution_qhd),
-                        "3840x2160" to stringResource(R.string.settings_picker_resolution_4k),
-                    ).forEach { (res, label) ->
-                        SettingsRadioOptionRow(
-                            label = label,
-                            selected = preferredRes == res,
-                            onClick = {
-                                viewModel.setPreferredRes(res)
-                                showResPicker = false
-                            },
-                        )
+                SettingsSearchIsolatedDialogScope {
+                    Column {
+                        listOf(
+                            "" to stringResource(R.string.settings_picker_resolution_any),
+                            "1920x1080" to stringResource(R.string.settings_picker_resolution_fhd),
+                            "2560x1440" to stringResource(R.string.settings_picker_resolution_qhd),
+                            "3840x2160" to stringResource(R.string.settings_picker_resolution_4k),
+                        ).forEach { (res, label) ->
+                            SettingsRadioOptionRow(
+                                label = label,
+                                selected = preferredRes == res,
+                                onClick = {
+                                    viewModel.setPreferredRes(res)
+                                    showResPicker = false
+                                },
+                            )
+                        }
                     }
                 }
             },
@@ -502,7 +520,14 @@ internal fun WallpaperRotationSettingsSection(
                 "dark",
             )
         }
-        var selectedStyles by remember(showStylePicker, userStyles) {
+        var selectedStyles by rememberSaveable(
+            showStylePicker,
+            userStyles,
+            stateSaver = listSaver<Set<String>, String>(
+                save = { it.toList() },
+                restore = { it.toSet() },
+            ),
+        ) {
             mutableStateOf(
                 userStyles.split(",")
                     .map { it.trim().lowercase(java.util.Locale.ROOT) }
@@ -566,20 +591,22 @@ internal fun WallpaperRotationSettingsSection(
             onDismissRequest = { showClockModePicker = false },
             title = { Text(stringResource(R.string.settings_wp_clock_overlay_mode_title)) },
             text = {
-                Column {
-                    listOf(
-                        WallpaperClockOverlayMode.TIME to stringResource(R.string.settings_wp_clock_overlay_mode_time),
-                        WallpaperClockOverlayMode.DATE to stringResource(R.string.settings_wp_clock_overlay_mode_date),
-                        WallpaperClockOverlayMode.TIME_AND_DATE to stringResource(R.string.settings_wp_clock_overlay_mode_both),
-                    ).forEach { (mode, label) ->
-                        SettingsRadioOptionRow(
-                            label = label,
-                            selected = wallpaperClockOverlayMode == mode,
-                            onClick = {
-                                viewModel.setWallpaperClockOverlayMode(mode.preferenceValue)
-                                showClockModePicker = false
-                            },
-                        )
+                SettingsSearchIsolatedDialogScope {
+                    Column {
+                        listOf(
+                            WallpaperClockOverlayMode.TIME to stringResource(R.string.settings_wp_clock_overlay_mode_time),
+                            WallpaperClockOverlayMode.DATE to stringResource(R.string.settings_wp_clock_overlay_mode_date),
+                            WallpaperClockOverlayMode.TIME_AND_DATE to stringResource(R.string.settings_wp_clock_overlay_mode_both),
+                        ).forEach { (mode, label) ->
+                            SettingsRadioOptionRow(
+                                label = label,
+                                selected = wallpaperClockOverlayMode == mode,
+                                onClick = {
+                                    viewModel.setWallpaperClockOverlayMode(mode.preferenceValue)
+                                    showClockModePicker = false
+                                },
+                            )
+                        }
                     }
                 }
             },
@@ -596,21 +623,23 @@ internal fun WallpaperRotationSettingsSection(
             onDismissRequest = { showClockPositionPicker = false },
             title = { Text(stringResource(R.string.settings_wp_clock_overlay_position_title)) },
             text = {
-                Column {
-                    listOf(
-                        WallpaperClockOverlayPosition.TOP_LEFT to stringResource(R.string.settings_wp_clock_overlay_position_top_left),
-                        WallpaperClockOverlayPosition.TOP_RIGHT to stringResource(R.string.settings_wp_clock_overlay_position_top_right),
-                        WallpaperClockOverlayPosition.BOTTOM_LEFT to stringResource(R.string.settings_wp_clock_overlay_position_bottom_left),
-                        WallpaperClockOverlayPosition.BOTTOM_RIGHT to stringResource(R.string.settings_wp_clock_overlay_position_bottom_right),
-                    ).forEach { (position, label) ->
-                        SettingsRadioOptionRow(
-                            label = label,
-                            selected = wallpaperClockOverlayPosition == position,
-                            onClick = {
-                                viewModel.setWallpaperClockOverlayPosition(position.preferenceValue)
-                                showClockPositionPicker = false
-                            },
-                        )
+                SettingsSearchIsolatedDialogScope {
+                    Column {
+                        listOf(
+                            WallpaperClockOverlayPosition.TOP_LEFT to stringResource(R.string.settings_wp_clock_overlay_position_top_left),
+                            WallpaperClockOverlayPosition.TOP_RIGHT to stringResource(R.string.settings_wp_clock_overlay_position_top_right),
+                            WallpaperClockOverlayPosition.BOTTOM_LEFT to stringResource(R.string.settings_wp_clock_overlay_position_bottom_left),
+                            WallpaperClockOverlayPosition.BOTTOM_RIGHT to stringResource(R.string.settings_wp_clock_overlay_position_bottom_right),
+                        ).forEach { (position, label) ->
+                            SettingsRadioOptionRow(
+                                label = label,
+                                selected = wallpaperClockOverlayPosition == position,
+                                onClick = {
+                                    viewModel.setWallpaperClockOverlayPosition(position.preferenceValue)
+                                    showClockPositionPicker = false
+                                },
+                            )
+                        }
                     }
                 }
             },
@@ -620,5 +649,156 @@ internal fun WallpaperRotationSettingsSection(
                 }
             },
         )
+    }
+
+    if (showClearFolderConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearFolderConfirm = false },
+            title = { Text(stringResource(R.string.settings_wp_clear_local_folder_confirm_title)) },
+            text = { Text(stringResource(R.string.settings_wp_clear_local_folder_confirm_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearLocalWallpaperFolderUri()
+                        showClearFolderConfirm = false
+                    },
+                ) {
+                    Text(
+                        stringResource(R.string.settings_wp_clear_local_folder_confirm_action),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearFolderConfirm = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
+    }
+
+    if (showResetStyleLearningConfirm) {
+        AlertDialog(
+            onDismissRequest = { showResetStyleLearningConfirm = false },
+            title = { Text(stringResource(R.string.settings_wp_style_learning_reset_confirm_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.settings_wp_style_learning_reset_confirm_body,
+                        wallpaperStyleLearningSignalCount,
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.resetWallpaperStyleLearning()
+                        showResetStyleLearningConfirm = false
+                    },
+                ) {
+                    Text(
+                        stringResource(R.string.settings_wp_style_learning_reset_confirm_action),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetStyleLearningConfirm = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
+    }
+}
+
+/**
+ * Dimming slider that stays responsive while dragging and only writes the
+ * DataStore-backed preference once the drag finishes (AURA-G8-06). The slider
+ * value is a local [mutableStateOf] during the drag and is refreshed from the
+ * flow-backed [percent] only when no drag is in progress.
+ */
+@Composable
+private fun RotationDimmingSlider(
+    percent: Int,
+    rotationActive: Boolean,
+    onCommitPercent: (Int) -> Unit,
+) {
+    val title = stringResource(R.string.settings_wp_dimming_title)
+    val subtitle = rotationDarkenSubtitle(percent, rotationActive)
+    val searchRow = rememberSettingsSearchRow(title, subtitle)
+    if (searchRow == null) return
+    val percentLabel = darkenPercentLabel(percent)
+    val description = stringResource(
+        R.string.a11y_title_subtitle,
+        title,
+        "$subtitle. $percentLabel",
+    )
+    var sliderValue by remember { mutableStateOf(percent.toFloat()) }
+    var isDragging by remember { mutableStateOf(false) }
+    LaunchedEffect(percent) {
+        if (!isDragging) sliderValue = percent.toFloat()
+    }
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 96.dp)
+            .then(searchRow.modifier)
+            .semantics(mergeDescendants = false) {
+                contentDescription = description
+            },
+        color = Color.Transparent,
+        shape = RoundedCornerShape(0.dp),
+        shadowElevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(
+                Icons.Default.Brightness4,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.size(20.dp),
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(title, style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        darkenPercentLabel(sliderValue.roundToInt()),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Slider(
+                    value = sliderValue.coerceIn(0f, 100f),
+                    onValueChange = {
+                        sliderValue = it
+                        isDragging = true
+                    },
+                    onValueChangeFinished = {
+                        isDragging = false
+                        onCommitPercent(sliderValue.roundToInt())
+                    },
+                    valueRange = 0f..100f,
+                    steps = 9,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
     }
 }

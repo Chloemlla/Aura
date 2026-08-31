@@ -34,6 +34,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import com.chloemlla.aura.BuildConfig
 import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.ui.components.AuraStatusAction
@@ -310,8 +312,25 @@ private fun VideoWallpapersState() {
 
 @Composable
 private fun WallpaperEditorState() {
+    // This route is only reachable from the QA screenshot/accessibility gates
+    // (debug builds). In release builds BuildConfig.DEBUG is a compile-time
+    // constant, so R8 drops the 720x1280 allocation entirely; a 1x1 placeholder
+    // is enough for the never-rendered release path. The full-size bitmap is
+    // recycled when the composable leaves composition.
     val editorBitmap = remember {
-        Bitmap.createBitmap(720, 1280, Bitmap.Config.ARGB_8888).asImageBitmap()
+        if (BuildConfig.DEBUG) {
+            Bitmap.createBitmap(720, 1280, Bitmap.Config.ARGB_8888)
+        } else {
+            Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        }
+    }
+    val editorImage = remember(editorBitmap) { editorBitmap.asImageBitmap() }
+    DisposableEffect(editorBitmap) {
+        onDispose {
+            if (!editorBitmap.isRecycled) {
+                editorBitmap.recycle()
+            }
+        }
     }
     RouteColumn {
         Text(stringResource(R.string.editor_wallpaper_title), style = MaterialTheme.typography.headlineSmall)
@@ -323,7 +342,7 @@ private fun WallpaperEditorState() {
             contentAlignment = Alignment.Center,
         ) {
             WallpaperEditorPreview(
-                bitmap = editorBitmap,
+                bitmap = editorImage,
                 contentDescription = stringResource(R.string.editor_wallpaper_edited_cd),
                 modifier = Modifier.fillMaxSize(),
                 bitmapWidth = 720,

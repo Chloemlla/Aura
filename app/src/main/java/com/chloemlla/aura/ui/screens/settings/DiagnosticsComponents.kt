@@ -1,9 +1,11 @@
 package com.chloemlla.aura.ui.screens.settings
 
 import android.content.ClipData
+import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -225,7 +227,9 @@ internal fun copyCrashDiagnosticsBundle(
     onFeedback: (String) -> Unit,
 ) {
     val clipboard = context.getSystemService(ClipboardManager::class.java)
-    clipboard.setPrimaryClip(ClipData.newPlainText("Aura diagnostics", bundle))
+    val clip = ClipData.newPlainText("Aura diagnostics", bundle)
+    markClipSensitive(clip)
+    clipboard.setPrimaryClip(clip)
     onFeedback(context.getString(R.string.settings_feedback_diagnostics_copied))
 }
 
@@ -235,8 +239,20 @@ internal fun copyCommunityDeletionCode(
     onFeedback: (String) -> Unit,
 ) {
     val clipboard = context.getSystemService(ClipboardManager::class.java)
-    clipboard.setPrimaryClip(ClipData.newPlainText("Aura deletion request code", code))
+    val clip = ClipData.newPlainText("Aura deletion request code", code)
+    markClipSensitive(clip)
+    clipboard.setPrimaryClip(clip)
     onFeedback(context.getString(R.string.settings_feedback_deletion_code_copied))
+}
+
+/**
+ * Marks a clipboard item as sensitive so Android 13+ hides the content preview
+ * and excludes it from the clipboard history. No-op on earlier versions.
+ */
+private fun markClipSensitive(clip: ClipData) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        clip.description.flags = clip.description.flags or ClipDescription.FLAG_IS_SENSITIVE
+    }
 }
 
 internal fun shareCommunityDeletionRequest(

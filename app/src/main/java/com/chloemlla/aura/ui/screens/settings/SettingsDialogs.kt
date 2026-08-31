@@ -38,6 +38,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -47,6 +48,9 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
 import com.chloemlla.aura.R
 import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.model.WALLPAPER_SOURCE_LOCAL_FOLDER
@@ -58,7 +62,9 @@ import com.chloemlla.aura.service.shouldPauseVideoMotionForPowerSave
 import com.chloemlla.aura.service.videoBatteryImpactSummary
 import com.chloemlla.aura.ui.components.GlassCard
 import com.chloemlla.aura.ui.components.HighlightPill
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -301,7 +307,7 @@ internal fun WallpaperSlotPickerDialog(
             } else {
                 Column(modifier = Modifier.heightIn(max = 300.dp)) {
                     LazyColumn {
-                        items(history.take(10)) { entry ->
+                        items(history, key = { it.historyId }) { entry ->
                             Row(
                                 Modifier
                                     .fillMaxWidth()
@@ -421,6 +427,8 @@ internal fun rememberVideoBatteryDashboardState(
     autoBatterySaverEnabled: Boolean,
 ): State<VideoBatteryDashboardState> {
     val appContext = remember(context) { context.applicationContext }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val lifecycleState by lifecycleOwner.lifecycle.currentStateAsState()
     val state = remember(appContext, requestedFps, fpsOverlayEnabled, autoBatterySaverEnabled) {
         mutableStateOf(
             readVideoBatteryDashboardState(
@@ -431,15 +439,25 @@ internal fun rememberVideoBatteryDashboardState(
             ),
         )
     }
-    LaunchedEffect(appContext, requestedFps, fpsOverlayEnabled, autoBatterySaverEnabled) {
-        while (true) {
-            state.value = readVideoBatteryDashboardState(
-                context = appContext,
-                requestedFps = requestedFps,
-                fpsOverlayEnabled = fpsOverlayEnabled,
-                autoBatterySaverEnabled = autoBatterySaverEnabled,
-            )
-            delay(2_000L)
+    // Poll on Dispatchers.IO and only while the lifecycle is at least STARTED
+    // (visible). When the settings screen goes to the background the lifecycle
+    // key change cancels this effect, so no receiver/prefs/power reads run while
+    // hidden. registerReceiver(null, …) below is a sticky-broadcast query, not a
+    // registered listener, so there is no receiver object to unregister.
+    LaunchedEffect(lifecycleState, appContext, requestedFps, fpsOverlayEnabled, autoBatterySaverEnabled) {
+        if (lifecycleState.isAtLeast(Lifecycle.State.STARTED)) {
+            while (true) {
+                val snapshot = withContext(Dispatchers.IO) {
+                    readVideoBatteryDashboardState(
+                        context = appContext,
+                        requestedFps = requestedFps,
+                        fpsOverlayEnabled = fpsOverlayEnabled,
+                        autoBatterySaverEnabled = autoBatterySaverEnabled,
+                    )
+                }
+                state.value = snapshot
+                delay(2_000L)
+            }
         }
     }
     return state
@@ -659,123 +677,6 @@ private fun VideoDashboardMetric(
             Spacer(Modifier.height(2.dp))
             Text(value, style = MaterialTheme.typography.titleSmall)
             Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-// ── Settings overview card ───────────────────────────────────────────
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-internal fun SettingsOverviewCard(
-    modifier: Modifier = Modifier,
-    selectedStyleCount: Int,
-    schedulerEnabled: Boolean,
-    schedulerInterval: Long,
-    weatherEffects: Boolean,
-    adaptiveTint: Boolean,
-    autoPreview: Boolean,
-    videoFpsLimit: Int,
-    cacheUsage: CacheUsageState,
-    configuredApiKeys: Int,
-) {
-    val storageLabel = cacheUsage.fileUsageLabel.ifBlank {
-        stringResource(R.string.settings_storage_calculating)
-    }
-    val strStyleCount = stringResource(R.string.settings_dialogs_overview_style_count, selectedStyleCount)
-    val strRotationEvery = stringResource(R.string.settings_dialogs_overview_rotation_every, formatInterval(schedulerInterval))
-    val strWeatherOverlays = stringResource(R.string.settings_dialogs_overview_weather_overlays)
-    val strTimeTint = stringResource(R.string.settings_dialogs_overview_time_tint)
-    val strSoundPreviews = stringResource(R.string.settings_dialogs_overview_sound_previews)
-    val strDefaultSummary = stringResource(R.string.settings_dialogs_overview_default_summary)
-    val enabledFeatures = remember(
-        strStyleCount,
-        strRotationEvery,
-        strWeatherOverlays,
-        strTimeTint,
-        strSoundPreviews,
-        selectedStyleCount,
-        schedulerEnabled,
-        weatherEffects,
-        adaptiveTint,
-        autoPreview,
-    ) {
-        buildList {
-            if (selectedStyleCount > 0) add(strStyleCount)
-            if (schedulerEnabled) add(strRotationEvery)
-            if (weatherEffects) add(strWeatherOverlays)
-            if (adaptiveTint) add(strTimeTint)
-            if (autoPreview) add(strSoundPreviews)
-        }
-    }
-    val setupSummary = if (enabledFeatures.isEmpty()) {
-        strDefaultSummary
-    } else {
-        stringResource(R.string.settings_dialogs_overview_active_summary, enabledFeatures.joinToString(" • "))
-    }
-
-    GlassCard(modifier = modifier) {
-        HighlightPill(
-            label = stringResource(R.string.settings_dialogs_overview_pill),
-            icon = Icons.Default.Tune,
-            tint = MaterialTheme.colorScheme.secondary,
-        )
-        Spacer(Modifier.height(14.dp))
-        Text(
-            text = stringResource(R.string.settings_dialogs_overview_title),
-            style = MaterialTheme.typography.headlineSmall,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = setupSummary,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(18.dp))
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            HighlightPill(
-                label = if (selectedStyleCount == 0) stringResource(R.string.settings_dialogs_overview_no_style) else stringResource(R.string.settings_dialogs_overview_styles_selected, selectedStyleCount),
-                icon = Icons.Default.Wallpaper,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            HighlightPill(
-                label = if (schedulerEnabled) stringResource(R.string.settings_dialogs_overview_rotation_on) else stringResource(R.string.settings_dialogs_overview_rotation_off),
-                icon = Icons.Default.Schedule,
-                tint = MaterialTheme.colorScheme.secondary,
-            )
-            HighlightPill(
-                label = stringResource(R.string.settings_dialogs_overview_fps_video, videoFpsLimit),
-                icon = Icons.Default.VideoLibrary,
-                tint = MaterialTheme.colorScheme.tertiary,
-            )
-            HighlightPill(
-                label = stringResource(R.string.settings_dialogs_overview_provider_keys, configuredApiKeys),
-                icon = Icons.Default.Key,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-        }
-        Spacer(Modifier.height(16.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            SettingsMetric(
-                modifier = Modifier.weight(1f),
-                label = stringResource(R.string.settings_dialogs_overview_automation),
-                value = if (schedulerEnabled) formatInterval(schedulerInterval) else stringResource(R.string.settings_dialogs_overview_manual),
-                icon = Icons.Default.Schedule,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            SettingsMetric(
-                modifier = Modifier.weight(1f),
-                label = stringResource(R.string.settings_dialogs_overview_storage),
-                value = storageLabel,
-                icon = Icons.Default.Folder,
-                tint = MaterialTheme.colorScheme.secondary,
-            )
         }
     }
 }

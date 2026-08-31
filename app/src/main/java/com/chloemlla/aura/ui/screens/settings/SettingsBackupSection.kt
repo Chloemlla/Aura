@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -40,6 +41,7 @@ internal fun BackupSettingsSection(
 ) {
     var showAutoBackupIntervalPicker by remember { mutableStateOf(false) }
     var showAutoBackupKeepPicker by remember { mutableStateOf(false) }
+    var showClearBackupFolderConfirm by rememberSaveable { mutableStateOf(false) }
     val themePackExportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/zip"),
     ) { uri: Uri? ->
@@ -119,7 +121,7 @@ internal fun BackupSettingsSection(
                 icon = Icons.Default.DeleteOutline,
                 title = stringResource(R.string.settings_backup_clear_title),
                 subtitle = stringResource(R.string.settings_backup_clear_subtitle),
-                onClick = viewModel::clearAutoBackupFolderUri,
+                onClick = { showClearBackupFolderConfirm = true },
             )
         }
         SettingsItem(
@@ -194,6 +196,29 @@ internal fun BackupSettingsSection(
                 )
             },
             enabled = !themePackTransfer.inProgress,
+        )
+    }
+
+    if (showClearBackupFolderConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearBackupFolderConfirm = false },
+            title = { Text(stringResource(R.string.settings_backup_clear_confirm_title)) },
+            text = { Text(stringResource(R.string.settings_backup_clear_confirm_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearAutoBackupFolderUri()
+                        showClearBackupFolderConfirm = false
+                    },
+                ) {
+                    Text(stringResource(R.string.settings_backup_clear_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearBackupFolderConfirm = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
         )
     }
 

@@ -39,9 +39,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.res.stringResource
@@ -70,10 +73,10 @@ internal fun SoundSettingsSection(
     onLicensesClick: () -> Unit,
     onFeedback: (String) -> Unit,
 ) {
-    var showYtSoundEditor by remember { mutableStateOf(false) }
-    var showYtBlockedEditor by remember { mutableStateOf(false) }
-    var showPoTokenProviderEditor by remember { mutableStateOf(false) }
-    var showYtDlpConsent by remember { mutableStateOf(false) }
+    var showYtSoundEditor by rememberSaveable { mutableStateOf(false) }
+    var showYtBlockedEditor by rememberSaveable { mutableStateOf(false) }
+    var showPoTokenProviderEditor by rememberSaveable { mutableStateOf(false) }
+    var showYtDlpConsent by rememberSaveable { mutableStateOf(false) }
     val ytDlpUpdateNotice = ytDlpUpdateFeedbackMessage(ytDlpUpdate)
 
     LaunchedEffect(ytDlpUpdate.completedStatus, ytDlpUpdate.error) {
@@ -277,8 +280,8 @@ private fun YouTubePoTokenProviderDialog(
     onSave: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var value by remember(currentUrl) { mutableStateOf(currentUrl) }
-    var invalid by remember { mutableStateOf(false) }
+    var value by rememberSaveable(currentUrl) { mutableStateOf(currentUrl) }
+    var invalid by rememberSaveable { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.settings_youtube_pot_provider_title)) },
@@ -336,6 +339,12 @@ private fun PreviewVolumeSlider(
     previewVolume: Float,
     onPreviewVolumeChange: (Float) -> Unit,
 ) {
+    var sliderValue by remember { mutableStateOf(previewVolume) }
+    var isDragging by remember { mutableStateOf(false) }
+    LaunchedEffect(previewVolume) {
+        if (!isDragging) sliderValue = previewVolume
+    }
+    val sliderDescription = stringResource(R.string.settings_sounds_volume_slider_a11y)
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.82f),
         shape = RoundedCornerShape(8.dp),
@@ -374,10 +383,19 @@ private fun PreviewVolumeSlider(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Slider(
-                    value = previewVolume,
-                    onValueChange = onPreviewVolumeChange,
+                    value = sliderValue,
+                    onValueChange = {
+                        sliderValue = it
+                        isDragging = true
+                    },
+                    onValueChangeFinished = {
+                        isDragging = false
+                        onPreviewVolumeChange(sliderValue)
+                    },
                     valueRange = 0f..1f,
-                    modifier = Modifier.height(24.dp),
+                    modifier = Modifier
+                        .height(48.dp)
+                        .semantics { contentDescription = sliderDescription },
                     colors = SliderDefaults.colors(
                         thumbColor = MaterialTheme.colorScheme.primary,
                         activeTrackColor = MaterialTheme.colorScheme.primary,
@@ -385,7 +403,7 @@ private fun PreviewVolumeSlider(
                 )
             }
             Text(
-                stringResource(R.string.settings_sounds_volume_percent, (previewVolume * 100).toInt()),
+                stringResource(R.string.settings_sounds_volume_percent, (sliderValue * 100).toInt()),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -398,7 +416,7 @@ private fun RingtoneShuffleIntervalPicker(
     ringtoneShuffleIntervalHours: Long,
     onSetIntervalHours: (Long) -> Unit,
 ) {
-    var showShuffleIntervalPicker by remember { mutableStateOf(false) }
+    var showShuffleIntervalPicker by rememberSaveable { mutableStateOf(false) }
     SettingsItem(
         icon = Icons.Default.Timer,
         title = stringResource(R.string.settings_sounds_shuffle_interval_title),
@@ -417,16 +435,18 @@ private fun RingtoneShuffleIntervalPicker(
             onDismissRequest = { showShuffleIntervalPicker = false },
             title = { Text(stringResource(R.string.settings_sounds_shuffle_interval_title)) },
             text = {
-                Column {
-                    intervals.forEach { (hours, label) ->
-                        SettingsRadioOptionRow(
-                            label = label,
-                            selected = ringtoneShuffleIntervalHours == hours,
-                            onClick = {
-                                onSetIntervalHours(hours)
-                                showShuffleIntervalPicker = false
-                            },
-                        )
+                SettingsSearchIsolatedDialogScope {
+                    Column {
+                        intervals.forEach { (hours, label) ->
+                            SettingsRadioOptionRow(
+                                label = label,
+                                selected = ringtoneShuffleIntervalHours == hours,
+                                onClick = {
+                                    onSetIntervalHours(hours)
+                                    showShuffleIntervalPicker = false
+                                },
+                            )
+                        }
                     }
                 }
             },
@@ -445,9 +465,9 @@ private fun YouTubeSoundQueriesDialog(
     onSave: (String, String, String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var ringQ by remember { mutableStateOf(ytRingtonesQuery) }
-    var notifQ by remember { mutableStateOf(ytNotificationsQuery) }
-    var alarmQ by remember { mutableStateOf(ytAlarmsQuery) }
+    var ringQ by rememberSaveable { mutableStateOf(ytRingtonesQuery) }
+    var notifQ by rememberSaveable { mutableStateOf(ytNotificationsQuery) }
+    var alarmQ by rememberSaveable { mutableStateOf(ytAlarmsQuery) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.settings_picker_yt_queries_title)) },
@@ -507,7 +527,7 @@ private fun YouTubeBlockedWordsDialog(
     onSave: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var blockedText by remember { mutableStateOf(ytBlockedWords) }
+    var blockedText by rememberSaveable { mutableStateOf(ytBlockedWords) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.settings_picker_blocked_words_title)) },
