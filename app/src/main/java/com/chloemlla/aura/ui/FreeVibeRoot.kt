@@ -139,7 +139,7 @@ fun FreeVibeRoot(
         isBottomNavDestination(screen = it, destination = currentDestination)
     }
 
-    val startRoute = navigationRootRoute
+    val startRoute = remember { navigationRootRoute }
 
     // Global "Applied — Undo" snackbar host. Any ViewModel that applies a wallpaper posts
     // to ApplyFeedbackBus; we observe it here at the root so the snackbar persists across
