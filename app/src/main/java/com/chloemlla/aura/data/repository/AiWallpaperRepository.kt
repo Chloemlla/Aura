@@ -3,8 +3,6 @@ package com.chloemlla.aura.data.repository
 import android.content.Context
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.Wallpaper
-import com.chloemlla.aura.service.advertisedLengthExceeds
-import com.chloemlla.aura.service.copyStreamCapped
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.net.URI
@@ -45,57 +43,53 @@ class AiWallpaperRepository @Inject constructor(
         // explicit rethrow, a ViewModel scope cancel (back-navigation mid-generate) would
         // be captured as a failure Result and surface to the user as a generic error.
         try {
-            val body = backend.generate(prompt, style, apiKey).getOrThrow()
-            body.use {
-                if (advertisedLengthExceeds(body.contentLength(), MAX_GENERATED_WALLPAPER_BYTES)) {
-                    throw IllegalStateException("Generated wallpaper is too large")
-                }
+            val bytes = backend.generateWallpaper(
+                prompt = prompt,
+                style = style,
+                apiKey = apiKey,
+                maxBytes = MAX_GENERATED_WALLPAPER_BYTES,
+            ).getOrThrow()
 
-                val id = UUID.randomUUID().toString()
-                val file = File(dir, "$id.png")
-                val tmp = File(dir, "$id.tmp")
-                try {
-                    body.byteStream().use { input ->
-                        tmp.outputStream().use { output ->
-                            copyStreamCapped(input, output, MAX_GENERATED_WALLPAPER_BYTES)
-                        }
-                    }
-                    if (!tmp.renameTo(file)) {
-                        tmp.copyTo(file, overwrite = true)
-                        tmp.delete()
-                    }
-                } catch (e: Throwable) {
-                    runCatching { tmp.delete() }
-                    if (e is CancellationException) throw e
-                    throw e
+            val id = UUID.randomUUID().toString()
+            val file = File(dir, "$id.png")
+            val tmp = File(dir, "$id.tmp")
+            try {
+                tmp.outputStream().use { output -> output.write(bytes) }
+                if (!tmp.renameTo(file)) {
+                    tmp.copyTo(file, overwrite = true)
+                    tmp.delete()
                 }
-
-                // Reclaim storage *after* the new file lands so an inflight generation never
-                // races against eviction. The cap is 50 *unreferenced* files; older ones go
-                // first. Pruning is best-effort, but cancellation must still propagate.
-                try {
-                    pruneOldFilesInternal(MAX_GENERATED_FILES)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Throwable) {
-                    // Storage reclamation is not worth failing a successful generation.
-                }
-
-                Result.success(
-                    Wallpaper(
-                        id = id,
-                        source = ContentSource.AI_GENERATED,
-                        thumbnailUrl = file.toURI().toString(),
-                        fullUrl = file.toURI().toString(),
-                        width = 576,
-                        height = 1024,
-                        category = "AI Generated",
-                        tags = generatedWallpaperTags(style),
-                        uploaderName = "AI",
-                        isAiGenerated = true,
-                    ),
-                )
+            } catch (e: Throwable) {
+                runCatching { tmp.delete() }
+                if (e is CancellationException) throw e
+                throw e
             }
+
+            // Reclaim storage *after* the new file lands so an inflight generation never
+            // races against eviction. The cap is 50 *unreferenced* files; older ones go
+            // first. Pruning is best-effort, but cancellation must still propagate.
+            try {
+                pruneOldFilesInternal(MAX_GENERATED_FILES)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Throwable) {
+                // Storage reclamation is not worth failing a successful generation.
+            }
+
+            Result.success(
+                Wallpaper(
+                    id = id,
+                    source = ContentSource.AI_GENERATED,
+                    thumbnailUrl = file.toURI().toString(),
+                    fullUrl = file.toURI().toString(),
+                    width = 576,
+                    height = 1024,
+                    category = "AI Generated",
+                    tags = generatedWallpaperTags(style),
+                    uploaderName = "AI",
+                    isAiGenerated = true,
+                ),
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
@@ -170,12 +164,16 @@ class AiWallpaperRepository @Inject constructor(
         dir.listFiles()
             ?.filter { it.isFile && it.extension == "tmp" }
             ?.forEach { runCatching { it.delete() } }
+        // Load every reference once, then decide per file in memory. The old per-file
+        // check ran ~5 Room COUNTs + ~4 DataStore reads per file (≈450 for a full
+        // 50-file directory); the snapshot collapses that into a handful of batched reads.
+        val snapshot = referenceIndex.snapshotReferences(files)
         // Only unreferenced files count against the cap, and only unreferenced
         // files are deleted. A favourited or slotted PNG survives an unbounded
         // number of newer generations.
         var keptUnreferenced = 0
         files.forEach { file ->
-            if (!referenceIndex.isUnreferenced(file)) return@forEach
+            if (snapshot.isReferenced(file)) return@forEach
             if (keptUnreferenced < maxCount) {
                 keptUnreferenced++
             } else {

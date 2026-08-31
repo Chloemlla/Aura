@@ -24,13 +24,6 @@ interface PexelsApi {
         @Query("page") page: Int = 1,
     ): PexelsVideoResponse
 
-    @GET("videos/popular")
-    suspend fun popularVideos(
-        @Header("Authorization") apiKey: String,
-        @Query("per_page") perPage: Int = 20,
-        @Query("page") page: Int = 1,
-    ): PexelsVideoResponse
-
     @GET("v1/search")
     suspend fun searchPhotos(
         @Header("Authorization") apiKey: String,

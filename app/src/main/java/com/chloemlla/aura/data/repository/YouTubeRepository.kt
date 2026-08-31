@@ -150,6 +150,10 @@ class YouTubeRepository @Inject constructor(
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CachedStream>?) = size > 50
         }
     )
+    // Per-video mutexes deduplicate concurrent stream resolutions. Entries are intentionally
+    // never removed: deleting a lock while a waiter still holds the old reference lets two
+    // coroutines resolve the same video concurrently (AURA-G5-24). The map only grows with the
+    // number of distinct video ids touched, which is small in practice.
     private val audioResolveLocks = java.util.concurrent.ConcurrentHashMap<String, Mutex>()
     private val STREAM_TTL_MS = 6 * 60 * 60 * 1000L // 6 hours (YouTube tokens last ~6h)
     private val sourceName = "youtube"
@@ -274,48 +278,44 @@ class YouTubeRepository @Inject constructor(
             streamCache.remove(videoId)
         }
         val resolveLock = audioResolveLocks.computeIfAbsent(videoId) { Mutex() }
-        try {
-            resolveLock.withLock {
-                streamCache[videoId]?.let { cached ->
-                    if (System.currentTimeMillis() - cached.cachedAt <= STREAM_TTL_MS) return@withLock cached.url
-                    streamCache.remove(videoId)
-                }
-                try {
-                    sourceMetrics.measure(sourceName) {
-                        val startedAt = android.os.SystemClock.elapsedRealtime()
-                        val pageUrl = "https://www.youtube.com/watch?v=$videoId"
-                        val result = executeYouTubeFailover(
-                            primaryEngine = YouTubeExtractionEngine.NEWPIPE,
-                            fallbackEngine = YouTubeExtractionEngine.YT_DLP,
-                            primary = { resolveNewPipeAudio(pageUrl, preferLowBitrate = true) },
-                            fallback = { resolveYtDlpAudio(pageUrl, format = "worstaudio") },
-                            isUsable = String::isNotBlank,
-                        )
-                        reportExtractionResult(result)
-                        val streamUrl = result.value ?: throw YouTubeExtractionUnavailableException(
-                            primaryError = result.primaryError,
-                            fallbackError = result.fallbackError,
-                        )
-                        if (BuildConfig.DEBUG) {
-                            val resolver = result.engine?.displayName().orEmpty()
-                            android.util.Log.d(
-                                "YouTubeRepo",
-                                "Audio preview resolved via $resolver in ${android.os.SystemClock.elapsedRealtime() - startedAt}ms for $videoId",
-                            )
-                        }
-                        streamCache[videoId] = CachedStream(streamUrl, System.currentTimeMillis())
-                        streamUrl
-                    }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    ytDlpUpdateManager.recordExtractionFailure(e)
-                    if (BuildConfig.DEBUG) android.util.Log.e("YouTubeRepo", "getAudioPreviewUrl failed for $videoId: ${e.javaClass.simpleName}: ${e.message}")
-                    null
-                }
+        resolveLock.withLock {
+            streamCache[videoId]?.let { cached ->
+                if (System.currentTimeMillis() - cached.cachedAt <= STREAM_TTL_MS) return@withLock cached.url
+                streamCache.remove(videoId)
             }
-        } finally {
-            audioResolveLocks.remove(videoId, resolveLock)
+            try {
+                sourceMetrics.measure(sourceName) {
+                    val startedAt = android.os.SystemClock.elapsedRealtime()
+                    val pageUrl = "https://www.youtube.com/watch?v=$videoId"
+                    val result = executeYouTubeFailover(
+                        primaryEngine = YouTubeExtractionEngine.NEWPIPE,
+                        fallbackEngine = YouTubeExtractionEngine.YT_DLP,
+                        primary = { resolveNewPipeAudio(pageUrl, preferLowBitrate = true) },
+                        fallback = { resolveYtDlpAudio(pageUrl, format = "worstaudio") },
+                        isUsable = String::isNotBlank,
+                    )
+                    reportExtractionResult(result)
+                    val streamUrl = result.value ?: throw YouTubeExtractionUnavailableException(
+                        primaryError = result.primaryError,
+                        fallbackError = result.fallbackError,
+                    )
+                    if (BuildConfig.DEBUG) {
+                        val resolver = result.engine?.displayName().orEmpty()
+                        android.util.Log.d(
+                            "YouTubeRepo",
+                            "Audio preview resolved via $resolver in ${android.os.SystemClock.elapsedRealtime() - startedAt}ms for $videoId",
+                        )
+                    }
+                    streamCache[videoId] = CachedStream(streamUrl, System.currentTimeMillis())
+                    streamUrl
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ytDlpUpdateManager.recordExtractionFailure(e)
+                if (BuildConfig.DEBUG) android.util.Log.e("YouTubeRepo", "getAudioPreviewUrl failed for $videoId: ${e.javaClass.simpleName}: ${e.message}")
+                null
+            }
         }
     }
 

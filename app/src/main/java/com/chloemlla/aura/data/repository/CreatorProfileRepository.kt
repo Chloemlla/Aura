@@ -356,25 +356,6 @@ internal fun aggregateCreatorStats(
         }
         .sortedWith(compareByDescending<CreatorStats> { it.totalVotes }.thenByDescending { it.uploadCount })
 
-private suspend fun VoteRepository.getVoteCountsOnce(ids: List<String>): Map<String, Int> {
-    if (ids.isEmpty()) return emptyMap()
-    val db = try {
-        FirebaseDatabase.getInstance().reference.child("votes")
-    } catch (e: Exception) {
-        e.rethrowIfCancelled()
-        return emptyMap()
-    }
-    val snapshot = try {
-        awaitFirebaseRead("Community vote counts") { db.get().await() }
-    } catch (e: Exception) {
-        e.rethrowIfCancelled()
-        return emptyMap()
-    }
-    return ids.distinct().associateWith { id ->
-        snapshot.child(sanitizeKey(id)).child("upvotes").getValue(Int::class.java) ?: 0
-    }
-}
-
 private fun CreatorProfileUpdateInput.toPublicProfile(): CreatorPublicProfile =
     CreatorPublicProfile(
         displayName = displayName,

@@ -58,8 +58,12 @@ internal class WallpaperCommunityActions(
     fun downvote(contentId: String) {
         if (communityActionBlocked()) return
         scope.launch {
-            voteRepo.downvote(contentId)
-            state.update { it.copy(applySuccess = if (voteRepo.isAdmin) "Moderated (hidden for all)" else "Hidden") }
+            // Only claim moderation succeeded when it actually did: a device-hash admin's
+            // global takedown is rejected by the server, and claiming "hidden for all"
+            // then would be a lie.
+            if (voteRepo.downvote(contentId)) {
+                state.update { it.copy(applySuccess = if (voteRepo.isAdmin) "Moderated (hidden for all)" else "Hidden") }
+            }
         }
     }
 

@@ -3,7 +3,6 @@ package com.chloemlla.aura.data.remote.wallhaven
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import retrofit2.http.GET
-import retrofit2.http.Path
 import retrofit2.http.Query
 
 // ── API Service ───────────────────────────────────────────────────
@@ -24,18 +23,6 @@ interface WallhavenApi {
         @Query("page") page: Int = 1,
         @Query("apikey") apiKey: String = "",
     ): WallhavenSearchResponse
-
-    @GET("w/{id}")
-    suspend fun getWallpaper(
-        @Path("id") id: String,
-        @Query("apikey") apiKey: String = "",
-    ): WallhavenDetailResponse
-
-    @GET("tag/{id}")
-    suspend fun getTag(
-        @Path("id") id: Long,
-        @Query("apikey") apiKey: String = "",
-    ): WallhavenTagResponse
 }
 
 // ── Response DTOs ─────────────────────────────────────────────────
@@ -48,18 +35,19 @@ data class WallhavenSearchResponse(
 
 @JsonClass(generateAdapter = true)
 data class WallhavenDetailResponse(
-    @Json(name = "data") val data: WallhavenWallpaper,
+    @Json(name = "data") val data: WallhavenWallpaper? = null,
 )
 
 @JsonClass(generateAdapter = true)
 data class WallhavenTagResponse(
-    @Json(name = "data") val data: WallhavenTag,
+    @Json(name = "data") val data: WallhavenTag? = null,
 )
 
 @JsonClass(generateAdapter = true)
 data class WallhavenWallpaper(
     // Defaults on id/url so a rare malformed Wallhaven response (null field) doesn't kill the
-    // whole search result via a JsonDataException. Downstream mappers already filter blank ids.
+    // whole search result via a JsonDataException. Mappers.kt derives a stable id from the
+    // wallpaper URL when id is blank.
     @Json(name = "id") val id: String = "",
     @Json(name = "url") val url: String = "",
     @Json(name = "short_url") val shortUrl: String = "",

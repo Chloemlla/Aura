@@ -351,7 +351,7 @@ val providerRuntimeControls = listOf(
         source = ContentSource.NASA,
         surfaces = "Discover feed (daily APOD + random historical), detail screen, favorites.",
         status = ProviderRuntimeControlStatus.COVERED,
-        currentControl = "APOD fetched via api.nasa.gov with DEMO_KEY; cached per session.",
+        currentControl = "APOD fetched anonymously from api.nasa.gov; cached per session.",
         disabledBehavior = "Discover omits APOD card; saved NASA records keep source attribution.",
         followUp = "None.",
     ),

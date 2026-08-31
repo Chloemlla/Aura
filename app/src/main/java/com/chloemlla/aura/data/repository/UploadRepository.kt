@@ -28,6 +28,7 @@ import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import com.google.firebase.storage.FirebaseStorage
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -35,6 +36,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -97,84 +99,91 @@ class UploadRepository @Inject constructor(
         rights: CommunityUploadRights,
         isAiGenerated: Boolean = false,
         onProgress: (Float) -> Unit = {},
-    ): Result<String> = try {
-        if (!isCommunityProviderEnabled()) {
-            sourceMetrics.recordDisabled(SOURCE_COMMUNITY)
-            throw IllegalStateException(communityDisabledMessage())
-        }
-        val storageInstance = storage ?: throw IllegalStateException("Firebase Storage not available")
-
-        // Validate name length
-        val sanitizedName = name.trim().take(100)
-        if (sanitizedName.isBlank()) {
-            throw IllegalArgumentException("Sound name cannot be empty")
-        }
-        val validatedRights = validateCommunityUploadRights(
-            license = rights.license,
-            rightsAttested = rights.rightsAttested,
-            sourceUrl = rights.sourceUrl,
-        )
-
-        val normalizedCategory = normalizeUploadCategory(category)
-        val normalizedTags = sanitizeUploadTags(tags)
-        val uploadInfo = resolveUploadFileInfo(localUri, sanitizedName)
-        val sniffedAudio = sniffAudioUpload(localUri)
-        val normalizedMimeType = sniffedAudio.mimeType.lowercase(java.util.Locale.ROOT)
-        if (!isSupportedAudioUploadMime(normalizedMimeType)) {
-            throw IllegalArgumentException("Unsupported audio format")
-        }
-
-        val fileSize = resolveUploadSize(localUri)
-        validateUploadSize(fileSize)
-        ensureReadableUpload(localUri)
-
-        val timestamp = System.currentTimeMillis()
-        val uploaderId = identityProvider.ensureSignedIn()
-        val uploaderLabel = identityProvider.currentUploaderLabel()
-        val storagePath = "sounds/${sanitizeUploadStorageSegment(uploaderId)}/${timestamp}_${uploadInfo.baseName}.${sniffedAudio.extension}"
-        val storageRef = storageInstance.reference.child(storagePath)
-        var metadataSaved = false
-
+    ): Result<String> = withContext(Dispatchers.IO) {
         try {
-            // Upload file
-            val uploadTask = storageRef.putFile(localUri)
-            uploadTask.addOnProgressListener { snapshot ->
-                val totalByteCount = snapshot.totalByteCount.takeIf { it > 0 } ?: 0L
-                val progress = if (totalByteCount > 0) {
-                    snapshot.bytesTransferred.toFloat() / totalByteCount
-                } else {
-                    0f
-                }
-                onProgress(progress.coerceIn(0f, 1f))
+            if (!isCommunityProviderEnabled()) {
+                sourceMetrics.recordDisabled(SOURCE_COMMUNITY)
+                throw IllegalStateException(communityDisabledMessage())
             }
-            uploadTask.await()
+            val storageInstance = storage ?: throw IllegalStateException("Firebase Storage not available")
 
-            // Get download URL
-            val downloadUrl = storageRef.downloadUrl.await().toString()
-
-            finalizeSoundUploadWithCallable(
-                name = sanitizedName,
-                category = normalizedCategory,
-                tags = normalizedTags,
-                downloadUrl = downloadUrl,
-                storagePath = storagePath,
-                fileType = normalizedMimeType,
-                originalFileName = uploadInfo.originalFileName,
-                uploaderLabel = uploaderLabel,
-                rights = validatedRights,
-                isAiGenerated = isAiGenerated,
+            // Validate name length
+            val sanitizedName = name.trim().take(100)
+            if (sanitizedName.isBlank()) {
+                throw IllegalArgumentException("Sound name cannot be empty")
+            }
+            val validatedRights = validateCommunityUploadRights(
+                license = rights.license,
+                rightsAttested = rights.rightsAttested,
+                sourceUrl = rights.sourceUrl,
             )
-            metadataSaved = true
 
-            Result.success(downloadUrl)
-        } finally {
-            if (!metadataSaved) {
-                runCatching { storageRef.delete().await() }
+            // Fail fast on auth before copying/sniffing an up-to-20MB local file.
+            val uploaderId = identityProvider.ensureSignedIn()
+            val uploaderLabel = identityProvider.currentUploaderLabel()
+            if (identityProvider.currentFirebaseUid().isNullOrBlank()) {
+                throw IllegalStateException("Community upload service requires Firebase Auth")
             }
+
+            val normalizedCategory = normalizeUploadCategory(category)
+            val normalizedTags = sanitizeUploadTags(tags)
+            val uploadInfo = resolveUploadFileInfo(localUri, sanitizedName)
+            val sniffedAudio = sniffAudioUpload(localUri)
+            val normalizedMimeType = sniffedAudio.mimeType.lowercase(java.util.Locale.ROOT)
+            if (!isSupportedAudioUploadMime(normalizedMimeType)) {
+                throw IllegalArgumentException("Unsupported audio format")
+            }
+
+            val fileSize = resolveUploadSize(localUri)
+            validateUploadSize(fileSize)
+            ensureReadableUpload(localUri)
+
+            val timestamp = System.currentTimeMillis()
+            val storagePath = "sounds/${sanitizeUploadStorageSegment(uploaderId)}/${timestamp}_${uploadInfo.baseName}.${sniffedAudio.extension}"
+            val storageRef = storageInstance.reference.child(storagePath)
+            var metadataSaved = false
+
+            try {
+                // Upload file
+                val uploadTask = storageRef.putFile(localUri)
+                uploadTask.addOnProgressListener { snapshot ->
+                    val totalByteCount = snapshot.totalByteCount.takeIf { it > 0 } ?: 0L
+                    val progress = if (totalByteCount > 0) {
+                        snapshot.bytesTransferred.toFloat() / totalByteCount
+                    } else {
+                        0f
+                    }
+                    onProgress(progress.coerceIn(0f, 1f))
+                }
+                uploadTask.await()
+
+                // Get download URL
+                val downloadUrl = storageRef.downloadUrl.await().toString()
+
+                finalizeSoundUploadWithCallable(
+                    name = sanitizedName,
+                    category = normalizedCategory,
+                    tags = normalizedTags,
+                    downloadUrl = downloadUrl,
+                    storagePath = storagePath,
+                    fileType = normalizedMimeType,
+                    originalFileName = uploadInfo.originalFileName,
+                    uploaderLabel = uploaderLabel,
+                    rights = validatedRights,
+                    isAiGenerated = isAiGenerated,
+                )
+                metadataSaved = true
+
+                Result.success(downloadUrl)
+            } finally {
+                if (!metadataSaved) {
+                    runCatching { storageRef.delete().await() }
+                }
+            }
+        } catch (e: Exception) {
+            e.rethrowIfCancelled()
+            Result.failure(e)
         }
-    } catch (e: Exception) {
-        e.rethrowIfCancelled()
-        Result.failure(e)
     }
 
     suspend fun deleteSoundUpload(uploadId: String): Result<Unit> = try {

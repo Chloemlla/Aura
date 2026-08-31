@@ -63,7 +63,10 @@ class SoundCloudRepository @Inject constructor(
         search("alarm clock morning wake", minDurationMs = 5000, maxDurationMs = 60000, offset = offset)
 
     private fun SoundCloudTrack.toDomain(): Sound {
-        // v2 API doesn't return stream_url; construct from track ID
+        // v2 API doesn't return stream_url; construct from track ID.
+        // client_id is intentionally embedded here for immediate playback; the persistence
+        // mapper (Sound.toFavoriteEntity) strips it before long-term storage so the secret is
+        // never saved — the track id in "sc_$id" lets the URL be rebuilt when needed.
         val streamWithAuth = if (streamUrl != null && clientId.isNotBlank()) {
             if (streamUrl.contains("?")) "$streamUrl&client_id=$clientId"
             else "$streamUrl?client_id=$clientId"

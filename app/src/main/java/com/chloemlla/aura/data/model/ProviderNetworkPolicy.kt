@@ -238,10 +238,10 @@ val providerNetworkPolicies = listOf(
         maxAutomaticPrefetch = 30,
         maxBatchDownloadPerUserAction = 30,
         timeoutPolicy = "OkHttp connect/read/write timeouts",
-        backoffPolicy = "degraded-source cooldown after repeated failures",
+        backoffPolicy = "client-side 429 gate latches until the hourly quota resets",
         cacheFallbackPolicy = "discover enhancement skipped; cached wallpapers remain",
         disabledBehavior = "provider toggle blocks new requests",
-        quotaSummary = "Enhancement-source metadata uses Aura default cache and bounded batches.",
+        quotaSummary = "One Pexels call per Discover page, gated by a client-side 429 backoff; Aura default cache.",
     ),
     ProviderNetworkPolicy(
         source = ContentSource.PIXABAY,

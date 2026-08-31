@@ -1,6 +1,8 @@
 {
   "rules": {
     "votes": {
+      ".read": true,
+      ".indexOn": ["upvotes"],
       "$contentId": {
         ".read": true,
         ".write": "auth != null && auth.token.admin === true",

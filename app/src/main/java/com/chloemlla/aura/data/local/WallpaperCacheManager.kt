@@ -7,6 +7,7 @@ import com.chloemlla.aura.data.model.Wallpaper
 import com.chloemlla.aura.data.model.WallpaperCacheEntity
 import com.chloemlla.aura.data.model.longestProviderRequestCacheTtlMs
 import com.chloemlla.aura.data.model.providerNetworkPoliciesBySource
+import com.chloemlla.aura.data.remote.parseContentSource
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -73,7 +74,7 @@ class WallpaperCacheManager @Inject constructor(
 
     private fun WallpaperCacheEntity.toWallpaper() = Wallpaper(
         id = id,
-        source = try { ContentSource.valueOf(source) } catch (_: Exception) { ContentSource.WALLHAVEN },
+        source = source.parseContentSource(),
         thumbnailUrl = thumbnailUrl,
         fullUrl = fullUrl,
         width = width,

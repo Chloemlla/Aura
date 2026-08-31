@@ -48,6 +48,25 @@ data class GeneratedAssetAudit(
 )
 
 /**
+ * In-memory answer to "is this managed file still referenced?", built in one pass.
+ *
+ * Constructed by [GeneratedAssetReferenceIndex.snapshotReferences]; membership
+ * checks are plain set lookups, so looping over a whole directory does not re-hit
+ * Room or DataStore once per file.
+ */
+class GeneratedReferenceSnapshot internal constructor(
+    private val referencedLocators: Set<String>,
+    private val referencedAssetIds: Set<String>,
+) {
+    /** True when at least one store still points at [file]. */
+    fun isReferenced(file: File): Boolean {
+        val assetId = file.nameWithoutExtension
+        if (assetId.isNotBlank() && assetId in referencedAssetIds) return true
+        return generatedLocatorSpellings(file.path).any { it in referencedLocators }
+    }
+}
+
+/**
  * Answers "is this managed file still needed?" before anything deletes it.
  *
  * Every check is by locator, and a single file has more than one legal spelling
@@ -117,14 +136,72 @@ class GeneratedAssetReferenceIndex @Inject constructor(
     suspend fun isUnreferenced(file: File): Boolean = referencesFor(file).isEmpty()
 
     /**
+     * Builds an in-memory snapshot of every reference that could protect one of
+     * [files], using one batched pass over each store instead of the per-file
+     * COUNT + DataStore reads. The returned [GeneratedReferenceSnapshot] answers
+     * "is this file still referenced?" with plain set lookups.
+     */
+    suspend fun snapshotReferences(files: List<File>): GeneratedReferenceSnapshot {
+        val referencedLocators = mutableSetOf<String>()
+        fun addLocator(value: String) {
+            if (value.isNotBlank() && isManagedGeneratedLocator(value)) {
+                referencedLocators += value
+            }
+        }
+
+        favoriteDao.getAll().first().forEach { favorite ->
+            addLocator(favorite.fullUrl)
+            addLocator(favorite.thumbnailUrl)
+            addLocator(favorite.offlinePath)
+        }
+        downloadDao.getAll().first().forEach { download ->
+            addLocator(download.localPath)
+        }
+        historyDao.getRecentSnapshot(REFERENCE_SNAPSHOT_HISTORY_LIMIT).forEach { history ->
+            addLocator(history.fullUrl)
+            addLocator(history.thumbnailUrl)
+        }
+        collectionDao.getAllCollections().first().forEach { collection ->
+            collectionDao.getCollectionItems(collection.collectionId).first().forEach { item ->
+                addLocator(item.fullUrl)
+                addLocator(item.thumbnailUrl)
+            }
+        }
+        // The cache stores a generated asset under its wallpaper id, which is the
+        // file stem, so one batched id lookup covers every candidate file.
+        val stems = files
+            .map { it.nameWithoutExtension }
+            .filter { it.isNotBlank() }
+        if (stems.isNotEmpty()) {
+            cacheDao.getByIds(stems).forEach { entry ->
+                addLocator(entry.fullUrl)
+                addLocator(entry.thumbnailUrl)
+            }
+        }
+
+        addLocator(prefs.lastNightVariantWallpaperLocator.first())
+        packLocators().forEach(::addLocator)
+
+        val slotIds = setOfNotNull(
+            prefs.darkModeWallpaperId.first().takeIf { it.isNotBlank() },
+            prefs.lightModeWallpaperId.first().takeIf { it.isNotBlank() },
+        )
+        return GeneratedReferenceSnapshot(
+            referencedLocators = referencedLocators,
+            referencedAssetIds = slotIds,
+        )
+    }
+
+    /**
      * Splits [files] into the ones still referenced and the ones safe to prune,
      * and counts references whose file no longer exists.
      */
     suspend fun audit(files: List<File>): GeneratedAssetAudit {
+        val snapshot = snapshotReferences(files)
         var referenced = 0
         var unreferenced = 0
         files.forEach { file ->
-            if (referencesFor(file).isEmpty()) unreferenced++ else referenced++
+            if (snapshot.isReferenced(file)) referenced++ else unreferenced++
         }
         return GeneratedAssetAudit(
             referencedFiles = referenced,
@@ -166,6 +243,13 @@ class GeneratedAssetReferenceIndex @Inject constructor(
 
 /** Marker for the managed generated-wallpaper directory inside a locator. */
 private const val GENERATED_DIR_MARKER = "/ai_wallpapers/"
+
+/**
+ * Upper bound for the history rows loaded into a reference snapshot. History is
+ * already pruned to 100 rows by [com.chloemlla.aura.data.local.WallpaperHistoryDao],
+ * so this is generous headroom, not a real ceiling on the user's history.
+ */
+private const val REFERENCE_SNAPSHOT_HISTORY_LIMIT = 10_000
 
 /**
  * True when [locator] points inside Aura's managed generated-wallpaper directory.

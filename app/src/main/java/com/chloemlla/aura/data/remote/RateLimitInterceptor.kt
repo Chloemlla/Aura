@@ -32,7 +32,7 @@ class RateLimitInterceptor(
     private val maxRetries: Int = 2,
     private val defaultBackoffMs: Long = 1_500L,
     private val retryCeilingMs: Long = 30_000L,
-    private val sleeper: (Long) -> Unit = { ms -> Thread.sleep(ms) },
+    private val sleeper: (Long) -> Unit = ::interruptibleSleep,
 ) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -74,5 +74,40 @@ class RateLimitInterceptor(
         val seconds = header.trim().toLongOrNull() ?: return null
         if (seconds < 0) return null
         return TimeUnit.SECONDS.toMillis(seconds)
+    }
+}
+
+/**
+ * Interruptible bounded wait used by [RateLimitInterceptor]'s default backoff.
+ *
+ * A bare `Thread.sleep` pins the dispatcher thread for the full wait with no way
+ * for a cancelled caller to cut it short. This loop instead checks the interrupt
+ * flag before every wait segment, exits early when the thread is interrupted, and
+ * restores the flag so the interruption is never lost. It is resilient to spurious
+ * wakeups (it re-waits for the remaining time) and never sleeps past [ms].
+ */
+private fun interruptibleSleep(ms: Long) {
+    if (ms <= 0) return
+    val monitor = Object()
+    synchronized(monitor) {
+        val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(ms)
+        while (true) {
+            if (Thread.currentThread().isInterrupted) {
+                // Restore the flag: Object.wait would have cleared it on throw.
+                Thread.currentThread().interrupt()
+                return
+            }
+            val remainingNanos = deadline - System.nanoTime()
+            if (remainingNanos <= 0) return
+            try {
+                monitor.wait(
+                    TimeUnit.NANOSECONDS.toMillis(remainingNanos),
+                    (remainingNanos % 1_000_000L).toInt(),
+                )
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                return
+            }
+        }
     }
 }

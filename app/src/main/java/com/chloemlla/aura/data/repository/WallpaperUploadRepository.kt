@@ -7,6 +7,7 @@ import android.os.Build
 import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
 import com.chloemlla.aura.data.local.PreferencesManager
+import com.chloemlla.aura.data.local.WallpaperCacheManager
 import com.chloemlla.aura.data.model.COMMUNITY_GUIDELINES_REQUIRED_MESSAGE
 import com.chloemlla.aura.data.model.CommunityUploadDeleteReason
 import com.chloemlla.aura.data.model.CommunityUploadKind
@@ -65,6 +66,7 @@ private const val MAX_WALLPAPER_TAGS = 8
 private const val MAX_WALLPAPER_TAG_LENGTH = 24
 private const val FALLBACK_PHONE_ASPECT = 9f / 16f
 private const val SOURCE_COMMUNITY = "community"
+private const val COMMUNITY_WALLPAPERS_CACHE_KEY = "community_wallpapers_1"
 
 @Singleton
 class WallpaperUploadRepository @Inject constructor(
@@ -72,6 +74,7 @@ class WallpaperUploadRepository @Inject constructor(
     private val identityProvider: CommunityIdentityProvider,
     private val colorExtractor: ColorExtractor,
     private val prefs: PreferencesManager,
+    private val cacheManager: WallpaperCacheManager,
     private val sourceMetrics: SourceMetrics,
     private val communityBlockRepo: CommunityBlockRepository,
     private val callableClient: CommunityCallableClient,
@@ -131,11 +134,16 @@ class WallpaperUploadRepository @Inject constructor(
                 throw IllegalArgumentException(imageSupport.message)
             }
 
+            // Fail fast on auth before preparing the ~4MB image and uploading.
+            val uploaderId = identityProvider.ensureSignedIn()
+            val uploaderLabel = identityProvider.currentUploaderLabel()
+            if (identityProvider.currentFirebaseUid().isNullOrBlank()) {
+                throw IllegalStateException("Community upload service requires Firebase Auth")
+            }
+
             ensureReadableWallpaper(localUri)
             val prepared = prepareWallpaper(localUri)
             val timestamp = System.currentTimeMillis()
-            val uploaderId = identityProvider.ensureSignedIn()
-            val uploaderLabel = identityProvider.currentUploaderLabel()
             val storagePath =
                 "wallpapers/${sanitizeWallpaperUploadStorageSegment(uploaderId)}/${timestamp}_${uploadInfo.baseName}.jpg"
             val storageRef = storageInstance.reference.child(storagePath)
@@ -293,24 +301,49 @@ class WallpaperUploadRepository @Inject constructor(
             return@withContext SearchResult(emptyList(), 0, 1, false)
         }
         val ref = wallpapersRef ?: return@withContext SearchResult(emptyList(), 0, 1, false)
-        val blockedUploaderIds = communityBlockRepo.blockedUserIdsOnce()
-        val snapshot = awaitFirebaseRead("Community wallpapers") {
-            ref.orderByChild("uploadedAt").limitToLast(limit).get().await()
+        try {
+            sourceMetrics.measure(SOURCE_COMMUNITY) {
+                val blockedUploaderIds = communityBlockRepo.blockedUserIdsOnce()
+                val snapshot = awaitFirebaseRead("Community wallpapers") {
+                    ref.orderByChild("uploadedAt").limitToLast(limit).get().await()
+                }
+                val entries = snapshot.children.mapNotNull { child ->
+                    val wallpaper = snapshotToWallpaper(child, blockedUploaderIds) ?: return@mapNotNull null
+                    Triple(
+                        wallpaper,
+                        child.child("votes").getValue(Int::class.java) ?: 0,
+                        child.child("uploadedAt").getValue(Long::class.java) ?: 0L,
+                    )
+                }
+                val wallpapers = entries.sortedWith(
+                    compareByDescending<Triple<Wallpaper, Int, Long>> { it.second }
+                        .thenByDescending { it.third },
+                ).map { it.first }
+                SearchResult(
+                    items = wallpapers,
+                    totalCount = wallpapers.size,
+                    currentPage = 1,
+                    hasMore = false,
+                ).also { result ->
+                    if (result.items.isNotEmpty()) {
+                        cacheManager.cache(COMMUNITY_WALLPAPERS_CACHE_KEY, result.items)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.rethrowIfCancelled()
+            val cached = cacheManager.getStaleCached(COMMUNITY_WALLPAPERS_CACHE_KEY)
+            if (!cached.isNullOrEmpty()) {
+                SearchResult(
+                    items = cached,
+                    totalCount = cached.size,
+                    currentPage = 1,
+                    hasMore = false,
+                )
+            } else {
+                throw e
+            }
         }
-        val wallpapers = snapshot.children.mapNotNull { child -> snapshotToWallpaper(child, blockedUploaderIds) }
-            .sortedWith(
-                compareByDescending<Wallpaper> { wallpaper ->
-                    snapshot.child(wallpaper.id.removePrefix("cw_")).child("votes").getValue(Int::class.java) ?: 0
-                }.thenByDescending { wallpaper ->
-                    snapshot.child(wallpaper.id.removePrefix("cw_")).child("uploadedAt").getValue(Long::class.java) ?: 0L
-                },
-            )
-        SearchResult(
-            items = wallpapers,
-            totalCount = wallpapers.size,
-            currentPage = 1,
-            hasMore = false,
-        )
     }
 
     private suspend fun isCommunityProviderEnabled(): Boolean =

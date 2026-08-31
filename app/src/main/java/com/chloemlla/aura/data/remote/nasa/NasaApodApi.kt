@@ -7,14 +7,13 @@ import retrofit2.http.Query
 
 /**
  * NASA Astronomy Picture of the Day (APOD) API.
- * No auth required — uses the public DEMO_KEY by default (30 req/hour, 50/day).
+ * No auth required — calls are anonymous (no shared DEMO_KEY quota to exhaust).
  * Callers should cache aggressively since the image changes at most once per day.
  */
 interface NasaApodApi {
 
     @GET("planetary/apod")
     suspend fun getApod(
-        @Query("api_key") apiKey: String = DEFAULT_KEY,
         @Query("date") date: String? = null,
         @Query("count") count: Int? = null,
         @Query("thumbs") thumbs: Boolean = true,
@@ -22,14 +21,12 @@ interface NasaApodApi {
 
     @GET("planetary/apod")
     suspend fun getApodList(
-        @Query("api_key") apiKey: String = DEFAULT_KEY,
         @Query("count") count: Int = 10,
         @Query("thumbs") thumbs: Boolean = true,
     ): List<NasaApodResponse>
 
     companion object {
         const val BASE_URL = "https://api.nasa.gov/"
-        const val DEFAULT_KEY = "DEMO_KEY"
     }
 }
 

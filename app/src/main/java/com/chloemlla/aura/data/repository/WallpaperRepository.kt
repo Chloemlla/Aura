@@ -6,6 +6,7 @@ import com.chloemlla.aura.util.rethrowIfCancelled
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.SearchResult
 import com.chloemlla.aura.data.model.Wallpaper
+import com.chloemlla.aura.data.model.stableKey
 import com.chloemlla.aura.data.remote.bing.BingDailyApi
 import com.chloemlla.aura.data.remote.lemmy.LemmyApi
 import com.chloemlla.aura.data.remote.nasa.NasaApodApi
@@ -27,6 +28,7 @@ import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import javax.net.ssl.SSLException
+import java.security.MessageDigest
 import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
@@ -40,12 +42,16 @@ internal fun mergeDiscoverResults(
 ): SearchResult<Wallpaper> {
     val bySource = results.filterNotNull().map { it.items.toMutableList() }
     val interleaved = mutableListOf<Wallpaper>()
+    val seen = mutableSetOf<String>()
     var rounds = 0
     while (bySource.any { it.isNotEmpty() } && interleaved.size < maxItems) {
         for (source in bySource) {
             if (source.isNotEmpty()) {
-                interleaved.add(source.removeAt(0))
-                if (interleaved.size >= maxItems) break
+                val item = source.removeAt(0)
+                if (seen.add(item.stableKey())) {
+                    interleaved.add(item)
+                    if (interleaved.size >= maxItems) break
+                }
             }
         }
         rounds++
@@ -73,23 +79,9 @@ internal fun keepPexelsAsDiscoverEnhancement(
     results: List<SearchResult<Wallpaper>?>,
 ): List<SearchResult<Wallpaper>> {
     val loadedResults = results.filterNotNull()
-    val hasBaseInventory = loadedResults.any { result ->
-        result.items.any { it.source != ContentSource.PEXELS }
-    }
-    if (hasBaseInventory) return loadedResults
-
-    return loadedResults.map { result ->
-        val nonPexelsItems = result.items.filter { it.source != ContentSource.PEXELS }
-        if (nonPexelsItems.size == result.items.size) {
-            result
-        } else {
-            result.copy(
-                items = nonPexelsItems,
-                totalCount = nonPexelsItems.size,
-                hasMore = false,
-            )
-        }
-    }
+    // Pexels content is always kept: dropping it when it is the only content would
+    // render Discover blank (AURA-G5-16).
+    return loadedResults
 }
 
 internal fun shouldRetryBingHost(error: Throwable): Boolean = when (error) {
@@ -100,6 +92,16 @@ internal fun shouldRetryBingHost(error: Throwable): Boolean = when (error) {
     -> true
     else -> false
 }
+
+/**
+ * Collision-resistant, stable encoding for cache keys. String.hashCode() can collide
+ * two distinct queries onto the same cache row; SHA-256 hex makes that practically
+ * impossible while staying stable across processes.
+ */
+internal fun stableCacheKey(vararg parts: String): String =
+    MessageDigest.getInstance("SHA-256")
+        .digest(parts.joinToString("|").toByteArray(Charsets.UTF_8))
+        .joinToString("") { byte -> (byte.toInt() and 0xFF).toString(16).padStart(2, '0') }
 
 private const val DISCOVER_PER_SOURCE_TIMEOUT_MS = 4_500L
 private const val DISCOVER_SECONDARY_SOURCE_BUDGET_MS = 1_200L
@@ -175,6 +177,19 @@ internal fun pixabayRateLimitBackoffMillis(error: Throwable): Long? {
         .times(1_000L)
 }
 
+internal fun pexelsRateLimitBackoffMillis(error: Throwable): Long? {
+    val response = (error as? HttpException)?.response() ?: return null
+    if (response.code() != 429) return null
+    val headers = response.headers()
+    val seconds = headers["Retry-After"]?.toLongOrNull()
+        ?: headers["X-Ratelimit-Reset"]?.toLongOrNull()
+        ?: return null
+    return seconds
+        .coerceAtLeast(1L)
+        .coerceAtMost(PIXABAY_MAX_BACKOFF_SECONDS)
+        .times(1_000L)
+}
+
 @Singleton
 class WallpaperRepository @Inject constructor(
     private val wallhavenApi: WallhavenApi,
@@ -190,6 +205,9 @@ class WallpaperRepository @Inject constructor(
 ) {
     @Volatile
     private var pixabayRateLimitedUntilMs: Long = 0L
+
+    @Volatile
+    private var pexelsRateLimitedUntilMs: Long = 0L
 
     private suspend fun wallhavenApiKey(): String = prefs.wallhavenApiKey.first()
     private suspend fun pixabayApiKey(): String = prefs.pixabayApiKey.first()
@@ -220,10 +238,12 @@ class WallpaperRepository @Inject constructor(
             sourceMetrics.recordDisabled(SOURCE_WALLHAVEN)
             return emptySourceResult(page)
         }
+        val purity = wallhavenPurity()
+        val minRes = wallhavenMinRes()
         val cacheKey = when {
-            sortingOverride != null -> "wallhaven_${sortingOverride}_$page"
-            query.isBlank() -> "wallhaven_toplist_${topRange}_$page"
-            else -> "wallhaven_search_${query.hashCode()}_$page"
+            sortingOverride != null -> "wallhaven_${sortingOverride}_${purity}_${minRes}_$page"
+            query.isBlank() -> "wallhaven_toplist_${topRange}_${purity}_${minRes}_$page"
+            else -> "wallhaven_search_${stableCacheKey(query)}_${purity}_${minRes}_$page"
         }
         return withCacheFallback(cacheKey, ContentSource.WALLHAVEN) {
             sourceMetrics.measure(SOURCE_WALLHAVEN) {
@@ -234,8 +254,8 @@ class WallpaperRepository @Inject constructor(
                     sorting = sorting,
                     topRange = topRange,
                     categories = "111",
-                    purity = wallhavenPurity(),
-                    minResolution = wallhavenMinRes(),
+                    purity = purity,
+                    minResolution = minRes,
                     page = page,
                     apiKey = apiKey,
                 )
@@ -367,7 +387,10 @@ class WallpaperRepository @Inject constructor(
             return emptySourceResult(page)
         }
         val mapped = nearestWallhavenColor(color)
-        return withCacheFallback("wallhaven_color_${mapped}_$page", ContentSource.WALLHAVEN) {
+        return withCacheFallback(
+            "wallhaven_color_${mapped}_${wallhavenPurity()}_${wallhavenMinRes()}_$page",
+            ContentSource.WALLHAVEN,
+        ) {
             sourceMetrics.measure(SOURCE_WALLHAVEN) {
                 val response = wallhavenApi.search(
                     query = "",
@@ -402,7 +425,7 @@ class WallpaperRepository @Inject constructor(
                 val marketIndex = (page - 1) % marketsCount
                 val market = BingDailyApi.MARKETS[marketIndex]
                 val (response, workingBaseUrl) = fetchBingImages(
-                    idx = (idx * 8).coerceAtMost(7),
+                    idx = idx * 8,
                     market = market,
                 )
                 SearchResult(
@@ -433,11 +456,24 @@ class WallpaperRepository @Inject constructor(
     }
 
     suspend fun getNasaApodRandom(count: Int = 10): SearchResult<Wallpaper> {
+        val cacheKey = "nasa_apod_random_$count"
         return try {
             sourceMetrics.measure(SOURCE_APOD) {
+                val cached = cacheManager.getCached(cacheKey, ContentSource.NASA)
+                if (!cached.isNullOrEmpty()) {
+                    return@measure SearchResult(
+                        items = cached,
+                        totalCount = cached.size,
+                        currentPage = 1,
+                        hasMore = false,
+                    )
+                }
                 val responses = withTimeoutOrNull(8_000L) { nasaApodApi.getApodList(count = count) }
                     ?: throw SocketTimeoutException("NASA APOD request timed out")
                 val wallpapers = responses.mapNotNull { it.toWallpaper() }
+                if (wallpapers.isNotEmpty()) {
+                    cacheManager.cache(cacheKey, wallpapers)
+                }
                 SearchResult(
                     items = wallpapers,
                     totalCount = wallpapers.size,
@@ -447,7 +483,17 @@ class WallpaperRepository @Inject constructor(
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
-            emptySourceResult(1)
+            val stale = cacheManager.getStaleCached(cacheKey)
+            if (!stale.isNullOrEmpty()) {
+                SearchResult(
+                    items = stale,
+                    totalCount = stale.size,
+                    currentPage = 1,
+                    hasMore = false,
+                )
+            } else {
+                emptySourceResult(1)
+            }
         }
     }
 
@@ -541,7 +587,7 @@ class WallpaperRepository @Inject constructor(
         }
         val key = pixabayApiKey()
         if (key.isBlank()) return emptySourceResult(page)
-        val cacheKey = "pixabay_${query.hashCode()}_$page"
+        val cacheKey = "pixabay_${stableCacheKey(query)}_$page"
         val fresh = cacheManager.getCached(cacheKey, ContentSource.PIXABAY)
         if (!fresh.isNullOrEmpty()) return cachedSourceResult(fresh, page)
         if (System.currentTimeMillis() < pixabayRateLimitedUntilMs) {
@@ -590,8 +636,13 @@ class WallpaperRepository @Inject constructor(
         }
         val key = pexelsApiKey()
         if (key.isBlank()) return emptySourceResult(page)
-        return withCacheFallback("pexels_curated_$page", ContentSource.PEXELS) {
-            sourceMetrics.measure(SOURCE_PEXELS) {
+        val cacheKey = "pexels_curated_$page"
+        if (System.currentTimeMillis() < pexelsRateLimitedUntilMs) {
+            val stale = cacheManager.getStaleCached(cacheKey)
+            return if (!stale.isNullOrEmpty()) cachedSourceResult(stale, page) else emptySourceResult(page)
+        }
+        return withCacheFallback(cacheKey, ContentSource.PEXELS) {
+            measurePexels {
                 val response = pexelsApi.curatedPhotos(apiKey = key, page = page)
                 SearchResult(
                     items = response.photos.map { photo ->
@@ -621,8 +672,13 @@ class WallpaperRepository @Inject constructor(
         }
         val key = pexelsApiKey()
         if (key.isBlank()) return emptySourceResult(page)
-        return withCacheFallback("pexels_${query.hashCode()}_$page", ContentSource.PEXELS) {
-            sourceMetrics.measure(SOURCE_PEXELS) {
+        val cacheKey = "pexels_${stableCacheKey(query)}_$page"
+        if (System.currentTimeMillis() < pexelsRateLimitedUntilMs) {
+            val stale = cacheManager.getStaleCached(cacheKey)
+            return if (!stale.isNullOrEmpty()) cachedSourceResult(stale, page) else emptySourceResult(page)
+        }
+        return withCacheFallback(cacheKey, ContentSource.PEXELS) {
+            measurePexels {
                 val response = pexelsApi.searchPhotos(
                     apiKey = key,
                     query = query.ifBlank { "wallpaper" },
@@ -667,14 +723,17 @@ class WallpaperRepository @Inject constructor(
                 val primarySources = mutableListOf(
                     async { loadSourceSafely { getWallhaven(query = rotatingTheme, page = sourcePage) } },
                     async { loadSourceSafely { getPixabay(query = rotatingTheme, page = sourcePage) } },
-                    async { loadSourceSafely { getPexelsCurated(page = sourcePage) } },
                 )
                 if (userStyles.isNotEmpty()) {
                     val styleQuery = styleToWallhavenQuery(userStyles)
                     primarySources.add(async { loadSourceSafely { getWallhaven(query = styleQuery, page = sourcePage) } })
-                    // Also bias Pexels and Pixabay by style
+                    // Bias Pexels and Pixabay by style. Pexels is called once per page
+                    // (the style search here, or the curated feed in the else branch)
+                    // to stay inside its 200 req/hour budget.
                     primarySources.add(async { loadSourceSafely { getPixabay(query = styleQuery, page = sourcePage) } })
                     primarySources.add(async { loadSourceSafely { getPexels(query = styleQuery, page = sourcePage) } })
+                } else {
+                    primarySources.add(async { loadSourceSafely { getPexelsCurated(page = sourcePage) } })
                 }
                 val secondarySources = listOf(
                     async { loadSourceSafely { getBingDaily(page = page) } },
@@ -718,6 +777,12 @@ class WallpaperRepository @Inject constructor(
                     page = page,
                     maxItems = DISCOVER_PAGE_SIZE,
                 )
+
+                // Distinguish "every source failed" from "sources returned no content" so
+                // the UI can surface an error instead of rendering a blank Discover feed.
+                if (merged.items.isEmpty() && (primaryResults + secondaryResults).any { it == null }) {
+                    throw ConnectException("All discover sources failed")
+                }
 
                 // Cache combined discover result for instant startup next time
                 if (merged.items.isNotEmpty()) {
@@ -801,6 +866,24 @@ class WallpaperRepository @Inject constructor(
         currentPage = page,
         hasMore = false,
     )
+
+    /**
+     * Measure a Pexels call and honor its tight 200 req/hour budget: a 429 latches a
+     * client-side gate (see [pexelsRateLimitedUntilMs]) so later calls short-circuit
+     * to cache/empty instead of hammering the API while it resets.
+     */
+    private suspend fun <T> measurePexels(block: suspend () -> T): T =
+        sourceMetrics.measure(SOURCE_PEXELS) {
+            try {
+                block()
+            } catch (e: Exception) {
+                e.rethrowIfCancelled()
+                pexelsRateLimitBackoffMillis(e)?.let { backoff ->
+                    pexelsRateLimitedUntilMs = maxOf(pexelsRateLimitedUntilMs, System.currentTimeMillis() + backoff)
+                }
+                throw e
+            }
+        }
 
     private suspend fun fetchBingImages(
         idx: Int,

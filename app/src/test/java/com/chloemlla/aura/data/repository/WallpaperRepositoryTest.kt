@@ -169,21 +169,18 @@ class WallpaperRepositoryTest {
     }
 
     @Test
-    fun `keepPexelsAsDiscoverEnhancement drops pexels-only discover inventory`() {
-        val guarded = keepPexelsAsDiscoverEnhancement(
-            listOf(
-                SearchResult(
-                    items = listOf(wallpaper("px_1", source = ContentSource.PEXELS)),
-                    totalCount = 50,
-                    currentPage = 1,
-                    hasMore = true,
-                ),
+    fun `keepPexelsAsDiscoverEnhancement keeps pexels-only discover inventory`() {
+        val input = listOf(
+            SearchResult(
+                items = listOf(wallpaper("px_1", source = ContentSource.PEXELS)),
+                totalCount = 50,
+                currentPage = 1,
+                hasMore = true,
             ),
         )
 
-        assertTrue(guarded.single().items.isEmpty())
-        assertEquals(0, guarded.single().totalCount)
-        assertFalse(guarded.single().hasMore)
+        // Pexels-only content is kept so Discover never renders blank (AURA-G5-16).
+        assertEquals(input, keepPexelsAsDiscoverEnhancement(input))
     }
 
     @Test
@@ -363,7 +360,7 @@ class WallpaperRepositoryTest {
         val pixabayApi = mockk<PixabayApi>()
         val cacheManager = mockk<WallpaperCacheManager>()
         val cached = listOf(wallpaper("pb_cached", source = ContentSource.PIXABAY))
-        coEvery { cacheManager.getCached("pixabay_0_1", ContentSource.PIXABAY) } returns cached
+        coEvery { cacheManager.getCached("pixabay_e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855_1", ContentSource.PIXABAY) } returns cached
 
         val repo = wallpaperRepository(
             pixabayApi = pixabayApi,

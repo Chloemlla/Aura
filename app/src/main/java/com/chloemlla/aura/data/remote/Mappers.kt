@@ -12,7 +12,7 @@ import com.chloemlla.aura.data.remote.wikimedia.WikimediaPotdImage
 // -- Wallhaven -> Wallpaper --
 
 fun WallhavenWallpaper.toWallpaper() = Wallpaper(
-    id = "wh_$id",
+    id = "wh_" + wallhavenStableId(),
     source = ContentSource.WALLHAVEN,
     thumbnailUrl = thumbs.large.ifEmpty { thumbs.original },
     fullUrl = path,
@@ -27,6 +27,12 @@ fun WallhavenWallpaper.toWallpaper() = Wallpaper(
     views = views,
     favorites = favorites,
 )
+
+/** Derive a stable, non-empty id from the response id, falling back to a hash of the
+ * wallpaper image/page URL so an empty id never reaches downstream (no blank-id filter exists). */
+private fun WallhavenWallpaper.wallhavenStableId(): String =
+    id.trim().takeIf { it.isNotEmpty() }
+        ?: (path.ifBlank { url }.ifBlank { thumbs.large }).hashCode().toUInt().toString()
 
 // -- Bing Daily -> Wallpaper --
 
@@ -61,7 +67,9 @@ fun NasaApodResponse.toWallpaper(): Wallpaper? {
         height = 0,
         category = "astronomy",
         tags = listOf("nasa", "apod", "astronomy", "space"),
-        sourcePageUrl = "https://apod.nasa.gov/apod/ap${date.replace("-", "").drop(2)}.html",
+        sourcePageUrl = date.takeIf { it.isNotBlank() }
+            ?.let { "https://apod.nasa.gov/apod/ap${it.replace("-", "").drop(2)}.html" }
+            ?: imageUrl,
         uploaderName = copyright?.trim() ?: "NASA",
     )
 }
@@ -141,6 +149,9 @@ fun Sound.toFavoriteEntity() = FavoriteEntity(
     thumbnailUrl = "",
     fullUrl = when (source) {
         ContentSource.YOUTUBE -> sourcePageUrl.ifBlank { downloadUrl.ifBlank { previewUrl } }
+        // Never persist the SoundCloud client_id: the signed URL is rebuilt from the track id
+        // (still stored in this entity's id) when it needs to be streamed again.
+        ContentSource.SOUNDCLOUD -> downloadUrl.ifBlank { previewUrl }.withoutQueryParam("client_id")
         else -> downloadUrl.ifBlank { previewUrl }
     },
     name = name,
@@ -158,9 +169,18 @@ fun Sound.toFavoriteEntity() = FavoriteEntity(
 
 // -- FavoriteEntity -> Domain --
 
+/** Parse a persisted source string into a [ContentSource], failing loudly on unknown values
+ * instead of silently downgrading a favorite/cache entry to a wrong known source. */
+internal fun String.parseContentSource(): ContentSource =
+    try {
+        ContentSource.valueOf(this)
+    } catch (_: IllegalArgumentException) {
+        error("Unknown ContentSource '$this'; refusing to silently downgrade content identity")
+    }
+
 fun FavoriteEntity.toWallpaper() = Wallpaper(
     id = id,
-    source = try { ContentSource.valueOf(source) } catch (_: Exception) { ContentSource.WALLHAVEN },
+    source = source.parseContentSource(),
     thumbnailUrl = thumbnailUrl,
     fullUrl = offlinePath.ifBlank { fullUrl },
     width = width,
@@ -180,11 +200,7 @@ fun FavoriteEntity.toWallpaper() = Wallpaper(
 )
 
 fun FavoriteEntity.toSound(): Sound {
-    val restoredSource = try {
-        ContentSource.valueOf(source)
-    } catch (_: Exception) {
-        ContentSource.FREESOUND
-    }
+    val restoredSource = source.parseContentSource()
     val restoredSourcePageUrl = when {
         !sourcePageUrl.isNullOrBlank() -> sourcePageUrl
         restoredSource == ContentSource.YOUTUBE && fullUrl.isYouTubePageUrl() -> fullUrl
@@ -212,6 +228,20 @@ fun FavoriteEntity.toSound(): Sound {
 
 private fun String.isYouTubePageUrl(): Boolean =
     contains("youtube.com", ignoreCase = true) || contains("youtu.be", ignoreCase = true)
+
+/** Remove a query parameter from a URL, preserving the base and any other parameters. */
+private fun String.withoutQueryParam(name: String): String {
+    val queryStart = indexOf('?')
+    if (queryStart < 0) return this
+    val base = substring(0, queryStart)
+    val keptQuery = substring(queryStart + 1)
+        .split('&')
+        .asSequence()
+        .filter { it.isNotBlank() }
+        .filterNot { it.substringBefore('=') == name }
+        .joinToString("&")
+    return if (keptQuery.isEmpty()) base else "$base?$keptQuery"
+}
 
 // -- Lemmy -> Wallpaper --
 

@@ -8,11 +8,10 @@ import com.chloemlla.aura.data.model.SearchResult
 import com.chloemlla.aura.data.model.Wallpaper
 import com.chloemlla.aura.service.SourceMetrics
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
@@ -313,7 +312,7 @@ class RedditRepository @Inject constructor(
     private suspend fun fetchRss(
         url: String,
         fallbackSubreddit: String,
-    ): RedditRssPage = withContext(Dispatchers.IO) {
+    ): RedditRssPage {
         val request = Request.Builder()
             .url(url)
             .header(
@@ -322,14 +321,41 @@ class RedditRepository @Inject constructor(
             )
             .header("Accept", "application/atom+xml, application/xml;q=0.9")
             .build()
-        okHttpClient.newCall(request).execute().use { response ->
-            if (response.code == 429) {
-                throw RedditRateLimitException(redditRetryAfterMs(response.headers))
-            }
-            if (!response.isSuccessful) throw IOException("Reddit RSS HTTP ${response.code}")
-            val xml = response.body?.string().orEmpty()
-            if (xml.isBlank()) throw IOException("Reddit RSS returned an empty feed")
-            parseRedditRssPage(xml, fallbackSubreddit)
+        // Use enqueue (not blocking execute) so coroutine cancellation cancels the
+        // in-flight OkHttp request instead of leaving it running on the IO dispatcher.
+        return suspendCancellableCoroutine { continuation ->
+            val call = okHttpClient.newCall(request)
+            continuation.invokeOnCancellation { call.cancel() }
+            call.enqueue(object : okhttp3.Callback {
+                override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                    if (!continuation.isActive) return
+                    continuation.resumeWith(Result.failure(e))
+                }
+
+                override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                    val result = try {
+                        response.use {
+                            if (response.code == 429) {
+                                Result.failure<RedditRssPage>(RedditRateLimitException(redditRetryAfterMs(response.headers)))
+                            } else if (!response.isSuccessful) {
+                                Result.failure(IOException("Reddit RSS HTTP ${response.code}"))
+                            } else {
+                                val xml = response.body?.string().orEmpty()
+                                if (xml.isBlank()) {
+                                    Result.failure(IOException("Reddit RSS returned an empty feed"))
+                                } else {
+                                    Result.success(parseRedditRssPage(xml, fallbackSubreddit))
+                                }
+                            }
+                        }
+                    } catch (e: Throwable) {
+                        Result.failure(e)
+                    }
+                    if (continuation.isActive) {
+                        continuation.resumeWith(result)
+                    }
+                }
+            })
         }
     }
 
@@ -342,7 +368,7 @@ class RedditRepository @Inject constructor(
     }
 
     private fun redditPageCacheKey(feedKey: String, requestAfter: String?): String =
-        "reddit_rss_v4_${feedKey.hashCode()}_${requestAfter?.hashCode() ?: "root"}"
+        "reddit_rss_v4_${stableCacheKey(feedKey, requestAfter ?: "root")}"
 
     private fun toWallpaper(entry: RedditRssMediaEntry): Wallpaper {
         val extension = entry.mediaUrl.substringBefore('?').substringAfterLast('.', "jpg").lowercase(Locale.ROOT)

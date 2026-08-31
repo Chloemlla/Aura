@@ -1,6 +1,7 @@
 package com.chloemlla.aura.data.repository
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.service.CommunityIdentityProvider
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -163,11 +165,26 @@ class VoteRepository @Inject constructor(
 
     // ── Local hidden IDs (user's personal downvotes) ──
 
+    private val localHiddenIdsPrefs: SharedPreferences by lazy {
+        context.getSharedPreferences("aura_votes", Context.MODE_PRIVATE)
+    }
+    private var localHiddenIdsLoaded = false
     private val _localHiddenIds = MutableStateFlow<Set<String>>(emptySet())
 
-    init {
-        val prefs = context.getSharedPreferences("aura_votes", Context.MODE_PRIVATE)
-        _localHiddenIds.value = prefs.getStringSet("hidden_ids", emptySet()) ?: emptySet()
+    /**
+     * Persisted hidden IDs are loaded lazily (not in the constructor) so building this
+     * [Singleton] performs no synchronous disk I/O. [ensureLocalHiddenIdsLoaded] runs at
+     * every read/write site and before the [hiddenIds] flow emits its first value.
+     */
+    private fun ensureLocalHiddenIdsLoaded() {
+        if (localHiddenIdsLoaded) return
+        synchronized(this) {
+            if (!localHiddenIdsLoaded) {
+                localHiddenIdsLoaded = true
+                _localHiddenIds.value =
+                    localHiddenIdsPrefs.getStringSet("hidden_ids", emptySet()) ?: emptySet()
+            }
+        }
     }
 
     // ── Global moderation list (admin-hidden, synced from Firebase) ──
@@ -256,7 +273,7 @@ class VoteRepository @Inject constructor(
     /** Combined hidden IDs: local downvotes + global moderation */
     val hiddenIds: Flow<Set<String>> = combine(_localHiddenIds, _moderatedIds) { local, moderated ->
         expandHiddenIds(local) + expandHiddenIds(moderated)
-    }
+    }.onStart { ensureLocalHiddenIdsLoaded() }
 
     // ── Voting ──
 
@@ -279,15 +296,23 @@ class VoteRepository @Inject constructor(
     suspend fun hasVoted(contentId: String, alreadySanitized: Boolean = false): Boolean {
         if (!isCommunityAccessEnabled()) return false
         val safeId = if (alreadySanitized) contentId else sanitizeKey(contentId)
+        val knownVoterIds = identityProvider.knownIdentityIds().map(::sanitizeKey).toSet()
+        if (knownVoterIds.isEmpty()) return false
         return try {
-            identityProvider.knownIdentityIds()
-                .map(::sanitizeKey)
-                .any { voterId ->
-                    awaitFirebaseRead("Community vote status") {
-                        votesRef?.child(safeId)?.child("voters")?.child(voterId)?.get()?.await()?.exists() == true ||
-                            votersRef?.child(safeId)?.child(voterId)?.get()?.await()?.exists() == true
-                    }
+            awaitFirebaseRead("Community vote status") {
+                // Batched read: pull each voter list once and check membership locally instead
+                // of issuing one read per known identity (previously up to 2N reads).
+                val currentVoters = votesRef?.child(safeId)?.child("voters")?.get()?.await()
+                if (currentVoters != null &&
+                    currentVoters.children.mapNotNull { it.key }.any { it in knownVoterIds }
+                ) {
+                    true
+                } else {
+                    val legacyVoters = votersRef?.child(safeId)?.get()?.await()
+                    legacyVoters != null &&
+                        legacyVoters.children.mapNotNull { it.key }.any { it in knownVoterIds }
                 }
+            }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             false
@@ -321,31 +346,47 @@ class VoteRepository @Inject constructor(
 
     // ── Downvote / Hide ──
 
-    /** Regular user: hide locally. Admin: hide globally for everyone. */
-    suspend fun downvote(contentId: String) {
-        if (!isCommunityAccessEnabled()) return
+    /** Regular user: hide locally. Admin: hide globally for everyone. Returns success. */
+    suspend fun downvote(contentId: String): Boolean {
+        if (!isCommunityAccessEnabled()) return false
         if (com.chloemlla.aura.BuildConfig.DEBUG) {
             Log.d("VoteRepo", "downvote($contentId) userId=${identityProvider.currentUserId()} isAdmin=$isAdmin")
         }
         if (isAdmin) {
-            moderateHide(contentId)
+            return try {
+                moderateHide(contentId)
+                true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // The server gate on /moderation rejects device-hash admins, so a failed
+                // global takedown must not be masked as a local hide, and the caller must
+                // not show "hidden for all". The reports screen (which calls moderateHide
+                // directly) is where a rejection surfaces; downvote stays a no-op instead
+                // of lying or crashing the gesture coroutine.
+                if (com.chloemlla.aura.BuildConfig.DEBUG) {
+                    Log.w("VoteRepo", "downvote: global takedown rejected: ${e.message}")
+                }
+                false
+            }
         } else {
             hideLocally(contentId)
+            true
         }
     }
 
     /** Local-only hide (regular users) */
     fun hideLocally(contentId: String) {
+        ensureLocalHiddenIdsLoaded()
         val updated = _localHiddenIds.updateAndGet { it + contentId }
-        context.getSharedPreferences("aura_votes", Context.MODE_PRIVATE)
-            .edit().putStringSet("hidden_ids", updated).apply()
+        localHiddenIdsPrefs.edit().putStringSet("hidden_ids", updated).apply()
     }
 
     /** Admin: globally hide content for ALL users via Firebase */
     suspend fun moderateHide(contentId: String) {
         if (!isCommunityAccessEnabled()) return
         val moderationRefInstance = moderationRef
-        if (moderationRefInstance == null) { hideLocally(contentId); return }
+            ?: throw IllegalStateException("Firebase is unavailable for global takedown")
         val safeId = sanitizeKey(contentId)
         if (com.chloemlla.aura.BuildConfig.DEBUG) Log.d("VoteRepo", "moderateHide: safeId=$safeId path=moderation/$safeId")
         try {
@@ -354,7 +395,11 @@ class VoteRepository @Inject constructor(
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             if (com.chloemlla.aura.BuildConfig.DEBUG) Log.e("VoteRepo", "Moderation FAILED: ${e.javaClass.simpleName}: ${e.message}", e)
-            hideLocally(contentId)
+            // Do NOT silently downgrade a rejected global takedown to a local hide: the
+            // server rules gate /moderation on the `admin` Custom Claim, so a rejected write
+            // must surface to the caller (e.g. the reports screen) instead of hiding only on
+            // this device.
+            throw IllegalStateException("Global takedown was rejected by server rules", e)
         }
     }
 
@@ -372,9 +417,9 @@ class VoteRepository @Inject constructor(
 
     /** Unhide locally */
     fun unhideLocally(contentId: String) {
+        ensureLocalHiddenIdsLoaded()
         val updated = _localHiddenIds.updateAndGet { it - contentId }
-        context.getSharedPreferences("aura_votes", Context.MODE_PRIVATE)
-            .edit().putStringSet("hidden_ids", updated).apply()
+        localHiddenIdsPrefs.edit().putStringSet("hidden_ids", updated).apply()
     }
 
     /** Reverse a [downvote]: mirrors its admin/local branch so an accidental hide is undoable. */
@@ -383,9 +428,11 @@ class VoteRepository @Inject constructor(
         if (isAdmin) moderateUnhide(contentId) else unhideLocally(contentId)
     }
 
-    fun isHidden(contentId: String): Boolean =
-        matchesHiddenIds(_localHiddenIds.value, contentId) ||
+    fun isHidden(contentId: String): Boolean {
+        ensureLocalHiddenIdsLoaded()
+        return matchesHiddenIds(_localHiddenIds.value, contentId) ||
             matchesHiddenIds(_moderatedIds.value, contentId)
+    }
 
     // ── Batch ──
 
@@ -393,27 +440,19 @@ class VoteRepository @Inject constructor(
         if (!isCommunityAccessEnabled()) { trySend(emptyMap()); awaitClose {}; return@callbackFlow }
         val votesRefInstance = votesRef
         if (votesRefInstance == null) { trySend(emptyMap()); awaitClose {}; return@callbackFlow }
-        val counts = java.util.concurrent.ConcurrentHashMap<String, Int>()
-        val listeners = mutableListOf<Pair<String, ValueEventListener>>()
-
-        contentIds.take(50).forEach { id ->
-            val safeId = sanitizeKey(id)
-            val ref = votesRefInstance.child(safeId).child("upvotes")
-            val listener = object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    counts[id] = snapshot.getValue(Int::class.java) ?: 0
-                    trySend(counts.toMap())
-                }
-                override fun onCancelled(error: DatabaseError) {}
+        if (contentIds.isEmpty()) { trySend(emptyMap()); awaitClose {}; return@callbackFlow }
+        // One listener on the parent (a single batched read) instead of one listener per
+        // content id; every emission carries the full requested map in one shot.
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                trySend(contentIds.distinct().associateWith { id ->
+                    snapshot.child(sanitizeKey(id)).child("upvotes").getValue(Int::class.java) ?: 0
+                })
             }
-            ref.addValueEventListener(listener)
-            listeners.add(safeId to listener)
+            override fun onCancelled(error: DatabaseError) { trySend(emptyMap()) }
         }
-        awaitClose {
-            listeners.forEach { (safeId, listener) ->
-                votesRefInstance.child(safeId).child("upvotes").removeEventListener(listener)
-            }
-        }
+        votesRefInstance.addValueEventListener(listener)
+        awaitClose { votesRefInstance.removeEventListener(listener) }
     }
 
     /** Get top upvoted content IDs globally, sorted by vote count descending */
@@ -421,7 +460,12 @@ class VoteRepository @Inject constructor(
         if (!isCommunityAccessEnabled()) return emptyList()
         val votesRefInstance = votesRef ?: return emptyList()
         return try {
-            val snapshot = awaitFirebaseRead("Community vote leaderboard") { votesRefInstance.get().await() }
+            // Bounded, rules-compliant query (database.rules.json indexes /votes on
+            // "upvotes"): the server returns only the top `limit` children instead of the
+            // whole subtree, which the parent-level read previously denied.
+            val snapshot = awaitFirebaseRead("Community vote leaderboard") {
+                votesRefInstance.orderByChild("upvotes").limitToLast(limit.coerceAtLeast(1)).get().await()
+            }
             snapshot.children.mapNotNull { child ->
                 val key = child.key ?: return@mapNotNull null
                 val upvotes = child.child("upvotes").getValue(Int::class.java) ?: 0
@@ -431,6 +475,18 @@ class VoteRepository @Inject constructor(
             if (e is kotlinx.coroutines.CancellationException) throw e
             if (com.chloemlla.aura.BuildConfig.DEBUG) android.util.Log.e("VoteRepo", "getTopVotedIds failed: ${e.message}")
             emptyList()
+        }
+    }
+
+    /** One-shot vote counts for a set of content ids, via the same batched read as [getVoteCounts]. */
+    suspend fun getVoteCountsOnce(ids: List<String>): Map<String, Int> {
+        if (ids.isEmpty()) return emptyMap()
+        return try {
+            awaitFirebaseRead("Community vote counts") { getVoteCounts(ids).first() }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            if (com.chloemlla.aura.BuildConfig.DEBUG) android.util.Log.e("VoteRepo", "getVoteCountsOnce failed: ${e.message}")
+            emptyMap()
         }
     }
 
