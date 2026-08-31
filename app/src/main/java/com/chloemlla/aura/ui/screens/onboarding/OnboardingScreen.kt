@@ -430,7 +430,7 @@ private fun StylePickerPage(selectedStyles: Set<String>, onToggle: (String) -> U
                                                 .size(18.dp),
                                         )
                                     }
-                                    AnimatedVisibility(visible = selected) {
+                                    AnimatedVisibility(visible = isSelected) {
                                         Icon(
                                             imageVector = Icons.Default.CheckCircle,
                                             contentDescription = null,
