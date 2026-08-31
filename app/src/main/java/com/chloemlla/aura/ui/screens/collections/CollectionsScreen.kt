@@ -54,9 +54,11 @@ import com.chloemlla.aura.ui.components.AuraSnackbarHost
 import com.chloemlla.aura.ui.components.AuraStateCard
 import com.chloemlla.aura.ui.components.EmbeddedImagePickerSheet
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 sealed interface ShareCollectionEvent {
@@ -343,15 +345,22 @@ fun CollectionsScreen(
     }
 
     qrState?.let { state ->
-        CollectionQrDialog(
-            state = state,
-            qrBitmap = remember(state.shareLink) { viewModel.buildQrBitmap(state.shareLink).asImageBitmap() },
-            onCopyLink = {
-                clipboard.setText(AnnotatedString(state.shareLink))
-                scope.launch { snackbarHostState.showSnackbar(resources.getString(R.string.collections_link_copied)) }
-            },
-            onDismiss = viewModel::dismissQr,
-        )
+        val qrBitmap by produceState<ImageBitmap?>(initialValue = null, key1 = state.shareLink) {
+            value = withContext(Dispatchers.Default) {
+                viewModel.buildQrBitmap(state.shareLink).asImageBitmap()
+            }
+        }
+        qrBitmap?.let { bitmap ->
+            CollectionQrDialog(
+                state = state,
+                qrBitmap = bitmap,
+                onCopyLink = {
+                    clipboard.setText(AnnotatedString(state.shareLink))
+                    scope.launch { snackbarHostState.showSnackbar(resources.getString(R.string.collections_link_copied)) }
+                },
+                onDismiss = viewModel::dismissQr,
+            )
+        }
     }
 
     Scaffold(

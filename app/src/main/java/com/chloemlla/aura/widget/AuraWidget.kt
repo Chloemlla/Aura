@@ -34,7 +34,10 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Date
 
@@ -317,29 +320,40 @@ private fun updateWidgetStats(context: Context) {
 
 // ── Actions ───────────────────────────────────────────────────────
 
+// Glance runs ActionCallback inside the app-widget broadcast receiver, which must
+// return within the receiver budget. Launch the actual work (network fetch + apply)
+// on a detached scope so onAction returns immediately instead of holding goAsync.
+private val widgetActionScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
 class ShuffleWallpaperAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        if (applyRandom(context, WallpaperTarget.BOTH)) {
-            updateWidgetStats(context)
-            AuraWidget().updateAll(context)
+        widgetActionScope.launch {
+            if (applyRandom(context, WallpaperTarget.BOTH)) {
+                updateWidgetStats(context)
+                AuraWidget().updateAll(context)
+            }
         }
     }
 }
 
 class ApplyHomeAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        if (applyRandom(context, WallpaperTarget.HOME)) {
-            updateWidgetStats(context)
-            AuraWidget().updateAll(context)
+        widgetActionScope.launch {
+            if (applyRandom(context, WallpaperTarget.HOME)) {
+                updateWidgetStats(context)
+                AuraWidget().updateAll(context)
+            }
         }
     }
 }
 
 class ApplyLockAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        if (applyRandom(context, WallpaperTarget.LOCK)) {
-            updateWidgetStats(context)
-            AuraWidget().updateAll(context)
+        widgetActionScope.launch {
+            if (applyRandom(context, WallpaperTarget.LOCK)) {
+                updateWidgetStats(context)
+                AuraWidget().updateAll(context)
+            }
         }
     }
 }
@@ -384,18 +398,22 @@ class OpenCurrentWallpaperAction : ActionCallback {
 
 class ShufflePixabayAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        if (applyFromSource(context, "pixabay", WallpaperTarget.BOTH)) {
-            updateWidgetStats(context)
-            AuraWidget().updateAll(context)
+        widgetActionScope.launch {
+            if (applyFromSource(context, "pixabay", WallpaperTarget.BOTH)) {
+                updateWidgetStats(context)
+                AuraWidget().updateAll(context)
+            }
         }
     }
 }
 
 class ShuffleBingAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        if (applyFromSource(context, "bing", WallpaperTarget.BOTH)) {
-            updateWidgetStats(context)
-            AuraWidget().updateAll(context)
+        widgetActionScope.launch {
+            if (applyFromSource(context, "bing", WallpaperTarget.BOTH)) {
+                updateWidgetStats(context)
+                AuraWidget().updateAll(context)
+            }
         }
     }
 }
