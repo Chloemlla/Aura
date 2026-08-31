@@ -29,13 +29,6 @@ class WallpaperHistoryManager @Inject constructor(
     fun mostRecent(): Flow<WallpaperHistoryEntity?> =
         dao.getRecent(limit = 1).map { it.firstOrNull() }
 
-    /**
-     * The second-most-recently-applied wallpaper — i.e. the wallpaper that was active
-     * BEFORE the current one. Used as the target for the "Undo last apply" action.
-     */
-    fun secondMostRecent(): Flow<WallpaperHistoryEntity?> =
-        dao.getRecent(limit = 2).map { it.getOrNull(1) }
-
     /** Record a wallpaper application */
     suspend fun record(wallpaper: Wallpaper, target: WallpaperTarget) {
         dao.insert(

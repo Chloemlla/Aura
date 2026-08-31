@@ -56,7 +56,11 @@ class AutoWallpaperWorker @AssistedInject constructor(
             }
             receiptStore.recordWorkerResult(
                 uniqueWorkName = receiptWorkName,
-                resultClassName = result.javaClass.simpleName,
+                outcome = when (result) {
+                    is Result.Success -> WorkOutcome.SUCCESS
+                    is Result.Retry -> WorkOutcome.RETRY
+                    else -> WorkOutcome.FAILURE
+                },
                 retryReason = "wallpaper source returned no usable item or apply failed; check selected source, saved collection, and wallpaper permission",
             )
             result
@@ -82,6 +86,9 @@ class AutoWallpaperWorker @AssistedInject constructor(
     private suspend fun doSchedulerWork(): Result {
         val homeEnabled = prefs.schedulerHomeEnabled.first()
         val lockEnabled = prefs.schedulerLockEnabled.first()
+        // Both targets disabled — succeed quietly instead of fetching/rotating
+        // (AURA-G2-30).
+        if (!homeEnabled && !lockEnabled) return Result.success()
         val shuffle = prefs.schedulerShuffle.first()
 
         val defaultSource = prefs.schedulerSource.first()
@@ -113,9 +120,11 @@ class AutoWallpaperWorker @AssistedInject constructor(
             val homePick = pickLocalScheduledWallpaper(WallpaperTarget.HOME, shuffle)
             val lockPick = pickLocalScheduledWallpaper(WallpaperTarget.LOCK, shuffle)
             if (homePick == null && lockPick == null) return Result.retry()
-            if (homePick != null) applyAndRecord(homePick, WallpaperTarget.HOME)
-            if (lockPick != null) applyAndRecord(lockPick, WallpaperTarget.LOCK)
-            return Result.success()
+            val results = buildList {
+                homePick?.let { add(applyAndRecord(it, WallpaperTarget.HOME)) }
+                lockPick?.let { add(applyAndRecord(it, WallpaperTarget.LOCK)) }
+            }
+            return if (results.any { it is Result.Retry }) Result.retry() else Result.success()
         }
         val rawWallpapers = fetchWallpapers(source, target)
         if (rawWallpapers.isEmpty()) return Result.retry()
@@ -127,15 +136,17 @@ class AutoWallpaperWorker @AssistedInject constructor(
             recentKeys = recentShuffleKeys(wallpapers.size),
         ) ?: return Result.retry()
 
-        if (homeEnabled && lockEnabled) {
-            applyAndRecord(pick, WallpaperTarget.BOTH)
-        } else {
-            // Only one target can be enabled here; both use the deterministic pick so
-            // sequential (no-shuffle) rotation stays sequential in lock-only mode too.
-            if (homeEnabled) applyAndRecord(pick, WallpaperTarget.HOME)
-            if (lockEnabled) applyAndRecord(pick, WallpaperTarget.LOCK)
+        val results = buildList {
+            if (homeEnabled && lockEnabled) {
+                add(applyAndRecord(pick, WallpaperTarget.BOTH))
+            } else {
+                // Only one target can be enabled here; both use the deterministic pick so
+                // sequential (no-shuffle) rotation stays sequential in lock-only mode too.
+                if (homeEnabled) add(applyAndRecord(pick, WallpaperTarget.HOME))
+                if (lockEnabled) add(applyAndRecord(pick, WallpaperTarget.LOCK))
+            }
         }
-        return Result.success()
+        return if (results.any { it is Result.Retry }) Result.retry() else Result.success()
     }
 
     /** Legacy auto-wallpaper (backward compatible) */

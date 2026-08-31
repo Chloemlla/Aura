@@ -164,7 +164,10 @@ class DailyWallpaperWorker @AssistedInject constructor(
                 .build()
 
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request,
+                // UPDATE (not KEEP) so already-installed users pick up changed
+                // intervals, constraints, and backoff in future releases
+                // (AURA-G2-24).
+                WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request,
             )
         }
 

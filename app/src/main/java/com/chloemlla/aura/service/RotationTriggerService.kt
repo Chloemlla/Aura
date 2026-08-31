@@ -19,6 +19,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import com.chloemlla.aura.MainActivity
 
 /**
  * Foreground service that dynamically registers broadcast receivers for
@@ -53,7 +54,14 @@ class RotationTriggerService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        startInForeground()
+        // API 31+ can throw ForegroundServiceStartNotAllowedException here when
+        // the service is recreated in the background (START_STICKY restart).
+        // Degrade to a stopped service instead of crashing; RotationTriggerRecovery
+        // rebuilds it on the next foreground (AURA-G2-09).
+        if (!startInForeground()) {
+            stopSelf()
+            return
+        }
         RotationTriggerRecovery.clear(this)
         registerTriggers()
     }
@@ -81,10 +89,16 @@ class RotationTriggerService : Service() {
         return START_STICKY
     }
 
-    private fun startInForeground() {
+    private fun startInForeground(): Boolean {
+        // Explicit activity intent (never null) instead of
+        // getLaunchIntentForPackage, which returns null when the launcher
+        // component is disabled and would crash PendingIntent.getActivity
+        // (AURA-G2-26).
+        val launchIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
         val pendingIntent = PendingIntent.getActivity(
-            this, 0,
-            packageManager.getLaunchIntentForPackage(packageName),
+            this, 0, launchIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val notif: Notification = NotificationCompat.Builder(this, NotificationChannels.ROTATION_TRIGGERS)
@@ -95,14 +109,22 @@ class RotationTriggerService : Service() {
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                NOTIFICATION_ID,
-                notif,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notif)
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notif,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notif)
+            }
+            true
+        } catch (_: IllegalStateException) {
+            // ForegroundServiceStartNotAllowedException (API 31+) when Aura is in
+            // the background. Report the denial so a later foreground rebuilds the
+            // service with the desired triggers.
+            false
         }
     }
 

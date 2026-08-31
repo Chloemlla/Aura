@@ -53,7 +53,11 @@ class AuraOriginalsDownloader @AssistedInject constructor(
         val result = runDownloadWork()
         receiptStore.recordWorkerResult(
             uniqueWorkName = WORK_NAME,
-            resultClassName = result.javaClass.simpleName,
+            outcome = when (result) {
+                is Result.Success -> WorkOutcome.SUCCESS
+                is Result.Retry -> WorkOutcome.RETRY
+                else -> WorkOutcome.FAILURE
+            },
             retryReason = "Aura Originals download will retry because HTTPS download, size, hash, or file-write validation did not complete",
         )
         result

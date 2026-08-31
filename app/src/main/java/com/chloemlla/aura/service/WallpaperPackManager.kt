@@ -89,11 +89,10 @@ class WallpaperPackWorker @AssistedInject constructor(
 
             val pack = parsePack(prefs.wallpaperPackJson.first())
             if (pack == null || pack.slots.isEmpty()) {
-                receiptStore.recordFailure(
-                    uniqueWorkName = WORK_NAME,
-                    errorClass = "NoPack",
-                    deferralReason = "no wallpaper pack defined",
-                )
+                // No pack configured is a benign no-op, not a failure — record
+                // success so the diagnostic page doesn't show a false alarm
+                // (AURA-G2-25).
+                receiptStore.recordSuccess(WORK_NAME)
                 return Result.success()
             }
 

@@ -17,6 +17,14 @@ data class BackgroundWorkReceipt(
     val lastDeferralReason: String? = null,
 )
 
+/**
+ * Explicit worker outcome for receipts. The previous API took the obfuscated
+ * `ListenableWorker.Result` subclass name (`javaClass.simpleName`), which R8
+ * mangles in release builds and turned every success into a recorded failure
+ * (AURA-G2-04).
+ */
+enum class WorkOutcome { SUCCESS, RETRY, FAILURE }
+
 @Singleton
 class BackgroundWorkReceiptStore @Inject constructor(
     @ApplicationContext context: Context,
@@ -77,24 +85,19 @@ class BackgroundWorkReceiptStore @Inject constructor(
 
     fun recordWorkerResult(
         uniqueWorkName: String,
-        resultClassName: String,
+        outcome: WorkOutcome,
         retryReason: String,
     ) {
-        when (resultClassName.lowercase(Locale.ROOT)) {
-            "success" -> recordSuccess(uniqueWorkName)
-            "retry" -> recordRetry(
+        when (outcome) {
+            WorkOutcome.SUCCESS -> recordSuccess(uniqueWorkName)
+            WorkOutcome.RETRY -> recordRetry(
                 uniqueWorkName = uniqueWorkName,
                 deferralReason = retryReason,
             )
-            "failure" -> recordFailure(
+            WorkOutcome.FAILURE -> recordFailure(
                 uniqueWorkName = uniqueWorkName,
                 errorClass = "WorkerFailure",
                 deferralReason = retryReason,
-            )
-            else -> recordFailure(
-                uniqueWorkName = uniqueWorkName,
-                errorClass = resultClassName.ifBlank { "UnknownResult" },
-                deferralReason = "worker returned an unknown result",
             )
         }
     }
