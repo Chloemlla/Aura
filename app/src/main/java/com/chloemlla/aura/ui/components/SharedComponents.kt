@@ -340,12 +340,30 @@ fun GlassCard(
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f),
         shape = shape,
         tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
+        shadowElevation = shadowElevation,
     ) {
-        Column(
-            modifier = Modifier.padding(contentPadding),
-            content = content,
-        )
+        Box {
+            if (highlightHeight > 0.dp) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(highlightHeight)
+                        .align(Alignment.TopCenter)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.08f),
+                                    Color.Transparent,
+                                ),
+                            ),
+                        ),
+                )
+            }
+            Column(
+                modifier = Modifier.padding(contentPadding),
+                content = content,
+            )
+        }
     }
 }
 

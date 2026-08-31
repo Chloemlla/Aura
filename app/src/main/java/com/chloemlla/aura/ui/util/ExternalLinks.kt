@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import java.net.URI
 import java.util.Locale
 
 internal fun isSupportedExternalUrl(rawUrl: String): Boolean =
@@ -34,7 +33,7 @@ fun openExternalUrl(
 private fun supportedExternalUrlOrNull(rawUrl: String): String? {
     val trimmed = rawUrl.trim()
     if (trimmed.isBlank()) return null
-    val scheme = runCatching { URI(trimmed).scheme?.lowercase(Locale.ROOT) }.getOrNull()
+    val scheme = runCatching { Uri.parse(trimmed).scheme?.lowercase(Locale.ROOT) }.getOrNull()
     return when (scheme) {
         "http", "https", "mailto" -> trimmed
         else -> null

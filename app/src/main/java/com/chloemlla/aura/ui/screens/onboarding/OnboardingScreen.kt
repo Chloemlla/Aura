@@ -26,6 +26,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -388,7 +391,11 @@ private fun StylePickerPage(selectedStyles: Set<String>, onToggle: (String) -> U
                             onClick = { onToggle(option.id) },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(132.dp),
+                                .height(132.dp)
+                                .semantics {
+                                    selected = selected
+                                    role = Role.Checkbox
+                                },
                             shape = RoundedCornerShape(8.dp),
                             color = if (selected) option.tint.copy(alpha = 0.18f)
                             else MaterialTheme.colorScheme.surface.copy(alpha = 0.58f),

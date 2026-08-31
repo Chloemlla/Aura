@@ -291,7 +291,7 @@ fun CreatorProfileScreen(
                             items(dashboard.topCreators, key = { "top_${it.creatorId}" }) { creator ->
                                 CreatorRow(
                                     creator = creator,
-                                    isCurrentUser = creator.creatorId == dashboard.currentCreator.creatorId,
+                                    isCurrentUser = creator.matchesCreator(dashboard.currentCreator.creatorId),
                                     actionInFlight = state.actionInFlightCreatorId == creator.creatorId,
                                     onFollow = { viewModel.follow(creator) },
                                     onUnfollow = { viewModel.unfollow(creator) },

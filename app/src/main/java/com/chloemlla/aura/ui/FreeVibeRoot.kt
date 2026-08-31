@@ -276,7 +276,6 @@ fun FreeVibeRoot(
                                             BottomNavIcon(
                                                 screen = screen,
                                                 selected = selected,
-                                                screenTitle = screenTitle,
                                                 favoritesCount = favoritesCount,
                                             )
                                         },
@@ -1184,7 +1183,6 @@ private fun PrimaryNavigationRail(
                         BottomNavIcon(
                             screen = screen,
                             selected = selected,
-                            screenTitle = screenTitle,
                             favoritesCount = favoritesCount,
                         )
                     },
@@ -1213,7 +1211,6 @@ private fun PrimaryNavigationRail(
 private fun BottomNavIcon(
     screen: Screen,
     selected: Boolean,
-    screenTitle: String,
     favoritesCount: Int,
 ) {
     Column(
@@ -1223,7 +1220,7 @@ private fun BottomNavIcon(
         Box {
             Icon(
                 imageVector = if (selected) screen.selectedIcon else screen.icon,
-                contentDescription = screenTitle,
+                contentDescription = null,
                 modifier = Modifier.size(22.dp),
             )
             if (screen == Screen.Library && favoritesCount > 0) {
