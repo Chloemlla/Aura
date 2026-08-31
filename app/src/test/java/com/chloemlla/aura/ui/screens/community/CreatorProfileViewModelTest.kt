@@ -1,5 +1,6 @@
 package com.chloemlla.aura.ui.screens.community
 
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.CommunityBlockReason
 import com.chloemlla.aura.data.repository.CommunityBlockRepository
 import com.chloemlla.aura.data.repository.CreatorProfileDashboard
@@ -63,7 +64,7 @@ class CreatorProfileViewModelTest {
         advanceUntilIdle()
 
         val updated = viewModel.state.value.dashboard
-        assertEquals("Creator blocked", viewModel.state.value.message)
+        assertEquals(R.string.profile_creator_blocked, viewModel.state.value.messageRes)
         assertEquals(listOf("creator-2"), updated?.topCreators?.map { it.creatorId })
         assertEquals(listOf("creator-2"), updated?.followedCreators?.map { it.creatorId })
         assertEquals(listOf("creator-2"), updated?.followedUploads?.map { it.creatorId })
@@ -103,7 +104,7 @@ class CreatorProfileViewModelTest {
         advanceUntilIdle()
 
         val updated = viewModel.state.value.dashboard
-        assertEquals("Profile saved", viewModel.state.value.message)
+        assertEquals(R.string.profile_saved, viewModel.state.value.messageRes)
         assertEquals("Aura Maker", updated?.currentCreator?.label)
         assertEquals(updatedProfile, updated?.currentProfile)
         coVerify(exactly = 1) { repository.updateCreatorProfile(any()) }

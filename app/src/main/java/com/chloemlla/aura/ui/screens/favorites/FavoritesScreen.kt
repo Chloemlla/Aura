@@ -1,5 +1,6 @@
 package com.chloemlla.aura.ui.screens.favorites
 
+import android.content.res.Resources
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -284,6 +285,7 @@ fun FavoritesScreen(
                     failed = batchState.failedCount,
                     blocked = batchState.blockedCount,
                     currentItem = batchState.currentItem,
+                    resources = resources,
                 )
                 val batchProgressText = if (batchState.failedCount > 0 || batchState.blockedCount > 0) {
                     stringResource(
@@ -444,6 +446,7 @@ fun FavoritesScreen(
                                                 favorite = fav,
                                                 isSelected = isSelected,
                                                 sourceUnavailable = sourceUnavailable,
+                                                resources = resources,
                                             )
                                             stateDescription = selectedDescription
                                             onClick(label = if (selectionMode) selectionLabel else openLabel, action = null)
@@ -535,7 +538,7 @@ fun FavoritesScreen(
                         ) {
                             items(sortedSounds, key = { it.stableKey() }, contentType = { "favorite_card" }) { fav ->
                                 val sourceUnavailable = fav.isSourceUnavailable()
-                                val soundSummary = favoriteSoundSummary(fav, sourceUnavailable)
+                                val soundSummary = favoriteSoundSummary(fav, sourceUnavailable, resources)
                                 val soundDisplayName = favoriteDisplayName(fav)
                                 val openLabel = stringResource(R.string.favorites_open_item, soundDisplayName)
                                 val removeLabel = stringResource(R.string.favorites_remove_item, soundDisplayName)
@@ -681,15 +684,18 @@ internal fun favoriteWallpaperSummary(
     favorite: FavoriteEntity,
     isSelected: Boolean,
     sourceUnavailable: Boolean,
+    resources: Resources,
 ): String {
     val status = when {
-        sourceUnavailable -> "source unavailable"
-        isSelected -> "selected"
-        else -> "saved wallpaper"
+        sourceUnavailable -> resources.getString(R.string.favorites_summary_source_unavailable)
+        isSelected -> resources.getString(R.string.favorites_summary_selected)
+        else -> resources.getString(R.string.favorites_summary_saved_wallpaper)
     }
     val details = buildList {
         favorite.category?.takeIf { it.isNotBlank() }?.let(::add)
-        if (favorite.width > 0 && favorite.height > 0) add("${favorite.width} by ${favorite.height}")
+        if (favorite.width > 0 && favorite.height > 0) {
+            add(resources.getString(R.string.favorites_summary_dimensions, favorite.width, favorite.height))
+        }
         favorite.source.takeIf { it.isNotBlank() }?.let { add(sourceDisplayLabel(it)) }
     }.joinToString(", ")
     return listOf(favoriteDisplayName(favorite), status, details)
@@ -700,9 +706,18 @@ internal fun favoriteWallpaperSummary(
 internal fun favoriteSoundSummary(
     favorite: FavoriteEntity,
     sourceUnavailable: Boolean,
+    resources: Resources,
 ): String {
-    val status = if (sourceUnavailable) "source unavailable" else "saved sound"
-    val duration = if (favorite.duration > 0) "${favorite.duration.toInt()} seconds" else ""
+    val status = if (sourceUnavailable) {
+        resources.getString(R.string.favorites_summary_source_unavailable)
+    } else {
+        resources.getString(R.string.favorites_summary_saved_sound)
+    }
+    val duration = if (favorite.duration > 0) {
+        resources.getString(R.string.favorites_summary_duration_seconds, favorite.duration.toInt())
+    } else {
+        ""
+    }
     return listOf(favoriteDisplayName(favorite), status, duration, sourceDisplayLabel(favorite.source))
         .filter { it.isNotBlank() }
         .joinToString(". ")
@@ -714,14 +729,17 @@ internal fun favoritesBatchProgressSummary(
     failed: Int,
     blocked: Int,
     currentItem: String,
+    resources: Resources,
 ): String {
     val outcomes = buildList {
-        if (failed > 0) add("$failed failed")
-        if (blocked > 0) add("$blocked blocked")
+        if (failed > 0) add(resources.getString(R.string.favorites_summary_failed_count, failed))
+        if (blocked > 0) add(resources.getString(R.string.favorites_summary_blocked_count, blocked))
     }.joinToString(", ")
-    val current = currentItem.takeIf { it.isNotBlank() }?.let { "Current item: $it" }.orEmpty()
+    val current = currentItem.takeIf { it.isNotBlank() }
+        ?.let { resources.getString(R.string.favorites_summary_current_item, it) }
+        .orEmpty()
     return listOf(
-        "Downloading favorites $processed of $total",
+        resources.getString(R.string.favorites_summary_downloading, processed, total),
         outcomes,
         current,
     ).filter { it.isNotBlank() }.joinToString(". ")

@@ -75,10 +75,9 @@ class AuraWidget : GlanceAppWidget() {
         val lastShuffle = prefs.getLong(LAST_SHUFFLE_KEY, 0)
         val shuffleCount = prefs.getInt(SHUFFLE_COUNT_KEY, 0)
 
-        // Load most-recent wallpaper thumbnail as the widget background. Null if the user
-        // hasn't applied anything yet (fresh install) — widget falls back to the dark
-        // gradient in that case.
-        val bgBitmap = loadCurrentWallpaperThumbnail(context)
+        // Widget background: render the cached thumbnail when it matches the current wallpaper,
+        // otherwise fall back to the gradient and fetch the bitmap off the receiver path (G9-02).
+        val bgBitmap = currentWallpaperBitmap(context)
 
         // Adaptive tinting — palette cached by WallpaperHistoryManager on every apply.
         // Falls back to the static brand palette when a component would otherwise be black
@@ -119,22 +118,53 @@ class AuraWidget : GlanceAppWidget() {
         }
     }
 
-    private suspend fun loadCurrentWallpaperThumbnail(context: Context): Bitmap? {
+    private suspend fun loadCurrentWallpaperThumbnail(context: Context, url: String): Bitmap? {
         return try {
-            val ep = getEntryPoint(context)
-            val entry = ep.wallpaperHistoryManager().mostRecent().first() ?: return null
-            val url = entry.thumbnailUrl.ifBlank { entry.fullUrl }
-            if (url.isBlank()) return null
             // Widget RemoteViews have a ~5 MB payload limit; downsample hard.
             val request = ImageRequest.Builder(context)
                 .data(url)
                 .size(WIDGET_BG_MAX_PX)
                 .allowHardware(false) // hardware bitmaps can't cross process boundaries
                 .build()
-            val result = context.imageLoader.execute(request) as? SuccessResult ?: return null
+            val result = withContext(Dispatchers.IO) { context.imageLoader.execute(request) } as? SuccessResult ?: return null
             result.image.toBitmap()
         } catch (_: Exception) {
             null
+        }
+    }
+
+    private suspend fun currentWallpaperBitmap(context: Context): Bitmap? {
+        val url = currentWallpaperUrl(context) ?: return null
+        val holder = thumbnailHolder
+        if (holder?.first == url) return holder.second
+        scheduleThumbnailFetch(context, url)
+        return null
+    }
+
+    private suspend fun currentWallpaperUrl(context: Context): String? = try {
+        val entry = getEntryPoint(context).wallpaperHistoryManager().mostRecent().first()
+        entry?.let { it.thumbnailUrl.ifBlank { it.fullUrl } }?.takeIf { it.isNotBlank() }
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun scheduleThumbnailFetch(context: Context, url: String) {
+        synchronized(thumbnailLock) {
+            if (thumbnailFetchInFlight == url) return
+            thumbnailFetchInFlight = url
+        }
+        widgetActionScope.launch {
+            try {
+                val bmp = loadCurrentWallpaperThumbnail(context, url)
+                if (bmp != null) {
+                    thumbnailHolder = url to bmp
+                    AuraWidget().updateAll(context)
+                }
+            } finally {
+                synchronized(thumbnailLock) {
+                    if (thumbnailFetchInFlight == url) thumbnailFetchInFlight = null
+                }
+            }
         }
     }
 }
@@ -326,6 +356,12 @@ private fun updateWidgetStats(context: Context) {
 // return within the receiver budget. Launch the actual work (network fetch + apply)
 // on a detached scope so onAction returns immediately instead of holding goAsync.
 private val widgetActionScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+// Most-recently fetched wallpaper thumbnail, keyed by URL, so provideGlance can render it
+// immediately instead of blocking the receiver on a network fetch.
+private val thumbnailLock = Any()
+@Volatile private var thumbnailHolder: Pair<String, Bitmap>? = null
+@Volatile private var thumbnailFetchInFlight: String? = null
 
 class ShuffleWallpaperAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {

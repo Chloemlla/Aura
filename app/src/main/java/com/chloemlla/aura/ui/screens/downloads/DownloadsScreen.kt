@@ -1,6 +1,7 @@
 package com.chloemlla.aura.ui.screens.downloads
 
 import android.content.Intent
+import android.content.res.Resources
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
@@ -187,7 +188,8 @@ fun DownloadsScreen(
 
 @Composable
 private fun ActiveDownloadCard(dl: DownloadProgress, onDismiss: () -> Unit) {
-    val statusLabel = downloadProgressStatusLabel(dl)
+    val resources = LocalResources.current
+    val statusLabel = downloadProgressStatusLabel(dl, resources)
     val dismissLabel = stringResource(R.string.downloads_dismiss_file, dl.fileName)
     val summary = stringResource(R.string.downloads_active_summary, dl.fileName, statusLabel)
     Surface(
@@ -253,9 +255,10 @@ private fun DownloadHistoryCard(
 ) {
     val dateFormat = remember { SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()) }
     val dateLabel = remember(download.downloadedAt) { dateFormat.format(Date(download.downloadedAt)) }
-    val healthLabel = downloadHealthLabel(download, broken, sourceUnavailable)
-    val itemSummary = downloadHistorySummary(download, broken, sourceUnavailable, dateLabel)
-    val openLabel = downloadOpenActionLabel(download, broken)
+    val resources = LocalResources.current
+    val healthLabel = downloadHealthLabel(download, broken, sourceUnavailable, resources)
+    val itemSummary = downloadHistorySummary(download, broken, sourceUnavailable, dateLabel, resources)
+    val openLabel = downloadOpenActionLabel(download, broken, resources)
     val deleteLabel = stringResource(R.string.downloads_delete_file, download.name.ifEmpty { download.id })
 
     Surface(
@@ -330,11 +333,12 @@ internal fun downloadHealthLabel(
     download: DownloadEntity,
     broken: Boolean,
     sourceUnavailable: Boolean,
+    resources: Resources,
 ): String = when {
-    broken -> "File missing"
-    sourceUnavailable -> "Source unavailable"
-    download.type == "WALLPAPER" -> "Wallpaper"
-    else -> "Sound"
+    broken -> resources.getString(R.string.downloads_file_missing)
+    sourceUnavailable -> resources.getString(R.string.downloads_source_unavailable)
+    download.type == "WALLPAPER" -> resources.getString(R.string.downloads_type_wallpaper)
+    else -> resources.getString(R.string.downloads_type_sound)
 }
 
 internal fun downloadHistorySummary(
@@ -342,24 +346,26 @@ internal fun downloadHistorySummary(
     broken: Boolean,
     sourceUnavailable: Boolean,
     downloadedAtLabel: String,
+    resources: Resources,
 ): String {
     val name = download.name.ifEmpty { download.id }
-    return "$name. ${downloadHealthLabel(download, broken, sourceUnavailable)}. Downloaded $downloadedAtLabel."
+    return "$name. ${downloadHealthLabel(download, broken, sourceUnavailable, resources)}. " +
+        resources.getString(R.string.downloads_history_downloaded_on, downloadedAtLabel)
 }
 
-internal fun downloadOpenActionLabel(download: DownloadEntity, broken: Boolean): String =
+internal fun downloadOpenActionLabel(download: DownloadEntity, broken: Boolean, resources: Resources): String =
     if (broken) {
-        "Review missing file"
+        resources.getString(R.string.downloads_open_missing)
     } else {
-        "Open ${download.name.ifEmpty { download.id }}"
+        resources.getString(R.string.downloads_open_file, download.name.ifEmpty { download.id })
     }
 
-internal fun downloadProgressStatusLabel(download: DownloadProgress): String = when {
-    download.isComplete -> "Download complete"
-    download.error != null -> "Download failed: ${download.error}"
+internal fun downloadProgressStatusLabel(download: DownloadProgress, resources: Resources): String = when {
+    download.isComplete -> resources.getString(R.string.a11y_download_complete)
+    download.error != null -> resources.getString(R.string.downloads_status_failed, download.error)
     download.totalBytes > 0 -> {
         val percent = (download.progress * 100).toInt().coerceIn(0, 100)
-        "$percent percent downloaded"
+        resources.getString(R.string.downloads_status_percent, percent)
     }
-    else -> "Download in progress"
+    else -> resources.getString(R.string.downloads_status_in_progress)
 }

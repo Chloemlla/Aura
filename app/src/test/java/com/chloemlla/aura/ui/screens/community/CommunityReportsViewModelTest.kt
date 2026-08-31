@@ -1,5 +1,6 @@
 package com.chloemlla.aura.ui.screens.community
 
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.CommunityBlockReason
 import com.chloemlla.aura.data.model.CommunityReportReason
 import com.chloemlla.aura.data.model.CommunityReportRecord
@@ -60,7 +61,7 @@ class CommunityReportsViewModelTest {
         advanceUntilIdle()
 
         assertTrue(viewModel.isAdmin.value)
-        assertEquals("Report hidden", viewModel.state.value.message)
+        assertEquals(R.string.reports_hidden, viewModel.state.value.messageRes)
         coVerify { voteRepo.moderateHide(report.contentId) }
         coVerify { reportRepo.resolveReport(report.id, CommunityReportResolutionStatus.HIDDEN, any()) }
     }
@@ -81,7 +82,7 @@ class CommunityReportsViewModelTest {
         viewModel.dismiss(report)
         advanceUntilIdle()
 
-        assertEquals("Report dismissed", viewModel.state.value.message)
+        assertEquals(R.string.reports_dismissed, viewModel.state.value.messageRes)
         coVerify(exactly = 0) { voteRepo.moderateHide(any()) }
         coVerify { reportRepo.resolveReport(report.id, CommunityReportResolutionStatus.DISMISSED, any()) }
     }
@@ -103,7 +104,7 @@ class CommunityReportsViewModelTest {
         viewModel.restore(report)
         advanceUntilIdle()
 
-        assertEquals("Report restored", viewModel.state.value.message)
+        assertEquals(R.string.reports_restored, viewModel.state.value.messageRes)
         coVerify { voteRepo.moderateUnhide(report.contentId) }
         coVerify { reportRepo.resolveReport(report.id, CommunityReportResolutionStatus.RESTORED, any()) }
     }
@@ -123,7 +124,7 @@ class CommunityReportsViewModelTest {
         viewModel.deleteUpload(report)
         advanceUntilIdle()
 
-        assertEquals("Upload deleted", viewModel.state.value.message)
+        assertEquals(R.string.reports_upload_deleted, viewModel.state.value.messageRes)
         coVerify { voteRepo.moderateHide(report.contentId) }
         coVerify { reportRepo.deleteReportedCommunityUpload(report.id, any()) }
         coVerify(exactly = 0) { reportRepo.resolveReport(report.id, any(), any()) }
@@ -144,7 +145,7 @@ class CommunityReportsViewModelTest {
         viewModel.blockReportedUploader(report)
         advanceUntilIdle()
 
-        assertEquals("Creator blocked", viewModel.state.value.message)
+        assertEquals(R.string.reports_creator_blocked, viewModel.state.value.messageRes)
         coVerify(exactly = 1) { blockRepo.blockUser("uploader-1", CommunityBlockReason.OTHER) }
         coVerify(exactly = 0) { reportRepo.resolveReport(any(), any(), any()) }
     }

@@ -508,6 +508,10 @@
     <string name="collections_share_chooser">Share &quot;%1$s&quot;</string>
     <string name="collections_no_share_target">No app to share to</string>
     <string name="collections_wallpaper_count">%1$d wallpapers</string>
+    <string name="collections_share_prepare_failed">Couldn\'t prepare this collection for sharing.</string>
+    <string name="collections_share_link_failed">Couldn\'t create a share link for this collection.</string>
+    <string name="collections_imported">Imported %1$d wallpapers into %2$s.</string>
+    <string name="collections_import_failed">Couldn\'t import this collection.</string>
 
     <!-- Community reports (admin) -->
     <string name="reports_title">Community reports</string>
@@ -535,6 +539,25 @@
     <string name="reports_action_restore">Restore</string>
     <string name="reports_action_delete">Delete upload</string>
     <string name="reports_action_block">Block creator</string>
+    <string name="reports_status_open">Open</string>
+    <string name="reports_status_hidden">Hidden</string>
+    <string name="reports_status_dismissed">Dismissed</string>
+    <string name="reports_status_restored">Restored</string>
+    <string name="reports_status_open_reports">Open reports</string>
+    <string name="reports_status_hidden_reports">Hidden reports</string>
+    <string name="reports_status_dismissed_reports">Dismissed reports</string>
+    <string name="reports_status_restored_reports">Restored reports</string>
+    <string name="reports_refreshed">Report queue refreshed</string>
+    <string name="reports_upload_deleted">Upload deleted</string>
+    <string name="reports_upload_delete_failed">Upload delete failed</string>
+    <string name="reports_not_blockable_uploader">This report does not expose a blockable community uploader</string>
+    <string name="reports_creator_blocked">Creator blocked</string>
+    <string name="reports_creator_block_failed">Creator block failed</string>
+    <string name="reports_hidden">Report hidden</string>
+    <string name="reports_dismissed">Report dismissed</string>
+    <string name="reports_restored">Report restored</string>
+    <string name="reports_updated">Report updated</string>
+    <string name="reports_action_failed">Report action failed</string>
 
     <!-- Wallpaper detail -->
     <string name="detail_loading_pill">Loading wallpaper</string>
@@ -623,6 +646,22 @@
 
     <!-- Categories -->
     <string name="categories_title">Categories</string>
+    <string name="categories_nature">Nature</string>
+    <string name="categories_space">Space</string>
+    <string name="categories_abstract">Abstract</string>
+    <string name="categories_minimal">Minimal</string>
+    <string name="categories_anime">Anime</string>
+    <string name="categories_cars">Cars</string>
+    <string name="categories_city">City</string>
+    <string name="categories_dark">Dark</string>
+    <string name="categories_ocean">Ocean</string>
+    <string name="categories_mountains">Mountains</string>
+    <string name="categories_sunset">Sunset</string>
+    <string name="categories_flowers">Flowers</string>
+    <string name="categories_technology">Technology</string>
+    <string name="categories_animals">Animals</string>
+    <string name="categories_retro">Retro</string>
+    <string name="categories_neon">Neon</string>
 
     <!-- Video wallpapers -->
     <string name="video_downloading">Downloading &amp; applying…</string>
@@ -669,6 +708,13 @@
     <string name="profile_google_sign_in_unavailable">Google sign-in needs a Firebase OAuth client before it can be enabled.</string>
     <string name="profile_creator_stats">%1$d uploads - %2$d votes</string>
     <string name="profile_upload_stats">%1$s - %2$d votes</string>
+    <string name="profile_load_failed">Creator profile could not load</string>
+    <string name="profile_block_self_failed">You cannot block your own creator profile</string>
+    <string name="profile_creator_blocked">Creator blocked</string>
+    <string name="profile_block_failed">Creator block failed</string>
+    <string name="profile_saved">Profile saved</string>
+    <string name="profile_save_failed">Profile save failed</string>
+    <string name="profile_follow_action_failed">Follow action failed</string>
 
     <!-- Licenses -->
     <string name="licenses_title">Open Source Licenses</string>
@@ -726,6 +772,12 @@
     <string name="downloads_type_sound">Sound</string>
     <string name="downloads_file_missing">File missing</string>
     <string name="downloads_source_unavailable">Source unavailable</string>
+    <string name="downloads_status_failed">Download failed: %1$s</string>
+    <string name="downloads_status_percent">%1$d percent downloaded</string>
+    <string name="downloads_status_in_progress">Download in progress</string>
+    <string name="downloads_history_downloaded_on">Downloaded %1$s.</string>
+    <string name="downloads_open_missing">Review missing file</string>
+    <string name="downloads_open_file">Open %1$s</string>
 
     <!-- Contact picker -->
     <string name="contact_picker_assign_title">Assign to Contact</string>
@@ -1706,6 +1758,16 @@
     <string name="favorites_state_source_unavailable">Source unavailable</string>
     <string name="favorites_state_saved_sound">Saved sound</string>
     <string name="favorites_duration_seconds">%1$ds</string>
+    <string name="favorites_summary_source_unavailable">source unavailable</string>
+    <string name="favorites_summary_selected">selected</string>
+    <string name="favorites_summary_saved_wallpaper">saved wallpaper</string>
+    <string name="favorites_summary_saved_sound">saved sound</string>
+    <string name="favorites_summary_dimensions">%1$d by %2$d</string>
+    <string name="favorites_summary_duration_seconds">%1$d seconds</string>
+    <string name="favorites_summary_downloading">Downloading favorites %1$d of %2$d</string>
+    <string name="favorites_summary_failed_count">%1$d failed</string>
+    <string name="favorites_summary_blocked_count">%1$d blocked</string>
+    <string name="favorites_summary_current_item">Current item: %1$s</string>
 
     <!-- Wallpapers screen -->
     <string name="wallpapers_search_placeholder">Search wallpapers or colors</string>

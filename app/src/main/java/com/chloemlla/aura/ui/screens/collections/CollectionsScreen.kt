@@ -2,6 +2,7 @@ package com.chloemlla.aura.ui.screens.collections
 
 import android.content.Intent
 import android.net.Uri
+import androidx.annotation.StringRes
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -63,8 +64,8 @@ import javax.inject.Inject
 
 sealed interface ShareCollectionEvent {
     data class Ready(val intent: Intent, val collectionName: String) : ShareCollectionEvent
-    data class Message(val message: String) : ShareCollectionEvent
-    data class Failure(val message: String) : ShareCollectionEvent
+    data class Message(@StringRes val messageRes: Int, val messageArgs: List<Any> = emptyList()) : ShareCollectionEvent
+    data class Failure(val detail: String?, @StringRes val fallbackRes: Int) : ShareCollectionEvent
 }
 
 data class CollectionQrState(
@@ -107,7 +108,8 @@ class CollectionsViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     _shareEvent.value = ShareCollectionEvent.Failure(
-                        e.message ?: "Couldn't prepare this collection for sharing."
+                        e.message,
+                        R.string.collections_share_prepare_failed,
                     )
                 }
         }
@@ -125,7 +127,8 @@ class CollectionsViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     _shareEvent.value = ShareCollectionEvent.Failure(
-                        e.message ?: "Couldn't create a share link for this collection.",
+                        e.message,
+                        R.string.collections_share_link_failed,
                     )
                 }
         }
@@ -167,11 +170,13 @@ class CollectionsViewModel @Inject constructor(
         onSuccess { result ->
             _selectedCollectionId.value = result.collectionId
             _shareEvent.value = ShareCollectionEvent.Message(
-                "Imported ${result.itemCount} wallpapers into ${result.collectionName}."
+                R.string.collections_imported,
+                listOf(result.itemCount, result.collectionName),
             )
         }.onFailure { e ->
             _shareEvent.value = ShareCollectionEvent.Failure(
-                e.message ?: "Couldn't import this collection.",
+                e.message,
+                R.string.collections_import_failed,
             )
         }
     }
@@ -185,14 +190,16 @@ class CollectionsViewModel @Inject constructor(
             if (collections.isEmpty()) {
                 flowOf(emptyList())
             } else {
-                collections.map { collection ->
-                    combine(
-                        collectionRepo.getItemCount(collection.collectionId),
-                        collectionRepo.getCoverThumbnails(collection.collectionId),
-                    ) { count, covers ->
-                        CollectionSummary(collection, count, covers)
+                combine(
+                    collections.map { collection ->
+                        combine(
+                            collectionRepo.getItemCount(collection.collectionId),
+                            collectionRepo.getCoverThumbnails(collection.collectionId),
+                        ) { count, covers ->
+                            CollectionSummary(collection, count, covers)
+                        }
                     }
-                }.combine { summaries -> summaries.toList() }
+                ) { summaries -> summaries.toList() }
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -321,11 +328,13 @@ fun CollectionsScreen(
                 viewModel.consumeShareEvent()
             }
             is ShareCollectionEvent.Message -> {
-                snackbarHostState.showSnackbar(event.message)
+                snackbarHostState.showSnackbar(
+                    resources.getString(event.messageRes, *event.messageArgs.toTypedArray()),
+                )
                 viewModel.consumeShareEvent()
             }
             is ShareCollectionEvent.Failure -> {
-                snackbarHostState.showSnackbar(event.message)
+                snackbarHostState.showSnackbar(event.detail ?: resources.getString(event.fallbackRes))
                 viewModel.consumeShareEvent()
             }
             null -> Unit

@@ -1,10 +1,18 @@
 package com.chloemlla.aura.ui.screens.favorites
 
+import android.content.res.Resources
 import com.chloemlla.aura.data.model.FavoriteEntity
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
+@RunWith(RobolectricTestRunner::class)
 class FavoritesScreenPolishTest {
+
+    private val resources: Resources
+        get() = RuntimeEnvironment.getApplication().resources
 
     @Test
     fun `favorite wallpaper summary names selection and source health`() {
@@ -26,6 +34,7 @@ class FavoritesScreenPolishTest {
                 favorite = favorite,
                 isSelected = true,
                 sourceUnavailable = false,
+                resources = resources,
             ),
         )
         assertEquals(
@@ -34,6 +43,7 @@ class FavoritesScreenPolishTest {
                 favorite = favorite,
                 isSelected = false,
                 sourceUnavailable = true,
+                resources = resources,
             ),
         )
     }
@@ -52,7 +62,7 @@ class FavoritesScreenPolishTest {
 
         assertEquals(
             "Soft chime. saved sound. 12 seconds. YouTube",
-            favoriteSoundSummary(favorite, sourceUnavailable = false),
+            favoriteSoundSummary(favorite, sourceUnavailable = false, resources = resources),
         )
     }
 
@@ -66,6 +76,7 @@ class FavoritesScreenPolishTest {
                 failed = 1,
                 blocked = 2,
                 currentItem = "sky.jpg",
+                resources = resources,
             ),
         )
     }

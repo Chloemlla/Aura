@@ -1,11 +1,19 @@
 package com.chloemlla.aura.ui.screens.downloads
 
+import android.content.res.Resources
 import com.chloemlla.aura.data.model.DownloadEntity
 import com.chloemlla.aura.service.DownloadProgress
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
+@RunWith(RobolectricTestRunner::class)
 class DownloadsScreenPolishTest {
+
+    private val resources: Resources
+        get() = RuntimeEnvironment.getApplication().resources
 
     @Test
     fun `download history summary includes file health and date`() {
@@ -24,9 +32,10 @@ class DownloadsScreenPolishTest {
                 broken = true,
                 sourceUnavailable = false,
                 downloadedAtLabel = "Jun 12, 9:30 AM",
+                resources = resources,
             ),
         )
-        assertEquals("Review missing file", downloadOpenActionLabel(download, broken = true))
+        assertEquals("Review missing file", downloadOpenActionLabel(download, broken = true, resources = resources))
     }
 
     @Test
@@ -41,6 +50,7 @@ class DownloadsScreenPolishTest {
                     totalBytes = 1000L,
                     downloadedBytes = 420L,
                 ),
+                resources,
             ),
         )
         assertEquals(
@@ -54,6 +64,7 @@ class DownloadsScreenPolishTest {
                     downloadedBytes = 100L,
                     error = "Network timeout",
                 ),
+                resources,
             ),
         )
     }

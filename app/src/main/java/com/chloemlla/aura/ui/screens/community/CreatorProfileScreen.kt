@@ -1,5 +1,6 @@
 package com.chloemlla.aura.ui.screens.community
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -29,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -66,7 +68,9 @@ data class CreatorProfileUiState(
     val isLoading: Boolean = true,
     val dashboard: CreatorProfileDashboard? = null,
     val error: String? = null,
+    @StringRes val errorRes: Int = 0,
     val message: String? = null,
+    @StringRes val messageRes: Int = 0,
     val actionInFlightCreatorId: String? = null,
     val isProfileSaving: Boolean = false,
 )
@@ -85,17 +89,32 @@ class CreatorProfileViewModel @Inject constructor(
 
     fun refresh() {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, error = null, message = null) }
+            _state.update {
+                it.copy(isLoading = true, error = null, errorRes = 0, message = null, messageRes = 0)
+            }
             runCatching { repository.getDashboard() }
                 .onSuccess { dashboard ->
                     _state.update {
-                        it.copy(isLoading = false, dashboard = dashboard, error = null, message = null)
+                        it.copy(
+                            isLoading = false,
+                            dashboard = dashboard,
+                            error = null,
+                            errorRes = 0,
+                            message = null,
+                            messageRes = 0,
+                        )
                     }
                 }
                 .onFailure { e ->
                     if (e is kotlinx.coroutines.CancellationException) throw e
                     _state.update {
-                        it.copy(isLoading = false, error = e.message ?: "Creator profile could not load", message = null)
+                        it.copy(
+                            isLoading = false,
+                            error = e.message,
+                            errorRes = R.string.profile_load_failed,
+                            message = null,
+                            messageRes = 0,
+                        )
                     }
                 }
         }
@@ -112,18 +131,25 @@ class CreatorProfileViewModel @Inject constructor(
     fun blockCreator(creator: CreatorStats) {
         val dashboard = _state.value.dashboard
         if (dashboard != null && creator.matchesCreator(dashboard.currentCreator.creatorId)) {
-            _state.update { it.copy(error = "You cannot block your own creator profile", message = null) }
+            _state.update {
+                it.copy(error = null, errorRes = R.string.profile_block_self_failed, message = null, messageRes = 0)
+            }
             return
         }
         viewModelScope.launch {
-            _state.update { it.copy(actionInFlightCreatorId = creator.creatorId, error = null, message = null) }
+            _state.update {
+                it.copy(actionInFlightCreatorId = creator.creatorId, error = null, errorRes = 0, message = null, messageRes = 0)
+            }
             communityBlockRepo.blockUser(creator.creatorId, CommunityBlockReason.OTHER)
                 .onSuccess {
                     _state.update { state ->
                         state.copy(
                             actionInFlightCreatorId = null,
                             dashboard = state.dashboard?.withoutCreator(creator.creatorId),
-                            message = "Creator blocked",
+                            error = null,
+                            errorRes = 0,
+                            message = null,
+                            messageRes = R.string.profile_creator_blocked,
                         )
                     }
                 }
@@ -132,8 +158,10 @@ class CreatorProfileViewModel @Inject constructor(
                     _state.update {
                         it.copy(
                             actionInFlightCreatorId = null,
-                            error = e.message ?: "Creator block failed",
+                            error = e.message,
+                            errorRes = R.string.profile_block_failed,
                             message = null,
+                            messageRes = 0,
                         )
                     }
                 }
@@ -142,7 +170,9 @@ class CreatorProfileViewModel @Inject constructor(
 
     fun updateProfile(displayName: String, bio: String, websiteUrl: String, avatarUrl: String) {
         viewModelScope.launch {
-            _state.update { it.copy(isProfileSaving = true, error = null, message = null) }
+            _state.update {
+                it.copy(isProfileSaving = true, error = null, errorRes = 0, message = null, messageRes = 0)
+            }
             repository.updateCreatorProfile(
                 CreatorProfileUpdateInput(
                     displayName = displayName,
@@ -157,7 +187,9 @@ class CreatorProfileViewModel @Inject constructor(
                             isProfileSaving = false,
                             dashboard = state.dashboard?.withCurrentProfile(profile),
                             error = null,
-                            message = "Profile saved",
+                            errorRes = 0,
+                            message = null,
+                            messageRes = R.string.profile_saved,
                         )
                     }
                 }
@@ -166,8 +198,10 @@ class CreatorProfileViewModel @Inject constructor(
                     _state.update {
                         it.copy(
                             isProfileSaving = false,
-                            error = e.message ?: "Profile save failed",
+                            error = e.message,
+                            errorRes = R.string.profile_save_failed,
                             message = null,
+                            messageRes = 0,
                         )
                     }
                 }
@@ -176,7 +210,9 @@ class CreatorProfileViewModel @Inject constructor(
 
     private fun updateFollow(creator: CreatorStats, follow: Boolean) {
         viewModelScope.launch {
-            _state.update { it.copy(actionInFlightCreatorId = creator.creatorId, error = null, message = null) }
+            _state.update {
+                it.copy(actionInFlightCreatorId = creator.creatorId, error = null, errorRes = 0, message = null, messageRes = 0)
+            }
             val result = if (follow) {
                 repository.followCreator(creator.creatorId, creator.label)
             } else {
@@ -190,13 +226,15 @@ class CreatorProfileViewModel @Inject constructor(
                 .onFailure { e ->
                     if (e is kotlinx.coroutines.CancellationException) throw e
                     _state.update {
-                    it.copy(
-                        actionInFlightCreatorId = null,
-                        error = e.message ?: "Follow action failed",
-                        message = null,
-                    )
+                        it.copy(
+                            actionInFlightCreatorId = null,
+                            error = e.message,
+                            errorRes = R.string.profile_follow_action_failed,
+                            message = null,
+                            messageRes = 0,
+                        )
+                    }
                 }
-            }
         }
     }
 }
@@ -209,6 +247,7 @@ fun CreatorProfileScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val dashboard = state.dashboard
+    val resources = LocalResources.current
 
     Scaffold(
         topBar = {
@@ -239,11 +278,13 @@ fun CreatorProfileScreen(
                             .padding(24.dp),
                     )
                 }
-                state.error != null && dashboard == null -> {
+                (state.error != null || state.errorRes != 0) && dashboard == null -> {
                     AuraStateCard(
                         icon = Icons.Default.Groups,
                         title = stringResource(R.string.profile_unavailable_title),
-                        description = state.error ?: stringResource(R.string.common_retry_later),
+                        description = state.error
+                            ?: state.errorRes.takeIf { it != 0 }?.let { resources.getString(it) }
+                            ?: resources.getString(R.string.common_retry_later),
                         primaryAction = AuraStateAction(stringResource(R.string.common_retry), Icons.Default.Refresh, viewModel::refresh),
                         modifier = Modifier
                             .align(Alignment.Center)
@@ -263,7 +304,11 @@ fun CreatorProfileScreen(
                                 onUpdateProfile = viewModel::updateProfile,
                             )
                         }
-                        val statusMessage = state.error ?: state.message
+                        val statusError = state.error
+                            ?: state.errorRes.takeIf { it != 0 }?.let { resources.getString(it) }
+                        val statusMessage = statusError
+                            ?: state.message
+                            ?: state.messageRes.takeIf { it != 0 }?.let { resources.getString(it) }
                         if (statusMessage != null) {
                             item {
                                 AssistChip(
@@ -271,7 +316,7 @@ fun CreatorProfileScreen(
                                     label = { Text(statusMessage) },
                                     leadingIcon = {
                                         Icon(
-                                            if (state.error == null) Icons.Default.CheckCircle else Icons.Default.Refresh,
+                                            if (statusError == null) Icons.Default.CheckCircle else Icons.Default.Refresh,
                                             contentDescription = null,
                                             modifier = Modifier.size(16.dp),
                                         )

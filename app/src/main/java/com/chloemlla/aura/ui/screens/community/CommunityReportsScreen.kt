@@ -1,5 +1,6 @@
 package com.chloemlla.aura.ui.screens.community
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,6 +49,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -82,7 +84,9 @@ import javax.inject.Inject
 data class CommunityReportsUiState(
     val actionInFlightReportId: String? = null,
     val message: String? = null,
+    @StringRes val messageRes: Int = 0,
     val error: String? = null,
+    @StringRes val errorRes: Int = 0,
 )
 
 @HiltViewModel
@@ -112,12 +116,16 @@ class CommunityReportsViewModel @Inject constructor(
 
     fun refresh() {
         _isAdmin.value = voteRepo.isAdmin
-        _state.update { it.copy(message = "Report queue refreshed", error = null) }
+        _state.update {
+            it.copy(message = null, messageRes = R.string.reports_refreshed, error = null, errorRes = 0)
+        }
     }
 
     fun selectStatus(status: CommunityReportResolutionStatus) {
         _selectedStatus.value = status
-        _state.update { it.copy(message = "${status.reviewLabel} reports", error = null) }
+        _state.update {
+            it.copy(message = null, messageRes = status.reportsStatusMessageRes, error = null, errorRes = 0)
+        }
     }
 
     fun hide(report: CommunityReportRecord) {
@@ -138,7 +146,9 @@ class CommunityReportsViewModel @Inject constructor(
 
     fun deleteUpload(report: CommunityReportRecord) {
         viewModelScope.launch {
-            _state.update { it.copy(actionInFlightReportId = report.id, error = null, message = null) }
+            _state.update {
+                it.copy(actionInFlightReportId = report.id, error = null, errorRes = 0, message = null, messageRes = 0)
+            }
             runCatching {
                 voteRepo.moderateHide(report.contentId)
                 reportRepo.deleteReportedCommunityUpload(report.id, "Deleted after rights review").getOrThrow()
@@ -146,7 +156,10 @@ class CommunityReportsViewModel @Inject constructor(
                 _state.update {
                     it.copy(
                         actionInFlightReportId = null,
-                        message = "Upload deleted",
+                        error = null,
+                        errorRes = 0,
+                        message = null,
+                        messageRes = R.string.reports_upload_deleted,
                     )
                 }
             }.onFailure { error ->
@@ -154,7 +167,8 @@ class CommunityReportsViewModel @Inject constructor(
                 _state.update {
                     it.copy(
                         actionInFlightReportId = null,
-                        error = error.message ?: "Upload delete failed",
+                        error = error.message,
+                        errorRes = R.string.reports_upload_delete_failed,
                     )
                 }
             }
@@ -164,17 +178,24 @@ class CommunityReportsViewModel @Inject constructor(
     fun blockReportedUploader(report: CommunityReportRecord) {
         val uploaderUid = report.uploaderUid
         if (!report.canBlockReportedUploader()) {
-            _state.update { it.copy(error = "This report does not expose a blockable community uploader", message = null) }
+            _state.update {
+                it.copy(error = null, errorRes = R.string.reports_not_blockable_uploader, message = null, messageRes = 0)
+            }
             return
         }
         viewModelScope.launch {
-            _state.update { it.copy(actionInFlightReportId = report.id, error = null, message = null) }
+            _state.update {
+                it.copy(actionInFlightReportId = report.id, error = null, errorRes = 0, message = null, messageRes = 0)
+            }
             blockRepo.blockUser(uploaderUid, CommunityBlockReason.OTHER)
                 .onSuccess {
                     _state.update {
                         it.copy(
                             actionInFlightReportId = null,
-                            message = "Creator blocked",
+                            error = null,
+                            errorRes = 0,
+                            message = null,
+                            messageRes = R.string.reports_creator_blocked,
                         )
                     }
                 }
@@ -183,7 +204,10 @@ class CommunityReportsViewModel @Inject constructor(
                     _state.update {
                         it.copy(
                             actionInFlightReportId = null,
-                            error = error.message ?: "Creator block failed",
+                            error = error.message,
+                            errorRes = R.string.reports_creator_block_failed,
+                            message = null,
+                            messageRes = 0,
                         )
                     }
                 }
@@ -197,7 +221,9 @@ class CommunityReportsViewModel @Inject constructor(
         beforeResolve: suspend () -> Unit = {},
     ) {
         viewModelScope.launch {
-            _state.update { it.copy(actionInFlightReportId = report.id, error = null, message = null) }
+            _state.update {
+                it.copy(actionInFlightReportId = report.id, error = null, errorRes = 0, message = null, messageRes = 0)
+            }
             runCatching {
                 beforeResolve()
                 reportRepo.resolveReport(report.id, status, note).getOrThrow()
@@ -205,11 +231,14 @@ class CommunityReportsViewModel @Inject constructor(
                 _state.update {
                     it.copy(
                         actionInFlightReportId = null,
-                        message = when (status) {
-                            CommunityReportResolutionStatus.HIDDEN -> "Report hidden"
-                            CommunityReportResolutionStatus.DISMISSED -> "Report dismissed"
-                            CommunityReportResolutionStatus.RESTORED -> "Report restored"
-                            CommunityReportResolutionStatus.OPEN -> "Report updated"
+                        error = null,
+                        errorRes = 0,
+                        message = null,
+                        messageRes = when (status) {
+                            CommunityReportResolutionStatus.HIDDEN -> R.string.reports_hidden
+                            CommunityReportResolutionStatus.DISMISSED -> R.string.reports_dismissed
+                            CommunityReportResolutionStatus.RESTORED -> R.string.reports_restored
+                            CommunityReportResolutionStatus.OPEN -> R.string.reports_updated
                         },
                     )
                 }
@@ -218,7 +247,8 @@ class CommunityReportsViewModel @Inject constructor(
                 _state.update {
                     it.copy(
                         actionInFlightReportId = null,
-                        error = error.message ?: "Report action failed",
+                        error = error.message,
+                        errorRes = R.string.reports_action_failed,
                     )
                 }
             }
@@ -236,6 +266,7 @@ fun CommunityReportsScreen(
     val reports by viewModel.reports.collectAsStateWithLifecycle()
     val selectedStatus by viewModel.selectedStatus.collectAsStateWithLifecycle()
     val isAdmin by viewModel.isAdmin.collectAsStateWithLifecycle()
+    val resources = LocalResources.current
 
     Scaffold(
         topBar = {
@@ -286,7 +317,10 @@ fun CommunityReportsScreen(
                     ) {
                         AuraStateCard(
                             icon = Icons.Default.Report,
-                            title = stringResource(R.string.reports_empty_title, selectedStatus.reviewLabel.lowercase(Locale.ROOT)),
+                            title = stringResource(
+                                R.string.reports_empty_title,
+                                resources.getString(selectedStatus.reviewLabelRes).lowercase(Locale.ROOT),
+                            ),
                             description = stringResource(
                                 if (selectedStatus == CommunityReportResolutionStatus.OPEN) {
                                     R.string.reports_empty_open_body
@@ -312,15 +346,20 @@ fun CommunityReportsScreen(
                             onSelectStatus = viewModel::selectStatus,
                         )
                     }
-                    if (state.error != null || state.message != null) {
+                    val statusError = state.error
+                        ?: state.errorRes.takeIf { it != 0 }?.let { resources.getString(it) }
+                    val statusMessage = statusError
+                        ?: state.message
+                        ?: state.messageRes.takeIf { it != 0 }?.let { resources.getString(it) }
+                    if (statusError != null || statusMessage != null) {
                         item {
                             FilterChip(
-                                selected = state.error == null,
+                                selected = statusError == null,
                                 onClick = viewModel::refresh,
-                                label = { Text(state.error ?: state.message.orEmpty()) },
+                                label = { Text(statusMessage.orEmpty()) },
                                 leadingIcon = {
                                     Icon(
-                                        if (state.error == null) Icons.Default.CheckCircle else Icons.Default.Report,
+                                        if (statusError == null) Icons.Default.CheckCircle else Icons.Default.Report,
                                         contentDescription = null,
                                         modifier = Modifier.size(16.dp),
                                     )
@@ -366,7 +405,7 @@ private fun ReportStatusChips(
             FilterChip(
                 selected = selectedStatus == status,
                 onClick = { onSelectStatus(status) },
-                label = { Text(status.reviewLabel) },
+                label = { Text(stringResource(status.reviewLabelRes)) },
             )
         }
     }
@@ -534,10 +573,20 @@ private val CommunityReportReviewFilters = listOf(
     CommunityReportResolutionStatus.RESTORED,
 )
 
-private val CommunityReportResolutionStatus.reviewLabel: String
+@get:StringRes
+private val CommunityReportResolutionStatus.reviewLabelRes: Int
     get() = when (this) {
-        CommunityReportResolutionStatus.OPEN -> "Open"
-        CommunityReportResolutionStatus.HIDDEN -> "Hidden"
-        CommunityReportResolutionStatus.DISMISSED -> "Dismissed"
-        CommunityReportResolutionStatus.RESTORED -> "Restored"
+        CommunityReportResolutionStatus.OPEN -> R.string.reports_status_open
+        CommunityReportResolutionStatus.HIDDEN -> R.string.reports_status_hidden
+        CommunityReportResolutionStatus.DISMISSED -> R.string.reports_status_dismissed
+        CommunityReportResolutionStatus.RESTORED -> R.string.reports_status_restored
+    }
+
+@get:StringRes
+private val CommunityReportResolutionStatus.reportsStatusMessageRes: Int
+    get() = when (this) {
+        CommunityReportResolutionStatus.OPEN -> R.string.reports_status_open_reports
+        CommunityReportResolutionStatus.HIDDEN -> R.string.reports_status_hidden_reports
+        CommunityReportResolutionStatus.DISMISSED -> R.string.reports_status_dismissed_reports
+        CommunityReportResolutionStatus.RESTORED -> R.string.reports_status_restored_reports
     }

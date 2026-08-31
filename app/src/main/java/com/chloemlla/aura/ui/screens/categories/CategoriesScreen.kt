@@ -1,5 +1,6 @@
 package com.chloemlla.aura.ui.screens.categories
 
+import androidx.annotation.StringRes
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -26,29 +27,29 @@ import com.chloemlla.aura.R
 
 data class WallpaperCategory(
     val id: String,
-    val name: String,
+    @StringRes val nameRes: Int,
     val query: String,
     val gradient: List<Color>,
     val icon: String,
 )
 
 private val categories = listOf(
-    WallpaperCategory("nature", "Nature", "nature landscape", listOf(Color(0xFF2E7D32), Color(0xFF1B5E20)), "🌿"),
-    WallpaperCategory("space", "Space", "space galaxy nebula", listOf(Color(0xFF1A237E), Color(0xFF0D47A1)), "🌌"),
-    WallpaperCategory("abstract", "Abstract", "abstract art", listOf(Color(0xFF6A1B9A), Color(0xFF4A148C)), "🎨"),
-    WallpaperCategory("minimal", "Minimal", "minimal clean", listOf(Color(0xFF37474F), Color(0xFF263238)), "◻"),
-    WallpaperCategory("anime", "Anime", "anime illustration", listOf(Color(0xFFD81B60), Color(0xFF880E4F)), "🎌"),
-    WallpaperCategory("cars", "Cars", "car automotive", listOf(Color(0xFFE65100), Color(0xFFBF360C)), "🏎"),
-    WallpaperCategory("city", "City", "city skyline urban", listOf(Color(0xFF455A64), Color(0xFF263238)), "🌆"),
-    WallpaperCategory("dark", "Dark", "dark amoled black", listOf(Color(0xFF212121), Color(0xFF000000)), "🖤"),
-    WallpaperCategory("ocean", "Ocean", "ocean sea water", listOf(Color(0xFF006064), Color(0xFF004D40)), "🌊"),
-    WallpaperCategory("mountain", "Mountains", "mountain peak", listOf(Color(0xFF4E342E), Color(0xFF3E2723)), "🏔"),
-    WallpaperCategory("sunset", "Sunset", "sunset sunrise sky", listOf(Color(0xFFFF6F00), Color(0xFFE65100)), "🌅"),
-    WallpaperCategory("flower", "Flowers", "flower floral", listOf(Color(0xFFC2185B), Color(0xFF880E4F)), "🌸"),
-    WallpaperCategory("tech", "Technology", "technology circuit", listOf(Color(0xFF00695C), Color(0xFF004D40)), "💻"),
-    WallpaperCategory("animal", "Animals", "animal wildlife", listOf(Color(0xFF558B2F), Color(0xFF33691E)), "🦁"),
-    WallpaperCategory("retro", "Retro", "retro vintage", listOf(Color(0xFFFF8F00), Color(0xFFF57F17)), "📺"),
-    WallpaperCategory("neon", "Neon", "neon glow cyberpunk", listOf(Color(0xFF7C4DFF), Color(0xFF651FFF)), "💜"),
+    WallpaperCategory("nature", R.string.categories_nature, "nature landscape", listOf(Color(0xFF2E7D32), Color(0xFF1B5E20)), "🌿"),
+    WallpaperCategory("space", R.string.categories_space, "space galaxy nebula", listOf(Color(0xFF1A237E), Color(0xFF0D47A1)), "🌌"),
+    WallpaperCategory("abstract", R.string.categories_abstract, "abstract art", listOf(Color(0xFF6A1B9A), Color(0xFF4A148C)), "🎨"),
+    WallpaperCategory("minimal", R.string.categories_minimal, "minimal clean", listOf(Color(0xFF37474F), Color(0xFF263238)), "◻"),
+    WallpaperCategory("anime", R.string.categories_anime, "anime illustration", listOf(Color(0xFFD81B60), Color(0xFF880E4F)), "🎌"),
+    WallpaperCategory("cars", R.string.categories_cars, "car automotive", listOf(Color(0xFFE65100), Color(0xFFBF360C)), "🏎"),
+    WallpaperCategory("city", R.string.categories_city, "city skyline urban", listOf(Color(0xFF455A64), Color(0xFF263238)), "🌆"),
+    WallpaperCategory("dark", R.string.categories_dark, "dark amoled black", listOf(Color(0xFF212121), Color(0xFF000000)), "🖤"),
+    WallpaperCategory("ocean", R.string.categories_ocean, "ocean sea water", listOf(Color(0xFF006064), Color(0xFF004D40)), "🌊"),
+    WallpaperCategory("mountain", R.string.categories_mountains, "mountain peak", listOf(Color(0xFF4E342E), Color(0xFF3E2723)), "🏔"),
+    WallpaperCategory("sunset", R.string.categories_sunset, "sunset sunrise sky", listOf(Color(0xFFFF6F00), Color(0xFFE65100)), "🌅"),
+    WallpaperCategory("flower", R.string.categories_flowers, "flower floral", listOf(Color(0xFFC2185B), Color(0xFF880E4F)), "🌸"),
+    WallpaperCategory("tech", R.string.categories_technology, "technology circuit", listOf(Color(0xFF00695C), Color(0xFF004D40)), "💻"),
+    WallpaperCategory("animal", R.string.categories_animals, "animal wildlife", listOf(Color(0xFF558B2F), Color(0xFF33691E)), "🦁"),
+    WallpaperCategory("retro", R.string.categories_retro, "retro vintage", listOf(Color(0xFFFF8F00), Color(0xFFF57F17)), "📺"),
+    WallpaperCategory("neon", R.string.categories_neon, "neon glow cyberpunk", listOf(Color(0xFF7C4DFF), Color(0xFF651FFF)), "💜"),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -111,7 +112,7 @@ private fun CategoryCard(category: WallpaperCategory, onClick: () -> Unit) {
             Text(category.icon, style = MaterialTheme.typography.headlineMedium)
             Spacer(Modifier.height(4.dp))
             Text(
-                category.name,
+                stringResource(category.nameRes),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
