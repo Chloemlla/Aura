@@ -70,6 +70,7 @@ private const val FFMPEG_TIMEOUT_SECONDS = 120L
 private const val MEDIA3_TIMEOUT_MILLISECONDS = 120_000L
 private const val FFMPEG_LOG_DRAIN_LIMIT_BYTES = 256 * 1024 // cap stderr-draining to 256 KB so a misbehaving FFmpeg can't OOM us
 private const val LOSSLESS_VERIFY_MAX_BYTES = 64L * 1024 * 1024
+private const val LOSSLESS_VERIFY_CHUNK_BYTES = 64 * 1024
 private const val LOSSLESS_FALLBACK_PACKET_BYTES = 1024 * 1024
 private const val RAW_PCM_CODEC_BUFFER_BYTES = 64 * 1024
 private val SANITIZE_REGEX = Regex("[^a-zA-Z0-9_-]")
@@ -527,6 +528,7 @@ class AudioTrimmer @Inject constructor(
                 "Unsupported ${exportFormat.name} bitrate: $bitrateKbps kbps"
             }
 
+            clearTrimCache()
             val outputDir = File(context.cacheDir, "trimmed")
             outputDir.mkdirs()
             val outputFile = File(
@@ -794,10 +796,7 @@ class AudioTrimmer @Inject constructor(
             start()
         }
         try {
-            val completed = process.waitFor(
-                FFMPEG_TIMEOUT_SECONDS,
-                java.util.concurrent.TimeUnit.SECONDS,
-            )
+            val completed = process.awaitExit(FFMPEG_TIMEOUT_SECONDS)
             if (!completed) {
                 process.destroyForcibly()
                 throw Exception("$operation timed out after ${FFMPEG_TIMEOUT_SECONDS}s")
@@ -814,6 +813,26 @@ class AudioTrimmer @Inject constructor(
         }
     }
 
+    private suspend fun Process.awaitExit(timeoutSeconds: Long): Boolean =
+        suspendCancellableCoroutine { continuation ->
+            val waiter = Thread(
+                {
+                    val completed = try {
+                        waitFor(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)
+                    } catch (_: InterruptedException) {
+                        false
+                    }
+                    if (continuation.isActive) continuation.resume(completed)
+                },
+                "audio-ffmpeg-exit-waiter",
+            ).apply { isDaemon = true }
+            continuation.invokeOnCancellation {
+                waiter.interrupt()
+                destroy()
+            }
+            waiter.start()
+        }
+
     private fun verifyLosslessPacketCopy(inputPath: String, outputPath: String): Boolean {
         val outputPackets = readEncodedAudioPackets(outputPath)
         if (outputPackets.isEmpty()) return false
@@ -823,32 +842,63 @@ class AudioTrimmer @Inject constructor(
             packet.copyInto(outputBytes, destinationOffset = outputOffset)
             outputOffset += packet.size
         }
-        val prefix = IntArray(outputBytes.size)
-        for (index in 1 until outputBytes.size) {
+
+        // Anchor the search on the output's first chunk so the KMP table stays bounded,
+        // then stream-verify the remainder instead of allocating an output-sized table.
+        val anchorSize = min(LOSSLESS_VERIFY_CHUNK_BYTES, outputBytes.size)
+        val anchor = outputBytes.copyOf(anchorSize)
+        val prefix = IntArray(anchorSize)
+        for (index in 1 until anchorSize) {
             var candidate = prefix[index - 1]
-            while (candidate > 0 && outputBytes[index] != outputBytes[candidate]) {
+            while (candidate > 0 && anchor[index] != anchor[candidate]) {
                 candidate = prefix[candidate - 1]
             }
-            if (outputBytes[index] == outputBytes[candidate]) candidate++
+            if (anchor[index] == anchor[candidate]) candidate++
             prefix[index] = candidate
         }
 
+        var sourceOffset = 0L
+        var anchorPos = -1L
         var matched = 0
-        var found = false
         forEachEncodedAudioPacket(inputPath, packetLoop@ { sourcePacket ->
-            sourcePacket.forEach { sourceByte ->
-                while (matched > 0 && sourceByte != outputBytes[matched]) {
+            for (index in sourcePacket.indices) {
+                val byte = sourcePacket[index]
+                while (matched > 0 && byte != anchor[matched]) {
                     matched = prefix[matched - 1]
                 }
-                if (sourceByte == outputBytes[matched]) matched++
-                if (matched == outputBytes.size) {
-                    found = true
+                if (byte == anchor[matched]) matched++
+                if (matched == anchorSize) {
+                    anchorPos = sourceOffset + index + 1 - anchorSize
                     return@packetLoop false
                 }
             }
+            sourceOffset += sourcePacket.size
             true
         })
-        return found
+        if (anchorPos < 0L) return false
+
+        var bytesToSkip = anchorPos
+        var outputIndex = 0
+        var matches = true
+        forEachEncodedAudioPacket(inputPath, packetLoop@ { sourcePacket ->
+            if (!matches) return@packetLoop false
+            var packetOffset = 0
+            if (bytesToSkip > 0L) {
+                val skip = min(bytesToSkip, sourcePacket.size.toLong()).toInt()
+                packetOffset = skip
+                bytesToSkip -= skip
+            }
+            while (packetOffset < sourcePacket.size && outputIndex < outputBytes.size) {
+                if (sourcePacket[packetOffset] != outputBytes[outputIndex]) {
+                    matches = false
+                    return@packetLoop false
+                }
+                packetOffset++
+                outputIndex++
+            }
+            true
+        })
+        return matches && outputIndex == outputBytes.size
     }
 
     private fun readEncodedAudioPackets(path: String): List<ByteArray> {
@@ -958,9 +1008,15 @@ class AudioTrimmer @Inject constructor(
             val pb = ProcessBuilder(cmd).redirectErrorStream(true).directory(input.parentFile)
             clashProxyManager.applyProxyToProcessBuilder(pb)
             val process = pb.start()
+            val logDrainThread = Thread(
+                { process.inputStream.drainBounded() },
+                "audio-ffmpeg-normalize-drain",
+            ).apply {
+                isDaemon = true
+                start()
+            }
             val exitCode = try {
-                process.inputStream.drainBounded()
-                val completed = process.waitFor(FFMPEG_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)
+                val completed = process.awaitExit(FFMPEG_TIMEOUT_SECONDS)
                 if (!completed) {
                     process.destroyForcibly()
                     throw Exception("Normalization timed out after ${FFMPEG_TIMEOUT_SECONDS}s")
@@ -968,6 +1024,9 @@ class AudioTrimmer @Inject constructor(
                 process.exitValue()
             } finally {
                 try { process.destroy() } catch (_: Exception) {}
+                try { logDrainThread.join(1_000L) } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                }
             }
 
             if (exitCode == 0 && output.exists() && output.length() > 1024) {

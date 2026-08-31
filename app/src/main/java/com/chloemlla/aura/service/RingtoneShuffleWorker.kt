@@ -13,10 +13,12 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.chloemlla.aura.data.local.DownloadDao
 import com.chloemlla.aura.data.local.PreferencesManager
+import com.chloemlla.aura.data.model.DownloadEntity
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 @HiltWorker
@@ -39,8 +41,17 @@ class RingtoneShuffleWorker @AssistedInject constructor(
                 return Result.failure()
             }
 
-            val soundDownloads = downloadDao.getByType("SOUND").first()
+            val allSoundDownloads = downloadDao.getByType("SOUND").first()
                 .filter { it.localPath.isNotBlank() }
+            val soundDownloads = mutableListOf<DownloadEntity>()
+            for (download in allSoundDownloads) {
+                if (localFileReadable(download.localPath)) {
+                    soundDownloads += download
+                } else {
+                    // File is gone — drop the stale row so it can't be picked again.
+                    downloadDao.updateLocalPath(download.id, "")
+                }
+            }
 
             if (soundDownloads.isEmpty()) {
                 receiptStore.recordFailure(
@@ -108,6 +119,19 @@ class RingtoneShuffleWorker @AssistedInject constructor(
                 deferralReason = e.message ?: "unknown error",
             )
             Result.retry()
+        }
+    }
+
+    private fun localFileReadable(path: String): Boolean {
+        val uri = Uri.parse(path)
+        return if (uri.scheme == "content") {
+            runCatching {
+                val fd = applicationContext.contentResolver.openFileDescriptor(uri, "r")
+                if (fd == null) false else { fd.close(); true }
+            }.getOrDefault(false)
+        } else {
+            val file = File(path)
+            file.isFile && file.canRead()
         }
     }
 

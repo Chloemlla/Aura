@@ -69,6 +69,8 @@ class DownloadManager @Inject constructor(
     val activeDownloads: StateFlow<Map<String, DownloadProgress>> = _activeDownloads.asStateFlow()
     private val notificationLock = Any()
     private val notificationSnapshots = mutableMapOf<String, DownloadNotificationSnapshot>()
+    private val notificationSequences = mutableMapOf<String, Int>()
+    private var nextNotificationSequence = 0
 
     /** Download a wallpaper image to the Pictures directory */
     suspend fun downloadWallpaper(
@@ -210,7 +212,12 @@ class DownloadManager @Inject constructor(
     } catch (e: Exception) {
         if (e is CancellationException) throw e
         sourceUnavailableReasonForFailure(contentSource, e)?.let { reason ->
-            downloadDao.updateSourceAvailability(historyId, SOURCE_AVAILABILITY_UNAVAILABLE, reason)
+            downloadDao.updateSourceAvailabilityByIdentity(
+                contentId,
+                historyId,
+                SOURCE_AVAILABILITY_UNAVAILABLE,
+                reason,
+            )
         }
         updateProgress(historyId, DownloadProgress(historyId, fileName, 0f, 0, 0, error = e.message))
         Result.failure(e)
@@ -309,8 +316,12 @@ class DownloadManager @Inject constructor(
 
     fun clearCompleted(id: String) {
         _activeDownloads.update { it - id }
-        synchronized(notificationLock) { notificationSnapshots.remove(id) }
-        NotificationManagerCompat.from(context).cancel(downloadNotificationId(id))
+        val notifId = downloadNotificationId(id)
+        synchronized(notificationLock) {
+            notificationSnapshots.remove(id)
+            notificationSequences.remove(id)
+        }
+        NotificationManagerCompat.from(context).cancel(notifId)
     }
 
     /**
@@ -430,6 +441,7 @@ class DownloadManager @Inject constructor(
     }
 
     private fun publishDownloadNotification(progress: DownloadProgress) {
+        if (!shouldPostNotification(progress)) return
         if (
             Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(
@@ -440,7 +452,7 @@ class DownloadManager @Inject constructor(
             return
         }
         val manager = NotificationManagerCompat.from(context)
-        if (!manager.areNotificationsEnabled() || !shouldPostNotification(progress)) return
+        if (!manager.areNotificationsEnabled()) return
 
         val notification = try {
             if (Build.VERSION.SDK_INT >= 36) {
@@ -485,8 +497,15 @@ class DownloadManager @Inject constructor(
         }
     }
 
+    private fun notificationSequence(id: String): Int = synchronized(notificationLock) {
+        notificationSequences.getOrPut(id) { nextNotificationSequence++ }
+    }
+
     private fun downloadNotificationId(id: String): Int =
-        DOWNLOAD_NOTIFICATION_ID_BASE + (id.hashCode() and 0x0FFFFFFF)
+        DOWNLOAD_NOTIFICATION_ID_BASE + notificationSequence(id)
+
+    private fun downloadNotificationRequestCode(id: String): Int =
+        DOWNLOAD_NOTIFICATION_REQUEST_CODE_BASE + notificationSequence(id)
 
     private fun downloadNotificationPercent(progress: DownloadProgress): Int =
         if (progress.isComplete) {
@@ -542,7 +561,7 @@ class DownloadManager @Inject constructor(
         }
         return PendingIntent.getActivity(
             context,
-            DOWNLOAD_NOTIFICATION_REQUEST_CODE_BASE + (id.hashCode() and 0x0FFFFFFF),
+            downloadNotificationRequestCode(id),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -626,7 +645,7 @@ private const val MAX_IMAGE_DOWNLOAD_BYTES = 64L * 1024 * 1024
 /** Hard cap on audio downloads — matches the 20 MB community upload ceiling + headroom. */
 private const val MAX_AUDIO_DOWNLOAD_BYTES = 64L * 1024 * 1024
 
-private const val DOWNLOAD_NOTIFICATION_MIN_INTERVAL_MS = 250L
+private const val DOWNLOAD_NOTIFICATION_MIN_INTERVAL_MS = 400L
 private const val DOWNLOAD_NOTIFICATION_ID_BASE = 16_000
 private const val DOWNLOAD_NOTIFICATION_REQUEST_CODE_BASE = 8_000
 

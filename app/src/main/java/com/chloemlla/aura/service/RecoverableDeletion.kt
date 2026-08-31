@@ -87,9 +87,11 @@ class DownloadTrash @Inject constructor(
 
     @Synchronized
     fun add(entry: TrashedDownload) {
-        // Newest first, and bounded: the oldest entries are purged for real so a
-        // bulk delete cannot grow the staging directory without limit.
-        val existing = entries().filterNot { it.id == entry.id }
+        val current = entries()
+        // Re-staging an id overwrites the previous entry, whose staged file must be
+        // released here or it would leak storage for the whole retention window.
+        current.firstOrNull { it.id == entry.id }?.let(::destroyStagedFile)
+        val existing = current.filterNot { it.id == entry.id }
         val kept = (listOf(entry) + existing).take(DELETION_TRASH_MAX_ENTRIES)
         (existing + entry).minus(kept.toSet()).forEach(::destroyStagedFile)
         write(kept)

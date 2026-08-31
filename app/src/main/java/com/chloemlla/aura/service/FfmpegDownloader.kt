@@ -13,6 +13,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 import java.security.MessageDigest
 import java.util.zip.ZipInputStream
 import javax.inject.Inject
@@ -90,69 +92,124 @@ class FfmpegDownloader @Inject constructor(
             .addHeader("Accept", "application/octet-stream")
             .build()
 
-        val response = okHttpClient.newCall(request).execute()
-        if (!response.isSuccessful) {
-            throw IOException(
-                "Failed to download FFmpeg: HTTP ${response.code} from $downloadUrl"
-            )
-        }
-
-        val body = response.body ?: throw IOException("Empty response body from $downloadUrl")
-        val contentLength = body.contentLength()
-
-        // Download the full archive bytes so we can verify the SHA-256 before extracting
-        val archiveBytes = if (contentLength > 0L) {
-            body.bytes()
-        } else {
-            body.byteStream().use { it.readBytes() }
-        }
-
-        // SHA-256 integrity check. Fail closed: an ABI without a pinned digest is
-        // rejected rather than trusted, and a mismatch deletes any partial file.
-        val actualDigest = MessageDigest.getInstance("SHA-256")
-            .digest(archiveBytes)
-            .joinToString("") { "%02x".format(it) }
-        val expectedDigest = EXPECTED_SHA256[arch]
-            ?: throw IOException(
-                "No pinned SHA-256 digest configured for $arch; refusing to run a downloaded FFmpeg binary"
-            )
-        if (actualDigest != expectedDigest) {
-            ffmpegFile.delete()
-            throw IOException(
-                "FFmpeg download integrity check failed for $arch: " +
-                    "expected SHA-256 $expectedDigest, got $actualDigest"
-            )
-        }
-
-        // Extract the ffmpeg binary from the ZIP archive
-        var extracted = false
-        ZipInputStream(archiveBytes.inputStream()).use { zis ->
-            var entry = zis.nextEntry
-            while (entry != null) {
-                val entryName = entry.name
-                val binaryName = entryName.substringAfterLast('/')
-                if (binaryName == FFMPEG_BINARY_NAME) {
-                    ffmpegFile.outputStream().use { output ->
-                        zis.copyTo(output)
-                    }
-                    extracted = true
-                    break
+        // Stream the download to a temp file while hashing it; the Response is
+        // always closed, and the multi-MB archive is never slurped into memory.
+        val archiveFile = File.createTempFile("ffmpeg-download", ".zip", ffmpegDir)
+        try {
+            val actualDigest = okHttpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw IOException(
+                        "Failed to download FFmpeg: HTTP ${response.code} from $downloadUrl"
+                    )
                 }
-                zis.closeEntry()
-                entry = zis.nextEntry
+                val body = response.body ?: throw IOException("Empty response body from $downloadUrl")
+                val digest = MessageDigest.getInstance("SHA-256")
+                body.byteStream().use { input ->
+                    archiveFile.outputStream().use { output ->
+                        val buffer = ByteArray(ARCHIVE_BUFFER_BYTES)
+                        var total = 0L
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read < 0) break
+                            total += read
+                            if (total > MAX_ARCHIVE_BYTES) {
+                                throw IOException("FFmpeg archive exceeds the download size limit")
+                            }
+                            digest.update(buffer, 0, read)
+                            output.write(buffer, 0, read)
+                        }
+                    }
+                }
+                digest.digest().joinToString("") { "%02x".format(it) }
             }
-        }
 
-        if (!extracted) {
-            // Clean up the partial directory so a retry re-downloads from scratch
+            // SHA-256 integrity check. Fail closed: an ABI without a pinned digest is
+            // rejected rather than trusted, and a mismatch deletes any partial file.
+            val expectedDigest = EXPECTED_SHA256[arch]
+                ?: throw IOException(
+                    "No pinned SHA-256 digest configured for $arch; refusing to run a downloaded FFmpeg binary"
+                )
+            if (actualDigest != expectedDigest) {
+                ffmpegFile.delete()
+                throw IOException(
+                    "FFmpeg download integrity check failed for $arch: " +
+                        "expected SHA-256 $expectedDigest, got $actualDigest"
+                )
+            }
+
+            // Extract the ffmpeg binary from the ZIP archive, bounded by the same
+            // ArchiveExtractionGuard Aura applies to every untrusted archive.
             ffmpegFile.delete()
-            throw IOException("FFmpeg binary not found in downloaded archive")
+            val session = ArchiveExtractionGuard.newSession(EXTRACTION_LIMITS)
+            var extracted = false
+            ZipInputStream(archiveFile.inputStream()).use { zis ->
+                var entry = zis.nextEntry
+                while (entry != null) {
+                    session.beginEntry(entry.name, isLink = false)
+                    val entryName = entry.name
+                    val binaryName = entryName.substringAfterLast('/')
+                    if (!entry.isDirectory && binaryName == FFMPEG_BINARY_NAME) {
+                        ffmpegFile.outputStream().use { output ->
+                            copyEntryBounded(zis, output, session, entry.compressedSize.coerceAtLeast(0L))
+                        }
+                        extracted = true
+                        break
+                    }
+                    zis.closeEntry()
+                    entry = zis.nextEntry
+                }
+            }
+
+            if (!extracted) {
+                // Clean up the partial directory so a retry re-downloads from scratch
+                ffmpegFile.delete()
+                throw IOException("FFmpeg binary not found in downloaded archive")
+            }
+        } finally {
+            archiveFile.delete()
         }
+    }
+
+    /** Copies one zip entry through the guard so an oversized entry fails the extraction. */
+    private fun copyEntryBounded(
+        input: InputStream,
+        output: OutputStream,
+        session: ArchiveExtractionGuard.Session,
+        compressedBytes: Long,
+    ) {
+        val buffer = ByteArray(ARCHIVE_BUFFER_BYTES)
+        var expanded = 0L
+        while (true) {
+            // remainingEntryBudget() bounds against committed entries; also cap at the
+            // current entry's own allowance so an oversized entry fails before filling disk.
+            val budget = minOf(session.remainingEntryBudget(), EXTRACTION_LIMITS.maxEntryBytes - expanded)
+            if (budget <= 0L) {
+                // Probe byte decides whether the entry is exactly at the limit (ok) or over it (fail).
+                if (input.read() < 0) break
+                session.failEntryTooLarge()
+            }
+            val toRead = minOf(budget, buffer.size.toLong()).toInt()
+            val read = input.read(buffer, 0, toRead)
+            if (read < 0) break
+            output.write(buffer, 0, read)
+            expanded += read
+        }
+        session.commitEntry(expanded, compressedBytes)
     }
 
     private companion object {
         private const val FFMPEG_DIR_NAME = "ffmpeg"
         private const val FFMPEG_BINARY_NAME = "ffmpeg"
+        private const val ARCHIVE_BUFFER_BYTES = 64 * 1024
+        private const val MAX_ARCHIVE_BYTES = 200L * 1024L * 1024L
+
+        /** Bounds for extracting the archive; the binary is large but the zip is small. */
+        private val EXTRACTION_LIMITS = ArchiveExtractionLimits(
+            maxEntries = 64,
+            maxEntryBytes = 512L * 1024L * 1024L,
+            maxTotalBytes = 1024L * 1024L * 1024L,
+            maxCompressionRatio = 200,
+        )
 
         // FFmpeg release source: arthenica/ffmpeg-kit
         private const val FFMPEG_BASE_URL =

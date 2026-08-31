@@ -25,6 +25,7 @@ private const val MAX_IMPORT_FAVORITES = 5_000
 private const val MAX_IMPORT_COLLECTIONS = 100
 private const val MAX_IMPORT_COLLECTION_ITEMS = 500
 private const val MAX_IMPORT_SEARCHES = 200
+private const val MAX_IMPORT_JSON_FIELD_CHARS = 1_000_000
 
 @JsonClass(generateAdapter = true)
 data class LibraryExportFile(
@@ -365,11 +366,11 @@ class LibraryExporter @Inject constructor(
         val previousProfiles = prefs.soundProfilesJson.first()
         var prefsWritten = false
         try {
-            if (plan.wallpaperPackJson.isNotBlank()) {
+            if (plan.wallpaperPackJson.isNotBlank() && isValidWallpaperPackJson(plan.wallpaperPackJson)) {
                 prefs.setWallpaperPackJson(plan.wallpaperPackJson)
                 prefsWritten = true
             }
-            if (plan.soundProfilesJson.isNotBlank()) {
+            if (plan.soundProfilesJson.isNotBlank() && isValidSoundProfilesJson(plan.soundProfilesJson)) {
                 prefs.setSoundProfilesJson(plan.soundProfilesJson)
                 prefsWritten = true
             }
@@ -421,6 +422,17 @@ private fun FavoriteExportEntry.label(): String =
 
 private fun CollectionItemExportEntry.label(): String =
     normalizeImportedText(wallpaperId).ifBlank { "(unnamed)" }
+
+// Reject oversized or unparseable JSON blobs so a backup import can't poison DataStore.
+private fun isValidWallpaperPackJson(raw: String): Boolean {
+    if (raw.length > MAX_IMPORT_JSON_FIELD_CHARS) return false
+    return runCatching { wallpaperPackJson.decodeFromString<WallpaperPack>(raw) }.isSuccess
+}
+
+private fun isValidSoundProfilesJson(raw: String): Boolean {
+    if (raw.length > MAX_IMPORT_JSON_FIELD_CHARS) return false
+    return runCatching { soundProfileJson.decodeFromString<List<SoundProfile>>(raw) }.isSuccess
+}
 
 private fun FavoriteEntity.toExportEntry() = FavoriteExportEntry(
     id = id,

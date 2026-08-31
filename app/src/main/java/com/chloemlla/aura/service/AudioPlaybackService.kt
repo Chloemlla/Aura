@@ -22,10 +22,15 @@ import com.chloemlla.aura.data.repository.FavoritesRepository
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.SettableFuture
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @OptIn(UnstableApi::class)
@@ -35,6 +40,9 @@ class AudioPlaybackService : MediaLibraryService() {
     @Inject lateinit var audioPreviewCache: AudioPreviewCache
     @Inject lateinit var bundledContentProvider: BundledContentProvider
     @Inject lateinit var favoritesRepository: FavoritesRepository
+    @Inject lateinit var audioPlaybackManager: AudioPlaybackManager
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private var mediaLibrarySession: MediaLibraryService.MediaLibrarySession? = null
 
@@ -127,22 +135,7 @@ class AudioPlaybackService : MediaLibraryService() {
                 CATEGORY_ALARM -> bundledContentProvider.getAlarms()
                     .map { it.toMediaItem() }
                     .let { ImmutableList.copyOf<MediaItem>(it) }
-                CATEGORY_FAVORITES -> runBlocking { favoritesRepository.getSounds().first() }
-                    .mapNotNull { favorite ->
-                        val source = runCatching {
-                            ContentSource.valueOf(favorite.source.uppercase(Locale.ROOT))
-                        }.getOrNull() ?: return@mapNotNull null
-                        Sound(
-                            id = favorite.id,
-                            source = source,
-                            name = favorite.name,
-                            previewUrl = favorite.fullUrl,
-                            downloadUrl = favorite.fullUrl,
-                            duration = favorite.duration,
-                            uploaderName = favorite.uploaderName ?: "",
-                        ).toMediaItem()
-                    }
-                    .let { ImmutableList.copyOf<MediaItem>(it) }
+                CATEGORY_FAVORITES -> return favoritesFuture()
                 CATEGORY_AURA_PICKS -> allBundledSounds()
                     .map { it.toMediaItem() }
                     .let { ImmutableList.copyOf<MediaItem>(it) }
@@ -168,6 +161,34 @@ class AudioPlaybackService : MediaLibraryService() {
                 },
             )
         }
+
+        private fun favoritesFuture(): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
+            val result = SettableFuture.create<LibraryResult<ImmutableList<MediaItem>>>()
+            serviceScope.launch {
+                try {
+                    val children = favoritesRepository.getSounds().first()
+                        .mapNotNull { favorite ->
+                            val source = runCatching {
+                                ContentSource.valueOf(favorite.source.uppercase(Locale.ROOT))
+                            }.getOrNull() ?: return@mapNotNull null
+                            Sound(
+                                id = favorite.id,
+                                source = source,
+                                name = favorite.name,
+                                previewUrl = favorite.fullUrl,
+                                downloadUrl = favorite.fullUrl,
+                                duration = favorite.duration,
+                                uploaderName = favorite.uploaderName ?: "",
+                            ).toMediaItem()
+                        }
+                        .let { ImmutableList.copyOf<MediaItem>(it) }
+                    result.set(LibraryResult.ofItemList(children, /* params = */ null))
+                } catch (e: Exception) {
+                    result.set(LibraryResult.ofError(SessionError.ERROR_BAD_VALUE))
+                }
+            }
+            return result
+        }
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -183,6 +204,8 @@ class AudioPlaybackService : MediaLibraryService() {
             release()
         }
         mediaLibrarySession = null
+        audioPlaybackManager.release()
+        serviceScope.cancel()
         super.onDestroy()
     }
 

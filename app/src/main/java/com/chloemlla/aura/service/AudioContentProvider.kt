@@ -26,7 +26,6 @@ import java.io.FileNotFoundException
 class AudioContentProvider : ContentProvider() {
 
     private lateinit var bundledContentProvider: BundledContentProvider
-    private lateinit var soundUrlResolver: SoundUrlResolver
     private lateinit var okHttpClient: OkHttpClient
     private lateinit var cacheDir: File
 
@@ -34,7 +33,6 @@ class AudioContentProvider : ContentProvider() {
         val context = context ?: return false
         val entryPoint = EntryPoints.get(context.applicationContext, AudioContentProviderEntryPoint::class.java)
         bundledContentProvider = entryPoint.bundledContentProvider()
-        soundUrlResolver = entryPoint.soundUrlResolver()
         okHttpClient = entryPoint.okHttpClient()
         cacheDir = File(context.cacheDir, "audio_provider").also { it.mkdirs() }
         return true
@@ -228,6 +226,5 @@ class AudioContentProvider : ContentProvider() {
 @InstallIn(SingletonComponent::class)
 interface AudioContentProviderEntryPoint {
     fun bundledContentProvider(): BundledContentProvider
-    fun soundUrlResolver(): SoundUrlResolver
     fun okHttpClient(): OkHttpClient
 }

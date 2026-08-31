@@ -272,7 +272,7 @@ class LibraryImportPlanTest {
                     ]}]
                 """.trimIndent(),
                 searchHistory = """[{"query":"blue","type":"WALLPAPER","searchedAt":1}]""",
-                extra = ""","wallpaperPackJson":"new-pack"""",
+                extra = ",\"wallpaperPackJson\":\"{\\\"id\\\":\\\"new-pack\\\",\\\"name\\\":\\\"New Pack\\\"}\"",
             ),
         )
 
@@ -287,7 +287,7 @@ class LibraryImportPlanTest {
                 .map { it.wallpaperId },
         )
         assertEquals(1, db.searchHistoryDao().count("WALLPAPER"))
-        assertEquals("new-pack", packJson.value)
+        assertEquals("""{"id":"new-pack","name":"New Pack"}""", packJson.value)
         // favorites(1) + collection(1) + item(1) + search(1) + pack(1)
         assertEquals(5, plan.writeCount)
     }

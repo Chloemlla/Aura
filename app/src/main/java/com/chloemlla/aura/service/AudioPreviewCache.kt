@@ -28,7 +28,6 @@ import javax.inject.Singleton
 @Singleton
 class AudioPreviewCache @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val clashProxyManager: ClashProxyManager,
 ) {
     private val upstreamFactory = DefaultHttpDataSource.Factory()
         .setUserAgent("Aura/${BuildConfig.VERSION_NAME} (Android; Open Source)")
@@ -36,16 +35,20 @@ class AudioPreviewCache @Inject constructor(
         .setReadTimeoutMs(20_000)
         .setAllowCrossProtocolRedirects(false)
 
-    private val cache = SimpleCache(
-        File(context.cacheDir, "audio-preview-cache"),
-        LeastRecentlyUsedCacheEvictor(MAX_CACHE_BYTES),
-        StandaloneDatabaseProvider(context),
-    )
+    private val cache: SimpleCache by lazy {
+        SimpleCache(
+            File(context.cacheDir, "audio-preview-cache"),
+            LeastRecentlyUsedCacheEvictor(MAX_CACHE_BYTES),
+            StandaloneDatabaseProvider(context),
+        )
+    }
 
-    private val dataSourceFactory = CacheDataSource.Factory()
-        .setCache(cache)
-        .setUpstreamDataSourceFactory(upstreamFactory)
-        .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+    private val dataSourceFactory: CacheDataSource.Factory by lazy {
+        CacheDataSource.Factory()
+            .setCache(cache)
+            .setUpstreamDataSourceFactory(upstreamFactory)
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+    }
 
     fun mediaSourceFactory(): DefaultMediaSourceFactory =
         DefaultMediaSourceFactory(DefaultDataSource.Factory(context, dataSourceFactory))

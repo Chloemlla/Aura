@@ -33,16 +33,28 @@ class OfflineFavoritesManager @Inject constructor(
         /** Max bytes for a single offline-cached favorite (wallpaper or sound). Prevents one
          *  hostile URL from consuming the entire 512 MB budget in one shot. */
         private const val MAX_PER_FILE_BYTES = 80L * 1024L * 1024L
+
+        /** Extension cap so a hostile URL can't smuggle a long path-like suffix. */
+        private const val MAX_EXT_LEN = 5
+        private const val DEFAULT_EXT = "mp3"
     }
 
     private val offlineDir = File(context.filesDir, "offline_favorites").apply { mkdirs() }
+
+    /** Reduce a URL-derived extension to a safe, single path component. */
+    private fun sanitizeExtension(raw: String): String {
+        val cleaned = raw.substringAfterLast(".")
+            .replace(SANITIZE_REGEX, "")
+            .take(MAX_EXT_LEN)
+        return cleaned.ifEmpty { DEFAULT_EXT }
+    }
 
     /** Cache a favorite's content locally. Returns local file path or null. */
     suspend fun cacheOffline(favorite: FavoriteEntity, url: String): String? =
         withContext(Dispatchers.IO) {
             try {
                 val ext = when {
-                    favorite.type == "SOUND" -> url.substringBefore("?").substringAfterLast(".", "mp3")
+                    favorite.type == "SOUND" -> sanitizeExtension(url.substringBefore("?").substringAfterLast(".", "mp3"))
                     url.contains(".png", true) -> "png"
                     url.contains(".webp", true) -> "webp"
                     else -> "jpg"

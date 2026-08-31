@@ -158,9 +158,9 @@ class SoundApplier @Inject constructor(
         writeContent: (OutputStream) -> Unit,
     ): Uri? {
         val relativePath = when (type) {
-            ContentType.RINGTONE -> Environment.DIRECTORY_RINGTONES
-            ContentType.NOTIFICATION -> Environment.DIRECTORY_NOTIFICATIONS
-            ContentType.ALARM -> Environment.DIRECTORY_ALARMS
+            ContentType.RINGTONE -> Environment.DIRECTORY_RINGTONES + "/Aura"
+            ContentType.NOTIFICATION -> Environment.DIRECTORY_NOTIFICATIONS + "/Aura"
+            ContentType.ALARM -> Environment.DIRECTORY_ALARMS + "/Aura"
             else -> Environment.DIRECTORY_MUSIC + "/Aura"
         }
 

@@ -407,6 +407,9 @@ internal object CrashDiagnosticsText {
         """(?:/data/(?:user/\d+/|data/)com\.chloemlla\.aura|/storage/emulated/\d+/Android/data/com\.chloemlla\.aura)[^\s)'">]*""",
     )
     private val fileUriRegex = Regex("""file://[^\s)'">]+""")
+    private val externalStoragePathRegex = Regex(
+        """(/storage/emulated/\d+(?:/[^/\\'">;]+)*/)[^/\\'">;]+""",
+    )
 
     fun tail(raw: String, maxChars: Int): String {
         if (raw.length <= maxChars) return raw.trimEnd()
@@ -421,6 +424,7 @@ internal object CrashDiagnosticsText {
         }
         result = appPrivatePathRegex.replace(result, "<app-private-path>")
         result = fileUriRegex.replace(result, "file://<redacted-path>")
+        result = externalStoragePathRegex.replace(result, "\$1<redacted>")
         result = RequestRedactor.redact(result)
         return result.trimEnd()
     }

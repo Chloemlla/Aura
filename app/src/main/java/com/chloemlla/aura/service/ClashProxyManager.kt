@@ -20,7 +20,6 @@ import java.net.ProxySelector
 import java.net.Socket
 import java.net.SocketAddress
 import java.net.URI
-import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
@@ -152,7 +151,6 @@ class ClashProxyManager @Inject constructor(
     private val _proxyReachable = AtomicBoolean(false)
     private val _proxyProbedAtMs = AtomicLong(0L)
 
-    private val listeners = CopyOnWriteArrayList<ClashStateListener>()
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     /** Snapshot of the current Clash proxy state. */
@@ -172,11 +170,6 @@ class ClashProxyManager @Inject constructor(
 
         val shouldSkipManualProxy: Boolean
             get() = isClashRouting && processBound
-    }
-
-    /** Listener for state changes. */
-    fun interface ClashStateListener {
-        fun onClashStateChanged(state: ClashState)
     }
 
     // ── Public API ─────────────────────────────────────────────────────
@@ -314,31 +307,6 @@ class ClashProxyManager @Inject constructor(
     }
 
     /**
-     * Enable or disable Clash auto-adapt. When enabled, the process is bound
-     * to the Clash VPN network and manual proxy is skipped. Default: enabled.
-     */
-    fun setAutoAdaptEnabled(enabled: Boolean) {
-        if (_autoAdaptEnabled.getAndSet(enabled) != enabled) {
-            if (enabled) {
-                refresh()
-            } else {
-                unbindProcess()
-            }
-            notifyListeners()
-        }
-    }
-
-    /** Add a state change listener. */
-    fun addListener(listener: ClashStateListener) {
-        listeners.add(listener)
-    }
-
-    /** Remove a state change listener. */
-    fun removeListener(listener: ClashStateListener) {
-        listeners.remove(listener)
-    }
-
-    /**
      * Initialize and start monitoring. Call from [Application.onCreate].
      * Sets a global [ProxySelector] so that all HTTP clients (OkHttp,
      * HttpURLConnection, etc.) route through Clash when available.
@@ -392,7 +360,6 @@ class ClashProxyManager @Inject constructor(
         // VPN/package state just changed, so the cached reachability verdict is stale.
         resetProxyProbe()
         applyVpnBinding()
-        notifyListeners()
     }
 
     // ── Internal ───────────────────────────────────────────────────────
@@ -590,11 +557,6 @@ class ClashProxyManager @Inject constructor(
     private fun markProxyUnreachable() {
         _proxyReachable.set(false)
         _proxyProbedAtMs.set(SystemClock.elapsedRealtime())
-    }
-
-    private fun notifyListeners() {
-        val state = buildState()
-        listeners.forEach { it.onClashStateChanged(state) }
     }
 
     private companion object {

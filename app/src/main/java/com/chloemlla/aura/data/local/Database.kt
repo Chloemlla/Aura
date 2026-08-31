@@ -142,6 +142,9 @@ interface DownloadDao {
     @Query("UPDATE downloads SET sourceAvailability = :availability, sourceAvailabilityReason = :reason WHERE id = :id")
     suspend fun updateSourceAvailability(id: String, availability: String, reason: String?)
 
+    @Query("UPDATE downloads SET sourceAvailability = :availability, sourceAvailabilityReason = :reason WHERE id = :legacyId OR id = :scopedId")
+    suspend fun updateSourceAvailabilityByIdentity(legacyId: String, scopedId: String, availability: String, reason: String?)
+
     @Query("UPDATE downloads SET localPath = :path WHERE id = :id")
     suspend fun updateLocalPath(id: String, path: String)
 
