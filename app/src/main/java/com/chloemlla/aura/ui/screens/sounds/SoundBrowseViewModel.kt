@@ -51,7 +51,7 @@ internal class SoundBrowseViewModel(
     )
 
     fun start() {
-        scope.launch { hydrateCachedFeed(state.value.selectedTab, state.value.query) }
+        scope.launch(Dispatchers.IO) { hydrateCachedFeed(state.value.selectedTab, state.value.query) }
         loadSounds()
     }
 
@@ -113,7 +113,7 @@ internal class SoundBrowseViewModel(
             )
         }
         if (tab !in setOf(SoundTab.COMMUNITY, SoundTab.YOUTUBE)) {
-            scope.launch { hydrateCachedFeed(tab, "") }
+            scope.launch(Dispatchers.IO) { hydrateCachedFeed(tab, "") }
         }
         when (tab) {
             SoundTab.COMMUNITY -> communityFeed.loadCommunityTab()

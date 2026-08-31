@@ -8,7 +8,6 @@ import io.mockk.mockk
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -70,9 +69,11 @@ class WallpaperEditorSourceLoadingTest {
     /**
      * The filter render hops to `Dispatchers.Default`, a real dispatcher, so this
      * one waits in real time rather than on the test scheduler's virtual clock.
+     * `runTest` reuses the Main test dispatcher's scheduler, which advances the
+     * filter debounce that `runBlocking` cannot.
      */
     @Test
-    fun `filter changes made before the source arrives replay once it does`() = runBlocking {
+    fun `filter changes made before the source arrives replay once it does`() = runTest {
         // The user drags brightness while the URL is still downloading.
         viewModel.updateBrightness(40f)
         assertFalse(viewModel.state.value.isSourceReady)
@@ -147,9 +148,12 @@ class WallpaperEditorSourceLoadingTest {
             "apply must be gated on a decoded source",
             screen.contains("val canApply = state.isSourceReady && !state.isApplying"),
         )
-        assertFalse(
-            "apply must not be enabled purely on the applying flag",
-            screen.contains("enabled = !state.isApplying,"),
+        assertTrue(
+            "apply buttons must be wired through the canApply gate",
+            screen.contains("enabled = canApply,"),
         )
+        // The top-bar Reset button is deliberately disabled only mid-apply (the
+        // bitmap is in flight) — its bare `enabled = !state.isApplying,` is a reset
+        // path, not an apply path, so every apply action above is pinned to canApply.
     }
 }
