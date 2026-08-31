@@ -259,7 +259,7 @@ private fun markClipSensitive(clip: ClipData) {
     try {
         val description = clip.description
         val flagsField = ClipDescription::class.java.getDeclaredField("mFlags")
-        if (!flagsField.trySetAccessible()) return
+        flagsField.setAccessible(true)
         flagsField.setInt(description, flagsField.getInt(description) or CLIP_FLAG_SENSITIVE)
     } catch (_: Throwable) {
         // Best-effort: clipboard sensitivity is privacy hardening, not correctness.
