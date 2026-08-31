@@ -18,7 +18,6 @@ import com.chloemlla.aura.data.model.stableKey
 import com.chloemlla.aura.data.remote.toWallpaper
 import com.chloemlla.aura.data.repository.CollectionRepository
 import com.chloemlla.aura.data.repository.FavoritesRepository
-import com.chloemlla.aura.data.repository.RedditRepository
 import com.chloemlla.aura.data.repository.WallpaperRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -32,7 +31,6 @@ class AutoWallpaperWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
     private val wallpaperRepo: WallpaperRepository,
-    private val redditRepo: RedditRepository,
     private val favoritesRepo: FavoritesRepository,
     private val collectionRepo: CollectionRepository,
     private val wallpaperApplier: WallpaperApplier,
@@ -56,11 +54,7 @@ class AutoWallpaperWorker @AssistedInject constructor(
             }
             receiptStore.recordWorkerResult(
                 uniqueWorkName = receiptWorkName,
-                outcome = when (result) {
-                    is Result.Success -> WorkOutcome.SUCCESS
-                    is Result.Retry -> WorkOutcome.RETRY
-                    else -> WorkOutcome.FAILURE
-                },
+                outcome = result.toWorkOutcome(),
                 retryReason = "wallpaper source returned no usable item or apply failed; check selected source, saved collection, and wallpaper permission",
             )
             result
@@ -106,7 +100,6 @@ class AutoWallpaperWorker @AssistedInject constructor(
                 Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES,
         ).normalizeWallpaperRotationSource()
 
-        if (source == "reddit" && !prefs.redditProviderEnabled.first()) return Result.success()
         if (source == "wallhaven" && !prefs.wallhavenProviderEnabled.first()) return Result.success()
         if (source == "pixabay" && !prefs.pixabayProviderEnabled.first()) return Result.success()
         if (source == "bing" && !prefs.bingProviderEnabled.first()) return Result.success()
@@ -118,13 +111,19 @@ class AutoWallpaperWorker @AssistedInject constructor(
         }
         if (source == WALLPAPER_SOURCE_LOCAL_FOLDER && homeEnabled && lockEnabled) {
             val homePick = pickLocalScheduledWallpaper(WallpaperTarget.HOME, shuffle)
-            val lockPick = pickLocalScheduledWallpaper(WallpaperTarget.LOCK, shuffle)
+            // The lock pick must exclude what home took, or sequential mode picks the
+            // same first() for both screens and shuffled mode can collide (AURA-G2-20).
+            val lockPick = pickLocalScheduledWallpaper(
+                WallpaperTarget.LOCK,
+                shuffle,
+                exclude = setOfNotNull(homePick?.stableKey()),
+            )
             if (homePick == null && lockPick == null) return Result.retry()
             val results = buildList {
                 homePick?.let { add(applyAndRecord(it, WallpaperTarget.HOME)) }
                 lockPick?.let { add(applyAndRecord(it, WallpaperTarget.LOCK)) }
             }
-            return if (results.any { it is Result.Retry }) Result.retry() else Result.success()
+            return if (results.any { it == Result.retry() }) Result.retry() else Result.success()
         }
         val rawWallpapers = fetchWallpapers(source, target)
         if (rawWallpapers.isEmpty()) return Result.retry()
@@ -146,7 +145,7 @@ class AutoWallpaperWorker @AssistedInject constructor(
                 if (lockEnabled) add(applyAndRecord(pick, WallpaperTarget.LOCK))
             }
         }
-        return if (results.any { it is Result.Retry }) Result.retry() else Result.success()
+        return if (results.any { it == Result.retry() }) Result.retry() else Result.success()
     }
 
     /** Legacy auto-wallpaper (backward compatible) */
@@ -155,7 +154,6 @@ class AutoWallpaperWorker @AssistedInject constructor(
         val targetStr = prefs.autoWallpaperTarget.first()
         val target = WallpaperTarget.entries.find { it.name == targetStr } ?: WallpaperTarget.BOTH
 
-        if (source == "reddit" && !prefs.redditProviderEnabled.first()) return Result.success()
         if (source == "wallhaven" && !prefs.wallhavenProviderEnabled.first()) return Result.success()
         if (source == "pixabay" && !prefs.pixabayProviderEnabled.first()) return Result.success()
         if (source == "bing" && !prefs.bingProviderEnabled.first()) return Result.success()
@@ -194,14 +192,19 @@ class AutoWallpaperWorker @AssistedInject constructor(
     private suspend fun pickLocalScheduledWallpaper(
         target: WallpaperTarget,
         shuffle: Boolean,
+        exclude: Set<String> = emptySet(),
     ): Wallpaper? {
         val rawWallpapers = fetchWallpapers(WALLPAPER_SOURCE_LOCAL_FOLDER, target)
         if (rawWallpapers.isEmpty()) return null
         val wallpapers = filterRecentRepeats(rawWallpapers)
+        val candidates = wallpapers.filterNot { it.stableKey() in exclude }
+        // A single-image folder leaves the exclusion empty — fall back to the full
+        // set so both screens share the one image instead of reporting a retry.
+        val effective = candidates.ifEmpty { wallpapers }
         return pickScheduledWallpaper(
-            wallpapers = wallpapers,
+            wallpapers = effective,
             shuffle = shuffle,
-            recentKeys = recentShuffleKeys(wallpapers.size),
+            recentKeys = recentShuffleKeys(effective.size),
         )
     }
 
@@ -229,7 +232,6 @@ class AutoWallpaperWorker @AssistedInject constructor(
             "favorites" -> favoritesRepo.getWallpapers().first().map { it.toWallpaper() }
             "wallhaven" -> wallpaperRepo.getWallhaven(page = (1..5).random()).items
             "bing" -> wallpaperRepo.getBingDaily(page = 1).items
-            "reddit" -> redditRepo.getMultiSubreddit().items
             "pixabay" -> wallpaperRepo.getPixabay(page = (1..5).random()).items
             WALLPAPER_SOURCE_LOCAL_FOLDER -> {
                 localWallpaperCatalog.migrateLegacyFolder(prefs.localWallpaperFolderUri.first())
@@ -289,8 +291,7 @@ class AutoWallpaperWorker @AssistedInject constructor(
          * Wi-Fi / idle so existing users keep current behavior on upgrade; opt-in
          * via Settings.
          */
-        suspend fun schedule(context: Context, intervalMinutes: Long = 360) {
-            val prefs = PreferencesManager(context)
+        suspend fun schedule(context: Context, prefs: PreferencesManager, intervalMinutes: Long = 360) {
             val requiresCharging = prefs.autoWallpaperRequiresCharging.first()
             val requiresWiFiOnly = prefs.autoWallpaperRequiresWiFiOnly.first()
             val requiresIdle = prefs.autoWallpaperRequiresIdle.first()
@@ -349,8 +350,8 @@ class AutoWallpaperWorker @AssistedInject constructor(
         }
 
         /** Legacy schedule for backward compatibility */
-        suspend fun scheduleHours(context: Context, intervalHours: Long = 12) {
-            schedule(context, intervalHours * 60)
+        suspend fun scheduleHours(context: Context, prefs: PreferencesManager, intervalHours: Long = 12) {
+            schedule(context, prefs, intervalHours * 60)
         }
 
         fun cancel(context: Context) {

@@ -302,9 +302,9 @@ class PreferencesManager @Inject constructor(
 
     val autoWallpaperEnabled: Flow<Boolean> = get(Keys.AUTO_WP_ENABLED, false)
     val autoWallpaperInterval: Flow<Long> = get(Keys.AUTO_WP_INTERVAL, 12L)
-    // Default rotation source follows the default-enabled provider (Reddit, normalized to the
-    // Reddit-first discover feed) so auto-rotation isn't wired to a source that's off by default.
-    val autoWallpaperSource: Flow<String> = get(Keys.AUTO_WP_SOURCE, "reddit")
+    // Default rotation source is the always-on discover feed; legacy stored
+    // "reddit" values are normalized to "discover" at use site (AURA-G2-21).
+    val autoWallpaperSource: Flow<String> = get(Keys.AUTO_WP_SOURCE, "discover")
     val autoWallpaperTarget: Flow<String> = get(Keys.AUTO_WP_TARGET, "BOTH")
     val localWallpaperFolderUri: Flow<String> = get(Keys.LOCAL_WALLPAPER_FOLDER_URI, "")
     /** Hold rotation until the device is plugged in (battery-friendly). */

@@ -1942,6 +1942,7 @@
     <string name="rotation_health_row_interval">Interval</string>
     <string name="rotation_health_row_source">Source</string>
     <string name="rotation_health_row_last_fire">Last change</string>
+    <string name="rotation_health_row_last_manual_run">Last manual run</string>
     <string name="rotation_health_row_next_fire">Next change</string>
     <string name="rotation_health_row_work_state">Scheduler state</string>
     <string name="rotation_health_row_stop_reason">Last stop reason</string>
@@ -1952,6 +1953,8 @@
     <string name="rotation_health_row_read_error">Diagnostic read error</string>
     <string name="rotation_health_on">On</string>
     <string name="rotation_health_off">Off</string>
+    <string name="rotation_health_scheduler_enhanced">On — enhanced scheduler</string>
+    <string name="rotation_health_scheduler_legacy">On — legacy</string>
     <string name="rotation_health_never">Never</string>
     <string name="rotation_health_unknown">This device will not say</string>
     <string name="rotation_health_next_fire_unscheduled">Not scheduled</string>

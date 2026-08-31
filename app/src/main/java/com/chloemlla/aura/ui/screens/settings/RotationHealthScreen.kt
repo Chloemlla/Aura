@@ -177,10 +177,11 @@ internal fun RotationHealthContent(
 
         RotationHealthRow(
             label = stringResource(R.string.rotation_health_row_enabled),
-            value = stringResource(
-                if (snapshot.rotationEnabled) R.string.rotation_health_on
-                else R.string.rotation_health_off,
-            ),
+            value = when {
+                !snapshot.rotationEnabled -> stringResource(R.string.rotation_health_off)
+                snapshot.schedulerPath -> stringResource(R.string.rotation_health_scheduler_enhanced)
+                else -> stringResource(R.string.rotation_health_scheduler_legacy)
+            },
         )
         snapshot.intervalMinutes?.let {
             RotationHealthRow(
@@ -198,6 +199,12 @@ internal fun RotationHealthContent(
             label = stringResource(R.string.rotation_health_row_last_fire),
             value = snapshot.lastFireUtc ?: stringResource(R.string.rotation_health_never),
         )
+        snapshot.lastManualRunUtc?.let {
+            RotationHealthRow(
+                label = stringResource(R.string.rotation_health_row_last_manual_run),
+                value = it,
+            )
+        }
         RotationHealthRow(
             label = stringResource(R.string.rotation_health_row_next_fire),
             // Absent is a real reading, not a gap: WorkManager reports no next

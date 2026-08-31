@@ -8,7 +8,6 @@ import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
@@ -53,11 +52,7 @@ class AuraOriginalsDownloader @AssistedInject constructor(
         val result = runDownloadWork()
         receiptStore.recordWorkerResult(
             uniqueWorkName = WORK_NAME,
-            outcome = when (result) {
-                is Result.Success -> WorkOutcome.SUCCESS
-                is Result.Retry -> WorkOutcome.RETRY
-                else -> WorkOutcome.FAILURE
-            },
+            outcome = result.toWorkOutcome(),
             retryReason = "Aura Originals download will retry because HTTPS download, size, hash, or file-write validation did not complete",
         )
         result
@@ -224,8 +219,9 @@ class AuraOriginalsDownloader @AssistedInject constructor(
 
         /**
          * Enqueue the worker once per cold launch. Wi-Fi-only by default to avoid
-         * burning user data. Marked expedited so the first-run UX gets the bundle
-         * promptly when the user is on Wi-Fi.
+         * burning user data. A plain one-shot: expedited was dropped because it
+         * requires getForegroundInfo() on API 26-30 and this worker does not
+         * implement it, so expedited runs failed outright there (AURA-G2-03).
          */
         fun enqueue(context: Context) {
             val constraints = Constraints.Builder()
@@ -234,7 +230,6 @@ class AuraOriginalsDownloader @AssistedInject constructor(
             val request = OneTimeWorkRequestBuilder<AuraOriginalsDownloader>()
                 .setConstraints(constraints)
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
-                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork(
                 WORK_NAME,

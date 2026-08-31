@@ -35,6 +35,8 @@ enum class RotationHealthVerdict {
 data class RotationHealthSnapshot(
     val verdict: RotationHealthVerdict = RotationHealthVerdict.DISABLED,
     val rotationEnabled: Boolean = false,
+    /** True when the enhanced scheduler drives rotation; false for the legacy path. */
+    val schedulerPath: Boolean = false,
     val intervalMinutes: Long? = null,
     val sourceLabel: String? = null,
     val workState: String = "No WorkInfo records",
@@ -45,6 +47,8 @@ data class RotationHealthSnapshot(
     val lastErrorClass: String? = null,
     val lastResult: String? = null,
     val lastDeferralReason: String? = null,
+    /** Most recent "Run now" outcome, kept separate so a manual run cannot pollute the periodic receipt (AURA-G2-11). */
+    val lastManualRunUtc: String? = null,
     val bootReceiverLastUtc: String? = null,
     val ignoringBatteryOptimizations: Boolean? = null,
     val batteryGuidance: BackgroundBatteryGuidance =

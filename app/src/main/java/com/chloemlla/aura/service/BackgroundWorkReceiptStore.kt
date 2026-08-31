@@ -1,6 +1,7 @@
 package com.chloemlla.aura.service
 
 import android.content.Context
+import androidx.work.Result
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -24,6 +25,21 @@ data class BackgroundWorkReceipt(
  * (AURA-G2-04).
  */
 enum class WorkOutcome { SUCCESS, RETRY, FAILURE }
+
+/**
+ * Maps a worker's returned [Result] to a receipt outcome.
+ *
+ * Deliberately uses the public `Result.success()/retry()/failure()` factories
+ * (which return process-wide singletons) instead of `is Result.Success` — the
+ * subclasses are @RestrictTo(LIBRARY_GROUP), which lint rejects, and inspecting
+ * `javaClass` names is what AURA-G2-04 flagged as R8-unstable. Reference
+ * equality against the factories is stable and lint-clean.
+ */
+internal fun Result.toWorkOutcome(): WorkOutcome = when (this) {
+    Result.success() -> WorkOutcome.SUCCESS
+    Result.retry() -> WorkOutcome.RETRY
+    else -> WorkOutcome.FAILURE
+}
 
 @Singleton
 class BackgroundWorkReceiptStore @Inject constructor(

@@ -80,7 +80,7 @@ internal class SettingsRotationDelegate(
     fun setAutoWallpaper(enabled: Boolean) = scope.launch {
         prefs.setAutoWallpaperEnabled(enabled)
         if (enabled) {
-            AutoWallpaperWorker.schedule(context, autoWpInterval.value * 60)
+            AutoWallpaperWorker.schedule(context, prefs, autoWpInterval.value * 60)
         } else {
             AutoWallpaperWorker.cancel(context)
         }
@@ -88,7 +88,7 @@ internal class SettingsRotationDelegate(
 
     fun setAutoWpInterval(hours: Long) = scope.launch {
         prefs.setAutoWallpaperInterval(hours)
-        if (autoWpEnabled.value) AutoWallpaperWorker.schedule(context, hours * 60)
+        if (autoWpEnabled.value) AutoWallpaperWorker.schedule(context, prefs, hours * 60)
     }
 
     fun setAutoWpSource(source: String) = scope.launch { prefs.setAutoWallpaperSource(source) }
@@ -142,12 +142,12 @@ internal class SettingsRotationDelegate(
 
     fun setAutoWallpaperRequiresCharging(value: Boolean) = scope.launch {
         prefs.setAutoWallpaperRequiresCharging(value)
-        if (autoWpEnabled.value) AutoWallpaperWorker.schedule(context, autoWpInterval.value * 60)
+        if (autoWpEnabled.value) AutoWallpaperWorker.schedule(context, prefs, autoWpInterval.value * 60)
     }
 
     fun setAutoWallpaperRequiresWiFiOnly(value: Boolean) = scope.launch {
         prefs.setAutoWallpaperRequiresWiFiOnly(value)
-        if (autoWpEnabled.value) AutoWallpaperWorker.schedule(context, autoWpInterval.value * 60)
+        if (autoWpEnabled.value) AutoWallpaperWorker.schedule(context, prefs, autoWpInterval.value * 60)
     }
 
     fun setRotateOnUnlock(value: Boolean) = scope.launch {
@@ -167,7 +167,7 @@ internal class SettingsRotationDelegate(
 
     fun setAutoWallpaperRequiresIdle(value: Boolean) = scope.launch {
         prefs.setAutoWallpaperRequiresIdle(value)
-        if (autoWpEnabled.value) AutoWallpaperWorker.schedule(context, autoWpInterval.value * 60)
+        if (autoWpEnabled.value) AutoWallpaperWorker.schedule(context, prefs, autoWpInterval.value * 60)
     }
 
     fun setAutoWallpaperDarkenPercent(percent: Int) = scope.launch {
@@ -221,13 +221,13 @@ internal class SettingsRotationDelegate(
 
     fun setSchedulerEnabled(enabled: Boolean) = scope.launch {
         prefs.setSchedulerEnabled(enabled)
-        if (enabled) AutoWallpaperWorker.schedule(context, schedulerInterval.value)
+        if (enabled) AutoWallpaperWorker.schedule(context, prefs, schedulerInterval.value)
         else AutoWallpaperWorker.cancel(context)
     }
 
     fun setSchedulerInterval(minutes: Long) = scope.launch {
         prefs.setSchedulerInterval(minutes)
-        if (schedulerEnabled.value) AutoWallpaperWorker.schedule(context, minutes)
+        if (schedulerEnabled.value) AutoWallpaperWorker.schedule(context, prefs, minutes)
     }
 
     fun setSchedulerSource(source: String) = setSchedulerSource(SchedulerSourceTarget.DEFAULT, source)
@@ -269,7 +269,7 @@ internal class SettingsRotationDelegate(
 
     private suspend fun rescheduleSchedulerIfEnabled() {
         if (prefs.schedulerEnabled.first()) {
-            AutoWallpaperWorker.schedule(context, prefs.schedulerIntervalMinutes.first())
+            AutoWallpaperWorker.schedule(context, prefs, prefs.schedulerIntervalMinutes.first())
         }
     }
 

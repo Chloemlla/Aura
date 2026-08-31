@@ -1944,6 +1944,7 @@
     <string name="rotation_health_row_interval">间隔</string>
     <string name="rotation_health_row_source">来源</string>
     <string name="rotation_health_row_last_fire">上次更换</string>
+    <string name="rotation_health_row_last_manual_run">上次手动运行</string>
     <string name="rotation_health_row_next_fire">下次更换</string>
     <string name="rotation_health_row_work_state">调度器状态</string>
     <string name="rotation_health_row_stop_reason">上次停止原因</string>
@@ -1954,6 +1955,8 @@
     <string name="rotation_health_row_read_error">诊断读取错误</string>
     <string name="rotation_health_on">开启</string>
     <string name="rotation_health_off">关闭</string>
+    <string name="rotation_health_scheduler_enhanced">开启 — 增强调度器</string>
+    <string name="rotation_health_scheduler_legacy">开启 — 旧版</string>
     <string name="rotation_health_never">从未</string>
     <string name="rotation_health_unknown">此设备未提供信息</string>
     <string name="rotation_health_next_fire_unscheduled">未排程</string>

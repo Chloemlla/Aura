@@ -1,6 +1,7 @@
 package com.chloemlla.aura.service
 
 import android.content.Context
+import android.content.res.Configuration
 import android.os.Build
 import android.os.PowerManager
 import androidx.work.ExistingWorkPolicy
@@ -10,6 +11,7 @@ import androidx.work.WorkManager
 import com.chloemlla.aura.data.local.PreferencesManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
+import java.util.Calendar
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -76,11 +78,38 @@ class AndroidRotationHealthReader @Inject constructor(
 ) : RotationHealthReader {
 
     override suspend fun read(): RotationHealthSnapshot {
-        val enabled = runCatching { preferences.autoWallpaperEnabled.first() }
+        val schedulerEnabled = runCatching { preferences.schedulerEnabled.first() }
             .getOrDefault(false)
-        val intervalMinutes = runCatching { preferences.autoWallpaperInterval.first() }.getOrNull()
-        val source = runCatching { preferences.autoWallpaperSource.first() }.getOrNull()
+        val legacyEnabled = runCatching { preferences.autoWallpaperEnabled.first() }
+            .getOrDefault(false)
+        // Two rotation paths coexist; either one being on means rotation is on.
+        // Reading only the legacy toggle reported "Disabled" for the common
+        // enhanced-scheduler configuration (AURA-G2-10).
+        val enabled = schedulerEnabled || legacyEnabled
+        val intervalMinutes = if (schedulerEnabled) {
+            null // Enhanced scheduler is day/night-driven; no user-facing interval.
+        } else {
+            runCatching { preferences.autoWallpaperInterval.first() }.getOrNull()
+        }
+        val source = runCatching {
+            if (schedulerEnabled) {
+                resolveScheduledWallpaperSource(
+                    defaultSource = preferences.schedulerSource.first(),
+                    daySource = preferences.schedulerDaySource.first(),
+                    nightSource = preferences.schedulerNightSource.first(),
+                    mode = preferences.schedulerDayNightMode.first(),
+                    hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY),
+                    dayStartHour = preferences.schedulerDayStartHour.first(),
+                    nightStartHour = preferences.schedulerNightStartHour.first(),
+                    isSystemDark = context.resources.configuration.uiMode and
+                        Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES,
+                )
+            } else {
+                preferences.autoWallpaperSource.first()
+            }
+        }.getOrNull()?.normalizeWallpaperRotationSource()
         val receipt = receiptStore.read(AutoWallpaperWorker.WORK_NAME)
+        val manualRunReceipt = receiptStore.read(RUN_NOW_WORK_NAME)
         val guidance = backgroundBatteryGuidanceForManufacturer(Build.MANUFACTURER)
         val exempt = readBatteryOptimizationExemption()
 
@@ -98,6 +127,7 @@ class AndroidRotationHealthReader @Inject constructor(
         return RotationHealthSnapshot(
             verdict = verdict,
             rotationEnabled = enabled,
+            schedulerPath = schedulerEnabled,
             intervalMinutes = intervalMinutes,
             sourceLabel = source,
             workState = work.state,
@@ -108,6 +138,7 @@ class AndroidRotationHealthReader @Inject constructor(
             lastErrorClass = receipt.lastErrorClass,
             lastResult = receipt.lastResult,
             lastDeferralReason = receipt.lastDeferralReason,
+            lastManualRunUtc = manualRunReceipt.lastSuccessUtc,
             bootReceiverLastUtc = bootObservations.lastBootUtc(),
             ignoringBatteryOptimizations = exempt,
             batteryGuidance = guidance,
@@ -132,7 +163,7 @@ class AndroidRotationHealthReader @Inject constructor(
                         androidx.work.Data.Builder()
                             .putString(
                                 AutoWallpaperWorker.RECEIPT_WORK_NAME_KEY,
-                                AutoWallpaperWorker.WORK_NAME,
+                                RUN_NOW_WORK_NAME,
                             )
                             .build(),
                     )

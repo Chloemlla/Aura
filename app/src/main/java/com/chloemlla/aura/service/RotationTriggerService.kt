@@ -13,13 +13,20 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
-import kotlinx.coroutines.flow.first
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.chloemlla.aura.MainActivity
+import com.chloemlla.aura.data.local.PreferencesManager
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * Foreground service that dynamically registers broadcast receivers for
@@ -34,17 +41,20 @@ import com.chloemlla.aura.MainActivity
  * triggers. Off-by-default; the user opts in via two new Settings toggles
  * backed by `PreferencesManager.rotateOnUnlock` and `rotateOnScreenOff`.
  *
- * Each trigger enqueues a one-shot expedited `AutoWallpaperWorker` (same
- * worker the periodic rotation already uses) with the same constraints the
- * periodic schedule respects. WorkManager handles retries and battery
- * coalescing for us.
+ * Each trigger enqueues a one-shot `AutoWallpaperWorker` (same worker the
+ * periodic rotation already uses) with the same constraints the periodic
+ * schedule respects. WorkManager handles retries and battery coalescing for us.
  *
  * Not in scope for this slice:
  * - Per-app rotation exclusion (needs `PACKAGE_USAGE_STATS`)
  * - Sub-15-minute periodic rotation (AlarmManager-backed)
  * - One-tap-shuffle Glance widget (bundled with NX-2 widget polish)
  */
+@AndroidEntryPoint
 class RotationTriggerService : Service() {
+
+    @Inject lateinit var prefs: PreferencesManager
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private var receiver: BroadcastReceiver? = null
     @Volatile private var screenOffEnabled = false
@@ -70,23 +80,31 @@ class RotationTriggerService : Service() {
         if (intent == null) {
             // START_STICKY restart after process death: the volatile flags are gone
             // and defaulting them to false would stopSelf() — silently killing
-            // rotate-on-unlock until the app is next opened. Re-read the toggles.
-            val prefs = com.chloemlla.aura.data.local.PreferencesManager(applicationContext)
-            kotlinx.coroutines.runBlocking {
-                unlockEnabled = prefs.rotateOnUnlock.first()
-                screenOffEnabled = prefs.rotateOnScreenOff.first()
-            }
+            // rotate-on-unlock until the app is next opened. Re-read the toggles off
+            // the main thread; DataStore hits disk on cold start and blocking here
+            // pushes the 5s startForeground window (AURA-G2-08).
+            refreshFromPreferences()
         } else {
             // Allow Intent extras to update which triggers are active without
             // restarting the service. EXTRA_UNLOCK / EXTRA_SCREEN_OFF default to the
             // current state so the caller can selectively flip one.
             screenOffEnabled = intent.getBooleanExtra(EXTRA_SCREEN_OFF, screenOffEnabled)
             unlockEnabled = intent.getBooleanExtra(EXTRA_UNLOCK, unlockEnabled)
-        }
-        if (!screenOffEnabled && !unlockEnabled) {
-            stopSelf()
+            if (!screenOffEnabled && !unlockEnabled) {
+                stopSelf()
+            }
         }
         return START_STICKY
+    }
+
+    private fun refreshFromPreferences() {
+        serviceScope.launch {
+            unlockEnabled = prefs.rotateOnUnlock.first()
+            screenOffEnabled = prefs.rotateOnScreenOff.first()
+            if (!screenOffEnabled && !unlockEnabled) {
+                stopSelf()
+            }
+        }
     }
 
     private fun startInForeground(): Boolean {
@@ -153,6 +171,7 @@ class RotationTriggerService : Service() {
     }
 
     override fun onDestroy() {
+        serviceScope.cancel()
         receiver?.let { runCatching { unregisterReceiver(it) } }
         receiver = null
         super.onDestroy()
@@ -196,8 +215,9 @@ class RotationTriggerService : Service() {
         /**
          * Enqueue a one-shot rotation. Reuses [AutoWallpaperWorker] (the periodic
          * worker already does the right thing — it reads source / target / shuffle
-         * from prefs and applies). Expedited so the wallpaper is set in time for
-         * the user to see it on their lock screen / next unlock.
+         * from prefs and applies). A plain one-shot: expedited was dropped because
+         * it requires getForegroundInfo() on API 26-30 and none of the workers
+         * implement it, so expedited runs failed outright there (AURA-G2-03).
          */
         internal fun enqueueRotation(context: Context) {
             val constraints = Constraints.Builder()
@@ -212,7 +232,6 @@ class RotationTriggerService : Service() {
                         AutoWallpaperWorker.TRIGGERED_ROTATION_KEY to true,
                     ),
                 )
-                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork(
                 WORK_NAME,

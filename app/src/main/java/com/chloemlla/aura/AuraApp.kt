@@ -16,6 +16,7 @@ import coil3.annotation.ExperimentalCoilApi
 import coil3.memoryCacheMaxSizePercentWhileInBackground
 import coil3.request.crossfade
 import com.chloemlla.aura.data.local.WallpaperCacheManager
+import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.service.NotificationChannels
 import com.chloemlla.aura.service.AppCheckInstaller
 import com.chloemlla.aura.service.ClashProxyManager
@@ -58,6 +59,9 @@ class AuraApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
 
     @Inject
     lateinit var clashProxyManager: ClashProxyManager
+
+    @Inject
+    lateinit var preferences: PreferencesManager
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -162,9 +166,8 @@ class AuraApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
     private fun reconcileRotationTriggers() {
         appScope.launch {
             try {
-                val prefs = com.chloemlla.aura.data.local.PreferencesManager(this@AuraApp)
-                val unlock = prefs.rotateOnUnlock.first()
-                val screenOff = prefs.rotateOnScreenOff.first()
+                val unlock = preferences.rotateOnUnlock.first()
+                val screenOff = preferences.rotateOnScreenOff.first()
                 if (unlock || screenOff) {
                     com.chloemlla.aura.service.RotationTriggerService.reconcile(
                         this@AuraApp, unlock = unlock, screenOff = screenOff,
