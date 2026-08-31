@@ -8,6 +8,7 @@ import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.Rect
+import android.os.Environment
 import com.chloemlla.aura.data.model.WallpaperTarget
 import com.chloemlla.aura.util.rethrowIfCancelled
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -145,7 +146,8 @@ class WallpaperApplier @Inject constructor(
     }
 
     private fun streamLocalFile(path: String, apply: (InputStream) -> Unit): Boolean {
-        val file = java.io.File(path)
+        val file = resolveAllowedLocalFile(path)
+            ?: throw java.io.IOException("Wallpaper source is not in an allowed directory")
         if (!file.exists() || !file.canRead()) {
             throw java.io.IOException("Wallpaper file is unavailable")
         }
@@ -154,6 +156,43 @@ class WallpaperApplier @Inject constructor(
         }
         file.inputStream().use(apply)
         return true
+    }
+
+    /**
+     * Directory whitelist for local-file locators. Canonicalizes the requested
+     * path and accepts it only inside an app-managed directory (filesDir — which
+     * covers theme_packs/import-* and parallax — cacheDir, or the app's external
+     * dirs) or the public media directories a downloaded wallpaper can
+     * legitimately live in. Everything else is rejected so a crafted theme-pack
+     * locator cannot turn an arbitrary readable file into a lockscreen wallpaper
+     * (AURA-G2-15).
+     */
+    private fun resolveAllowedLocalFile(path: String): java.io.File? {
+        val canonical = runCatching { java.io.File(path).canonicalFile }.getOrNull() ?: return null
+        val mediaRoot = runCatching { Environment.getExternalStorageDirectory() }.getOrNull()
+        val roots = buildList {
+            addAll(
+                listOfNotNull(
+                    context.filesDir,
+                    context.cacheDir,
+                    context.externalCacheDir,
+                    context.getExternalFilesDir(null),
+                ),
+            )
+            if (mediaRoot != null) {
+                listOf(
+                    Environment.DIRECTORY_PICTURES,
+                    Environment.DIRECTORY_RINGTONES,
+                    Environment.DIRECTORY_NOTIFICATIONS,
+                    Environment.DIRECTORY_ALARMS,
+                    Environment.DIRECTORY_MUSIC,
+                    Environment.DIRECTORY_MOVIES,
+                ).forEach { type -> add(java.io.File(mediaRoot, type)) }
+            }
+        }.mapNotNull { root -> runCatching { root.canonicalFile }.getOrNull() }
+        return if (roots.any { root ->
+            canonical == root || canonical.path.startsWith(root.path + java.io.File.separator)
+        }) canonical else null
     }
 
     /** Apply wallpaper from an already-loaded bitmap */
@@ -344,7 +383,7 @@ class WallpaperApplier @Inject constructor(
         path: String,
         imageFlow: MediaIngestionImageFlow,
     ): Bitmap? = withContext(Dispatchers.IO) {
-        val file = java.io.File(path)
+        val file = resolveAllowedLocalFile(path) ?: return@withContext null
         if (!file.exists() || !file.canRead()) return@withContext null
         // Cap local files at MAX_WALLPAPER_BYTES — even if the file is on user storage we
         // don't want a runaway 200 MB PNG to wedge the WallpaperManager IPC.
