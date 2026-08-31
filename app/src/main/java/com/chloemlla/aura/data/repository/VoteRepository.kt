@@ -372,7 +372,7 @@ class VoteRepository @Inject constructor(
             }
         } else {
             hideLocally(contentId)
-            true
+            return true
         }
     }
 
