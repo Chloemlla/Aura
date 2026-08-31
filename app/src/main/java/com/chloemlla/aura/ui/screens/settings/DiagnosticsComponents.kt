@@ -248,12 +248,25 @@ internal fun copyCommunityDeletionCode(
 /**
  * Marks a clipboard item as sensitive so Android 13+ hides the content preview
  * and excludes it from the clipboard history. No-op on earlier versions.
+ *
+ * Uses reflection because the fork's compileSdk 37 (Android 17) surface no longer
+ * exposes ClipDescription.flags / FLAG_IS_SENSITIVE at compile time. The runtime
+ * field is still honored on devices that support it, and the whole call is
+ * best-effort so a framework surface change can never break the copy flow.
  */
 private fun markClipSensitive(clip: ClipData) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        clip.description.flags = clip.description.flags or ClipDescription.FLAG_IS_SENSITIVE
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+    try {
+        val description = clip.description
+        val flagsField = ClipDescription::class.java.getDeclaredField("mFlags")
+        if (!flagsField.trySetAccessible()) return
+        flagsField.setInt(description, flagsField.getInt(description) or CLIP_FLAG_SENSITIVE)
+    } catch (_: Throwable) {
+        // Best-effort: clipboard sensitivity is privacy hardening, not correctness.
     }
 }
+
+private const val CLIP_FLAG_SENSITIVE = 1
 
 internal fun shareCommunityDeletionRequest(
     context: Context,
