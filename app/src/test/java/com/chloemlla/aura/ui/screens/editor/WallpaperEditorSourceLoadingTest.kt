@@ -8,7 +8,6 @@ import io.mockk.mockk
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -82,9 +81,14 @@ class WallpaperEditorSourceLoadingTest {
         val source = bitmap()
         viewModel.setSourceBitmap(source)
 
-        val edited = withTimeout(10_000) {
-            viewModel.state.first { it.editedBitmap != null && it.editedBitmap !== source }
-        }.editedBitmap
+        // The debounce elapses on the test scheduler's virtual clock; the render
+        // then hops to Dispatchers.Default (a real dispatcher). `runTest` advances
+        // the debounce and parks in real time for the Default hop to land, so a
+        // withTimeout here would fire on virtual time before the real render
+        // resumes — runTest's own timeout bounds the wait instead.
+        val edited = viewModel.state
+            .first { it.editedBitmap != null && it.editedBitmap !== source }
+            .editedBitmap
 
         assertNotNull("a pending filter must render once the source lands", edited)
         Unit
