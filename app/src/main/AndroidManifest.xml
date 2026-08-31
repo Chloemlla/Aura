@@ -88,6 +88,11 @@
             android:name="com.github.kr328.clash.partner"
             android:value="true" />
 
+        <!-- Profileable by shell. Allows a USB-attached adb shell to capture the
+             app's thread/CPU profile even on release builds (profileable is a
+             self-opt-in; it does not grant anything adb shell does not already have
+             via run-as on debuggable builds). A production release could gate this
+             behind a dedicated benchmark build type instead. -->
         <profileable
             android:shell="true"
             tools:targetApi="q" />
@@ -191,7 +196,11 @@
              MediaBrowser-compatible library browsing for Android Auto/wearables.
              External apps can browse categories (ringtones, notifications, alarms,
              favorites, all Aura Picks) and initiate playback through the
-             MediaBrowserCompat API. -->
+             MediaBrowserCompat API.
+             Exported on purpose: the Media3 MediaBrowser protocol is how system media
+             clients (Android Auto, bluetooth, wearables) discover this library, and a
+             manifest permission would block them (they run under a different signature).
+             Caller control lives in AudioPlaybackService.onGetSession(). -->
         <service
             android:name=".service.AudioPlaybackService"
             android:exported="true"

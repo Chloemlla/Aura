@@ -4,11 +4,13 @@ import android.content.ContentProvider
 import android.content.ContentValues
 import android.content.Context
 import android.content.UriMatcher
+import android.content.pm.PackageManager
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
 import android.os.Binder
 import android.os.ParcelFileDescriptor
+import android.os.Process
 import android.util.Log
 import com.chloemlla.aura.data.model.Sound
 import com.chloemlla.aura.data.model.stableKey
@@ -89,17 +91,28 @@ class AudioContentProvider : ContentProvider() {
             return ParcelFileDescriptor.open(cacheFile, ParcelFileDescriptor.MODE_READ_ONLY)
         }
 
-        // Download to cache file
-        val request = Request.Builder().url(url).build()
-        val response = okHttpClient.newCall(request).execute()
-        if (!response.isSuccessful) {
-            throw FileNotFoundException("HTTP ${response.code} for $url")
-        }
-        response.body?.byteStream()?.use { input ->
-            cacheFile.outputStream().use { output ->
-                input.copyTo(output)
+        // Download to a temp file first: renameTo publishes the entry only once the
+        // whole body is on disk, so an interrupted transfer can never be mistaken for
+        // a valid cache entry. The copy itself is size-capped.
+        val tempFile = File.createTempFile("download", ".part", cacheDir)
+        try {
+            okHttpClient.newCall(Request.Builder().url(url).build()).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw FileNotFoundException(RequestRedactor.formatRequest("GET", url, response.code))
+                }
+                response.body?.byteStream()?.use { input ->
+                    tempFile.outputStream().use { output ->
+                        copyStreamCapped(input, output, MAX_SOUND_BYTES)
+                    }
+                } ?: throw FileNotFoundException("Empty response body for ${RequestRedactor.redactUrl(url)}")
             }
-        } ?: throw FileNotFoundException("Empty response body for $url")
+            if (!tempFile.renameTo(cacheFile)) {
+                tempFile.delete()
+            }
+        } catch (e: Exception) {
+            tempFile.delete()
+            throw e
+        }
 
         return ParcelFileDescriptor.open(cacheFile, ParcelFileDescriptor.MODE_READ_ONLY)
     }
@@ -112,12 +125,13 @@ class AudioContentProvider : ContentProvider() {
 
     private fun isTrustedCaller(): Boolean {
         val context = context ?: return false
-        val callingPkg = context.packageManager.getNameForUid(Binder.getCallingUid()) ?: return false
-        val allowed = callingPkg == context.packageName ||
-            callingPkg == "com.chloemlla.projectlumen" ||
-            callingPkg.startsWith("com.chloemlla.")
+        val uid = Binder.getCallingUid()
+        // Real signature comparison, not a package-name prefix check: a package name
+        // starting with "com.chloemlla." is freely choosable by any app.
+        val allowed = uid == Process.myUid() ||
+            context.packageManager.checkSignatures(uid, Process.myUid()) == PackageManager.SIGNATURE_MATCH
         if (!allowed && com.chloemlla.aura.BuildConfig.DEBUG) {
-            Log.w(TAG, "Blocked untrusted caller: $callingPkg")
+            Log.w(TAG, "Blocked untrusted caller uid=$uid")
         }
         return allowed
     }
@@ -161,15 +175,18 @@ class AudioContentProvider : ContentProvider() {
             bundledContentProvider.getAlarms()
 
     private fun getCacheFile(stableKey: String): File {
-        // Clean old cache files periodically
-        if (Math.random() < 0.01) { // ~1% chance on each access
-            cacheDir.listFiles()?.forEach { file ->
-                if (file.lastModified() < System.currentTimeMillis() - 3_600_000L) { // 1 hour
-                    file.delete()
-                }
-            }
-        }
+        pruneCacheIfNeeded()
         return File(cacheDir, "${stableKey.replace("::", "_")}.mp3")
+    }
+
+    private fun pruneCacheIfNeeded() {
+        val files = cacheDir.listFiles()?.sortedBy { it.lastModified() } ?: return
+        var total = files.sumOf { it.length() }
+        for (file in files) {
+            if (total <= MAX_CACHE_BYTES) return
+            val size = file.length()
+            if (file.delete()) total -= size
+        }
     }
 
     private fun soundRow(sound: Sound): Array<Any?> = arrayOf(
@@ -186,6 +203,8 @@ class AudioContentProvider : ContentProvider() {
 
     companion object {
         private const val TAG = "AudioContentProvider"
+        private const val MAX_SOUND_BYTES = 64L * 1024L * 1024L
+        private const val MAX_CACHE_BYTES = 256L * 1024L * 1024L
         private const val SOUND = 1
         private const val SOUND_PREVIEW = 2
         private const val SOUND_DOWNLOAD = 3

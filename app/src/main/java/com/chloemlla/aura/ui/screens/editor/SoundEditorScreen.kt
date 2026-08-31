@@ -67,7 +67,7 @@ fun SoundEditorScreen(
     initialLocalUri: Uri? = null,
     editConfirmed: Boolean = false,
     onBack: () -> Unit,
-    recoveryViewModel: com.chloemlla.aura.ui.screens.sounds.SoundsViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
+    recoveryViewModel: com.chloemlla.aura.ui.screens.sounds.SoundsViewModel = com.chloemlla.aura.ui.screens.sounds.rememberSharedSoundsViewModel(),
     viewModel: SoundEditorViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -93,8 +93,10 @@ fun SoundEditorScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                writeSettingsRefresh += 1
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> writeSettingsRefresh += 1
+                Lifecycle.Event.ON_STOP -> viewModel.stopPreview()
+                else -> Unit
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -169,9 +171,10 @@ fun SoundEditorScreen(
     // careful trim, fade, or speed pass before platform export finishes.
     val hasUnsavedChanges = hasUnsavedSoundEdits(state)
     var showSoundDiscardConfirm by remember { mutableStateOf(false) }
-    androidx.activity.compose.BackHandler(enabled = hasUnsavedChanges && !state.isApplying) {
-        showSoundDiscardConfirm = true
+    val requestBack: () -> Unit = {
+        if (hasUnsavedChanges && !state.isApplying) showSoundDiscardConfirm = true else onBack()
     }
+    androidx.activity.compose.BackHandler(enabled = hasUnsavedChanges && !state.isApplying, onBack = requestBack)
     if (showSoundDiscardConfirm) {
         AlertDialog(
             onDismissRequest = { showSoundDiscardConfirm = false },
@@ -196,10 +199,10 @@ fun SoundEditorScreen(
             TopAppBar(
                 title = { Text(stringResource(if (soundId == null) R.string.editor_sound_create_title else R.string.editor_sound_edit_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.common_back)) }
+                    IconButton(onClick = requestBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.common_back)) }
                 },
                 actions = {
-                    if (viewModel.canUndo) {
+                    if (state.canUndo) {
                         IconButton(onClick = { viewModel.undo() }) {
                             Icon(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.editor_sound_undo))
                         }
@@ -308,8 +311,9 @@ fun SoundEditorScreen(
                     trimEnd = state.trimEndFraction,
                     playbackPosition = state.playbackPosition,
                     isPlaying = state.isPlaying,
-                    fadeInFraction = if (state.durationMs > 0) state.fadeInMs.toFloat() / state.durationMs else 0f,
-                    fadeOutFraction = if (state.durationMs > 0) state.fadeOutMs.toFloat() / state.durationMs else 0f,
+                    schematic = state.waveformIsSchematic,
+                    fadeInFraction = if (state.durationMs > 0) state.fadeInMs * state.playbackSpeed / state.durationMs.toFloat() else 0f,
+                    fadeOutFraction = if (state.durationMs > 0) state.fadeOutMs * state.playbackSpeed / state.durationMs.toFloat() else 0f,
                     zoom = state.waveformZoom,
                     viewportStart = state.waveformViewportStart,
                     onDragStart = { viewModel.saveUndo() },
@@ -771,6 +775,7 @@ private fun WaveformView(
     viewportStart: Float = 0f,
     onDragStart: () -> Unit = {},
     onViewportTransform: (zoomChange: Float, panFraction: Float, focusFraction: Float) -> Unit = { _, _, _ -> },
+    schematic: Boolean = false,
 ) {
     val primary = MaterialTheme.colorScheme.primary
     val dimmed = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
@@ -816,6 +821,7 @@ private fun WaveformView(
                         var transformed = false
                         var undoSaved = false
                         var movingStartHandle: Boolean? = null
+                        var grabbedHandle = false
                         var hasPressedPointers = true
                         do {
                             val event = awaitPointerEvent()
@@ -834,19 +840,37 @@ private fun WaveformView(
                                     pressed.forEach { it.consume() }
                                 }
                             } else if (pressed.size == 1 && !transformed) {
-                                if (!undoSaved) {
-                                    onDragStart()
-                                    undoSaved = true
+                                val press = pressed.first()
+                                if (!grabbedHandle) {
+                                    // Only drag a trim handle when the press actually lands
+                                    // on one. Anywhere else the touch must fall through to the
+                                    // page scroll — a 180dp waveform is a huge scroll dead zone
+                                    // otherwise, and one stray tap would wreck a careful trim.
+                                    val trimStartX = ((currentTrimStart - currentViewportStart) / currentVisibleSpan) * size.width
+                                    val trimEndX = ((currentTrimEnd - currentViewportStart) / currentVisibleSpan) * size.width
+                                    val handleTouchRadius = 24.dp.toPx()
+                                    val nearStart = abs(press.position.x - trimStartX) <= handleTouchRadius
+                                    val nearEnd = abs(press.position.x - trimEndX) <= handleTouchRadius
+                                    if (!nearStart && !nearEnd) {
+                                        return@awaitEachGesture
+                                    }
+                                    grabbedHandle = true
+                                    if (!undoSaved) {
+                                        onDragStart()
+                                        undoSaved = true
+                                    }
+                                    movingStartHandle = when {
+                                        nearStart && nearEnd -> abs(press.position.x - trimStartX) < abs(press.position.x - trimEndX)
+                                        nearStart -> true
+                                        else -> false
+                                    }
                                 }
-                                val localFraction = (pressed.first().position.x / size.width.coerceAtLeast(1))
+                                val localFraction = (press.position.x / size.width.coerceAtLeast(1))
                                     .coerceIn(0f, 1f)
                                 val fraction = currentViewportStart + localFraction * currentVisibleSpan
-                                if (movingStartHandle == null) {
-                                    movingStartHandle = abs(fraction - currentTrimStart) < abs(fraction - currentTrimEnd)
-                                }
                                 if (movingStartHandle == true) currentOnTrimStartChange(fraction)
                                 else currentOnTrimEndChange(fraction)
-                                pressed.first().consume()
+                                press.consume()
                             }
                             hasPressedPointers = event.changes.any { it.pressed }
                         } while (hasPressedPointers)
@@ -868,7 +892,13 @@ private fun WaveformView(
                 val x = sourceToX(fraction)
                 val amplitude = waveform[i] * maxAmp
                 val inTrim = fraction in trimStart..trimEnd
-                val color = if (inTrim) primary else dimmed
+                val color = when {
+                    // A schematic (compressed-audio) waveform is drawn faint so it
+                    // reads as a placeholder, never as the real signal.
+                    schematic -> dimmed.copy(alpha = dimmed.alpha * 0.45f)
+                    inTrim -> primary
+                    else -> dimmed
+                }
 
                 drawLine(
                     color = color,

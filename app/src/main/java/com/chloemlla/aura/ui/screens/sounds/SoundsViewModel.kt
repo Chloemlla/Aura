@@ -2,8 +2,12 @@ package com.chloemlla.aura.ui.screens.sounds
 
 import android.content.Context
 import android.net.Uri
+import androidx.compose.runtime.Composable
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
+import androidx.navigation.NavBackStackEntry
 import com.chloemlla.aura.R
 import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.model.CommunityReportReason
@@ -385,7 +389,12 @@ class SoundsViewModel @Inject constructor(
         youtubeActions.cancel()
         playback.cancelProgress()
         community.cancelOnCleared()
-        audioPlaybackManager.stop()
+        // Only stop the shared player if this instance actually started the preview.
+        // Detail/editor screens used to build their own SoundsViewModel and killed
+        // the list's playback when they were cleared on back navigation.
+        if (playback.isActivelyPlaying) {
+            audioPlaybackManager.stop()
+        }
         super.onCleared()
     }
 
@@ -395,4 +404,21 @@ class SoundsViewModel @Inject constructor(
     private fun loadDefaultYouTube(isRefresh: Boolean) = youtubeActions.loadDefaultYouTube(isRefresh)
     private fun executeYouTubeSearch(query: String) = youtubeActions.executeYouTubeSearch(query)
     private fun selectRingtonesFromProviderFallback() = browse.selectTab(SoundTab.RINGTONES)
+}
+
+/**
+ * The sounds list, detail and editor screens each used to request their own
+ * [SoundsViewModel] (scoped to their own back stack entry): opening detail re-ran
+ * the whole feed load, and clearing the auxiliary instance stopped the shared
+ * player. Scope to the parent entry so all three share one instance.
+ */
+@Composable
+internal fun rememberSharedSoundsViewModel(): SoundsViewModel {
+    val backStackEntry = LocalViewModelStoreOwner.current as? NavBackStackEntry
+    val owner = backStackEntry?.parentEntry
+    return if (owner != null) {
+        hiltViewModel(viewModelStoreOwner = owner)
+    } else {
+        hiltViewModel()
+    }
 }

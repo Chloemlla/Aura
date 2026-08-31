@@ -54,6 +54,10 @@ fun WallpaperCropScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var viewportSize by remember { mutableStateOf(IntSize.Zero) }
+    // pointerInput(Unit) would capture stale values; read these through State so the
+    // gesture lambda always sees the current bitmap and viewport dimensions.
+    val currentBitmap by rememberUpdatedState(state.bitmap)
+    val currentViewportSize by rememberUpdatedState(viewportSize)
     val cropIdentityKey = remember(wallpaperId, fallbackWallpaper?.source, fallbackWallpaper?.fullUrl) {
         listOf(
             wallpaperId,
@@ -164,8 +168,26 @@ fun WallpaperCropScreen(
                     .pointerInput(Unit) {
                         detectTransformGestures { _, pan, zoom, _ ->
                             scale = (scale * zoom).coerceIn(0.5f, 5f)
-                            offsetX += pan.x
-                            offsetY += pan.y
+                            val bitmap = currentBitmap
+                            val vp = currentViewportSize
+                            if (bitmap != null && vp != IntSize.Zero) {
+                                // Clamp translation so the scaled image keeps covering the
+                                // viewport. Dragging it fully out of view would otherwise
+                                // crop down to a sub-64px sliver and apply that as wallpaper.
+                                val fit = minOf(
+                                    vp.width / bitmap.width.toFloat(),
+                                    vp.height / bitmap.height.toFloat(),
+                                )
+                                val visibleW = bitmap.width * fit * scale
+                                val visibleH = bitmap.height * fit * scale
+                                val maxOffsetX = ((visibleW - vp.width) / 2f).coerceAtLeast(0f)
+                                val maxOffsetY = ((visibleH - vp.height) / 2f).coerceAtLeast(0f)
+                                offsetX = (offsetX + pan.x).coerceIn(-maxOffsetX, maxOffsetX)
+                                offsetY = (offsetY + pan.y).coerceIn(-maxOffsetY, maxOffsetY)
+                            } else {
+                                offsetX += pan.x
+                                offsetY += pan.y
+                            }
                             viewModel.updateTransform(scale, offsetX, offsetY)
                         }
                     },

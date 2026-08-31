@@ -39,6 +39,7 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.runs
 import io.mockk.unmockkStatic
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -873,6 +874,7 @@ class WallpapersViewModelTest {
         pixabayProviderEnabled: Boolean = true,
         communityProviderEnabled: Boolean = true,
         generatedContentProviderEnabled: Boolean = true,
+        rankDispatcher: CoroutineDispatcher = dispatcher,
     ): WallpapersViewModel {
         val favoritesRepo = favoritesRepoOverride ?: mockk<FavoritesRepository>()
         every { favoritesRepo.allIdentities() } returns flowOf(emptySet<FavoriteIdentity>())
@@ -948,6 +950,7 @@ class WallpapersViewModelTest {
             seasonalContentManager = SeasonalContentManager(),
             wallpaperUploadRepo = wallpaperUploadRepoOverride ?: mockk(relaxed = true),
             sourceMetrics = com.chloemlla.aura.service.SourceMetrics(),
+            rankDispatcher = rankDispatcher,
         )
     }
 

@@ -13,6 +13,7 @@ import com.chloemlla.aura.data.repository.WallpaperRepository
 import com.chloemlla.aura.data.repository.WallpaperUploadRepository
 import com.chloemlla.aura.service.SourceMetrics
 import com.chloemlla.aura.service.WallpaperStyleLearningProfile
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -66,6 +67,7 @@ internal class WallpaperBrowseViewModel(
     private val topVoted: MutableStateFlow<List<Pair<Wallpaper, Int>>>,
     private val dailyPick: MutableStateFlow<Wallpaper?>,
     private val scope: CoroutineScope,
+    private val rankDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     private var loadJob: Job? = null
     private val redditRetry = WallpaperRedditRetryCoordinator(
@@ -74,6 +76,7 @@ internal class WallpaperBrowseViewModel(
         cacheManager = cacheManager,
         state = state,
         scope = scope,
+        rankDispatcher = rankDispatcher,
         categorizeError = ::categorizeError,
     )
 
@@ -190,7 +193,7 @@ internal class WallpaperBrowseViewModel(
                     val preferredResolution = prefs.preferredResolution.first()
                     val userStyles = loadUserStyles()
                     val styleLearningProfile = loadStyleLearningProfile()
-                    val rankedCached = withContext(Dispatchers.Default) {
+                    val rankedCached = withContext(rankDispatcher) {
                         rankWallpapers(
                             wallpapers = visibleCached,
                             filter = state.value.discoverFilter,
@@ -274,7 +277,7 @@ internal class WallpaperBrowseViewModel(
                 val rankedWallpapers = if (currentTab == WallpaperTab.COMMUNITY) {
                     combined.distinctBy { it.stableKey() }
                 } else {
-                    withContext(Dispatchers.Default) {
+                    withContext(rankDispatcher) {
                         rankWallpapers(
                             wallpapers = combined,
                             filter = activeFilter,

@@ -52,7 +52,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -100,7 +99,7 @@ fun SoundsScreen(
     onCreateRingtone: (Uri) -> Unit = {},
     initialQuery: String? = null,
     isExpandedLayout: Boolean = LocalAuraNavigationLayout.current.isExpanded,
-    viewModel: SoundsViewModel = hiltViewModel(),
+    viewModel: SoundsViewModel = rememberSharedSoundsViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val recentSearches by viewModel.recentSearches.collectAsStateWithLifecycle()
@@ -326,14 +325,16 @@ fun SoundsScreen(
                 }
             },
         )
-        // Auto-dismiss when upload completes
-        LaunchedEffect(state.isUploading, state.applySuccess, state.error) {
+        // Auto-dismiss when the upload finishes. awaitingUploadResult is the real
+        // "this dialog launched an upload" flag; comparing the localized success
+        // text would never match on non-English locales, leaving the dialog up.
+        LaunchedEffect(state.isUploading) {
             if (awaitingUploadResult && !state.isUploading) {
                 awaitingUploadResult = false
-            }
-            if (!state.isUploading && showUploadDialog && state.applySuccess == "Upload complete") {
-                showUploadDialog = false
-                selectedAudioUri = null
+                if (state.error == null) {
+                    showUploadDialog = false
+                    selectedAudioUri = null
+                }
             }
         }
     }

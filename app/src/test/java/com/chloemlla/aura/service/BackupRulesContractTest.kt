@@ -2,69 +2,50 @@ package com.chloemlla.aura.service
 
 import java.io.File
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
+/**
+ * Privacy contract for Android backup rules.
+ *
+ * The rules are an allowlist: the only `<include>` disables the platform default
+ * of backing up every standard directory, so anything not listed (Room DB,
+ * DataStore, all other sharedprefs, cached media) never leaves the device. These
+ * tests pin the whitelist shape — the locale preference is the single allowlisted
+ * surface, nothing else is, and no `<exclude>` remains because the allowlist
+ * already implies it.
+ */
 class BackupRulesContractTest {
 
     @Test
-    fun `android 11 backup excludes private identity secrets database and local media`() {
+    fun `android 11 backup allows only the locale preference`() {
         val backupRules = File("src/main/res/xml/backup_rules.xml").readText()
 
-        requiredBackupExclusions.forEach { exclusion ->
-            assertTrue(
-                "Missing backup exclusion for ${exclusion.domain}:${exclusion.path}",
-                backupRules.contains(exclusion.xmlSnippet()),
-            )
-        }
+        assertEquals(
+            "Locale preference must be the only allowlisted surface",
+            listOf(localeIncludeSnippet),
+            backupRules.includeSnippets(),
+        )
+        assertFalse("Allowlist must not carry stale blacklist entries", backupRules.contains("<exclude"))
     }
 
     @Test
-    fun `android 12 data extraction excludes the same surfaces from cloud and device transfer`() {
+    fun `android 12 data extraction allows only the locale preference on cloud and device`() {
         val dataExtractionRules = File("src/main/res/xml/data_extraction_rules.xml").readText()
 
-        requiredBackupExclusions.forEach { exclusion ->
-            assertEquals(
-                "Expected cloud and device-transfer exclusion for ${exclusion.domain}:${exclusion.path}",
-                2,
-                exclusion.xmlSnippet().toRegex(RegexOption.LITERAL).findAll(dataExtractionRules).count(),
-            )
-        }
+        assertEquals(
+            "Locale preference must be allowlisted for both cloud-backup and device-transfer",
+            listOf(localeIncludeSnippet, localeIncludeSnippet),
+            dataExtractionRules.includeSnippets(),
+        )
+        assertFalse("Allowlist must not carry stale blacklist entries", dataExtractionRules.contains("<exclude"))
     }
+
+    private fun String.includeSnippets(): List<String> =
+        Regex("""<include\s+domain="[^"]+"\s+path="[^"]+"\s*/>""")
+            .findAll(this)
+            .map { it.value }
+            .toList()
 }
 
-private data class BackupExclusion(
-    val domain: String,
-    val path: String,
-) {
-    fun xmlSnippet(): String = """<exclude domain="$domain" path="$path" />"""
-}
-
-private val requiredBackupExclusions = listOf(
-    BackupExclusion("database", "aura.db"),
-    BackupExclusion("database", "aura.db-journal"),
-    BackupExclusion("database", "aura.db-shm"),
-    BackupExclusion("database", "aura.db-wal"),
-    BackupExclusion("file", "datastore/aura_prefs.preferences_pb"),
-    BackupExclusion("file", "crash.log"),
-    BackupExclusion("file", "offline_favorites/"),
-    BackupExclusion("file", "ai_wallpapers/"),
-    BackupExclusion("file", "aura_originals/"),
-    BackupExclusion("file", "parallax/"),
-    BackupExclusion("file", "live_wallpaper.mp4"),
-    BackupExclusion("file", "live_wallpaper.webm"),
-    BackupExclusion("file", "live_wallpaper.mov"),
-    BackupExclusion("file", "live_wallpaper.mkv"),
-    BackupExclusion("file", "live_wallpaper.gif"),
-    BackupExclusion("sharedpref", "aura_community_identity.xml"),
-    BackupExclusion("sharedpref", "aura_votes.xml"),
-    BackupExclusion("sharedpref", "background_work_receipts.xml"),
-    BackupExclusion("sharedpref", "aura_dark_mode.xml"),
-    BackupExclusion("sharedpref", "aura_live_wp.xml"),
-    BackupExclusion("sharedpref", "aura_weather_wp.xml"),
-    BackupExclusion("sharedpref", "aura_parallax.xml"),
-    BackupExclusion("sharedpref", "aura_pixabay_video_cache.xml"),
-    BackupExclusion("sharedpref", "aura_selected_content.xml"),
-    BackupExclusion("sharedpref", "aura_video_stats.xml"),
-    BackupExclusion("sharedpref", "aura_widget.xml"),
-)
+private val localeIncludeSnippet = """<include domain="sharedpref" path="freevibe_locale.xml" />"""

@@ -8,7 +8,7 @@ Living architecture overview for contributors. Internal working notes live in `C
 ┌────────────────────────────────────────────────────────────────────┐
 │  Compose UI                                                        │
 │   16+ screens, 5 bottom-nav tabs (Wallpapers / Videos / Sounds /   │
-│   Favorites / Settings) + Editors / Collections / Downloads /      │
+│   Library / Settings) + Editors / Collections / Downloads /        │
 │   Onboarding. Material 3 + custom rectangular 4-12dp shape system. │
 ├────────────────────────────────────────────────────────────────────┤
 │  ViewModels (Hilt @HiltViewModel)                                  │
@@ -28,15 +28,18 @@ Living architecture overview for contributors. Internal working notes live in `C
 ├────────────────────────────────────────────────────────────────────┤
 │  Network (data/remote/)                                            │
 │   Retrofit interfaces + Moshi + OkHttp. RateLimitInterceptor on    │
-│   Freesound. SourceMetrics singleton wraps every fetch with p50/p95│
-│   latency + success-ratio rolling counters (Settings → Diagnostics)│
+│   Freesound/Openverse + Pixabay. SourceMetrics singleton wraps      │
+│   every fetch with p50/p95 latency + success-ratio rolling         │
+│   counters (Settings → Diagnostics).                               │
 ├────────────────────────────────────────────────────────────────────┤
 │  Local (data/local/)                                               │
-│   Room DB v14 (favorites, downloads, search_history, wallpaper_    │
+│   Room DB v17 (favorites, downloads, search_history, wallpaper_    │
 │   cache, wallpaper_history, wallpaper_collections,                 │
-│   wallpaper_collection_items). DataStore: Settings + Onboarding +  │
-│   User Styles + Rotation triggers. PreferencesManager is the only  │
-│   reader/writer.                                                   │
+│   wallpaper_collection_items, local_wallpaper_folders,             │
+│   local_wallpapers). DataStore: Settings + User Styles + Rotation  │
+│   triggers. PreferencesManager owns the DataStore; live-wallpaper  │
+│   engines and receipt stores keep their own SharedPreferences —    │
+│   settings writes must land in both.                               │
 ├────────────────────────────────────────────────────────────────────┤
 │  Services (service/)                                               │
 │   WallpaperService implementations:                                │
@@ -65,7 +68,7 @@ Living architecture overview for contributors. Internal working notes live in `C
 │     ColorExtractor (Palette + ColorAccentSelector)                 │
 │     SourceMetrics (in-session p50/p95 per source)                  │
 │   Receivers:                                                       │
-│     FreeVibeWidgetReceiver (Glance widget)                         │
+│     AuraWidgetReceiver (Glance widget)                             │
 │     TaskerActionReceiver (L-2: ROTATE_NOW + SHUFFLE_NOW)           │
 ├────────────────────────────────────────────────────────────────────┤
 │  External                                                          │
@@ -86,7 +89,7 @@ Living architecture overview for contributors. Internal working notes live in `C
 
 ```
 app/src/main/java/com/chloemlla/aura/
-├── FreeVibeApp.kt                 # Application + Coil image loader + crash logging
+├── AuraApp.kt                     # Application + Coil image loader + crash logging
 ├── MainActivity.kt                # Single-activity host
 ├── data/
 │   ├── local/                     # Room + DataStore
@@ -95,7 +98,9 @@ app/src/main/java/com/chloemlla/aura/
 │   ├── remote/                    # Retrofit + RateLimitInterceptor + SourceMetrics hooks
 │   └── repository/                # one per source + aggregators
 ├── di/
-│   └── AppModule.kt               # Hilt bindings: OkHttp, Retrofit, Room, Moshi
+│   ├── AppModule.kt               # Hilt bindings: OkHttp, Retrofit, Room, Moshi
+│   ├── BackgroundWorkDiagnosticsModule.kt  # background-work diagnostics bindings
+│   └── CommunityCallableModule.kt          # community/voting callable bindings
 ├── service/                       # See "Services" layer above
 ├── ui/
 │   ├── FreeVibeRoot.kt            # NavHost + bottom nav + widget deep linking
@@ -104,7 +109,7 @@ app/src/main/java/com/chloemlla/aura/
 │   ├── screens/                   # one per feature surface
 │   └── theme/                     # Material 3 + Aura design tokens
 └── widget/
-    └── FreeVibeWidget.kt          # Glance home + lockscreen widget (NX-2)
+    └── AuraWidget.kt              # Glance home + lockscreen widget (NX-2)
 ```
 
 ## Key abstractions
@@ -116,7 +121,7 @@ Scheme-dispatching wallpaper-set entry point. Routes:
 - `file://` / absolute path → `BitmapFactory.decodeFile` with `inSampleSize`
 - `content://` → `ContentResolver.openInputStream` + `copyCapped`
 
-Use this for any new "apply a wallpaper" path. The HTTP-only `applyFromUrl` is legacy — it crashes on `file://` and `content://` schemes.
+Use this for any new "apply a wallpaper" path. `applyFromUrl` is a thin alias that forwards to it, so it handles every scheme too — prefer `applyByLocator` in new code for clarity.
 
 ### `SelectedContentHolder`
 
@@ -146,8 +151,9 @@ Reusable across wallpaper crop, video crop, and any future surface that needs su
 
 Records every applied wallpaper with extracted Palette colours. Drives:
 - Home/lock widget background tint
-- Material You accent (Settings → Theme)
 - "On this day" recall (queued, L-7)
+
+Material You accent is queued, not shipped: `FreeVibeTheme`'s `dynamicColor` parameter has no caller that passes it, so the dynamic scheme branch never runs.
 
 ## Process-death + lifecycle
 
@@ -170,7 +176,7 @@ Every live wallpaper must:
 ## Build and Release
 
 - Local debug verification uses `assembleDebug`, `testDebugUnitTest`, and `lintDebug`.
-- Local release verification builds signed APK/AAB artifacts with `freevibe.jks`, checks metadata, records SHA-256 hashes, and publishes artifacts through GitHub Releases.
+- Local release verification builds signed APK/AAB artifacts with `aura.jks`, checks metadata, records SHA-256 hashes, and publishes artifacts through GitHub Releases.
 - Per-ABI APK splits + F-Droid reproducible-build verification are queued (NX-8).
 
 ## Design system

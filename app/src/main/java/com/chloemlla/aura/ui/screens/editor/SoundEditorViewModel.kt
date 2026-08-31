@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chloemlla.aura.R
@@ -15,6 +16,7 @@ import com.chloemlla.aura.data.model.soundLicenseCapabilities
 import com.chloemlla.aura.data.model.stableKey
 import com.chloemlla.aura.service.AudioExportFormat
 import com.chloemlla.aura.service.AudioFadeCurve
+import com.chloemlla.aura.service.AudioPlaybackManager
 import com.chloemlla.aura.service.AudioTrimmer
 import com.chloemlla.aura.service.MediaIngestionLimitExceeded
 import com.chloemlla.aura.service.MediaFamily
@@ -46,6 +48,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToLong
 
+@Immutable
 data class SoundEditorState(
     val isLoading: Boolean = false,
     val waveform: FloatArray = floatArrayOf(),
@@ -68,6 +71,8 @@ data class SoundEditorState(
     val fileName: String = "",
     val localFilePath: String? = null,
     val isLocalFile: Boolean = false,
+    val canUndo: Boolean = false,
+    val waveformIsSchematic: Boolean = false,
     val success: String? = null,
     val error: String? = null,
 ) {
@@ -96,7 +101,9 @@ data class SoundEditorState(
             exportBitrateKbps == other.exportBitrateKbps && waveformZoom == other.waveformZoom &&
             waveformViewportStart == other.waveformViewportStart &&
             fileName == other.fileName && localFilePath == other.localFilePath &&
-            isLocalFile == other.isLocalFile && success == other.success && error == other.error
+            isLocalFile == other.isLocalFile && canUndo == other.canUndo &&
+            waveformIsSchematic == other.waveformIsSchematic &&
+            success == other.success && error == other.error
     }
 
     override fun hashCode(): Int {
@@ -121,6 +128,8 @@ data class SoundEditorState(
         result = 31 * result + fileName.hashCode()
         result = 31 * result + (localFilePath?.hashCode() ?: 0)
         result = 31 * result + isLocalFile.hashCode()
+        result = 31 * result + canUndo.hashCode()
+        result = 31 * result + waveformIsSchematic.hashCode()
         result = 31 * result + (success?.hashCode() ?: 0)
         result = 31 * result + (error?.hashCode() ?: 0)
         return result
@@ -137,6 +146,7 @@ class SoundEditorViewModel @Inject constructor(
     private val soundApplier: SoundApplier,
     private val audioTrimmer: AudioTrimmer,
     private val soundUrlResolver: SoundUrlResolver,
+    private val audioPlaybackManager: AudioPlaybackManager,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SoundEditorState())
@@ -147,6 +157,15 @@ class SoundEditorViewModel @Inject constructor(
     private var loadJob: kotlinx.coroutines.Job? = null
     private var undoState: UndoSnapshot? = null
     private var loadedSoundKey: String? = null
+    private var audioManager: android.media.AudioManager? = null
+    private var audioFocusRequest: android.media.AudioFocusRequest? = null
+    private var audioFocusListener: android.media.AudioManager.OnAudioFocusChangeListener? = null
+
+    private val audioAttributes: android.media.AudioAttributes
+        get() = android.media.AudioAttributes.Builder()
+            .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+            .build()
 
     private data class UndoSnapshot(
         val trimStartMs: Long,
@@ -186,6 +205,7 @@ class SoundEditorViewModel @Inject constructor(
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
             stopPlayback()
+            undoState = null
             _state.update {
                 it.copy(
                     isLoading = true,
@@ -207,18 +227,21 @@ class SoundEditorViewModel @Inject constructor(
                     fileName = name,
                     localFilePath = null,
                     isLocalFile = false,
+                    canUndo = false,
+                    waveformIsSchematic = false,
                     success = null,
                     error = null,
                 )
             }
             try {
                 val file = withContext(Dispatchers.IO) { loader() }
-                val waveform = withContext(Dispatchers.Default) { extractWaveform(file.absolutePath) }
+                val extraction = withContext(Dispatchers.Default) { extractWaveform(file.absolutePath) }
                 val timing = withContext(Dispatchers.IO) { getAudioTiming(file.absolutePath) }
                 _state.update {
                     it.copy(
                         isLoading = false,
-                        waveform = waveform,
+                        waveform = extraction.amplitudes,
+                        waveformIsSchematic = extraction.schematic,
                         durationMs = timing.durationMs,
                         frameDurationMs = timing.frameDurationMs,
                         localFilePath = file.absolutePath,
@@ -242,6 +265,7 @@ class SoundEditorViewModel @Inject constructor(
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
             stopPlayback()
+            undoState = null
             _state.update {
                 it.copy(
                     isLoading = true,
@@ -262,6 +286,8 @@ class SoundEditorViewModel @Inject constructor(
                     waveformViewportStart = 0f,
                     error = null,
                     isLocalFile = true,
+                    canUndo = false,
+                    waveformIsSchematic = false,
                     success = null,
                 )
             }
@@ -269,13 +295,14 @@ class SoundEditorViewModel @Inject constructor(
             try {
                 val file = withContext(Dispatchers.IO) { copyUriToCache(uri).also { cachedFile = it } }
                 val name = file.nameWithoutExtension
-                val waveform = withContext(Dispatchers.Default) { extractWaveform(file.absolutePath) }
+                val extraction = withContext(Dispatchers.Default) { extractWaveform(file.absolutePath) }
                 val timing = withContext(Dispatchers.IO) { getAudioTiming(file.absolutePath) }
                 _state.update {
                     it.copy(
                         isLoading = false,
                         fileName = name,
-                        waveform = waveform,
+                        waveform = extraction.amplitudes,
+                        waveformIsSchematic = extraction.schematic,
                         durationMs = timing.durationMs,
                         frameDurationMs = timing.frameDurationMs,
                         localFilePath = file.absolutePath,
@@ -303,23 +330,23 @@ class SoundEditorViewModel @Inject constructor(
             s.fadeCurve,
             s.playbackSpeed,
         )
+        _state.update { it.copy(canUndo = true) }
     }
 
     fun undo() {
         undoState?.let { snap ->
+            undoState = null
             _state.update {
                 it.copy(
                     trimStartMs = snap.trimStartMs, trimEndMs = snap.trimEndMs,
                     fadeInMs = snap.fadeIn, fadeOutMs = snap.fadeOut,
                     fadeCurve = snap.fadeCurve,
                     playbackSpeed = snap.playbackSpeed,
+                    canUndo = false,
                 )
             }
-            undoState = null
         }
     }
-
-    val canUndo: Boolean get() = undoState != null
 
     fun setTrimStart(fraction: Float) {
         val state = _state.value
@@ -560,14 +587,24 @@ class SoundEditorViewModel @Inject constructor(
 
     fun clearMessages() = _state.update { it.copy(success = null, error = null) }
 
+    /** Pauses the preview when the app leaves the foreground. */
+    fun stopPreview() {
+        if (_state.value.isPlaying) stopPlayback()
+    }
+
     private fun startPlayback() {
         val path = _state.value.localFilePath ?: return
         val startMs = _state.value.trimStartMs.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
         val endMs = _state.value.trimEndMs.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
 
         stopPlayback()
+        // The list page's Media3 preview may still be playing; the editor must not
+        // layer a second audio stream on top of it.
+        audioPlaybackManager.stop()
+        requestAudioFocus()
         try {
             player = android.media.MediaPlayer().apply {
+                setAudioAttributes(audioAttributes)
                 setDataSource(path)
                 setOnPreparedListener { mp ->
                     if (player == null) return@setOnPreparedListener
@@ -601,7 +638,7 @@ class SoundEditorViewModel @Inject constructor(
                                     continue
                                 }
                                 if (dur > 0) _state.update { it.copy(playbackPosition = pos.toFloat() / dur) }
-                                kotlinx.coroutines.delay(50)
+                                kotlinx.coroutines.delay(100)
                             }
                         } catch (e: Exception) {
                             if (e is kotlinx.coroutines.CancellationException) throw e
@@ -642,7 +679,47 @@ class SoundEditorViewModel @Inject constructor(
             }
         } catch (_: Exception) {}
         player = null
+        abandonAudioFocus()
         _state.update { it.copy(isPlaying = false) }
+    }
+
+    private fun requestAudioFocus() {
+        val am = context.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager ?: return
+        audioManager = am
+        val listener = android.media.AudioManager.OnAudioFocusChangeListener { change ->
+            if (change == android.media.AudioManager.AUDIOFOCUS_LOSS ||
+                change == android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT
+            ) {
+                stopPlayback()
+            }
+        }
+        audioFocusListener = listener
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val request = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                .setAudioAttributes(audioAttributes)
+                .setOnAudioFocusChangeListener(listener)
+                .build()
+            audioFocusRequest = request
+            am.requestAudioFocus(request)
+        } else {
+            @Suppress("DEPRECATION")
+            am.requestAudioFocus(listener, android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        val am = audioManager
+        val request = audioFocusRequest
+        val listener = audioFocusListener
+        audioFocusRequest = null
+        audioFocusListener = null
+        if (am == null) return
+        if (request != null) {
+            am.abandonAudioFocusRequest(request)
+        } else {
+            @Suppress("DEPRECATION")
+            listener?.let { am.abandonAudioFocus(it) }
+        }
     }
 
     override fun onCleared() {
@@ -651,7 +728,42 @@ class SoundEditorViewModel @Inject constructor(
         super.onCleared()
     }
 
+    /**
+     * Bounds the editor's audio cache: stale partial downloads are dropped and the
+     * oldest full files are evicted once the directory passes a soft cap, so heavy
+     * editing cannot balloon cacheDir toward hundreds of megabytes. The file the
+     * editor is currently showing is never evicted.
+     */
+    private fun pruneAudioEditCache() {
+        val cacheDir = File(context.cacheDir, "audio_edit")
+        if (!cacheDir.exists()) return
+        val now = System.currentTimeMillis()
+        val files = cacheDir.listFiles()?.toMutableList() ?: return
+        files.removeAll { file ->
+            if ((file.name.endsWith(".tmp") || file.name.endsWith(".part")) &&
+                now - file.lastModified() > STALE_PARTIAL_MS
+            ) {
+                file.delete()
+                true
+            } else {
+                false
+            }
+        }
+        var total = files.sumOf { it.length() }
+        if (total <= MAX_CACHE_TOTAL_BYTES) return
+        val activePath = _state.value.localFilePath
+        files
+            .filter { it.absolutePath != activePath }
+            .sortedBy { it.lastModified() }
+            .forEach { file ->
+                if (total <= MAX_CACHE_TOTAL_BYTES) return@forEach
+                val removed = file.length()
+                if (file.delete()) total -= removed
+            }
+    }
+
     private suspend fun downloadToCache(url: String, name: String, cacheIdentity: String): File = withContext(Dispatchers.IO) {
+        pruneAudioEditCache()
         val cacheDir = File(context.cacheDir, "audio_edit")
         cacheDir.mkdirs()
         val file = File(cacheDir, buildRemoteAudioCacheFileName(name, cacheIdentity, url))
@@ -698,9 +810,14 @@ class SoundEditorViewModel @Inject constructor(
     private companion object {
         /** Max size for an audio file downloaded into the editor's cache. */
         private const val MAX_EDIT_DOWNLOAD_BYTES = 96L * 1024 * 1024
+        /** Partial downloads older than this are never worth keeping. */
+        private const val STALE_PARTIAL_MS = 60L * 60 * 1000
+        /** Soft cap for the whole audio_edit cache directory. */
+        private const val MAX_CACHE_TOTAL_BYTES = 256L * 1024 * 1024
     }
 
     private suspend fun copyUriToCache(uri: Uri): File = withContext(Dispatchers.IO) {
+        pruneAudioEditCache()
         val cacheDir = File(context.cacheDir, "audio_edit")
         cacheDir.mkdirs()
         val fileName = uri.lastPathSegment?.substringAfterLast('/') ?: "local_audio"
@@ -728,24 +845,44 @@ class SoundEditorViewModel @Inject constructor(
         }
     }
 
-    private fun extractWaveform(path: String, numSamples: Int = 200): FloatArray {
+    private data class WaveformExtraction(val amplitudes: FloatArray, val schematic: Boolean)
+
+    private fun extractWaveform(path: String, numSamples: Int = 200): WaveformExtraction {
         val amplitudes = FloatArray(numSamples)
         val extractor = MediaExtractor()
         try {
             extractor.setDataSource(path)
 
             var audioTrack = -1
+            var mime: String? = null
             for (i in 0 until extractor.trackCount) {
                 val format = extractor.getTrackFormat(i)
-                if (format.getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true) {
+                val trackMime = format.getString(MediaFormat.KEY_MIME)
+                if (trackMime?.startsWith("audio/") == true) {
                     audioTrack = i
+                    mime = trackMime
                     break
                 }
             }
-            if (audioTrack < 0) return amplitudes
+            if (audioTrack < 0) return WaveformExtraction(amplitudes, true)
 
             extractor.selectTrack(audioTrack)
             val format = extractor.getTrackFormat(audioTrack)
+
+            // MediaExtractor exposes compressed frames for MP3/AAC/etc., which are not
+            // PCM samples — reading those bytes as shorts yields meaningless noise that
+            // happens to look like a real envelope. Only raw-PCM tracks (WAV) can be
+            // measured directly; everything else degrades to an obviously-schematic
+            // placeholder instead of pretending to be the actual signal.
+            val isRawPcm = mime == "audio/raw" || mime == "audio/wav" || mime == "audio/x-wav" ||
+                format.containsKey(MediaFormat.KEY_PCM_ENCODING)
+            if (!isRawPcm) {
+                return WaveformExtraction(
+                    schematicWaveform(numSamples, format.getLong(MediaFormat.KEY_DURATION).coerceAtLeast(0L)),
+                    true,
+                )
+            }
+
             val duration = format.getLong(MediaFormat.KEY_DURATION)
             val sampleInterval = duration / numSamples
 
@@ -773,14 +910,25 @@ class SoundEditorViewModel @Inject constructor(
                 sampleIndex++
                 extractor.advance()
             }
+            return WaveformExtraction(amplitudes, false)
         } catch (_: Exception) {
-            for (i in amplitudes.indices) {
-                amplitudes[i] = (Math.sin(i * 0.3) * 0.5 + 0.5).toFloat() * 0.7f
-            }
+            return WaveformExtraction(schematicWaveform(numSamples, 0L), true)
         } finally {
             try { extractor.release() } catch (_: Exception) {}
         }
-        return amplitudes
+    }
+
+    /**
+     * Deterministic placeholder envelope for compressed audio we cannot decode to
+     * PCM. Smooth and clearly not a real signal, so a user reading the bars cannot
+     * mistake it for the actual audio content.
+     */
+    private fun schematicWaveform(numSamples: Int, durationUs: Long): FloatArray {
+        val seed = (durationUs / 1000L).toInt()
+        return FloatArray(numSamples) { i ->
+            val phase = (seed + i * 37) % 360 * 0.0174533
+            ((Math.sin(phase) + 1.0) / 2.0).toFloat() * 0.7f + 0.15f
+        }
     }
 
     private data class AudioTiming(val durationMs: Long, val frameDurationMs: Long)

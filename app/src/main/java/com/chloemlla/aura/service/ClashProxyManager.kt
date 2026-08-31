@@ -8,6 +8,7 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.Log
 import com.chloemlla.aura.BuildConfig
 import dagger.hilt.EntryPoint
@@ -21,6 +22,7 @@ import java.net.SocketAddress
 import java.net.URI
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -144,6 +146,11 @@ class ClashProxyManager @Inject constructor(
     private val _autoAdaptEnabled = AtomicBoolean(true)
     private val _partnerRead = AtomicReference(UNAVAILABLE_PARTNER)
     private val _proxyAddress = AtomicReference(defaultClashProxyAddress)
+    // Availability probe cache: _proxyReachable is what proxyAddress() consults,
+    // _proxyProbedAtMs bounds how often we re-probe. Starts false so a merely
+    // installed-but-not-running Clash can never black-hole the app's network.
+    private val _proxyReachable = AtomicBoolean(false)
+    private val _proxyProbedAtMs = AtomicLong(0L)
 
     private val listeners = CopyOnWriteArrayList<ClashStateListener>()
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
@@ -188,10 +195,29 @@ class ClashProxyManager @Inject constructor(
 
     /**
      * Proxy address for subprocesses (FFmpeg, yt-dlp) and fallback OkHttp.
-     * Returns the Clash mixed-port address when Clash is installed, null otherwise.
+     *
+     * Returns the Clash mixed-port address only when Clash is installed, the user
+     * has not disabled auto-adapt, AND a recent loopback probe reached the port.
+     * Returns null (direct) otherwise, so "detected client installed" never turns
+     * into a forced proxy: a Clash that is installed but not running must not
+     * black-hole the whole app's network.
      */
-    fun proxyAddress(): InetSocketAddress? =
-        if (state().clashInstalled) (_proxyAddress.get() ?: defaultClashProxyAddress) else null
+    fun proxyAddress(): InetSocketAddress? {
+        val state = buildState()
+        if (!state.clashInstalled) return null
+        if (!_autoAdaptEnabled.get()) return null
+        if (!isProxyReachable()) return null
+        return _proxyAddress.get() ?: defaultClashProxyAddress
+    }
+
+    /**
+     * Called by a [ProxySelector] when a proxied connection fails, so traffic can
+     * fall back to direct immediately instead of retrying a dead proxy for the
+     * rest of the probe TTL.
+     */
+    fun onProxyConnectFailed() {
+        markProxyUnreachable()
+    }
 
     /**
      * Environment variable map for subprocess network proxy.
@@ -344,7 +370,9 @@ class ClashProxyManager @Inject constructor(
                         }
                     }
                 }
-                override fun connectFailed(uri: URI?, sa: SocketAddress?, e: java.io.IOException?) {}
+                override fun connectFailed(uri: URI?, sa: SocketAddress?, e: java.io.IOException?) {
+                    onProxyConnectFailed()
+                }
             })
         } catch (_: SecurityException) {
             // Some environments restrict setting the default ProxySelector.
@@ -361,6 +389,8 @@ class ClashProxyManager @Inject constructor(
         _partnerRead.set(queryPartnerStatus(detected))
         val vpn = findVpnNetwork()
         _vpnNetwork.set(vpn)
+        // VPN/package state just changed, so the cached reachability verdict is stale.
+        resetProxyProbe()
         applyVpnBinding()
         notifyListeners()
     }
@@ -527,6 +557,41 @@ class ClashProxyManager @Inject constructor(
         cm.registerNetworkCallback(request, callback)
     }
 
+    // ── Proxy availability ─────────────────────────────────────────────
+
+    /**
+     * Whether the Clash mixed-port currently answers a loopback connect, cached
+     * for [PROBE_TTL_MS]. A raw [Socket] connect does not consult the global
+     * [ProxySelector], so probing here cannot recurse into this manager.
+     */
+    private fun isProxyReachable(): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        val lastProbe = _proxyProbedAtMs.get()
+        if (now - lastProbe < PROBE_TTL_MS) return _proxyReachable.get()
+        val addr = _proxyAddress.get() ?: defaultClashProxyAddress
+        val reachable = try {
+            Socket().use { socket -> socket.connect(addr, PROBE_TIMEOUT_MS) }
+            true
+        } catch (_: Exception) {
+            false
+        }
+        _proxyProbedAtMs.set(now)
+        _proxyReachable.set(reachable)
+        return reachable
+    }
+
+    /** Forget the probe cache so the next call re-probes immediately. */
+    private fun resetProxyProbe() {
+        _proxyReachable.set(false)
+        _proxyProbedAtMs.set(0L)
+    }
+
+    /** Treat the proxy as down now; stay down until the next probe. */
+    private fun markProxyUnreachable() {
+        _proxyReachable.set(false)
+        _proxyProbedAtMs.set(SystemClock.elapsedRealtime())
+    }
+
     private fun notifyListeners() {
         val state = buildState()
         listeners.forEach { it.onClashStateChanged(state) }
@@ -534,5 +599,7 @@ class ClashProxyManager @Inject constructor(
 
     private companion object {
         private const val TAG = "ClashProxyManager"
+        private const val PROBE_TIMEOUT_MS = 200
+        private const val PROBE_TTL_MS = 2_000L
     }
 }

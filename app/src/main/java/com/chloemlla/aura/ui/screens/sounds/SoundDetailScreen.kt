@@ -40,7 +40,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -74,7 +73,7 @@ fun SoundDetailScreen(
     onContactPicker: (Sound) -> Unit = {},
     onOpenSound: (Sound) -> Unit = {},
     onSearchTag: (String) -> Unit = {},
-    viewModel: SoundsViewModel = hiltViewModel(),
+    viewModel: SoundsViewModel = rememberSharedSoundsViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val selectedSound by viewModel.selectedSound.collectAsStateWithLifecycle()
@@ -151,6 +150,8 @@ fun SoundDetailScreen(
     val context = LocalContext.current
     val autoPreview by viewModel.autoPreview.collectAsStateWithLifecycle()
     val playbackProgress by viewModel.playbackProgress.collectAsStateWithLifecycle()
+    val communityProviderEnabled by viewModel.communityProviderEnabled.collectAsStateWithLifecycle()
+    val communityGuidelinesAccepted by viewModel.communityGuidelinesAccepted.collectAsStateWithLifecycle()
     val isPlaying = state.playingId == s.stableKey()
     val showUploader = s.uploaderName.isNotEmpty() &&
         s.uploaderName != "Unknown" &&
@@ -178,7 +179,11 @@ fun SoundDetailScreen(
     LaunchedEffect(s.stableKey()) {
         canDeleteUpload = viewModel.canDeleteCommunitySound(s)
     }
-    val canBlockCreator = viewModel.canBlockCommunitySound(s) && !canDeleteUpload
+    val canBlockCreator = s.source == ContentSource.COMMUNITY &&
+        communityProviderEnabled &&
+        communityGuidelinesAccepted &&
+        s.communityUploaderId.isNotBlank() &&
+        !canDeleteUpload
     val policyMessages = remember(licenseCapabilities) { soundPolicyMessages(licenseCapabilities) }
     val playPreviewLabel = stringResource(R.string.a11y_play_preview)
     val pausePreviewLabel = stringResource(R.string.a11y_pause_preview)
@@ -858,6 +863,9 @@ internal fun DetailWaveform(duration: Double, isPlaying: Boolean, modifier: Modi
     } else {
         stringResource(R.string.a11y_stopped)
     }
+    // pointerInput(Unit) would hold the first composition's onSeek forever; route
+    // through rememberUpdatedState so a tap always sees the current callback.
+    val currentOnSeek by rememberUpdatedState(onSeek)
     Canvas(
         modifier
             .background(MaterialTheme.colorScheme.surfaceContainer)
@@ -867,7 +875,7 @@ internal fun DetailWaveform(duration: Double, isPlaying: Boolean, modifier: Modi
                 progressBarRangeInfo = ProgressBarRangeInfo(progress.coerceIn(0f, 1f), 0f..1f)
             }
             .then(
-                if (onSeek != null) Modifier.pointerInput(Unit) { detectTapGestures { offset -> onSeek((offset.x / size.width).coerceIn(0f, 1f)) } } else Modifier,
+                if (currentOnSeek != null) Modifier.pointerInput(Unit) { detectTapGestures { offset -> currentOnSeek?.invoke((offset.x / size.width).coerceIn(0f, 1f)) } } else Modifier,
             ),
     ) {
         val barWidth = size.width / barCount

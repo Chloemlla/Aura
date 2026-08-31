@@ -7,6 +7,7 @@ import com.chloemlla.aura.data.model.Wallpaper
 import com.chloemlla.aura.data.model.stableKey
 import com.chloemlla.aura.service.WallpaperStyleLearningProfile
 import com.chloemlla.aura.service.WallpaperStyleLearningSignal
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +30,7 @@ internal class WallpaperStyleActions(
     private val browse: WallpaperBrowseViewModel,
     private val state: MutableStateFlow<WallpapersUiState>,
     private val scope: CoroutineScope,
+    private val rankDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     private val styleLearningMutex = Mutex()
 
@@ -56,7 +58,7 @@ internal class WallpaperStyleActions(
             val preferredResolution = prefs.preferredResolution.first()
             val userStyles = browse.loadUserStyles()
             val styleLearningProfile = browse.loadStyleLearningProfile()
-            val ranked = withContext(Dispatchers.Default) {
+            val ranked = withContext(rankDispatcher) {
                 rankWallpapers(
                     wallpapers = state.value.wallpapers,
                     filter = filter,
@@ -92,7 +94,7 @@ internal class WallpaperStyleActions(
         if (current.selectedTab != WallpaperTab.DISCOVER || current.wallpapers.isEmpty()) return
         val preferredResolution = prefs.preferredResolution.first()
         val userStyles = browse.loadUserStyles()
-        val ranked = withContext(Dispatchers.Default) {
+        val ranked = withContext(rankDispatcher) {
             rankWallpapers(
                 wallpapers = current.wallpapers,
                 filter = current.discoverFilter,

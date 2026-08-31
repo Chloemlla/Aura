@@ -37,6 +37,7 @@ internal class SoundPlaybackActions(
 ) {
     private var progressJob: Job? = null
     private val previewPrebufferInFlight = ConcurrentHashMap.newKeySet<String>()
+    private var pendingSeekFraction: Float? = null
 
     fun togglePlayback(sound: Sound) {
         val soundKey = sound.stableKey()
@@ -68,7 +69,13 @@ internal class SoundPlaybackActions(
 
     fun seekTo(fraction: Float) {
         val dur = audioPlaybackManager.duration.value
-        if (dur > 0) audioPlaybackManager.seekTo((fraction * dur).toLong())
+        if (dur > 0) {
+            audioPlaybackManager.seekTo((fraction * dur).toLong())
+        } else {
+            // Duration is not ready yet (playback was just started); carry the request
+            // and apply it once the progress loop observes a real duration.
+            pendingSeekFraction = fraction.coerceIn(0f, 1f)
+        }
     }
 
     fun stopIfPlaying(sound: Sound) {
@@ -78,6 +85,7 @@ internal class SoundPlaybackActions(
     fun stopPlayback() {
         progressJob?.cancel()
         playbackProgress.value = 0f
+        pendingSeekFraction = null
         state.update { it.copy(resolvingId = null) }
         audioPlaybackManager.stop()
     }
@@ -114,6 +122,9 @@ internal class SoundPlaybackActions(
     fun cancelProgress() {
         progressJob?.cancel()
     }
+
+    /** True while this instance is the one driving the shared player's progress. */
+    val isActivelyPlaying: Boolean get() = progressJob?.isActive == true
 
     fun cacheResolvedPreview(sound: Sound, previewUrl: String): Sound {
         if (previewUrl.isBlank()) return sound
@@ -170,8 +181,14 @@ internal class SoundPlaybackActions(
                 audioPlaybackManager.pollProgress()
                 val dur = audioPlaybackManager.duration.value
                 val pos = audioPlaybackManager.currentPosition.value
+                pendingSeekFraction?.let { fraction ->
+                    if (dur > 0) {
+                        audioPlaybackManager.seekTo((fraction * dur).toLong())
+                        pendingSeekFraction = null
+                    }
+                }
                 playbackProgress.value = if (dur > 0) pos.toFloat() / dur else 0f
-                delay(50)
+                delay(100)
             }
         }
     }

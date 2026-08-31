@@ -56,6 +56,10 @@ import javax.inject.Singleton
 @Retention(AnnotationRetention.BINARY)
 annotation class IoDispatcher
 
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class DefaultDispatcher
+
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
@@ -67,11 +71,20 @@ object AppModule {
     fun provideIoDispatcher(): CoroutineDispatcher = Dispatchers.IO
 
     @Provides
+    @DefaultDispatcher
+    fun provideDefaultDispatcher(): CoroutineDispatcher = Dispatchers.Default
+
+    @Provides
     @Singleton
     fun provideOkHttpClient(clashProxyManager: ClashProxyManager): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
+        // Whole-call bound: RateLimitInterceptor (added below) can sleep up to
+        // maxRetries * retryCeilingMs = 2 * 30 s = 60 s across 429 retries, so a
+        // 90 s callTimeout is the smallest round value that does not truncate that
+        // documented retry budget while still capping a hung call at ~90 s.
+        .callTimeout(90, TimeUnit.SECONDS)
         // Per-socket VPN binding: when the Clash VPN is active, every socket this
         // client creates is bound to the VPN network directly. This is reliable on
         // Android 10+, where process-level bindProcessToNetwork can silently no-op
@@ -93,7 +106,9 @@ object AppModule {
                     }
                 }
             }
-            override fun connectFailed(uri: URI?, sa: SocketAddress?, e: IOException?) {}
+            override fun connectFailed(uri: URI?, sa: SocketAddress?, e: IOException?) {
+                clashProxyManager.onProxyConnectFailed()
+            }
         })
         .apply {
             if (com.chloemlla.aura.BuildConfig.DEBUG) {
@@ -274,7 +289,7 @@ object AppModule {
             )
             ?.let(downgradeReceipts::record)
 
-        return Room.databaseBuilder(context, FreeVibeDatabase::class.java, "freevibe.db")
+        return Room.databaseBuilder(context, FreeVibeDatabase::class.java, DatabaseDowngradeGuard.DATABASE_NAME)
             .addMigrations(*DatabaseMigrations.ALL_MIGRATIONS)
             // Only on downgrade. An upgrade with a missing migration must still
             // fail loudly, because that is a bug in this build rather than a user

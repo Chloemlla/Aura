@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
 
@@ -50,7 +51,7 @@ internal class SoundBrowseViewModel(
     )
 
     fun start() {
-        hydrateCachedFeed(state.value.selectedTab, state.value.query)
+        scope.launch { hydrateCachedFeed(state.value.selectedTab, state.value.query) }
         loadSounds()
     }
 
@@ -112,7 +113,7 @@ internal class SoundBrowseViewModel(
             )
         }
         if (tab !in setOf(SoundTab.COMMUNITY, SoundTab.YOUTUBE)) {
-            hydrateCachedFeed(tab, "")
+            scope.launch { hydrateCachedFeed(tab, "") }
         }
         when (tab) {
             SoundTab.COMMUNITY -> communityFeed.loadCommunityTab()
@@ -450,8 +451,10 @@ internal class SoundBrowseViewModel(
         persistFeed(fallbackSounds, loadTab, state.value.query)
     }
 
-    private fun hydrateCachedFeed(tab: SoundTab, query: String) {
-        val cached = soundFeedCache.read(soundFeedCacheKey(tab.name, query)) ?: return
+    private suspend fun hydrateCachedFeed(tab: SoundTab, query: String) {
+        val cached = withContext(Dispatchers.IO) {
+            soundFeedCache.read(soundFeedCacheKey(tab.name, query))
+        } ?: return
         cached.sounds.forEach { sound ->
             if (sound.source == ContentSource.YOUTUBE && sound.previewUrl.isNotBlank()) {
                 sound.youtubeVideoId()?.let { videoId ->
@@ -459,7 +462,9 @@ internal class SoundBrowseViewModel(
                 }
             }
         }
-        val ranked = rankSounds(cached.sounds, tab, state.value.qualityFilter)
+        val ranked = withContext(Dispatchers.Default) {
+            rankSounds(cached.sounds, tab, state.value.qualityFilter)
+        }
         state.update { current ->
             if (current.selectedTab != tab || current.query != query || current.sounds.isNotEmpty()) current
             else current.copy(sounds = ranked, isLoading = false)

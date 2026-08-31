@@ -20,6 +20,7 @@ import com.chloemlla.aura.data.repository.SearchHistoryRepository
 import com.chloemlla.aura.data.repository.VoteRepository
 import com.chloemlla.aura.data.repository.WallpaperRepository
 import com.chloemlla.aura.data.repository.WallpaperUploadRepository
+import com.chloemlla.aura.di.DefaultDispatcher
 import com.chloemlla.aura.service.ApplyFeedbackBus
 import com.chloemlla.aura.service.ColorExtractor
 import com.chloemlla.aura.service.DualWallpaperService
@@ -32,6 +33,7 @@ import com.chloemlla.aura.service.WallpaperApplier
 import com.chloemlla.aura.service.WallpaperHistoryManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -63,6 +65,7 @@ class WallpapersViewModel @Inject constructor(
     private val seasonalContentManager: SeasonalContentManager,
     private val wallpaperUploadRepo: WallpaperUploadRepository,
     private val sourceMetrics: SourceMetrics,
+    @DefaultDispatcher private val rankDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(WallpapersUiState())
@@ -134,6 +137,7 @@ class WallpapersViewModel @Inject constructor(
         topVoted = _topVoted,
         dailyPick = _dailyPick,
         scope = viewModelScope,
+        rankDispatcher = rankDispatcher,
     )
 
     internal val styleActions = WallpaperStyleActions(
@@ -142,6 +146,7 @@ class WallpapersViewModel @Inject constructor(
         browse = browse,
         state = _state,
         scope = viewModelScope,
+        rankDispatcher = rankDispatcher,
     )
 
     internal val applyActions = WallpaperApplyActions(

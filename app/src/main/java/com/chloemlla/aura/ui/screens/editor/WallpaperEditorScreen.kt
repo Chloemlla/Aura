@@ -161,9 +161,11 @@ fun WallpaperEditorScreen(
         state.overlayLayers.isNotEmpty() ||
         (state.editedBitmap != null && state.editedBitmap !== state.originalBitmap)
     var showDiscardConfirm by remember { mutableStateOf(false) }
-    androidx.activity.compose.BackHandler(enabled = hasUnsavedChanges && !state.isApplying) {
-        showDiscardConfirm = true
+    var showResetConfirm by remember { mutableStateOf(false) }
+    val requestBack: () -> Unit = {
+        if (hasUnsavedChanges && !state.isApplying) showDiscardConfirm = true else onBack()
     }
+    androidx.activity.compose.BackHandler(enabled = hasUnsavedChanges && !state.isApplying, onBack = requestBack)
     if (showDiscardConfirm) {
         AlertDialog(
             onDismissRequest = { showDiscardConfirm = false },
@@ -172,12 +174,28 @@ fun WallpaperEditorScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showDiscardConfirm = false
-                    viewModel.resetAll()
                     onBack()
                 }) { Text(stringResource(R.string.common_discard)) }
             },
             dismissButton = {
                 TextButton(onClick = { showDiscardConfirm = false }) { Text(stringResource(R.string.common_keep_editing)) }
+            },
+            shape = RoundedCornerShape(8.dp),
+        )
+    }
+    if (showResetConfirm) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirm = false },
+            title = { Text(stringResource(R.string.editor_wallpaper_discard_title)) },
+            text = { Text(stringResource(R.string.editor_wallpaper_discard_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showResetConfirm = false
+                    viewModel.resetAll()
+                }) { Text(stringResource(R.string.common_reset)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetConfirm = false }) { Text(stringResource(R.string.common_cancel)) }
             },
             shape = RoundedCornerShape(8.dp),
         )
@@ -189,10 +207,16 @@ fun WallpaperEditorScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.editor_wallpaper_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.common_back)) }
+                    IconButton(onClick = requestBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.common_back)) }
                 },
                 actions = {
-                    TextButton(onClick = { viewModel.resetAll() }) {
+                    TextButton(
+                        onClick = {
+                            if (state.isApplying) return@TextButton
+                            if (hasUnsavedChanges) showResetConfirm = true else viewModel.resetAll()
+                        },
+                        enabled = !state.isApplying,
+                    ) {
                         Text(stringResource(R.string.common_reset), color = MaterialTheme.colorScheme.primary)
                     }
                 },

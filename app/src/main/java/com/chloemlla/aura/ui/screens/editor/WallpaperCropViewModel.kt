@@ -54,6 +54,7 @@ class WallpaperCropViewModel @Inject constructor(
     private val _state = MutableStateFlow(CropState())
     val state = _state.asStateFlow()
     private var loadedWallpaperKey: String? = null
+    private val displacedBitmaps = DisplacedBitmapRecycler()
 
     /**
      * Identity for the cropped output: the wallpaper the crop was loaded from is
@@ -81,6 +82,7 @@ class WallpaperCropViewModel @Inject constructor(
 
     fun loadFromUrl(url: String) {
         viewModelScope.launch {
+            val previous = _state.value.bitmap
             _state.update {
                 it.copy(
                     bitmap = null,
@@ -113,6 +115,7 @@ class WallpaperCropViewModel @Inject constructor(
                     }
                 }
                 _state.update { it.copy(bitmap = bitmap, isLoading = false) }
+                displacedBitmaps.displace(previous, listOf(_state.value.bitmap))
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 _state.update { it.copy(isLoading = false, error = e.message) }
@@ -122,6 +125,7 @@ class WallpaperCropViewModel @Inject constructor(
 
     private fun loadFromContentUri(uri: Uri) {
         viewModelScope.launch {
+            val previous = _state.value.bitmap
             _state.update {
                 it.copy(
                     bitmap = null,
@@ -151,6 +155,7 @@ class WallpaperCropViewModel @Inject constructor(
                     }
                 }
                 _state.update { it.copy(bitmap = bitmap, isLoading = false) }
+                displacedBitmaps.displace(previous, listOf(_state.value.bitmap))
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 _state.update { it.copy(isLoading = false, error = e.message) }
@@ -159,7 +164,9 @@ class WallpaperCropViewModel @Inject constructor(
     }
 
     fun setFromBitmap(bitmap: Bitmap) {
+        val previous = _state.value.bitmap
         _state.update { it.copy(bitmap = bitmap) }
+        displacedBitmaps.displace(previous, listOf(bitmap))
     }
 
     fun updateTransform(scale: Float, offsetX: Float, offsetY: Float) {
@@ -172,6 +179,7 @@ class WallpaperCropViewModel @Inject constructor(
 
     fun applyCropped(target: WallpaperTarget, viewportWidth: Int, viewportHeight: Int) {
         val bmp = _state.value.bitmap ?: return
+        if (viewportWidth <= 0 || viewportHeight <= 0) return
         val s = _state.value
 
         viewModelScope.launch {
@@ -189,18 +197,18 @@ class WallpaperCropViewModel @Inject constructor(
                     policy = WallpaperApplyPolicy.DERIVED,
                 ) { wallpaperApplier.applyFromBitmap(cropped, target) }
                     .onSuccess { receipt ->
-                        cropped.recycle()
+                        recycleIfNotShown(cropped)
                         _state.update {
                             it.copy(isApplying = false, success = receipt.feedbackMessage ?: "Applied")
                         }
                     }
                     .onFailure { e ->
-                        cropped.recycle()
+                        recycleIfNotShown(cropped)
                         _state.update { it.copy(isApplying = false, error = e.message) }
                     }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
-                cropped?.recycle()
+                recycleIfNotShown(cropped)
                 _state.update { it.copy(isApplying = false, error = e.message) }
             }
         }
@@ -239,16 +247,30 @@ class WallpaperCropViewModel @Inject constructor(
                 viewportWidth = viewportWidth,
                 viewportHeight = viewportHeight,
             )
+            // SmartCropCalculator works in an absolute scale (the image fills the
+            // viewport at scale = max(vpW/bw, vpH/bh)), while the preview shows the
+            // bitmap at fit * scale. Convert back so the applied transform lands on
+            // the same pixels the preview displays.
+            val fit = minOf(
+                viewportWidth / bmp.width.toFloat(),
+                viewportHeight / bmp.height.toFloat(),
+            )
+            val displayScale = t.scale / fit
+            val display = SmartCropCalculator.Transform(
+                scale = displayScale,
+                offsetX = t.offsetX,
+                offsetY = t.offsetY,
+            )
             _state.update {
                 it.copy(
                     smartCropInProgress = false,
-                    scale = t.scale,
-                    offsetX = t.offsetX,
-                    offsetY = t.offsetY,
+                    scale = display.scale,
+                    offsetX = display.offsetX,
+                    offsetY = display.offsetY,
                     success = "Smart crop applied",
                 )
             }
-            t
+            display
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             _state.update { it.copy(smartCropInProgress = false, error = e.message) }
@@ -266,8 +288,18 @@ class WallpaperCropViewModel @Inject constructor(
         viewWidth: Int,
         viewHeight: Int,
     ): Bitmap {
-        val scaledW = source.width * scale
-        val scaledH = source.height * scale
+        // The on-screen preview renders the bitmap with ContentScale.Fit before the
+        // graphicsLayer scale/translate applies, so a source pixel occupies
+        // fit * scale screen pixels — not scale alone. Without this factor every
+        // remote/landscape crop that letterboxes would take a different region than
+        // the preview shows.
+        val fit = minOf(
+            viewWidth / source.width.toFloat(),
+            viewHeight / source.height.toFloat(),
+        )
+        val totalScale = fit * scale
+        val scaledW = source.width * totalScale
+        val scaledH = source.height * totalScale
 
         val imgLeft = (viewWidth - scaledW) / 2f + offsetX
         val imgTop = (viewHeight - scaledH) / 2f + offsetY
@@ -277,23 +309,51 @@ class WallpaperCropViewModel @Inject constructor(
         val visRight = (viewWidth - imgLeft).coerceAtMost(scaledW)
         val visBottom = (viewHeight - imgTop).coerceAtMost(scaledH)
 
-        val srcLeft = (visLeft / scale).toInt().coerceIn(0, source.width - 1)
-        val srcTop = (visTop / scale).toInt().coerceIn(0, source.height - 1)
-        val srcRight = (visRight / scale).toInt().coerceIn(srcLeft + 1, source.width)
-        val srcBottom = (visBottom / scale).toInt().coerceIn(srcTop + 1, source.height)
+        val srcLeft = (visLeft / totalScale).toInt().coerceIn(0, source.width - 1)
+        val srcTop = (visTop / totalScale).toInt().coerceIn(0, source.height - 1)
+        val srcRight = (visRight / totalScale).toInt().coerceIn(srcLeft + 1, source.width)
+        val srcBottom = (visBottom / totalScale).toInt().coerceIn(srcTop + 1, source.height)
+
+        val cropWidth = srcRight - srcLeft
+        val cropHeight = srcBottom - srcTop
+        if (cropWidth < MIN_CROP_SIZE || cropHeight < MIN_CROP_SIZE) {
+            throw IllegalArgumentException("Selection is too small")
+        }
 
         return Bitmap.createBitmap(
             source,
             srcLeft,
             srcTop,
-            srcRight - srcLeft,
-            srcBottom - srcTop,
+            cropWidth,
+            cropHeight,
         )
+    }
+
+    /**
+     * Recycle [bitmap] unless it is the very instance [CropState.bitmap] still
+     * points at. [cropBitmap] hands back the source bitmap unchanged when the
+     * whole image fits the viewport (immutable source + full cover), and recycling
+     * that would tear the next frame out from under the preview's Image.
+     */
+    private fun recycleIfNotShown(bitmap: Bitmap?) {
+        if (bitmap == null || bitmap.isRecycled) return
+        if (bitmap === _state.value.bitmap) return
+        bitmap.recycle()
+    }
+
+    override fun onCleared() {
+        // Nothing can draw once the ViewModel is cleared, so the current bitmap is
+        // freed immediately along with everything still waiting in the recycler.
+        displacedBitmaps.drain(listOf(_state.value.bitmap))
+        _state.value.bitmap?.recycle()
+        super.onCleared()
     }
 
     private companion object {
         /** Max bytes accepted when downloading a wallpaper for cropping. */
         private const val MAX_CROP_BYTES = 64L * 1024 * 1024
         private const val MAX_CROP_LONG_EDGE = 4096
+        /** Refuse to apply a crop that degenerates to a sub-64px sliver. */
+        private const val MIN_CROP_SIZE = 64
     }
 }

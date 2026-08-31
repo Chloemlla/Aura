@@ -7,6 +7,7 @@ import com.chloemlla.aura.data.repository.RedditRepository
 import com.chloemlla.aura.service.WallpaperStyleLearningProfile
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -23,6 +24,7 @@ internal class WallpaperRedditRetryCoordinator(
     private val cacheManager: WallpaperCacheManager,
     private val state: MutableStateFlow<WallpapersUiState>,
     private val scope: CoroutineScope,
+    private val rankDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val categorizeError: (Exception) -> String,
 ) {
     private var retryJob: Job? = null
@@ -79,7 +81,7 @@ internal class WallpaperRedditRetryCoordinator(
                 val styleLearningProfile = WallpaperStyleLearningProfile.parse(
                     prefs.wallpaperStyleLearningJson.first(),
                 )
-                withContext(Dispatchers.Default) {
+                withContext(rankDispatcher) {
                     rankWallpapers(
                         wallpapers = (snapshot.wallpapers + redditResult.items).distinctBy { it.stableKey() },
                         filter = if (expectedTab == WallpaperTab.DISCOVER) {

@@ -2,6 +2,7 @@ package com.chloemlla.aura.ui.screens.editor
 
 import android.content.Context
 import android.graphics.*
+import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -25,6 +26,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import okhttp3.OkHttpClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -148,7 +151,13 @@ class WallpaperEditorViewModel @Inject constructor(
             return true
         }
         loadedWallpaperKey = wallpaperKey
-        loadFromUrl(wallpaper.fullUrl)
+        val url = wallpaper.fullUrl
+        val scheme = url.substringBefore(":", "").lowercase(java.util.Locale.ROOT)
+        if (scheme == "content" || scheme == "file") {
+            loadFromContentUri(Uri.parse(url))
+        } else {
+            loadFromUrl(url)
+        }
         return true
     }
 
@@ -546,62 +555,57 @@ class WallpaperEditorViewModel @Inject constructor(
         }
     }
 
-    private fun loadFromUrl(url: String) {
+    private fun loadFromUrl(url: String) = loadSource {
+        val request = okhttp3.Request.Builder().url(url).build()
+        okHttpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw Exception(context.getString(R.string.editor_wallpaper_http_error, response.code))
+            }
+            val body = response.body
+                ?: throw Exception(context.getString(R.string.editor_wallpaper_empty_response))
+            val advertised = body.contentLength()
+            if (advertisedLengthExceeds(advertised, MAX_EDIT_BYTES)) {
+                throw Exception(context.getString(R.string.editor_wallpaper_image_too_large))
+            }
+            val bytes = readStreamCapped(body.byteStream(), MAX_EDIT_BYTES)
+            decodeImageBytesForFlow(
+                bytes = bytes,
+                flow = MediaIngestionImageFlow.EDITOR,
+                declaredMimeType = body.contentType()?.toString(),
+                extension = url.substringBefore('?').substringAfterLast('.', missingDelimiterValue = ""),
+                maxLongEdge = MAX_EDIT_LONG_EDGE,
+            )
+        }
+    }
+
+    private fun loadFromContentUri(uri: Uri) = loadSource {
+        val stream = context.contentResolver.openInputStream(uri)
+            ?: throw Exception(context.getString(R.string.editor_wallpaper_load_image_failed))
+        stream.use {
+            val bytes = readStreamCapped(it, MAX_EDIT_BYTES)
+            decodeImageBytesForFlow(
+                bytes = bytes,
+                flow = MediaIngestionImageFlow.EDITOR,
+                declaredMimeType = context.contentResolver.getType(uri),
+                extension = uri.lastPathSegment?.substringAfterLast('.', missingDelimiterValue = ""),
+                maxLongEdge = MAX_EDIT_LONG_EDGE,
+            )
+        }
+    }
+
+    /**
+     * Shared decode pipeline for HTTP and content/file wallpaper sources. A fresh
+     * loading state replaces the previous source's bitmaps, and [loadToken] keeps a
+     * stale decode from overwriting a newer source the user has since chosen.
+     */
+    private fun loadSource(loader: suspend () -> Bitmap) {
         loadJob?.cancel()
         val token = ++loadToken
         loadJob = viewModelScope.launch {
-            _state.update {
-                it.copy(
-                    originalBitmap = null,
-                    editedBitmap = null,
-                    brightness = 0f,
-                    contrast = 1f,
-                    saturation = 1f,
-                    blurRadius = 0f,
-                    vignette = 0f,
-                    grain = 0f,
-                    amoledCrush = 0f,
-                    warmth = 0f,
-                    depthBackgroundStyle = DepthBackgroundStyle.BLUR,
-                    depthFrameStyle = DepthFrameStyle.NONE,
-                    depthSubjectScale = 1f,
-                    overlayLayers = emptyList(),
-                    selectedOverlayId = null,
-                    canUndoOverlay = false,
-                    isLoadingImage = true,
-                    isDepthProcessing = false,
-                    isExporting = false,
-                    isPreparingParallax = false,
-                    pendingParallaxLaunch = false,
-                    success = null,
-                    error = null,
-                    qualityWarning = null,
-                )
-            }
+            _state.update { EditorState(isLoadingImage = true) }
             overlayUndoStack.clear()
             try {
-                val bitmap = withContext(Dispatchers.IO) {
-                    val request = okhttp3.Request.Builder().url(url).build()
-                    okHttpClient.newCall(request).execute().use { response ->
-                        if (!response.isSuccessful) {
-                            throw Exception(context.getString(R.string.editor_wallpaper_http_error, response.code))
-                        }
-                        val body = response.body
-                            ?: throw Exception(context.getString(R.string.editor_wallpaper_empty_response))
-                        val advertised = body.contentLength()
-                        if (advertisedLengthExceeds(advertised, MAX_EDIT_BYTES)) {
-                            throw Exception(context.getString(R.string.editor_wallpaper_image_too_large))
-                        }
-                        val bytes = readStreamCapped(body.byteStream(), MAX_EDIT_BYTES)
-                        decodeImageBytesForFlow(
-                            bytes = bytes,
-                            flow = MediaIngestionImageFlow.EDITOR,
-                            declaredMimeType = body.contentType()?.toString(),
-                            extension = url.substringBefore('?').substringAfterLast('.', missingDelimiterValue = ""),
-                            maxLongEdge = MAX_EDIT_LONG_EDGE,
-                        )
-                    }
-                }
+                val bitmap = withContext(Dispatchers.IO) { loader() }
                 if (token != loadToken) {
                     // A newer source took ownership while this one decoded. Drop the
                     // result and release its pixels instead of clobbering the new state.
@@ -698,45 +702,108 @@ class WallpaperEditorViewModel @Inject constructor(
         filterJob?.cancel()
         filterJob = viewModelScope.launch {
             _state.update { it.copy(isProcessing = true) }
-            val result = withContext(Dispatchers.Default) {
-                val matrixResult = applyColorMatrix(original, s.brightness, s.contrast, s.saturation, s.warmth)
-                var bmp = matrixResult.bitmap
-                if (s.blurRadius > 0.5f) {
-                    val prev = bmp
-                    bmp = stackBlur(bmp, s.blurRadius.toInt().coerceIn(1, 25))
-                    if (prev !== original && prev !== bmp) prev.recycle()
+            try {
+                // A slider drag fires onValueChange every frame; a short debounce lets
+                // the burst coalesce into one full-size render instead of one per frame.
+                delay(FILTER_RENDER_DEBOUNCE_MS)
+                val result = withContext(Dispatchers.Default) { renderFilterChain(original, s) }
+                val displaced = _state.value.editedBitmap
+                _state.update {
+                    it.copy(
+                        editedBitmap = result.bitmap,
+                        isProcessing = false,
+                        qualityWarning = result.qualityWarning,
+                        // Filters render from the original, so whatever composition was
+                        // showing is gone. Say so rather than let it disappear.
+                        depthPortraitComposed = false,
+                        notice = depthPortraitReplacedNotice(it),
+                    )
                 }
-                if (s.amoledCrush > 0.01f) {
-                    val prev = bmp
-                    bmp = applyAmoledCrush(bmp, s.amoledCrush)
-                    if (prev !== original && prev !== bmp) prev.recycle()
-                }
-                if (s.vignette > 0.01f) {
-                    val prev = bmp
-                    bmp = applyVignette(bmp, s.vignette)
-                    if (prev !== original && prev !== bmp) prev.recycle()
-                }
-                if (s.grain > 0.01f) {
-                    val prev = bmp
-                    bmp = applyGrain(bmp, s.grain)
-                    if (prev !== original && prev !== bmp) prev.recycle()
-                }
-                FilterRenderResult(bmp, matrixResult.qualityWarning)
+                releaseDisplaced(displaced)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // A newer render took over; the chain's own cleanup already recycled
+                // anything it produced, but the processing flag must still come down.
+                _state.update { it.copy(isProcessing = false) }
+                throw e
             }
-            val displaced = _state.value.editedBitmap
-            _state.update {
-                it.copy(
-                    editedBitmap = result.bitmap,
-                    isProcessing = false,
-                    qualityWarning = result.qualityWarning,
-                    // Filters render from the original, so whatever composition was
-                    // showing is gone. Say so rather than let it disappear.
-                    depthPortraitComposed = false,
-                    notice = depthPortraitReplacedNotice(it),
-                )
-            }
-            releaseDisplaced(displaced)
         }
+    }
+
+    /**
+     * Runs the whole filter chain, degrading to a half-size source once if any of
+     * the later passes (blur, AMOLED, vignette, grain) runs out of memory. The
+     * first pass handles its own OOM internally; this catches the rest.
+     */
+    private suspend fun renderFilterChain(original: Bitmap, s: EditorState): FilterRenderResult {
+        return try {
+            renderChainOnce(original, s)
+        } catch (e: OutOfMemoryError) {
+            val scale = 0.5f
+            val downscaled = Bitmap.createScaledBitmap(
+                original,
+                (original.width * scale).toInt().coerceAtLeast(1),
+                (original.height * scale).toInt().coerceAtLeast(1),
+                true,
+            )
+            try {
+                val degraded = renderChainOnce(downscaled, s)
+                val percent = wallpaperEditorDownscalePercent(
+                    sourceWidth = original.width,
+                    sourceHeight = original.height,
+                    renderedWidth = degraded.bitmap.width,
+                    renderedHeight = degraded.bitmap.height,
+                )
+                degraded.copy(
+                    qualityWarning = percent?.let { p ->
+                        context.getString(R.string.editor_wallpaper_quality_warning_message, p)
+                    },
+                )
+            } finally {
+                downscaled.recycle()
+            }
+        }
+    }
+
+    private suspend fun renderChainOnce(source: Bitmap, s: EditorState): FilterRenderResult {
+        var bmp: Bitmap? = null
+        try {
+            val matrixResult = applyColorMatrix(source, s.brightness, s.contrast, s.saturation, s.warmth)
+            bmp = matrixResult.bitmap
+            if (s.blurRadius > 0.5f) {
+                ensureActive()
+                val prev = bmp
+                bmp = stackBlur(bmp, s.blurRadius.toInt().coerceIn(1, 25))
+                recycleFilterIntermediate(prev, source, bmp)
+            }
+            if (s.amoledCrush > 0.01f) {
+                ensureActive()
+                val prev = bmp
+                bmp = applyAmoledCrush(bmp, s.amoledCrush)
+                recycleFilterIntermediate(prev, source, bmp)
+            }
+            if (s.vignette > 0.01f) {
+                ensureActive()
+                val prev = bmp
+                bmp = applyVignette(bmp, s.vignette)
+                recycleFilterIntermediate(prev, source, bmp)
+            }
+            if (s.grain > 0.01f) {
+                ensureActive()
+                val prev = bmp
+                bmp = applyGrain(bmp, s.grain)
+                recycleFilterIntermediate(prev, source, bmp)
+            }
+            return FilterRenderResult(bmp, matrixResult.qualityWarning)
+        } catch (t: Throwable) {
+            // Cancelled or OOM mid-chain: the render never reached state, so free the
+            // current bitmap unless it is the source the editor is still holding.
+            if (bmp != null && bmp !== source && !bmp.isRecycled) bmp.recycle()
+            throw t
+        }
+    }
+
+    private fun recycleFilterIntermediate(prev: Bitmap, source: Bitmap, current: Bitmap) {
+        if (prev !== source && prev !== current && !prev.isRecycled) prev.recycle()
     }
 
     /**
@@ -843,27 +910,33 @@ class WallpaperEditorViewModel @Inject constructor(
         return result
     }
 
-    private fun applyAmoledCrush(src: Bitmap, intensity: Float): Bitmap {
+    private suspend fun applyAmoledCrush(src: Bitmap, intensity: Float): Bitmap {
         val result = src.copy(Bitmap.Config.ARGB_8888, true)
-        val pixels = IntArray(result.width * result.height)
-        result.getPixels(pixels, 0, result.width, 0, 0, result.width, result.height)
         val threshold = (intensity * 80).toInt()
-        for (i in pixels.indices) {
-            val c = pixels[i]
-            val r = (c shr 16) and 0xFF
-            val g = (c shr 8) and 0xFF
-            val b = c and 0xFF
-            val lum = (0.299 * r + 0.587 * g + 0.114 * b).toInt()
-            if (lum < threshold) {
-                val factor = lum.toFloat() / threshold.coerceAtLeast(1)
-                val crush = factor * factor
-                pixels[i] = (c and 0xFF000000.toInt()) or
-                    (((r * crush).toInt().coerceIn(0, 255)) shl 16) or
-                    (((g * crush).toInt().coerceIn(0, 255)) shl 8) or
-                    ((b * crush).toInt().coerceIn(0, 255))
+        // Process in row blocks so a 4096-wide image never materialises a full
+        // IntArray(w*h) on the Java heap, and so the loop can stop on cancellation.
+        val pixels = IntArray(result.width * PIXEL_ROW_BLOCK)
+        for (blockStart in 0 until result.height step PIXEL_ROW_BLOCK) {
+            ensureActive()
+            val blockHeight = min(PIXEL_ROW_BLOCK, result.height - blockStart)
+            result.getPixels(pixels, 0, result.width, 0, blockStart, result.width, blockHeight)
+            for (i in 0 until result.width * blockHeight) {
+                val c = pixels[i]
+                val r = (c shr 16) and 0xFF
+                val g = (c shr 8) and 0xFF
+                val b = c and 0xFF
+                val lum = (0.299 * r + 0.587 * g + 0.114 * b).toInt()
+                if (lum < threshold) {
+                    val factor = lum.toFloat() / threshold.coerceAtLeast(1)
+                    val crush = factor * factor
+                    pixels[i] = (c and 0xFF000000.toInt()) or
+                        (((r * crush).toInt().coerceIn(0, 255)) shl 16) or
+                        (((g * crush).toInt().coerceIn(0, 255)) shl 8) or
+                        ((b * crush).toInt().coerceIn(0, 255))
+                }
             }
+            result.setPixels(pixels, 0, result.width, 0, blockStart, result.width, blockHeight)
         }
-        result.setPixels(pixels, 0, result.width, 0, 0, result.width, result.height)
         return result
     }
 
@@ -881,27 +954,37 @@ class WallpaperEditorViewModel @Inject constructor(
         return result
     }
 
-    private fun applyGrain(src: Bitmap, intensity: Float): Bitmap {
+    private suspend fun applyGrain(src: Bitmap, intensity: Float): Bitmap {
         val result = src.copy(Bitmap.Config.ARGB_8888, true)
-        val pixels = IntArray(result.width * result.height)
-        result.getPixels(pixels, 0, result.width, 0, 0, result.width, result.height)
         val strength = (intensity * 40).toInt()
         val random = java.util.Random(42)
-        for (i in pixels.indices) {
-            val noise = random.nextInt(strength * 2 + 1) - strength
-            val c = pixels[i]
-            val r = ((c shr 16 and 0xFF) + noise).coerceIn(0, 255)
-            val g = ((c shr 8 and 0xFF) + noise).coerceIn(0, 255)
-            val b = ((c and 0xFF) + noise).coerceIn(0, 255)
-            pixels[i] = (c and 0xFF000000.toInt()) or (r shl 16) or (g shl 8) or b
+        val pixels = IntArray(result.width * PIXEL_ROW_BLOCK)
+        for (blockStart in 0 until result.height step PIXEL_ROW_BLOCK) {
+            ensureActive()
+            val blockHeight = min(PIXEL_ROW_BLOCK, result.height - blockStart)
+            result.getPixels(pixels, 0, result.width, 0, blockStart, result.width, blockHeight)
+            for (i in 0 until result.width * blockHeight) {
+                val noise = random.nextInt(strength * 2 + 1) - strength
+                val c = pixels[i]
+                val r = ((c shr 16 and 0xFF) + noise).coerceIn(0, 255)
+                val g = ((c shr 8 and 0xFF) + noise).coerceIn(0, 255)
+                val b = ((c and 0xFF) + noise).coerceIn(0, 255)
+                pixels[i] = (c and 0xFF000000.toInt()) or (r shl 16) or (g shl 8) or b
+            }
+            result.setPixels(pixels, 0, result.width, 0, blockStart, result.width, blockHeight)
         }
-        result.setPixels(pixels, 0, result.width, 0, 0, result.width, result.height)
         return result
     }
 
     private companion object {
         /** Max bytes accepted when downloading a wallpaper for editing. */
         private const val MAX_EDIT_BYTES = 64L * 1024 * 1024
+
+        /** Coalesce slider bursts into at most one full-size render per window. */
+        private const val FILTER_RENDER_DEBOUNCE_MS = 120L
+
+        /** Rows processed per pixel-loop iteration in the AMOLED/grain passes. */
+        private const val PIXEL_ROW_BLOCK = 64
 
         /**
          * Owned by [WallpaperEditorMemoryBudget] so the arithmetic that decides
