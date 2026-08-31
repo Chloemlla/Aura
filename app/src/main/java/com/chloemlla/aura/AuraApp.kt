@@ -20,6 +20,7 @@ import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.service.NotificationChannels
 import com.chloemlla.aura.service.AppCheckInstaller
 import com.chloemlla.aura.service.ClashProxyManager
+import com.chloemlla.aura.service.ExternalAutomationGate
 import com.chloemlla.aura.service.OfflineFavoritesManager
 import com.chloemlla.aura.service.PathBackedRecordReconciler
 import com.chloemlla.aura.util.LocaleHelper
@@ -107,6 +108,7 @@ class AuraApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
         installLumenCrashSdk() // idempotent via isInstalled() check
         installAppCheck()
         NotificationChannels.createAll(this)
+        ExternalAutomationGate.warmUp(this)
         evictStaleCaches()
         startSystemThemeListener()
         startClashProxy()

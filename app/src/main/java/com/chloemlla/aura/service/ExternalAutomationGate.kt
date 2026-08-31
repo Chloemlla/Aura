@@ -80,6 +80,17 @@ object ExternalAutomationGate {
             .apply()
     }
 
+    /**
+     * Pulls the automation prefs into SharedPreferences' in-memory cache so an
+     * exported broadcast that cold-starts the process (Application.onCreate runs
+     * first, then onReceive) doesn't parse the XML synchronously on the main
+     * thread inside the receiver's ~10s window (AURA-G2-23).
+     */
+    fun warmUp(context: Context) {
+        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_ENABLED, false)
+    }
+
     fun readDiagnostics(context: Context): ExternalAutomationDiagnostics {
         val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return ExternalAutomationDiagnostics(
@@ -106,8 +117,13 @@ object ExternalAutomationGate {
         if (!enabled) {
             return ExternalAutomationDecision(accepted = false, reason = "disabled")
         }
-        val nextAllowedAtMs = lastAcceptedAtMs + minIntervalMs
-        if (lastAcceptedAtMs > 0L && nowMs < nextAllowedAtMs) {
+        // A persisted wall-clock timestamp can sit in the future after the device
+        // clock jumps backwards (manual change, timezone, NTP). Clamp it so the gate
+        // doesn't rate-limit every automation request until real time catches up; the
+        // stored value heals on the next accepted trigger (AURA-G2-22).
+        val effectiveLastAcceptedAtMs = if (lastAcceptedAtMs > nowMs) 0L else lastAcceptedAtMs
+        val nextAllowedAtMs = effectiveLastAcceptedAtMs + minIntervalMs
+        if (effectiveLastAcceptedAtMs > 0L && nowMs < nextAllowedAtMs) {
             return ExternalAutomationDecision(
                 accepted = false,
                 reason = "rate_limited",

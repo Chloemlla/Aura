@@ -11,9 +11,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
-import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
@@ -74,6 +72,10 @@ class RotationTriggerService : Service() {
         }
         RotationTriggerRecovery.clear(this)
         registerTriggers()
+        // Cold-start the trigger-path constraint cache so a first unlock/screen-off
+        // after process death doesn't fall back to the requiresNetwork=true default
+        // and strand an offline local-folder rotation (AURA-G2-12).
+        serviceScope.launch { AutoWallpaperWorker.refreshOneShotConstraints(prefs) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -220,10 +222,18 @@ class RotationTriggerService : Service() {
          * implement it, so expedited runs failed outright there (AURA-G2-03).
          */
         internal fun enqueueRotation(context: Context) {
-            val constraints = Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
-                .setRequiresBatteryNotLow(true)
-                .build()
+            // Reuse the periodic path's constraint resolution (source-aware
+            // network requirement + the user's charging / Wi-Fi / idle opt-ins)
+            // instead of hard-coding NetworkType.CONNECTED, which stranded
+            // local-folder rotations offline and ignored Wi-Fi-only
+            // (AURA-G2-12). The flags come from the cache refreshed by
+            // schedule() / Settings toggles / onCreate below.
+            val constraints = buildAutoWallpaperConstraints(
+                requiresCharging = AutoWallpaperWorker.cachedRequiresCharging,
+                requiresWiFiOnly = AutoWallpaperWorker.cachedRequiresWiFiOnly,
+                requiresIdle = AutoWallpaperWorker.cachedRequiresIdle,
+                requiresNetwork = AutoWallpaperWorker.cachedRequiresNetwork,
+            )
             val request = OneTimeWorkRequestBuilder<AutoWallpaperWorker>()
                 .setConstraints(constraints)
                 .setInputData(

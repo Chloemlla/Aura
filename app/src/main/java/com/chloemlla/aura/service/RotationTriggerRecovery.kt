@@ -37,13 +37,18 @@ internal object RotationTriggerRecovery {
 
     @SuppressLint("ApplySharedPref")
     fun markPending(context: Context, unlock: Boolean, screenOff: Boolean) {
+        val alreadyPending = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_PENDING, false)
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putBoolean(KEY_PENDING, true)
             .putBoolean(KEY_UNLOCK, unlock)
             .putBoolean(KEY_SCREEN_OFF, screenOff)
             .commit()
-        showRecoveryNotification(context)
+        // A pending state can be re-marked on every background process start
+        // (periodic worker wake-up, widget refresh); re-notifying the same
+        // notification each time re-alerts the user (AURA-G2-16).
+        if (!alreadyPending) showRecoveryNotification(context)
     }
 
     fun retryIfPending(context: Context) {
@@ -84,6 +89,7 @@ internal object RotationTriggerRecovery {
             )
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_ERROR)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()

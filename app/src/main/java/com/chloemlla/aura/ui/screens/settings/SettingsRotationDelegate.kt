@@ -82,7 +82,7 @@ internal class SettingsRotationDelegate(
         if (enabled) {
             AutoWallpaperWorker.schedule(context, prefs, autoWpInterval.value * 60)
         } else {
-            AutoWallpaperWorker.cancel(context)
+            rescheduleRemainingRotation()
         }
     }
 
@@ -91,7 +91,10 @@ internal class SettingsRotationDelegate(
         if (autoWpEnabled.value) AutoWallpaperWorker.schedule(context, prefs, hours * 60)
     }
 
-    fun setAutoWpSource(source: String) = scope.launch { prefs.setAutoWallpaperSource(source) }
+    fun setAutoWpSource(source: String) = scope.launch {
+        prefs.setAutoWallpaperSource(source)
+        AutoWallpaperWorker.refreshOneShotConstraints(prefs)
+    }
 
     fun setLocalWallpaperFolderUri(uri: String) = scope.launch {
         val nextUri = uri.trim()
@@ -142,21 +145,25 @@ internal class SettingsRotationDelegate(
 
     fun setAutoWallpaperRequiresCharging(value: Boolean) = scope.launch {
         prefs.setAutoWallpaperRequiresCharging(value)
+        AutoWallpaperWorker.refreshOneShotConstraints(prefs)
         if (autoWpEnabled.value) AutoWallpaperWorker.schedule(context, prefs, autoWpInterval.value * 60)
     }
 
     fun setAutoWallpaperRequiresWiFiOnly(value: Boolean) = scope.launch {
         prefs.setAutoWallpaperRequiresWiFiOnly(value)
+        AutoWallpaperWorker.refreshOneShotConstraints(prefs)
         if (autoWpEnabled.value) AutoWallpaperWorker.schedule(context, prefs, autoWpInterval.value * 60)
     }
 
     fun setRotateOnUnlock(value: Boolean) = scope.launch {
         prefs.setRotateOnUnlock(value)
+        AutoWallpaperWorker.refreshOneShotConstraints(prefs)
         RotationTriggerService.reconcile(context, unlock = value, screenOff = rotateOnScreenOff.value)
     }
 
     fun setRotateOnScreenOff(value: Boolean) = scope.launch {
         prefs.setRotateOnScreenOff(value)
+        AutoWallpaperWorker.refreshOneShotConstraints(prefs)
         RotationTriggerService.reconcile(context, unlock = rotateOnUnlock.value, screenOff = value)
     }
 
@@ -167,6 +174,7 @@ internal class SettingsRotationDelegate(
 
     fun setAutoWallpaperRequiresIdle(value: Boolean) = scope.launch {
         prefs.setAutoWallpaperRequiresIdle(value)
+        AutoWallpaperWorker.refreshOneShotConstraints(prefs)
         if (autoWpEnabled.value) AutoWallpaperWorker.schedule(context, prefs, autoWpInterval.value * 60)
     }
 
@@ -221,8 +229,11 @@ internal class SettingsRotationDelegate(
 
     fun setSchedulerEnabled(enabled: Boolean) = scope.launch {
         prefs.setSchedulerEnabled(enabled)
+        // schedulerEnabled flips which source (scheduler vs legacy) feeds the
+        // trigger-path network requirement, so refresh regardless of branch.
+        AutoWallpaperWorker.refreshOneShotConstraints(prefs)
         if (enabled) AutoWallpaperWorker.schedule(context, prefs, schedulerInterval.value)
-        else AutoWallpaperWorker.cancel(context)
+        else rescheduleRemainingRotation()
     }
 
     fun setSchedulerInterval(minutes: Long) = scope.launch {
@@ -270,6 +281,21 @@ internal class SettingsRotationDelegate(
     private suspend fun rescheduleSchedulerIfEnabled() {
         if (prefs.schedulerEnabled.first()) {
             AutoWallpaperWorker.schedule(context, prefs, prefs.schedulerIntervalMinutes.first())
+        }
+    }
+
+    /**
+     * Re-arms the rotation worker after one of the two toggle paths is disabled.
+     * The legacy and enhanced-scheduler paths share one unique work name, so a
+     * naive cancel would silently kill the still-enabled path (AURA-G2-01).
+     */
+    private suspend fun rescheduleRemainingRotation() {
+        when {
+            prefs.schedulerEnabled.first() ->
+                AutoWallpaperWorker.schedule(context, prefs, prefs.schedulerIntervalMinutes.first())
+            prefs.autoWallpaperEnabled.first() ->
+                AutoWallpaperWorker.schedule(context, prefs, prefs.autoWallpaperInterval.first() * 60)
+            else -> AutoWallpaperWorker.cancel(context)
         }
     }
 

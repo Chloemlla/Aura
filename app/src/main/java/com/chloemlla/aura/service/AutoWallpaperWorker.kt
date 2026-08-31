@@ -42,6 +42,7 @@ class AutoWallpaperWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         val receiptWorkName = inputData.getString(RECEIPT_WORK_NAME_KEY) ?: WORK_NAME
+        val attempt = runAttemptCount
         return try {
             val schedulerEnabled = prefs.schedulerEnabled.first()
             val legacyEnabled = prefs.autoWallpaperEnabled.first()
@@ -52,19 +53,40 @@ class AutoWallpaperWorker @AssistedInject constructor(
                 shouldRunLegacyRotation(schedulerEnabled, legacyEnabled, triggeredRotation) -> doLegacyWork()
                 else -> Result.success()
             }
-            receiptStore.recordWorkerResult(
-                uniqueWorkName = receiptWorkName,
-                outcome = result.toWorkOutcome(),
-                retryReason = "wallpaper source returned no usable item or apply failed; check selected source, saved collection, and wallpaper permission",
-            )
-            result
+            if (result == Result.retry() && attempt >= MAX_FAILED_ATTEMPTS) {
+                // A persistent failure (dead provider, revoked SAF grant, cleared
+                // collection) would otherwise retry forever with 15min->5h exponential
+                // backoff, waking the device for doomed network calls (AURA-G2-31).
+                receiptStore.recordFailure(
+                    uniqueWorkName = receiptWorkName,
+                    errorClass = "TooManyRetries",
+                    deferralReason = "wallpaper source failed $MAX_FAILED_ATTEMPTS+ consecutive attempts; check the selected source and wallpaper permission",
+                )
+                Result.failure()
+            } else {
+                receiptStore.recordWorkerResult(
+                    uniqueWorkName = receiptWorkName,
+                    outcome = result.toWorkOutcome(),
+                    retryReason = "wallpaper source returned no usable item or apply failed; check selected source, saved collection, and wallpaper permission",
+                )
+                result
+            }
         } catch (_: java.io.IOException) {
-            receiptStore.recordRetry(
-                uniqueWorkName = receiptWorkName,
-                errorClass = "IOException",
-                deferralReason = "network or remote wallpaper source I/O failed; check connection and provider availability",
-            )
-            Result.retry()
+            if (attempt >= MAX_FAILED_ATTEMPTS) {
+                receiptStore.recordFailure(
+                    uniqueWorkName = receiptWorkName,
+                    errorClass = "TooManyRetries",
+                    deferralReason = "wallpaper source I/O failed $MAX_FAILED_ATTEMPTS+ consecutive attempts; check connection and provider availability",
+                )
+                Result.failure()
+            } else {
+                receiptStore.recordRetry(
+                    uniqueWorkName = receiptWorkName,
+                    errorClass = "IOException",
+                    deferralReason = "network or remote wallpaper source I/O failed; check connection and provider availability",
+                )
+                Result.retry()
+            }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             receiptStore.recordFailure(
@@ -279,6 +301,14 @@ class AutoWallpaperWorker @AssistedInject constructor(
         const val TRIGGERED_ROTATION_KEY = "triggered_rotation"
 
         /**
+         * Consecutive [Result.retry] attempts before a run is downgraded to
+         * [Result.failure] and the receipt records a permanent failure. Keeps a
+         * persistently-unavailable source (dead provider, revoked SAF grant) from
+         * retrying forever under exponential backoff (AURA-G2-31).
+         */
+        private const val MAX_FAILED_ATTEMPTS = 5
+
+        /**
          * Schedule with minute-based intervals (minimum 15 min, WorkManager floor).
          *
          * Suspends to read constraint prefs from DataStore so we don't block the
@@ -292,10 +322,48 @@ class AutoWallpaperWorker @AssistedInject constructor(
          * via Settings.
          */
         suspend fun schedule(context: Context, prefs: PreferencesManager, intervalMinutes: Long = 360) {
-            val requiresCharging = prefs.autoWallpaperRequiresCharging.first()
-            val requiresWiFiOnly = prefs.autoWallpaperRequiresWiFiOnly.first()
-            val requiresIdle = prefs.autoWallpaperRequiresIdle.first()
-            val requiresNetwork = if (prefs.schedulerEnabled.first()) {
+            refreshOneShotConstraints(prefs)
+            scheduleWithConstraints(
+                context = context,
+                intervalMinutes = intervalMinutes,
+                requiresCharging = cachedRequiresCharging,
+                requiresWiFiOnly = cachedRequiresWiFiOnly,
+                requiresIdle = cachedRequiresIdle,
+                requiresNetwork = cachedRequiresNetwork,
+            )
+        }
+
+        /**
+         * Constraint snapshot for the non-suspend one-shot trigger path
+         * ([RotationTriggerService.enqueueRotation]). The periodic path resolves
+         * its network requirement from the selected source, but a broadcast
+         * receiver cannot suspend, so the trigger path reads this cache instead
+         * of hard-coding [NetworkType.CONNECTED] — otherwise local-folder
+         * rotations strand in ENQUEUED whenever the device is offline, and
+         * Wi-Fi-only users get cellular wallpapers (AURA-G2-12).
+         *
+         * Defaults conservatively to network-required, matching the old
+         * hard-coded constraint until the cache is first refreshed.
+         */
+        @Volatile
+        internal var cachedRequiresCharging = false
+        @Volatile
+        internal var cachedRequiresWiFiOnly = false
+        @Volatile
+        internal var cachedRequiresIdle = false
+        @Volatile
+        internal var cachedRequiresNetwork = true
+
+        /**
+         * Recomputes the trigger-path constraint cache from current prefs. Kept
+         * fresh by [schedule] (periodic configuration) and by every Settings
+         * toggle that feeds the resolved constraints or source.
+         */
+        internal suspend fun refreshOneShotConstraints(prefs: PreferencesManager) {
+            cachedRequiresCharging = prefs.autoWallpaperRequiresCharging.first()
+            cachedRequiresWiFiOnly = prefs.autoWallpaperRequiresWiFiOnly.first()
+            cachedRequiresIdle = prefs.autoWallpaperRequiresIdle.first()
+            cachedRequiresNetwork = if (prefs.schedulerEnabled.first()) {
                 scheduledSourceCandidates(
                     defaultSource = prefs.schedulerSource.first(),
                     daySource = prefs.schedulerDaySource.first(),
@@ -305,14 +373,6 @@ class AutoWallpaperWorker @AssistedInject constructor(
             } else {
                 sourceRequiresNetwork(prefs.autoWallpaperSource.first())
             }
-            scheduleWithConstraints(
-                context = context,
-                intervalMinutes = intervalMinutes,
-                requiresCharging = requiresCharging,
-                requiresWiFiOnly = requiresWiFiOnly,
-                requiresIdle = requiresIdle,
-                requiresNetwork = requiresNetwork,
-            )
         }
 
         /**

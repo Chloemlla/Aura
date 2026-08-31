@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 
 /**
@@ -57,8 +58,6 @@ class ExternalAudioIntentReceiver : BroadcastReceiver() {
     @Inject lateinit var bundledContentProvider: BundledContentProvider
     @Inject lateinit var soundUrlResolver: SoundUrlResolver
 
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             ACTION_PLAY_SOUND -> handlePlaySound(context, intent)
@@ -80,21 +79,31 @@ class ExternalAudioIntentReceiver : BroadcastReceiver() {
         }
         val volume = intent.getFloatExtra(EXTRA_VOLUME, 1f).coerceIn(0f, 1f)
 
-        val sound = allBundledSounds().find { it.stableKey() == soundId }
-        if (sound == null) {
-            Log.w(TAG, "Unknown sound: $soundId")
-            return
-        }
-
+        // A receiver's process can be reaped the instant onReceive returns, so the
+        // async resolution must run inside goAsync's window or the broadcast is
+        // silently dropped on a busy device (AURA-G2-17). Resolution is bounded so a
+        // stuck resolver can't outlive goAsync's ~10s ANR accounting.
+        val pending = goAsync()
         scope.launch {
-            val url = soundUrlResolver.resolve(sound)
-            if (url != null) {
-                audioPlaybackManager.play(sound, url, volume)
-                if (com.chloemlla.aura.BuildConfig.DEBUG) {
-                    Log.d(TAG, "Playing sound: ${sound.name} from $url")
+            try {
+                withTimeout(RESOLVE_TIMEOUT_MS) {
+                    val sound = allBundledSounds().find { it.stableKey() == soundId }
+                    if (sound == null) {
+                        Log.w(TAG, "Unknown sound: $soundId")
+                        return@withTimeout
+                    }
+                    val url = soundUrlResolver.resolve(sound)
+                    if (url != null) {
+                        audioPlaybackManager.play(sound, url, volume)
+                        if (com.chloemlla.aura.BuildConfig.DEBUG) {
+                            Log.d(TAG, "Playing sound: ${sound.name} from $url")
+                        }
+                    } else {
+                        Log.w(TAG, "No URL resolved for sound: ${sound.stableKey()}")
+                    }
                 }
-            } else {
-                Log.w(TAG, "No URL resolved for sound: ${sound.stableKey()}")
+            } finally {
+                pending.finish()
             }
         }
     }
@@ -103,26 +112,32 @@ class ExternalAudioIntentReceiver : BroadcastReceiver() {
         val category = intent.getStringExtra(EXTRA_CATEGORY) ?: "all"
         val volume = intent.getFloatExtra(EXTRA_VOLUME, 1f).coerceIn(0f, 1f)
 
-        val pool = when (category) {
-            "ringtone" -> bundledContentProvider.getRingtones()
-            "notification" -> bundledContentProvider.getNotifications()
-            "alarm" -> bundledContentProvider.getAlarms()
-            "all" -> allBundledSounds()
-            else -> {
-                Log.w(TAG, "Unknown category: $category")
-                return
-            }
-        }
-        if (pool.isEmpty()) return
-
-        val sound = pool.random()
+        val pending = goAsync()
         scope.launch {
-            val url = soundUrlResolver.resolve(sound)
-            if (url != null) {
-                audioPlaybackManager.play(sound, url, volume)
-                if (com.chloemlla.aura.BuildConfig.DEBUG) {
-                    Log.d(TAG, "Playing random sound: ${sound.name} from $url")
+            try {
+                withTimeout(RESOLVE_TIMEOUT_MS) {
+                    val pool = when (category) {
+                        "ringtone" -> bundledContentProvider.getRingtones()
+                        "notification" -> bundledContentProvider.getNotifications()
+                        "alarm" -> bundledContentProvider.getAlarms()
+                        "all" -> allBundledSounds()
+                        else -> {
+                            Log.w(TAG, "Unknown category: $category")
+                            return@withTimeout
+                        }
+                    }
+                    if (pool.isEmpty()) return@withTimeout
+                    val sound = pool.random()
+                    val url = soundUrlResolver.resolve(sound)
+                    if (url != null) {
+                        audioPlaybackManager.play(sound, url, volume)
+                        if (com.chloemlla.aura.BuildConfig.DEBUG) {
+                            Log.d(TAG, "Playing random sound: ${sound.name} from $url")
+                        }
+                    }
                 }
+            } finally {
+                pending.finish()
             }
         }
     }
@@ -143,6 +158,13 @@ class ExternalAudioIntentReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "AudioIntentReceiver"
+
+        /** Bounds async resolution to a fraction of goAsync's ~10s ANR window. */
+        private const val RESOLVE_TIMEOUT_MS = 8_000L
+
+        // One scope for all broadcasts: the old per-instance job pool was never
+        // cancelled and leaked a SupervisorJob (and its children) per broadcast.
+        private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
         /** Actions */
         const val ACTION_PLAY_SOUND = "com.chloemlla.aura.action.PLAY_SOUND"
