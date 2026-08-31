@@ -60,7 +60,7 @@ import com.chloemlla.aura.ui.screens.settings.SettingsToggle
 import com.chloemlla.aura.ui.screens.sounds.ApplyButton
 import com.chloemlla.aura.ui.screens.sounds.DetailWaveform
 import com.chloemlla.aura.ui.screens.videowallpapers.VideoCard
-import com.chloemlla.aura.ui.screens.videowallpapers.VideoWallpaperItem
+import com.chloemlla.aura.data.model.VideoWallpaperItem
 import com.chloemlla.aura.ui.screens.wallpapers.WallpaperGrid
 import com.chloemlla.aura.ui.screens.wallpapers.WallpaperStateAction
 import com.chloemlla.aura.ui.screens.wallpapers.WallpaperStateCard

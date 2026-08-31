@@ -161,8 +161,8 @@ interface SearchHistoryDao {
     @Query("SELECT * FROM search_history WHERE type = :type ORDER BY timestamp DESC LIMIT :limit")
     fun getRecent(type: String, limit: Int = 20): Flow<List<SearchHistoryEntity>>
 
-    @Query("SELECT * FROM search_history WHERE type = :type AND query LIKE '%' || :prefix || '%' ORDER BY timestamp DESC LIMIT :limit")
-    fun search(type: String, prefix: String, limit: Int = 10): Flow<List<SearchHistoryEntity>>
+    @Query("SELECT * FROM search_history WHERE type = :type AND query LIKE '%' || :escapedPrefix || '%' ESCAPE '\\' ORDER BY timestamp DESC LIMIT :limit")
+    fun search(type: String, escapedPrefix: String, limit: Int = 10): Flow<List<SearchHistoryEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entry: SearchHistoryEntity)

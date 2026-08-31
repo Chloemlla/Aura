@@ -79,7 +79,7 @@ data class ProviderNetworkPolicy(
             "backoff $backoffPolicy",
             "fallback $cacheFallbackPolicy",
             "disabled $disabledBehavior",
-            "request cache ${formatPolicyDuration(requestCacheTtlMs)}",
+            "request cache ${formatRequestCacheDuration(requestCacheTtlMs)}",
             "media URL ${formatPolicyDuration(mediaUrlTtlMs)}",
             "retry ${retryAfterHandling.label()}",
             "prefetch ${limitLabel(maxAutomaticPrefetch)}",
@@ -382,3 +382,7 @@ private fun formatPolicyDuration(ms: Long?): String {
         else -> "${minutes}m"
     }
 }
+
+// requestCacheTtlMs = null means "use the default", matching WallpaperCacheManager.getTtl.
+private fun formatRequestCacheDuration(ms: Long?): String =
+    formatPolicyDuration(ms ?: PROVIDER_CACHE_TTL_DEFAULT_MS)

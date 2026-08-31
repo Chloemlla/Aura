@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chloemlla.aura.data.local.PixabayVideoCacheStore
 import com.chloemlla.aura.data.local.PreferencesManager
+import com.chloemlla.aura.data.model.VideoWallpaperItem
 import com.chloemlla.aura.util.rethrowIfCancelled
 import com.chloemlla.aura.data.remote.pexels.PexelsApi
 import com.chloemlla.aura.data.remote.pixabay.PixabayVideo

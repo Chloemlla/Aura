@@ -1,6 +1,5 @@
 package com.chloemlla.aura.data.model
 
-import com.chloemlla.aura.ui.screens.videowallpapers.VideoWallpaperItem
 import java.util.Locale
 
 enum class VideoWallpaperAction {

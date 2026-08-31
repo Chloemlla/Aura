@@ -1,5 +1,7 @@
 package com.chloemlla.aura.ui.screens.videowallpapers
 
+import com.chloemlla.aura.data.model.VideoWallpaperItem
+
 enum class VideoFocusFilter { BEST, LOOP_SAFE, LOW_BATTERY, PHONE_FIT }
 
 internal fun rankVideoWallpapers(

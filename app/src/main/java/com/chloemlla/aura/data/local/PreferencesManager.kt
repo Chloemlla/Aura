@@ -2,6 +2,7 @@ package com.chloemlla.aura.data.local
 
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
@@ -36,6 +37,7 @@ import com.chloemlla.aura.service.WALLPAPER_CLOCK_OVERLAY_PREFS_NAME
 import com.chloemlla.aura.service.WallpaperClockOverlayMode
 import com.chloemlla.aura.service.WallpaperClockOverlayPosition
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -47,6 +49,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -219,6 +222,8 @@ class PreferencesManager @Inject constructor(
 
     private val dataStore = context.dataStore
     private val providerCredentialStore = ProviderCredentialStore(context)
+    private val appPrefs: SharedPreferences =
+        context.getSharedPreferences(APP_PREFERENCES_NAME, Context.MODE_PRIVATE)
     private val redditRssMetadataMigrationMutex = Mutex()
     @Volatile private var redditRssMetadataMigrated = false
     private val providerCredentialRevision = MutableStateFlow(0)
@@ -320,14 +325,20 @@ class PreferencesManager @Inject constructor(
             .split(",")
             .filter { it.isNotBlank() }
     suspend fun addRecentRotationId(id: String) {
-        val recent = getRecentRotationIds().toMutableList()
-        // Move-to-end instead of append: duplicates would fill the FIFO with copies
-        // of one key and evict genuinely-recent entries.
-        recent.remove(id)
-        recent.add(id)
-        val maxSize = 50
-        while (recent.size > maxSize) recent.removeAt(0)
-        set(Keys.RECENT_ROTATION_IDS, recent.joinToString(","))
+        dataStore.edit { preferences ->
+            val recent = preferences[Keys.RECENT_ROTATION_IDS]
+                .orEmpty()
+                .split(",")
+                .filter { it.isNotBlank() }
+                .toMutableList()
+            // Move-to-end instead of append: duplicates would fill the FIFO with copies
+            // of one key and evict genuinely-recent entries.
+            recent.remove(id)
+            recent.add(id)
+            val maxSize = 50
+            while (recent.size > maxSize) recent.removeAt(0)
+            preferences[Keys.RECENT_ROTATION_IDS] = recent.joinToString(",")
+        }
     }
     suspend fun clearRecentRotationIds() = set(Keys.RECENT_ROTATION_IDS, "")
 
@@ -699,15 +710,11 @@ class PreferencesManager @Inject constructor(
     private fun weatherWallpaperPrefs() =
         context.getSharedPreferences(WEATHER_WALLPAPER_PREFS_NAME, Context.MODE_PRIVATE)
 
-    fun isOnboardingComplete(): Boolean = context
-        .getSharedPreferences(APP_PREFERENCES_NAME, Context.MODE_PRIVATE)
-        .getBoolean(ONBOARDING_COMPLETE_KEY, false)
+    fun isOnboardingComplete(): Boolean =
+        appPrefs.getBoolean(ONBOARDING_COMPLETE_KEY, false)
 
     fun setOnboardingComplete() {
-        context.getSharedPreferences(APP_PREFERENCES_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(ONBOARDING_COMPLETE_KEY, true)
-            .apply()
+        appPrefs.edit().putBoolean(ONBOARDING_COMPLETE_KEY, true).apply()
     }
 
     fun isDailyWallpaperEnabled(): Boolean =
@@ -753,6 +760,7 @@ class PreferencesManager @Inject constructor(
 
     private fun <T> get(key: Preferences.Key<T>, default: T): Flow<T> =
         dataStore.data.catch { emit(emptyPreferences()) }.map { it[key] ?: default }
+            .distinctUntilChanged()
 
     private suspend fun <T> set(key: Preferences.Key<T>, value: T) {
         dataStore.edit { it[key] = value }
@@ -763,7 +771,11 @@ class PreferencesManager @Inject constructor(
         legacyKey: Preferences.Key<String>,
         default: String,
     ): Flow<String> = providerCredentialRevision
-        .map { readProviderCredential(credentialKey, legacyKey, default) }
+        .map {
+            withContext(Dispatchers.IO) {
+                readProviderCredential(credentialKey, legacyKey, default)
+            }
+        }
         .distinctUntilChanged()
 
     private suspend fun readProviderCredential(
@@ -788,7 +800,9 @@ class PreferencesManager @Inject constructor(
         key: String,
     ) {
         val sanitized = sanitizeApiKey(key)
-        val stored = writeProviderCredentialValue(credentialKey, sanitized)
+        val stored = withContext(Dispatchers.IO) {
+            writeProviderCredentialValue(credentialKey, sanitized)
+        }
         if (stored || sanitized.isBlank()) {
             dataStore.edit { it.remove(legacyKey) }
         }

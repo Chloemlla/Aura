@@ -1,6 +1,5 @@
 package com.chloemlla.aura.data.model
 
-import com.chloemlla.aura.ui.screens.videowallpapers.VideoWallpaperItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

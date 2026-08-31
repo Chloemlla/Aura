@@ -3,6 +3,7 @@ package com.chloemlla.aura.ui.screens.videowallpapers
 import android.content.Context
 import android.content.SharedPreferences
 import com.chloemlla.aura.data.local.PreferencesManager
+import com.chloemlla.aura.data.model.VideoWallpaperItem
 import com.chloemlla.aura.data.remote.pexels.PexelsApi
 import com.chloemlla.aura.data.remote.pixabay.PixabayApi
 import com.chloemlla.aura.data.remote.pixabay.PixabayVideo

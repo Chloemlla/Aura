@@ -20,7 +20,7 @@ class SearchHistoryRepository @Inject constructor(
         dao.getRecent("UNIVERSAL", limit)
 
     fun searchSuggestions(type: String, prefix: String): Flow<List<SearchHistoryEntity>> =
-        dao.search(type, prefix)
+        dao.search(type, prefix.escapeLikePattern())
 
     suspend fun addWallpaperSearch(query: String) {
         if (query.isBlank()) return
@@ -45,3 +45,7 @@ class SearchHistoryRepository @Inject constructor(
 
     suspend fun clearUniversalHistory() = dao.clearAll("UNIVERSAL")
 }
+
+// Escape the escape character first so the wildcard escapes we insert stay literal.
+private fun String.escapeLikePattern(): String =
+    replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")

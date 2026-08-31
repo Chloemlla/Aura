@@ -61,6 +61,7 @@ import coil3.compose.SubcomposeAsyncImageContent
 import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.VideoProviderPolicyLinks
 import com.chloemlla.aura.data.model.VideoWallpaperAction
+import com.chloemlla.aura.data.model.VideoWallpaperItem
 import com.chloemlla.aura.data.model.canUseVideoAction
 import com.chloemlla.aura.data.model.requiresVideoActionConfirmation
 import com.chloemlla.aura.data.model.videoActionMessage
@@ -92,30 +93,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.math.abs
-
-@androidx.compose.runtime.Immutable
-data class VideoWallpaperItem(
-    val id: String,
-    val title: String,
-    val thumbnailUrl: String,
-    val source: String,
-    val duration: Long = 0,
-    val uploaderName: String = "",
-    val videoId: String = "",
-    val popularity: Long = 0, // Views (YouTube), upvotes (Reddit), or 0 (Pexels)
-    val videoWidth: Int = 0,
-    val videoHeight: Int = 0,
-    val videoRotationDegrees: Int = 0,
-    val videoMimeType: String = "",
-    val videoCodec: String = "",
-    val contentSource: com.chloemlla.aura.data.model.ContentSource = com.chloemlla.aura.data.model.ContentSource.LOCAL,
-    val license: String = "",
-    val sourcePageUrl: String = "",
-) {
-    val isPortrait: Boolean get() = videoHeight > videoWidth
-    val isLandscape: Boolean get() = videoWidth > videoHeight
-    val hasDimensions: Boolean get() = videoWidth > 0 && videoHeight > 0
-}
 
 private const val MIN_INITIAL_VIDEO_RESULTS = 24
 

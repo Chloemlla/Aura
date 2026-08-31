@@ -20,12 +20,12 @@ class WallpaperCacheManager @Inject constructor(
         private const val MAX_TOTAL_ENTRIES = 1800
     }
 
-    /** Get cached wallpapers if fresh enough */
+    /** Get cached wallpapers if fresh enough. Expired entries stay in the DB so
+     * [getStaleCached] can still serve them offline; pruning happens in cache()/evictExpired(). */
     suspend fun getCached(cacheKey: String, source: ContentSource): List<Wallpaper>? {
         val timestamp = cacheDao.getCacheTimestamp(cacheKey) ?: return null
         val ttl = getTtl(source)
         if (System.currentTimeMillis() - timestamp > ttl) {
-            cacheDao.evictByKey(cacheKey)
             return null
         }
         return cacheDao.getByCacheKey(cacheKey).map { it.toWallpaper() }
