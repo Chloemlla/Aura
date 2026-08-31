@@ -33,9 +33,6 @@ import com.chloemlla.aura.data.remote.weather.WeatherEffect
  */
 class WeatherWallpaperService : WallpaperService() {
 
-    /** Low-frequency tick that keeps the clock overlay fresh in reduced-motion mode. */
-    private const val CLOCK_OVERLAY_REFRESH_INTERVAL_MS = 30_000L
-
     override fun onCreateEngine(): Engine = WeatherEngine()
 
     @RequiresApi(36)
@@ -621,5 +618,10 @@ class WeatherWallpaperService : WallpaperService() {
             )
             return result
         }
+    }
+
+    private companion object {
+        /** Low-frequency tick that keeps the clock overlay fresh in reduced-motion mode. */
+        const val CLOCK_OVERLAY_REFRESH_INTERVAL_MS = 30_000L
     }
 }
