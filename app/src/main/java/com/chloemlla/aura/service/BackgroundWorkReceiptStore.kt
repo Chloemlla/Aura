@@ -1,7 +1,7 @@
 package com.chloemlla.aura.service
 
 import android.content.Context
-import androidx.work.Result
+import androidx.work.ListenableWorker.Result
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.text.SimpleDateFormat
 import java.util.Date
