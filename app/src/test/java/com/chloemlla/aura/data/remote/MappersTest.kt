@@ -86,13 +86,17 @@ class MappersTest {
     }
 
     @Test
-    fun `FavoriteEntity toWallpaper handles unknown source gracefully`() {
+    fun `FavoriteEntity toWallpaper fails loudly on unknown source`() {
         val entity = FavoriteEntity(
             id = "x", source = "DELETED_SOURCE", type = "WALLPAPER",
             thumbnailUrl = "t", fullUrl = "f",
         )
-        val wp = entity.toWallpaper()
-        assertEquals(ContentSource.WALLHAVEN, wp.source) // fallback
+        try {
+            entity.toWallpaper()
+            fail("expected IllegalStateException for unknown persisted source")
+        } catch (_: IllegalStateException) {
+            // AURA-G5-26: unknown persisted sources must not be silently coerced to a wrong known source.
+        }
     }
 
     @Test
@@ -200,12 +204,17 @@ class MappersTest {
     }
 
     @Test
-    fun `FavoriteEntity toSound handles unknown source with FREESOUND fallback`() {
+    fun `FavoriteEntity toSound fails loudly on unknown source`() {
         val entity = FavoriteEntity(
             id = "x", source = "NONEXISTENT", type = "SOUND",
             thumbnailUrl = "", fullUrl = "url",
         )
-        assertEquals(ContentSource.FREESOUND, entity.toSound().source)
+        try {
+            entity.toSound()
+            fail("expected IllegalStateException for unknown persisted source")
+        } catch (_: IllegalStateException) {
+            // AURA-G5-26: unknown persisted sources must not be silently coerced to a wrong known source.
+        }
     }
 
     // ── WikimediaPotdImage.toWallpaper ──
