@@ -92,15 +92,18 @@ class CommunityReportsViewModel @Inject constructor(
     private val voteRepo: VoteRepository,
     private val blockRepo: CommunityBlockRepository,
 ) : ViewModel() {
-    val isAdmin: Boolean get() = voteRepo.isAdmin
+    private val _isAdmin = MutableStateFlow(voteRepo.isAdmin)
+    val isAdmin = _isAdmin.asStateFlow()
     private val _selectedStatus = MutableStateFlow(CommunityReportResolutionStatus.OPEN)
     val selectedStatus = _selectedStatus.asStateFlow()
-    val reports = if (isAdmin) {
-        _selectedStatus.flatMapLatest { status ->
-            reportRepo.reports(status = status)
+    val reports = isAdmin.flatMapLatest { admin ->
+        if (admin) {
+            _selectedStatus.flatMapLatest { status ->
+                reportRepo.reports(status = status)
+            }
+        } else {
+            flowOf(emptyList())
         }
-    } else {
-        flowOf(emptyList())
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -108,6 +111,7 @@ class CommunityReportsViewModel @Inject constructor(
     val state = _state.asStateFlow()
 
     fun refresh() {
+        _isAdmin.value = voteRepo.isAdmin
         _state.update { it.copy(message = "Report queue refreshed", error = null) }
     }
 
@@ -231,6 +235,7 @@ fun CommunityReportsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val reports by viewModel.reports.collectAsStateWithLifecycle()
     val selectedStatus by viewModel.selectedStatus.collectAsStateWithLifecycle()
+    val isAdmin by viewModel.isAdmin.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -256,7 +261,7 @@ fun CommunityReportsScreen(
                 .padding(padding),
         ) {
             when {
-                !viewModel.isAdmin -> AuraStateCard(
+                !isAdmin -> AuraStateCard(
                     icon = Icons.Default.VerifiedUser,
                     title = stringResource(R.string.reports_admin_required_title),
                     description = stringResource(R.string.reports_admin_required_body),

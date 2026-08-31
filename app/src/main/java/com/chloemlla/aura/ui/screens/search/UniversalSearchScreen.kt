@@ -93,6 +93,7 @@ import com.chloemlla.aura.ui.components.CompactSearchField
 import com.chloemlla.aura.ui.components.SearchHistoryDropdown
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -100,6 +101,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -257,7 +259,9 @@ class UniversalSearchViewModel @Inject constructor(
             localResults = buildUniversalSearchResults(currentQuery, index.favorites, index.downloads, index.collections),
             providerActions = buildProviderActions(currentQuery, availability),
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UniversalSearchState())
+    }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UniversalSearchState())
 
     fun updateQuery(value: String) {
         query.value = value

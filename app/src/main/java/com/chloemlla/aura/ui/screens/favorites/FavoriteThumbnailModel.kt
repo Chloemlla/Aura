@@ -1,7 +1,6 @@
 package com.chloemlla.aura.ui.screens.favorites
 
 import com.chloemlla.aura.data.model.FavoriteEntity
-import java.io.File
 
 /**
  * Picks what a favorite card should actually load.
@@ -18,7 +17,7 @@ import java.io.File
  */
 internal fun favoriteThumbnailModel(
     favorite: FavoriteEntity,
-    fileExists: (String) -> Boolean = { File(it).exists() },
+    fileExists: (String) -> Boolean,
 ): String {
     if (!favorite.type.equals("WALLPAPER", ignoreCase = true)) return favorite.thumbnailUrl
     val offlinePath = favorite.offlinePath.trim()

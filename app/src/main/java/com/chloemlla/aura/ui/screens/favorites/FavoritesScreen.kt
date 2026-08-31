@@ -46,6 +46,7 @@ import com.chloemlla.aura.data.model.stableKey
 import com.chloemlla.aura.ui.components.AuraSnackbarHost
 import com.chloemlla.aura.ui.components.AuraStateAction
 import com.chloemlla.aura.ui.components.AuraStateCard
+import java.io.File
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -98,6 +99,15 @@ fun FavoritesScreen(
             "oldest" -> sounds.sortedBy { it.addedAt }
             else -> sounds.sortedByDescending { it.addedAt }
         }
+    }
+    // Probe managed offline files once per data load instead of once per grid item
+    // per recomposition (File.exists() is a disk syscall on the main thread).
+    val offlineFileExists = remember(wallpapers) {
+        wallpapers.asSequence()
+            .map { it.offlinePath.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+            .associateWith { path -> File(path).exists() }
     }
 
     // Export launcher
@@ -456,7 +466,7 @@ fun FavoritesScreen(
                                         AsyncImage(
                                             // Prefer the managed offline copy so the grid
                                             // still renders with no network.
-                                            model = favoriteThumbnailModel(fav),
+                                            model = favoriteThumbnailModel(fav) { offlineFileExists[it] ?: false },
                                             contentDescription = null,
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier.fillMaxWidth().aspectRatio(0.67f),

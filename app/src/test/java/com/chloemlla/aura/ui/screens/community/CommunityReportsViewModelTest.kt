@@ -59,7 +59,7 @@ class CommunityReportsViewModelTest {
         viewModel.hide(report)
         advanceUntilIdle()
 
-        assertTrue(viewModel.isAdmin)
+        assertTrue(viewModel.isAdmin.value)
         assertEquals("Report hidden", viewModel.state.value.message)
         coVerify { voteRepo.moderateHide(report.contentId) }
         coVerify { reportRepo.resolveReport(report.id, CommunityReportResolutionStatus.HIDDEN, any()) }
