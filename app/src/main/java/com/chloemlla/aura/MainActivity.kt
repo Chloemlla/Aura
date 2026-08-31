@@ -282,7 +282,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        handleExternalMediaIntent(launchIntent)
+        // A recreated activity (rotation / process restore) redelivers the same launch
+        // intent; re-ingesting it duplicates the import and jumps back into the editor.
+        if (shouldHandleInitialLaunchNavigation(savedInstanceState)) {
+            handleExternalMediaIntent(launchIntent)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

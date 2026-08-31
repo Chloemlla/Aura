@@ -121,15 +121,16 @@ fun Sound.soundLicenseCapabilities(): SoundLicenseCapabilities {
         else -> Unit
     }
 
+    if (isNoDerivatives) {
+        disable(actions, SoundAction.EDIT, "No-derivatives sounds cannot be edited.")
+        disable(actions, SoundAction.BUNDLE, "No-derivatives sounds cannot be included in Aura Originals.")
+    }
     if (isNonCommercial) {
         requireConfirmation(actions, SoundAction.APPLY, "Confirm non-commercial license terms before applying this sound.")
         requireConfirmation(actions, SoundAction.DOWNLOAD, "Confirm non-commercial license terms before downloading this sound.")
         requireConfirmation(actions, SoundAction.EDIT, "Confirm non-commercial license terms before editing this sound.")
         disable(actions, SoundAction.BUNDLE, "Non-commercial sounds cannot be included in Aura Originals.")
-    } else if (isNoDerivatives) {
-        disable(actions, SoundAction.EDIT, "No-derivatives sounds cannot be edited.")
-        disable(actions, SoundAction.BUNDLE, "No-derivatives sounds cannot be included in Aura Originals.")
-    } else if (!isCc0Compatible && source != ContentSource.BUNDLED) {
+    } else if (!isNoDerivatives && !isCc0Compatible && source != ContentSource.BUNDLED) {
         disable(actions, SoundAction.BUNDLE, "Only reviewed CC0-compatible sounds can be included in Aura Originals.")
     }
 

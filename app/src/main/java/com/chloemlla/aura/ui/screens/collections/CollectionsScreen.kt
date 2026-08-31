@@ -122,6 +122,18 @@ class CollectionsViewModel @Inject constructor(
         }
     }
 
+    // Deep-link import must fire once per delivery; the marker survives Activity
+    // recreation (ViewModel outlives it), so a restored back stack can't re-import.
+    private var consumedDeepLinkImport: Pair<String?, String?>? = null
+
+    fun consumeDeepLinkImport(importToken: String?, importUri: String?): Boolean {
+        val delivery = importToken to importUri
+        if (delivery.first == null && delivery.second == null) return false
+        if (delivery == consumedDeepLinkImport) return false
+        consumedDeepLinkImport = delivery
+        return true
+    }
+
     fun importCollectionLink(input: String) {
         viewModelScope.launch {
             collectionExporter.importFromTokenOrLink(input).handleImportResult()
@@ -265,8 +277,10 @@ fun CollectionsScreen(
     }
 
     LaunchedEffect(initialImportToken, initialImportUri) {
-        initialImportToken?.let(viewModel::importCollectionLink)
-        initialImportUri?.let { viewModel.importCollectionFile(Uri.parse(it)) }
+        if (viewModel.consumeDeepLinkImport(initialImportToken, initialImportUri)) {
+            initialImportToken?.let(viewModel::importCollectionLink)
+            initialImportUri?.let { viewModel.importCollectionFile(Uri.parse(it)) }
+        }
     }
 
     LaunchedEffect(shareEvent) {

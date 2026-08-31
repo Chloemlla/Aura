@@ -166,7 +166,7 @@ val providerNetworkPolicies = listOf(
         backoffPolicy = "degraded-source cooldown after repeated failures",
         cacheFallbackPolicy = "daily enhancement skipped; saved items remain",
         disabledBehavior = "hidden from active source lists",
-        quotaSummary = "Legacy restored records only; no active automatic fetching.",
+        quotaSummary = "Daily APOD image fetched on Discover refresh under the shared secondary-source budget.",
     ),
     ProviderNetworkPolicy(
         source = ContentSource.FREESOUND,

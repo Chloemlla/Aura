@@ -33,7 +33,9 @@ fun openExternalUrl(
 private fun supportedExternalUrlOrNull(rawUrl: String): String? {
     val trimmed = rawUrl.trim()
     if (trimmed.isBlank()) return null
-    val scheme = runCatching { Uri.parse(trimmed).scheme?.lowercase(Locale.ROOT) }.getOrNull()
+    val colonIndex = trimmed.indexOf(':')
+    if (colonIndex <= 0) return null
+    val scheme = trimmed.substring(0, colonIndex).lowercase(Locale.ROOT)
     return when (scheme) {
         "http", "https", "mailto" -> trimmed
         else -> null

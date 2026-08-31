@@ -103,12 +103,13 @@ fun Wallpaper.wallpaperLicenseCapabilities(): WallpaperLicenseCapabilities {
         else -> Unit
     }
 
+    if (isNoDerivatives) {
+        disableWallpaperAction(actions, WallpaperAction.EDIT, "No-derivatives wallpapers cannot be edited.")
+    }
     if (isNonCommercial) {
         requireWallpaperConfirmation(actions, WallpaperAction.APPLY, "Confirm non-commercial license terms before applying this wallpaper.")
         requireWallpaperConfirmation(actions, WallpaperAction.DOWNLOAD, "Confirm non-commercial license terms before downloading this wallpaper.")
         requireWallpaperConfirmation(actions, WallpaperAction.EDIT, "Confirm non-commercial license terms before editing this wallpaper.")
-    } else if (isNoDerivatives) {
-        disableWallpaperAction(actions, WallpaperAction.EDIT, "No-derivatives wallpapers cannot be edited.")
     }
 
     return WallpaperLicenseCapabilities(
