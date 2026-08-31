@@ -8,12 +8,14 @@ import com.chloemlla.aura.data.model.stableKey
 import com.chloemlla.aura.service.WallpaperStyleLearningProfile
 import com.chloemlla.aura.service.WallpaperStyleLearningSignal
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /**
  * Owns the local wallpaper style-learning profile: signal recording, reset, and
@@ -54,13 +56,15 @@ internal class WallpaperStyleActions(
             val preferredResolution = prefs.preferredResolution.first()
             val userStyles = browse.loadUserStyles()
             val styleLearningProfile = browse.loadStyleLearningProfile()
-            val ranked = rankWallpapers(
-                wallpapers = state.value.wallpapers,
-                filter = filter,
-                preferredResolution = preferredResolution,
-                userStyles = userStyles,
-                styleLearningProfile = styleLearningProfile,
-            )
+            val ranked = withContext(Dispatchers.Default) {
+                rankWallpapers(
+                    wallpapers = state.value.wallpapers,
+                    filter = filter,
+                    preferredResolution = preferredResolution,
+                    userStyles = userStyles,
+                    styleLearningProfile = styleLearningProfile,
+                )
+            }
             state.update {
                 it.copy(
                     discoverFilter = filter,
@@ -88,13 +92,15 @@ internal class WallpaperStyleActions(
         if (current.selectedTab != WallpaperTab.DISCOVER || current.wallpapers.isEmpty()) return
         val preferredResolution = prefs.preferredResolution.first()
         val userStyles = browse.loadUserStyles()
-        val ranked = rankWallpapers(
-            wallpapers = current.wallpapers,
-            filter = current.discoverFilter,
-            preferredResolution = preferredResolution,
-            userStyles = userStyles,
-            styleLearningProfile = profile,
-        )
+        val ranked = withContext(Dispatchers.Default) {
+            rankWallpapers(
+                wallpapers = current.wallpapers,
+                filter = current.discoverFilter,
+                preferredResolution = preferredResolution,
+                userStyles = userStyles,
+                styleLearningProfile = profile,
+            )
+        }
         state.update { it.copy(wallpapers = ranked) }
     }
 }

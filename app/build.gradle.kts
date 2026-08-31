@@ -1,4 +1,5 @@
 import java.net.URL
+import java.security.MessageDigest
 import java.util.Properties
 
 // Lumen Crash SDK version resolution: resolved version (from CI fetch) > version file > "latest" sentinel
@@ -52,13 +53,20 @@ val reproducibleFossBuild = buildingFossOnly &&
     providers.gradleProperty("aura.reproducibleFossBuild")
         .orNull
         ?.toBooleanStrictOrNull() == true
+// Flavor-agnostic override: keep the release variant (R8 + resource shrinking)
+// but drop the signing config, so CI can compile fullRelease on fork PRs that
+// have no keystore secrets.
+val unsignedRelease =
+    providers.gradleProperty("aura.unsignedRelease")
+        .orNull
+        ?.toBooleanStrictOrNull() == true
 
 if (!buildingFossOnly) {
     apply(plugin = "com.google.gms." + "google-services")
     apply(plugin = "com.google.android.gms." + "oss-licenses-plugin")
     tasks.configureEach {
         val generatedFossOssTask =
-            name.startsWith("foss", ignoreCase = true) && name.contains("Oss", ignoreCase = true)
+            name.startsWith("foss", ignoreCase = true) && name.contains("OssLicenses", ignoreCase = true)
         val generatedFossGoogleTask =
             name.contains("Foss", ignoreCase = true) && name.contains("GoogleServices", ignoreCase = true)
         if (generatedFossOssTask || generatedFossGoogleTask) {
@@ -112,6 +120,11 @@ android {
         // supersedes upstream's 35.
         versionCode = 148
         versionName = "6.45.2"
+        // CI supplies AURA_ANDROID_VERSION_CODE/NAME (see aura-android.yml) so the
+        // APK metadata agrees with the release tag; local builds keep the declared
+        // literals above, which are also the baseline the governance tools assert.
+        System.getenv("AURA_ANDROID_VERSION_CODE")?.toIntOrNull()?.let { versionCode = it }
+        System.getenv("AURA_ANDROID_VERSION_NAME")?.let { versionName = it }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -152,7 +165,7 @@ android {
             // Verification builders compare an unsigned FOSS artifact with the
             // owner-signed release modulo its signature. Keeping this opt-in avoids
             // local keystore inputs while preserving the normal signed release lane.
-            signingConfig = if (reproducibleFossBuild) null else signingConfigs.getByName("release")
+            signingConfig = if (reproducibleFossBuild || unsignedRelease) null else signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -449,32 +462,42 @@ dependencies {
     implementation("com.chloemlla.lumen:lumen-crash:$lumenCrashSdkVersion")
 }
 
-// Build-time yt-dlp download: fetch the latest stable yt-dlp zipapp from GitHub
-// so the bundled version is always fresh (inspired by Seal's approach).
+// Build-time yt-dlp update, opt-in: the committed app/src/main/res/raw/ytdlp
+// binary is the source of truth and is never rewritten by a default build. To
+// bump it, pin the release and its SHA-256:
+//   ./gradlew <tasks> -Paura.ytdlp.version=<pinned> -Paura.ytdlp.sha256=<sha>
+// Downloads to a temp file first and only replaces the resource after the
+// checksum matches, so a failed or interrupted fetch never corrupts the binary.
 val downloadYtDlp by tasks.registering {
     val ytdlpFile = layout.projectDirectory.file("src/main/res/raw/ytdlp")
     val versionFile = layout.projectDirectory.file("ytdlp.version")
-    // Only re-download if the raw resource doesn't exist yet
     outputs.file(ytdlpFile)
     outputs.file(versionFile)
+    val updateVersion = providers.gradleProperty("aura.ytdlp.version").orNull
+    val expectedSha = providers.gradleProperty("aura.ytdlp.sha256").orNull
+    onlyIf { updateVersion != null && expectedSha != null }
     doLast {
-        val url = URL("https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp")
+        val pinned = requireNotNull(updateVersion)
+        val url = URL("https://github.com/yt-dlp/yt-dlp/releases/download/$pinned/yt-dlp")
         val dest = ytdlpFile.asFile
-        logger.lifecycle("Downloading latest yt-dlp from $url ...")
-        url.openStream().use { input ->
-            dest.outputStream().use { output ->
-                input.copyTo(output)
-            }
-        }
-        // Try to extract version from the downloaded file
+        val tmp = File.createTempFile("ytdlp", ".part")
         try {
-            val version = dest.readLines().firstOrNull { it.startsWith("__version__") }
-                ?.substringAfter("=")?.trim()?.removeSurrounding("'", "'")?.removeSurrounding("\"", "\"")
-                ?: "unknown"
-            versionFile.asFile.writeText(version)
-            logger.lifecycle("yt-dlp version: $version")
-        } catch (_: Exception) {
-            logger.lifecycle("yt-dlp: downloaded (version unknown)")
+            logger.lifecycle("Downloading pinned yt-dlp $pinned from $url ...")
+            val conn = url.openConnection().apply {
+                connectTimeout = 15_000
+                readTimeout = 60_000
+            }
+            conn.getInputStream().use { input ->
+                tmp.outputStream().use { output -> input.copyTo(output) }
+            }
+            val sha = MessageDigest.getInstance("SHA-256").digest(tmp.readBytes())
+                .joinToString("") { "%02x".format(it) }
+            require(sha == expectedSha) { "yt-dlp SHA256 mismatch: expected $expectedSha, got $sha" }
+            tmp.copyTo(dest, overwrite = true)
+            versionFile.asFile.writeText(pinned + "\n")
+            logger.lifecycle("yt-dlp $pinned updated (sha256 $sha)")
+        } finally {
+            tmp.delete()
         }
     }
 }

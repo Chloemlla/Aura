@@ -15,6 +15,14 @@ on:
       - "settings.gradle.kts"
       - "build.gradle.kts"
       - ".github/workflows/aura-android.yml"
+      - "baselineprofile/**"
+      - "database.rules.json"
+      - "storage.rules"
+      - "firebase.json"
+      - "functions/**"
+      - "test/**"
+      - "tools/**"
+      - "lumen-crash.version"
   pull_request:
     branches:
       - "**"
@@ -27,6 +35,14 @@ on:
       - "settings.gradle.kts"
       - "build.gradle.kts"
       - ".github/workflows/aura-android.yml"
+      - "baselineprofile/**"
+      - "database.rules.json"
+      - "storage.rules"
+      - "firebase.json"
+      - "functions/**"
+      - "test/**"
+      - "tools/**"
+      - "lumen-crash.version"
   workflow_dispatch:
     inputs:
       publish_release:
@@ -68,10 +84,11 @@ jobs:
 
       - name: Read app version
         run: |
-          VERSION_NAME="6.40.0.${GITHUB_RUN_NUMBER}"
+          VERSION_BASE="$(sed -n 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)"
+          VERSION_NAME="${VERSION_BASE}.${GITHUB_RUN_NUMBER}"
           SHORT_HASH="${GITHUB_SHA::8}"
           echo "AURA_ANDROID_VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
-          echo "AURA_ANDROID_VERSION_CODE=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          echo "AURA_ANDROID_VERSION_CODE=$((GITHUB_RUN_NUMBER + 148))" >> "$GITHUB_ENV"
           echo "AURA_SHORT_HASH=${SHORT_HASH}" >> "$GITHUB_ENV"
           echo "AURA_ANDROID_RELEASE_VERSION=${VERSION_NAME}-${SHORT_HASH}" >> "$GITHUB_ENV"
 
@@ -125,9 +142,9 @@ jobs:
       - name: Build full release APK
         run: |
           if [ "$AURA_BUILD_DEBUG" = "true" ]; then
-            ./gradlew assembleFullDebug --no-daemon -Pdependency.verification=off
+            ./gradlew assembleFullDebug --no-daemon
           else
-            ./gradlew assembleFullRelease --no-daemon -Pdependency.verification=off
+            ./gradlew assembleFullRelease --no-daemon
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
@@ -139,8 +156,22 @@ jobs:
           path: |
             app/build/outputs/apk/full/release/*.apk
             app/build/outputs/apk/full/debug/*.apk
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
+
+      - name: Upload R8 mapping
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: aura-android-mapping-${{ github.run_number }}
+          path: |
+            app/build/outputs/mapping/**/mapping.txt
+            app/build/outputs/mapping/**/seeds.txt
+            app/build/outputs/mapping/**/usage.txt
+          # Fork PRs without signing secrets build debug (no R8 output) — warn
+          # there; the release job uploads the authoritative mapping with error.
+          if-no-files-found: warn
+          retention-days: 90
 
   verify:
     name: Android Gradle verification
@@ -175,29 +206,38 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run unit tests (full flavor)
-        run: ./gradlew -Dorg.gradle.java.home="$JAVA_HOME" cleanTestFullDebugUnitTest testFullDebugUnitTest --no-daemon -Pdependency.verification=off
+        run: ./gradlew -Dorg.gradle.java.home="$JAVA_HOME" cleanTestFullDebugUnitTest testFullDebugUnitTest --no-daemon
         env:
           GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
       - name: Run unit tests (foss flavor)
-        run: ./gradlew -Dorg.gradle.java.home="$JAVA_HOME" cleanTestFossDebugUnitTest testFossDebugUnitTest --no-daemon -Pdependency.verification=off
+        run: ./gradlew -Dorg.gradle.java.home="$JAVA_HOME" cleanTestFossDebugUnitTest testFossDebugUnitTest --no-daemon
         env:
           GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
       - name: Run Android lint (full flavor)
-        run: ./gradlew lintFullDebug --no-daemon -Pdependency.verification=off
+        run: ./gradlew lintFullDebug --no-daemon
         env:
           GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
       - name: Run Android lint (foss flavor)
-        run: ./gradlew lintFossDebug --no-daemon -Pdependency.verification=off
+        run: ./gradlew lintFossDebug --no-daemon
         env:
           GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
       - name: Build FOSS release APK (unsigned)
         # -Paura.reproducibleFossBuild=true keeps the release variant (R8, resource
         # shrinking) but drops the signing config, so verification needs no keystore.
-        run: ./gradlew assembleFossRelease -Paura.reproducibleFossBuild=true --no-daemon -Pdependency.verification=off
+        run: ./gradlew assembleFossRelease -Paura.reproducibleFossBuild=true --no-daemon
+        env:
+          GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
+
+      - name: Build full release APK (unsigned, R8 verification)
+        # -Paura.unsignedRelease=true keeps the full flavor's release variant (R8,
+        # with Firebase/ML Kit/Play Services in the graph) but drops the signing
+        # config, so fork PRs without keystore secrets still exercise the obfuscation
+        # path that AURA-G10-01-class regressions live on.
+        run: ./gradlew assembleFullRelease -Paura.unsignedRelease=true --no-daemon
         env:
           GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
@@ -206,7 +246,7 @@ jobs:
         with:
           name: aura-android-foss-apk
           path: app/build/outputs/apk/foss/release/*.apk
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
 
       - name: Upload verification reports
@@ -221,13 +261,54 @@ jobs:
             app/build/reports/problems/**
           retention-days: 14
 
+  governance:
+    name: Governance checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+
+      - name: Run Python governance tests
+        # Mixed suite (unittest.TestCase classes + plain test_* functions), run
+        # the way CONTRIBUTING.md documents: `python -m pytest test/tools`.
+        # A venv avoids the runner image's PEP-668 externally-managed Python.
+        # Landing baseline: a few live-repo drifts are pre-existing (wrapper
+        # policy pins 8.12.1, workflow policy JSONs are empty while
+        # aura-android.yml exists). Kept non-blocking until those are reconciled —
+        # remove continue-on-error once the baseline is green (see fix-ci.md
+        # AURA-G10-07 "风险与需要 CI 验证的点").
+        continue-on-error: true
+        run: |
+          python3 -m venv /tmp/aura-governance
+          /tmp/aura-governance/bin/pip install --quiet pytest
+          /tmp/aura-governance/bin/python -m pytest test/tools -q
+
+  backend:
+    name: Firebase rules + functions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+
+      - name: Install dependencies
+        # functions/ has no committed lockfile, so it installs rather than ci.
+        run: npm ci && npm --prefix functions install
+
+      - name: Run Cloud Functions unit tests
+        continue-on-error: true
+        run: npm --prefix functions test
+
+      - name: Run Firebase rules tests (emulator)
+        continue-on-error: true
+        run: npm run test:firebase-rules
+
   release:
     name: Android signed release
-    needs: build
+    needs: [build, verify, governance, backend]
     if: >-
       github.event_name != 'pull_request' &&
       github.ref == 'refs/heads/main' &&
-      (github.event_name == 'push' || inputs.publish_release == true)
+      inputs.publish_release == true
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -279,6 +360,9 @@ jobs:
       - name: Prepare release signing
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           keystore_file="$RUNNER_TEMP/aura-release.jks"
           if ! printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore_file"; then
@@ -288,25 +372,28 @@ jobs:
 
           # Write root local.properties so the build reads CI signing credentials.
           # app/build.gradle.kts loads signing props from rootProject.file("local.properties")
-          # and resolves storeFile relative to the app/ directory.
-          cat >> local.properties <<PROPS
-          signing.keystore.path=$keystore_file
-          signing.keystore.password=${{ secrets.KEYSTORE_PASSWORD }}
-          signing.key.alias=${{ secrets.KEY_ALIAS }}
-          signing.key.password=${{ secrets.KEY_PASSWORD }}
-          PROPS
+          # and resolves storeFile relative to the app/ directory. Secrets enter
+          # through env vars and are written verbatim — never text-interpolated
+          # into the script — so '$' or backticks in a password cannot be executed.
+          {
+            printf 'signing.keystore.path=%s\n' "$keystore_file"
+            printf 'signing.keystore.password=%s\n' "$KEYSTORE_PASSWORD"
+            printf 'signing.key.alias=%s\n' "$KEY_ALIAS"
+            printf 'signing.key.password=%s\n' "$KEY_PASSWORD"
+          } >> local.properties
 
       - name: Read app version
         run: |
-          VERSION_NAME="6.40.0.${GITHUB_RUN_NUMBER}"
+          VERSION_BASE="$(sed -n 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)"
+          VERSION_NAME="${VERSION_BASE}.${GITHUB_RUN_NUMBER}"
           SHORT_HASH="${GITHUB_SHA::8}"
           echo "AURA_ANDROID_VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
-          echo "AURA_ANDROID_VERSION_CODE=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          echo "AURA_ANDROID_VERSION_CODE=$((GITHUB_RUN_NUMBER + 148))" >> "$GITHUB_ENV"
           echo "AURA_SHORT_HASH=${SHORT_HASH}" >> "$GITHUB_ENV"
           echo "AURA_ANDROID_RELEASE_VERSION=${VERSION_NAME}-${SHORT_HASH}" >> "$GITHUB_ENV"
 
       - name: Build signed release APKs
-        run: ./gradlew assembleFullRelease assembleFossRelease --no-daemon -Pdependency.verification=off
+        run: ./gradlew assembleFullRelease assembleFossRelease --no-daemon
         env:
           GITHUB_TOKEN: ${{ secrets.LUMEN_CRASH_READ_PACKAGES_TOKEN }}
 
@@ -351,6 +438,18 @@ jobs:
           path: release-assets/*
           if-no-files-found: error
           retention-days: 30
+
+      - name: Upload R8 mapping
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: aura-android-mapping-release-${{ github.run_number }}
+          path: |
+            app/build/outputs/mapping/**/mapping.txt
+            app/build/outputs/mapping/**/seeds.txt
+            app/build/outputs/mapping/**/usage.txt
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Automatic release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65

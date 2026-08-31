@@ -1,0 +1,63 @@
+# Dependency update automation. Reviewed on 2026-08-31 as part of the G10
+# build/CI hardening: the previous repo policy was to run no dependabot at all
+# (test/tools/dependabot_config_check_test.py asserted its absence). Keeping the
+# old schedule/times from the legacy validator (tools/dependabot_config_check.py)
+# so the governance suite can enforce this file's shape.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "main"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      timezone: "America/New_York"
+      time: "09:30"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    labels:
+      - "dependencies"
+      - "security"
+  - package-ecosystem: "gradle"
+    directory: "/"
+    target-branch: "main"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      timezone: "America/New_York"
+      time: "10:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    labels:
+      - "dependencies"
+      - "security"
+  - package-ecosystem: "npm"
+    directory: "/"
+    target-branch: "main"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      timezone: "America/New_York"
+      time: "10:30"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    labels:
+      - "dependencies"
+      - "security"
+  - package-ecosystem: "npm"
+    directory: "/functions"
+    target-branch: "main"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      timezone: "America/New_York"
+      time: "11:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    labels:
+      - "dependencies"
+      - "security"

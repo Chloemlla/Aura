@@ -173,7 +173,8 @@ private fun wallpaperQualityScore(
     if (normalizedTags.any { it in CLEAN_WALLPAPER_TERMS }) score += 8
     if (normalizedTags.any { it in LOW_SIGNAL_WALLPAPER_TERMS }) score -= 18
     if (userStyles.isNotEmpty()) {
-        val styleHits = normalizedTags.count { it in userStyles.toSet() }
+        val styleSet = userStyles.toSet()
+        val styleHits = normalizedTags.count { it in styleSet }
         score += styleHits * 6
     }
     score += styleLearningProfile.scoreFor(wallpaper)

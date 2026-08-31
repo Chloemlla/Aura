@@ -43,9 +43,12 @@ import javax.inject.Inject
  * - Extra `com.chloemlla.aura.extra.VOLUME` (Float) — 0.0–1.0
  *
  * ## Security
- * This receiver is exported so any app can send intents. The receiver
- * validates that the intent has a sound ID before playing. For restricted
- * access, use [AudioContentProvider] with specific URI permissions.
+ * Callers are gated by the signature-level permission
+ * `com.chloemlla.aura.permission.EXTERNAL_AUDIO`, declared on the receiver in the
+ * manifest, so only apps signed with the same key can send these intents. The check
+ * cannot be done in code: broadcasts are dispatched by system_server, so inside
+ * [onReceive] `Binder.getCallingUid()` returns this process's own uid and carries no
+ * information about the sender.
  */
 @AndroidEntryPoint
 class ExternalAudioIntentReceiver : BroadcastReceiver() {
@@ -57,16 +60,6 @@ class ExternalAudioIntentReceiver : BroadcastReceiver() {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun onReceive(context: Context, intent: Intent) {
-        // Only allow trusted callers (com.chloemlla.* packages)
-        val caller = goAsyncBinderIdentity(context) ?: run {
-            Log.w(TAG, "Blocked intent from unknown caller")
-            return
-        }
-        if (!isTrustedCaller(context, caller)) {
-            Log.w(TAG, "Blocked intent from untrusted caller: $caller")
-            return
-        }
-
         when (intent.action) {
             ACTION_PLAY_SOUND -> handlePlaySound(context, intent)
             ACTION_PLAY_RANDOM -> handlePlayRandom(context, intent)
@@ -147,23 +140,6 @@ class ExternalAudioIntentReceiver : BroadcastReceiver() {
         bundledContentProvider.getRingtones() +
             bundledContentProvider.getNotifications() +
             bundledContentProvider.getAlarms()
-
-    // --- caller validation ---
-
-    private fun goAsyncBinderIdentity(context: Context): String? {
-        val uid = android.os.Binder.getCallingUid()
-        if (uid == android.os.Process.myUid()) return context.packageName
-        return try {
-            context.packageManager.getNameForUid(uid)
-        } catch (_: Exception) {
-            null
-        }
-    }
-
-    private fun isTrustedCaller(context: Context, callerPkg: String): Boolean =
-        callerPkg == context.packageName ||
-            callerPkg == "com.chloemlla.projectlumen" ||
-            callerPkg.startsWith("com.chloemlla.")
 
     companion object {
         private const val TAG = "AudioIntentReceiver"

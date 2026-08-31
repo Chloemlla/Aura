@@ -13,7 +13,14 @@ private const val SHORT_WAIT_MS = 1_000L
 private const val CONTENT_WAIT_MS = 8_000L
 private const val UI_SETTLE_MS = 500L
 
+// All UI lookups use English content descriptions/text. Pin the device locale
+// once per process so the journey is identical on any-language emulators;
+// otherwise every By.desc/By.text match silently misses (and, without the
+// assertions below, produces a startup-only profile with no error).
+private var localePinned = false
+
 internal fun MacrobenchmarkScope.startAuraHome() {
+    device.forceEnglishLocaleOnce()
     startActivityAndWait()
     device.dismissOnboardingIfVisible()
     device.waitForAuraShell()
@@ -45,18 +52,21 @@ internal fun UiDevice.navigateAndScroll(tabLabel: String, swipes: Int) {
 internal fun UiDevice.openWallpaperDetailIfAvailable() {
     val target = waitForObjectByDescription("View wallpaper", SHORT_WAIT_MS)
         ?: waitForObjectByDescription("Wallpaper", CONTENT_WAIT_MS)
-        ?: return
+        ?: error("wallpaper detail not reachable ('View wallpaper'/'Wallpaper' node missing)")
 
     target.click()
     waitForIdle()
     SystemClock.sleep(UI_SETTLE_MS)
-    waitForObjectByDescription("Back", CONTENT_WAIT_MS)
+    checkNotNull(waitForObjectByDescription("Back", CONTENT_WAIT_MS)) {
+        "wallpaper detail 'Back' node not found after opening detail"
+    }
 }
 
 internal fun UiDevice.tapBottomNav(label: String) {
     val target = waitForObjectByDescription(label, CONTENT_WAIT_MS)
         ?: waitForObjectByText(label, CONTENT_WAIT_MS)
-    target?.click()
+    checkNotNull(target) { "bottom nav item not found: $label" }
+    target.click()
     waitForIdle()
     SystemClock.sleep(UI_SETTLE_MS)
 }
@@ -67,8 +77,17 @@ internal fun UiDevice.dismissOnboardingIfVisible() {
 }
 
 internal fun UiDevice.waitForAuraShell() {
-    wait(Until.hasObject(By.desc("Wallpapers")), CONTENT_WAIT_MS)
+    check(wait(Until.hasObject(By.desc("Wallpapers")), CONTENT_WAIT_MS)) {
+        "Aura shell did not appear (Wallpapers node missing)"
+    }
     waitForIdle()
+}
+
+internal fun UiDevice.forceEnglishLocaleOnce() {
+    if (localePinned) return
+    localePinned = true
+    executeShellCommand("settings put system system_locales en-US")
+    SystemClock.sleep(500L)
 }
 
 internal fun UiDevice.waitForContent() {

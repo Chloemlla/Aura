@@ -165,18 +165,12 @@ fun WallpapersScreen(
         )
     }
 
-    // Vote counts for visible wallpapers — use derivedStateOf to avoid recomputing on referential inequality
+    // Vote counts for visible wallpapers — the VM owns the subscription and only
+    // re-subscribes when the id set actually changes (flatMapLatest + distinctUntilChanged).
     val wallpaperIds = remember(feedWallpapers, communityProviderEnabled, communityGuidelinesAccepted) {
         if (communityProviderEnabled && communityGuidelinesAccepted) feedWallpapers.map { it.stableKey() } else emptyList()
     }
-    val voteCountsFlow = remember(wallpaperIds) {
-        if (wallpaperIds.isNotEmpty()) {
-            viewModel.voteRepo.getVoteCounts(wallpaperIds)
-        } else {
-            kotlinx.coroutines.flow.flowOf(emptyMap())
-        }
-    }
-    val voteCounts by voteCountsFlow.collectAsStateWithLifecycle(initialValue = emptyMap())
+    val voteCounts by viewModel.voteCounts(wallpaperIds).collectAsStateWithLifecycle(initialValue = emptyMap())
     var searchQuery by remember { mutableStateOf(state.query) }
     LaunchedEffect(state.query) { searchQuery = state.query }
     val context = LocalContext.current
@@ -361,7 +355,7 @@ fun WallpapersScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            val visibleTabs = remember(state.selectedTab, pexelsProviderEnabled, pixabayProviderEnabled, communityProviderEnabled) {
+            val visibleTabs = remember(state.selectedTab, wallhavenProviderEnabled, pexelsProviderEnabled, pixabayProviderEnabled, communityProviderEnabled) {
                 WallpaperTab.entries.filter {
                     it != WallpaperTab.SEARCH || state.selectedTab == WallpaperTab.SEARCH
                 }.filter {
@@ -1110,6 +1104,7 @@ internal fun WallpaperGrid(
         derivedStateOf {
             wallpapers
                 .filter { !isWallpaperHidden(it, hiddenIds) }
+                .distinctBy { it.stableKey() }
         }
     }
     val inventoryStartKey = visibleWallpapers.firstOrNull()?.stableKey()
@@ -1268,7 +1263,7 @@ private fun WallpaperCard(
                         .align(Alignment.TopEnd)
                         .padding(4.dp)
                         .size(48.dp)
-                        .clip(RoundedCornerShape(24.dp)),
+                        .clip(RoundedCornerShape(8.dp)),
                 ) {
                     Icon(
                         if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -1560,99 +1555,6 @@ private fun WallpaperUploadDialog(
 }
 
 @Composable
-private fun FloatingActionTray(
-    modifier: Modifier = Modifier,
-    showUpload: Boolean,
-    showThemeMatch: Boolean,
-    showEyeDropper: Boolean,
-    showSurprise: Boolean,
-    onUpload: () -> Unit,
-    onThemeMatch: () -> Unit,
-    onEyeDropper: () -> Unit,
-    onSurpriseMe: () -> Unit,
-) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        horizontalAlignment = Alignment.End,
-    ) {
-        if (showUpload) {
-            FloatingActionRow(
-                icon = Icons.Default.Upload,
-                label = stringResource(R.string.wallpapers_fab_upload),
-                tint = MaterialTheme.colorScheme.secondary,
-                onClick = onUpload,
-            )
-        }
-        if (showThemeMatch) {
-            FloatingActionRow(
-                icon = Icons.Default.Palette,
-                label = stringResource(R.string.wallpapers_fab_theme_match),
-                tint = MaterialTheme.colorScheme.tertiary,
-                onClick = onThemeMatch,
-            )
-        }
-        if (showEyeDropper) {
-            // NX-10: Android 17+ EyeDropper API entry point.
-            FloatingActionRow(
-                icon = Icons.Default.Colorize,
-                label = stringResource(R.string.wallpapers_fab_pick_colour),
-                tint = MaterialTheme.colorScheme.tertiary,
-                onClick = onEyeDropper,
-            )
-        }
-        if (showSurprise) {
-            FloatingActionRow(
-                icon = Icons.Default.Shuffle,
-                label = stringResource(R.string.wallpapers_fab_surprise_me),
-                tint = MaterialTheme.colorScheme.primary,
-                onClick = onSurpriseMe,
-            )
-        }
-    }
-}
-
-@Composable
-private fun FloatingActionRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    tint: Color,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-        border = BorderStroke(1.dp, tint.copy(alpha = 0.16f)),
-        shadowElevation = 6.dp,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
-            Text(label, style = MaterialTheme.typography.labelLarge, color = tint)
-        }
-    }
-}
-
-@Composable
-private fun wallpaperHeaderEyebrow(
-    tab: WallpaperTab,
-    discoverFilter: WallpaperDiscoverFilter,
-): String = when (tab) {
-    WallpaperTab.DISCOVER -> when (discoverFilter) {
-        WallpaperDiscoverFilter.FOR_YOU -> stringResource(R.string.wallpapers_header_curated)
-        else -> stringResource(R.string.wallpapers_header_discover_mix, wallpaperFilterLabel(discoverFilter))
-    }
-    WallpaperTab.SEARCH -> stringResource(R.string.wallpapers_header_cross_source)
-    WallpaperTab.COLOR -> stringResource(R.string.wallpapers_header_color_browsing)
-    WallpaperTab.COMMUNITY -> stringResource(R.string.wallpapers_header_community_uploads)
-    else -> stringResource(R.string.wallpapers_header_source, wallpaperTabLabel(tab))
-}
-
-@Composable
 private fun wallpaperHeaderTitle(
     tab: WallpaperTab,
     query: String,
@@ -1662,40 +1564,6 @@ private fun wallpaperHeaderTitle(
     WallpaperTab.COLOR -> stringResource(R.string.wallpapers_header_browse_by_tone)
     WallpaperTab.COMMUNITY -> stringResource(R.string.wallpapers_header_community_title)
     else -> wallpaperTabLabel(tab)
-}
-
-@Composable
-private fun wallpaperHeaderSubtitle(
-    tab: WallpaperTab,
-    discoverFilter: WallpaperDiscoverFilter,
-    query: String,
-    selectedColor: String?,
-    wallpaperCount: Int,
-): String = when (tab) {
-    WallpaperTab.DISCOVER -> when {
-        wallpaperCount > 0 && discoverFilter == WallpaperDiscoverFilter.FOR_YOU ->
-            stringResource(R.string.wallpapers_subtitle_discover_count, wallpaperCount)
-        discoverFilter != WallpaperDiscoverFilter.FOR_YOU ->
-            stringResource(R.string.wallpapers_subtitle_discover_filter, wallpaperFilterLabel(discoverFilter).lowercase(java.util.Locale.ROOT))
-        else ->
-            stringResource(R.string.wallpapers_subtitle_discover_default)
-    }
-    WallpaperTab.SEARCH -> if (query.isNotBlank()) {
-        stringResource(R.string.wallpapers_subtitle_search_active)
-    } else {
-        stringResource(R.string.wallpapers_subtitle_search_default)
-    }
-    WallpaperTab.COLOR -> if (selectedColor != null) {
-        stringResource(R.string.wallpapers_subtitle_color_active)
-    } else {
-        stringResource(R.string.wallpapers_subtitle_color_default)
-    }
-    WallpaperTab.NEWEST -> stringResource(R.string.wallpapers_subtitle_newest)
-    WallpaperTab.WALLHAVEN -> stringResource(R.string.wallpapers_subtitle_wallhaven)
-    WallpaperTab.PEXELS -> stringResource(R.string.wallpapers_subtitle_pexels)
-    WallpaperTab.PIXABAY -> stringResource(R.string.wallpapers_subtitle_pixabay)
-    WallpaperTab.REDDIT -> stringResource(R.string.wallpapers_subtitle_reddit)
-    WallpaperTab.COMMUNITY -> stringResource(R.string.wallpapers_subtitle_community)
 }
 
 private fun wallpaperTabIcon(tab: WallpaperTab): androidx.compose.ui.graphics.vector.ImageVector = when (tab) {

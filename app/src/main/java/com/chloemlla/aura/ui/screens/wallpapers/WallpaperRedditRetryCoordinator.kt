@@ -8,12 +8,14 @@ import com.chloemlla.aura.service.WallpaperStyleLearningProfile
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 internal class WallpaperRedditRetryCoordinator(
     private val redditRepo: RedditRepository,
@@ -69,22 +71,27 @@ internal class WallpaperRedditRetryCoordinator(
             val rankedWallpapers = if (redditResult.items.isEmpty()) {
                 snapshot.wallpapers
             } else {
-                rankWallpapers(
-                    wallpapers = (snapshot.wallpapers + redditResult.items).distinctBy { it.stableKey() },
-                    filter = if (expectedTab == WallpaperTab.DISCOVER) {
-                        snapshot.discoverFilter
-                    } else {
-                        WallpaperDiscoverFilter.FOR_YOU
-                    },
-                    preferredResolution = prefs.preferredResolution.first(),
-                    userStyles = prefs.userStyles.first()
-                        .split(',')
-                        .map { it.trim().lowercase(Locale.ROOT) }
-                        .filter { it.isNotBlank() },
-                    styleLearningProfile = WallpaperStyleLearningProfile.parse(
-                        prefs.wallpaperStyleLearningJson.first(),
-                    ),
+                val preferredResolution = prefs.preferredResolution.first()
+                val userStyles = prefs.userStyles.first()
+                    .split(',')
+                    .map { it.trim().lowercase(Locale.ROOT) }
+                    .filter { it.isNotBlank() }
+                val styleLearningProfile = WallpaperStyleLearningProfile.parse(
+                    prefs.wallpaperStyleLearningJson.first(),
                 )
+                withContext(Dispatchers.Default) {
+                    rankWallpapers(
+                        wallpapers = (snapshot.wallpapers + redditResult.items).distinctBy { it.stableKey() },
+                        filter = if (expectedTab == WallpaperTab.DISCOVER) {
+                            snapshot.discoverFilter
+                        } else {
+                            WallpaperDiscoverFilter.FOR_YOU
+                        },
+                        preferredResolution = preferredResolution,
+                        userStyles = userStyles,
+                        styleLearningProfile = styleLearningProfile,
+                    )
+                }
             }
             state.update { current ->
                 if (current.selectedTab != expectedTab || current.currentPage != expectedPage) {

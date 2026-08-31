@@ -57,7 +57,7 @@ class WallpapersViewModel @Inject constructor(
     private val cacheManager: com.chloemlla.aura.data.local.WallpaperCacheManager,
     private val applyFeedbackBus: ApplyFeedbackBus,
     private val applyCoordinator: com.chloemlla.aura.service.WallpaperApplyCoordinator,
-    val voteRepo: VoteRepository,
+    private val voteRepo: VoteRepository,
     private val reportRepo: CommunityReportRepository,
     private val communityBlockRepo: CommunityBlockRepository,
     private val seasonalContentManager: SeasonalContentManager,
@@ -420,6 +420,21 @@ class WallpapersViewModel @Inject constructor(
     val hiddenIds = community.hiddenIds
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
+    private val voteCountIds = MutableStateFlow<List<String>>(emptyList())
+    private val voteCountsFlow = voteCountIds
+        .distinctUntilChanged()
+        .flatMapLatest { ids ->
+            if (ids.isEmpty()) flowOf(emptyMap<String, Int>())
+            else community.getVoteCounts(ids)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    /** Sets the ids whose vote counts should be tracked and returns the shared flow. */
+    fun voteCounts(ids: List<String>): StateFlow<Map<String, Int>> {
+        voteCountIds.value = ids
+        return voteCountsFlow
+    }
+
     fun getVoteCount(contentId: String) = community.getVoteCount(contentId)
     fun upvote(contentId: String) = community.upvote(contentId)
     fun downvote(contentId: String) = community.downvote(contentId)
@@ -427,7 +442,7 @@ class WallpapersViewModel @Inject constructor(
     fun canBlockCommunityWallpaper(wallpaper: Wallpaper) = community.canBlockCommunityWallpaper(wallpaper)
     fun blockCommunityWallpaper(wallpaper: Wallpaper, onBlocked: () -> Unit = {}) = community.blockCommunityWallpaper(wallpaper, onBlocked)
     suspend fun canDeleteCommunityWallpaper(wallpaper: Wallpaper) = community.canDeleteCommunityWallpaper(wallpaper)
-    fun deleteCommunityWallpaper(wallpaper: Wallpaper) = community.deleteCommunityWallpaper(wallpaper)
+    fun deleteCommunityWallpaper(wallpaper: Wallpaper, onDeleted: () -> Unit = {}) = community.deleteCommunityWallpaper(wallpaper, onDeleted)
     fun uploadCommunityWallpaper(
         localUri: Uri,
         name: String,

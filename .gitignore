@@ -60,3 +60,5 @@ Install-CodexClaudeTrellis.ps1
 # Lumen Crash SDK — local-maven cache and resolved version file
 /local-maven/
 /lumen-crash.resolved.version
+.trellis/
+bash.exe.stackdump

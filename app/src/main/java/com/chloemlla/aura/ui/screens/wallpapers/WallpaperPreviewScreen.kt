@@ -55,10 +55,14 @@ fun WallpaperPreviewScreen(
     viewModel: WallpapersViewModel = hiltViewModel(),
 ) {
     val palette by viewModel.colorPalette.collectAsStateWithLifecycle()
-    val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(wallpaper.fullUrl) {
         viewModel.extractColors(wallpaper.fullUrl)
     }
+
+    // The actual apply runs in the root composition scope (survives popBackStack), so
+    // this VM's state.isApplying is never set here. Track a local guard instead so a
+    // double-tap can't fire two concurrent applies at the same target.
+    var isApplyingPreview by remember { mutableStateOf(false) }
 
     var mode by remember { mutableStateOf(PreviewMode.LOCK) }
     val wallpaperPreviewContentDescription = wallpaper.category.ifBlank {
@@ -101,8 +105,13 @@ fun WallpaperPreviewScreen(
         },
         bottomBar = {
             PreviewApplyBar(
-                isApplying = state.isApplying,
-                onApply = onApply,
+                isApplying = isApplyingPreview,
+                onApply = { target ->
+                    if (!isApplyingPreview) {
+                        isApplyingPreview = true
+                        onApply(target)
+                    }
+                },
             )
         },
     ) { padding ->

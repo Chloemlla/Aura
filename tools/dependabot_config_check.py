@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Aura does not carry Dependabot configuration."""
+"""Validate Aura's Dependabot configuration against the reviewed policy."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ class DependabotConfigError(ValueError):
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Validate Aura has no Dependabot configuration.")
+    parser = argparse.ArgumentParser(description="Validate Aura's Dependabot configuration.")
     parser.add_argument("--config", default=".github/dependabot.yml")
     return parser.parse_args()
 
@@ -183,14 +183,8 @@ def validate_update(update: dict[str, Any], index: int) -> tuple[str, str]:
 
 def validate_dependabot_config(path: Path) -> dict[str, Any]:
     if not path.exists():
-        return {
-            "config": str(path),
-            "status": "ok",
-            "mode": "absent",
-            "updateCount": 0,
-            "updates": [],
-        }
-    raise DependabotConfigError("Dependabot config must not exist; dependency updates are handled manually")
+        raise DependabotConfigError(f"Dependabot config is required but missing: {path}")
+    return validate_legacy_dependabot_config(path)
 
 
 def validate_legacy_dependabot_config(path: Path) -> dict[str, Any]:

@@ -44,6 +44,9 @@ internal class WallpaperCommunityActions(
     fun getVoteCount(contentId: String) =
         if (communityProviderEnabled.value && communityGuidelinesAccepted.value) voteRepo.getVoteCount(contentId) else flowOf(0)
 
+    fun getVoteCounts(contentIds: List<String>) =
+        if (communityProviderEnabled.value && communityGuidelinesAccepted.value) voteRepo.getVoteCounts(contentIds) else flowOf(emptyMap<String, Int>())
+
     fun upvote(contentId: String) {
         if (communityActionBlocked()) return
         scope.launch {
@@ -124,7 +127,7 @@ internal class WallpaperCommunityActions(
         return wallpaperUploadRepo.canDeleteWallpaperUpload(wallpaper.id)
     }
 
-    fun deleteCommunityWallpaper(wallpaper: Wallpaper) {
+    fun deleteCommunityWallpaper(wallpaper: Wallpaper, onDeleted: () -> Unit = {}) {
         if (communityActionBlocked()) return
         scope.launch {
             wallpaperUploadRepo.deleteWallpaperUpload(wallpaper.id)
@@ -136,6 +139,7 @@ internal class WallpaperCommunityActions(
                             applySuccess = "Upload deleted",
                         )
                     }
+                    onDeleted()
                 }
                 .onFailure { error ->
                     state.update { it.copy(error = "Delete failed: ${error.message ?: "try again"}") }

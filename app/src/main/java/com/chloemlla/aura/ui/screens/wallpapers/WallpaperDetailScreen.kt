@@ -2,10 +2,12 @@ package com.chloemlla.aura.ui.screens.wallpapers
 
 import android.app.WallpaperManager
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -203,6 +205,20 @@ fun WallpaperDetailScreen(
         ?: pagerSeed.initialPage.coerceIn(0, wallpapers.lastIndex)
     val pagerState = rememberPagerState(initialPage = initialPage) { wallpapers.size }
     val context = LocalContext.current
+    // Downscale prefetch to the display so we never decode a full-resolution
+    // image just to serve a phone-sized viewport.
+    val screenPixelSize = remember(context) {
+        val wm = context.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            val bounds = wm.currentWindowMetrics.bounds
+            bounds.width() to bounds.height()
+        } else {
+            @Suppress("DEPRECATION")
+            val metrics = android.util.DisplayMetrics()
+            wm.defaultDisplay.getRealMetrics(metrics)
+            metrics.widthPixels to metrics.heightPixels
+        }
+    }
 
     LaunchedEffect(detailIdentityKey) {
         if (wallpapers.isNotEmpty()) {
@@ -229,10 +245,10 @@ fun WallpaperDetailScreen(
                 context.imageLoader.enqueue(
                     ImageRequest.Builder(context)
                         .data(wallpaper.fullUrl.ifBlank { wallpaper.thumbnailUrl })
+                        .size(screenPixelSize.first, screenPixelSize.second)
                         .build(),
                 )
             }
-        if (pagerState.settledPage >= wallpapers.size - 3) viewModel.loadMore()
     }
 
     // Use pager's current wallpaper for UI (not the reactive wp which causes reorder)
@@ -292,6 +308,12 @@ fun WallpaperDetailScreen(
         state.applySuccess?.let { msg ->
             snackbarHostState.showSnackbar(msg)
             viewModel.clearSuccess()
+        }
+    }
+    LaunchedEffect(state.error) {
+        state.error?.let { msg ->
+            snackbarHostState.showSnackbar(msg)
+            viewModel.clearError()
         }
     }
     val navigationBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -498,16 +520,22 @@ fun WallpaperDetailScreen(
                                     val colorInt = runCatching {
                                         android.graphics.Color.parseColor(if (hex.startsWith("#")) hex else "#$hex")
                                     }.getOrDefault(0)
-                                    Surface(
-                                        onClick = { onSearchColor(hex.removePrefix("#")) },
-                                        color = Color(colorInt),
-                                        shape = RoundedCornerShape(6.dp),
+                                    Box(
                                         modifier = Modifier
-                                            .size(24.dp)
-                                            .semantics { contentDescription = colorContentDescription },
-                                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.22f)),
-                                        content = {},
-                                    )
+                                            .size(48.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .semantics { contentDescription = colorContentDescription }
+                                            .clickable { onSearchColor(hex.removePrefix("#")) },
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Surface(
+                                            color = Color(colorInt),
+                                            shape = RoundedCornerShape(6.dp),
+                                            modifier = Modifier.size(24.dp),
+                                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.22f)),
+                                            content = {},
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -787,8 +815,7 @@ fun WallpaperDetailScreen(
                         TextButton(
                             onClick = {
                                 showDeleteUploadDialog = false
-                                viewModel.deleteCommunityWallpaper(wp)
-                                onBack()
+                                viewModel.deleteCommunityWallpaper(wp, onDeleted = onBack)
                             },
                             colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                         ) {
@@ -881,7 +908,7 @@ private fun CompactWallpaperOverlayCard(
             onClick = onApplyClick,
             modifier = Modifier
                 .widthIn(min = 104.dp)
-                .height(44.dp),
+                .height(48.dp),
             enabled = !isApplying,
             shape = RoundedCornerShape(10.dp),
         ) {
@@ -909,7 +936,7 @@ private fun DetailTopIconButton(
     IconButton(
         onClick = onClick,
         modifier = Modifier
-            .size(44.dp)
+            .size(48.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(Color.Black.copy(alpha = 0.28f)),
     ) {
@@ -985,7 +1012,9 @@ private fun DetailActionPill(
         border = BorderStroke(1.dp, tint.copy(alpha = 0.12f)),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier
+                .heightIn(min = 48.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

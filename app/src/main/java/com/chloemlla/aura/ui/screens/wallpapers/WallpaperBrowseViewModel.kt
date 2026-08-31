@@ -14,6 +14,7 @@ import com.chloemlla.aura.data.repository.WallpaperUploadRepository
 import com.chloemlla.aura.service.SourceMetrics
 import com.chloemlla.aura.service.WallpaperStyleLearningProfile
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 internal fun mergeRedditFirstHomeResults(
@@ -188,13 +190,15 @@ internal class WallpaperBrowseViewModel(
                     val preferredResolution = prefs.preferredResolution.first()
                     val userStyles = loadUserStyles()
                     val styleLearningProfile = loadStyleLearningProfile()
-                    val rankedCached = rankWallpapers(
-                        wallpapers = visibleCached,
-                        filter = state.value.discoverFilter,
-                        preferredResolution = preferredResolution,
-                        userStyles = userStyles,
-                        styleLearningProfile = styleLearningProfile,
-                    )
+                    val rankedCached = withContext(Dispatchers.Default) {
+                        rankWallpapers(
+                            wallpapers = visibleCached,
+                            filter = state.value.discoverFilter,
+                            preferredResolution = preferredResolution,
+                            userStyles = userStyles,
+                            styleLearningProfile = styleLearningProfile,
+                        )
+                    }
                     state.update {
                         it.copy(
                             wallpapers = rankedCached,
@@ -270,13 +274,15 @@ internal class WallpaperBrowseViewModel(
                 val rankedWallpapers = if (currentTab == WallpaperTab.COMMUNITY) {
                     combined.distinctBy { it.stableKey() }
                 } else {
-                    rankWallpapers(
-                        wallpapers = combined,
-                        filter = activeFilter,
-                        preferredResolution = preferredResolution,
-                        userStyles = userStyles,
-                        styleLearningProfile = styleLearningProfile,
-                    )
+                    withContext(Dispatchers.Default) {
+                        rankWallpapers(
+                            wallpapers = combined,
+                            filter = activeFilter,
+                            preferredResolution = preferredResolution,
+                            userStyles = userStyles,
+                            styleLearningProfile = styleLearningProfile,
+                        )
+                    }
                 }
                 val preserveExistingDiscoverFeed =
                     currentTab == WallpaperTab.DISCOVER &&

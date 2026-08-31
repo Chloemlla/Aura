@@ -39,8 +39,14 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
@@ -437,7 +443,7 @@ class VideoWallpapersViewModel @Inject constructor(
     private val ytDlpUpdateManager: YtDlpUpdateManager,
     private val ytDlpRequestFactory: YouTubeYtDlpRequestFactory,
     private val videoPreviewCache: VideoPreviewCache,
-    val voteRepo: VoteRepository,
+    private val voteRepo: VoteRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(VideoWallpapersState())
@@ -450,6 +456,26 @@ class VideoWallpapersViewModel @Inject constructor(
 
     private val _resolvedIds = MutableStateFlow<Set<String>>(emptySet())
     val resolvedIds = _resolvedIds.asStateFlow()
+
+    val hiddenIds = voteRepo.hiddenIds
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    private val voteCountIds = MutableStateFlow<List<String>>(emptyList())
+    private val voteCountsFlow = voteCountIds
+        .distinctUntilChanged()
+        .flatMapLatest { ids ->
+            if (ids.isEmpty()) flowOf(emptyMap<String, Int>())
+            else voteRepo.getVoteCounts(ids)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    /** Sets the ids whose vote counts should be tracked and returns the shared flow. */
+    fun voteCounts(contentIds: List<String>): StateFlow<Map<String, Int>> {
+        voteCountIds.value = contentIds
+        return voteCountsFlow
+    }
+
+    fun getVoteCount(contentId: String) = voteRepo.getVoteCount(contentId)
 
     // Cache of resolved video stream URLs
     // Bounded cache — evict oldest when exceeding 200 entries. Eviction must also
@@ -1266,33 +1292,33 @@ class VideoWallpapersViewModel @Inject constructor(
         }
     }
 
-    private fun readPixabayVideoCache(
+    private suspend fun readPixabayVideoCache(
         cacheKey: String,
         freshOnly: Boolean,
         freshnessTtlMs: Long = PIXABAY_VIDEO_CACHE_TTL_MS,
     ): PixabayVideoMetadataResult? =
         readVideoMetadataCache(cacheKey, freshOnly, freshnessTtlMs)?.result
 
-    private fun readVideoMetadataCache(
+    private suspend fun readVideoMetadataCache(
         cacheKey: String,
         freshOnly: Boolean,
         freshnessTtlMs: Long,
-    ): CachedPixabayVideoMetadata? =
+    ): CachedPixabayVideoMetadata? = withContext(Dispatchers.IO) {
         decodePixabayVideoCache(
             raw = pixabayVideoCache.readString(cacheKey),
             nowMs = System.currentTimeMillis(),
             requireFresh = freshOnly,
             freshnessTtlMs = freshnessTtlMs,
         )
+    }
 
-    private fun writePixabayVideoCache(
+    private suspend fun writePixabayVideoCache(
         cacheKey: String,
         result: PixabayVideoMetadataResult,
         nextAfter: String? = null,
         pageExhausted: Boolean? = null,
     ) {
-        pixabayVideoCache.writeString(
-            cacheKey,
+        val raw = withContext(Dispatchers.IO) {
             encodePixabayVideoCache(
                 CachedPixabayVideoMetadata(
                     result = result,
@@ -1300,8 +1326,9 @@ class VideoWallpapersViewModel @Inject constructor(
                     nextAfter = nextAfter,
                     pageExhausted = pageExhausted,
                 ),
-            ),
-        )
+            )
+        }
+        withContext(Dispatchers.IO) { pixabayVideoCache.writeString(cacheKey, raw) }
     }
 
     private fun rememberPixabayVideoMetadata(result: PixabayVideoMetadataResult) {
@@ -1311,7 +1338,7 @@ class VideoWallpapersViewModel @Inject constructor(
         }
     }
 
-    private fun cacheVisibleVideoFeed(snapshot: VideoWallpapersState) {
+    private suspend fun cacheVisibleVideoFeed(snapshot: VideoWallpapersState) {
         val items = _state.value.items.take(MAX_CACHED_VIDEO_FEED_ITEMS)
         val urls = items.mapNotNull { item -> streamUrls[item.id]?.let { item.id to it } }.toMap()
         if (urls.isEmpty()) return

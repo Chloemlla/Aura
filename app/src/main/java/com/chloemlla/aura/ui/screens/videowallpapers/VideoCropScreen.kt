@@ -27,6 +27,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -42,44 +45,19 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.media3.common.C
 import com.chloemlla.aura.service.FfmpegDownloader
 import com.chloemlla.aura.service.FfmpegDownloaderEntryPoint
-import com.chloemlla.aura.service.ClashProxyHolder
+import com.chloemlla.aura.service.applyYtDlpDownloadBounds
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
+import okhttp3.OkHttpClient
 import java.io.File
-import java.io.IOException
-import java.net.Proxy
-import java.net.ProxySelector
-import java.net.SocketAddress
-import java.net.URI
 import kotlin.math.roundToLong
 
-private val sharedHttpClient by lazy {
-    val mgr = ClashProxyHolder.instance
-    okhttp3.OkHttpClient.Builder()
-        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-        .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-        .apply {
-            if (mgr != null) {
-                // Per-socket VPN binding: each socket is bound to the Clash VPN
-                // when active, so connections route through the tunnel even when
-                // process-level bindProcessToNetwork is ineffective.
-                socketFactory(mgr.createVpnSocketFactory())
-            }
-        }
-        .proxySelector(object : ProxySelector() {
-            override fun select(uri: URI?): List<Proxy> {
-                val mgr = ClashProxyHolder.instance
-                if (mgr == null) return listOf(Proxy.NO_PROXY)
-                return if (mgr.shouldSkipManualProxy()) {
-                    listOf(Proxy.NO_PROXY)
-                } else {
-                    val addr = mgr.proxyAddress()
-                    if (addr != null) listOf(Proxy(Proxy.Type.HTTP, addr))
-                    else listOf(Proxy.NO_PROXY)
-                }
-            }
-            override fun connectFailed(uri: URI?, sa: SocketAddress?, e: IOException?) {}
-        })
-        .build()
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+internal interface VideoCropEntryPoint {
+    fun okHttpClient(): OkHttpClient
 }
 
 internal data class VideoLoopRange(
@@ -158,6 +136,12 @@ fun VideoCropScreen(
             FfmpegDownloaderEntryPoint::class.java,
         ).ffmpegDownloader()
     }
+    val httpClient = remember {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            VideoCropEntryPoint::class.java,
+        ).okHttpClient()
+    }
     val scope = rememberCoroutineScope()
 
     // Get real screen pixel dimensions for accurate aspect ratio
@@ -174,7 +158,7 @@ fun VideoCropScreen(
         }
     }
 
-    val exoPlayer = remember {
+    val exoPlayer = remember(videoUrl) {
         ExoPlayer.Builder(context).experimentalSetDynamicSchedulingEnabled(true).build().apply {
             setMediaItem(MediaItem.fromUri(videoUrl))
             repeatMode = Player.REPEAT_MODE_ALL
@@ -183,7 +167,19 @@ fun VideoCropScreen(
             play()
         }
     }
-    DisposableEffect(Unit) { onDispose { exoPlayer.release() } }
+    DisposableEffect(exoPlayer) { onDispose { exoPlayer.release() } }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, exoPlayer) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP -> exoPlayer.pause()
+                Lifecycle.Event.ON_START -> exoPlayer.play()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     var viewSize by remember { mutableStateOf(IntSize.Zero) }
     var videoWidth by remember { mutableIntStateOf(0) }
@@ -287,11 +283,19 @@ fun VideoCropScreen(
     }
     LaunchedEffect(exoPlayer, loopRange) {
         if (loopRange.durationMs <= 0L) return@LaunchedEffect
+        // Slider drags emit a new range on every pixel; wait for the gesture to settle
+        // before seeking so we don't thrash the player.
+        kotlinx.coroutines.delay(150)
         exoPlayer.seekTo(loopRange.startMs)
         while (true) {
-            kotlinx.coroutines.delay(120)
-            if (exoPlayer.currentPosition >= loopRange.endMs) {
+            // Sleep for whatever is left of the loop instead of polling at a fixed
+            // interval — one wakeup per loop rather than eight per second.
+            val remaining = loopRange.endMs - exoPlayer.currentPosition
+            if (remaining > 0L) {
+                kotlinx.coroutines.delay(remaining.coerceAtLeast(50L))
+            } else {
                 exoPlayer.seekTo(loopRange.startMs)
+                kotlinx.coroutines.delay(loopRange.durationMs.coerceAtLeast(50L))
             }
         }
     }
@@ -513,6 +517,7 @@ fun VideoCropScreen(
                     scope.launch {
                         val result = cropVideoConstrained(
                             context = context, ffmpegDownloader = ffmpegDownloader,
+                            httpClient = httpClient,
                             videoUrl = videoUrl,
                             videoWidth = videoWidth, videoHeight = videoHeight,
                             viewWidth = viewSize.width, viewHeight = viewSize.height,
@@ -671,6 +676,7 @@ private fun extractTimelineFrames(
 private suspend fun cropVideoConstrained(
     context: Context,
     ffmpegDownloader: FfmpegDownloader,
+    httpClient: OkHttpClient,
     videoUrl: String,
     videoWidth: Int,
     videoHeight: Int,
@@ -685,29 +691,51 @@ private suspend fun cropVideoConstrained(
     try {
         val inputFile = if (videoUrl.startsWith("http")) {
             val cacheFile = File(context.cacheDir, "crop_input.mp4")
-            sharedHttpClient.newCall(okhttp3.Request.Builder().url(videoUrl).build()).execute().use { resp ->
-                if (!resp.isSuccessful) return@withContext null
-                val body = resp.body ?: return@withContext null
-                // Reject oversized video downloads up front — a 4K hour-long video can be
-                // hundreds of MB and we're just cropping a wallpaper. 256 MB is well past
-                // the realistic ceiling for a few-second live wallpaper loop.
-                val advertised = body.contentLength()
-                if (advertised in 1..Long.MAX_VALUE && advertised > MAX_VIDEO_INPUT_BYTES) {
+            if (isHlsMotionUrl(videoUrl)) {
+                // An HLS URL is a playlist, not a video file. Raw-copying the m3u8
+                // bytes would hand FFmpeg a text file; yt-dlp fetches the segments
+                // and remuxes them into a bounded MP4 instead.
+                try {
+                    val request = com.yausername.youtubedl_android.YoutubeDLRequest(videoUrl)
+                    request.addOption("-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best")
+                    request.addOption("--merge-output-format", "mp4")
+                    request.addOption("--remux-video", "mp4")
+                    request.addOption("--force-overwrites")
+                    request.addOption("-o", cacheFile.absolutePath)
+                    applyYtDlpDownloadBounds(request, MAX_VIDEO_INPUT_BYTES)
+                    com.yausername.youtubedl_android.YoutubeDL.getInstance().execute(request)
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    if (com.chloemlla.aura.BuildConfig.DEBUG) Log.e("VideoCrop", "HLS fetch failed: ${e.message}")
+                    try { cacheFile.delete() } catch (_: Exception) {}
                     return@withContext null
                 }
-                body.byteStream().use { input ->
-                    cacheFile.outputStream().use { output ->
-                        var copied = 0L
-                        val buf = ByteArray(64 * 1024)
-                        while (true) {
-                            val n = input.read(buf)
-                            if (n <= 0) break
-                            copied += n
-                            if (copied > MAX_VIDEO_INPUT_BYTES) {
-                                try { cacheFile.delete() } catch (_: Exception) {}
-                                return@withContext null
+                if (!cacheFile.exists() || cacheFile.length() <= 1024) return@withContext null
+            } else {
+                httpClient.newCall(okhttp3.Request.Builder().url(videoUrl).build()).execute().use { resp ->
+                    if (!resp.isSuccessful) return@withContext null
+                    val body = resp.body ?: return@withContext null
+                    // Reject oversized video downloads up front — a 4K hour-long video can be
+                    // hundreds of MB and we're just cropping a wallpaper. 256 MB is well past
+                    // the realistic ceiling for a few-second live wallpaper loop.
+                    val advertised = body.contentLength()
+                    if (advertised in 1..Long.MAX_VALUE && advertised > MAX_VIDEO_INPUT_BYTES) {
+                        return@withContext null
+                    }
+                    body.byteStream().use { input ->
+                        cacheFile.outputStream().use { output ->
+                            var copied = 0L
+                            val buf = ByteArray(64 * 1024)
+                            while (true) {
+                                val n = input.read(buf)
+                                if (n <= 0) break
+                                copied += n
+                                if (copied > MAX_VIDEO_INPUT_BYTES) {
+                                    try { cacheFile.delete() } catch (_: Exception) {}
+                                    return@withContext null
+                                }
+                                output.write(buf, 0, n)
                             }
-                            output.write(buf, 0, n)
                         }
                     }
                 }
@@ -754,9 +782,6 @@ private suspend fun cropVideoConstrained(
         cropH = ((cropH / 2) * 2).coerceIn(2, videoHeight - cropY)
 
         if (com.chloemlla.aura.BuildConfig.DEBUG) Log.d("VideoCrop", "Constrained crop: ${videoWidth}x${videoHeight} -> ${cropW}x${cropH} at ($cropX,$cropY)")
-
-        // Delete existing output to avoid stale files
-        if (outputFile.exists()) outputFile.delete()
 
         var cropSucceeded = false
         val ffmpegPath = ffmpegDownloader.ensureFfmpeg().getOrNull()
@@ -817,10 +842,16 @@ private suspend fun cropVideoConstrained(
                 if (com.chloemlla.aura.BuildConfig.DEBUG) Log.d("VideoCrop", "FFmpeg exit=$exitCode, output size=${tempOutput.length() / 1024}KB")
 
                 if (exitCode == 0 && tempOutput.exists() && tempOutput.length() > 1024) {
-                    tempOutput.copyTo(outputFile, overwrite = true)
+                    // Stage inside filesDir and rename — a half-written copy must never
+                    // replace the wallpaper file the live service is currently playing.
+                    val staged = File(context.filesDir, "live_wallpaper.mp4.tmp")
+                    cropSucceeded = runCatching {
+                        tempOutput.copyTo(staged, overwrite = true)
+                        staged.renameTo(outputFile)
+                    }.getOrDefault(false)
+                    if (!cropSucceeded) staged.delete()
                     tempOutput.delete()
-                    cropSucceeded = true
-                    if (com.chloemlla.aura.BuildConfig.DEBUG) Log.d("VideoCrop", "Crop success: ${outputFile.length() / 1024}KB")
+                    if (com.chloemlla.aura.BuildConfig.DEBUG) Log.d("VideoCrop", "Crop commit=$cropSucceeded: ${outputFile.length() / 1024}KB")
                 } else {
                     if (com.chloemlla.aura.BuildConfig.DEBUG) Log.e("VideoCrop", "FFmpeg crop produced invalid output")
                     tempOutput.delete()

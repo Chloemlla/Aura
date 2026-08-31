@@ -55,6 +55,17 @@
         <package android:name="com.github.kr328.clash" />
     </queries>
 
+    <!-- Signature-level gates for the two exported audio entry points. Only apps signed
+         with the same key can drive playback or read the audio provider; the previous
+         "package name starts with com.chloemlla." check inside the components was
+         spoofable by any app that picks such a package name. -->
+    <permission
+        android:name="com.chloemlla.aura.permission.EXTERNAL_AUDIO"
+        android:protectionLevel="signature" />
+    <permission
+        android:name="com.chloemlla.aura.permission.READ_AUDIO_CONTENT"
+        android:protectionLevel="signature" />
+
     <application
         android:name=".AuraApp"
         android:allowBackup="true"
@@ -239,16 +250,20 @@
             </intent-filter>
         </receiver>
 
-        <!-- External Audio Intent Receiver — allows third-party apps to trigger
-             audio playback via simple broadcast intents:
+        <!-- External Audio Intent Receiver — allows sibling apps signed with the same
+             key to trigger audio playback via simple broadcast intents:
              - com.chloemlla.aura.action.PLAY_SOUND (with SOUND_ID extra)
              - com.chloemlla.aura.action.PLAY_RANDOM (with optional CATEGORY extra)
              - com.chloemlla.aura.action.STOP_PLAYBACK
-             - com.chloemlla.aura.action.SET_VOLUME (with VOLUME extra) -->
+             - com.chloemlla.aura.action.SET_VOLUME (with VOLUME extra)
+             The android:permission below is the only real caller check: inside
+             onReceive() the broadcast is delivered by system_server, so
+             Binder.getCallingUid() reports this process and cannot identify the sender. -->
         <receiver
             android:name=".service.ExternalAudioIntentReceiver"
             android:exported="true"
-            android:enabled="true">
+            android:enabled="true"
+            android:permission="com.chloemlla.aura.permission.EXTERNAL_AUDIO">
             <intent-filter>
                 <action android:name="com.chloemlla.aura.action.PLAY_SOUND" />
                 <action android:name="com.chloemlla.aura.action.PLAY_RANDOM" />
@@ -280,13 +295,16 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Audio Content Provider — serves bundled sound files to third-party apps
-             via content:// URIs (e.g. content://com.chloemlla.aura.audioprovider/sound/SOUND::BUNDLED::bundled_ringtone_01).
-             External apps read audio streams through ContentResolver.openFileDescriptor(). -->
+        <!-- Audio Content Provider — serves bundled sound files to sibling apps signed
+             with the same key via content:// URIs (e.g. content://com.chloemlla.aura.audioprovider/sound/SOUND::BUNDLED::bundled_ringtone_01).
+             Callers read audio streams through ContentResolver.openFileDescriptor().
+             readPermission is signature-level; grantUriPermissions still lets Aura hand a
+             single URI to an unsigned app (system share sheet) when it explicitly wants to. -->
         <provider
             android:name=".service.AudioContentProvider"
             android:authorities="${applicationId}.audioprovider"
             android:exported="true"
+            android:readPermission="com.chloemlla.aura.permission.READ_AUDIO_CONTENT"
             android:grantUriPermissions="true">
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"

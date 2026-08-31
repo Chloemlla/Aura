@@ -1,8 +1,11 @@
 # Moshi
 -keep class com.chloemlla.aura.data.remote.** { *; }
 -keepclassmembers class com.chloemlla.aura.data.remote.** { *; }
--keep class com.chloemlla.aura.service.FavoriteExportItem { *; }
 -keep @com.squareup.moshi.JsonClass class * { *; }
+# Codegen adapters are resolved by "<ClassName>JsonAdapter" name lookup, so the
+# generated class and its (Moshi[, Type[]]) constructor must survive shrinking.
+-keep class **JsonAdapter { <init>(...); }
+-keepclassmembers class * { @com.squareup.moshi.Json <fields>; }
 
 # Retrofit
 -dontwarn retrofit2.**
@@ -44,3 +47,14 @@
 # Lumen Crash SDK
 -keep class com.chloemlla.lumen.crash.** { *; }
 -dontwarn com.chloemlla.lumen.crash.**
+
+# Firebase / ML Kit component discovery (full flavor only).
+# FirebaseApp instantiates every ComponentRegistrar found on the classpath through
+# its no-arg constructor; R8 strips that constructor because nothing calls it in
+# source, and getClient() then NPEs at runtime instead of failing the build.
+-keep class * implements com.google.firebase.components.ComponentRegistrar { <init>(); }
+-keep class com.google.firebase.components.** { *; }
+-keep class com.google.mlkit.** { *; }
+-keep class com.google.android.gms.internal.mlkit_** { *; }
+-dontwarn com.google.firebase.**
+-dontwarn com.google.android.gms.**

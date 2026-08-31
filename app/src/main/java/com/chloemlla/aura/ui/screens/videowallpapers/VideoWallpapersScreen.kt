@@ -53,6 +53,9 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.MediaSource
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.SubcomposeAsyncImageContent
 import com.chloemlla.aura.R
@@ -240,11 +243,11 @@ fun VideoWallpapersScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val gallerySelectionResult by viewModel.gallerySelectionResult.collectAsStateWithLifecycle()
     val resolvedIds by viewModel.resolvedIds.collectAsStateWithLifecycle()
-    val hiddenIds by viewModel.voteRepo.hiddenIds.collectAsStateWithLifecycle(initialValue = emptySet())
+    val hiddenIds by viewModel.hiddenIds.collectAsStateWithLifecycle(initialValue = emptySet())
     val itemIds = remember(state.items) { state.items.map { it.id } }
     val voteCounts by remember(itemIds) {
-        if (itemIds.isNotEmpty()) viewModel.voteRepo.getVoteCounts(itemIds)
-        else kotlinx.coroutines.flow.flowOf(emptyMap())
+        if (itemIds.isNotEmpty()) viewModel.voteCounts(itemIds)
+        else kotlinx.coroutines.flow.flowOf(emptyMap<String, Int>())
     }.collectAsStateWithLifecycle(initialValue = emptyMap())
     val context = LocalContext.current
     // Reading a string off LocalContext is not a composition read. LocalResources is.
@@ -604,6 +607,9 @@ fun VideoWallpapersScreen(
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
                                 items(visibleItems, key = { it.id }) { item ->
+                                    LaunchedEffect(item.id) {
+                                        if (item.id !in resolvedIds) viewModel.ensureStreamResolved(item)
+                                    }
                                     val isResolved = item.id in resolvedIds
                                     val resolvedUrl = if (isResolved) viewModel.getStreamUrl(item.id) else null
                                     VideoCard(
@@ -703,6 +709,8 @@ fun VideoWallpapersScreen(
         val needsCrop = item.hasDimensions && item.isLandscape
         val capabilities = remember(item) { item.videoWallpaperLicenseCapabilities() }
         val canApplyVideo = remember(item) { item.canUseVideoAction(VideoWallpaperAction.APPLY) }
+        val unavailableLabel = stringResource(R.string.video_wp_unavailable)
+        val applyBlockedMessage = remember(item, unavailableLabel) { item.videoActionMessage(VideoWallpaperAction.APPLY).ifBlank { unavailableLabel } }
         var selectedScaleMode by remember(item.id) { mutableStateOf(VIDEO_WALLPAPER_SCALE_MODE_ZOOM) }
         AlertDialog(
             onDismissRequest = { confirmItem = null },
@@ -736,6 +744,14 @@ fun VideoWallpapersScreen(
                             item.videoActionMessage(VideoWallpaperAction.APPLY),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.tertiary,
+                        )
+                    }
+                    if (!canApplyVideo) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            applyBlockedMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
                         )
                     }
                     Spacer(Modifier.height(12.dp))
@@ -881,7 +897,7 @@ private fun VideoImmersivePager(
                     .statusBarsPadding()
                     .padding(10.dp)
                     .align(Alignment.TopStart)
-                    .background(Color.Black.copy(alpha = 0.48f), RoundedCornerShape(50)),
+                    .background(Color.Black.copy(alpha = 0.48f), RoundedCornerShape(8.dp)),
             ) {
                 Icon(Icons.Default.Close, contentDescription = stringResource(R.string.common_close), tint = Color.White)
             }
@@ -984,6 +1000,18 @@ private fun ImmersiveVideoPage(
                         player.removeListener(listener)
                         player.release()
                     }
+                }
+                val lifecycleOwner = LocalLifecycleOwner.current
+                DisposableEffect(lifecycleOwner, player) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        when (event) {
+                            Lifecycle.Event.ON_STOP -> player.pause()
+                            Lifecycle.Event.ON_START -> player.play()
+                            else -> Unit
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
                 }
                 AndroidView(
                     factory = { context ->
@@ -1197,6 +1225,18 @@ internal fun VideoCard(
                 DisposableEffect(exoPlayer) {
                     onDispose { exoPlayer.release() }
                 }
+                val lifecycleOwner = LocalLifecycleOwner.current
+                DisposableEffect(lifecycleOwner, exoPlayer) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        when (event) {
+                            Lifecycle.Event.ON_STOP -> exoPlayer.pause()
+                            Lifecycle.Event.ON_START -> exoPlayer.play()
+                            else -> Unit
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                }
 
                 AndroidView(
                     factory = { ctx ->
@@ -1409,7 +1449,7 @@ private fun VideoPolicyLinkButton(
     if (url.isBlank()) return
     OutlinedButton(
         onClick = { onOpenUrl(url) },
-        modifier = Modifier.heightIn(min = 40.dp),
+        modifier = Modifier.heightIn(min = 48.dp),
         shape = RoundedCornerShape(8.dp),
         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
     ) {

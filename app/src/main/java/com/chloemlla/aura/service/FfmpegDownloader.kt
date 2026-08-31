@@ -107,12 +107,17 @@ class FfmpegDownloader @Inject constructor(
             body.byteStream().use { it.readBytes() }
         }
 
-        // SHA-256 integrity check
+        // SHA-256 integrity check. Fail closed: an ABI without a pinned digest is
+        // rejected rather than trusted, and a mismatch deletes any partial file.
         val actualDigest = MessageDigest.getInstance("SHA-256")
             .digest(archiveBytes)
             .joinToString("") { "%02x".format(it) }
         val expectedDigest = EXPECTED_SHA256[arch]
-        if (expectedDigest != null && actualDigest != expectedDigest) {
+            ?: throw IOException(
+                "No pinned SHA-256 digest configured for $arch; refusing to run a downloaded FFmpeg binary"
+            )
+        if (actualDigest != expectedDigest) {
+            ffmpegFile.delete()
             throw IOException(
                 "FFmpeg download integrity check failed for $arch: " +
                     "expected SHA-256 $expectedDigest, got $actualDigest"
@@ -166,7 +171,9 @@ class FfmpegDownloader @Inject constructor(
          * Obtain from the release page or compute locally:
          *   certutil -hashfile <archive> SHA256
          *
-         * Set to `null` to skip integrity verification (not recommended for production).
+         * `null` means no digest is pinned for that ABI. [downloadAndExtract] then
+         * refuses to run the binary rather than trust an unverified download, so the
+         * digests must be filled in before that ABI can actually be used.
          */
         private val EXPECTED_SHA256 = mapOf<String, String?>(
             "arm64-v8a" to null,
