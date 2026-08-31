@@ -9,7 +9,10 @@ object BitmapSampling {
         val targetHeight = reqHeight.coerceAtLeast(1)
         val file = File(path)
         if (!file.exists() || !file.canRead()) return null
-        return decodeImageFile(file, maxLongEdge = maxOf(targetWidth, targetHeight))
+        // Decode with BOTH dimensions constrained. The long-edge-only variant used to
+        // leave a wide source's short edge below the viewport, forcing the engine's
+        // fill-crop to upscale into a multi-MB intermediate bitmap (AURA-G1-01).
+        return decodeImageFileCover(file, targetWidth, targetHeight)
     }
 
     fun calculateInSampleSize(

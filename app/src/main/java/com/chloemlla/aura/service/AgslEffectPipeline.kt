@@ -17,9 +17,18 @@ import androidx.annotation.RequiresApi
 /**
  * AGSL (Android Graphics Shading Language) runtime-shader pipeline. Roadmap N-3.
  *
- * This is the scaffold layer Aura's wallpaper editor and live-wallpaper engines call
- * into for GPU-accelerated image effects. Effects can be composed (apply N filters in
- * sequence) and respect Aura's existing Canvas fallback for pre-Android-13 devices.
+ * NOTE: This is scaffold code, NOT yet wired into any engine or editor caller.
+ * The docstring below ("Aura's wallpaper editor and live-wallpaper engines call
+ * into...") described the intended future usage, but today nothing in app/src
+ * references this class except its own unit test. Keep the API stable and covered
+ * by tests until the ROADMAP NX-1 decision on AGSL-over-Canvas (see G1-12) is
+ * resolved — at which point this should be merged with or deleted in favour of
+ * [AgslShaderBackgroundRenderer].
+ *
+ * The pipeline would be the layer Aura's wallpaper editor and live-wallpaper
+ * engines call into for GPU-accelerated image effects. Effects can be composed
+ * (apply N filters in sequence) and respect Aura's existing Canvas fallback for
+ * pre-Android-13 devices.
  *
  * Effects ship in this file as small AGSL programs. Concrete effects to land next:
  *   - DEPTH_SHADE       — darken pixels in the background mask region (Pixel "Cinematic")

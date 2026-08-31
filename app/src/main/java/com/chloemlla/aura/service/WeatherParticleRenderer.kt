@@ -2,6 +2,7 @@ package com.chloemlla.aura.service
 
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Shader
@@ -30,6 +31,12 @@ class WeatherParticleRenderer(
     private val fogPaint = Paint().apply { isAntiAlias = true }
     private val starPaint = Paint().apply { isAntiAlias = true }
     private val flashPaint = Paint()
+
+    // Fog gradients are built once (centered at origin) and translated per frame via
+    // setLocalMatrix — rebuilding three RadialGradients (native shader objects) on
+    // every frame was ~90 native allocations/sec while fog was on screen.
+    private val fogGradients = arrayOfNulls<RadialGradient>(3)
+    private val fogMatrix = Matrix()
 
     // Pre-computed star data for CLEAR_NIGHT — initialized in setWeather()
     private val starX = FloatArray(30)
@@ -168,18 +175,28 @@ class WeatherParticleRenderer(
     }
 
     private fun drawFog(canvas: Canvas) {
+        // Lazily pre-build the three semi-transparent layers at the origin.
+        if (fogGradients[0] == null) {
+            for (layer in 0..2) {
+                val alpha = (40 - layer * 10).coerceAtLeast(10)
+                fogGradients[layer] = RadialGradient(
+                    0f,
+                    0f,
+                    screenWidth * 0.8f,
+                    Color.argb(alpha, 200, 210, 220),
+                    Color.TRANSPARENT,
+                    Shader.TileMode.CLAMP,
+                )
+            }
+        }
         // Multiple semi-transparent gradient layers drifting slowly
         for (layer in 0..2) {
+            val gradient = fogGradients[layer] ?: continue
             val y = screenHeight * (0.3f + layer * 0.2f)
-            val alpha = (40 - layer * 10).coerceAtLeast(10)
-            fogPaint.shader = RadialGradient(
-                screenWidth / 2f + fogOffset * (layer + 1) * 0.3f,
-                y,
-                screenWidth * 0.8f,
-                Color.argb(alpha, 200, 210, 220),
-                Color.TRANSPARENT,
-                Shader.TileMode.CLAMP,
-            )
+            val cx = screenWidth / 2f + fogOffset * (layer + 1) * 0.3f
+            fogMatrix.setTranslate(cx, y)
+            gradient.setLocalMatrix(fogMatrix)
+            fogPaint.shader = gradient
             canvas.drawRect(0f, 0f, screenWidth.toFloat(), screenHeight.toFloat(), fogPaint)
         }
     }

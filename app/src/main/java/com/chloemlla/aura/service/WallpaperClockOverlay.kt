@@ -138,3 +138,90 @@ fun bitmapWithWallpaperClockOverlay(
     drawWallpaperClockOverlay(context, Canvas(copy), now)
     return copy
 }
+
+/**
+ * Reusable clock-overlay painter for the live-wallpaper engines.
+ *
+ * The engines used to call [drawWallpaperClockOverlay] with its default arguments
+ * on every frame, which re-read SharedPreferences, recreated two [DateFormat]s
+ * (one of which queries Settings.System for the 12/24-hour clock) and allocated
+ * two [Paint]s at 30 FPS. This renderer caches the config (the engine refreshes it
+ * on visibility / surface changes, so a Settings toggle still takes effect promptly)
+ * and the layout objects (keyed on canvas size), and re-formats the label at most
+ * once per minute.
+ */
+class WallpaperClockOverlayRenderer {
+    private var config = WallpaperClockOverlayConfig()
+    private var layoutKey: String? = null
+    private var textPaint: Paint? = null
+    private var backgroundPaint: Paint? = null
+    private var labelMinuteBucket: Long = Long.MIN_VALUE
+    private var cachedLabel: String? = null
+
+    /** True when the overlay is currently enabled per the last [refresh]. */
+    val enabled: Boolean get() = config.enabled
+
+    fun refresh(context: Context) {
+        config = readWallpaperClockOverlayConfig(context)
+    }
+
+    fun draw(
+        context: Context,
+        canvas: Canvas,
+        nowMs: Long = System.currentTimeMillis(),
+    ) {
+        if (!config.enabled || canvas.width <= 0 || canvas.height <= 0) return
+        val now = Date(nowMs)
+        val density = context.resources.displayMetrics.density
+        val shortestSide = min(canvas.width, canvas.height).toFloat()
+        val textSize = (shortestSide * 0.045f).coerceIn(24f * density, 68f * density)
+        val key = "${config.mode.name}|${config.position.name}|${canvas.width}x${canvas.height}|$density"
+        if (layoutKey != key) {
+            layoutKey = key
+            textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                this.textSize = textSize
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                setShadowLayer(3f * density, 0f, 1f * density, Color.BLACK)
+            }
+            backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = 0xB8000000.toInt()
+            }
+            cachedLabel = null
+        }
+        val minuteBucket = nowMs / 60_000L
+        if (minuteBucket != labelMinuteBucket) {
+            labelMinuteBucket = minuteBucket
+            cachedLabel = wallpaperClockOverlayLabel(context, config.mode, now)
+        }
+        val label = cachedLabel ?: return
+        val tp = textPaint ?: return
+        val bp = backgroundPaint ?: return
+        val paddingX = 14f * density
+        val paddingY = 9f * density
+        val margin = (shortestSide * 0.055f).coerceAtLeast(18f * density)
+        val textWidth = tp.measureText(label)
+        val fontMetrics = tp.fontMetrics
+        val textHeight = fontMetrics.bottom - fontMetrics.top
+        val boxWidth = textWidth + paddingX * 2f
+        val boxHeight = textHeight + paddingY * 2f
+        val top = when (config.position) {
+            WallpaperClockOverlayPosition.TOP_LEFT,
+            WallpaperClockOverlayPosition.TOP_RIGHT -> margin
+            WallpaperClockOverlayPosition.BOTTOM_LEFT,
+            WallpaperClockOverlayPosition.BOTTOM_RIGHT -> canvas.height - margin - boxHeight
+        }.coerceIn(0f, (canvas.height - boxHeight).coerceAtLeast(0f))
+        val left = when (config.position) {
+            WallpaperClockOverlayPosition.TOP_LEFT,
+            WallpaperClockOverlayPosition.BOTTOM_LEFT -> margin
+            WallpaperClockOverlayPosition.TOP_RIGHT,
+            WallpaperClockOverlayPosition.BOTTOM_RIGHT -> canvas.width - margin - boxWidth
+        }.coerceIn(0f, (canvas.width - boxWidth).coerceAtLeast(0f))
+        val rect = RectF(left, top, left + boxWidth, top + boxHeight)
+
+        canvas.drawRoundRect(rect, 12f * density, 12f * density, bp)
+        val baseline = rect.top + paddingY - fontMetrics.top
+        tp.textAlign = Paint.Align.LEFT
+        canvas.drawText(label, rect.left + paddingX, baseline, tp)
+    }
+}

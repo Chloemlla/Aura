@@ -236,6 +236,9 @@ class VideoWallpaperStorage @Inject constructor(
             ?.filter { candidate ->
                 candidate.isFile &&
                     candidate.name.startsWith("live_wallpaper.") &&
+                    // A concurrent import may still be writing "${name}.tmp"; it is not a
+                    // committed managed copy and must never be pruned out from under it.
+                    !candidate.name.endsWith(".tmp") &&
                     candidate.absolutePath != activeFile.absolutePath
             }
             ?.forEach { stale ->

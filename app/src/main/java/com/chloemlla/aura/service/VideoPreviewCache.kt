@@ -15,14 +15,17 @@ import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.chloemlla.aura.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 internal fun shouldPrebufferVideoPreview(url: String): Boolean {
     val normalized = url.trim().substringBefore('#')
@@ -79,6 +82,19 @@ class VideoPreviewCache @Inject constructor(
             .setCache(cache)
             .setUpstreamDataSourceFactory(upstreamFactory)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+    }
+
+    init {
+        // SimpleCache construction scans the cache directory and opens/creates the
+        // SQLite index synchronously — up to hundreds of ms of disk I/O. The UI calls
+        // mediaSourceFactory() from Compose (`remember`), i.e. on the main thread, so
+        // kick the construction off immediately on a background thread instead of
+        // letting that first call perform it inline. `by lazy` is synchronized, so a
+        // main-thread access while prewarming merely joins the in-progress init rather
+        // than starting a second one.
+        val t = Thread({ runCatching { cache } }, "aura-preview-cache-prewarm")
+        t.isDaemon = true
+        t.start()
     }
 
     fun mediaSourceFactory(): DefaultMediaSourceFactory =

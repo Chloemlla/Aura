@@ -179,13 +179,31 @@ class AgslShaderBackgroundRenderer {
     private var cachedFallbackGradient: Shader? = null
     private var cachedFallbackAccent: Shader? = null
 
+    /**
+     * Continuous time base for the shader's `time` uniform. Rebasing to the engine's
+     * lifetime (instead of `elapsedRealtimeMs % 600_000`) removes the once-every-10-min
+     * discontinuity where `time` snapped from 600 back to 0 and every preset's
+     * sin/cos drift jumped. Float precision stays well below a frame for the day-scale
+     * uptimes a wallpaper process sees.
+     */
+    private val startElapsedMs = SystemClock.elapsedRealtime()
+
     fun draw(
         canvas: Canvas,
         preset: AgslShaderPreset,
         elapsedRealtimeMs: Long = SystemClock.elapsedRealtime(),
     ) {
         if (canvas.width <= 0 || canvas.height <= 0) return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && failedRuntimePresetId != preset.id) {
+        // RuntimeShader needs a hardware-accelerated RenderNode pipeline. A software
+        // canvas — e.g. the SurfaceHolder.lockCanvas() the weather engine draws on —
+        // either throws (permanently degrading to the static fallback) or evaluates
+        // the program per-pixel on the CPU, which 30 FPS cannot sustain. Skip the
+        // attempt outright on a software canvas so the degraded path is deterministic
+        // and cheap instead of an exception/CPU churn every frame.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            canvas.isHardwareAccelerated &&
+            failedRuntimePresetId != preset.id
+        ) {
             try {
                 drawRuntimeShader(canvas, preset, elapsedRealtimeMs)
                 return
@@ -227,7 +245,10 @@ class AgslShaderBackgroundRenderer {
             }
         }
         runtimeShader.setFloatUniform("resolution", canvas.width.toFloat(), canvas.height.toFloat())
-        runtimeShader.setFloatUniform("time", (elapsedRealtimeMs % 600_000L) / 1000f)
+        // Continuous since the engine started; see startElapsedMs. The old
+        // `elapsedRealtimeMs % 600_000L` wrap made the animation visibly jump
+        // once every 10 minutes.
+        runtimeShader.setFloatUniform("time", (elapsedRealtimeMs - startElapsedMs) / 1000f)
         paint.shader = runtimeShader
         canvas.drawRect(0f, 0f, canvas.width.toFloat(), canvas.height.toFloat(), paint)
     }

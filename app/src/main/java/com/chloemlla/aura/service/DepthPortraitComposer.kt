@@ -15,6 +15,7 @@ import android.provider.MediaStore
 import com.chloemlla.aura.util.rethrowIfCancelled
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmentation
+import com.google.mlkit.vision.segmentation.subject.SubjectSegmentationResult
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmenterOptions
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
@@ -63,6 +64,11 @@ class DepthPortraitComposer @Inject constructor(
         val base = centerCropToPortrait(source)
         val mask = try {
             segmentMask(base)
+        } catch (t: OutOfMemoryError) {
+            // segmentMask allocates a full-resolution FloatArray; on a low-memory
+            // device that can OOM. Return the base crop untouched rather than let
+            // an Error escape (the caller cannot catch it via `catch (Exception)`).
+            return@withContext DepthPortraitResult(base, segmentationApplied = false)
         } catch (e: Exception) {
             e.rethrowIfCancelled()
             null
@@ -84,6 +90,12 @@ class DepthPortraitComposer @Inject constructor(
             drawForeground(canvas, foreground, options)
             drawFrameOverSubject(canvas, result, options.frameStyle)
             DepthPortraitResult(result, segmentationApplied = true)
+        } catch (t: OutOfMemoryError) {
+            // Peak allocations here are ~4 full-screen bitmaps; when the device
+            // refuses them, degrade to the base crop instead of letting the Error
+            // crash the caller. keepBase keeps `base` alive for the return value.
+            keepBase = true
+            DepthPortraitResult(base, segmentationApplied = false)
         } catch (e: Exception) {
             e.rethrowIfCancelled()
             keepBase = true
@@ -173,15 +185,16 @@ class DepthPortraitComposer @Inject constructor(
             .build()
         val segmenter = SubjectSegmentation.getClient(options)
         return try {
-            val result = suspendCancellableCoroutine<Any?> { cont ->
+            val result = suspendCancellableCoroutine<SubjectSegmentationResult?> { cont ->
                 segmenter.process(InputImage.fromBitmap(bitmap, 0))
                     .addOnSuccessListener { res -> if (cont.isActive) cont.resume(res) }
                     .addOnFailureListener { _ -> if (cont.isActive) cont.resume(null) }
                     .addOnCanceledListener { if (cont.isActive) cont.resume(null) }
                 cont.invokeOnCancellation { }
             } ?: return null
-            val maskGetter = result.javaClass.getMethod("getForegroundConfidenceMask")
-            val buffer = maskGetter.invoke(result) as? java.nio.FloatBuffer ?: return null
+            // Direct property access (the interface class is on the compile classpath);
+            // reflection would be broken by R8 minification, which renames methods.
+            val buffer = result.foregroundConfidenceMask ?: return null
             buffer.rewind()
             val width = bitmap.width
             val height = bitmap.height

@@ -9,6 +9,7 @@ import com.chloemlla.aura.util.rethrowIfCancelled
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -24,30 +25,38 @@ class DualWallpaperService @Inject constructor(
     /** Apply a wallpaper pair: home wallpaper + lock wallpaper simultaneously */
     suspend fun applyPair(pair: WallpaperPair): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            // Download both concurrently
-            val homeBitmap = async { downloadBitmap(pair.home.fullUrl) }
-            val lockBitmap = async { downloadBitmap(pair.lock.fullUrl) }
+            // supervisorScope keeps a failing download from cancelling the sibling and
+            // the outer withContext scope. With a plain Job, one download error would
+            // tear the whole scope down and the awaited exception would be rethrown on
+            // scope exit — bypassing the Result contract entirely.
+            supervisorScope {
+                val homeBitmap = async { downloadBitmap(pair.home.fullUrl) }
+                val lockBitmap = async { downloadBitmap(pair.lock.fullUrl) }
 
-            val home = try {
-                homeBitmap.await()
-            } catch (e: Exception) {
-                lockBitmap.cancel()
-                // Recycle if lock download already completed
-                try { lockBitmap.await().recycle() } catch (_: Exception) {}
-                throw e
-            }
-            val lock = try {
-                lockBitmap.await()
-            } catch (e: Exception) {
-                home.recycle()
-                throw e
-            }
-            try {
-                wallpaperApplier.applyFromBitmap(home, WallpaperTarget.HOME).getOrThrow()
-                wallpaperApplier.applyFromBitmap(lock, WallpaperTarget.LOCK).getOrThrow()
-            } finally {
-                home.recycle()
-                lock.recycle()
+                val home = try {
+                    homeBitmap.await()
+                } catch (e: Exception) {
+                    // Collect whatever the lock download produced before cancelling it,
+                    // so a completed bitmap is recycled rather than orphaned. (await() on
+                    // a cancelled deferred only throws CancellationException and loses the
+                    // value, so the recycle must happen before cancel().)
+                    runCatching { lockBitmap.await() }.getOrNull()?.recycle()
+                    lockBitmap.cancel()
+                    throw e
+                }
+                val lock = try {
+                    lockBitmap.await()
+                } catch (e: Exception) {
+                    home.recycle()
+                    throw e
+                }
+                try {
+                    wallpaperApplier.applyFromBitmap(home, WallpaperTarget.HOME).getOrThrow()
+                    wallpaperApplier.applyFromBitmap(lock, WallpaperTarget.LOCK).getOrThrow()
+                } finally {
+                    home.recycle()
+                    lock.recycle()
+                }
             }
         }.onFailure { it.rethrowIfCancelled() }
     }

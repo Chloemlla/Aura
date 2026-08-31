@@ -373,6 +373,26 @@ internal fun decodeImageFile(
         decodeFileWithBitmapFactory(file, maxLongEdge)
     }
 
+/**
+ * Decodes [file] downscaled so that BOTH dimensions stay >= [reqWidth]x[reqHeight].
+ *
+ * [decodeImageFile]'s long-edge-only cap can leave a wide source's short edge smaller
+ * than the viewport, which then forces the live-wallpaper center-crop to upscale into a
+ * large intermediate bitmap (AURA-G1-01). This variant downscales only until the smaller
+ * dimension covers the viewport too, so the caller's fill-crop scale stays <= 1 and the
+ * peak allocation is bounded by the output size.
+ */
+internal fun decodeImageFileCover(
+    file: File,
+    reqWidth: Int,
+    reqHeight: Int,
+): Bitmap? =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        decodeWithImageDecoderCover(ImageDecoder.createSource(file), reqWidth, reqHeight)
+    } else {
+        decodeFileWithBitmapFactoryCover(file, reqWidth, reqHeight)
+    }
+
 internal fun sniffMediaType(header: ByteArray): SniffedMediaType? {
     if (header.startsWith(0xFF, 0xD8, 0xFF)) {
         return SniffedMediaType(MediaFamily.IMAGE, "image/jpeg", "jpg")
@@ -535,6 +555,52 @@ private fun decodeBytesWithBitmapFactory(
         inSampleSize = decodeSampleSize(bounds.outWidth, bounds.outHeight, maxLongEdge)
     }
     return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+}
+
+@Suppress("NewApi")
+private fun decodeWithImageDecoderCover(
+    source: ImageDecoder.Source,
+    reqWidth: Int,
+    reqHeight: Int,
+): Bitmap? =
+    try {
+        ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            val width = info.size.width
+            val height = info.size.height
+            if (reqWidth > 0 && reqHeight > 0 && width > 0 && height > 0) {
+                // Minimum downscale that keeps BOTH dimensions >= the requested viewport;
+                // never upscales (scale stays 1 when the source is already too small in a
+                // dimension — the caller's fill-crop handles that).
+                val scale = max(
+                    reqWidth.toFloat() / width.toFloat(),
+                    reqHeight.toFloat() / height.toFloat(),
+                )
+                if (scale < 1f) {
+                    decoder.setTargetSize(
+                        (width * scale).roundToInt().coerceAtLeast(1),
+                        (height * scale).roundToInt().coerceAtLeast(1),
+                    )
+                }
+            }
+        }
+    } catch (_: Exception) {
+        null
+    }
+
+private fun decodeFileWithBitmapFactoryCover(
+    file: File,
+    reqWidth: Int,
+    reqHeight: Int,
+): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(file.absolutePath, bounds)
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    val options = BitmapFactory.Options().apply {
+        inPreferredConfig = Bitmap.Config.ARGB_8888
+        inSampleSize = BitmapSampling.calculateInSampleSize(bounds.outWidth, bounds.outHeight, reqWidth, reqHeight)
+    }
+    return BitmapFactory.decodeFile(file.absolutePath, options)
 }
 
 private fun decodeStreamWithBitmapFactory(

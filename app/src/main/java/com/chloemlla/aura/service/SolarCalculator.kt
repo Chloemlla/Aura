@@ -118,9 +118,31 @@ object SolarCalculator {
         return floatArrayOf(dR * s, dG * s, dB * s)
     }
 
-    /** Convenience: decimal hour for "right now" using the device clock. */
-    fun currentHour(): Double {
-        val cal = java.util.Calendar.getInstance()
-        return cal.get(java.util.Calendar.HOUR_OF_DAY) + cal.get(java.util.Calendar.MINUTE) / 60.0
+    private var cachedMinuteBucket: Long = Long.MIN_VALUE
+    private var cachedTimeZone: java.util.TimeZone? = null
+    private var cachedHourValue: Double = Double.NaN
+
+    /**
+     * Decimal hour for a point in time, using the device clock by default.
+     *
+     * The result is cached to the minute, so a per-frame caller (the weather
+     * engine's tint pass) pays a couple of long comparisons instead of a fresh
+     * [java.util.Calendar] allocation (which parses the timezone) every frame.
+     * [nowMs] and [timeZone] are injectable for tests, mirroring [sunTimes].
+     */
+    @Synchronized
+    fun currentHour(
+        nowMs: Long = System.currentTimeMillis(),
+        timeZone: java.util.TimeZone = java.util.TimeZone.getDefault(),
+    ): Double {
+        val minute = nowMs / 60_000L
+        if (minute != cachedMinuteBucket || timeZone != cachedTimeZone) {
+            val cal = java.util.Calendar.getInstance(timeZone)
+            cal.timeInMillis = nowMs
+            cachedHourValue = cal.get(java.util.Calendar.HOUR_OF_DAY) + cal.get(java.util.Calendar.MINUTE) / 60.0
+            cachedMinuteBucket = minute
+            cachedTimeZone = timeZone
+        }
+        return cachedHourValue
     }
 }

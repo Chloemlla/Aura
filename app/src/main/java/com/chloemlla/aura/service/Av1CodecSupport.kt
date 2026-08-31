@@ -16,7 +16,7 @@ class Av1CodecSupport @Inject constructor() {
             val codecList = MediaCodecList(MediaCodecList.ALL_CODECS)
             codecList.codecInfos.any { info ->
                 !info.isEncoder &&
-                    info.isHardwareAccelerated &&
+                    info.isHardwareAcceleratedCompat &&
                     info.supportedTypes.any { it.equals(MediaFormat.MIMETYPE_VIDEO_AV1, ignoreCase = true) }
             }
         } catch (_: Exception) {
@@ -24,14 +24,21 @@ class Av1CodecSupport @Inject constructor() {
         }
     }
 
-    private val MediaCodecInfo.isHardwareAccelerated: Boolean
+    /**
+     * Named *Compat so it never shadows the platform `MediaCodecInfo.isHardwareAccelerated()`
+     * (API 29+). A member extension with the same name as a Java synthetic property is
+     * resolved ambiguously by Kotlin — the platform member wins on API 29+ and the
+     * extension's own getter can recurse into itself on older builds, so the old name
+     * risked StackOverflowError / NoSuchMethodError instead of a graceful false.
+     */
+    private val MediaCodecInfo.isHardwareAcceleratedCompat: Boolean
         get() = try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 isHardwareAccelerated
             } else {
                 !isKnownSoftwareCodec(name)
             }
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             false
         }
 

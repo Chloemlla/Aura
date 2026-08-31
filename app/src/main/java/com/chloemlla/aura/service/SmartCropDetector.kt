@@ -5,11 +5,14 @@ import android.graphics.RectF
 import com.chloemlla.aura.util.rethrowIfCancelled
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmentation
+import com.google.mlkit.vision.segmentation.subject.SubjectSegmentationResult
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmenterOptions
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 
 /**
  * Runs ML Kit Subject Segmentation against a bitmap and returns the bounding
@@ -29,64 +32,70 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 @Singleton
 class SmartCropDetector @Inject constructor() {
 
-    suspend fun detectSubject(bitmap: Bitmap, threshold: Float = 0.5f): RectF? {
-        if (bitmap.isRecycled || bitmap.width <= 0 || bitmap.height <= 0) return null
-        val options = SubjectSegmenterOptions.Builder()
-            .enableForegroundConfidenceMask()
-            .build()
-        val segmenter = SubjectSegmentation.getClient(options)
-        return try {
-            val image = InputImage.fromBitmap(bitmap, 0)
-            val result = suspendCancellableCoroutine<Any?> { cont ->
-                segmenter.process(image)
-                    .addOnSuccessListener { res -> if (cont.isActive) cont.resume(res) }
-                    .addOnFailureListener { _ -> if (cont.isActive) cont.resume(null) }
-                    .addOnCanceledListener { if (cont.isActive) cont.resume(null) }
-                cont.invokeOnCancellation { /* segmenter.close in finally */ }
-            } ?: return null
+    /**
+     * Self-contained dispatcher: the per-pixel mask scan below is hundreds of
+     * thousands to millions of FloatBuffer reads, so it must never run on the
+     * caller's thread (a UI scope would freeze the frame for up to a second).
+     * Callers that already wrap this in `withContext(Dispatchers.Default)` are
+     * unaffected — nested context switches are no-ops.
+     */
+    suspend fun detectSubject(bitmap: Bitmap, threshold: Float = 0.5f): RectF? =
+        withContext(Dispatchers.Default) {
+            if (bitmap.isRecycled || bitmap.width <= 0 || bitmap.height <= 0) return@withContext null
+            val options = SubjectSegmenterOptions.Builder()
+                .enableForegroundConfidenceMask()
+                .build()
+            val segmenter = SubjectSegmentation.getClient(options)
+            try {
+                val image = InputImage.fromBitmap(bitmap, 0)
+                val result = suspendCancellableCoroutine<SubjectSegmentationResult?> { cont ->
+                    segmenter.process(image)
+                        .addOnSuccessListener { res -> if (cont.isActive) cont.resume(res) }
+                        .addOnFailureListener { _ -> if (cont.isActive) cont.resume(null) }
+                        .addOnCanceledListener { if (cont.isActive) cont.resume(null) }
+                    cont.invokeOnCancellation { /* segmenter.close in finally */ }
+                } ?: return@withContext null
 
-            // result is com.google.mlkit.vision.segmentation.subject.SubjectSegmentationResult.
-            // Reflect minimally to keep this file robust against minor ML Kit API drift; the
-            // type is held only in the unbundled APK at runtime.
-            val maskGetter = result.javaClass.getMethod("getForegroundConfidenceMask")
-            @Suppress("UNCHECKED_CAST")
-            val mask = maskGetter.invoke(result) as? java.nio.FloatBuffer ?: return null
-            mask.rewind()
+                // Direct property access, matching ParallaxWallpaperService. Reflection
+                // here served no purpose (the interface class IS on the compile classpath)
+                // and would break under R8 minification, which renames the method.
+                val mask = result.foregroundConfidenceMask ?: return@withContext null
+                mask.rewind()
 
-            val w = bitmap.width
-            val h = bitmap.height
-            var minX = Int.MAX_VALUE
-            var minY = Int.MAX_VALUE
-            var maxX = Int.MIN_VALUE
-            var maxY = Int.MIN_VALUE
-            var any = false
+                val w = bitmap.width
+                val h = bitmap.height
+                var minX = Int.MAX_VALUE
+                var minY = Int.MAX_VALUE
+                var maxX = Int.MIN_VALUE
+                var maxY = Int.MIN_VALUE
+                var any = false
 
-            // The mask is sized to the input bitmap (one float per pixel, row-major).
-            // Scan row-by-row and collapse to a bbox.
-            for (y in 0 until h) {
-                for (x in 0 until w) {
-                    val v = if (mask.hasRemaining()) mask.get() else 0f
-                    if (v >= threshold) {
-                        any = true
-                        if (x < minX) minX = x
-                        if (y < minY) minY = y
-                        if (x > maxX) maxX = x
-                        if (y > maxY) maxY = y
+                // The mask is sized to the input bitmap (one float per pixel, row-major).
+                // Scan row-by-row and collapse to a bbox.
+                for (y in 0 until h) {
+                    for (x in 0 until w) {
+                        val v = if (mask.hasRemaining()) mask.get() else 0f
+                        if (v >= threshold) {
+                            any = true
+                            if (x < minX) minX = x
+                            if (y < minY) minY = y
+                            if (x > maxX) maxX = x
+                            if (y > maxY) maxY = y
+                        }
                     }
                 }
+                if (!any) null
+                else RectF(
+                    minX.toFloat(),
+                    minY.toFloat(),
+                    (maxX + 1).toFloat(),
+                    (maxY + 1).toFloat(),
+                )
+            } catch (e: Exception) {
+                e.rethrowIfCancelled()
+                null
+            } finally {
+                try { segmenter.close() } catch (_: Exception) {}
             }
-            if (!any) null
-            else RectF(
-                minX.toFloat(),
-                minY.toFloat(),
-                (maxX + 1).toFloat(),
-                (maxY + 1).toFloat(),
-            )
-        } catch (e: Exception) {
-            e.rethrowIfCancelled()
-            null
-        } finally {
-            try { segmenter.close() } catch (_: Exception) {}
         }
-    }
 }

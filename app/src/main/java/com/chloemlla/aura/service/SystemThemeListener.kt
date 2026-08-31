@@ -10,6 +10,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -37,7 +38,11 @@ class SystemThemeListener @Inject constructor(
     private val prefs: PreferencesManager,
     private val wallpaperApplier: WallpaperApplier,
 ) {
-    private val scope = CoroutineScope(Dispatchers.Default)
+    // SupervisorJob so a single failed child (e.g. a transient wallpaper-apply error
+    // inside the collect block) cannot cancel the scope. This listener is a @Singleton
+    // and startListening() usually runs once at startup with no retry path — a plain
+    // Job would leave auto dark/light switching permanently dead after one exception.
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     @Volatile private var darkLightPairEnabled = false
     @Volatile private var nightVariantEnabled = false
     @Volatile private var lastNightMode = isNightMode()
@@ -66,18 +71,26 @@ class SystemThemeListener @Inject constructor(
             ) { pairEnabled, variantEnabled -> pairEnabled to variantEnabled }
                 .distinctUntilChanged()
                 .collect { (pairEnabled, variantEnabled) ->
-                    val variantWasEnabled = nightVariantEnabled
-                    darkLightPairEnabled = pairEnabled
-                    nightVariantEnabled = variantEnabled
-                    if (pairEnabled || variantEnabled) {
-                        // Resync the baseline so we don't re-apply on the very next config change
-                        // when the user enables the toggle while already in (say) dark mode.
-                        lastNightMode = isNightMode()
-                    }
-                    when {
-                        variantEnabled && !variantWasEnabled -> applyForMode(lastNightMode)
-                        !variantEnabled && variantWasEnabled && pairEnabled -> applyForMode(lastNightMode)
-                        !variantEnabled && variantWasEnabled -> applyLastNightVariantWallpaper(isNight = false)
+                    try {
+                        val variantWasEnabled = nightVariantEnabled
+                        darkLightPairEnabled = pairEnabled
+                        nightVariantEnabled = variantEnabled
+                        if (pairEnabled || variantEnabled) {
+                            // Resync the baseline so we don't re-apply on the very next config change
+                            // when the user enables the toggle while already in (say) dark mode.
+                            lastNightMode = isNightMode()
+                        }
+                        when {
+                            variantEnabled && !variantWasEnabled -> applyForMode(lastNightMode)
+                            !variantEnabled && variantWasEnabled && pairEnabled -> applyForMode(lastNightMode)
+                            !variantEnabled && variantWasEnabled -> applyLastNightVariantWallpaper(isNight = false)
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        // One bad emission must not terminate the combine flow for the rest
+                        // of the process lifetime; keep collecting and let the next pref
+                        // emission retry.
                     }
                 }
         }

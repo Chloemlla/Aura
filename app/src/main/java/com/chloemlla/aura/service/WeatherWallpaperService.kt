@@ -2,14 +2,21 @@ package com.chloemlla.aura.service
 
 import android.app.WallpaperColors
 import android.app.wallpaper.WallpaperDescription
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Matrix
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.RectF
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.provider.Settings
 import android.service.wallpaper.WallpaperService
 import android.view.MotionEvent
@@ -25,6 +32,9 @@ import com.chloemlla.aura.data.remote.weather.WeatherEffect
  * Targets 30 FPS for particle updates.
  */
 class WeatherWallpaperService : WallpaperService() {
+
+    /** Low-frequency tick that keeps the clock overlay fresh in reduced-motion mode. */
+    private const val CLOCK_OVERLAY_REFRESH_INTERVAL_MS = 30_000L
 
     override fun onCreateEngine(): Engine = WeatherEngine()
 
@@ -47,7 +57,21 @@ class WeatherWallpaperService : WallpaperService() {
         private val handler = Handler(Looper.getMainLooper())
         private var visible = false
         @Volatile private var destroyed = false
-        private val frameInterval = 33L // ~30 FPS
+        private var frameInterval = LiveWallpaperFrameBudget.NORMAL_FRAME_INTERVAL_MS
+        private var batteryReceiverRegistered = false
+        private val batteryReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (
+                    intent?.action == Intent.ACTION_BATTERY_CHANGED ||
+                    intent?.action == PowerManager.ACTION_POWER_SAVE_MODE_CHANGED
+                ) {
+                    frameInterval = LiveWallpaperFrameBudget.frameIntervalMs(
+                        readLiveWallpaperBatterySnapshot(context ?: this@WeatherWallpaperService),
+                    )
+                }
+            }
+        }
+        private val clockOverlayRenderer = WallpaperClockOverlayRenderer()
 
         private var reducedMotion = false
 
@@ -132,6 +156,9 @@ class WeatherWallpaperService : WallpaperService() {
 
         override fun onSurfaceCreated(holder: SurfaceHolder) {
             super.onSurfaceCreated(holder)
+            registerBatteryReceiver()
+            refreshFrameBudget()
+            clockOverlayRenderer.refresh(this@WeatherWallpaperService)
             loadShaderPresetFromPrefs()
             receiptStore.recordSurfaceCreated(LiveWallpaperReceiptStore.ENGINE_WEATHER, currentWallpaperLocator())
             loadWallpaperBitmap()
@@ -144,7 +171,14 @@ class WeatherWallpaperService : WallpaperService() {
             touchRenderer = TouchEffectRenderer(width, height)
             synchronized(bitmapLock) {
                 val oldScaled = scaledBitmap
-                scaledBitmap = wallpaperBitmap?.let { scaleBitmap(it, width, height) }
+                scaledBitmap = try {
+                    wallpaperBitmap?.let { scaleBitmap(it, width, height) }
+                } catch (t: OutOfMemoryError) {
+                    // A full-screen scale OOM must not take down the wallpaper process
+                    // (it shares the UI process); keep the previous scaled layer.
+                    receiptStore.recordError(LiveWallpaperReceiptStore.ENGINE_WEATHER, "scaleBitmap OOM")
+                    oldScaled
+                }
                 if (oldScaled !== wallpaperBitmap && oldScaled !== scaledBitmap) oldScaled?.recycle()
             }
             loadReducedMotionFromPrefs()
@@ -163,6 +197,8 @@ class WeatherWallpaperService : WallpaperService() {
             this.visible = visible
             receiptStore.recordVisibilityChanged(LiveWallpaperReceiptStore.ENGINE_WEATHER, visible)
             if (visible) {
+                refreshFrameBudget()
+                clockOverlayRenderer.refresh(this@WeatherWallpaperService)
                 loadReducedMotionFromPrefs()
                 loadWeatherFromPrefs()
                 loadVfxFromPrefs()
@@ -194,6 +230,7 @@ class WeatherWallpaperService : WallpaperService() {
             super.onSurfaceDestroyed(holder)
             visible = false
             cancelDraw()
+            unregisterBatteryReceiver()
             receiptStore.recordSurfaceDestroyed(LiveWallpaperReceiptStore.ENGINE_WEATHER)
         }
 
@@ -201,6 +238,7 @@ class WeatherWallpaperService : WallpaperService() {
             super.onDestroy()
             destroyed = true
             cancelDraw()
+            unregisterBatteryReceiver()
             mediaLoader.shutdown()
             synchronized(bitmapLock) {
                 if (scaledBitmap !== wallpaperBitmap) scaledBitmap?.recycle()
@@ -236,10 +274,15 @@ class WeatherWallpaperService : WallpaperService() {
                             // Re-scale if surface dimensions are known
                             val holder = surfaceHolder
                             val rect = holder.surfaceFrame
-                            if (rect.width() > 0 && rect.height() > 0) {
-                                scaledBitmap = scaleBitmap(bmp, rect.width(), rect.height())
-                            } else {
-                                scaledBitmap = null
+                            scaledBitmap = try {
+                                if (rect.width() > 0 && rect.height() > 0) {
+                                    scaleBitmap(bmp, rect.width(), rect.height())
+                                } else {
+                                    null
+                                }
+                            } catch (t: OutOfMemoryError) {
+                                receiptStore.recordError(LiveWallpaperReceiptStore.ENGINE_WEATHER, "scaleBitmap OOM")
+                                oldScaled
                             }
                             // Recycle old bitmaps — check identity to avoid double-recycle
                             if (oldScaled != null && oldScaled !== oldWallpaper && oldScaled !== scaledBitmap) {
@@ -434,6 +477,36 @@ class WeatherWallpaperService : WallpaperService() {
             drawScheduled = false
         }
 
+        private fun refreshFrameBudget() {
+            frameInterval = LiveWallpaperFrameBudget.frameIntervalMs(
+                readLiveWallpaperBatterySnapshot(this@WeatherWallpaperService),
+            )
+        }
+
+        private fun registerBatteryReceiver() {
+            if (batteryReceiverRegistered) return
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    registerReceiver(batteryReceiver, LiveWallpaperFrameBudget.batteryBroadcastFilter(), Context.RECEIVER_NOT_EXPORTED)
+                } else {
+                    @Suppress("DEPRECATION")
+                    registerReceiver(batteryReceiver, LiveWallpaperFrameBudget.batteryBroadcastFilter())
+                }
+                batteryReceiverRegistered = true
+            } catch (_: Exception) {
+            }
+        }
+
+        private fun unregisterBatteryReceiver() {
+            if (!batteryReceiverRegistered) return
+            try {
+                unregisterReceiver(batteryReceiver)
+            } catch (_: Exception) {
+            } finally {
+                batteryReceiverRegistered = false
+            }
+        }
+
         /**
          * Weather holds a render callback, two decoded bitmaps, and a decode
          * thread while it loads. The surface can be destroyed mid-decode, so the
@@ -477,7 +550,7 @@ class WeatherWallpaperService : WallpaperService() {
                         dimming.tick()
                         dimming.drawDimOverlay(canvas, canvas.width, canvas.height)
                     }
-                    drawWallpaperClockOverlay(this@WeatherWallpaperService, canvas)
+                    clockOverlayRenderer.draw(this@WeatherWallpaperService, canvas)
                 }
             } catch (_: Exception) {
             } finally {
@@ -499,6 +572,11 @@ class WeatherWallpaperService : WallpaperService() {
                 // touch handler's scheduleDraw() (which removes pending callbacks)
                 // has already run — scheduling it from onTouchEvent gets cancelled.
                 postDraw(LiveWallpaperDimming.REVEAL_DURATION_MS + 50L)
+            } else if (visible && reducedMotion && clockOverlayRenderer.enabled) {
+                // Reduced-motion mode normally never self-reschedules, which left the
+                // clock overlay frozen at the last unlock. Keep it fresh with a
+                // low-frequency tick (negligible battery vs 30 FPS).
+                postDraw(CLOCK_OVERLAY_REFRESH_INTERVAL_MS)
             }
         }
 
@@ -517,31 +595,31 @@ class WeatherWallpaperService : WallpaperService() {
             }
         }
 
+        /**
+         * Fill/crop to exactly [targetW]x[targetH] in one pass. The old implementation
+         * scaled the WHOLE source into a `src.width*scale × src.height*scale` intermediate
+         * bitmap and then cropped it — for a wide source whose short edge was smaller than
+         * the viewport, that intermediate was several times the screen area. Drawing the
+         * computed source rect straight into a target-sized canvas bounds the allocation
+         * to the output (AURA-G1-01).
+         */
         private fun scaleBitmap(src: Bitmap, targetW: Int, targetH: Int): Bitmap {
-            val scaleX = targetW.toFloat() / src.width
-            val scaleY = targetH.toFloat() / src.height
-            val scale = maxOf(scaleX, scaleY) // Fill (crop to fit)
-            val matrix = Matrix().apply { setScale(scale, scale) }
-            val scaled = Bitmap.createBitmap(src, 0, 0, src.width, src.height, matrix, true)
-            // Center crop
-            val x = ((scaled.width - targetW) / 2).coerceAtLeast(0)
-            val y = ((scaled.height - targetH) / 2).coerceAtLeast(0)
-            val cropW = targetW.coerceAtMost(scaled.width - x).coerceAtLeast(1)
-            val cropH = targetH.coerceAtMost(scaled.height - y).coerceAtLeast(1)
-            return if (x > 0 || y > 0) {
-                // If Bitmap.createBitmap throws (OOM / invalid rect), recycle `scaled` so we
-                // don't leak its native allocation — mirrors the fix in ParallaxWallpaperService.
-                val cropped = try {
-                    Bitmap.createBitmap(scaled, x, y, cropW, cropH)
-                } catch (t: Throwable) {
-                    if (scaled !== src) try { scaled.recycle() } catch (_: Throwable) {}
-                    throw t
-                }
-                if (cropped !== scaled && scaled !== src) {
-                    try { scaled.recycle() } catch (_: Throwable) {}
-                }
-                cropped
-            } else scaled
+            val srcWidth = src.width
+            val srcHeight = src.height
+            val scale = maxOf(targetW.toFloat() / srcWidth, targetH.toFloat() / srcHeight) // Fill (crop to fit)
+            val srcW = (targetW / scale).coerceAtMost(srcWidth.toFloat())
+            val srcH = (targetH / scale).coerceAtMost(srcHeight.toFloat())
+            val srcX = ((srcWidth - srcW) / 2f).coerceAtLeast(0f)
+            val srcY = ((srcHeight - srcH) / 2f).coerceAtLeast(0f)
+            val result = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(result)
+            canvas.drawBitmap(
+                src,
+                Rect(srcX.toInt(), srcY.toInt(), (srcX + srcW).toInt(), (srcY + srcH).toInt()),
+                RectF(0f, 0f, targetW.toFloat(), targetH.toFloat()),
+                Paint(Paint.FILTER_BITMAP_FLAG),
+            )
+            return result
         }
     }
 }

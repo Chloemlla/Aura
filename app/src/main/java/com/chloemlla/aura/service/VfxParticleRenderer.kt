@@ -22,6 +22,9 @@ class VfxParticleRenderer(
     private var effect = VfxEffect.NONE
     private val particles = mutableListOf<VfxParticle>()
     private val paint = Paint().apply { isAntiAlias = true }
+    // One reused Path for the LEAVES shape — the old code built a new Path (with a
+    // native peer) for every particle every frame, i.e. ~900 Path allocations/sec.
+    private val leafPath = Path()
 
     data class VfxParticle(
         var x: Float, var y: Float,
@@ -212,16 +215,17 @@ class VfxParticleRenderer(
                     canvas.save()
                     canvas.translate(p.x, p.y)
                     canvas.rotate(p.rotation)
-                    // Leaf shape: pointed oval
-                    val path = Path().apply {
-                        moveTo(-p.size, 0f)
-                        quadTo(-p.size * 0.5f, -p.size * 0.4f, 0f, 0f)
-                        quadTo(-p.size * 0.5f, p.size * 0.4f, -p.size, 0f)
-                        moveTo(0f, 0f)
-                        quadTo(p.size * 0.5f, -p.size * 0.3f, p.size, 0f)
-                        quadTo(p.size * 0.5f, p.size * 0.3f, 0f, 0f)
-                    }
-                    canvas.drawPath(path, paint)
+                    // Leaf shape: pointed oval. rewind() reuses the Path's native buffer
+                    // (reset() would free it); the shape is refilled per particle since it
+                    // is parameterised by p.size.
+                    leafPath.rewind()
+                    leafPath.moveTo(-p.size, 0f)
+                    leafPath.quadTo(-p.size * 0.5f, -p.size * 0.4f, 0f, 0f)
+                    leafPath.quadTo(-p.size * 0.5f, p.size * 0.4f, -p.size, 0f)
+                    leafPath.moveTo(0f, 0f)
+                    leafPath.quadTo(p.size * 0.5f, -p.size * 0.3f, p.size, 0f)
+                    leafPath.quadTo(p.size * 0.5f, p.size * 0.3f, 0f, 0f)
+                    canvas.drawPath(leafPath, paint)
                     canvas.restore()
                 }
                 VfxEffect.SPARKLES -> {

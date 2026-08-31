@@ -92,11 +92,10 @@ class VideoWallpaperService : WallpaperService() {
         )
         private val powerSaveReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                if (
-                    intent?.action == PowerManager.ACTION_POWER_SAVE_MODE_CHANGED ||
-                    intent?.action == VIDEO_AUTO_BATTERY_SAVER_CHANGED_ACTION
-                ) {
-                    reconcilePowerSavePause()
+                when (intent?.action) {
+                    PowerManager.ACTION_POWER_SAVE_MODE_CHANGED,
+                    VIDEO_AUTO_BATTERY_SAVER_CHANGED_ACTION -> reconcilePowerSavePause()
+                    Intent.ACTION_BATTERY_CHANGED -> cachedBatteryIntent = intent
                 }
             }
         }
@@ -111,6 +110,7 @@ class VideoWallpaperService : WallpaperService() {
             textSize = 28f
             typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
         }
+        private val clockOverlayRenderer = WallpaperClockOverlayRenderer()
         private var gifSampleStartedAtMs = 0L
         private var gifFramesInSample = 0
         private var gifSampledFps = 0
@@ -125,6 +125,16 @@ class VideoWallpaperService : WallpaperService() {
         // to be decoded to describe it. That runs here rather than inline in
         // initializePlayer, which is on the main thread.
         private val colorLoader = LiveWallpaperMediaLoader("aura-video-colors")
+        // Player setup offloads MediaMetadataRetriever / Movie.decodeFile here (both do
+        // synchronous file I/O that used to stall the main thread). MediaPlayer itself
+        // is still created back on the main thread where its callbacks expect a Looper.
+        private val playerLoader = LiveWallpaperMediaLoader("aura-video-player")
+
+        // Cached sticky battery Intent, populated by the power-save receiver so the
+        // 30s telemetry heartbeat no longer registers a null receiver (a synchronous
+        // binder call) on every tick.
+        private var cachedBatteryIntent: Intent? = null
+        private var lastPublishedTelemetryKey: String? = null
 
         private fun getPrefs() = getSharedPreferences(VIDEO_WALLPAPER_PREFS_NAME, MODE_PRIVATE)
         private fun getRuntimePrefs() = getSharedPreferences(VIDEO_PREFS_NAME, MODE_PRIVATE)
@@ -231,6 +241,7 @@ class VideoWallpaperService : WallpaperService() {
             super.onSurfaceCreated(holder)
             currentHolder = holder
             resolveScreenSize()
+            clockOverlayRenderer.refresh(this@VideoWallpaperService)
             registerPowerSaveReceiver()
             reconcilePowerSavePause()
             receiptStore.recordSurfaceCreated(LiveWallpaperReceiptStore.ENGINE_VIDEO, getVideoPath())
@@ -256,6 +267,7 @@ class VideoWallpaperService : WallpaperService() {
             this.visible = visible
             receiptStore.recordVisibilityChanged(LiveWallpaperReceiptStore.ENGINE_VIDEO, visible)
             if (visible) {
+                clockOverlayRenderer.refresh(this@VideoWallpaperService)
                 loadColorPublicationFromPrefs()
                 reconcilePowerSavePause()
                 startTelemetryHeartbeat()
@@ -277,13 +289,23 @@ class VideoWallpaperService : WallpaperService() {
                 try {
                     mediaPlayer?.let {
                         if (!it.isPlaying) {
+                            // A fresh, visible playback session starts from a clean
+                            // recovery slate: the watchdog's time basis was suspended
+                            // while hidden, and re-arming it on stale state could read a
+                            // paused position as a stall (AURA-G1-05).
+                            recoveryState = VideoWallpaperRecovery.reset()
                             it.seekTo(0)
                             if (!motionPausedForPowerSave) it.start()
                         }
                     }
                 } catch (_: Exception) {}
+                startPlaybackWatchdog()
             } else {
                 stopTelemetryHeartbeat()
+                // G1-05: the watchdog used to keep waking the main thread every 2s while
+                // invisible (MediaPlayer binder calls, zero functional output). Stop it
+                // with the playback; it is restarted on the next visible transition.
+                stopPlaybackWatchdog()
                 pauseGifPlayback()
                 try { mediaPlayer?.pause() } catch (_: Exception) {}
                 publishVideoTelemetry()
@@ -300,6 +322,7 @@ class VideoWallpaperService : WallpaperService() {
             cancelPendingRebuild()
             releasePlayback()
             colorLoader.shutdown()
+            playerLoader.shutdown()
             colorPublisher.clear()
             publishVideoTelemetry()
         }
@@ -323,33 +346,81 @@ class VideoWallpaperService : WallpaperService() {
                 refreshWallpaperColors(path, lastModified)
                 if (file.extension.equals("gif", ignoreCase = true)) {
                     activeMediaType = "gif"
-                    initializeGifPlayback(holder, file)
+                    initializeGifPlaybackAsync(holder, file)
                     return
                 }
                 activeMediaType = "video"
                 val speed = getPlaybackSpeed()
                 val scaleMode = getScaleMode()
+                // G1-09: MediaMetadataRetriever opens and parses the container on the
+                // calling thread — a synchronous file I/O that used to stall the main
+                // thread (and Movie.decodeFile below decodes a whole GIF). Do the I/O off
+                // the main thread, then finish player setup back on the main thread.
+                initializeVideoPlaybackAsync(holder, file, speed, scaleMode)
+            } catch (e: Exception) {
+                if (BuildConfig.DEBUG) android.util.Log.e("VideoWPService", "Init failed: ${e.message}")
+                handlePlaybackFailure(
+                    VideoPlaybackFailure.PREPARE_ERROR,
+                    "${e.javaClass.simpleName}: ${e.message}",
+                )
+            }
+        }
 
-                // Detect video dimensions before playback for accurate surface sizing
-                var videoW = 0
-                var videoH = 0
+        private fun readVideoDimensions(path: String): Pair<Int, Int> {
+            var videoW = 0
+            var videoH = 0
+            try {
+                val retriever = MediaMetadataRetriever()
                 try {
-                    val retriever = MediaMetadataRetriever()
-                    try {
-                        retriever.setDataSource(path)
-                        val w = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
-                        val h = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
-                        val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
-                        if (rotation == 90 || rotation == 270) {
-                            videoW = h; videoH = w
-                        } else {
-                            videoW = w; videoH = h
-                        }
-                    } finally {
-                        retriever.release()
+                    retriever.setDataSource(path)
+                    val w = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
+                    val h = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
+                    val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
+                    if (rotation == 90 || rotation == 270) {
+                        videoW = h; videoH = w
+                    } else {
+                        videoW = w; videoH = h
                     }
-                } catch (_: Exception) {}
+                } finally {
+                    retriever.release()
+                }
+            } catch (_: Exception) {}
+            return videoW to videoH
+        }
 
+        private fun initializeVideoPlaybackAsync(
+            holder: SurfaceHolder,
+            file: File,
+            speed: Float,
+            scaleMode: String,
+        ) {
+            val path = file.absolutePath
+            val mod = file.lastModified()
+            playerLoader.request {
+                val (videoW, videoH) = readVideoDimensions(path)
+                recoveryHandler.post {
+                    // Surface destroyed or the medium changed while the metadata read was
+                    // in flight — this setup is stale, discard it.
+                    if (destroyed || currentHolder !== holder) return@post
+                    if (lastPath != path || lastModified != mod) return@post
+                    finishVideoPlayerSetup(holder, path, videoW, videoH, speed, scaleMode)
+                }
+            }
+        }
+
+        private fun finishVideoPlayerSetup(
+            holder: SurfaceHolder,
+            path: String,
+            videoW: Int,
+            videoH: Int,
+            speed: Float,
+            scaleMode: String,
+        ) {
+            // Re-checked here, not just in the posted lambda's guard: MediaPlayer is
+            // created and prepared on the main thread in this function.
+            var w = videoW
+            var h = videoH
+            try {
                 // Set surface to screen size — this is the canvas the user sees
                 val (sw, sh) = configureSurface(holder)
                 configureFrameRate(holder)
@@ -386,9 +457,9 @@ class VideoWallpaperService : WallpaperService() {
                     } catch (_: Exception) {}
                     setOnPreparedListener { mp ->
                         // If MediaMetadataRetriever didn't get dimensions, read from MediaPlayer
-                        if (videoW <= 0 || videoH <= 0) {
-                            videoW = mp.videoWidth
-                            videoH = mp.videoHeight
+                        if (w <= 0 || h <= 0) {
+                            w = mp.videoWidth
+                            h = mp.videoHeight
                         }
                         mp.isLooping = true
                         try {
@@ -426,7 +497,7 @@ class VideoWallpaperService : WallpaperService() {
                 }
 
                 if (BuildConfig.DEBUG) android.util.Log.d("VideoWPService",
-                    "Playing ${videoW}x${videoH} on ${sw}x${sh} screen, mode=$scaleMode, path=$path")
+                    "Playing ${w}x${h} on ${sw}x${sh} screen, mode=$scaleMode, path=$path")
             } catch (e: Exception) {
                 if (BuildConfig.DEBUG) android.util.Log.e("VideoWPService", "Init failed: ${e.message}")
                 handlePlaybackFailure(
@@ -561,31 +632,46 @@ class VideoWallpaperService : WallpaperService() {
             publishVideoTelemetry(profile)
         }
 
-        private fun initializeGifPlayback(holder: SurfaceHolder, file: File) {
-            val movie = Movie.decodeFile(file.absolutePath)
-                ?: throw IllegalStateException("Selected GIF could not be decoded")
-            if (movie.width() <= 0 || movie.height() <= 0) {
-                throw IllegalStateException("Selected GIF has invalid dimensions")
-            }
+        private fun initializeGifPlaybackAsync(holder: SurfaceHolder, file: File) {
+            val path = file.absolutePath
+            val mod = file.lastModified()
+            playerLoader.request {
+                // Movie.decodeFile decodes the ENTIRE GIF into memory on the calling
+                // thread — for a tens-of-MB / hundreds-of-frame GIF this was a
+                // multi-hundred-ms main-thread stall (AURA-G1-09).
+                val movie = try { Movie.decodeFile(path) } catch (_: Throwable) { null }
+                recoveryHandler.post {
+                    if (destroyed || currentHolder !== holder) return@post
+                    if (lastPath != path || lastModified != mod) return@post
+                    if (movie == null) {
+                        handlePlaybackFailure(VideoPlaybackFailure.PREPARE_ERROR, "Selected GIF could not be decoded")
+                        return@post
+                    }
+                    if (movie.width() <= 0 || movie.height() <= 0) {
+                        handlePlaybackFailure(VideoPlaybackFailure.PREPARE_ERROR, "Selected GIF has invalid dimensions")
+                        return@post
+                    }
 
-            val (sw, sh) = configureSurface(holder)
-            configureFrameRate(holder)
-            gifMovie = movie
-            gifStartedAtMs = SystemClock.uptimeMillis()
-            gifSampleStartedAtMs = 0L
-            gifFramesInSample = 0
-            gifSampledFps = 0
-            if (motionPausedForPowerSave) {
-                drawGifFrame(holder)
-            } else {
-                resumeGifPlayback(holder)
-            }
+                    val (sw, sh) = configureSurface(holder)
+                    configureFrameRate(holder)
+                    gifMovie = movie
+                    gifStartedAtMs = SystemClock.uptimeMillis()
+                    gifSampleStartedAtMs = 0L
+                    gifFramesInSample = 0
+                    gifSampledFps = 0
+                    if (motionPausedForPowerSave) {
+                        drawGifFrame(holder)
+                    } else {
+                        resumeGifPlayback(holder)
+                    }
 
-            if (BuildConfig.DEBUG) {
-                android.util.Log.d(
-                    "VideoWPService",
-                    "Playing GIF ${movie.width()}x${movie.height()} on ${sw}x${sh} screen, mode=${getScaleMode()}, path=${file.absolutePath}",
-                )
+                    if (BuildConfig.DEBUG) {
+                        android.util.Log.d(
+                            "VideoWPService",
+                            "Playing GIF ${movie.width()}x${movie.height()} on ${sw}x${sh} screen, mode=${getScaleMode()}, path=$path",
+                        )
+                    }
+                }
             }
         }
 
@@ -642,7 +728,7 @@ class VideoWallpaperService : WallpaperService() {
                 canvas.restore()
                 updateGifFpsSample(now)
                 if (isFpsOverlayEnabled()) drawFpsOverlay(canvas)
-                drawWallpaperClockOverlay(this@VideoWallpaperService, canvas)
+                clockOverlayRenderer.draw(this@VideoWallpaperService, canvas)
             } finally {
                 try { holder.unlockCanvasAndPost(canvas) } catch (_: Exception) {}
             }
@@ -685,6 +771,7 @@ class VideoWallpaperService : WallpaperService() {
             val filter = IntentFilter().apply {
                 addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED)
                 addAction(VIDEO_AUTO_BATTERY_SAVER_CHANGED_ACTION)
+                addAction(Intent.ACTION_BATTERY_CHANGED)
             }
             try {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
@@ -717,16 +804,21 @@ class VideoWallpaperService : WallpaperService() {
 
         private fun reconcilePowerSavePause() {
             val modeActive = readSystemPowerSaveMode()
-            val action = videoMotionPowerSaveAction(
-                wasPausedForPowerSave = motionPausedForPowerSave,
-                systemPowerSaveMode = modeActive,
-                autoSaverEnabled = isAutoBatterySaverEnabled(),
-            )
+            val battery = readBatterySnapshot()
+            val autoSaver = isAutoBatterySaverEnabled()
+            // G1-06: the low-battery cap (effectiveVideoFpsLimit) only throttles the GIF
+            // path — MediaPlayer cannot be told to drop frames. So the "15 FPS below 15%
+            // battery" promise in the settings text is honoured by pausing motion through
+            // the same switch, exactly like the system Battery Saver branch below.
+            val shouldPause = shouldUseVideoBatterySaver(battery.percent, battery.isCharging, autoSaver) ||
+                shouldPauseVideoMotionForPowerSave(modeActive, autoSaver)
             systemPowerSaveMode = modeActive
-            motionPausedForPowerSave = shouldPauseVideoMotionForPowerSave(
-                systemPowerSaveMode = modeActive,
-                autoSaverEnabled = isAutoBatterySaverEnabled(),
-            )
+            val action = when {
+                shouldPause && !motionPausedForPowerSave -> VideoMotionPowerSaveAction.PAUSE
+                !shouldPause && motionPausedForPowerSave -> VideoMotionPowerSaveAction.RESUME
+                else -> VideoMotionPowerSaveAction.NONE
+            }
+            motionPausedForPowerSave = shouldPause
 
             when (action) {
                 VideoMotionPowerSaveAction.PAUSE -> {
@@ -775,11 +867,22 @@ class VideoWallpaperService : WallpaperService() {
         }
 
         private fun readBatterySnapshot(): BatterySnapshot {
-            val intent = try {
-                registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-            } catch (_: Exception) {
-                null
+            // Prefer the receiver-cached sticky Intent: registering a null receiver is a
+            // synchronous binder call and the telemetry heartbeat used to pay for two of
+            // them every 30 seconds (AURA-G1-18).
+            val intent = cachedBatteryIntent ?: run {
+                val registered = try {
+                    registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                } catch (_: Exception) {
+                    null
+                }
+                cachedBatteryIntent = registered
+                registered
             }
+            return batteryFromIntent(intent)
+        }
+
+        private fun batteryFromIntent(intent: Intent?): BatterySnapshot {
             val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
             val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
             val percent = if (level >= 0 && scale > 0) {
@@ -798,6 +901,11 @@ class VideoWallpaperService : WallpaperService() {
         }
 
         private fun publishVideoTelemetry(profile: VideoPlaybackProfile = activeProfile) {
+            // Only rewrite the stats prefs when something actually changed — the 30s
+            // heartbeat used to unconditionally write all 12 fields every tick (AURA-G1-18).
+            val key = "$visible|$activeMediaType|$profile"
+            if (key == lastPublishedTelemetryKey) return
+            lastPublishedTelemetryKey = key
             getSharedPreferences(VIDEO_STATS_PREFS_NAME, MODE_PRIVATE)
                 .edit()
                 .putLong("last_seen_ms", System.currentTimeMillis())
