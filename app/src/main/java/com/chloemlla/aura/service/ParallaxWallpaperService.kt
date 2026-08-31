@@ -27,8 +27,6 @@ import com.chloemlla.aura.BuildConfig
 import com.chloemlla.aura.R
 import com.google.android.gms.common.moduleinstall.ModuleInstall
 import com.google.android.gms.common.moduleinstall.ModuleInstallRequest
-import com.google.android.gms.tasks.OnFailureListener
-import com.google.android.gms.tasks.OnSuccessListener
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmentation
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmentationResult
@@ -406,12 +404,20 @@ class ParallaxWallpaperService : WallpaperService() {
                 val inputImage = InputImage.fromBitmap(bitmap, 0)
 
                 segmenter.process(inputImage)
-                    .addOnSuccessListener(segmentExecutor, OnSuccessListener<SubjectSegmentationResult> { result ->
-                        handleSegmentSuccess(segmenter, bitmap, generation, result)
-                    })
-                    .addOnFailureListener(segmentExecutor, OnFailureListener { e ->
-                        handleSegmentFailure(segmenter, bitmap, generation, e)
-                    })
+                    // The no-executor listener forms are the only overload present in
+                    // BOTH the real play-services Task (full flavor) and the local FOSS
+                    // stub Task (no SAM classes / executor overloads). Re-dispatch to
+                    // segmentExecutor so the heavy synthesis stays off the main thread.
+                    .addOnSuccessListener { result ->
+                        if (!segmentExecutor.isShutdown) {
+                            segmentExecutor.execute { handleSegmentSuccess(segmenter, bitmap, generation, result) }
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        if (!segmentExecutor.isShutdown) {
+                            segmentExecutor.execute { handleSegmentFailure(segmenter, bitmap, generation, e) }
+                        }
+                    }
             } catch (e: Exception) {
                 synchronized(bitmapLock) { inFlightSegmentInputs.remove(bitmap) }
                 if (BuildConfig.DEBUG) android.util.Log.e("ParallaxWP", "Segmenter init error: ${e.message}")
