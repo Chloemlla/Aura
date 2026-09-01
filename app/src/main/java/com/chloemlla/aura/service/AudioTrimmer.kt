@@ -73,6 +73,7 @@ private const val LOSSLESS_VERIFY_MAX_BYTES = 64L * 1024 * 1024
 private const val LOSSLESS_VERIFY_CHUNK_BYTES = 64 * 1024
 private const val LOSSLESS_FALLBACK_PACKET_BYTES = 1024 * 1024
 private const val RAW_PCM_CODEC_BUFFER_BYTES = 64 * 1024
+private const val LOUDNORM_FILTER = "loudnorm=I=-16:TP=-1.5:LRA=11"
 private val SANITIZE_REGEX = Regex("[^a-zA-Z0-9_-]")
 
 enum class AudioFadeCurve {
@@ -273,6 +274,7 @@ internal fun buildFfmpegEncodeCommand(
     outputPath: String,
     exportFormat: AudioExportFormat,
     bitrateKbps: Int?,
+    audioFilter: String? = null,
 ): List<String> {
     val codec = when (exportFormat) {
         AudioExportFormat.MP3 -> listOf("-c:a", "libmp3lame", "-b:a", "${bitrateKbps ?: exportFormat.defaultBitrateKbps}k")
@@ -283,7 +285,16 @@ internal fun buildFfmpegEncodeCommand(
         AudioExportFormat.M4A -> listOf("-c:a", "aac", "-b:a", "${bitrateKbps ?: exportFormat.defaultBitrateKbps}k")
     }
 
-    return mutableListOf(
+    val filter = audioFilter?.let { listOf("-af", it) } ?: emptyList()
+    // The Ogg branch must stay a named local: as an inline `if` its else arm would swallow
+    // `+ outputPath` and drop the output path from the Ogg command.
+    val metadata = if (exportFormat == AudioExportFormat.OGG) {
+        listOf("-metadata", "ANDROID_LOOP=true")
+    } else {
+        emptyList()
+    }
+
+    return listOf(
         ffmpegPath,
         "-hide_banner",
         "-loglevel", "error",
@@ -291,11 +302,7 @@ internal fun buildFfmpegEncodeCommand(
         "-i", inputPath,
         "-map", "0:a:0",
         "-vn",
-    ) + codec + if (exportFormat == AudioExportFormat.OGG) {
-        listOf("-metadata", "ANDROID_LOOP=true")
-    } else {
-        emptyList()
-    } + outputPath
+    ) + filter + codec + metadata + outputPath
 }
 
 internal fun buildFfmpegStreamCopyTrimCommand(
@@ -991,19 +998,31 @@ class AudioTrimmer @Inject constructor(
         }
     }
 
-    /** Apply volume normalization via FFmpeg loudnorm filter */
+    /**
+     * Apply volume normalization via the FFmpeg loudnorm filter.
+     *
+     * Loudness normalization has to re-encode, so the original file is left untouched and the
+     * normalized copy is written next to it with an extension that matches the encoder actually
+     * used. Returns the path of that copy.
+     */
     suspend fun normalize(inputPath: String): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
             val ffmpegPath = ffmpegDownloader.ensureFfmpeg().getOrThrow()
             val input = File(inputPath)
-            val output = File(input.parentFile, "norm_${input.name}")
+            val outputFormat = losslessCutExportFormat(inputPath) ?: AudioExportFormat.MP3
+            val output = File(
+                input.parentFile,
+                "norm_${input.nameWithoutExtension}.${outputFormat.extension}",
+            )
+            output.delete()
 
-            val cmd = listOf(
-                ffmpegPath.absolutePath, "-y",
-                "-i", inputPath,
-                "-af", "loudnorm=I=-16:TP=-1.5:LRA=11",
-                "-c:a", "libmp3lame", "-q:a", "2",
-                output.absolutePath,
+            val cmd = buildFfmpegEncodeCommand(
+                ffmpegPath = ffmpegPath.absolutePath,
+                inputPath = inputPath,
+                outputPath = output.absolutePath,
+                exportFormat = outputFormat,
+                bitrateKbps = null,
+                audioFilter = LOUDNORM_FILTER,
             )
             val pb = ProcessBuilder(cmd).redirectErrorStream(true).directory(input.parentFile)
             clashProxyManager.applyProxyToProcessBuilder(pb)
@@ -1029,14 +1048,14 @@ class AudioTrimmer @Inject constructor(
                 }
             }
 
-            if (exitCode == 0 && output.exists() && output.length() > 1024) {
-                output.copyTo(input, overwrite = true)
-                output.delete()
-            } else {
+            if (exitCode != 0 || !output.exists() || output.length() <= 1024) {
                 output.delete()
                 throw Exception("Normalization failed (exit $exitCode)")
             }
-            inputPath
+            runCatching { requireSniffedMediaFile(output, MediaFamily.AUDIO, "Sound") }
+                .onFailure { output.delete() }
+                .getOrThrow()
+            output.absolutePath
         }.onFailure { it.rethrowIfCancelled() }
     }
 

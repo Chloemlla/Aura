@@ -3,12 +3,17 @@ package com.chloemlla.aura.service
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.local.PreferencesManager
+import com.chloemlla.aura.data.model.ContentSource
+import com.chloemlla.aura.data.model.ContentType
 import com.chloemlla.aura.data.model.WallpaperHistoryEntity
+import com.chloemlla.aura.data.model.providerNetworkPoliciesBySource
 import com.chloemlla.aura.util.rethrowIfCancelled
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.IOException
+import java.net.URI
 import java.security.MessageDigest
 import java.util.Locale
 import java.util.UUID
@@ -18,6 +23,8 @@ import java.util.zip.ZipOutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -197,11 +204,86 @@ internal fun remapSoundProfileAssetLocators(
     return serializeProfiles(remappedProfiles)
 }
 
+/**
+ * Hosts a theme pack is allowed to point a wallpaper at.
+ *
+ * A pack is the one untrusted archive Aura expands, and the 24H pack worker hands
+ * its slot locators straight to [WallpaperApplier.applyByLocator] every 15 minutes.
+ * An unchecked locator therefore means "set any readable file on this device as the
+ * lock screen" for a `file://` path, or "beacon this URL on a schedule" for a remote
+ * one, with nothing on screen to hint at it (AURA-G2-06). Derived from the provider
+ * registry so it cannot drift from the hosts Aura actually serves wallpapers from.
+ */
+private val THEME_PACK_WALLPAPER_HOST_SUFFIXES: Set<String> = setOf(
+    ContentSource.WALLHAVEN,
+    ContentSource.BING,
+    ContentSource.WIKIMEDIA,
+    ContentSource.INTERNET_ARCHIVE,
+    ContentSource.NASA,
+    ContentSource.PEXELS,
+    ContentSource.PIXABAY,
+    ContentSource.REDDIT,
+    ContentSource.LEMMY,
+).flatMap { providerNetworkPoliciesBySource[it]?.hostSuffixes.orEmpty() }.toSet()
+
+/**
+ * Returns [raw] when a theme pack may keep pointing a wallpaper at it, null otherwise.
+ *
+ * Accepts exactly two shapes: an `https` URL on an allow-listed provider host, and a
+ * file that the import itself expanded under [importDir]. The video branch of
+ * [ThemePackRecipeManager.importThemePack] has always held the second rule; this is
+ * the wallpaper side of it.
+ */
+internal fun sanitizeWallpaperLocator(
+    raw: String,
+    importDir: File?,
+    allowedHostSuffixes: Set<String> = THEME_PACK_WALLPAPER_HOST_SUFFIXES,
+): String? {
+    val locator = raw.trim()
+    if (locator.isBlank()) return null
+    if (locator.startsWith("https://", ignoreCase = true)) {
+        val host = runCatching { URI(locator).host }.getOrNull()?.lowercase(Locale.ROOT) ?: return null
+        val allowed = allowedHostSuffixes.any { host == it || host.endsWith(".$it") }
+        return if (allowed) locator else null
+    }
+    val root = importDir?.let { dir -> runCatching { dir.canonicalFile }.getOrNull() } ?: return null
+    val path = when {
+        locator.startsWith("file://", ignoreCase = true) -> runCatching { URI(locator).path }.getOrNull()
+        locator.startsWith("/") -> locator
+        else -> null
+    } ?: return null
+    val file = runCatching { File(path).canonicalFile }.getOrNull() ?: return null
+    val insideImportDir = file.path.startsWith(root.path + File.separator)
+    return if (insideImportDir && file.isFile) locator else null
+}
+
+internal data class SanitizedWallpaperPack(
+    val json: String,
+    val droppedSlotCount: Int,
+)
+
+/** Drops every 24H pack slot whose locator [sanitizeWallpaperLocator] rejects. */
+internal fun sanitizeWallpaperPackLocators(raw: String, importDir: File?): SanitizedWallpaperPack {
+    val pack = parsePack(raw) ?: return SanitizedWallpaperPack(raw, droppedSlotCount = 0)
+    val kept = pack.slots.filter { sanitizeWallpaperLocator(it.wallpaperUri, importDir) != null }
+    if (kept.size == pack.slots.size) return SanitizedWallpaperPack(raw, droppedSlotCount = 0)
+    return SanitizedWallpaperPack(
+        json = serializePack(pack.copy(slots = kept)),
+        droppedSlotCount = pack.slots.size - kept.size,
+    )
+}
+
 internal fun themePackImportInstructions(
     recipe: ThemePackRecipe,
     assetRemaps: Map<String, String>,
+    unsupportedWallpaperSourceHint: String? = null,
+    enableWallpaperPackHint: String? = null,
+    pendingSoundRecipeHint: String? = null,
 ): List<String> {
     val instructions = linkedSetOf<String>()
+    unsupportedWallpaperSourceHint?.let { instructions += it }
+    enableWallpaperPackHint?.let { instructions += it }
+    pendingSoundRecipeHint?.let { instructions += it }
     recipe.shortcuts
         .filterNot { it.supportedOnImport }
         .mapTo(instructions) { it.manualInstruction }
@@ -240,7 +322,21 @@ class ThemePackRecipeManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val prefs: PreferencesManager,
     private val wallpaperHistoryManager: WallpaperHistoryManager,
+    private val soundApplier: SoundApplier,
 ) {
+    /**
+     * True while an import has stored ringtone recipes it deliberately did not apply
+     * (AURA-G2-18). Settings shows the "apply" action only while this is true, so the
+     * import's "you must apply these yourself" hint has somewhere to lead.
+     */
+    val hasPendingSoundRecipes: Flow<Boolean> = combine(
+        prefs.pendingThemePackRingtoneUri,
+        prefs.pendingThemePackNotificationUri,
+        prefs.pendingThemePackAlarmUri,
+    ) { ringtone, notification, alarm ->
+        ringtone.isNotBlank() || notification.isNotBlank() || alarm.isNotBlank()
+    }
+
     suspend fun exportThemePack(outputUri: Uri, name: String = "Aura theme pack"): Result<ThemePackExportReport> =
         withContext(Dispatchers.IO) {
             runCatching {
@@ -268,17 +364,32 @@ class ThemePackRecipeManager @Inject constructor(
                 }
                 val references = recipe.allMediaReferences()
                 var importedCount = 0
+                var droppedWallpaperSlots = 0
+                var wallpaperPackNeedsEnabling = false
+                var pendingSoundRecipes = false
 
                 if (recipe.wallpaperPackJson.isNotBlank()) {
-                    prefs.setWallpaperPackJson(
-                        remapWallpaperPackAssetLocators(
+                    val sanitized = sanitizeWallpaperPackLocators(
+                        raw = remapWallpaperPackAssetLocators(
                             raw = recipe.wallpaperPackJson,
                             references = references,
                             assetRemaps = imported.assetsByKey,
                         ),
+                        importDir = imported.importDir,
                     )
+                    droppedWallpaperSlots = sanitized.droppedSlotCount
+                    prefs.setWallpaperPackJson(sanitized.json)
                     prefs.setWallpaperPackLastAppliedDaypart("")
-                    importedCount++
+                    // Importing does not enable the pack or schedule its worker: that
+                    // would start rewriting wallpapers the user never asked for, and it
+                    // fights automatic rotation (AURA-G2-13). It only counts as restored
+                    // when the pack is already on — otherwise it is a stored recipe
+                    // waiting behind a switch (AURA-G2-19).
+                    if (prefs.wallpaperPackEnabled.first()) {
+                        importedCount++
+                    } else {
+                        wallpaperPackNeedsEnabling = true
+                    }
                 }
 
                 if (recipe.soundProfilesJson.isNotBlank()) {
@@ -297,17 +408,23 @@ class ThemePackRecipeManager @Inject constructor(
                 val ringtone = remappedLocator(sounds.ringtoneUri, references, imported.assetsByKey)
                 val notification = remappedLocator(sounds.notificationUri, references, imported.assetsByKey)
                 val alarm = remappedLocator(sounds.alarmUri, references, imported.assetsByKey)
+                // Pending, never lastApplied*: those keys mean "Aura really did set this
+                // system sound", and RingtoneRestorationWorker forces them back at every
+                // boot. Writing them here changed the user's ringtone days after an
+                // import they thought only touched wallpapers (AURA-G2-18). Nothing is
+                // applied until applyPendingThemePackSounds() runs, so none of these
+                // count as restored.
                 if (ringtone.isNotBlank()) {
-                    prefs.setLastAppliedRingtoneUri(ringtone)
-                    importedCount++
+                    prefs.setPendingThemePackRingtoneUri(ringtone)
+                    pendingSoundRecipes = true
                 }
                 if (notification.isNotBlank()) {
-                    prefs.setLastAppliedNotificationUri(notification)
-                    importedCount++
+                    prefs.setPendingThemePackNotificationUri(notification)
+                    pendingSoundRecipes = true
                 }
                 if (alarm.isNotBlank()) {
-                    prefs.setLastAppliedAlarmUri(alarm)
-                    importedCount++
+                    prefs.setPendingThemePackAlarmUri(alarm)
+                    pendingSoundRecipes = true
                 }
 
                 recipe.videoWallpaper?.let { video ->
@@ -332,10 +449,72 @@ class ThemePackRecipeManager @Inject constructor(
 
                 ThemePackImportReport(
                     importedItemCount = importedCount,
-                    instructions = themePackImportInstructions(recipe, imported.assetsByKey),
+                    instructions = themePackImportInstructions(
+                        recipe = recipe,
+                        assetRemaps = imported.assetsByKey,
+                        unsupportedWallpaperSourceHint = if (droppedWallpaperSlots > 0) {
+                            context.getString(R.string.theme_pack_import_unsupported_wallpaper_source)
+                        } else {
+                            null
+                        },
+                        enableWallpaperPackHint = if (wallpaperPackNeedsEnabling) {
+                            context.getString(R.string.theme_pack_import_enable_wallpaper_pack)
+                        } else {
+                            null
+                        },
+                        pendingSoundRecipeHint = if (pendingSoundRecipes) {
+                            context.getString(R.string.theme_pack_import_pending_sounds)
+                        } else {
+                            null
+                        },
+                    ),
                 )
             }.onFailure { it.rethrowIfCancelled() }
         }
+
+    /**
+     * Applies the sound recipe an import left pending, and returns how many landed.
+     *
+     * This is the only path that may write the `lastApplied*` keys for an imported
+     * pack: they are what [RingtoneRestorationWorker] restores at boot, so they must
+     * describe sounds Aura actually set, at a moment the user chose (AURA-G2-18).
+     * Locators that are not files this import expanded are skipped — a `content://`
+     * from the exporting device is not readable here.
+     */
+    suspend fun applyPendingThemePackSounds(): Result<Int> = withContext(Dispatchers.IO) {
+        runCatching {
+            var applied = 0
+            listOf(
+                ContentType.RINGTONE to prefs.pendingThemePackRingtoneUri.first(),
+                ContentType.NOTIFICATION to prefs.pendingThemePackNotificationUri.first(),
+                ContentType.ALARM to prefs.pendingThemePackAlarmUri.first(),
+            ).forEach { (type, locator) ->
+                val file = stagedThemePackFile(locator) ?: return@forEach
+                if (soundApplier.applyFromLocalFile(file.absolutePath, file.name, type).isSuccess) {
+                    clearPendingThemePackSound(type)
+                    applied++
+                }
+            }
+            applied
+        }.onFailure { it.rethrowIfCancelled() }
+    }
+
+    private fun stagedThemePackFile(locator: String): File? {
+        val path = locator.trim().takeIf { it.startsWith("/") } ?: return null
+        val root = runCatching { File(context.filesDir, "theme_packs").canonicalFile }.getOrNull()
+            ?: return null
+        val file = runCatching { File(path).canonicalFile }.getOrNull() ?: return null
+        return file.takeIf { it.path.startsWith(root.path + File.separator) && it.isFile }
+    }
+
+    private suspend fun clearPendingThemePackSound(type: ContentType) {
+        when (type) {
+            ContentType.RINGTONE -> prefs.setPendingThemePackRingtoneUri("")
+            ContentType.NOTIFICATION -> prefs.setPendingThemePackNotificationUri("")
+            ContentType.ALARM -> prefs.setPendingThemePackAlarmUri("")
+            else -> Unit
+        }
+    }
 
     /**
      * Deletes previous `theme_packs/import-*` directories that are no longer referenced
@@ -353,6 +532,11 @@ class ThemePackRecipeManager @Inject constructor(
             appendLine(prefs.lastAppliedRingtoneUri.first())
             appendLine(prefs.lastAppliedNotificationUri.first())
             appendLine(prefs.lastAppliedAlarmUri.first())
+            // Pending sound recipes still point into their import dir; deleting it
+            // would leave "apply theme pack sounds" with nothing to apply.
+            appendLine(prefs.pendingThemePackRingtoneUri.first())
+            appendLine(prefs.pendingThemePackNotificationUri.first())
+            appendLine(prefs.pendingThemePackAlarmUri.first())
             appendLine(
                 context.getSharedPreferences(LIVE_WALLPAPER_PREFS, Context.MODE_PRIVATE)
                     .getString("video_path", "").orEmpty(),

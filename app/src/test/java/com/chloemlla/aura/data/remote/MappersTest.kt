@@ -1,10 +1,15 @@
 package com.chloemlla.aura.data.remote
 
 import com.chloemlla.aura.data.model.*
+import com.chloemlla.aura.data.remote.bing.BingImage
 import com.chloemlla.aura.data.remote.lemmy.LemmyPerson
 import com.chloemlla.aura.data.remote.lemmy.LemmyPost
 import com.chloemlla.aura.data.remote.lemmy.LemmyPostCounts
 import com.chloemlla.aura.data.remote.lemmy.LemmyPostView
+import com.chloemlla.aura.data.remote.nasa.NasaApodResponse
+import com.chloemlla.aura.data.remote.pixabay.PixabayPhoto
+import com.chloemlla.aura.data.remote.wallhaven.WallhavenThumbs
+import com.chloemlla.aura.data.remote.wallhaven.WallhavenWallpaper
 import com.chloemlla.aura.data.remote.wikimedia.WikimediaPotdImage
 import com.chloemlla.aura.data.remote.wikimedia.WikimediaText
 import com.chloemlla.aura.data.remote.wikimedia.WikimediaThumbnail
@@ -136,6 +141,71 @@ class MappersTest {
         assertEquals("file:///data/user/0/com.chloemlla.aura/files/favorites/rd_missing.jpg", restored.fullUrl)
         assertTrue(restored.isSourceUnavailable())
         assertEquals("Post was removed", restored.sourceAvailabilityReason)
+    }
+
+    // ── Wallpaper license provenance (AURA-G4-03) ──
+
+    @Test
+    fun `Wallhaven wallpapers keep a blank license so the gate stays on`() {
+        val wp = WallhavenWallpaper(
+            id = "abc123",
+            url = "https://wallhaven.cc/w/abc123",
+            path = "https://w.wallhaven.cc/full/ab/wallhaven-abc123.jpg",
+            dimensionX = 1920,
+            dimensionY = 1080,
+            thumbs = WallhavenThumbs(large = "https://th.wallhaven.cc/lg/ab/abc123.jpg"),
+        ).toWallpaper()
+
+        assertEquals("", wp.license)
+        assertEquals("Unknown", normalizeWallpaperLicense(wp.source, wp.license))
+    }
+
+    @Test
+    fun `Bing images carry the disclosed provider image terms`() {
+        val wp = BingImage(
+            startDate = "20260620",
+            urlbase = "/th?id=OHR.Example",
+            copyright = "Mount Fuji, Japan (© Example/Getty Images)",
+            copyrightLink = "https://www.bing.com/search?q=Mount+Fuji",
+        ).toWallpaper()
+
+        assertEquals("Provider-defined image use", wp.license)
+    }
+
+    @Test
+    fun `NASA APOD without a copyright line falls under NASA media guidelines`() {
+        val wp = NasaApodResponse(
+            date = "2026-06-20",
+            url = "https://apod.nasa.gov/apod/image/example.jpg",
+        ).toWallpaper()!!
+
+        assertEquals("NASA media guidelines", wp.license)
+    }
+
+    @Test
+    fun `NASA APOD with a third-party copyright stays license-unknown`() {
+        val wp = NasaApodResponse(
+            date = "2026-06-21",
+            url = "https://apod.nasa.gov/apod/image/example.jpg",
+            copyright = "Jane Astrophotographer",
+        ).toWallpaper()!!
+
+        assertEquals("", wp.license)
+        assertEquals("Unknown", normalizeWallpaperLicense(wp.source, wp.license))
+    }
+
+    @Test
+    fun `Pixabay photos carry the Pixabay content license`() {
+        val wp = PixabayPhoto(
+            id = 7,
+            pageUrl = "https://pixabay.com/photos/example-7/",
+            webformatUrl = "https://pixabay.com/get/web.jpg",
+            largeImageUrl = "https://pixabay.com/get/large.jpg",
+            user = "uploader",
+        ).toWallpaper()
+
+        assertEquals("Pixabay Content License", wp.license)
+        assertEquals("Pixabay License", normalizeWallpaperLicense(wp.source, wp.license))
     }
 
     // ── Sound.toFavoriteEntity + FavoriteEntity.toSound ──

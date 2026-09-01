@@ -34,6 +34,7 @@ class AutoWallpaperWorker @AssistedInject constructor(
     private val favoritesRepo: FavoritesRepository,
     private val collectionRepo: CollectionRepository,
     private val wallpaperApplier: WallpaperApplier,
+    private val applyCoordinator: WallpaperApplyCoordinator,
     private val historyManager: WallpaperHistoryManager,
     private val prefs: PreferencesManager,
     private val localWallpaperCatalog: LocalWallpaperCatalog,
@@ -44,6 +45,15 @@ class AutoWallpaperWorker @AssistedInject constructor(
         val receiptWorkName = inputData.getString(RECEIPT_WORK_NAME_KEY) ?: WORK_NAME
         val attempt = runAttemptCount
         return try {
+            if (prefs.wallpaperPackEnabled.first()) {
+                // The 24H pack owns the wallpaper while it is on. Both features used to
+                // set wallpapers on their own schedules, so a rotation was reverted at
+                // the next daypart boundary and the pack looked broken (AURA-G2-13).
+                // Settings now keeps the two toggles mutually exclusive; this is the
+                // backstop for devices upgrading with both already enabled.
+                receiptStore.recordSuccess(receiptWorkName)
+                return Result.success()
+            }
             val schedulerEnabled = prefs.schedulerEnabled.first()
             val legacyEnabled = prefs.autoWallpaperEnabled.first()
             val triggeredRotation = inputData.getBoolean(TRIGGERED_ROTATION_KEY, false)
@@ -276,23 +286,28 @@ class AutoWallpaperWorker @AssistedInject constructor(
             isSystemDark = applicationContext.resources.configuration.uiMode and
                 Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES,
         )
-        return wallpaperApplier.applyByLocator(
-            wallpaper.fullUrl,
-            target,
-            darkenPercent = darkenPercent,
-            nightVariant = nightVariant,
-            imageFlow = MediaIngestionImageFlow.AUTO_ROTATION,
-        ).fold(
-            onSuccess = {
-                historyManager.record(wallpaper, target)
-                prefs.setLastNightVariantWallpaper(wallpaper.fullUrl, target.name, darkenPercent)
-                if (prefs.avoidRecentRepeats.first()) {
-                    prefs.addRecentRotationId(wallpaper.stableKey())
-                }
-                Result.success()
-            },
-            onFailure = { Result.retry() },
-        )
+        // Through the coordinator, not straight to the applier: it owns the
+        // history/night-variant commit and the process-wide apply lock, so a rotation
+        // can no longer interleave with a trigger run or the 24H pack (AURA-G2-14).
+        val applied = applyCoordinator.apply(
+            wallpaper = wallpaper,
+            target = target,
+            policy = WallpaperApplyPolicy.BACKGROUND,
+            nightVariantDarkenPercent = darkenPercent,
+        ) {
+            wallpaperApplier.applyByLocator(
+                wallpaper.fullUrl,
+                target,
+                darkenPercent = darkenPercent,
+                nightVariant = nightVariant,
+                imageFlow = MediaIngestionImageFlow.AUTO_ROTATION,
+            )
+        }
+        if (applied.isFailure) return Result.retry()
+        if (prefs.avoidRecentRepeats.first()) {
+            prefs.addRecentRotationId(wallpaper.stableKey())
+        }
+        return Result.success()
     }
 
     companion object {

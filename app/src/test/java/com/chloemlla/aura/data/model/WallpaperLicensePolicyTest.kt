@@ -210,6 +210,46 @@ class WallpaperLicensePolicyTest {
         assertTrue(capabilities.canUse(WallpaperAction.EDIT))
     }
 
+    @Test
+    fun `hyphenated CC license spellings still require attribution`() {
+        val capabilities = wallpaper(
+            source = ContentSource.WIKIMEDIA,
+            license = "CC-BY-4.0",
+            sourcePageUrl = "https://commons.wikimedia.org/wiki/File:Example.jpg",
+        ).wallpaperLicenseCapabilities()
+
+        assertEquals("CC-BY-4.0", capabilities.normalizedLicense)
+        assertTrue(capabilities.attributionRequired)
+        assertTrue(capabilities.canUse(WallpaperAction.SHARE))
+    }
+
+    @Test
+    fun `noncommercial no derivatives wallpapers keep edit disabled`() {
+        val capabilities = wallpaper(
+            source = ContentSource.WIKIMEDIA,
+            license = "CC BY-NC-ND 4.0",
+            sourcePageUrl = "https://commons.wikimedia.org/wiki/File:Example.jpg",
+        ).wallpaperLicenseCapabilities()
+
+        assertEquals("CC BY-NC-ND", capabilities.normalizedLicense)
+        assertFalse(capabilities.canUse(WallpaperAction.EDIT))
+        assertTrue(capabilities.requiresConfirmation(WallpaperAction.APPLY))
+        assertTrue(capabilities.requiresConfirmation(WallpaperAction.DOWNLOAD))
+    }
+
+    @Test
+    fun `nasa wallpapers under media guidelines skip the unknown-license gate`() {
+        val capabilities = wallpaper(
+            source = ContentSource.NASA,
+            license = "NASA media guidelines",
+            sourcePageUrl = "https://apod.nasa.gov/apod/ap260620.html",
+        ).wallpaperLicenseCapabilities()
+
+        assertEquals("NASA media guidelines", capabilities.normalizedLicense)
+        assertFalse(capabilities.requiresConfirmation(WallpaperAction.APPLY))
+        assertTrue(capabilities.canUse(WallpaperAction.SHARE))
+    }
+
     private fun wallpaper(
         source: ContentSource,
         license: String,

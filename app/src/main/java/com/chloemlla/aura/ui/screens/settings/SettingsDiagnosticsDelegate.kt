@@ -82,6 +82,8 @@ internal class SettingsDiagnosticsDelegate(
     val ytDlpUpdate = _ytDlpUpdate.asStateFlow()
     private val _themePackTransfer = MutableStateFlow(ThemePackTransferState())
     val themePackTransfer = _themePackTransfer.asStateFlow()
+    val pendingThemePackSounds =
+        themePackRecipeManager.hasPendingSoundRecipes.stateIn(scope, sharing, false)
     private val _generatedAssets = MutableStateFlow(GeneratedAssetAudit())
     val generatedAssets = _generatedAssets.asStateFlow()
     val diagnostics = sourceMetrics.version
@@ -282,6 +284,38 @@ internal class SettingsDiagnosticsDelegate(
 
     fun clearThemePackTransferNotice() {
         _themePackTransfer.update { it.copy(message = null, error = null, instructions = emptyList()) }
+    }
+
+    /**
+     * Applies the ringtone recipes an import stored but left alone. Importing a pack
+     * must never change system sounds on its own (AURA-G2-18), so this is the user's
+     * explicit second step.
+     */
+    fun applyPendingThemePackSounds() {
+        if (_themePackTransfer.value.inProgress) return
+        scope.launch {
+            _themePackTransfer.value = ThemePackTransferState(inProgress = true)
+            val result = themePackRecipeManager.applyPendingThemePackSounds()
+            _themePackTransfer.value = result.fold(
+                onSuccess = { count ->
+                    ThemePackTransferState(
+                        message = context.resources.getQuantityString(
+                            R.plurals.settings_theme_pack_sounds_applied,
+                            count,
+                            count,
+                        ),
+                    )
+                },
+                onFailure = { error ->
+                    ThemePackTransferState(
+                        error = context.getString(
+                            R.string.settings_theme_pack_sounds_apply_failed,
+                            error.message ?: context.getString(R.string.common_retry_later),
+                        ),
+                    )
+                },
+            )
+        }
     }
 
     fun exportLibrary(uri: Uri) {

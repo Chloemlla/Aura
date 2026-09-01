@@ -235,6 +235,7 @@ class SettingsViewModel @Inject constructor(
     val externalAutomationDiagnostics get() = diagnosticsDelegate.externalAutomationDiagnostics
     val ytDlpUpdate get() = diagnosticsDelegate.ytDlpUpdate
     val themePackTransfer get() = diagnosticsDelegate.themePackTransfer
+    val pendingThemePackSounds get() = diagnosticsDelegate.pendingThemePackSounds
     val generatedAssets get() = diagnosticsDelegate.generatedAssets
     val diagnostics get() = diagnosticsDelegate.diagnostics
 
@@ -362,6 +363,7 @@ class SettingsViewModel @Inject constructor(
     fun exportThemePack(uri: Uri) = diagnosticsDelegate.exportThemePack(uri)
     fun importThemePack(uri: Uri) = diagnosticsDelegate.importThemePack(uri)
     fun clearThemePackTransferNotice() = diagnosticsDelegate.clearThemePackTransferNotice()
+    fun applyPendingThemePackSounds() = diagnosticsDelegate.applyPendingThemePackSounds()
     fun exportLibrary(uri: Uri) = diagnosticsDelegate.exportLibrary(uri)
     fun importLibrary(uri: Uri) = diagnosticsDelegate.importLibrary(uri)
     fun clearWallpaperHistory() = diagnosticsDelegate.clearWallpaperHistory()

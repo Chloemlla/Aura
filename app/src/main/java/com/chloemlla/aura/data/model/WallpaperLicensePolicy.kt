@@ -50,7 +50,7 @@ fun Wallpaper.wallpaperLicenseCapabilities(): WallpaperLicenseCapabilities {
 
     val normalizedLicense = normalizeWallpaperLicense(source, license)
     val licenseKey = normalizedLicense.uppercase(Locale.ROOT)
-    val isCreativeCommons = licenseKey.startsWith("CC ")
+    val isCreativeCommons = licenseKey.startsWith("CC ") || licenseKey.startsWith("CC-")
     val isCc0Compatible = licenseKey == "CC0" || licenseKey == "CC0 1.0" || licenseKey == "PUBLIC DOMAIN"
     val isNoDerivatives = licenseKey.contains("-ND")
     val isNonCommercial = licenseKey.contains("-NC")

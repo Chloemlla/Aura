@@ -241,14 +241,15 @@
     },
     "shared_collections": {
       "$token": {
-        ".read": true,
+        ".read": "data.child('expiresAt').val() > now",
         ".write": "auth != null && ((!data.exists() && (newData.child('createdByUid').val() === auth.uid || auth.token.admin === true)) || (data.exists() && (data.child('createdByUid').val() === auth.uid || auth.token.admin === true)))",
-        ".validate": "newData.hasChildren(['version', 'payload', 'collectionName', 'itemCount', 'createdAt', 'createdByUid'])",
+        ".validate": "newData.hasChildren(['version', 'payload', 'collectionName', 'itemCount', 'createdAt', 'expiresAt', 'createdByUid'])",
         "version": { ".validate": "newData.isNumber() && newData.val() === 1" },
         "payload": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 524288" },
         "collectionName": { ".validate": "newData.isString() && newData.val().length <= 80" },
         "itemCount": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 250" },
         "createdAt": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now" },
+        "expiresAt": { ".validate": "newData.isNumber() && newData.val() > now && newData.val() <= now + 2678400000" },
         "createdByUid": { ".validate": "newData.isString() && (newData.val() === auth.uid || auth.token.admin === true)" }
       }
     }

@@ -21,6 +21,9 @@ fun WallhavenWallpaper.toWallpaper() = Wallpaper(
     category = category,
     tags = tags?.map { it.name } ?: emptyList(),
     colors = colors,
+    // Wallhaven exposes no per-item license, so this stays blank on purpose and normalizes to
+    // "Unknown" — the license gate must ask for confirmation instead of assuming a license.
+    license = "",
     fileSize = fileSize,
     fileType = fileType,
     sourcePageUrl = url,
@@ -38,6 +41,9 @@ private fun WallhavenWallpaper.wallhavenStableId(): String =
 
 private val BING_COPYRIGHT_REGEX = Regex("""\(([^)]+)\)""")
 
+/** Matches the Bing entry in `ProviderDisclosure` (`licenseSummary = "Provider-defined image use"`). */
+private const val BING_IMAGE_LICENSE = "Provider-defined image use"
+
 fun BingImage.toWallpaper(bingBaseUrl: String = BingDailyApi.BASE_URL) = Wallpaper(
     id = "bing_${startDate}_${urlbase.hashCode().toUInt()}",
     source = ContentSource.BING,
@@ -47,12 +53,18 @@ fun BingImage.toWallpaper(bingBaseUrl: String = BingDailyApi.BASE_URL) = Wallpap
     height = 2160,
     category = "daily",
     tags = listOf("bing", "daily", "curated"),
+    license = BING_IMAGE_LICENSE,
     sourcePageUrl = copyrightLink,
     uploaderName = BING_COPYRIGHT_REGEX.find(copyright)?.groupValues?.get(1)
         ?: copyright.take(80),
 )
 
 // -- NASA APOD -> Wallpaper --
+
+/** Matches the NASA entry in `ProviderDisclosure` ("NASA media guidelines; some images have
+ * third-party copyright"). Only APOD entries without a `copyright` line fall under the guidelines;
+ * a third-party credit means the terms are unknown, so those keep a blank license and stay gated. */
+private const val NASA_MEDIA_GUIDELINES_LICENSE = "NASA media guidelines"
 
 fun NasaApodResponse.toWallpaper(): Wallpaper? {
     if (mediaType != "image") return null
@@ -67,6 +79,7 @@ fun NasaApodResponse.toWallpaper(): Wallpaper? {
         height = 0,
         category = "astronomy",
         tags = listOf("nasa", "apod", "astronomy", "space"),
+        license = if (copyright.isNullOrBlank()) NASA_MEDIA_GUIDELINES_LICENSE else "",
         sourcePageUrl = date.takeIf { it.isNotBlank() }
             ?.let { "https://apod.nasa.gov/apod/ap${it.replace("-", "").drop(2)}.html" }
             ?: imageUrl,
@@ -96,12 +109,18 @@ fun WikimediaPotdImage.toWallpaper(date: String): Wallpaper? {
         height = image.height,
         category = "photography",
         tags = listOf("wikipedia", "potd", "featured", "commons"),
+        // Per-file license lives in the Commons API's `extmetadata.LicenseShortName`, which
+        // WikimediaPotdImage does not carry yet; until it does this stays blank and stays gated.
+        license = "",
         sourcePageUrl = filePage ?: "",
         uploaderName = artistName,
     )
 }
 
 // -- Pixabay -> Wallpaper --
+
+/** Matches the Pixabay entry in `ProviderDisclosure` (`licenseSummary = "Pixabay Content License"`). */
+private const val PIXABAY_CONTENT_LICENSE = "Pixabay Content License"
 
 fun PixabayPhoto.toWallpaper() = Wallpaper(
     id = "pb_$id",
@@ -112,6 +131,7 @@ fun PixabayPhoto.toWallpaper() = Wallpaper(
     height = imageHeight,
     tags = tags.split(",").map { it.trim() }.filter { it.isNotEmpty() },
     fileSize = imageSize,
+    license = PIXABAY_CONTENT_LICENSE,
     sourcePageUrl = pageUrl,
     uploaderName = user,
     views = views,

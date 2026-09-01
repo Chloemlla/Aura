@@ -150,6 +150,23 @@ class AudioTrimmerTest {
     }
 
     @Test
+    fun `encode command inserts the audio filter before the codec and keeps the output path`() {
+        val command = buildFfmpegEncodeCommand(
+            ffmpegPath = "/ffmpeg",
+            inputPath = "/input.ogg",
+            outputPath = "/norm_input.ogg",
+            exportFormat = AudioExportFormat.OGG,
+            bitrateKbps = null,
+            audioFilter = "loudnorm=I=-16:TP=-1.5:LRA=11",
+        )
+
+        assertTrue(command.windowed(2).contains(listOf("-af", "loudnorm=I=-16:TP=-1.5:LRA=11")))
+        assertTrue(command.indexOf("-af") < command.indexOf("-c:a"))
+        assertTrue(command.windowed(2).contains(listOf("-metadata", "ANDROID_LOOP=true")))
+        assertEquals("/norm_input.ogg", command.last())
+    }
+
+    @Test
     fun `stream copy fallback never adds an audio filter or encoder`() {
         val command = buildFfmpegStreamCopyTrimCommand(
             ffmpegPath = "/ffmpeg",

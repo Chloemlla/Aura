@@ -218,9 +218,14 @@ class ReleasePolishContractTest {
         val worker = File("src/main/java/com/chloemlla/aura/service/AutoWallpaperWorker.kt").readText()
         val listener = File("src/main/java/com/chloemlla/aura/service/SystemThemeListener.kt").readText()
         val applier = File("src/main/java/com/chloemlla/aura/service/WallpaperApplier.kt").readText()
+        val coordinator =
+            File("src/main/java/com/chloemlla/aura/service/WallpaperApplyCoordinator.kt").readText()
 
         assertTrue(worker.contains("shouldUseNightWallpaperVariant("))
-        assertTrue(worker.contains("setLastNightVariantWallpaper("))
+        // The worker hands the dim level to the single commit point instead of writing
+        // the locator itself (AURA-G2-14), so the write lives in the coordinator now.
+        assertTrue(worker.contains("nightVariantDarkenPercent = darkenPercent"))
+        assertTrue(coordinator.contains("setLastNightVariantWallpaper("))
         assertTrue(listener.contains("lastNightVariantWallpaperLocator.first()"))
         assertTrue(listener.contains("nightVariant = isNight"))
         assertTrue(applier.contains("nightWallpaperVariantColorMatrix()"))

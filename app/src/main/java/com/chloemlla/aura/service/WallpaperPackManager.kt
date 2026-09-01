@@ -9,6 +9,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.chloemlla.aura.data.local.PreferencesManager
+import com.chloemlla.aura.data.model.ContentSource
+import com.chloemlla.aura.data.model.Wallpaper
 import com.chloemlla.aura.data.model.WallpaperTarget
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -72,12 +74,32 @@ internal fun activeSlotForHour(pack: WallpaperPack, hour: Int): DaypartSlot? {
     return pack.slots.firstOrNull { it.daypart == daypart }
 }
 
+/**
+ * Minimal catalog identity for a pack slot so the apply can be recorded in history.
+ *
+ * A daypart slot is just a locator — it has no provider row behind it — but without
+ * an identity the coordinator skips history, which is what kept pack wallpapers out
+ * of Undo and out of widget/Material You tinting (AURA-G2-14). Same shape
+ * `queryLocalFolderWallpapers` builds for a folder image.
+ */
+internal fun wallpaperPackSlotWallpaper(locator: String): Wallpaper = Wallpaper(
+    id = locator,
+    source = ContentSource.LOCAL,
+    thumbnailUrl = locator,
+    fullUrl = locator,
+    width = 0,
+    height = 0,
+    license = "Local User Content",
+    uploaderName = "24-hour wallpaper pack",
+)
+
 @HiltWorker
 class WallpaperPackWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
     private val prefs: PreferencesManager,
     private val wallpaperApplier: WallpaperApplier,
+    private val applyCoordinator: WallpaperApplyCoordinator,
     private val receiptStore: BackgroundWorkReceiptStore,
 ) : CoroutineWorker(appContext, workerParams) {
 
@@ -117,7 +139,11 @@ class WallpaperPackWorker @AssistedInject constructor(
             val target = runCatching { WallpaperTarget.valueOf(pack.target) }
                 .getOrDefault(WallpaperTarget.BOTH)
 
-            wallpaperApplier.applyByLocator(slot.wallpaperUri, target)
+            applyCoordinator.apply(
+                wallpaper = wallpaperPackSlotWallpaper(slot.wallpaperUri),
+                target = target,
+                policy = WallpaperApplyPolicy.BACKGROUND,
+            ) { wallpaperApplier.applyByLocator(slot.wallpaperUri, target) }
                 .onSuccess {
                     prefs.setWallpaperPackLastAppliedDaypart(slot.daypart.name)
                     receiptStore.recordSuccess(WORK_NAME)

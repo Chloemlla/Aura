@@ -21,12 +21,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.COMMUNITY_REPORT_REASONS
 import com.chloemlla.aura.data.model.CommunityReportReason
-import com.chloemlla.aura.ui.policy.COMMUNITY_REPORT_TAKEDOWN_COPY
+import com.chloemlla.aura.ui.policy.communityReportTakedownCopy
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -36,8 +37,9 @@ fun CommunityReportDialog(
     onSubmit: (CommunityReportReason, String) -> Unit,
     modifier: Modifier = Modifier,
     reasons: List<CommunityReportReason> = COMMUNITY_REPORT_REASONS,
-    body: String = COMMUNITY_REPORT_TAKEDOWN_COPY,
+    body: String? = null,
 ) {
+    val resolvedBody = body ?: communityReportTakedownCopy(LocalResources.current)
     val initialReason = reasons.firstOrNull() ?: CommunityReportReason.OTHER
     var selectedReason by remember(reasons) { mutableStateOf(initialReason) }
     var note by remember { mutableStateOf("") }
@@ -71,9 +73,9 @@ fun CommunityReportDialog(
                         )
                     }
                 }
-                if (body.isNotBlank()) {
+                if (resolvedBody.isNotBlank()) {
                     Text(
-                        body,
+                        resolvedBody,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

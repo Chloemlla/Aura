@@ -1,20 +1,36 @@
 package com.chloemlla.aura.ui.policy
 
+import android.content.res.Resources
+import androidx.annotation.StringRes
+import com.chloemlla.aura.R
+
 enum class CommunityUploadPolicyKind(
-    val displayName: String,
-    val publicListingName: String,
-    val uploadedFileName: String,
+    @StringRes val displayNameRes: Int,
+    @StringRes val pluralDisplayNameRes: Int,
+    @StringRes val publicListingNameRes: Int,
+    @StringRes val uploadedFileNameRes: Int,
 ) {
     SOUND(
-        displayName = "sound",
-        publicListingName = "community sound",
-        uploadedFileName = "uploaded audio file",
+        displayNameRes = R.string.policy_kind_sound_singular,
+        pluralDisplayNameRes = R.string.policy_kind_sound_plural,
+        publicListingNameRes = R.string.policy_kind_sound_public_listing,
+        uploadedFileNameRes = R.string.policy_kind_sound_uploaded_file,
     ),
     WALLPAPER(
-        displayName = "wallpaper",
-        publicListingName = "community wallpaper",
-        uploadedFileName = "uploaded image file",
+        displayNameRes = R.string.policy_kind_wallpaper_singular,
+        pluralDisplayNameRes = R.string.policy_kind_wallpaper_plural,
+        publicListingNameRes = R.string.policy_kind_wallpaper_public_listing,
+        uploadedFileNameRes = R.string.policy_kind_wallpaper_uploaded_file,
     ),
+    ;
+
+    fun displayName(resources: Resources): String = resources.getString(displayNameRes)
+
+    fun pluralDisplayName(resources: Resources): String = resources.getString(pluralDisplayNameRes)
+
+    fun publicListingName(resources: Resources): String = resources.getString(publicListingNameRes)
+
+    fun uploadedFileName(resources: Resources): String = resources.getString(uploadedFileNameRes)
 }
 
 data class CommunityUploadPolicyCopy(
@@ -24,19 +40,45 @@ data class CommunityUploadPolicyCopy(
     val attestation: String,
 )
 
-fun communityUploadPolicyCopy(kind: CommunityUploadPolicyKind): CommunityUploadPolicyCopy =
+fun communityUploadPolicyCopy(
+    resources: Resources,
+    kind: CommunityUploadPolicyKind,
+): CommunityUploadPolicyCopy =
     CommunityUploadPolicyCopy(
-        publicTitle = "Public community listing",
-        publicBody = "This ${kind.displayName} becomes public after upload. Its category, selected license, source link, uploader label, tags, public download URL, and sanitized Storage path are stored with the listing.",
-        takedownBody = "You can delete your own listing from its detail screen while this community identity is available. If you lose access, use Settings > Community identity to copy or share a deletion request code, or use the privacy-policy hosted web request path if Aura is unavailable. Rights holders can report the listing. Confirmed rights reports can hide or delete the ${kind.publicListingName} and its ${kind.uploadedFileName}.",
-        attestation = "I own or have rights to share this ${kind.displayName} under the selected license.",
+        publicTitle = resources.getString(R.string.policy_upload_public_title),
+        publicBody = resources.getString(
+            R.string.policy_upload_public_body,
+            kind.displayName(resources),
+        ),
+        takedownBody = resources.getString(
+            R.string.policy_upload_takedown_body,
+            kind.publicListingName(resources),
+            kind.uploadedFileName(resources),
+        ),
+        attestation = resources.getString(
+            R.string.policy_upload_attestation,
+            kind.displayName(resources),
+        ),
     )
 
-fun communityOwnerDeleteConfirmationCopy(kind: CommunityUploadPolicyKind): String =
-    "This removes your ${kind.publicListingName}, public listing, owner index, and ${kind.uploadedFileName}. Private deletion or takedown records may remain for moderation and abuse review."
+fun communityOwnerDeleteConfirmationCopy(
+    resources: Resources,
+    kind: CommunityUploadPolicyKind,
+): String =
+    resources.getString(
+        R.string.policy_owner_delete_confirmation,
+        kind.publicListingName(resources),
+        kind.uploadedFileName(resources),
+    )
 
-fun communityBlockConfirmationCopy(kind: CommunityUploadPolicyKind): String =
-    "This hides community ${kind.displayName}s from this uploader across Aura for your account. The uploader is not notified, and admins can still review reports separately."
+fun communityBlockConfirmationCopy(
+    resources: Resources,
+    kind: CommunityUploadPolicyKind,
+): String =
+    resources.getString(
+        R.string.policy_block_confirmation,
+        kind.pluralDisplayName(resources),
+    )
 
-const val COMMUNITY_REPORT_TAKEDOWN_COPY =
-    "Use Rights or license for takedown requests. Reports are private to admins; confirmed rights reports can hide or delete community uploads."
+fun communityReportTakedownCopy(resources: Resources): String =
+    resources.getString(R.string.policy_report_takedown)

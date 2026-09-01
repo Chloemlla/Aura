@@ -4,8 +4,6 @@ import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
 import android.os.PowerManager
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.chloemlla.aura.data.local.PreferencesManager
@@ -155,20 +153,14 @@ class AndroidRotationHealthReader @Inject constructor(
 
     override fun runNow() {
         runCatching {
-            WorkManager.getInstance(context).enqueueUniqueWork(
-                RUN_NOW_WORK_NAME,
-                ExistingWorkPolicy.REPLACE,
-                OneTimeWorkRequestBuilder<AutoWallpaperWorker>()
-                    .setInputData(
-                        androidx.work.Data.Builder()
-                            .putString(
-                                AutoWallpaperWorker.RECEIPT_WORK_NAME_KEY,
-                                RUN_NOW_WORK_NAME,
-                            )
-                            .build(),
-                    )
-                    .build(),
-            )
+            // Older builds enqueued "Run now" as its own unique work name, so it could
+            // run concurrently with the periodic rotation and an unlock trigger. Retire
+            // any leftover work under that name, then go through the shared one-shot
+            // path — RUN_NOW_WORK_NAME survives only as the receipt bucket, which is
+            // what keeps a manual run from overwriting the periodic run's last-success
+            // time (AURA-G2-07, AURA-G2-11).
+            WorkManager.getInstance(context).cancelUniqueWork(RUN_NOW_WORK_NAME)
+            RotationTriggerService.enqueueRotation(context, receiptWorkName = RUN_NOW_WORK_NAME)
         }
     }
 

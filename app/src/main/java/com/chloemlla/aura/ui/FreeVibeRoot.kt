@@ -390,7 +390,6 @@ fun FreeVibeRoot(
                     initialSimilarId = backStackEntry.arguments?.getString("similarId")?.ifBlank { null },
                     initialSimilarSource = backStackEntry.arguments?.getString("similarSource")?.ifBlank { null },
                     initialSimilarFullUrl = backStackEntry.arguments?.getString("similarFullUrl")?.ifBlank { null },
-                    isExpandedLayout = navigationLayout.isExpanded,
                     onWallpaperClick = { wallpaper ->
                         navController.navigate(Screen.WallpaperDetail.createRoute(wallpaper)) { launchSingleTop = true }
                     },
@@ -437,7 +436,6 @@ fun FreeVibeRoot(
                         navController.navigate(Screen.SoundEditor.createLocalRoute(uri)) { launchSingleTop = true }
                     },
                     initialQuery = backStackEntry.arguments?.getString("query")?.ifBlank { null },
-                    isExpandedLayout = navigationLayout.isExpanded,
                 )
             }
             composable(Screen.Library.route) {

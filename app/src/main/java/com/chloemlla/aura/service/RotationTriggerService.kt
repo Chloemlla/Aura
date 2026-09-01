@@ -220,8 +220,15 @@ class RotationTriggerService : Service() {
          * from prefs and applies). A plain one-shot: expedited was dropped because
          * it requires getForegroundInfo() on API 26-30 and none of the workers
          * implement it, so expedited runs failed outright there (AURA-G2-03).
+         *
+         * [receiptWorkName] only selects the receipt bucket the run reports into —
+         * every one-shot rotation shares this single unique work name so that
+         * WorkManager can actually serialise them. Settings "Run now" used to enqueue
+         * under a third name of its own, which meant it could run concurrently with
+         * an unlock trigger and a periodic rotation, each overwriting the other's
+         * wallpaper and history row (AURA-G2-07).
          */
-        internal fun enqueueRotation(context: Context) {
+        internal fun enqueueRotation(context: Context, receiptWorkName: String = WORK_NAME) {
             // Reuse the periodic path's constraint resolution (source-aware
             // network requirement + the user's charging / Wi-Fi / idle opt-ins)
             // instead of hard-coding NetworkType.CONNECTED, which stranded
@@ -238,14 +245,18 @@ class RotationTriggerService : Service() {
                 .setConstraints(constraints)
                 .setInputData(
                     workDataOf(
-                        AutoWallpaperWorker.RECEIPT_WORK_NAME_KEY to WORK_NAME,
+                        AutoWallpaperWorker.RECEIPT_WORK_NAME_KEY to receiptWorkName,
                         AutoWallpaperWorker.TRIGGERED_ROTATION_KEY to true,
                     ),
                 )
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork(
                 WORK_NAME,
-                ExistingWorkPolicy.KEEP, // Coalesce: don't queue 10 rotations on a chatty unlock
+                // APPEND_OR_REPLACE, not KEEP: KEEP silently dropped a tap on the
+                // tile or "Run now" whenever a rotation was already queued, which
+                // reads as "the button does nothing". Appending runs them in order
+                // instead of concurrently.
+                ExistingWorkPolicy.APPEND_OR_REPLACE,
                 request,
             )
         }

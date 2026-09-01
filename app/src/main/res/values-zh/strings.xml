@@ -1170,6 +1170,9 @@
     <string name="settings_theme_pack_default_filename">aura-theme-pack.zip</string>
     <string name="settings_theme_pack_instructions_title">主题包设置步骤</string>
     <string name="settings_theme_pack_instruction_row">- %1$s</string>
+    <string name="theme_pack_import_unsupported_wallpaper_source">该主题包指向了 Aura 无法校验的壁纸来源，相应时段已跳过。</string>
+    <string name="theme_pack_import_enable_wallpaper_pack">到 设置 → 打开 24 小时壁纸包，导入的时段方案才会开始轮换。</string>
+    <string name="theme_pack_import_pending_sounds">导入的铃声方案已保存但尚未应用 —— 在你手动应用之前，Aura 不会更改系统铃声。</string>
     <string name="settings_smart_daily_wp_title">每日壁纸</string>
     <string name="settings_smart_daily_wp_subtitle">接收每日壁纸推荐通知</string>
     <string name="settings_smart_tint_title">时段色调</string>
@@ -1908,6 +1911,13 @@
     <string name="settings_theme_pack_export_failed">主题包导出失败：%1$s</string>
     <string name="settings_theme_pack_imported">主题包已导入：已恢复 %1$d 项设置</string>
     <string name="settings_theme_pack_import_failed">主题包导入失败：%1$s</string>
+    <string name="settings_theme_pack_sounds_pending_title">应用导入的铃声</string>
+    <string name="settings_theme_pack_sounds_pending_subtitle">导入的主题包中还有尚未应用的铃声配方。点按即可现在把它们设为系统声音。</string>
+    <plurals name="settings_theme_pack_sounds_applied">
+        <item quantity="one">已应用导入的铃声：%1$d</item>
+        <item quantity="other">已应用导入的铃声：%1$d</item>
+    </plurals>
+    <string name="settings_theme_pack_sounds_apply_failed">无法应用导入的铃声：%1$s</string>
     <string name="settings_community_creator_unblocked">已取消屏蔽创作者</string>
     <string name="settings_community_unblock_failed">取消屏蔽失败：%1$s</string>
     <string name="settings_community_identity_cleared">已清除本地社区身份</string>

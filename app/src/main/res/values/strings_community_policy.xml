@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="policy_kind_sound_singular">sound</string>
+    <string name="policy_kind_sound_plural">sounds</string>
+    <string name="policy_kind_sound_public_listing">community sound</string>
+    <string name="policy_kind_sound_uploaded_file">uploaded audio file</string>
+    <string name="policy_kind_wallpaper_singular">wallpaper</string>
+    <string name="policy_kind_wallpaper_plural">wallpapers</string>
+    <string name="policy_kind_wallpaper_public_listing">community wallpaper</string>
+    <string name="policy_kind_wallpaper_uploaded_file">uploaded image file</string>
+</resources>

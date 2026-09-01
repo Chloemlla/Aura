@@ -34,9 +34,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Collection sharing/import. Exports collection JSON for attachment-based sharing and can
- * publish the same payload to Firebase RTDB for compact `aura://collection/import/{token}`
- * links that fit comfortably in QR codes.
+ * Collection sharing/import. Exports collection JSON for attachment-based sharing, which stays
+ * on the device, and publishes the same payload to Firebase RTDB only when the user explicitly
+ * asks for a compact `aura://collection/import/{token}` link that fits in a QR code. Published
+ * payloads carry a 30-day `expiresAt`; database rules refuse reads past it.
  */
 private val FILENAME_SANITIZE_REGEX = Regex("[^a-zA-Z0-9_-]")
 private val SHARE_TOKEN_REGEX = Regex("^[A-Za-z0-9_-]{8,80}$")
@@ -46,6 +47,7 @@ private const val MAX_QR_IMAGE_DIMENSION = 4096
 private const val MAX_QR_IMAGE_PIXELS = 12_000_000L
 private const val MAX_IMPORT_ITEMS = 250
 private const val CURRENT_VERSION = 1
+private const val SHARE_LINK_TTL_MS = 30L * 24 * 60 * 60 * 1000
 
 @Singleton
 class CollectionExporter @Inject constructor(
@@ -59,17 +61,24 @@ class CollectionExporter @Inject constructor(
         try { FirebaseDatabase.getInstance().reference } catch (_: Exception) { null }
     }
 
-    suspend fun prepareShareBundle(collectionId: Long, collectionName: String): Result<CollectionShareBundle> =
+    suspend fun prepareShareBundle(
+        collectionId: Long,
+        collectionName: String,
+        withShareLink: Boolean,
+    ): Result<CollectionShareBundle> =
         withContext(Dispatchers.IO) {
             runCatching {
                 val file = buildExportFile(collectionId, collectionName)
                 val json = adapter.toJson(file)
                 val uri = writeShareFile(collectionId, file.collectionName, json)
-                val token = publishPayload(json, file.collectionName, file.items.size)
                 CollectionShareBundle(
                     uri = uri,
                     collectionName = file.collectionName,
-                    shareLink = buildShareLink(token),
+                    shareLink = if (withShareLink) {
+                        buildShareLink(publishPayload(json, file.collectionName, file.items.size))
+                    } else {
+                        null
+                    },
                     itemCount = file.items.size,
                 )
             }.onFailure { it.rethrowIfCancelled() }
@@ -133,7 +142,11 @@ class CollectionExporter @Inject constructor(
             putExtra(Intent.EXTRA_SUBJECT, "Aura collection: ${bundle.collectionName}")
             putExtra(
                 Intent.EXTRA_TEXT,
-                "Aura collection: ${bundle.collectionName}\n${bundle.itemCount} wallpapers\n${bundle.shareLink}",
+                listOfNotNull(
+                    "Aura collection: ${bundle.collectionName}",
+                    "${bundle.itemCount} wallpapers",
+                    bundle.shareLink,
+                ).joinToString("\n"),
             )
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
@@ -190,6 +203,7 @@ class CollectionExporter @Inject constructor(
         val db = database ?: throw IllegalStateException("Firebase Database not available")
         val creatorUid = identityProvider.ensureSignedIn()
         val token = UUID.randomUUID().toString().replace("-", "")
+        val createdAt = System.currentTimeMillis()
         db.child("shared_collections")
             .child(token)
             .setValue(
@@ -198,7 +212,8 @@ class CollectionExporter @Inject constructor(
                     "payload" to json,
                     "collectionName" to collectionName,
                     "itemCount" to itemCount,
-                    "createdAt" to System.currentTimeMillis(),
+                    "createdAt" to createdAt,
+                    "expiresAt" to createdAt + SHARE_LINK_TTL_MS,
                     "createdByUid" to creatorUid,
                 ),
             )
@@ -302,7 +317,7 @@ class CollectionExporter @Inject constructor(
 data class CollectionShareBundle(
     val uri: Uri,
     val collectionName: String,
-    val shareLink: String,
+    val shareLink: String?,
     val itemCount: Int,
 )
 

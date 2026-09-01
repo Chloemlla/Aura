@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
@@ -24,6 +25,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.chloemlla.aura.R
 
 @Composable
@@ -63,6 +65,7 @@ internal fun BackupSettingsSection(
         uri?.let(viewModel::importLibrary)
     }
     var themePackInstructions by remember { mutableStateOf<List<String>>(emptyList()) }
+    val pendingThemePackSounds by viewModel.pendingThemePackSounds.collectAsStateWithLifecycle()
 
     LaunchedEffect(themePackTransfer) {
         themePackTransfer.message?.let { onFeedback(it) }
@@ -169,6 +172,19 @@ internal fun BackupSettingsSection(
             },
             enabled = !themePackTransfer.inProgress,
         )
+        if (pendingThemePackSounds) {
+            SettingsItem(
+                icon = Icons.Default.MusicNote,
+                title = stringResource(R.string.settings_theme_pack_sounds_pending_title),
+                subtitle = if (themePackTransfer.inProgress) {
+                    stringResource(R.string.settings_theme_pack_working_subtitle)
+                } else {
+                    stringResource(R.string.settings_theme_pack_sounds_pending_subtitle)
+                },
+                onClick = { viewModel.applyPendingThemePackSounds() },
+                enabled = !themePackTransfer.inProgress,
+            )
+        }
         SettingsItem(
             icon = Icons.Default.FolderOpen,
             title = stringResource(R.string.settings_library_export_title),

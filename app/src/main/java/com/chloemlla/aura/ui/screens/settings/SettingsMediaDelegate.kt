@@ -4,6 +4,7 @@ import android.content.Context
 import com.chloemlla.aura.data.local.DEFAULT_REDDIT_VIDEO_SUBREDDITS
 import com.chloemlla.aura.data.local.DEFAULT_REDDIT_WALLPAPER_SUBREDDITS
 import com.chloemlla.aura.data.local.PreferencesManager
+import com.chloemlla.aura.service.AutoWallpaperWorker
 import com.chloemlla.aura.service.RingtoneShuffleWorker
 import com.chloemlla.aura.service.SoundProfileWorker
 import com.chloemlla.aura.service.WallpaperPackWorker
@@ -50,7 +51,7 @@ internal class SettingsMediaDelegate(
     val wallpaperPackJson = prefs.wallpaperPackJson.stateIn(scope, sharing, "")
     val redditSubs = prefs.redditSubreddits.stateIn(scope, sharing, DEFAULT_REDDIT_WALLPAPER_SUBREDDITS)
     val redditVideoSubs = prefs.redditVideoSubreddits.stateIn(scope, sharing, DEFAULT_REDDIT_VIDEO_SUBREDDITS)
-    val redditProviderEnabled = prefs.redditProviderEnabled.stateIn(scope, sharing, true)
+    val redditProviderEnabled = prefs.redditProviderEnabled.stateIn(scope, sharing, false)
     val preferredRes = prefs.preferredResolution.stateIn(scope, sharing, "")
     val userStyles = prefs.userStyles.stateIn(scope, sharing, "")
     val wallpaperStyleLearningSignalCount = prefs.wallpaperStyleLearningJson
@@ -148,7 +149,20 @@ internal class SettingsMediaDelegate(
 
     fun setWallpaperPackEnabled(enabled: Boolean) = scope.launch {
         prefs.setWallpaperPackEnabled(enabled)
-        if (enabled) WallpaperPackWorker.schedule(context) else WallpaperPackWorker.cancel(context)
+        if (enabled) {
+            // Mutually exclusive with automatic rotation: both set wallpapers on their
+            // own schedule, so whichever ran last won and the pack looked broken
+            // (AURA-G2-13). Turning this on turns rotation off, and vice versa.
+            prefs.setAutoWallpaperEnabled(false)
+            prefs.setSchedulerEnabled(false)
+            // schedulerEnabled selects which source feeds the trigger-path network
+            // requirement, so the cache has to follow the flip.
+            AutoWallpaperWorker.refreshOneShotConstraints(prefs)
+            AutoWallpaperWorker.cancel(context)
+            WallpaperPackWorker.schedule(context)
+        } else {
+            WallpaperPackWorker.cancel(context)
+        }
     }
 
     fun setWallpaperPackJson(json: String) = scope.launch {

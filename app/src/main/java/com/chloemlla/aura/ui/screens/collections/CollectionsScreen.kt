@@ -97,9 +97,17 @@ class CollectionsViewModel @Inject constructor(
     val qrState: StateFlow<CollectionQrState?> = _qrState.asStateFlow()
     fun dismissQr() { _qrState.value = null }
 
-    fun shareCollection(collection: WallpaperCollectionEntity) {
+    /**
+     * Prepares the local share file, and publishes a share link only when the user picked the
+     * link-sharing action: plain sharing must never upload the collection.
+     */
+    fun shareCollection(collection: WallpaperCollectionEntity, withShareLink: Boolean = false) {
         viewModelScope.launch {
-            collectionExporter.prepareShareBundle(collection.collectionId, collection.name)
+            collectionExporter.prepareShareBundle(
+                collectionId = collection.collectionId,
+                collectionName = collection.name,
+                withShareLink = withShareLink,
+            )
                 .onSuccess { bundle ->
                     _shareEvent.value = ShareCollectionEvent.Ready(
                         collectionExporter.buildShareIntent(bundle),
@@ -417,12 +425,20 @@ fun CollectionsScreen(
                             }
                             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.collections_share_link_and_file)) },
+                                    text = { Text(stringResource(R.string.common_share)) },
                                     onClick = {
                                         showMenu = false
                                         viewModel.shareCollection(selectedCollection)
                                     },
                                     leadingIcon = { Icon(Icons.Default.Share, null) },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.collections_share_link_and_file)) },
+                                    onClick = {
+                                        showMenu = false
+                                        viewModel.shareCollection(selectedCollection, withShareLink = true)
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Link, null) },
                                 )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.collections_show_qr)) },

@@ -1,5 +1,6 @@
 package com.chloemlla.aura.data.legal
 
+import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.providerNetworkPolicies
 import java.io.File
@@ -239,6 +240,26 @@ class ProviderCapabilityContractTest {
             assertTrue(
                 "${policy.source} diagnostics must be part of the support summary",
                 policy.diagnosticSummary.startsWith(policy.capabilitySummary),
+            )
+        }
+    }
+
+    @Test
+    fun `kill switch defaults match the shipped preference defaults`() {
+        val stored = PreferencesManager.PROVIDER_DEFAULT_ENABLED
+        val switched = providerCapabilities.filter { it.killSwitchKey != null }
+
+        assertEquals(
+            "every kill switch needs a fresh-install default here, and no extras",
+            switched.mapNotNull { it.killSwitchKey }.toSet(),
+            stored.keys,
+        )
+        switched.forEach { capability ->
+            assertEquals(
+                "${capability.source} ships ${if (capability.enabledByDefault) "on" else "off"} " +
+                    "in the registry, so PreferencesManager must default the same way",
+                capability.enabledByDefault,
+                stored.getValue(capability.killSwitchKey!!),
             )
         }
     }

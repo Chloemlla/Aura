@@ -306,7 +306,9 @@ val providerCapabilities: List<ProviderCapability> = listOf(
         permission = ProviderPermission.NONE,
         health = ProviderHealth.NETWORKED,
         requiresAttribution = true,
-        enabledByDefault = true,
+        // User-uploaded content stays off until the user opts in and accepts the
+        // community guidelines, so a fresh install never shows it (AURA-G4-04).
+        enabledByDefault = false,
         killSwitchKey = "community_provider_enabled",
         endpointIds = setOf("firebase-community", "aura-collection-links"),
     ),

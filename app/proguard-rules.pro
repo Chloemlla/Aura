@@ -8,8 +8,9 @@
 -keepclassmembers class * { @com.squareup.moshi.Json <fields>; }
 
 # Retrofit
+# No blanket keep: the retrofit AAR ships META-INF/proguard/retrofit2.pro, whose
+# consumer rules keep the http-annotated interfaces, Response and Continuation.
 -dontwarn retrofit2.**
--keep class retrofit2.** { *; }
 -keepattributes Signature
 -keepattributes Exceptions
 

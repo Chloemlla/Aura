@@ -82,4 +82,30 @@ class AutoWallpaperWorkerSchedulingTest {
         assertEquals("re-arm stays idempotent", 1, infos.size)
         assertEquals(NetworkType.CONNECTED, infos[0].constraints.requiredNetworkType)
     }
+
+    @Test
+    fun `every one-shot rotation shares one unique work name and none are dropped`() {
+        // Three unique names used to carry the same worker (periodic, trigger, and
+        // Settings "Run now"), so WorkManager serialised none of them and KEEP threw
+        // away a second tap (AURA-G2-07).
+        RotationTriggerService.enqueueRotation(context)
+        RotationTriggerService.enqueueRotation(context, receiptWorkName = "auto_wallpaper_run_now")
+
+        val manager = WorkManager.getInstance(context)
+        assertEquals(
+            "APPEND_OR_REPLACE queues the second trigger instead of discarding it",
+            2,
+            manager.getWorkInfosForUniqueWork(RotationTriggerService.WORK_NAME).get().size,
+        )
+        assertEquals(
+            "the manual-run receipt name must not become a third unique work name",
+            0,
+            manager.getWorkInfosForUniqueWork("auto_wallpaper_run_now").get().size,
+        )
+        assertEquals(
+            "a one-shot must not be enqueued under the periodic name either",
+            0,
+            uniqueWork().size,
+        )
+    }
 }

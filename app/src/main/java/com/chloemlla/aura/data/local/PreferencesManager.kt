@@ -218,6 +218,25 @@ class PreferencesManager @Inject constructor(
 
         const val DEFAULT_GENERATED_CONTENT_PROVIDER_ENABLED = false
         const val DEFAULT_COMMUNITY_PROVIDER_ENABLED = false
+
+        /**
+         * Fresh-install state of every provider kill switch, keyed exactly as
+         * `ProviderCapability.killSwitchKey`. `ProviderCapabilityContractTest`
+         * fails the build when one of these disagrees with the registry, so a
+         * source can no longer ship on here while the registry and the
+         * disclosure copy both say it is off (AURA-G4-04).
+         */
+        val PROVIDER_DEFAULT_ENABLED: Map<String, Boolean> = mapOf(
+            "wallhaven_provider_enabled" to true,
+            "bing_provider_enabled" to true,
+            "pexels_provider_enabled" to true,
+            "pixabay_provider_enabled" to true,
+            "youtube_provider_enabled" to true,
+            "reddit_provider_enabled" to false,
+            "community_provider_enabled" to DEFAULT_COMMUNITY_PROVIDER_ENABLED,
+            "generated_content_provider_enabled" to DEFAULT_GENERATED_CONTENT_PROVIDER_ENABLED,
+            "weather_effects_enabled" to false,
+        )
     }
 
     private val dataStore = context.dataStore
@@ -242,26 +261,18 @@ class PreferencesManager @Inject constructor(
     val freesoundApiKey: Flow<String> =
         providerCredential(ProviderCredentialKey.FREESOUND, Keys.FREESOUND_KEY, com.chloemlla.aura.BuildConfig.FREESOUND_API_KEY)
     val generatedWallpaperProviderKey: Flow<String> = generatedWallpaperProviderKeyForFlavor()
-    val generatedContentProviderEnabled: Flow<Boolean> = get(
-        Keys.GENERATED_CONTENT_PROVIDER_ENABLED,
-        DEFAULT_GENERATED_CONTENT_PROVIDER_ENABLED,
-    )
+    val generatedContentProviderEnabled: Flow<Boolean> =
+        providerToggle(Keys.GENERATED_CONTENT_PROVIDER_ENABLED)
     val generatedContentDisclosureAccepted: Flow<Boolean> = get(Keys.GENERATED_CONTENT_DISCLOSURE_ACCEPTED, false)
-    // Reddit is the only wallpaper image source enabled by default; every other provider
-    // (Wallhaven, Bing, Pexels, Pixabay) is opt-in via Settings > Wallpapers > Sources.
-    // Keeping them off by default keeps the default feed lean and low-bandwidth.
-    val wallhavenProviderEnabled: Flow<Boolean> = get(Keys.WALLHAVEN_PROVIDER_ENABLED, false)
-    val bingProviderEnabled: Flow<Boolean> = get(Keys.BING_PROVIDER_ENABLED, false)
-    val pexelsProviderEnabled: Flow<Boolean> = get(Keys.PEXELS_PROVIDER_ENABLED, false)
-    val pixabayProviderEnabled: Flow<Boolean> = get(Keys.PIXABAY_PROVIDER_ENABLED, false)
+    val wallhavenProviderEnabled: Flow<Boolean> = providerToggle(Keys.WALLHAVEN_PROVIDER_ENABLED)
+    val bingProviderEnabled: Flow<Boolean> = providerToggle(Keys.BING_PROVIDER_ENABLED)
+    val pexelsProviderEnabled: Flow<Boolean> = providerToggle(Keys.PEXELS_PROVIDER_ENABLED)
+    val pixabayProviderEnabled: Flow<Boolean> = providerToggle(Keys.PIXABAY_PROVIDER_ENABLED)
     val communityProviderEnabled: Flow<Boolean> =
         if (com.chloemlla.aura.BuildConfig.FOSS_BUILD) {
             MutableStateFlow(false)
         } else {
-            get(
-                Keys.COMMUNITY_PROVIDER_ENABLED,
-                DEFAULT_COMMUNITY_PROVIDER_ENABLED,
-            )
+            providerToggle(Keys.COMMUNITY_PROVIDER_ENABLED)
         }
     val communityGuidelinesAcceptedVersion: Flow<Int> = get(Keys.COMMUNITY_GUIDELINES_ACCEPTED_VERSION, 0)
     val communityGuidelinesAccepted: Flow<Boolean> =
@@ -468,6 +479,18 @@ class PreferencesManager @Inject constructor(
     val lastAppliedAlarmUri: kotlinx.coroutines.flow.Flow<String> = get(Keys.LAST_APPLIED_ALARM_URI, "")
     suspend fun setLastAppliedAlarmUri(uri: String) = set(Keys.LAST_APPLIED_ALARM_URI, uri)
 
+    // Theme-pack sound recipes that were imported but never applied. Kept apart
+    // from the lastApplied* keys on purpose: RingtoneRestorationWorker treats
+    // those as "Aura really did set this", and an import writing them armed a
+    // reboot-time system-sound change the user never asked for (AURA-G2-18).
+    val pendingThemePackRingtoneUri: Flow<String> = get(Keys.PENDING_THEME_PACK_RINGTONE_URI, "")
+    suspend fun setPendingThemePackRingtoneUri(uri: String) = set(Keys.PENDING_THEME_PACK_RINGTONE_URI, uri)
+    val pendingThemePackNotificationUri: Flow<String> = get(Keys.PENDING_THEME_PACK_NOTIFICATION_URI, "")
+    suspend fun setPendingThemePackNotificationUri(uri: String) =
+        set(Keys.PENDING_THEME_PACK_NOTIFICATION_URI, uri)
+    val pendingThemePackAlarmUri: Flow<String> = get(Keys.PENDING_THEME_PACK_ALARM_URI, "")
+    suspend fun setPendingThemePackAlarmUri(uri: String) = set(Keys.PENDING_THEME_PACK_ALARM_URI, uri)
+
     // ── Sound settings ────────────────────────────────────────────
 
     val autoPreviewSounds: Flow<Boolean> = get(Keys.AUTO_PREVIEW, true)
@@ -503,7 +526,7 @@ class PreferencesManager @Inject constructor(
         Keys.REDDIT_VIDEO_SUBS,
         DEFAULT_REDDIT_VIDEO_SUBREDDITS,
     )
-    val redditProviderEnabled: Flow<Boolean> = get(Keys.REDDIT_PROVIDER_ENABLED, true)
+    val redditProviderEnabled: Flow<Boolean> = providerToggle(Keys.REDDIT_PROVIDER_ENABLED)
 
     suspend fun setRedditSubreddits(subs: String) = set(
         Keys.REDDIT_SUBS,
@@ -569,7 +592,7 @@ class PreferencesManager @Inject constructor(
     val ytSoundQueryNotifications: Flow<String> = get(Keys.YT_SOUND_NOTIFICATIONS, defaultNotificationQuery())
     val ytSoundQueryAlarms: Flow<String> = get(Keys.YT_SOUND_ALARMS, defaultAlarmQuery())
     val ytSoundBlockedWords: Flow<String> = get(Keys.YT_SOUND_BLOCKED, "compilation,mix,playlist,ranked,tier list,reaction,review,tutorial,how to,podcast,interview,live stream,part,episode")
-    val youtubeProviderEnabled: Flow<Boolean> = get(Keys.YOUTUBE_PROVIDER_ENABLED, true)
+    val youtubeProviderEnabled: Flow<Boolean> = providerToggle(Keys.YOUTUBE_PROVIDER_ENABLED)
     val youtubePoTokenProviderUrl: Flow<String> = get(Keys.YOUTUBE_PO_TOKEN_PROVIDER_URL, "")
 
     suspend fun setYtSoundQueryRingtones(q: String) = set(Keys.YT_SOUND_RINGTONES, q)
@@ -655,7 +678,7 @@ class PreferencesManager @Inject constructor(
 
     val adaptiveTintEnabled: Flow<Boolean> = get(Keys.ADAPTIVE_TINT, false)
     val adaptiveTintIntensity: Flow<Float> = get(Keys.ADAPTIVE_TINT_INTENSITY, 0.3f)
-    val weatherEffectsEnabled: Flow<Boolean> = get(Keys.WEATHER_EFFECTS, false)
+    val weatherEffectsEnabled: Flow<Boolean> = providerToggle(Keys.WEATHER_EFFECTS)
     val reduceAnimations: Flow<Boolean> = get(Keys.REDUCE_ANIMATIONS, false)
     val darkModeAutoSwitch: Flow<Boolean> = get(Keys.DARK_MODE_SWITCH, false)
     val darkModeWallpaperId: Flow<String> = get(Keys.DARK_WALLPAPER_ID, "")
@@ -765,6 +788,9 @@ class PreferencesManager @Inject constructor(
     private suspend fun <T> set(key: Preferences.Key<T>, value: T) {
         dataStore.edit { it[key] = value }
     }
+
+    private fun providerToggle(key: Preferences.Key<Boolean>): Flow<Boolean> =
+        get(key, PROVIDER_DEFAULT_ENABLED[key.name] ?: false)
 
     internal fun providerCredential(
         credentialKey: ProviderCredentialKey,
@@ -937,5 +963,8 @@ class PreferencesManager @Inject constructor(
         val LAST_APPLIED_RINGTONE_URI = stringPreferencesKey("last_applied_ringtone_uri")
         val LAST_APPLIED_NOTIFICATION_URI = stringPreferencesKey("last_applied_notification_uri")
         val LAST_APPLIED_ALARM_URI = stringPreferencesKey("last_applied_alarm_uri")
+        val PENDING_THEME_PACK_RINGTONE_URI = stringPreferencesKey("pending_theme_pack_ringtone_uri")
+        val PENDING_THEME_PACK_NOTIFICATION_URI = stringPreferencesKey("pending_theme_pack_notification_uri")
+        val PENDING_THEME_PACK_ALARM_URI = stringPreferencesKey("pending_theme_pack_alarm_uri")
     }
 }

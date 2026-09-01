@@ -9,6 +9,8 @@ import {
 
 const PROJECT_ID = 'aura-rules-test';
 const DAY_KEY = '20260606';
+const DAY_MS = 24 * 60 * 60 * 1000;
+const COLLECTION_SHARE_TTL_MS = 30 * DAY_MS;
 const MAX_COLLECTION_PAYLOAD_BYTES = 512 * 1024;
 
 let testEnv;
@@ -215,6 +217,7 @@ function collectionPayload(createdByUid = 'collection-owner', overrides = {}) {
     collectionName: 'Evening',
     itemCount: 1,
     createdAt: nowMs(),
+    expiresAt: Date.now() + COLLECTION_SHARE_TTL_MS,
     createdByUid,
     ...overrides,
   };
@@ -541,16 +544,18 @@ test('community user block lists are callable-owned, private, and maintain an ad
   await assertSucceeds(admin.ref(reversePath).remove());
 });
 
-test('collection share tokens use the app path, public reads, and bounded payloads', async () => {
+test('collection share tokens use the app path, expiring reads, and bounded payloads', async () => {
   const owner = dbFor('collection-owner');
   const other = dbFor('collection-other');
   const admin = adminDb();
   const anonymous = unauthenticatedDb();
   const path = 'shared_collections/token12345';
   const ownerDeletePath = 'shared_collections/tokenOwnerDelete';
+  const expiredPath = 'shared_collections/tokenExpired';
 
   await assertSucceeds(owner.ref(path).set(collectionPayload('collection-owner')));
   await assertSucceeds(anonymous.ref(path).once('value'));
+  await assertSucceeds(anonymous.ref(`${path}/payload`).once('value'));
   await assertFails(anonymous.ref('shared_collections/anon12345').set(collectionPayload('collection-owner')));
   await assertFails(owner.ref('shared_collections/wrongOwner').set(collectionPayload('someone-else')));
   await assertFails(other.ref(path).update({ collectionName: 'Overwritten' }));
@@ -559,6 +564,22 @@ test('collection share tokens use the app path, public reads, and bounded payloa
     collectionPayload('collection-owner', { payload: 'x'.repeat(MAX_COLLECTION_PAYLOAD_BYTES + 1) }),
   ));
   await assertFails(owner.ref('collection_shares/legacy12345').set(collectionPayload('collection-owner')));
+
+  const missingExpiry = collectionPayload('collection-owner');
+  delete missingExpiry.expiresAt;
+  await assertFails(owner.ref('shared_collections/noExpiry12345').set(missingExpiry));
+  await assertFails(owner.ref('shared_collections/pastExpiry12345').set(
+    collectionPayload('collection-owner', { expiresAt: nowMs() }),
+  ));
+  await assertFails(owner.ref('shared_collections/farExpiry12345').set(
+    collectionPayload('collection-owner', { expiresAt: Date.now() + 60 * DAY_MS }),
+  ));
+
+  await seed(expiredPath, collectionPayload('collection-owner', { expiresAt: nowMs() }));
+  await assertFails(anonymous.ref(expiredPath).once('value'));
+  await assertFails(anonymous.ref(`${expiredPath}/payload`).once('value'));
+  await assertFails(owner.ref(expiredPath).once('value'));
+
   await assertSucceeds(admin.ref(path).remove());
 
   await assertSucceeds(owner.ref(ownerDeletePath).set(collectionPayload('collection-owner')));

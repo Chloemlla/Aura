@@ -67,6 +67,7 @@ class AuraApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun attachBaseContext(base: Context) {
+        LocaleHelper.migrateStoredLocaleToPlatform(base)
         super.attachBaseContext(LocaleHelper.wrapContext(base))
         installLumenCrashSdk()
     }

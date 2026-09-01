@@ -31,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.chloemlla.aura.R
@@ -50,13 +51,16 @@ internal fun GeneratedWallpaperCommunityUploadDialog(
     onDismiss: () -> Unit,
 ) {
     val defaultName = stringResource(R.string.ai_share_community_default_name)
+    val resources = LocalResources.current
     var name by remember(defaultName) { mutableStateOf(defaultName) }
     var selectedCategory by remember { mutableStateOf("other") }
     var selectedLicense by remember { mutableStateOf(COMMUNITY_UPLOAD_LICENSES.first()) }
     var sourceUrl by remember { mutableStateOf("") }
     var rightsAttested by remember { mutableStateOf(false) }
     var tagsText by remember(initialTags) { mutableStateOf(initialTags.joinToString(", ")) }
-    val policyCopy = remember { communityUploadPolicyCopy(CommunityUploadPolicyKind.WALLPAPER) }
+    val policyCopy = remember(resources) {
+        communityUploadPolicyCopy(resources, CommunityUploadPolicyKind.WALLPAPER)
+    }
     val categories = listOf(
         "other" to stringResource(R.string.wallpapers_upload_category_general),
         "amoled" to stringResource(R.string.wallpapers_upload_category_amoled),

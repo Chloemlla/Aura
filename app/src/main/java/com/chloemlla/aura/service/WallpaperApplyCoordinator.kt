@@ -10,6 +10,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * What a caller wants persisted when a wallpaper apply succeeds.
@@ -91,12 +94,24 @@ class WallpaperApplyCoordinator @Inject constructor(
 ) {
 
     /**
+     * Serialises apply-and-persist across the whole process.
+     *
+     * The periodic rotation, the one-shot trigger, and the 24H pack worker can all
+     * be running at once; without this, two applies interleave and the history rows
+     * land in completion order, so Undo restores a wallpaper that was never on
+     * screen (AURA-G2-07).
+     */
+    private val applyMutex = Mutex()
+
+    /**
      * Runs [perform] and commits the declared side effects on success only.
      *
      * @param wallpaper the item being applied. Null for output with no catalog
      *   identity, which skips history rather than inventing a row.
      * @param locator locator to remember for the night variant; defaults to the
      *   wallpaper's full URL.
+     * @param nightVariantDarkenPercent dim level to remember alongside the locator,
+     *   so a later night re-dim reproduces what is on screen.
      * @param onStyleSignal invoked only when the policy asks for it.
      */
     suspend fun apply(
@@ -104,7 +119,33 @@ class WallpaperApplyCoordinator @Inject constructor(
         target: WallpaperTarget,
         policy: WallpaperApplyPolicy,
         locator: String? = null,
+        nightVariantDarkenPercent: Int = 0,
         onStyleSignal: suspend (Wallpaper) -> Unit = {},
+        perform: suspend () -> Result<Unit>,
+    ): Result<WallpaperApplyReceipt> =
+        // A CoroutineWorker is killed at 10 minutes, so waiting for the lock has to
+        // be bounded: report a failure rather than being stopped mid-commit.
+        withTimeoutOrNull(APPLY_LOCK_TIMEOUT_MS) {
+            applyMutex.withLock {
+                commit(
+                    wallpaper = wallpaper,
+                    target = target,
+                    policy = policy,
+                    locator = locator,
+                    nightVariantDarkenPercent = nightVariantDarkenPercent,
+                    onStyleSignal = onStyleSignal,
+                    perform = perform,
+                )
+            }
+        } ?: Result.failure(IllegalStateException("Wallpaper apply timed out waiting for another apply"))
+
+    private suspend fun commit(
+        wallpaper: Wallpaper?,
+        target: WallpaperTarget,
+        policy: WallpaperApplyPolicy,
+        locator: String?,
+        nightVariantDarkenPercent: Int,
+        onStyleSignal: suspend (Wallpaper) -> Unit,
         perform: suspend () -> Result<Unit>,
     ): Result<WallpaperApplyReceipt> {
         val result = try {
@@ -133,7 +174,7 @@ class WallpaperApplyCoordinator @Inject constructor(
 
         val nightVariantLocator = locator ?: wallpaper?.fullUrl
         if (policy.recordNightVariant && !nightVariantLocator.isNullOrBlank()) {
-            prefs.setLastNightVariantWallpaper(nightVariantLocator, target.name)
+            prefs.setLastNightVariantWallpaper(nightVariantLocator, target.name, nightVariantDarkenPercent)
         }
 
         if (policy.recordStyleSignal && wallpaper != null) {
@@ -160,6 +201,10 @@ class WallpaperApplyCoordinator @Inject constructor(
                 feedbackMessage = feedbackMessage,
             ),
         )
+    }
+
+    private companion object {
+        const val APPLY_LOCK_TIMEOUT_MS = 5L * 60L * 1000L
     }
 }
 

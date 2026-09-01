@@ -12,6 +12,7 @@ import com.chloemlla.aura.service.AutoBackupWorker
 import com.chloemlla.aura.service.AutoWallpaperWorker
 import com.chloemlla.aura.service.LocalWallpaperCatalog
 import com.chloemlla.aura.service.RotationTriggerService
+import com.chloemlla.aura.service.WallpaperPackWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
@@ -80,6 +81,7 @@ internal class SettingsRotationDelegate(
     fun setAutoWallpaper(enabled: Boolean) = scope.launch {
         prefs.setAutoWallpaperEnabled(enabled)
         if (enabled) {
+            disableWallpaperPack()
             AutoWallpaperWorker.schedule(context, prefs, autoWpInterval.value * 60)
         } else {
             rescheduleRemainingRotation()
@@ -232,8 +234,12 @@ internal class SettingsRotationDelegate(
         // schedulerEnabled flips which source (scheduler vs legacy) feeds the
         // trigger-path network requirement, so refresh regardless of branch.
         AutoWallpaperWorker.refreshOneShotConstraints(prefs)
-        if (enabled) AutoWallpaperWorker.schedule(context, prefs, schedulerInterval.value)
-        else rescheduleRemainingRotation()
+        if (enabled) {
+            disableWallpaperPack()
+            AutoWallpaperWorker.schedule(context, prefs, schedulerInterval.value)
+        } else {
+            rescheduleRemainingRotation()
+        }
     }
 
     fun setSchedulerInterval(minutes: Long) = scope.launch {
@@ -297,6 +303,16 @@ internal class SettingsRotationDelegate(
                 AutoWallpaperWorker.schedule(context, prefs, prefs.autoWallpaperInterval.first() * 60)
             else -> AutoWallpaperWorker.cancel(context)
         }
+    }
+
+    /**
+     * Rotation and the 24H wallpaper pack are mutually exclusive — they both set
+     * wallpapers on independent schedules and overwrote each other (AURA-G2-13).
+     */
+    private suspend fun disableWallpaperPack() {
+        if (!prefs.wallpaperPackEnabled.first()) return
+        prefs.setWallpaperPackEnabled(false)
+        WallpaperPackWorker.cancel(context)
     }
 
     fun setWeatherEffects(enabled: Boolean) = scope.launch { prefs.setWeatherEffectsEnabled(enabled) }

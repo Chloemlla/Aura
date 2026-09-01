@@ -33,6 +33,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,7 +56,6 @@ import com.chloemlla.aura.ui.components.GlassCard
 import com.chloemlla.aura.ui.components.HighlightPill
 import com.chloemlla.aura.ui.components.SourceBadge
 import com.chloemlla.aura.ui.policy.CommunityUploadPolicyKind
-import com.chloemlla.aura.ui.policy.COMMUNITY_REPORT_TAKEDOWN_COPY
 import com.chloemlla.aura.ui.policy.communityBlockConfirmationCopy
 import com.chloemlla.aura.ui.policy.communityOwnerDeleteConfirmationCopy
 import com.chloemlla.aura.ui.launchLiveWallpaperPicker
@@ -205,6 +205,7 @@ fun WallpaperDetailScreen(
         ?: pagerSeed.initialPage.coerceIn(0, wallpapers.lastIndex)
     val pagerState = rememberPagerState(initialPage = initialPage) { wallpapers.size }
     val context = LocalContext.current
+    val resources = LocalResources.current
     // Downscale prefetch to the display so we never decode a full-resolution
     // image just to serve a phone-sized viewport.
     val screenPixelSize = remember(context) {
@@ -777,7 +778,7 @@ fun WallpaperDetailScreen(
                     body = if (isGeneratedWallpaper) {
                         stringResource(R.string.detail_report_generated_body)
                     } else {
-                        COMMUNITY_REPORT_TAKEDOWN_COPY
+                        null
                     },
                 )
             }
@@ -786,7 +787,7 @@ fun WallpaperDetailScreen(
                 AlertDialog(
                     onDismissRequest = { showBlockCreatorDialog = false },
                     title = { Text(stringResource(R.string.detail_block_title)) },
-                    text = { Text(communityBlockConfirmationCopy(CommunityUploadPolicyKind.WALLPAPER)) },
+                    text = { Text(communityBlockConfirmationCopy(resources, CommunityUploadPolicyKind.WALLPAPER)) },
                     confirmButton = {
                         TextButton(
                             onClick = {
@@ -810,7 +811,7 @@ fun WallpaperDetailScreen(
                 AlertDialog(
                     onDismissRequest = { showDeleteUploadDialog = false },
                     title = { Text(stringResource(R.string.detail_delete_title)) },
-                    text = { Text(communityOwnerDeleteConfirmationCopy(CommunityUploadPolicyKind.WALLPAPER)) },
+                    text = { Text(communityOwnerDeleteConfirmationCopy(resources, CommunityUploadPolicyKind.WALLPAPER)) },
                     confirmButton = {
                         TextButton(
                             onClick = {

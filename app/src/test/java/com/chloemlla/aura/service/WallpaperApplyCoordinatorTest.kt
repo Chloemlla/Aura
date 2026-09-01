@@ -11,6 +11,9 @@ import io.mockk.coVerify
 import io.mockk.mockk
 import java.io.File
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -159,6 +162,46 @@ class WallpaperApplyCoordinatorTest {
 
         assertTrue(receipt.historyRecorded)
         assertNull("nobody is looking at a snackbar", receipt.feedbackMessage)
+    }
+
+    @Test
+    fun `a background apply remembers the dim level it actually used`() = runTest {
+        coordinator.apply(
+            wallpaper = wallpaper,
+            target = WallpaperTarget.HOME,
+            policy = WallpaperApplyPolicy.BACKGROUND,
+            nightVariantDarkenPercent = 35,
+        ) { Result.success(Unit) }.getOrThrow()
+
+        coVerify(exactly = 1) { prefs.setLastNightVariantWallpaper(wallpaper.fullUrl, "HOME", 35) }
+    }
+
+    @Test
+    fun `concurrent applies are serialised so two rotations cannot interleave`() = runTest {
+        // Periodic rotation, the one-shot trigger, and the 24H pack worker can all be
+        // running at once; overlapping applies made Undo restore a wallpaper that was
+        // never on screen (AURA-G2-07).
+        var inFlight = 0
+        var maxInFlight = 0
+
+        List(3) {
+            async {
+                coordinator.apply(
+                    wallpaper = wallpaper,
+                    target = WallpaperTarget.BOTH,
+                    policy = WallpaperApplyPolicy.BACKGROUND,
+                ) {
+                    inFlight++
+                    maxInFlight = maxOf(maxInFlight, inFlight)
+                    delay(10)
+                    inFlight--
+                    Result.success(Unit)
+                }
+            }
+        }.awaitAll()
+
+        assertEquals(1, maxInFlight)
+        coVerify(exactly = 3) { historyManager.record(wallpaper, WallpaperTarget.BOTH) }
     }
 
     @Test

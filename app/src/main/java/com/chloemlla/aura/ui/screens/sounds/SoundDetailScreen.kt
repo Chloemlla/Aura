@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
@@ -148,6 +149,7 @@ fun SoundDetailScreen(
     }
     val isFavorite by viewModel.isFavorite(s).collectAsStateWithLifecycle(initialValue = false)
     val context = LocalContext.current
+    val resources = LocalResources.current
     val autoPreview by viewModel.autoPreview.collectAsStateWithLifecycle()
     val playbackProgress by viewModel.playbackProgress.collectAsStateWithLifecycle()
     val communityProviderEnabled by viewModel.communityProviderEnabled.collectAsStateWithLifecycle()
@@ -277,7 +279,7 @@ fun SoundDetailScreen(
         AlertDialog(
             onDismissRequest = { showDeleteUploadDialog = false },
             title = { Text(stringResource(R.string.sound_detail_delete_upload_title)) },
-            text = { Text(communityOwnerDeleteConfirmationCopy(CommunityUploadPolicyKind.SOUND)) },
+            text = { Text(communityOwnerDeleteConfirmationCopy(resources, CommunityUploadPolicyKind.SOUND)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -301,7 +303,7 @@ fun SoundDetailScreen(
         AlertDialog(
             onDismissRequest = { showBlockCreatorDialog = false },
             title = { Text(stringResource(R.string.sound_detail_block_creator_title)) },
-            text = { Text(communityBlockConfirmationCopy(CommunityUploadPolicyKind.SOUND)) },
+            text = { Text(communityBlockConfirmationCopy(resources, CommunityUploadPolicyKind.SOUND)) },
             confirmButton = {
                 TextButton(
                     onClick = {

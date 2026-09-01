@@ -1378,10 +1378,20 @@
     <string name="settings_theme_pack_default_filename">aura-theme-pack.zip</string>
     <string name="settings_theme_pack_instructions_title">Theme pack setup steps</string>
     <string name="settings_theme_pack_instruction_row">- %1$s</string>
+    <string name="theme_pack_import_unsupported_wallpaper_source">This pack pointed at wallpaper sources Aura cannot verify, so those dayparts were skipped.</string>
+    <string name="theme_pack_import_enable_wallpaper_pack">Turn on the 24-hour wallpaper pack in Settings to start using the imported dayparts.</string>
+    <string name="theme_pack_import_pending_sounds">Imported ringtone recipes are saved but not applied — Aura will not change your system sounds until you apply them yourself.</string>
     <string name="settings_theme_pack_exported">Theme pack exported: %1$d recipes, %2$d local assets</string>
     <string name="settings_theme_pack_export_failed">Theme pack export failed: %1$s</string>
     <string name="settings_theme_pack_imported">Theme pack imported: %1$d settings restored</string>
     <string name="settings_theme_pack_import_failed">Theme pack import failed: %1$s</string>
+    <string name="settings_theme_pack_sounds_pending_title">Apply imported sounds</string>
+    <string name="settings_theme_pack_sounds_pending_subtitle">An imported theme pack is holding ringtone recipes that Aura has not applied. Tap to set them as your system sounds now.</string>
+    <plurals name="settings_theme_pack_sounds_applied">
+        <item quantity="one">Imported sounds applied: %1$d</item>
+        <item quantity="other">Imported sounds applied: %1$d</item>
+    </plurals>
+    <string name="settings_theme_pack_sounds_apply_failed">Could not apply the imported sounds: %1$s</string>
     <string name="settings_smart_daily_wp_title">Daily wallpaper</string>
     <string name="settings_smart_daily_wp_subtitle">Get a daily wallpaper recommendation notification</string>
     <string name="settings_smart_tint_title">Time-of-day tint</string>
