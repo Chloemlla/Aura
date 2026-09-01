@@ -19,9 +19,19 @@ class AdaptiveNavigationShellContractTest {
     @Test
     fun `primary media screens receive expanded shell state`() {
         val source = File("src/main/java/com/chloemlla/aura/ui/FreeVibeRoot.kt").readText()
+        val wallpapers =
+            File("src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpapersScreen.kt").readText()
+        val sounds = File("src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsScreen.kt").readText()
 
         assertTrue(source.contains("WallpapersScreen("))
         assertTrue(source.contains("SoundsScreen("))
-        assertTrue(source.contains("isExpandedLayout = navigationLayout.isExpanded"))
+        // The shell publishes the width class through a composition local rather than
+        // capturing it in the NavHost builders (AURA-G9-04), so each screen defaults
+        // from the local instead of taking it as a call-site argument.
+        assertTrue(source.contains("CompositionLocalProvider(LocalAuraNavigationLayout provides navigationLayout)"))
+        assertTrue(
+            wallpapers.contains("isExpandedLayout: Boolean = LocalAuraNavigationLayout.current.isExpanded"),
+        )
+        assertTrue(sounds.contains("isExpandedLayout: Boolean = LocalAuraNavigationLayout.current.isExpanded"))
     }
 }

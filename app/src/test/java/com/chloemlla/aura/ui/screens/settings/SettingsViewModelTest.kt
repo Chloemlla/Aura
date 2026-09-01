@@ -486,6 +486,8 @@ class SettingsViewModelTest {
             coEvery { it.exportThemePack(any(), any()) } returns Result.success(ThemePackExportReport(0, 0, 0))
             coEvery { it.importThemePack(any()) } returns Result.success(ThemePackImportReport(0, emptyList()))
         }
+        // Read while the diagnostics delegate is constructed, so every test needs it.
+        every { themePackRecipeManager.hasPendingSoundRecipes } returns flowOf(false)
         return SettingsViewModel(
             context = context,
             prefs = prefs,
