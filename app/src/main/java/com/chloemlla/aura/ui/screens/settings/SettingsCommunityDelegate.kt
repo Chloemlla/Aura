@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -49,8 +50,13 @@ internal class SettingsCommunityDelegate(
 
     init {
         scope.launch {
-            _communityIdentitySummary.value = withContext(ioDispatcher) {
+            val loaded = withContext(ioDispatcher) {
                 communityIdentityProvider.currentIdentitySummary()
+            }
+            _communityIdentitySummary.update { current ->
+                // Same late-landing guard as the diagnostics delegate: only fill the
+                // pristine state, never clobber a summary a user action already set.
+                if (current == CommunityIdentitySummary()) loaded else current
             }
         }
     }

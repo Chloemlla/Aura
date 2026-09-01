@@ -216,6 +216,7 @@ class SettingsViewModelTest {
             cacheDir = createTempDirectory("settings-identity").toFile().also(tempDirs::add),
             communityIdentityProviderOverride = identityProvider,
         )
+        advanceUntilIdle()
 
         assertEquals("Not created", viewModel.communityIdentitySummary.value.identitySuffix)
 
@@ -243,6 +244,7 @@ class SettingsViewModelTest {
             cacheDir = createTempDirectory("settings-local-cleanup").toFile().also(tempDirs::add),
             communityIdentityProviderOverride = identityProvider,
         )
+        advanceUntilIdle()
 
         assertEquals("local1234", viewModel.communityIdentitySummary.value.identitySuffix)
 

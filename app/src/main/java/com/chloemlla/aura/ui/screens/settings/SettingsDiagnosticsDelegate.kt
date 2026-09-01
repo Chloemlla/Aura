@@ -95,8 +95,13 @@ internal class SettingsDiagnosticsDelegate(
         refreshExternalAutomationDiagnostics()
         refreshGeneratedAssetAudit()
         scope.launch {
-            _ytDlpUpdate.value = withContext(ioDispatcher) {
+            val loaded = withContext(ioDispatcher) {
                 YtDlpUpdateUiState(snapshot = ytDlpUpdateManager.snapshot())
+            }
+            _ytDlpUpdate.update { current ->
+                // The construction-time snapshot lands asynchronously; a user-triggered
+                // update that already moved the state forward must not be overwritten.
+                if (current == YtDlpUpdateUiState()) loaded else current
             }
         }
     }
