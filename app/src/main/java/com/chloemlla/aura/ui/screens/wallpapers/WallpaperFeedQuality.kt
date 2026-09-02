@@ -119,7 +119,9 @@ internal fun Wallpaper.cardAccessibilitySummary(
     isFavorite: Boolean,
     voteCount: Int,
 ): String = buildList {
-    add(resources.getString(R.string.wallpapers_source_wallpaper, source.readableLabel()))
+    // sourceDisplayName, not a title-cased enum name: the latter said "Ai Generated" / "Nasa" /
+    // "Youtube" while the detail screen said "AI Generated" / "NASA" / "YouTube".
+    add(resources.getString(R.string.wallpapers_source_wallpaper, sourceDisplayName(source)))
     if (category.isNotBlank()) add(category)
     add(hints.resolutionLabel)
     add(hints.orientationLabel)
@@ -281,11 +283,6 @@ private fun String.toPixelHint(): Long {
 }
 
 private fun String.normalizeFeedTerm(): String = lowercase(Locale.ROOT).trim()
-
-private fun ContentSource.readableLabel(): String =
-    name.split("_").joinToString(" ") { part ->
-        part.lowercase(Locale.ROOT).replaceFirstChar { char -> char.uppercase(Locale.ROOT) }
-    }
 
 private val AMOLED_TERMS = setOf(
     "amoled", "oled", "black", "dark", "night", "midnight", "shadow", "space", "neon",
