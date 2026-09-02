@@ -1842,6 +1842,23 @@
     <string name="community_ai_upload_declaration">使用生成式 AI 创建</string>
     <string name="community_ai_upload_declaration_hint">当 AI 生成了上传内容或对其进行实质性改造时，请勾选此项。</string>
 
+    <!-- 壁纸许可闸门 -->
+    <string name="wallpaper_license_confirm_title">先确认许可</string>
+    <string name="wallpaper_license_blocked_title">该许可不允许此操作</string>
+    <string name="wallpaper_license_reason_source_unavailable">这张壁纸的来源已经失效，依赖来源的操作已关闭。</string>
+    <string name="wallpaper_license_reason_unverified_license">无法确认这张壁纸的许可（%1$s）。继续之前请先查看来源的条款。</string>
+    <string name="wallpaper_license_reason_share_missing_source_link">分享需要附上原始页面链接，而这张壁纸没有。</string>
+    <string name="wallpaper_license_reason_share_missing_uploader">分享需要标注作者署名，而这张壁纸没有。</string>
+    <string name="wallpaper_license_reason_share_missing_source_link_and_uploader">分享需要原始页面链接和作者署名，而这张壁纸两者都没有。</string>
+    <string name="wallpaper_license_reason_bing_terms">必应每日图片仍受原始版权保护（%1$s）。继续之前请先查看必应的条款。</string>
+    <string name="wallpaper_license_reason_bing_share_forbidden">必应每日图片只能查看和应用，不能分享图片本身。</string>
+    <string name="wallpaper_license_reason_reddit_terms">Reddit 帖子沿用发帖者自己的条款（%1$s），来源随时可能消失。</string>
+    <string name="wallpaper_license_reason_reddit_edit_forbidden">Reddit 壁纸无法在 Aura 里编辑。</string>
+    <string name="wallpaper_license_reason_community_upload_rights">这是社区上传内容（%1$s），权利只由上传者本人担保。</string>
+    <string name="wallpaper_license_reason_ai_generator_terms">这张壁纸由 AI 生成，分享前请先查看生成工具的条款。</string>
+    <string name="wallpaper_license_reason_no_derivatives">禁止改编的许可（%1$s）不允许保存修改后的版本。</string>
+    <string name="wallpaper_license_reason_non_commercial">非商业许可（%1$s）限制了这张壁纸的使用范围。</string>
+
     <!-- Lumen Crash SDK 集成 -->
     <string name="crash_report_title">崩溃报告已保存</string>
     <string name="crash_report_message">Aura 从崩溃中恢复。请在继续前查看、复制或分享此报告。</string>

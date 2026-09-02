@@ -15,9 +15,26 @@ enum class WallpaperActionDecision {
     DISABLED,
 }
 
+/** Why an action is gated. The UI maps these to localized copy; the policy layer has no Context. */
+enum class WallpaperActionReason {
+    SOURCE_UNAVAILABLE,
+    UNVERIFIED_LICENSE,
+    SHARE_MISSING_SOURCE_LINK,
+    SHARE_MISSING_UPLOADER,
+    SHARE_MISSING_SOURCE_LINK_AND_UPLOADER,
+    BING_TERMS,
+    BING_SHARE_FORBIDDEN,
+    REDDIT_TERMS,
+    REDDIT_EDIT_FORBIDDEN,
+    COMMUNITY_UPLOAD_RIGHTS,
+    AI_GENERATOR_TERMS,
+    NO_DERIVATIVES,
+    NON_COMMERCIAL,
+}
+
 data class WallpaperActionCapability(
     val decision: WallpaperActionDecision,
-    val reason: String = "",
+    val reason: WallpaperActionReason? = null,
 )
 
 data class WallpaperLicenseCapabilities(
@@ -44,7 +61,7 @@ fun Wallpaper.wallpaperLicenseCapabilities(): WallpaperLicenseCapabilities {
             attributionRequired = false,
             sourceLinkRequired = false,
             uploaderRequired = false,
-            actions = disabledWallpaperActions("Source is unavailable; live-source wallpaper actions are disabled."),
+            actions = disabledWallpaperActions(WallpaperActionReason.SOURCE_UNAVAILABLE),
         )
     }
 
@@ -65,51 +82,51 @@ fun Wallpaper.wallpaperLicenseCapabilities(): WallpaperLicenseCapabilities {
     val actions = mutableAllowedWallpaperActions()
 
     if (missingLicense && source in REMOTE_WALLPAPER_SOURCES) {
-        requireWallpaperConfirmation(actions, WallpaperAction.APPLY, "Confirm source terms before applying this wallpaper.")
-        requireWallpaperConfirmation(actions, WallpaperAction.DOWNLOAD, "Confirm source terms before downloading this wallpaper.")
-        requireWallpaperConfirmation(actions, WallpaperAction.SHARE, "Confirm source terms before sharing this wallpaper.")
-        requireWallpaperConfirmation(actions, WallpaperAction.EDIT, "Confirm source terms before editing this wallpaper.")
+        WallpaperAction.entries.forEach { action ->
+            requireWallpaperConfirmation(actions, action, WallpaperActionReason.UNVERIFIED_LICENSE)
+        }
     }
 
     if (missingSourceLink || missingUploader) {
-        val missing = buildList {
-            if (missingSourceLink) add("source link")
-            if (missingUploader) add("uploader")
-        }.joinToString(" and ")
-        disableWallpaperAction(actions, WallpaperAction.SHARE, "Share is disabled until the wallpaper has $missing metadata.")
+        val reason = when {
+            missingSourceLink && missingUploader -> WallpaperActionReason.SHARE_MISSING_SOURCE_LINK_AND_UPLOADER
+            missingSourceLink -> WallpaperActionReason.SHARE_MISSING_SOURCE_LINK
+            else -> WallpaperActionReason.SHARE_MISSING_UPLOADER
+        }
+        disableWallpaperAction(actions, WallpaperAction.SHARE, reason)
     }
 
     when (source) {
         ContentSource.BING -> {
-            requireWallpaperConfirmation(actions, WallpaperAction.DOWNLOAD, "Confirm Bing copyright terms before downloading this wallpaper.")
-            requireWallpaperConfirmation(actions, WallpaperAction.EDIT, "Confirm Bing copyright terms before editing this wallpaper.")
-            disableWallpaperAction(actions, WallpaperAction.SHARE, "Bing daily images are view-and-apply only; sharing the image is not permitted.")
+            requireWallpaperConfirmation(actions, WallpaperAction.DOWNLOAD, WallpaperActionReason.BING_TERMS)
+            requireWallpaperConfirmation(actions, WallpaperAction.EDIT, WallpaperActionReason.BING_TERMS)
+            disableWallpaperAction(actions, WallpaperAction.SHARE, WallpaperActionReason.BING_SHARE_FORBIDDEN)
         }
         ContentSource.REDDIT -> {
-            requireWallpaperConfirmation(actions, WallpaperAction.APPLY, "Confirm Reddit source availability before applying this wallpaper.")
-            requireWallpaperConfirmation(actions, WallpaperAction.DOWNLOAD, "Confirm Reddit source terms before downloading this wallpaper.")
-            disableWallpaperAction(actions, WallpaperAction.EDIT, "Reddit wallpapers cannot be edited in Aura.")
+            requireWallpaperConfirmation(actions, WallpaperAction.APPLY, WallpaperActionReason.REDDIT_TERMS)
+            requireWallpaperConfirmation(actions, WallpaperAction.DOWNLOAD, WallpaperActionReason.REDDIT_TERMS)
+            disableWallpaperAction(actions, WallpaperAction.EDIT, WallpaperActionReason.REDDIT_EDIT_FORBIDDEN)
         }
         ContentSource.COMMUNITY -> {
             if (normalizedLicense == "User Upload") {
-                requireWallpaperConfirmation(actions, WallpaperAction.APPLY, "Confirm community upload rights before applying this wallpaper.")
-                requireWallpaperConfirmation(actions, WallpaperAction.DOWNLOAD, "Confirm community upload rights before downloading this wallpaper.")
-                requireWallpaperConfirmation(actions, WallpaperAction.EDIT, "Confirm community upload rights before editing this wallpaper.")
+                requireWallpaperConfirmation(actions, WallpaperAction.APPLY, WallpaperActionReason.COMMUNITY_UPLOAD_RIGHTS)
+                requireWallpaperConfirmation(actions, WallpaperAction.DOWNLOAD, WallpaperActionReason.COMMUNITY_UPLOAD_RIGHTS)
+                requireWallpaperConfirmation(actions, WallpaperAction.EDIT, WallpaperActionReason.COMMUNITY_UPLOAD_RIGHTS)
             }
         }
         ContentSource.AI_GENERATED -> {
-            requireWallpaperConfirmation(actions, WallpaperAction.SHARE, "Confirm generator terms before sharing this AI-generated wallpaper.")
+            requireWallpaperConfirmation(actions, WallpaperAction.SHARE, WallpaperActionReason.AI_GENERATOR_TERMS)
         }
         else -> Unit
     }
 
     if (isNoDerivatives) {
-        disableWallpaperAction(actions, WallpaperAction.EDIT, "No-derivatives wallpapers cannot be edited.")
+        disableWallpaperAction(actions, WallpaperAction.EDIT, WallpaperActionReason.NO_DERIVATIVES)
     }
     if (isNonCommercial) {
-        requireWallpaperConfirmation(actions, WallpaperAction.APPLY, "Confirm non-commercial license terms before applying this wallpaper.")
-        requireWallpaperConfirmation(actions, WallpaperAction.DOWNLOAD, "Confirm non-commercial license terms before downloading this wallpaper.")
-        requireWallpaperConfirmation(actions, WallpaperAction.EDIT, "Confirm non-commercial license terms before editing this wallpaper.")
+        requireWallpaperConfirmation(actions, WallpaperAction.APPLY, WallpaperActionReason.NON_COMMERCIAL)
+        requireWallpaperConfirmation(actions, WallpaperAction.DOWNLOAD, WallpaperActionReason.NON_COMMERCIAL)
+        requireWallpaperConfirmation(actions, WallpaperAction.EDIT, WallpaperActionReason.NON_COMMERCIAL)
     }
 
     return WallpaperLicenseCapabilities(
@@ -120,15 +137,6 @@ fun Wallpaper.wallpaperLicenseCapabilities(): WallpaperLicenseCapabilities {
         actions = actions,
     )
 }
-
-fun Wallpaper.canUseWallpaperAction(action: WallpaperAction): Boolean =
-    wallpaperLicenseCapabilities().canUse(action)
-
-fun Wallpaper.requiresWallpaperActionConfirmation(action: WallpaperAction): Boolean =
-    wallpaperLicenseCapabilities().requiresConfirmation(action)
-
-fun Wallpaper.wallpaperActionMessage(action: WallpaperAction): String =
-    wallpaperLicenseCapabilities().capability(action).reason
 
 fun normalizeWallpaperLicense(source: ContentSource, license: String): String {
     val raw = license.trim()
@@ -175,7 +183,7 @@ private fun mutableAllowedWallpaperActions(): MutableMap<WallpaperAction, Wallpa
         WallpaperActionCapability(WallpaperActionDecision.ALLOWED)
     }.toMutableMap()
 
-private fun disabledWallpaperActions(reason: String): Map<WallpaperAction, WallpaperActionCapability> =
+private fun disabledWallpaperActions(reason: WallpaperActionReason): Map<WallpaperAction, WallpaperActionCapability> =
     WallpaperAction.entries.associateWith {
         WallpaperActionCapability(WallpaperActionDecision.DISABLED, reason)
     }
@@ -183,7 +191,7 @@ private fun disabledWallpaperActions(reason: String): Map<WallpaperAction, Wallp
 private fun requireWallpaperConfirmation(
     actions: MutableMap<WallpaperAction, WallpaperActionCapability>,
     action: WallpaperAction,
-    reason: String,
+    reason: WallpaperActionReason,
 ) {
     if (actions[action]?.decision == WallpaperActionDecision.DISABLED) return
     actions[action] = WallpaperActionCapability(WallpaperActionDecision.CONFIRMATION_REQUIRED, reason)
@@ -192,7 +200,7 @@ private fun requireWallpaperConfirmation(
 private fun disableWallpaperAction(
     actions: MutableMap<WallpaperAction, WallpaperActionCapability>,
     action: WallpaperAction,
-    reason: String,
+    reason: WallpaperActionReason,
 ) {
     actions[action] = WallpaperActionCapability(WallpaperActionDecision.DISABLED, reason)
 }

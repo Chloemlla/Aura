@@ -89,6 +89,7 @@ class VideoWallpapersViewModelTest {
         val cacheEditor = mockk<SharedPreferences.Editor>()
         val cacheValues = mutableMapOf<String, Any?>()
         every { context.applicationContext } returns context
+        every { context.resources } returns localizedVideoSummaryResources()
         every {
             context.getSharedPreferences("freevibe_pixabay_video_cache", Context.MODE_PRIVATE)
         } returns cachePreferences

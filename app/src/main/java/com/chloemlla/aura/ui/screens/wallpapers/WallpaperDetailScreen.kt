@@ -45,10 +45,14 @@ import com.chloemlla.aura.data.model.COMMUNITY_REPORT_REASONS
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.GENERATED_CONTENT_REPORT_REASONS
 import com.chloemlla.aura.data.model.Wallpaper
+import com.chloemlla.aura.data.model.WallpaperAction
+import com.chloemlla.aura.data.model.WallpaperActionDecision
+import com.chloemlla.aura.data.model.WallpaperActionReason
 import com.chloemlla.aura.data.model.WallpaperCollectionEntity
 import com.chloemlla.aura.data.model.WallpaperTarget
 import com.chloemlla.aura.data.model.isSourceUnavailable
 import com.chloemlla.aura.data.model.stableKey
+import com.chloemlla.aura.data.model.wallpaperLicenseCapabilities
 import com.chloemlla.aura.service.ParallaxWallpaperService
 import com.chloemlla.aura.ui.LiveWallpaperLaunchMode
 import com.chloemlla.aura.ui.components.AuraSnackbarHost
@@ -257,6 +261,7 @@ fun WallpaperDetailScreen(
     val wp = currentWp
     val sourceUnavailable = wp.isSourceUnavailable()
     val hints = remember(wp, resources) { wp.qualityHints(resources) }
+    val licenseCapabilities = remember(wp) { wp.wallpaperLicenseCapabilities() }
 
     val isFavorite by viewModel.isFavorite(wp).collectAsStateWithLifecycle(initialValue = false)
     val collections by viewModel.collections.collectAsStateWithLifecycle()
@@ -273,6 +278,8 @@ fun WallpaperDetailScreen(
     var showBlockCreatorDialog by remember(wp.stableKey()) { mutableStateOf(false) }
     var showDeleteUploadDialog by remember(wp.stableKey()) { mutableStateOf(false) }
     var showDetailsPanel by remember { mutableStateOf(false) }
+    var pendingLicenseAction by remember(wp.stableKey()) { mutableStateOf<WallpaperAction?>(null) }
+    var blockedLicenseAction by remember(wp.stableKey()) { mutableStateOf<WallpaperAction?>(null) }
     val isGeneratedWallpaper = wp.source == ContentSource.AI_GENERATED
     val canReportWallpaper = wp.source != ContentSource.LOCAL
     var canDeleteUpload by remember(wp.stableKey(), communityProviderEnabled) { mutableStateOf(false) }
@@ -289,6 +296,38 @@ fun WallpaperDetailScreen(
     val parallaxManualMessage = stringResource(R.string.settings_feedback_parallax_manual)
     val shareWallpaperTitle = stringResource(R.string.detail_share_wallpaper_title)
     val snackbarHostState = remember { SnackbarHostState() }
+    val performLicensedAction: (WallpaperAction) -> Unit = { action ->
+        when (action) {
+            WallpaperAction.APPLY -> showApplyOptions = true
+            WallpaperAction.DOWNLOAD -> viewModel.downloadWallpaper(wp)
+            WallpaperAction.EDIT -> onEdit(wp)
+            WallpaperAction.SHARE -> {
+                val shareUrl = if (sourceUnavailable) wp.fullUrl else wp.sourcePageUrl.ifEmpty { wp.fullUrl }
+                if (shareUrl.isNotBlank()) {
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, shareUrl)
+                    }
+                    try {
+                        context.startActivity(Intent.createChooser(intent, shareWallpaperTitle))
+                    } catch (_: Exception) {}
+                }
+            }
+        }
+    }
+    val requestLicensedAction: (WallpaperAction) -> Unit = { action ->
+        // A dead upstream link disables every action in the policy, but it says nothing about the
+        // licence the user already accepted: a favourite whose source 404s must stay applyable.
+        if (sourceUnavailable) {
+            performLicensedAction(action)
+        } else {
+            when (licenseCapabilities.capability(action).decision) {
+                WallpaperActionDecision.ALLOWED -> performLicensedAction(action)
+                WallpaperActionDecision.CONFIRMATION_REQUIRED -> pendingLicenseAction = action
+                WallpaperActionDecision.DISABLED -> blockedLicenseAction = action
+            }
+        }
+    }
     LaunchedEffect(state.pendingLiveWallpaperLaunch) {
         if (state.pendingLiveWallpaperLaunch) {
             val message = when (
@@ -480,7 +519,7 @@ fun WallpaperDetailScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             Button(
-                                onClick = { showApplyOptions = true },
+                                onClick = { requestLicensedAction(WallpaperAction.APPLY) },
                                 modifier = Modifier
                                     .weight(1f)
                                     .heightIn(min = 48.dp),
@@ -634,7 +673,7 @@ fun WallpaperDetailScreen(
                                 icon = Icons.Default.Download,
                                 label = stringResource(R.string.detail_download),
                                 tint = MaterialTheme.colorScheme.primary,
-                                onClick = { viewModel.downloadWallpaper(wp) },
+                                onClick = { requestLicensedAction(WallpaperAction.DOWNLOAD) },
                             )
                             if (!sourceUnavailable) {
                                 DetailActionPill(
@@ -648,17 +687,7 @@ fun WallpaperDetailScreen(
                                 icon = Icons.Default.Share,
                                 label = stringResource(R.string.common_share),
                                 tint = MaterialTheme.colorScheme.primary,
-                                onClick = {
-                                    val shareUrl = if (sourceUnavailable) wp.fullUrl else wp.sourcePageUrl.ifEmpty { wp.fullUrl }
-                                    if (shareUrl.isBlank()) return@DetailActionPill
-                                    val intent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(Intent.EXTRA_TEXT, shareUrl)
-                                    }
-                                    try {
-                                        context.startActivity(Intent.createChooser(intent, shareWallpaperTitle))
-                                    } catch (_: Exception) {}
-                                },
+                                onClick = { requestLicensedAction(WallpaperAction.SHARE) },
                             )
                             if (wp.sourcePageUrl.isNotBlank() && !sourceUnavailable) {
                                 DetailActionPill(
@@ -710,7 +739,7 @@ fun WallpaperDetailScreen(
                         CompactWallpaperOverlayCard(
                             isFavorite = isFavorite,
                             isApplying = state.isApplying,
-                            onApplyClick = { showApplyOptions = true },
+                            onApplyClick = { requestLicensedAction(WallpaperAction.APPLY) },
                             onShowDetails = { showDetailsPanel = true },
                             onToggleFavorite = { viewModel.toggleFavorite(wp) },
                         )
@@ -741,7 +770,7 @@ fun WallpaperDetailScreen(
             if (showMoreMenu) {
                 MoreActionsSheet(
                     onDismiss = { showMoreMenu = false },
-                    onEdit = { showMoreMenu = false; onEdit(wp) },
+                    onEdit = { showMoreMenu = false; requestLicensedAction(WallpaperAction.EDIT) },
                     onCrop = { showMoreMenu = false; onCrop(wp) },
                     onPreview = { showMoreMenu = false; onPreview(wp) },
                     onCollection = { showMoreMenu = false; showCollectionPicker = true },
@@ -763,6 +792,31 @@ fun WallpaperDetailScreen(
                     }) else null,
                     uploaderName = wp.uploaderName,
                     license = wp.license,
+                )
+            }
+
+            pendingLicenseAction?.let { action ->
+                WallpaperLicenseGateDialog(
+                    title = stringResource(R.string.wallpaper_license_confirm_title),
+                    reason = licenseCapabilities.capability(action).reason,
+                    normalizedLicense = licenseCapabilities.normalizedLicense,
+                    confirmLabel = stringResource(R.string.common_continue),
+                    onConfirm = {
+                        pendingLicenseAction = null
+                        performLicensedAction(action)
+                    },
+                    onDismiss = { pendingLicenseAction = null },
+                )
+            }
+
+            blockedLicenseAction?.let { action ->
+                WallpaperLicenseGateDialog(
+                    title = stringResource(R.string.wallpaper_license_blocked_title),
+                    reason = licenseCapabilities.capability(action).reason,
+                    normalizedLicense = licenseCapabilities.normalizedLicense,
+                    confirmLabel = null,
+                    onConfirm = {},
+                    onDismiss = { blockedLicenseAction = null },
                 )
             }
 
@@ -849,6 +903,65 @@ fun WallpaperDetailScreen(
             }
         }
     }
+}
+
+@Composable
+private fun WallpaperLicenseGateDialog(
+    title: String,
+    reason: WallpaperActionReason?,
+    normalizedLicense: String,
+    confirmLabel: String?,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(wallpaperLicenseReasonText(reason, normalizedLicense)) },
+        confirmButton = {
+            TextButton(onClick = { if (confirmLabel != null) onConfirm() else onDismiss() }) {
+                Text(confirmLabel ?: stringResource(R.string.common_close))
+            }
+        },
+        dismissButton = {
+            if (confirmLabel != null) {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+            }
+        },
+    )
+}
+
+@Composable
+private fun wallpaperLicenseReasonText(
+    reason: WallpaperActionReason?,
+    normalizedLicense: String,
+): String = when (reason) {
+    WallpaperActionReason.SOURCE_UNAVAILABLE ->
+        stringResource(R.string.wallpaper_license_reason_source_unavailable)
+    WallpaperActionReason.SHARE_MISSING_SOURCE_LINK ->
+        stringResource(R.string.wallpaper_license_reason_share_missing_source_link)
+    WallpaperActionReason.SHARE_MISSING_UPLOADER ->
+        stringResource(R.string.wallpaper_license_reason_share_missing_uploader)
+    WallpaperActionReason.SHARE_MISSING_SOURCE_LINK_AND_UPLOADER ->
+        stringResource(R.string.wallpaper_license_reason_share_missing_source_link_and_uploader)
+    WallpaperActionReason.BING_SHARE_FORBIDDEN ->
+        stringResource(R.string.wallpaper_license_reason_bing_share_forbidden)
+    WallpaperActionReason.REDDIT_EDIT_FORBIDDEN ->
+        stringResource(R.string.wallpaper_license_reason_reddit_edit_forbidden)
+    WallpaperActionReason.AI_GENERATOR_TERMS ->
+        stringResource(R.string.wallpaper_license_reason_ai_generator_terms)
+    WallpaperActionReason.BING_TERMS ->
+        stringResource(R.string.wallpaper_license_reason_bing_terms, normalizedLicense)
+    WallpaperActionReason.REDDIT_TERMS ->
+        stringResource(R.string.wallpaper_license_reason_reddit_terms, normalizedLicense)
+    WallpaperActionReason.COMMUNITY_UPLOAD_RIGHTS ->
+        stringResource(R.string.wallpaper_license_reason_community_upload_rights, normalizedLicense)
+    WallpaperActionReason.NO_DERIVATIVES ->
+        stringResource(R.string.wallpaper_license_reason_no_derivatives, normalizedLicense)
+    WallpaperActionReason.NON_COMMERCIAL ->
+        stringResource(R.string.wallpaper_license_reason_non_commercial, normalizedLicense)
+    WallpaperActionReason.UNVERIFIED_LICENSE, null ->
+        stringResource(R.string.wallpaper_license_reason_unverified_license, normalizedLicense)
 }
 
 @Composable

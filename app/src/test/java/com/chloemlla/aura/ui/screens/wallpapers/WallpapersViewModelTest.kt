@@ -318,6 +318,7 @@ class WallpapersViewModelTest {
             redditProviderEnabled = false,
         )
 
+        viewModel.startBrowsing()
         advanceUntilIdle()
         assertEquals("bing_daily", viewModel.dailyPick.value?.id)
         coVerify(exactly = 0) { redditRepo.getDailyTopWallpaper() }
@@ -760,12 +761,43 @@ class WallpapersViewModelTest {
             cacheManagerOverride = cacheManager,
         )
 
+        viewModel.startBrowsing()
         advanceUntilIdle()
 
         val topVoted = viewModel.topVoted.value
         assertEquals(1, topVoted.size)
         assertEquals(ContentSource.PEXELS, topVoted.first().first.source)
         assertEquals(7, topVoted.first().second)
+    }
+
+    @Test
+    fun `startBrowsing fetches the daily pick once even when called again`() = runTest(dispatcher) {
+        val wallpaperRepo = mockk<WallpaperRepository>()
+        val redditRepo = mockk<RedditRepository>()
+
+        stubCommonDependencies(
+            wallpaperRepo = wallpaperRepo,
+            redditRepo = redditRepo,
+        )
+        coEvery { wallpaperRepo.getWallpaperOfTheDay() } returns wallpaper(
+            id = "daily",
+            color = "#123456",
+        )
+
+        val viewModel = createViewModel(
+            wallpaperRepo = wallpaperRepo,
+            redditRepo = redditRepo,
+        )
+
+        advanceUntilIdle()
+        coVerify(exactly = 0) { wallpaperRepo.getWallpaperOfTheDay() }
+
+        viewModel.startBrowsing()
+        viewModel.startBrowsing()
+        advanceUntilIdle()
+
+        assertEquals("daily", viewModel.dailyPick.value?.id)
+        coVerify(exactly = 1) { wallpaperRepo.getWallpaperOfTheDay() }
     }
 
     @Test
