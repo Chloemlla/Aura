@@ -277,6 +277,7 @@ fun WallpapersScreen(
         if (isExpandedLayout) gridColumns.coerceAtLeast(3) else gridColumns
     }
 
+    LaunchedEffect(Unit) { viewModel.startBrowsing() }
     LaunchedEffect(initialQuery, initialColor, initialSimilarId, initialSimilarSource, initialSimilarFullUrl) {
         viewModel.handleRouteFilters(
             query = initialQuery,

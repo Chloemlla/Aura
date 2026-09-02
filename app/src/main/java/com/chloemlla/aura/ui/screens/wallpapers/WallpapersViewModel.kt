@@ -81,6 +81,7 @@ class WallpapersViewModel @Inject constructor(
     private var lastRouteSimilarSource: String? = null
     private var lastRouteSimilarFullUrl: String? = null
     private var hasInitiallyLoaded = false
+    private var hasStartedBrowsing = false
 
     val selectedWallpaper = selectedContent.selectedWallpaper
     val sharedWallpaperList = selectedContent.wallpaperList
@@ -200,7 +201,14 @@ class WallpapersViewModel @Inject constructor(
         fetchTopVoted = browse::fetchTopVoted,
     )
 
-    init {
+    /**
+     * Six screens obtain this ViewModel, but only the wallpaper list renders the daily pick,
+     * top-voted rail and source-health state. Starting the feed from `init` made every one of
+     * them re-run the Firebase top-voted fetch; the browse screen opts in instead.
+     */
+    fun startBrowsing() {
+        if (hasStartedBrowsing) return
+        hasStartedBrowsing = true
         browse.start()
     }
 
