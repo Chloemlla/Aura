@@ -500,6 +500,8 @@
     <string name="collections_list_empty_title">No collections yet</string>
     <string name="collections_list_empty_body">Use collections to group wallpapers by mood, room, season, or setup.</string>
     <string name="collections_removed">Removed from collection</string>
+    <string name="collections_created">Created \"%1$s\"</string>
+    <string name="collections_added">Added to collection</string>
     <string name="collections_deleted">Deleted \"%1$s\"</string>
     <string name="downloads_deleted">Deleted \"%1$s\"</string>
     <string name="collections_link_copied">Collection link copied</string>
@@ -574,11 +576,37 @@
     <string name="detail_unavailable_title">Wallpaper unavailable</string>
     <string name="detail_unavailable_body">This item is no longer available from its source or couldn\'t be restored from local state.</string>
     <string name="detail_unavailable_action">Back to feed</string>
+    <string name="detail_subtitle_source_unavailable">Saved from %1$s; source is unavailable</string>
+    <string name="detail_subtitle_by_uploader">By %1$s on %2$s</string>
+    <string name="detail_subtitle_sourced_with_page">Sourced from %1$s with a direct source page available</string>
+    <string name="detail_subtitle_sourced_from">Sourced from %1$s</string>
     <string name="detail_show_image">Show image</string>
     <string name="detail_set_wallpaper">Set wallpaper</string>
     <string name="detail_preview">Preview</string>
     <string name="preview_wallpaper_cd">Wallpaper preview</string>
     <string name="preview_mock_status_100">&#9679;&#9679;&#9679;&#9679;  100%</string>
+    <string-array name="preview_mock_app_labels">
+        <item>App</item>
+        <item>Mail</item>
+        <item>Photos</item>
+        <item>Clock</item>
+        <item>Maps</item>
+        <item>Music</item>
+        <item>Chat</item>
+        <item>Notes</item>
+        <item>Files</item>
+        <item>Calendar</item>
+        <item>Weather</item>
+        <item>Camera</item>
+        <item>Store</item>
+        <item>News</item>
+        <item>Health</item>
+        <item>Wallet</item>
+        <item>Voice</item>
+        <item>Calc</item>
+        <item>Tools</item>
+        <item>Browse</item>
+    </string-array>
     <string name="detail_set">Set</string>
     <string name="detail_set_wallpaper_title">Set wallpaper</string>
     <string name="detail_more_actions">More actions</string>
@@ -1057,6 +1085,11 @@
     <string name="video_wp_error_gallery">From gallery</string>
     <string name="video_wp_empty_retry">Retry</string>
     <string name="video_wp_empty_refresh">Refresh</string>
+    <string name="video_wp_empty_hidden_title">Everything here is hidden</string>
+    <string name="video_wp_empty_hidden_description">Pull to refresh for a fresh batch, or change orientation and focus filters.</string>
+    <string name="video_wp_empty_search_description">Try fewer words, a broader mood, or switch the %1$s filter.</string>
+    <string name="video_wp_empty_default_title">No video wallpapers found</string>
+    <string name="video_wp_empty_default_description">Try another focus filter or switch the %1$s view.</string>
     <string name="video_wp_toast_direct">Aura Video Wallpaper opened. Set wallpaper to finish.</string>
     <string name="video_wp_toast_chooser">Choose \'Aura Video Wallpaper\' in the picker, then tap Set wallpaper.</string>
     <string name="video_wp_toast_fallback">Motion wallpaper selected. Open Settings > Wallpaper > Live Wallpapers to finish setup.</string>
@@ -1076,6 +1109,15 @@
     <string name="video_wp_preview_unavailable">Preview unavailable</string>
     <string name="video_wp_badge_portrait">Portrait</string>
     <string name="video_wp_badge_landscape">Landscape</string>
+    <string name="video_wp_badge_loop_safe">Loop-safe</string>
+    <string name="video_wp_badge_dynamic">Dynamic</string>
+    <string name="video_wp_badge_low_battery">Low battery</string>
+    <string name="video_wp_badge_balanced">Balanced</string>
+    <string name="video_wp_badge_high_motion">High motion</string>
+    <string name="video_wp_badge_flexible">Flexible</string>
+    <string name="video_wp_badge_phone_fit">Phone fit</string>
+    <string name="video_wp_badge_wide_fit">Wide fit</string>
+    <string name="video_wp_badge_needs_crop">Needs crop</string>
     <string name="video_wp_provenance_title">Source and rights</string>
     <string name="video_wp_provenance_source">Source</string>
     <string name="video_wp_provenance_terms">Terms</string>
@@ -1084,6 +1126,8 @@
     <string name="video_wp_presentation_fill">Fill</string>
     <string name="video_wp_presentation_fit">Fit</string>
     <string name="video_wp_filter_focus">Focus</string>
+    <string name="video_wp_focus_best">Best</string>
+    <string name="video_wp_orientation_all">All</string>
     <string name="video_wp_filter_quick_searches">Quick searches</string>
     <string name="video_wp_category_nature">Nature</string>
     <string name="video_wp_category_abstract">Abstract</string>
@@ -1096,6 +1140,15 @@
     <string name="video_wp_category_rain">Rain</string>
     <string name="video_wp_category_clouds">Clouds</string>
     <string name="video_wp_duration_seconds">%1$ds</string>
+    <string name="video_wp_summary_dimensions">%1$dx%2$d (%3$s)</string>
+    <string name="video_wp_summary_unknown_dimensions">Unknown video dimensions</string>
+    <string name="video_wp_summary_rotated">rotated %1$ddeg</string>
+    <string name="video_wp_pixabay_fallback_title">Pixabay video</string>
+    <string name="video_wp_upvote_with_count">%1$s (%2$d)</string>
+    <string name="video_wp_prepare_failed">Could not prepare video</string>
+    <string name="video_wp_sources_unavailable_stale">Video sources are unavailable right now. Showing your last good results.</string>
+    <string name="video_wp_sources_unavailable">Video sources are unavailable right now.</string>
+    <string name="video_wp_sources_limited">Limited source availability right now.</string>
 
     <!-- Settings screen -->
     <string name="settings_title">Settings</string>
@@ -1850,6 +1903,23 @@
     <string name="wallpapers_card_add_favorite">Add wallpaper to favorites</string>
     <string name="wallpapers_card_upvote">Upvote wallpaper</string>
     <string name="wallpapers_card_hide">Hide wallpaper</string>
+    <string name="wallpapers_source_wallpaper">%1$s wallpaper</string>
+    <string name="wallpapers_card_saved_to_favorites">saved to favorites</string>
+    <string name="wallpapers_card_not_saved">not saved</string>
+    <plurals name="wallpapers_card_upvote_count">
+        <item quantity="one">%1$d upvote</item>
+        <item quantity="other">%1$d upvotes</item>
+    </plurals>
+    <string name="wallpaper_quality_resolution_4k">4K+</string>
+    <string name="wallpaper_quality_resolution_qhd">QHD</string>
+    <string name="wallpaper_quality_resolution_fhd">FHD</string>
+    <string name="wallpaper_quality_resolution_hd">HD</string>
+    <string name="wallpaper_quality_resolution_ready">Ready</string>
+    <string name="wallpaper_quality_orientation_phone">Phone</string>
+    <string name="wallpaper_quality_orientation_portrait">Portrait</string>
+    <string name="wallpaper_quality_orientation_wide">Wide</string>
+    <string name="wallpaper_quality_amoled_friendly">AMOLED friendly</string>
+    <string name="wallpaper_quality_icon_safe">icon-safe</string>
     <string name="wallpapers_card_remove_favorite_short">Remove favorite</string>
     <string name="wallpapers_card_add_favorite_short">Add favorite</string>
     <string name="wallpapers_filter_tone_chip">Tone</string>
@@ -1914,6 +1984,17 @@
     <string name="wallpapers_upload_tags_placeholder">dark, gradient, lock screen</string>
     <string name="wallpapers_upload_source_placeholder">https://example.com/source</string>
     <string name="wallpapers_source_health_summary">Limited source health right now: %1$s</string>
+    <string name="wallpapers_source_disabled">%1$s source is disabled in Settings</string>
+    <string name="wallpapers_source_reddit_rss_disabled">Reddit RSS is disabled in Settings. Cached and saved wallpapers remain available.</string>
+    <string name="wallpapers_error_no_internet">No internet connection</string>
+    <string name="wallpapers_error_timeout">Connection timed out - try again</string>
+    <string name="wallpapers_error_connect_failed">Could not connect to server</string>
+    <string name="wallpapers_error_api_key">API key invalid or expired</string>
+    <string name="wallpapers_error_not_found">Content not found</string>
+    <string name="wallpapers_error_rate_limited">Rate limited - wait a moment and retry</string>
+    <string name="wallpapers_error_server">Server error - try again later</string>
+    <string name="wallpapers_error_service_unavailable">Service temporarily unavailable</string>
+    <string name="wallpapers_error_load_failed">Failed to load wallpapers</string>
     <string name="wallpapers_card_badge_amoled">AMOLED</string>
     <string name="wallpapers_card_badge_icon_safe">Icon-safe</string>
     <string name="wallpapers_upload_progress_percent">%1$d%%</string>
@@ -1989,6 +2070,14 @@
     <string name="feedback_upload_deleted">Upload deleted</string>
     <string name="feedback_delete_failed">Delete failed: %1$s</string>
     <string name="feedback_try_again">try again</string>
+    <string name="wallpaper_feedback_already_voted">Already voted</string>
+    <string name="wallpaper_feedback_community_disabled">Community source is disabled in Settings</string>
+    <string name="wallpaper_feedback_moderation_hidden">Hidden</string>
+    <string name="wallpaper_feedback_moderation_hidden_for_all">Moderated (hidden for all)</string>
+    <string name="wallpaper_feedback_unblockable_uploader">This wallpaper does not expose a blockable community uploader</string>
+    <string name="wallpaper_feedback_upload_complete">Wallpaper upload complete</string>
+    <string name="wallpaper_feedback_upload_failed">Upload failed: %1$s</string>
+    <string name="wallpaper_feedback_try_another_image">try another image</string>
     <string name="sound_feedback_community_disabled">Community source is disabled in Settings</string>
     <string name="sound_feedback_upvote_failed">Failed to upvote</string>
     <string name="sound_feedback_downvote_failed">Failed to downvote</string>

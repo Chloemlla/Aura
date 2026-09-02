@@ -4,6 +4,7 @@ import android.app.WallpaperManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.Resources
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -255,7 +256,7 @@ fun WallpaperDetailScreen(
     // Use pager's current wallpaper for UI (not the reactive wp which causes reorder)
     val wp = currentWp
     val sourceUnavailable = wp.isSourceUnavailable()
-    val hints = remember(wp) { wp.qualityHints() }
+    val hints = remember(wp, resources) { wp.qualityHints(resources) }
 
     val isFavorite by viewModel.isFavorite(wp).collectAsStateWithLifecycle(initialValue = false)
     val collections by viewModel.collections.collectAsStateWithLifecycle()
@@ -448,12 +449,12 @@ fun WallpaperDetailScreen(
                         }
                         Spacer(Modifier.height(14.dp))
                         Text(
-                            text = wallpaperDetailTitle(wp),
+                            text = wallpaperDetailTitle(resources, wp),
                             style = MaterialTheme.typography.headlineSmall,
                         )
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            text = wallpaperDetailSubtitle(wp),
+                            text = wallpaperDetailSubtitle(resources, wp),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -1253,7 +1254,7 @@ private fun CollectionPickerSheet(
     }
 }
 
-internal fun wallpaperDetailTitle(wallpaper: Wallpaper): String =
+internal fun wallpaperDetailTitle(resources: Resources, wallpaper: Wallpaper): String =
     when {
         wallpaper.category.isNotBlank() -> wallpaper.category.replaceFirstChar {
             if (it.isLowerCase()) it.titlecase() else it.toString()
@@ -1261,23 +1262,23 @@ internal fun wallpaperDetailTitle(wallpaper: Wallpaper): String =
         wallpaper.tags.isNotEmpty() -> wallpaper.tags.first().replaceFirstChar {
             if (it.isLowerCase()) it.titlecase() else it.toString()
         }
-        else -> "${sourceDisplayName(wallpaper.source)} wallpaper"
+        else -> resources.getString(R.string.wallpapers_source_wallpaper, sourceDisplayName(wallpaper.source))
     }
 
-internal fun wallpaperDetailSubtitle(wallpaper: Wallpaper): String {
+internal fun wallpaperDetailSubtitle(resources: Resources, wallpaper: Wallpaper): String {
     val sourceLabel = sourceDisplayName(wallpaper.source)
     return when {
         wallpaper.isSourceUnavailable() ->
             listOfNotNull(
-                "Saved from $sourceLabel; source is unavailable",
+                resources.getString(R.string.detail_subtitle_source_unavailable, sourceLabel),
                 wallpaper.sourceAvailabilityReason.takeIf { it.isNotBlank() },
             ).joinToString(": ")
         wallpaper.uploaderName.isNotBlank() ->
-            "By ${wallpaper.uploaderName} on $sourceLabel"
+            resources.getString(R.string.detail_subtitle_by_uploader, wallpaper.uploaderName, sourceLabel)
         wallpaper.sourcePageUrl.isNotBlank() ->
-            "Sourced from $sourceLabel with a direct source page available"
+            resources.getString(R.string.detail_subtitle_sourced_with_page, sourceLabel)
         else ->
-            "Sourced from $sourceLabel"
+            resources.getString(R.string.detail_subtitle_sourced_from, sourceLabel)
     }
 }
 

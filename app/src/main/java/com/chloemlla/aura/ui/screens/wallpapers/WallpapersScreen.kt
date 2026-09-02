@@ -327,13 +327,16 @@ fun WallpapersScreen(
                 }
             },
         )
-        LaunchedEffect(state.isUploadingWallpaper, state.applySuccess, state.error) {
+        // awaitingWallpaperUploadResult is the real "this dialog launched an upload"
+        // flag. Comparing state.applySuccess against a stringResource would never match
+        // under a per-app language override, leaving the dialog stuck open.
+        LaunchedEffect(state.isUploadingWallpaper) {
             if (awaitingWallpaperUploadResult && !state.isUploadingWallpaper) {
                 awaitingWallpaperUploadResult = false
-            }
-            if (!state.isUploadingWallpaper && state.applySuccess == "Wallpaper upload complete") {
-                showWallpaperUploadDialog = false
-                selectedWallpaperUploadUri = null
+                if (state.error == null) {
+                    showWallpaperUploadDialog = false
+                    selectedWallpaperUploadUri = null
+                }
             }
         }
     }
@@ -1181,7 +1184,8 @@ private fun WallpaperCard(
     val aspectRatio = if (wallpaper.width > 0 && wallpaper.height > 0) {
         wallpaper.width.toFloat() / wallpaper.height.toFloat()
     } else 0.67f
-    val hints = wallpaper.qualityHints()
+    val resources = LocalResources.current
+    val hints = wallpaper.qualityHints(resources)
     val openWallpaperLabel = stringResource(R.string.wallpapers_card_open_details)
     val applyWallpaperLabel = stringResource(R.string.wallpapers_card_show_actions)
     val favoriteWallpaperLabel = if (isFavorite) stringResource(R.string.wallpapers_card_remove_favorite) else stringResource(R.string.wallpapers_card_add_favorite)
@@ -1213,6 +1217,7 @@ private fun WallpaperCard(
             )
             .semantics(mergeDescendants = true) {
                 contentDescription = wallpaper.cardAccessibilitySummary(
+                    resources = resources,
                     hints = hints,
                     isFavorite = isFavorite,
                     voteCount = voteCount,

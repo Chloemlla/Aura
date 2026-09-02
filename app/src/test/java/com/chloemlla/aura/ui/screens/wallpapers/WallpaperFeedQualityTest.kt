@@ -1,15 +1,27 @@
 package com.chloemlla.aura.ui.screens.wallpapers
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.SearchResult
 import com.chloemlla.aura.data.model.Wallpaper
 import com.chloemlla.aura.service.WallpaperStyleLearningProfile
 import com.chloemlla.aura.service.WallpaperStyleLearningSignal
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class WallpaperFeedQualityTest {
+
+    private val resources
+        get() = ApplicationProvider.getApplicationContext<Context>().resources
 
     @Test
     fun `rankWallpapers keeps stronger duplicate instead of first duplicate`() {
@@ -81,9 +93,9 @@ class WallpaperFeedQualityTest {
             colors = listOf("#111111", "#222222"),
         )
 
-        val hints = wallpaper.qualityHints()
+        val hints = wallpaper.qualityHints(resources)
 
-        assertEquals("4K+", hints.resolutionLabel)
+        assertEquals(resources.getString(R.string.wallpaper_quality_resolution_4k), hints.resolutionLabel)
         assertTrue(hints.isIconSafe)
     }
 
@@ -100,19 +112,45 @@ class WallpaperFeedQualityTest {
         ).copy(category = "Minimal")
 
         val summary = wallpaper.cardAccessibilitySummary(
+            resources = resources,
             isFavorite = true,
             voteCount = 12,
         )
 
         assertEquals(
-            "Community wallpaper, Minimal, QHD, Portrait, AMOLED friendly, icon-safe, 12 upvotes, saved to favorites",
+            listOf(
+                resources.getString(R.string.wallpapers_source_wallpaper, "Community"),
+                "Minimal",
+                resources.getString(R.string.wallpaper_quality_resolution_qhd),
+                resources.getString(R.string.wallpaper_quality_orientation_portrait),
+                resources.getString(R.string.wallpaper_quality_amoled_friendly),
+                resources.getString(R.string.wallpaper_quality_icon_safe),
+                resources.getQuantityString(R.plurals.wallpapers_card_upvote_count, 12, 12),
+                resources.getString(R.string.wallpapers_card_saved_to_favorites),
+            ).joinToString(", "),
             summary,
         )
     }
 
-    // Color filter label test removed: clearWallpaperColorFilterLabel() and
-    // wallpaperColorFilterActionLabel() are now @Composable (backed by string resources)
-    // and cannot be called from plain JUnit tests.
+    @Test
+    fun `color filter labels stay bound to their string resources`() {
+        // clearWallpaperColorFilterLabel() and wallpaperColorFilterActionLabel() are
+        // @Composable, so their key binding is pinned from the source instead of by
+        // calling them.
+        val screen = File("src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpapersScreen.kt").readText()
+
+        assertTrue(
+            screen.contains(
+                "fun clearWallpaperColorFilterLabel(): String = stringResource(R.string.wallpapers_clear_color_filter)",
+            ),
+        )
+        assertTrue(screen.contains("stringResource(R.string.wallpapers_color_filter_action, hex)"))
+        assertEquals("Clear color filter", resources.getString(R.string.wallpapers_clear_color_filter))
+        assertEquals(
+            "Set wallpaper color filter #112233",
+            resources.getString(R.string.wallpapers_color_filter_action, "112233"),
+        )
+    }
 
     @Test
     fun `low signal wallpaper remains at the end instead of truncating endless inventory`() {

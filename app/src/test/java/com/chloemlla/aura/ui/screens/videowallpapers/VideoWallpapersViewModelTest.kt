@@ -2,6 +2,8 @@ package com.chloemlla.aura.ui.screens.videowallpapers
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.content.res.Resources
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.model.VideoWallpaperItem
 import com.chloemlla.aura.data.remote.pexels.PexelsApi
@@ -466,6 +468,7 @@ class VideoWallpapersViewModelTest {
                 pixabayVideo(id = 2, duration = 90, mediumUrl = "https://cdn.example.com/two.mp4"),
                 pixabayVideo(id = 3, duration = 10, mediumUrl = ""),
             ),
+            localizedVideoSummaryResources(),
         )
 
         assertEquals(listOf("pbv_1"), result.items.map { it.id })
@@ -487,7 +490,7 @@ class VideoWallpapersViewModelTest {
         assertFalse(item.hasDimensions)
         assertEquals(0, item.videoWidth)
         assertEquals(0, item.videoHeight)
-        assertEquals("Unknown video dimensions · 16s", item.videoTechnicalSummary())
+        assertEquals("Unknown video dimensions · 16s", item.videoTechnicalSummary(localizedVideoSummaryResources()))
     }
 
     @Test
@@ -509,7 +512,10 @@ class VideoWallpapersViewModelTest {
         assertEquals(1920, item.videoHeight)
         assertEquals(90, item.videoRotationDegrees)
         assertEquals(12L, item.duration)
-        assertEquals("1080x1920 (Portrait) · 0.56:1 · 12s · rotated 90deg · avc1.640028 · video/mp4", item.videoTechnicalSummary())
+        assertEquals(
+            "1080x1920 (Portrait) · 0.56:1 · 12s · rotated 90deg · avc1.640028 · video/mp4",
+            item.videoTechnicalSummary(localizedVideoSummaryResources()),
+        )
     }
 
     @Test
@@ -739,6 +745,18 @@ class VideoWallpapersViewModelTest {
         )
         assertEquals(emptyList<Long>(), timelineFrameTimes(durationMs = 0L, frameCount = 4))
         assertEquals(6, timelineFrameTimes(durationMs = 60_000L, frameCount = 20).size)
+    }
+
+    private fun localizedVideoSummaryResources(): Resources = mockk<Resources>().also { resources ->
+        every { resources.getString(R.string.video_wp_summary_unknown_dimensions) } returns "Unknown video dimensions"
+        every { resources.getString(R.string.video_wp_badge_portrait) } returns "Portrait"
+        every { resources.getString(R.string.video_wp_badge_landscape) } returns "Landscape"
+        every { resources.getString(R.string.video_wp_summary_dimensions, 1080, 1920, "Portrait") } returns
+            "1080x1920 (Portrait)"
+        every { resources.getString(R.string.video_wp_duration_seconds, 12L) } returns "12s"
+        every { resources.getString(R.string.video_wp_duration_seconds, 16L) } returns "16s"
+        every { resources.getString(R.string.video_wp_summary_rotated, 90) } returns "rotated 90deg"
+        every { resources.getString(R.string.video_wp_pixabay_fallback_title) } returns "Pixabay video"
     }
 
     private fun pixabayVideo(

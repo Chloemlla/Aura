@@ -1,8 +1,9 @@
 package com.chloemlla.aura.ui.screens.wallpapers
 
+import android.content.Context
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.local.WallpaperCacheManager
-import com.chloemlla.aura.data.model.COMMUNITY_GUIDELINES_REQUIRED_MESSAGE
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.SearchResult
 import com.chloemlla.aura.data.model.Wallpaper
@@ -50,6 +51,7 @@ internal fun mergeRedditFirstHomeResults(
 }
 
 internal class WallpaperBrowseViewModel(
+    private val context: Context,
     private val wallpaperRepo: WallpaperRepository,
     private val redditRepo: RedditRepository,
     private val prefs: PreferencesManager,
@@ -401,17 +403,17 @@ internal class WallpaperBrowseViewModel(
     }
 
     private fun categorizeError(e: Exception): String = when (e) {
-        is java.net.UnknownHostException -> "No internet connection"
-        is java.net.SocketTimeoutException -> "Connection timed out - try again"
-        is java.net.ConnectException -> "Could not connect to server"
+        is java.net.UnknownHostException -> context.getString(R.string.wallpapers_error_no_internet)
+        is java.net.SocketTimeoutException -> context.getString(R.string.wallpapers_error_timeout)
+        is java.net.ConnectException -> context.getString(R.string.wallpapers_error_connect_failed)
         is retrofit2.HttpException -> when (e.code()) {
-            401, 403 -> "API key invalid or expired"
-            404 -> "Content not found"
-            429 -> "Rate limited - wait a moment and retry"
-            in 500..599 -> "Server error - try again later"
-            else -> "Service temporarily unavailable"
+            401, 403 -> context.getString(R.string.wallpapers_error_api_key)
+            404 -> context.getString(R.string.wallpapers_error_not_found)
+            429 -> context.getString(R.string.wallpapers_error_rate_limited)
+            in 500..599 -> context.getString(R.string.wallpapers_error_server)
+            else -> context.getString(R.string.wallpapers_error_service_unavailable)
         }
-        else -> e.message ?: "Failed to load wallpapers"
+        else -> e.message ?: context.getString(R.string.wallpapers_error_load_failed)
     }
 
     suspend fun loadUserStyles(): List<String> =
@@ -441,23 +443,24 @@ internal class WallpaperBrowseViewModel(
 
     private fun providerDisabledMessage(tab: WallpaperTab): String = when (tab) {
         WallpaperTab.WALLHAVEN -> wallhavenDisabledMessage()
-        WallpaperTab.PEXELS -> "Pexels source is disabled in Settings"
-        WallpaperTab.PIXABAY -> "Pixabay source is disabled in Settings"
+        WallpaperTab.PEXELS -> context.getString(R.string.wallpapers_source_disabled, "Pexels")
+        WallpaperTab.PIXABAY -> context.getString(R.string.wallpapers_source_disabled, "Pixabay")
         WallpaperTab.COMMUNITY -> communityDisabledMessage()
         else -> redditDisabledMessage()
     }
 
     private fun communityDisabledMessage(): String =
         if (!communityProviderEnabled.value) {
-            "Community source is disabled in Settings"
+            context.getString(R.string.wallpaper_feedback_community_disabled)
         } else {
-            COMMUNITY_GUIDELINES_REQUIRED_MESSAGE
+            context.getString(R.string.community_guidelines_action_required)
         }
 
     private fun redditDisabledMessage(): String =
-        "Reddit RSS is disabled in Settings. Cached and saved wallpapers remain available."
+        context.getString(R.string.wallpapers_source_reddit_rss_disabled)
 
-    private fun wallhavenDisabledMessage(): String = "Wallhaven source is disabled in Settings"
+    private fun wallhavenDisabledMessage(): String =
+        context.getString(R.string.wallpapers_source_disabled, "Wallhaven")
 
     private companion object {
         const val SOURCE_WALLHAVEN = "wallhaven"

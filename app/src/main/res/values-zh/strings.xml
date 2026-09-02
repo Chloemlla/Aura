@@ -443,6 +443,8 @@
     <string name="collections_list_empty_title">还没有收藏集</string>
     <string name="collections_list_empty_body">使用收藏集按心情、房间、季节或设置对壁纸进行分组。</string>
     <string name="collections_removed">已从收藏集移除</string>
+    <string name="collections_created">已创建\"%1$s\"</string>
+    <string name="collections_added">已添加到收藏集</string>
     <string name="collections_deleted">已删除\"%1$s\"</string>
     <string name="downloads_deleted">已删除\"%1$s\"</string>
     <string name="collections_link_copied">收藏集链接已复制</string>
@@ -494,11 +496,37 @@
     <string name="detail_unavailable_title">壁纸不可用</string>
     <string name="detail_unavailable_body">此项目从其来源不再可用，或无法从本地状态恢复。</string>
     <string name="detail_unavailable_action">返回信息流</string>
+    <string name="detail_subtitle_source_unavailable">已从 %1$s 保存；来源已不可用</string>
+    <string name="detail_subtitle_by_uploader">%1$s 发布于 %2$s</string>
+    <string name="detail_subtitle_sourced_with_page">来自 %1$s，可直接打开来源页面</string>
+    <string name="detail_subtitle_sourced_from">来自 %1$s</string>
     <string name="detail_show_image">显示图片</string>
     <string name="detail_set_wallpaper">设置壁纸</string>
     <string name="detail_preview">预览</string>
     <string name="preview_wallpaper_cd">壁纸预览</string>
     <string name="preview_mock_status_100">&#9679;&#9679;&#9679;&#9679;  100%</string>
+    <string-array name="preview_mock_app_labels">
+        <item>应用</item>
+        <item>邮件</item>
+        <item>相册</item>
+        <item>时钟</item>
+        <item>地图</item>
+        <item>音乐</item>
+        <item>消息</item>
+        <item>便签</item>
+        <item>文件</item>
+        <item>日历</item>
+        <item>天气</item>
+        <item>相机</item>
+        <item>应用商店</item>
+        <item>新闻</item>
+        <item>健康</item>
+        <item>钱包</item>
+        <item>录音</item>
+        <item>计算器</item>
+        <item>工具</item>
+        <item>浏览器</item>
+    </string-array>
     <string name="detail_set">设置</string>
     <string name="detail_set_wallpaper_title">设置壁纸</string>
     <string name="detail_more_actions">更多操作</string>
@@ -902,6 +930,11 @@
     <string name="video_wp_error_gallery">从图库</string>
     <string name="video_wp_empty_retry">重试</string>
     <string name="video_wp_empty_refresh">刷新</string>
+    <string name="video_wp_empty_hidden_title">这里的内容都已隐藏</string>
+    <string name="video_wp_empty_hidden_description">下拉刷新换一批，或者调整方向和焦点筛选。</string>
+    <string name="video_wp_empty_search_description">试试更少的关键词、更宽泛的氛围，或者切换%1$s筛选。</string>
+    <string name="video_wp_empty_default_title">没有找到视频壁纸</string>
+    <string name="video_wp_empty_default_description">换一个焦点筛选，或者切换到%1$s视图。</string>
     <string name="video_wp_toast_direct">已打开 Aura 视频壁纸。设置壁纸以完成。</string>
     <string name="video_wp_toast_chooser">在选择器中选择“Aura Video Wallpaper”，然后点击设置壁纸。</string>
     <string name="video_wp_toast_fallback">已选择动态壁纸。打开设置 > 壁纸 > 动态壁纸以完成设置。</string>
@@ -921,6 +954,15 @@
     <string name="video_wp_preview_unavailable">预览不可用</string>
     <string name="video_wp_badge_portrait">竖屏</string>
     <string name="video_wp_badge_landscape">横屏</string>
+    <string name="video_wp_badge_loop_safe">循环顺滑</string>
+    <string name="video_wp_badge_dynamic">动感</string>
+    <string name="video_wp_badge_low_battery">省电</string>
+    <string name="video_wp_badge_balanced">均衡</string>
+    <string name="video_wp_badge_high_motion">高动态</string>
+    <string name="video_wp_badge_flexible">尺寸灵活</string>
+    <string name="video_wp_badge_phone_fit">适配手机</string>
+    <string name="video_wp_badge_wide_fit">适配宽屏</string>
+    <string name="video_wp_badge_needs_crop">需要裁剪</string>
     <string name="video_wp_provenance_title">来源与权利</string>
     <string name="video_wp_provenance_source">来源</string>
     <string name="video_wp_provenance_terms">条款</string>
@@ -929,6 +971,8 @@
     <string name="video_wp_presentation_fill">填充</string>
     <string name="video_wp_presentation_fit">适应</string>
     <string name="video_wp_filter_focus">焦点</string>
+    <string name="video_wp_focus_best">最佳</string>
+    <string name="video_wp_orientation_all">全部</string>
     <string name="video_wp_filter_quick_searches">快速搜索</string>
     <string name="video_wp_category_nature">自然</string>
     <string name="video_wp_category_abstract">抽象</string>
@@ -941,6 +985,15 @@
     <string name="video_wp_category_rain">雨</string>
     <string name="video_wp_category_clouds">云</string>
     <string name="video_wp_duration_seconds">%1$ds</string>
+    <string name="video_wp_summary_dimensions">%1$dx%2$d（%3$s）</string>
+    <string name="video_wp_summary_unknown_dimensions">视频尺寸未知</string>
+    <string name="video_wp_summary_rotated">旋转 %1$d 度</string>
+    <string name="video_wp_pixabay_fallback_title">Pixabay 视频</string>
+    <string name="video_wp_upvote_with_count">%1$s（%2$d）</string>
+    <string name="video_wp_prepare_failed">无法准备该视频</string>
+    <string name="video_wp_sources_unavailable_stale">视频源当前不可用，正在显示上一次成功的结果。</string>
+    <string name="video_wp_sources_unavailable">视频源当前不可用。</string>
+    <string name="video_wp_sources_limited">当前可用的来源有限。</string>
 
     <!-- Settings screen -->
     <string name="settings_title">设置</string>
@@ -1606,6 +1659,23 @@
     <string name="wallpapers_card_add_favorite">将壁纸添加到收藏</string>
     <string name="wallpapers_card_upvote">为壁纸点赞</string>
     <string name="wallpapers_card_hide">隐藏壁纸</string>
+    <string name="wallpapers_source_wallpaper">%1$s 壁纸</string>
+    <string name="wallpapers_card_saved_to_favorites">已收藏</string>
+    <string name="wallpapers_card_not_saved">未收藏</string>
+    <plurals name="wallpapers_card_upvote_count">
+        <item quantity="one">%1$d 次点赞</item>
+        <item quantity="other">%1$d 次点赞</item>
+    </plurals>
+    <string name="wallpaper_quality_resolution_4k">4K+</string>
+    <string name="wallpaper_quality_resolution_qhd">2K</string>
+    <string name="wallpaper_quality_resolution_fhd">1080P</string>
+    <string name="wallpaper_quality_resolution_hd">高清</string>
+    <string name="wallpaper_quality_resolution_ready">可用</string>
+    <string name="wallpaper_quality_orientation_phone">手机</string>
+    <string name="wallpaper_quality_orientation_portrait">竖屏</string>
+    <string name="wallpaper_quality_orientation_wide">宽屏</string>
+    <string name="wallpaper_quality_amoled_friendly">适合 AMOLED</string>
+    <string name="wallpaper_quality_icon_safe">图标安全</string>
     <string name="wallpapers_card_remove_favorite_short">移除收藏</string>
     <string name="wallpapers_card_add_favorite_short">添加收藏</string>
     <string name="wallpapers_filter_tone_chip">色调</string>
@@ -1670,6 +1740,17 @@
     <string name="wallpapers_upload_tags_placeholder">dark, gradient, lock screen</string>
     <string name="wallpapers_upload_source_placeholder">https://example.com/source</string>
     <string name="wallpapers_source_health_summary">当前数据源状态受限：%1$s</string>
+    <string name="wallpapers_source_disabled">%1$s 源已在设置中关闭</string>
+    <string name="wallpapers_source_reddit_rss_disabled">Reddit RSS 已在设置中关闭。已缓存和已收藏的壁纸仍可使用。</string>
+    <string name="wallpapers_error_no_internet">无网络连接</string>
+    <string name="wallpapers_error_timeout">连接超时，请重试</string>
+    <string name="wallpapers_error_connect_failed">无法连接到服务器</string>
+    <string name="wallpapers_error_api_key">API 密钥无效或已过期</string>
+    <string name="wallpapers_error_not_found">未找到内容</string>
+    <string name="wallpapers_error_rate_limited">请求过于频繁，请稍后重试</string>
+    <string name="wallpapers_error_server">服务器错误，请稍后重试</string>
+    <string name="wallpapers_error_service_unavailable">服务暂时不可用</string>
+    <string name="wallpapers_error_load_failed">壁纸加载失败</string>
     <string name="wallpapers_card_badge_amoled">AMOLED</string>
     <string name="wallpapers_card_badge_icon_safe">图标安全</string>
     <string name="wallpapers_upload_progress_percent">%1$d%%</string>
@@ -1735,6 +1816,14 @@
     <string name="feedback_upload_deleted">上传已删除</string>
     <string name="feedback_delete_failed">删除失败：%1$s</string>
     <string name="feedback_try_again">重试</string>
+    <string name="wallpaper_feedback_already_voted">已投过票</string>
+    <string name="wallpaper_feedback_community_disabled">社区源已在设置中关闭</string>
+    <string name="wallpaper_feedback_moderation_hidden">已隐藏</string>
+    <string name="wallpaper_feedback_moderation_hidden_for_all">已审核处理（对所有人隐藏）</string>
+    <string name="wallpaper_feedback_unblockable_uploader">此壁纸未提供可屏蔽的社区上传者</string>
+    <string name="wallpaper_feedback_upload_complete">壁纸上传完成</string>
+    <string name="wallpaper_feedback_upload_failed">上传失败：%1$s</string>
+    <string name="wallpaper_feedback_try_another_image">请换一张图片</string>
     <string name="sound_feedback_community_disabled">社区源已在设置中关闭</string>
     <string name="sound_feedback_upvote_failed">点赞失败</string>
     <string name="sound_feedback_downvote_failed">点踩失败</string>

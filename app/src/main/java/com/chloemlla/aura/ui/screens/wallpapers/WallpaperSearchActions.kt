@@ -1,6 +1,7 @@
 package com.chloemlla.aura.ui.screens.wallpapers
 
 import android.content.Context
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.FavoriteIdentity
 import com.chloemlla.aura.data.model.Wallpaper
@@ -54,7 +55,7 @@ internal class WallpaperSearchActions(
             sourceMetrics.recordDisabled(SOURCE_WALLHAVEN)
             state.update {
                 it.copy(
-                    error = wallhavenDisabledMessage(),
+                    error = wallhavenDisabledMessage(context),
                     errorSource = WallpaperTab.SEARCH.name,
                     isLoading = false,
                 )
@@ -111,7 +112,7 @@ internal class WallpaperSearchActions(
             } else {
                 state.update {
                     it.copy(
-                        error = "Wallpaper unavailable",
+                        error = context.getString(R.string.detail_unavailable_title),
                         errorSource = WallpaperTab.SEARCH.name,
                         isLoading = false,
                         isLoadingMore = false,
@@ -127,7 +128,7 @@ internal class WallpaperSearchActions(
             sourceMetrics.recordDisabled(SOURCE_WALLHAVEN)
             state.update {
                 it.copy(
-                    error = wallhavenDisabledMessage(),
+                    error = wallhavenDisabledMessage(context),
                     errorSource = WallpaperTab.SEARCH.name,
                     isLoading = false,
                 )
@@ -174,7 +175,7 @@ internal class WallpaperSearchActions(
             sourceMetrics.recordDisabled(SOURCE_WALLHAVEN)
             state.update {
                 it.copy(
-                    error = wallhavenDisabledMessage(),
+                    error = wallhavenDisabledMessage(context),
                     errorSource = WallpaperTab.COLOR.name,
                     isLoading = false,
                 )
@@ -275,4 +276,5 @@ internal class WallpaperSearchActions(
     }
 }
 
-private fun wallhavenDisabledMessage(): String = "Wallhaven source is disabled in Settings"
+private fun wallhavenDisabledMessage(context: Context): String =
+    context.getString(R.string.wallpapers_source_disabled, "Wallhaven")

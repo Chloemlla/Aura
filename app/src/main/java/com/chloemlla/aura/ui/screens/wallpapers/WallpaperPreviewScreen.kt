@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.chloemlla.aura.R
@@ -330,14 +331,10 @@ private fun MockIcon(tint: Color, label: String?) {
     }
 }
 
+@Composable
 private fun mockLabel(row: Int, col: Int): String {
     // Generic placeholders — intentionally abstract, no real app names.
-    val labels = listOf(
-        "App", "Mail", "Photos", "Clock", "Maps",
-        "Music", "Chat", "Notes", "Files", "Calendar",
-        "Weather", "Camera", "Store", "News", "Health",
-        "Wallet", "Voice", "Calc", "Tools", "Browse",
-    )
+    val labels = stringArrayResource(R.array.preview_mock_app_labels)
     val idx = (row * 5 + col) % labels.size
     return labels[idx]
 }

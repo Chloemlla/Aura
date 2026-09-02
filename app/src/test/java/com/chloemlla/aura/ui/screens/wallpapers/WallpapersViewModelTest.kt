@@ -1,6 +1,7 @@
 package com.chloemlla.aura.ui.screens.wallpapers
 
 import android.content.Context
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.local.WallpaperCacheManager
 import com.chloemlla.aura.data.model.CommunityBlockReason
@@ -926,7 +927,7 @@ class WallpapersViewModelTest {
         }
 
         return WallpapersViewModel(
-            context = mockk<Context>(relaxed = true),
+            context = localizedFeedbackContext(),
             wallpaperRepo = wallpaperRepo,
             redditRepo = redditRepo,
             favoritesRepo = favoritesRepo,
@@ -952,6 +953,14 @@ class WallpapersViewModelTest {
             sourceMetrics = com.chloemlla.aura.service.SourceMetrics(),
             rankDispatcher = rankDispatcher,
         )
+    }
+
+    private fun localizedFeedbackContext(): Context = mockk<Context>(relaxed = true).also { context ->
+        every { context.getString(R.string.wallpapers_source_disabled, "Wallhaven") } returns
+            "Wallhaven source is disabled in Settings"
+        every { context.getString(R.string.feedback_report_submitted) } returns "Report submitted"
+        every { context.getString(R.string.feedback_creator_blocked) } returns "Creator blocked"
+        every { context.getString(R.string.feedback_upload_deleted) } returns "Upload deleted"
     }
 
     private fun stubCommonDependencies(

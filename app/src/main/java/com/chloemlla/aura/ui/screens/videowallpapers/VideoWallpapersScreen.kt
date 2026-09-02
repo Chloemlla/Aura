@@ -696,7 +696,7 @@ fun VideoWallpapersScreen(
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     Text(item.title, style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(2.dp))
-                    Text(item.videoTechnicalSummary(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(item.videoTechnicalSummary(resources), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(4.dp))
                     Text(
                         stringResource(
@@ -1045,10 +1045,13 @@ private fun ImmersiveVideoPage(
                 overflow = TextOverflow.Ellipsis,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
+                val durationLabel = item.duration
+                    .takeIf { it > 0 }
+                    ?.let { stringResource(R.string.video_wp_duration_seconds, it) }
                 Text(
                     listOfNotNull(
                         item.source,
-                        item.duration.takeIf { it > 0 }?.let { "${it}s" },
+                        durationLabel,
                     ).joinToString(" · "),
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.bodyMedium,
@@ -1324,7 +1327,7 @@ internal fun VideoCard(
                 ) {
                     DropdownMenuItem(
                         text = {
-                            Text(if (voteCount > 0) "$upvoteVideoLabel ($voteCount)" else upvoteVideoLabel)
+                            Text(if (voteCount > 0) stringResource(R.string.video_wp_upvote_with_count, upvoteVideoLabel, voteCount) else upvoteVideoLabel)
                         },
                         leadingIcon = { Icon(Icons.Default.ThumbUp, contentDescription = null) },
                         onClick = {
@@ -1436,6 +1439,7 @@ private fun VideoPolicyLinkButton(
     }
 }
 
+@Composable
 private fun videoEmptyState(
     query: String,
     orientation: OrientationFilter,
@@ -1443,34 +1447,37 @@ private fun videoEmptyState(
 ): Triple<androidx.compose.ui.graphics.vector.ImageVector, String, String> = when {
     everythingHidden -> Triple(
         Icons.Default.VisibilityOff,
-        "Everything here is hidden",
-        "Pull to refresh for a fresh batch, or change orientation and focus filters.",
+        stringResource(R.string.video_wp_empty_hidden_title),
+        stringResource(R.string.video_wp_empty_hidden_description),
     )
     query.isNotBlank() -> Triple(
         Icons.Default.SearchOff,
-        "No matches for \"$query\"",
-        "Try fewer words, a broader mood, or switch the ${orientation.label()} filter.",
+        stringResource(R.string.wallpapers_empty_search_title, query),
+        stringResource(R.string.video_wp_empty_search_description, orientation.label()),
     )
     else -> Triple(
         Icons.Default.VideoLibrary,
-        "No video wallpapers found",
-        "Try another focus filter or switch the ${orientation.label()} view.",
+        stringResource(R.string.video_wp_empty_default_title),
+        stringResource(R.string.video_wp_empty_default_description, orientation.label()),
     )
 }
 
+@Composable
 private fun OrientationFilter.label(): String = when (this) {
-    OrientationFilter.ALL -> "All"
-    OrientationFilter.PORTRAIT -> "Portrait"
-    OrientationFilter.LANDSCAPE -> "Landscape"
+    OrientationFilter.ALL -> stringResource(R.string.video_wp_orientation_all)
+    OrientationFilter.PORTRAIT -> stringResource(R.string.video_wp_badge_portrait)
+    OrientationFilter.LANDSCAPE -> stringResource(R.string.video_wp_badge_landscape)
 }
 
+@Composable
 private fun orientationLabel(filter: OrientationFilter): String = filter.label()
 
+@Composable
 private fun videoFocusLabel(filter: VideoFocusFilter): String = when (filter) {
-    VideoFocusFilter.BEST -> "Best"
-    VideoFocusFilter.LOOP_SAFE -> "Loop-safe"
-    VideoFocusFilter.LOW_BATTERY -> "Low battery"
-    VideoFocusFilter.PHONE_FIT -> "Phone fit"
+    VideoFocusFilter.BEST -> stringResource(R.string.video_wp_focus_best)
+    VideoFocusFilter.LOOP_SAFE -> stringResource(R.string.video_wp_badge_loop_safe)
+    VideoFocusFilter.LOW_BATTERY -> stringResource(R.string.video_wp_badge_low_battery)
+    VideoFocusFilter.PHONE_FIT -> stringResource(R.string.video_wp_badge_phone_fit)
 }
 
 @Composable
@@ -1623,9 +1630,10 @@ private fun VideoFiltersSheet(
     }
 }
 
+@Composable
 private fun videoSourceHealthSummary(degradedSources: List<String>): String {
     val labels = degradedSources.sorted().joinToString(", ")
-    return "Limited source health right now: $labels"
+    return stringResource(R.string.wallpapers_source_health_summary, labels)
 }
 
 internal fun isVideoWallpaperHidden(

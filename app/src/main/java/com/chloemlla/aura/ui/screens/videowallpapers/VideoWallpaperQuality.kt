@@ -1,5 +1,9 @@
 package com.chloemlla.aura.ui.screens.videowallpapers
 
+import android.content.res.Resources
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.VideoWallpaperItem
 
 enum class VideoFocusFilter { BEST, LOOP_SAFE, LOW_BATTERY, PHONE_FIT }
@@ -51,28 +55,38 @@ internal fun rankVideoWallpapers(
     return mixed
 }
 
+@Composable
 internal fun VideoWallpaperItem.loopBadge(): String =
-    if (isLoopFriendly()) "Loop-safe" else "Dynamic"
+    if (isLoopFriendly()) stringResource(R.string.video_wp_badge_loop_safe) else stringResource(R.string.video_wp_badge_dynamic)
 
+@Composable
 internal fun VideoWallpaperItem.batteryBadge(): String = when (batteryTier()) {
-    BatteryTier.LOW -> "Low battery"
-    BatteryTier.MEDIUM -> "Balanced"
-    BatteryTier.HIGH -> "High motion"
+    BatteryTier.LOW -> stringResource(R.string.video_wp_badge_low_battery)
+    BatteryTier.MEDIUM -> stringResource(R.string.video_wp_badge_balanced)
+    BatteryTier.HIGH -> stringResource(R.string.video_wp_badge_high_motion)
 }
 
+@Composable
 internal fun VideoWallpaperItem.fitBadge(orientation: OrientationFilter): String = when {
-    !hasDimensions -> "Flexible"
-    orientation == OrientationFilter.PORTRAIT && isPortrait -> "Phone fit"
-    orientation == OrientationFilter.LANDSCAPE && isLandscape -> "Wide fit"
-    orientation == OrientationFilter.ALL && isPortrait -> "Phone fit"
-    else -> "Needs crop"
+    !hasDimensions -> stringResource(R.string.video_wp_badge_flexible)
+    orientation == OrientationFilter.PORTRAIT && isPortrait -> stringResource(R.string.video_wp_badge_phone_fit)
+    orientation == OrientationFilter.LANDSCAPE && isLandscape -> stringResource(R.string.video_wp_badge_wide_fit)
+    orientation == OrientationFilter.ALL && isPortrait -> stringResource(R.string.video_wp_badge_phone_fit)
+    else -> stringResource(R.string.video_wp_badge_needs_crop)
 }
 
-internal fun VideoWallpaperItem.videoTechnicalSummary(): String {
+internal fun VideoWallpaperItem.videoTechnicalSummary(resources: Resources): String {
     val dimensions = if (hasDimensions) {
-        "${videoWidth}x${videoHeight} (${if (isPortrait) "Portrait" else "Landscape"})"
+        resources.getString(
+            R.string.video_wp_summary_dimensions,
+            videoWidth,
+            videoHeight,
+            resources.getString(
+                if (isPortrait) R.string.video_wp_badge_portrait else R.string.video_wp_badge_landscape,
+            ),
+        )
     } else {
-        "Unknown video dimensions"
+        resources.getString(R.string.video_wp_summary_unknown_dimensions)
     }
     val aspectRatio = if (hasDimensions && videoHeight > 0) {
         val ratio = videoWidth.toFloat() / videoHeight.toFloat()
@@ -80,10 +94,11 @@ internal fun VideoWallpaperItem.videoTechnicalSummary(): String {
     } else {
         null
     }
-    val durationLabel = duration.takeIf { it > 0 }?.let { "${it}s" }
+    val durationLabel = duration.takeIf { it > 0 }
+        ?.let { resources.getString(R.string.video_wp_duration_seconds, it) }
     val rotation = videoRotationDegrees
         .takeIf { it != 0 }
-        ?.let { "rotated ${it}deg" }
+        ?.let { resources.getString(R.string.video_wp_summary_rotated, it) }
     val codec = videoCodec.takeIf { it.isNotBlank() }
     val mime = videoMimeType.takeIf { it.isNotBlank() }
     return listOfNotNull(dimensions, aspectRatio, durationLabel, rotation, codec, mime).joinToString(" · ")

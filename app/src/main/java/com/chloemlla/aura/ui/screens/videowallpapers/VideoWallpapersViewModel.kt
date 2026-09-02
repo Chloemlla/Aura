@@ -1,6 +1,7 @@
 package com.chloemlla.aura.ui.screens.videowallpapers
 
 import android.content.Context
+import android.content.res.Resources
 import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
@@ -320,6 +321,7 @@ internal fun mapYouTubeVideoSearchItem(
 
 internal fun mapPixabayVideosToMetadata(
     videos: List<PixabayVideo>,
+    resources: Resources,
 ): PixabayVideoMetadataResult {
     val urls = linkedMapOf<String, String>()
     val items = videos.filter { it.duration in 2..60 }.mapNotNull { video ->
@@ -332,7 +334,7 @@ internal fun mapPixabayVideosToMetadata(
                     .split(",")
                     .take(3)
                     .joinToString(" ") { tag -> tag.trim() }
-                    .ifBlank { "Pixabay video" },
+                    .ifBlank { resources.getString(com.chloemlla.aura.R.string.video_wp_pixabay_fallback_title) },
                 thumbnailUrl = video.thumbnailUrl,
                 source = "Pixabay",
                 duration = video.duration.toLong(),
@@ -682,7 +684,9 @@ class VideoWallpapersViewModel @Inject constructor(
             _gallerySelectionResult.value = result.fold(
                 onSuccess = { VideoWallpaperSelectionResult.Ready },
                 onFailure = {
-                    VideoWallpaperSelectionResult.Failure(it.message ?: "Could not prepare video")
+                    VideoWallpaperSelectionResult.Failure(
+                        it.message ?: context.getString(com.chloemlla.aura.R.string.video_wp_prepare_failed),
+                    )
                 },
             )
         }
@@ -1094,9 +1098,12 @@ class VideoWallpapersViewModel @Inject constructor(
                     isLoadingMore = false,
                     isRefreshing = false,
                     error = when {
-                        allAttemptedFailed && preserveCurrentFeed -> "Video sources are unavailable right now. Showing your last good results."
-                        allAttemptedFailed -> "Video sources are unavailable right now."
-                        sourceFailures.isNotEmpty() && mixed.isEmpty() && !preserveCurrentFeed -> "Limited source availability right now."
+                        allAttemptedFailed && preserveCurrentFeed ->
+                            context.getString(com.chloemlla.aura.R.string.video_wp_sources_unavailable_stale)
+                        allAttemptedFailed ->
+                            context.getString(com.chloemlla.aura.R.string.video_wp_sources_unavailable)
+                        sourceFailures.isNotEmpty() && mixed.isEmpty() && !preserveCurrentFeed ->
+                            context.getString(com.chloemlla.aura.R.string.video_wp_sources_limited)
                         else -> null
                     },
                     degradedSources = sourceFailures,
@@ -1175,7 +1182,7 @@ class VideoWallpapersViewModel @Inject constructor(
                     perPage = spec.perPage,
                 )
             }
-            mapPixabayVideosToMetadata(response.hits)
+            mapPixabayVideosToMetadata(response.hits, context.resources)
                 .also { result ->
                     if (result.items.isNotEmpty()) writePixabayVideoCache(cacheKey, result)
                 }

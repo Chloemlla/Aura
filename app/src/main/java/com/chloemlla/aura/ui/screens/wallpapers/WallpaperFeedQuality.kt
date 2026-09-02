@@ -1,5 +1,7 @@
 package com.chloemlla.aura.ui.screens.wallpapers
 
+import android.content.res.Resources
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.Wallpaper
 import com.chloemlla.aura.service.WallpaperStyleLearningProfile
@@ -85,20 +87,24 @@ private fun dedupeWallpapers(
         }
     }
 
-internal fun Wallpaper.qualityHints(): WallpaperQualityHints {
+internal fun Wallpaper.qualityHints(resources: Resources): WallpaperQualityHints {
     val pixels = width.toLong() * height.toLong()
-    val resolutionLabel = when {
-        pixels >= 7_000_000L || max(width, height) >= 3600 -> "4K+"
-        pixels >= 3_400_000L || max(width, height) >= 2500 -> "QHD"
-        pixels >= 1_900_000L || max(width, height) >= 1900 -> "FHD"
-        pixels > 0L -> "HD"
-        else -> "Ready"
-    }
-    val orientationLabel = when {
-        width <= 0 || height <= 0 -> "Phone"
-        height >= width -> "Portrait"
-        else -> "Wide"
-    }
+    val resolutionLabel = resources.getString(
+        when {
+            pixels >= 7_000_000L || max(width, height) >= 3600 -> R.string.wallpaper_quality_resolution_4k
+            pixels >= 3_400_000L || max(width, height) >= 2500 -> R.string.wallpaper_quality_resolution_qhd
+            pixels >= 1_900_000L || max(width, height) >= 1900 -> R.string.wallpaper_quality_resolution_fhd
+            pixels > 0L -> R.string.wallpaper_quality_resolution_hd
+            else -> R.string.wallpaper_quality_resolution_ready
+        },
+    )
+    val orientationLabel = resources.getString(
+        when {
+            width <= 0 || height <= 0 -> R.string.wallpaper_quality_orientation_phone
+            height >= width -> R.string.wallpaper_quality_orientation_portrait
+            else -> R.string.wallpaper_quality_orientation_wide
+        },
+    )
     return WallpaperQualityHints(
         resolutionLabel = resolutionLabel,
         orientationLabel = orientationLabel,
@@ -108,19 +114,26 @@ internal fun Wallpaper.qualityHints(): WallpaperQualityHints {
 }
 
 internal fun Wallpaper.cardAccessibilitySummary(
-    hints: WallpaperQualityHints = qualityHints(),
+    resources: Resources,
+    hints: WallpaperQualityHints = qualityHints(resources),
     isFavorite: Boolean,
     voteCount: Int,
 ): String = buildList {
-    add("${source.readableLabel()} wallpaper")
+    add(resources.getString(R.string.wallpapers_source_wallpaper, source.readableLabel()))
     if (category.isNotBlank()) add(category)
     add(hints.resolutionLabel)
     add(hints.orientationLabel)
-    if (hints.isAmoled) add("AMOLED friendly")
-    if (hints.isIconSafe) add("icon-safe")
-    if (isAiGenerated == true) add("AI-generated")
-    if (voteCount > 0) add("$voteCount upvotes")
-    add(if (isFavorite) "saved to favorites" else "not saved")
+    if (hints.isAmoled) add(resources.getString(R.string.wallpaper_quality_amoled_friendly))
+    if (hints.isIconSafe) add(resources.getString(R.string.wallpaper_quality_icon_safe))
+    if (isAiGenerated == true) add(resources.getString(R.string.community_ai_generated_badge))
+    if (voteCount > 0) {
+        add(resources.getQuantityString(R.plurals.wallpapers_card_upvote_count, voteCount, voteCount))
+    }
+    add(
+        resources.getString(
+            if (isFavorite) R.string.wallpapers_card_saved_to_favorites else R.string.wallpapers_card_not_saved,
+        ),
+    )
 }.joinToString(", ")
 
 internal fun Wallpaper.matchesDiscoverFilter(filter: WallpaperDiscoverFilter): Boolean = when (filter) {

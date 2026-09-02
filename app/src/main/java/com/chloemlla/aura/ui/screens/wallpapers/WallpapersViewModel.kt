@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.content.Context
 import android.net.Uri
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.model.CommunityReportReason
 import com.chloemlla.aura.data.model.CommunityUploadRights
@@ -120,6 +121,7 @@ class WallpapersViewModel @Inject constructor(
     val topVoted = _topVoted.asStateFlow()
 
     internal val browse = WallpaperBrowseViewModel(
+        context = context,
         wallpaperRepo = wallpaperRepo,
         redditRepo = redditRepo,
         prefs = prefs,
@@ -182,6 +184,7 @@ class WallpapersViewModel @Inject constructor(
     )
 
     internal val community = WallpaperCommunityActions(
+        context = context,
         voteRepo = voteRepo,
         reportRepo = reportRepo,
         communityBlockRepo = communityBlockRepo,
@@ -465,7 +468,7 @@ class WallpapersViewModel @Inject constructor(
         viewModelScope.launch {
             val id = collectionRepo.create(name)
             wallpaper?.let { collectionRepo.addWallpaper(id, it) }
-            _state.update { it.copy(applySuccess = "Created \"$name\"") }
+            _state.update { it.copy(applySuccess = context.getString(R.string.collections_created, name)) }
         }
     }
 
@@ -495,7 +498,7 @@ class WallpapersViewModel @Inject constructor(
     fun addToCollection(collectionId: Long, wallpaper: Wallpaper) {
         viewModelScope.launch {
             collectionRepo.addWallpaper(collectionId, wallpaper)
-            _state.update { it.copy(applySuccess = "Added to collection") }
+            _state.update { it.copy(applySuccess = context.getString(R.string.collections_added)) }
         }
     }
 
