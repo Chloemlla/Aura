@@ -2,6 +2,7 @@ package com.chloemlla.aura
 
 import android.app.Application
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
@@ -121,6 +122,11 @@ class AuraApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
 
     private fun installLumenCrashSdk() {
         if (LumenCrash.isInstalled()) return
+        // Robolectric unit-test processes must never arm the crash SDK: its global
+        // uncaught-exception handler would report background-coroutine ISEs (a leaked
+        // Default coroutine resuming on Dispatchers.Main after the test's looper is gone
+        // throws "getMainLooper not mocked") as phantom production crashes.
+        if (Build.FINGERPRINT == "robolectric") return
         runCatching {
             LumenCrash.install(
                 this,
