@@ -15,6 +15,7 @@ import com.chloemlla.aura.data.remote.pixabay.PixabayVideo
 import com.chloemlla.aura.data.repository.YouTubeRepository
 import com.chloemlla.aura.data.repository.YouTubeVideoMetadata
 import com.chloemlla.aura.data.repository.VoteRepository
+import com.chloemlla.aura.data.repository.createLegacyCompatibleYouTubeSearchHandler
 import com.chloemlla.aura.data.repository.parseRedditRssPage
 import com.chloemlla.aura.data.repository.pixabayRateLimitBackoffMillis
 import com.chloemlla.aura.service.MAX_VIDEO_WALLPAPER_BYTES
@@ -984,7 +985,9 @@ class VideoWallpapersViewModel @Inject constructor(
                             OrientationFilter.ALL -> " wallpaper"
                         }
                         val query = searchQ?.let { "$it$orientSuffix" } ?: ytQueries[s.ytQueryIndex % ytQueries.size]
-                        val extractor = service.getSearchExtractor(query)
+                        val extractor = service.getSearchExtractor(
+                            createLegacyCompatibleYouTubeSearchHandler(query),
+                        )
                         extractor.fetchPage()
                         val youtubeCandidates = extractor.initialPage.items
                             .filterIsInstance<StreamInfoItem>()

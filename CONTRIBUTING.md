@@ -17,7 +17,10 @@ If your PR contradicts the charter and you think the charter is wrong, open an i
 
 ## Build
 
-Requires JDK 17+ and Android SDK 35. Android Studio Ladybug (2024.2.1) or later.
+Requires JDK 21 and Android SDK 36. Android Studio Ladybug (2024.2.1) or later.
+Use Adoptium JDK 21 specifically, not "17 or newer": the app compiles to Java 17
+bytecode, but Gradle 8.12.1 refuses newer JDKs, and the JBR bundled with current
+Android Studio is JDK 25.
 
 ```bash
 ./gradlew assembleFullDebug          # use gradlew.bat on Windows
@@ -34,7 +37,7 @@ flavor.
 
 Run build, unit-test, lint, signing, checksum, and release-artifact checks locally before pushing or publishing. Public install artifacts are signed APK/AAB outputs produced on this machine and attached to GitHub Releases with local receipts.
 
-Gradle wrapper is pinned to 8.12. AGP 8.9.3. Kotlin 2.1.0. JDK 17. The app compiles against SDK 36 but still targets 35, so none of the Android 16 behavior changes apply. See [`gradle/wrapper/gradle-wrapper.properties`](gradle/wrapper/gradle-wrapper.properties) and [`app/build.gradle.kts`](app/build.gradle.kts).
+Gradle wrapper is pinned to 8.12. AGP 8.9.3. Kotlin 2.1.0. JDK 21 to run the build, Java 17 as the compile target. The app compiles against SDK 36 but still targets 35, so none of the Android 16 behavior changes apply. See [`gradle/wrapper/gradle-wrapper.properties`](gradle/wrapper/gradle-wrapper.properties) and [`app/build.gradle.kts`](app/build.gradle.kts).
 
 `local.properties` example:
 
@@ -82,6 +85,7 @@ See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the layered overview, package map, 
 - Instrumented tests live in `app/src/androidTest/java/com/chloemlla/aura/` and run via `connectedFullDebugAndroidTest`. Required for any flow that touches MediaStore, Room migrations, or FFmpeg subprocess wiring.
 - Screenshot tests use Roborazzi and run on the JVM: `verifyRoborazziFullDebug` checks the committed goldens in `app/src/test/screenshots/`, and `recordRoborazziFullDebug` rewrites them. Re-record only after looking at the generated PNGs — an unreviewed re-record turns a regression into the new baseline.
 - Release policy is enforced by Python gates in `tools/`, each mirrored by a test in `test/tools/`. Run `python -m pytest test/tools` before pushing; a gate that changes behavior needs its mirror test updated in the same commit.
+- Bumping the version touches more than `app/build.gradle.kts`. `docs/distribution/release-metadata-consistency.json` carries its own `versionName`/`versionCode` pair, and `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` has to exist, name the versionName, and contain the literal `Recent highlights:`. `docs/qa/accessibility-release-gate.json` stamps every manual scenario with the version it was executed or waived for, and those stamps deliberately expire on a bump, so each one needs re-running or re-waiving. Run the gate suite after any bump; several gates pin the literal version and fail by design until every file agrees.
 
 ## Commits
 

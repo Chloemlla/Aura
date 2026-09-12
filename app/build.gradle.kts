@@ -91,6 +91,9 @@ val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
+val instrumentationBuildType = providers.gradleProperty("auraInstrumentationBuildType")
+    .orElse("debug")
+    .get()
 
 android {
     namespace = "com.chloemlla.aura"
@@ -162,6 +165,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            testProguardFiles("android-test-proguard-rules.pro")
             // Verification builders compare an unsigned FOSS artifact with the
             // owner-signed release modulo its signature. Keeping this opt-in avoids
             // local keystore inputs while preserving the normal signed release lane.
@@ -170,6 +174,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (instrumentationBuildType == "release") {
+                proguardFiles("android-instrumentation-target-rules.pro")
+            }
         }
     }
 
@@ -263,6 +270,8 @@ android {
             isIncludeAndroidResources = true
         }
     }
+
+    testBuildType = instrumentationBuildType
 }
 
 kotlin {

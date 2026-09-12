@@ -1,7 +1,7 @@
 # Aura local build configuration.
 # Copy this file to local.properties and fill only the values you need.
 
-sdk.dir=C:/Users/Xray/AppData/Local/Android/Sdk
+sdk.dir=C:/Users/<you>/AppData/Local/Android/Sdk
 
 # Optional provider keys. The app also lets users configure keys in Settings.
 pexels.api.key=

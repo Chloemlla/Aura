@@ -33,7 +33,9 @@
     "docs/distribution/store-assets.json",
     "docs/distribution/release-dry-run.md",
     "docs/distribution/release-signing.md",
-    "docs/distribution/supply-chain.md"
+    "docs/distribution/supply-chain.md",
+    "ARCHITECTURE.md",
+    "CONTRIBUTING.md"
   ],
   "requiredReadmeLinks": [
     "docs/privacy/privacy-policy.md",
@@ -89,5 +91,7 @@
     "https://docs.fastlane.tools/actions/supply/",
     "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases",
     "https://f-droid.org/en/docs/All_About_Descriptions_Graphics_and_Screenshots/"
-  ]
+  ],
+  "versionCode": 148,
+  "versionName": "6.45.2"
 }

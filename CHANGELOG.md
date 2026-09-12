@@ -12,6 +12,63 @@ All notable changes to Aura will be documented in this file.
   granted them. Refusals carry the provider's actionable reason (pending approval / denied by
   user / signer unverified / not a partner / no signature) instead of a silent all-false status.
 
+- **The accessibility check now accounts for every screen, not six of them**: it
+  described itself as the accessibility release gate while only ever exercising
+  six surfaces, so the other twenty screens were not just unchecked, they were
+  invisible. Each of the app's 25 destinations now either runs in the automated
+  check or carries a written reason it cannot, and adding a new screen without
+  either fails the build. The manual TalkBack scenarios are stamped with the
+  version they were run or waived for, and those stamps expire at the next
+  release so nobody inherits someone else's sign-off.
+
+- **You can now check that an Aura APK is really Aura's**: the signing
+  certificate fingerprint was only ever written into release notes, so there was
+  no reliable place to look it up and nothing stopping it going stale. It is now
+  in the README next to the install instructions, in the store description, and
+  in a machine-readable file, with a check that fails the build if any of those
+  loses it or if it stops matching the actual release key. Verify a download with
+  `apksigner verify --print-certs` or AppVerifier before installing a build from
+  anywhere but Aura's own releases page.
+
+- **The contributor docs now match the build, and a check keeps them there**:
+  `ARCHITECTURE.md` described a "Favorites" bottom tab and Room database v14
+  against a shipped "Library" tab and v17, and `CONTRIBUTING.md` asked for
+  "JDK 17+ and Android SDK 35" when the build compiles against SDK 36 and Gradle
+  refuses any JDK newer than 21. Neither file was covered by any check. Both are
+  corrected, both are now read by the release gate, and it understands the boxed
+  diagram format `ARCHITECTURE.md` uses so a stale tab name there fails the build
+  rather than sitting unnoticed.
+
+- **The distribution runbook stopped contradicting its own tooling**: it told the
+  reader that F-Droid mainline was blocked and that the preflight command would
+  report `blocked`, when that command had been reporting `ready-for-review` ever
+  since the FOSS flavor isolated Firebase and Play Services. Nothing was checking
+  the document, so it drifted twice unnoticed. It now records what each
+  distribution channel actually means for the verification decision, including
+  Accrescent, and a new check fails the build if the document disagrees with the
+  preflight command again or if its review date passes.
+
+- **The 16 KB page-size check now reads inside the packed native payloads**: FFmpeg
+  and Python ship as archives renamed to `.so`, and the release gate had been
+  recording each one as "skipped". That left roughly 250 native libraries per
+  architecture completely unmeasured. The gate now opens them, and on 64-bit builds
+  it went from checking a handful of segments to checking over 900. It found five
+  WebP libraries inside the FFmpeg payload that are built for 4 KB pages rather than
+  16 KB. They come prebuilt from an upstream project, so they are recorded with the
+  reason and the upstream report rather than quietly ignored, and the check fails if
+  a sixth appears or if one of the five is silently dropped.
+
+- **Store release notes for 6.45.1 and 6.45.2 are complete again**: both Fastlane
+  changelogs were written without the "Recent highlights" opening the release gate
+  requires, so neither would have passed a publish check. Both now carry it.
+
+- **The release metadata policy tracks the build again**: it had been left at
+  6.45.0 / versionCode 146 across two version bumps. That single stale pair was
+  failing nine of the repository's release gates, which masked anything else they
+  would have caught. The version drift check now names the file to edit and both
+  values instead of only reporting a mismatch, and the bump checklist in
+  `CONTRIBUTING.md` lists every file a version change has to touch.
+
 ## v6.45.2
 
 - **App bundle builds work again**: `bundleFullRelease` had failed with a
@@ -32,6 +89,11 @@ All notable changes to Aura will be documented in this file.
   builds carry no orphaned translations.
 
 ## v6.45.0
+
+- **YouTube sound search now works across Android 8.0 and newer**: Aura builds
+  NewPipe's search URL with the encoder overload available since API 1, avoiding
+  the API 33-only overload that crashed older devices. Release-minified Full and
+  FOSS tests now launch Sounds and exercise offline search on API 26, 27, and 29.
 
 - **Sound Editor transforms now use Android's media stack**: Media3 owns clipping,
   fades, pitch-preserving speed from 0.5x to 2x, M4A, WAV, and available OGG or

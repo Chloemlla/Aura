@@ -13,6 +13,7 @@ import com.chloemlla.aura.data.remote.pixabay.PixabayVideoFile
 import com.chloemlla.aura.data.remote.pixabay.PixabayVideoFiles
 import com.chloemlla.aura.data.remote.pixabay.PixabayVideoResponse
 import com.chloemlla.aura.data.repository.VoteRepository
+import com.chloemlla.aura.data.repository.createLegacyCompatibleYouTubeSearchHandler
 import com.chloemlla.aura.data.repository.parseRedditRssPage
 import com.chloemlla.aura.data.repository.YouTubeRepository
 import com.chloemlla.aura.data.repository.YouTubeVideoMetadata
@@ -758,6 +759,36 @@ class VideoWallpapersViewModelTest {
         every { resources.getString(R.string.video_wp_duration_seconds, 16L) } returns "16s"
         every { resources.getString(R.string.video_wp_summary_rotated, 90) } returns "rotated 90deg"
         every { resources.getString(R.string.video_wp_pixabay_fallback_title) } returns "Pixabay video"
+    }
+
+    @Test
+    fun `video feed queries survive the legacy search handler`() {
+        // The video feed appends an orientation suffix to the user's search
+        // text before handing it to NewPipe. Those queries carry spaces, and
+        // the curated fallbacks carry punctuation, so the handler has to encode
+        // them with the API 1 URLEncoder overload rather than NewPipe's own
+        // API 33 one (issue #2). searchString must stay verbatim, because the
+        // downstream junk-pattern and title filters match against it.
+        val userQuery = "northern lights vertical wallpaper"
+        val userHandler = createLegacyCompatibleYouTubeSearchHandler(userQuery)
+
+        assertEquals(userQuery, userHandler.searchString)
+        assertEquals(
+            "https://www.youtube.com/results" +
+                "?search_query=northern+lights+vertical+wallpaper&sp=8AEB",
+            userHandler.url,
+        )
+
+        val curatedQuery = "4k live wallpaper loop (amoled) & dark"
+        val curatedHandler = createLegacyCompatibleYouTubeSearchHandler(curatedQuery)
+
+        assertEquals(curatedQuery, curatedHandler.searchString)
+        assertEquals(
+            "https://www.youtube.com/results" +
+                "?search_query=4k+live+wallpaper+loop+%28amoled%29+%26+dark&sp=8AEB",
+            curatedHandler.url,
+        )
+        assertEquals(emptyList<String>(), curatedHandler.contentFilters)
     }
 
     private fun pixabayVideo(

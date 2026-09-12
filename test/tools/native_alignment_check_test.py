@@ -1,6 +1,8 @@
+import io
 import struct
 import tempfile
 import unittest
+import unittest.mock
 import zipfile
 from pathlib import Path
 
@@ -47,6 +49,15 @@ def minimal_elf32(load_alignments):
         struct.pack_into("<I", program_headers, base + 8, index * 4096)
         struct.pack_into("<I", program_headers, base + 28, alignment)
     return bytes(header + program_headers)
+
+
+def nested_zip(entries):
+    """Real ZIP bytes, the way youtubedl-android ships FFmpeg and CPython."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        for name, data in entries.items():
+            archive.writestr(name, data)
+    return buffer.getvalue()
 
 
 def write_apk(entries):
@@ -276,20 +287,371 @@ class ExpectedAbisForApkTest(unittest.TestCase):
                 require_64_bit_only=True,
             )
 
-    def test_skips_zip_payloads_named_so(self):
+    def test_inspects_the_elfs_inside_a_zip_payload(self):
+        # Replaces test_skips_zip_payloads_named_so, which asserted that a
+        # .zip.so was recorded as skipped and contributed no libraries. That
+        # was the real behaviour, and it is exactly the blind spot this gate
+        # had to lose: the shipped arm64 FFmpeg payload hides 112 ELFs behind
+        # one such entry.
         temp_dir, apk_path = write_apk(
             {
-                "lib/arm64-v8a/libarchive.zip.so": b"PK\x03\x04archive",
+                "lib/arm64-v8a/libarchive.zip.so": nested_zip(
+                    {
+                        "usr/lib/libinner.so": minimal_elf64([16384]),
+                        "usr/lib/libinner.so.1": b"libinner.so",
+                        "usr/lib/python/module.py": b"print('hi')\n",
+                    }
+                ),
                 "lib/arm64-v8a/libok.so": minimal_elf64([16384]),
             }
         )
         self.addCleanup(temp_dir.cleanup)
 
         skipped = []
-        libraries = native_alignment_check.inspect_apk(apk_path, skipped_archive_entries=skipped)
+        report = {}
+        libraries = native_alignment_check.inspect_apk(
+            apk_path, skipped_archive_entries=skipped, nested_archive_report=report
+        )
 
-        self.assertEqual(skipped, ["lib/arm64-v8a/libarchive.zip.so"])
-        self.assertEqual([library.apk_entry for library in libraries], ["lib/arm64-v8a/libok.so"])
+        self.assertEqual(skipped, [])
+        self.assertEqual(
+            sorted(library.apk_entry for library in libraries),
+            [
+                "lib/arm64-v8a/libarchive.zip.so!usr/lib/libinner.so",
+                "lib/arm64-v8a/libok.so",
+            ],
+        )
+        nested = next(item for item in libraries if item.archive_entry is not None)
+        self.assertEqual("lib/arm64-v8a/libarchive.zip.so", nested.archive_entry)
+        self.assertEqual("usr/lib/libinner.so", nested.inner_path)
+        self.assertEqual("arm64-v8a", nested.abi)
+        self.assertEqual(
+            {"elfCount": 1, "nonElfEntryCount": 2},
+            report["lib/arm64-v8a/libarchive.zip.so"],
+        )
+
+    def test_rejects_a_4kb_aligned_64_bit_elf_inside_a_zip_payload(self):
+        temp_dir, apk_path = write_apk(
+            {
+                "lib/arm64-v8a/libarchive.zip.so": nested_zip(
+                    {"usr/lib/libwebp.so": minimal_elf64([4096])}
+                ),
+            }
+        )
+        self.addCleanup(temp_dir.cleanup)
+        libraries = native_alignment_check.inspect_apk(apk_path)
+
+        with self.assertRaises(native_alignment_check.NativeAlignmentError) as ctx:
+            native_alignment_check.validate_libraries(
+                libraries,
+                required_alignment=16384,
+                required_abis={"arm64-v8a"},
+                expected_abis={"arm64-v8a"},
+                require_64_bit_only=False,
+                variant="split:arm64-v8a",
+            )
+
+        message = str(ctx.exception)
+        self.assertIn("libarchive.zip.so!usr/lib/libwebp.so", message)
+        self.assertIn("p_align 4096", message)
+
+    def test_an_exception_excuses_only_the_entry_it_names(self):
+        temp_dir, apk_path = write_apk(
+            {
+                "lib/arm64-v8a/libarchive.zip.so": nested_zip(
+                    {
+                        "usr/lib/libwebp.so": minimal_elf64([4096]),
+                        "usr/lib/libother.so": minimal_elf64([4096]),
+                    }
+                ),
+            }
+        )
+        self.addCleanup(temp_dir.cleanup)
+        libraries = native_alignment_check.inspect_apk(apk_path)
+        exception = native_alignment_check.AlignmentException(
+            archive_entry="libarchive.zip.so",
+            inner_path="usr/lib/libwebp.so",
+            abis=frozenset({"arm64-v8a"}),
+            observed_alignment=4096,
+            reason="prebuilt upstream object",
+            upstream="https://example.invalid/issue",
+        )
+
+        with self.assertRaises(native_alignment_check.NativeAlignmentError) as ctx:
+            native_alignment_check.validate_libraries(
+                libraries,
+                required_alignment=16384,
+                required_abis={"arm64-v8a"},
+                expected_abis={"arm64-v8a"},
+                require_64_bit_only=False,
+                variant="split:arm64-v8a",
+                alignment_exceptions=(exception,),
+            )
+
+        message = str(ctx.exception)
+        self.assertIn("libother.so", message)
+        self.assertNotIn("libwebp.so PT_LOAD", message)
+
+    def test_an_exception_that_is_no_longer_observed_fails(self):
+        temp_dir, apk_path = write_apk(
+            {
+                "lib/arm64-v8a/libarchive.zip.so": nested_zip(
+                    {"usr/lib/libwebp.so": minimal_elf64([16384])}
+                ),
+            }
+        )
+        self.addCleanup(temp_dir.cleanup)
+        libraries = native_alignment_check.inspect_apk(apk_path)
+        exception = native_alignment_check.AlignmentException(
+            archive_entry="libarchive.zip.so",
+            inner_path="usr/lib/libwebp.so",
+            abis=frozenset({"arm64-v8a"}),
+            observed_alignment=4096,
+            reason="prebuilt upstream object",
+            upstream="https://example.invalid/issue",
+        )
+
+        with self.assertRaises(native_alignment_check.NativeAlignmentError) as ctx:
+            native_alignment_check.validate_libraries(
+                libraries,
+                required_alignment=16384,
+                required_abis={"arm64-v8a"},
+                expected_abis={"arm64-v8a"},
+                require_64_bit_only=False,
+                variant="split:arm64-v8a",
+                alignment_exceptions=(exception,),
+            )
+
+        self.assertIn("remove the exception", str(ctx.exception))
+
+    def test_a_zip_payload_carrying_no_elf_is_still_reported_as_skipped(self):
+        temp_dir, apk_path = write_apk(
+            {
+                "lib/arm64-v8a/libdata.zip.so": nested_zip({"usr/share/data.txt": b"nothing"}),
+                "lib/arm64-v8a/libok.so": minimal_elf64([16384]),
+            }
+        )
+        self.addCleanup(temp_dir.cleanup)
+
+        skipped = []
+        native_alignment_check.inspect_apk(apk_path, skipped_archive_entries=skipped)
+
+        self.assertEqual(skipped, ["lib/arm64-v8a/libdata.zip.so"])
+
+    def test_a_corrupt_zip_payload_is_an_error_not_a_silent_skip(self):
+        temp_dir, apk_path = write_apk(
+            {"lib/arm64-v8a/libarchive.zip.so": b"PK\x03\x04truncated"}
+        )
+        self.addCleanup(temp_dir.cleanup)
+
+        with self.assertRaises(native_alignment_check.NativeAlignmentError) as ctx:
+            native_alignment_check.inspect_apk(apk_path)
+
+        self.assertIn("could not be read", str(ctx.exception))
+
+    def test_an_exception_does_not_carry_over_to_a_similarly_named_archive(self):
+        # `endswith` let corplibffmpeg.zip.so inherit libffmpeg.zip.so's
+        # exception, so an unreviewed under-aligned object could hide behind an
+        # approved one purely by filename coincidence.
+        temp_dir, apk_path = write_apk(
+            {
+                "lib/arm64-v8a/libffmpeg.zip.so": nested_zip(
+                    {"usr/lib/libwebp.so": minimal_elf64([4096])}
+                ),
+                "lib/arm64-v8a/corplibffmpeg.zip.so": nested_zip(
+                    {"usr/lib/libwebp.so": minimal_elf64([4096])}
+                ),
+            }
+        )
+        self.addCleanup(temp_dir.cleanup)
+        libraries = native_alignment_check.inspect_apk(apk_path)
+        exception = native_alignment_check.AlignmentException(
+            archive_entry="libffmpeg.zip.so",
+            inner_path="usr/lib/libwebp.so",
+            abis=frozenset({"arm64-v8a"}),
+            observed_alignment=4096,
+            reason="prebuilt upstream object",
+            upstream="https://example.invalid/issue",
+        )
+
+        with self.assertRaises(native_alignment_check.NativeAlignmentError) as ctx:
+            native_alignment_check.validate_libraries(
+                libraries,
+                required_alignment=16384,
+                required_abis={"arm64-v8a"},
+                expected_abis={"arm64-v8a"},
+                require_64_bit_only=False,
+                variant="split:arm64-v8a",
+                alignment_exceptions=(exception,),
+            )
+
+        message = str(ctx.exception)
+        self.assertIn("corplibffmpeg.zip.so!usr/lib/libwebp.so", message)
+        self.assertNotIn("lib/arm64-v8a/libffmpeg.zip.so!usr/lib/libwebp.so PT_LOAD", message)
+
+    def test_a_stale_exception_is_caught_on_a_split_with_no_nested_archive(self):
+        # The stale-exception check used to be gated on the artifact carrying a
+        # nested archive, so a split with none skipped it entirely and a dead
+        # exception survived.
+        temp_dir, apk_path = write_apk(
+            {"lib/arm64-v8a/libok.so": minimal_elf64([16384])}
+        )
+        self.addCleanup(temp_dir.cleanup)
+        libraries = native_alignment_check.inspect_apk(apk_path)
+        exception = native_alignment_check.AlignmentException(
+            archive_entry="libffmpeg.zip.so",
+            inner_path="usr/lib/libwebp.so",
+            abis=frozenset({"arm64-v8a"}),
+            observed_alignment=4096,
+            reason="prebuilt upstream object",
+            upstream="https://example.invalid/issue",
+        )
+
+        with self.assertRaises(native_alignment_check.NativeAlignmentError) as ctx:
+            native_alignment_check.validate_libraries(
+                libraries,
+                required_alignment=16384,
+                required_abis={"arm64-v8a"},
+                expected_abis={"arm64-v8a"},
+                require_64_bit_only=False,
+                variant="split:arm64-v8a",
+                alignment_exceptions=(exception,),
+            )
+
+        self.assertIn("remove the exception", str(ctx.exception))
+
+    def test_a_stale_exception_for_another_abi_does_not_fail_this_split(self):
+        temp_dir, apk_path = write_apk(
+            {"lib/armeabi-v7a/libok.so": minimal_elf32([4096])}
+        )
+        self.addCleanup(temp_dir.cleanup)
+        libraries = native_alignment_check.inspect_apk(apk_path)
+        exception = native_alignment_check.AlignmentException(
+            archive_entry="libffmpeg.zip.so",
+            inner_path="usr/lib/libwebp.so",
+            abis=frozenset({"arm64-v8a", "x86_64"}),
+            observed_alignment=4096,
+            reason="prebuilt upstream object",
+            upstream="https://example.invalid/issue",
+        )
+
+        result = native_alignment_check.validate_libraries(
+            libraries,
+            required_alignment=16384,
+            required_abis=set(),
+            expected_abis={"armeabi-v7a"},
+            require_64_bit_only=False,
+            variant="split:armeabi-v7a",
+            alignment_exceptions=(exception,),
+        )
+
+        self.assertEqual(0, result["checked64BitLoadSegments"])
+
+    def test_recurses_into_an_archive_inside_an_archive(self):
+        # Stopping at the first level reported zero skipped payloads while a
+        # 4 KB-aligned 64-bit ELF one level deeper was never parsed at all.
+        inner_archive = nested_zip({"usr/lib/libhidden.so": minimal_elf64([4096])})
+        temp_dir, apk_path = write_apk(
+            {
+                "lib/arm64-v8a/libouter.zip.so": nested_zip(
+                    {
+                        "usr/lib/libtoplevel.so": minimal_elf64([16384]),
+                        "usr/lib/extra.zip": inner_archive,
+                    }
+                ),
+            }
+        )
+        self.addCleanup(temp_dir.cleanup)
+
+        skipped = []
+        libraries = native_alignment_check.inspect_apk(
+            apk_path, skipped_archive_entries=skipped
+        )
+
+        self.assertEqual(skipped, [])
+        self.assertIn(
+            "lib/arm64-v8a/libouter.zip.so!usr/lib/extra.zip!usr/lib/libhidden.so",
+            [library.apk_entry for library in libraries],
+        )
+
+        with self.assertRaises(native_alignment_check.NativeAlignmentError) as ctx:
+            native_alignment_check.validate_libraries(
+                libraries,
+                required_alignment=16384,
+                required_abis={"arm64-v8a"},
+                expected_abis={"arm64-v8a"},
+                require_64_bit_only=False,
+                variant="split:arm64-v8a",
+            )
+
+        self.assertIn("libhidden.so", str(ctx.exception))
+
+    def test_refuses_to_unpack_beyond_the_depth_ceiling(self):
+        payload = nested_zip({"usr/lib/libdeep.so": minimal_elf64([16384])})
+        for _ in range(native_alignment_check.MAX_ARCHIVE_DEPTH + 1):
+            payload = nested_zip({"nested.zip": payload})
+        temp_dir, apk_path = write_apk({"lib/arm64-v8a/libouter.zip.so": payload})
+        self.addCleanup(temp_dir.cleanup)
+
+        with self.assertRaises(native_alignment_check.NativeAlignmentError) as ctx:
+            native_alignment_check.inspect_apk(apk_path)
+
+        self.assertIn("deep", str(ctx.exception))
+
+    def test_refuses_an_entry_above_the_size_ceiling(self):
+        # The declared size is read from the central directory before anything
+        # is decompressed, which is the whole point: a high-ratio entry must be
+        # refused rather than expanded. The ceiling is patched down instead of
+        # building a real multi-hundred-megabyte fixture.
+        payload = nested_zip({"usr/lib/big.so": minimal_elf64([16384]) + b"\x00" * 4096})
+        temp_dir, apk_path = write_apk({"lib/arm64-v8a/libouter.zip.so": payload})
+        self.addCleanup(temp_dir.cleanup)
+
+        with unittest.mock.patch.object(native_alignment_check, "MAX_ARCHIVE_ENTRY_BYTES", 128):
+            with self.assertRaises(native_alignment_check.NativeAlignmentError) as ctx:
+                native_alignment_check.inspect_apk(apk_path)
+
+        message = str(ctx.exception)
+        self.assertIn("byte ceiling", message)
+        self.assertIn("usr/lib/big.so", message)
+
+    def test_an_exception_that_meets_the_requirement_is_rejected_as_policy(self):
+        with self.assertRaises(native_alignment_check.NativeAlignmentError) as ctx:
+            native_alignment_check.parse_alignment_exceptions(
+                [
+                    {
+                        "archiveEntry": "libarchive.zip.so",
+                        "innerPath": "usr/lib/libwebp.so",
+                        "abis": ["arm64-v8a"],
+                        "observedAlignmentBytes": 16384,
+                        "reason": "not actually under-aligned",
+                        "upstream": "https://example.invalid/issue",
+                    }
+                ],
+                16384,
+                {"arm64-v8a"},
+            )
+
+        self.assertIn("must be removed", str(ctx.exception))
+
+    def test_an_exception_naming_an_undeclared_abi_is_rejected(self):
+        with self.assertRaises(native_alignment_check.NativeAlignmentError) as ctx:
+            native_alignment_check.parse_alignment_exceptions(
+                [
+                    {
+                        "archiveEntry": "libarchive.zip.so",
+                        "innerPath": "usr/lib/libwebp.so",
+                        "abis": ["riscv64"],
+                        "observedAlignmentBytes": 4096,
+                        "reason": "prebuilt upstream object",
+                        "upstream": "https://example.invalid/issue",
+                    }
+                ],
+                16384,
+                {"arm64-v8a"},
+            )
+
+        self.assertIn("does not declare", str(ctx.exception))
 
 
 class MediaStackMigrationEvidenceTest(unittest.TestCase):
