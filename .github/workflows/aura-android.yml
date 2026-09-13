@@ -311,16 +311,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
 
+      - name: Set up Java 21
+        # firebase-tools refuses to boot the database and storage emulators on
+        # any JDK older than 21, and the runner image's default is older, so the
+        # rules tests died on startup. They reported green anyway: both test
+        # steps carried continue-on-error, which is now gone.
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520
+        with:
+          distribution: zulu
+          java-version: "21"
+
       - name: Install dependencies
         # functions/ has no committed lockfile, so it installs rather than ci.
         run: npm ci && npm --prefix functions install
 
       - name: Run Cloud Functions unit tests
-        continue-on-error: true
         run: npm --prefix functions test
 
       - name: Run Firebase rules tests (emulator)
-        continue-on-error: true
         run: npm run test:firebase-rules
 
   release:
