@@ -209,6 +209,20 @@ class SoundApplier @Inject constructor(
         type: ContentType,
         url: String,
     ): Uri? {
+        if (isLocalMediaLocator(url)) {
+            val tempFile = stageLocalMediaLocator(
+                context = context,
+                locator = url,
+                tempDirectoryName = "audio_apply",
+                prefix = "aura_sound_",
+                maxBytes = MAX_APPLY_BYTES,
+            )
+            return try {
+                saveLocalFileToMediaStore(fileName, type, tempFile)
+            } finally {
+                tempFile.delete()
+            }
+        }
         val request = Request.Builder().url(url).build()
         return okHttpClient.newCall(request).execute().use { resp ->
             if (!resp.isSuccessful) {

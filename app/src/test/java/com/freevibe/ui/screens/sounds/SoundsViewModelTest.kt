@@ -137,6 +137,47 @@ class SoundsViewModelTest {
     }
 
     @Test
+    fun `offline originals appear immediately and remain beside youtube results`() = runTest(dispatcher) {
+        val youtubeRepo = mockk<YouTubeRepository>()
+        val freesoundRepo = mockk<FreesoundRepository>()
+        val freesoundV2Repo = mockk<FreesoundV2Repository>()
+        val audiusRepo = mockk<AudiusRepository>()
+        val ccMixterRepo = mockk<CcMixterRepository>()
+        val soundCloudRepo = mockk<SoundCloudRepository>()
+        val bundled = testSound("bundled_ring", ContentSource.BUNDLED, "Crystal Chime")
+
+        stubCommonDependencies(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+        )
+        coEvery { youtubeRepo.searchSounds(any(), any(), any(), any()) } returns SearchResult(
+            items = listOf(testSound("yt_focus", ContentSource.YOUTUBE, "Aura Focus Tone")),
+            totalCount = 1,
+            currentPage = 1,
+            hasMore = false,
+        )
+
+        val viewModel = createViewModel(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+            bundledRingtones = listOf(bundled),
+        )
+
+        advanceUntilIdle()
+
+        assertEquals(setOf("bundled_ring", "yt_focus"), viewModel.state.value.sounds.map { it.id }.toSet())
+        assertEquals(ContentSource.BUNDLED, viewModel.state.value.sounds.first().source)
+    }
+
+    @Test
     fun `youtube disabled uses bundled ringtone fallback and skips provider calls`() = runTest(dispatcher) {
         val youtubeRepo = mockk<YouTubeRepository>()
         val freesoundRepo = mockk<FreesoundRepository>()

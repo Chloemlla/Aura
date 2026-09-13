@@ -55,4 +55,26 @@ class SoundUrlResolverTest {
 
         assertEquals("https://example.com/fresh-focus.mp3", resolved)
     }
+
+    @Test
+    fun `resolve returns packaged sound locator without an HTTP probe`() = runTest(dispatcher) {
+        val resolver = SoundUrlResolver(
+            okHttpClient = mockk(relaxed = true),
+            youtubeRepo = mockk(relaxed = true),
+        )
+        val locator = "rawresource:///12345"
+
+        val resolved = resolver.resolve(
+            Sound(
+                id = "bundled_ding",
+                source = ContentSource.BUNDLED,
+                name = "Gentle Ding",
+                previewUrl = locator,
+                downloadUrl = locator,
+                license = "CC0 1.0",
+            ),
+        )
+
+        assertEquals(locator, resolved)
+    }
 }

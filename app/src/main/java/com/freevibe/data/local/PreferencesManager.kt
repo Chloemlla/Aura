@@ -5,7 +5,9 @@ import android.content.Intent
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.freevibe.data.legal.providerCapability
 import com.freevibe.data.model.COMMUNITY_GUIDELINES_VERSION
+import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.hasAcceptedCommunityGuidelinesVersion
 import com.freevibe.service.ADAPTIVE_TINT_ENABLED_PREF
 import com.freevibe.service.ADAPTIVE_TINT_INTENSITY_PREF
@@ -242,13 +244,24 @@ class PreferencesManager @Inject constructor(
         DEFAULT_GENERATED_CONTENT_PROVIDER_ENABLED,
     )
     val generatedContentDisclosureAccepted: Flow<Boolean> = get(Keys.GENERATED_CONTENT_DISCLOSURE_ACCEPTED, false)
-    // Reddit is the only wallpaper image source enabled by default; every other provider
-    // (Wallhaven, Bing, Pexels, Pixabay) is opt-in via Settings > Wallpapers > Sources.
-    // Keeping them off by default keeps the default feed lean and low-bandwidth.
-    val wallhavenProviderEnabled: Flow<Boolean> = get(Keys.WALLHAVEN_PROVIDER_ENABLED, false)
-    val bingProviderEnabled: Flow<Boolean> = get(Keys.BING_PROVIDER_ENABLED, false)
-    val pexelsProviderEnabled: Flow<Boolean> = get(Keys.PEXELS_PROVIDER_ENABLED, false)
-    val pixabayProviderEnabled: Flow<Boolean> = get(Keys.PIXABAY_PROVIDER_ENABLED, false)
+    // Reddit leads fresh-install wallpaper and motion feeds. Wallhaven, Bing, Pexels, and Pixabay
+    // remain user choices in Settings; public release builds do not embed Pexels or Pixabay keys.
+    val wallhavenProviderEnabled: Flow<Boolean> = get(
+        Keys.WALLHAVEN_PROVIDER_ENABLED,
+        providerCapability(ContentSource.WALLHAVEN).enabledByDefault,
+    )
+    val bingProviderEnabled: Flow<Boolean> = get(
+        Keys.BING_PROVIDER_ENABLED,
+        providerCapability(ContentSource.BING).enabledByDefault,
+    )
+    val pexelsProviderEnabled: Flow<Boolean> = get(
+        Keys.PEXELS_PROVIDER_ENABLED,
+        providerCapability(ContentSource.PEXELS).enabledByDefault,
+    )
+    val pixabayProviderEnabled: Flow<Boolean> = get(
+        Keys.PIXABAY_PROVIDER_ENABLED,
+        providerCapability(ContentSource.PIXABAY).enabledByDefault,
+    )
     val communityProviderEnabled: Flow<Boolean> =
         if (com.freevibe.BuildConfig.FOSS_BUILD) {
             MutableStateFlow(false)
@@ -492,7 +505,10 @@ class PreferencesManager @Inject constructor(
         Keys.REDDIT_VIDEO_SUBS,
         DEFAULT_REDDIT_VIDEO_SUBREDDITS,
     )
-    val redditProviderEnabled: Flow<Boolean> = get(Keys.REDDIT_PROVIDER_ENABLED, true)
+    val redditProviderEnabled: Flow<Boolean> = get(
+        Keys.REDDIT_PROVIDER_ENABLED,
+        providerCapability(ContentSource.REDDIT).enabledByDefault,
+    )
 
     suspend fun setRedditSubreddits(subs: String) = set(
         Keys.REDDIT_SUBS,

@@ -1274,7 +1274,7 @@ internal fun sourceDisplayName(source: ContentSource): String = when (source) {
     ContentSource.KLIPY -> "Klipy"
     ContentSource.SOUNDCLOUD -> "SoundCloud"
     ContentSource.COMMUNITY -> "Community"
-    ContentSource.BUNDLED -> "Aura Picks"
+    ContentSource.BUNDLED -> "Aura Originals"
     ContentSource.AI_GENERATED -> "AI Generated"
     ContentSource.OPEN_METEO -> "Open-Meteo"
     ContentSource.LEMMY -> "Lemmy"

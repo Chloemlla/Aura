@@ -535,7 +535,7 @@ fun SourceBadge(source: String, modifier: Modifier = Modifier) {
         "KLIPY" -> Color(0xFFE040FB) to "Klipy"
         "SOUNDCLOUD" -> Color(0xFFFF5500) to "SoundCloud"
         "COMMUNITY" -> Color(0xFF4CAF50) to "Community"
-        "BUNDLED" -> Color(0xFFFFB300) to "Aura Picks"
+        "BUNDLED" -> Color(0xFFFFB300) to "Aura Originals"
         else -> MaterialTheme.colorScheme.onSurfaceVariant to source
     }
 

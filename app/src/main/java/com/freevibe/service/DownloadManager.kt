@@ -136,10 +136,46 @@ class DownloadManager @Inject constructor(
     ): Result<Uri> = try {
         updateProgress(historyId, DownloadProgress(historyId, fileName, 0f, 0, 0))
 
-        // Start HTTP download
-        val request = Request.Builder().url(url).build()
-        val response = okHttpClient.newCall(request).execute()
-        Result.success(response.use { resp ->
+        if (isLocalMediaLocator(url)) {
+            val tempFile = stageLocalMediaLocator(
+                context = context,
+                locator = url,
+                tempDirectoryName = "downloads",
+                prefix = "aura_download_",
+                maxBytes = maxBytes,
+            )
+            try {
+                val downloadedBytes = tempFile.length()
+                val sniffed = requireSniffedMediaFile(
+                    tempFile,
+                    expectedMediaFamily,
+                    if (expectedMediaFamily == MediaFamily.IMAGE) "Wallpaper" else "Sound",
+                )
+                val storedFileName = normalizeMediaFileName(fileName, sniffed)
+                Result.success(
+                    writeValidatedDownloadToMediaStore(
+                        tempFile = tempFile,
+                        contentId = contentId,
+                        historyId = historyId,
+                        fileName = storedFileName,
+                        mimeType = sniffed.mimeType,
+                        relativePath = relativePath,
+                        collection = collection,
+                        contentType = contentType,
+                        contentSource = contentSource,
+                        totalBytes = downloadedBytes,
+                        downloadedBytes = downloadedBytes,
+                        maxBytes = maxBytes,
+                    ),
+                )
+            } finally {
+                tempFile.delete()
+            }
+        } else {
+            // Start HTTP download
+            val request = Request.Builder().url(url).build()
+            val response = okHttpClient.newCall(request).execute()
+            Result.success(response.use { resp ->
             if (!resp.isSuccessful) {
                 throw IllegalStateException("Download failed: HTTP ${resp.code}")
             }
@@ -206,7 +242,8 @@ class DownloadManager @Inject constructor(
             } finally {
                 tempFile.delete()
             }
-        })
+            })
+        }
     } catch (e: Exception) {
         if (e is CancellationException) throw e
         sourceUnavailableReasonForFailure(contentSource, e)?.let { reason ->

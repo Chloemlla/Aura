@@ -123,7 +123,7 @@ internal fun soundFingerprint(sound: Sound): String {
 }
 
 internal fun soundSourceLabel(source: ContentSource): String = when (source) {
-    ContentSource.BUNDLED -> "Aura Picks"
+    ContentSource.BUNDLED -> "Aura Originals"
     ContentSource.YOUTUBE -> "YouTube"
     ContentSource.FREESOUND -> "Freesound"
     ContentSource.JAMENDO -> "Jamendo"

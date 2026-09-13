@@ -27,12 +27,12 @@ Aura is built as a local-first tool rather than an ad-and-credit marketplace:
 | **AI-generated content** | Generation is off by default in full builds and omitted from FOSS builds. Declared AI uploads are labeled, Aura-generated uploads are labeled automatically, and community feeds provide a Hide AI filter. |
 | **Offline library** | Downloads and offline favorites stay on the device for local use. Portable backups carry favorites, collections, searches, wallpaper packs, and sound profiles without exporting device-specific download paths. |
 
-- **Quality-ranked YouTube sounds**: ringtones, notifications, and alarms use intent-specific YouTube searches with tight duration windows and cleaner result filtering.
+- **Sounds that work offline**: 25 Aura Originals ship with the app, then quality-ranked YouTube results add more ringtones, notifications, and alarms when connected.
 - **Reddit-first discovery**: mobile wallpaper and motion communities lead the home feeds, with real cached Atom cursor pagination instead of a fixed recent slice.
-- **Video wallpapers from multiple sources**: browse Reddit live wallpapers/cinemagraphs first, followed by YouTube, Pixabay, and Pexels; import local videos/GIFs, then tune loop, crop, Fill, or Fit before applying.
-- **Multi-source personalization**: Reddit RSS, Wallhaven, Bing, Pexels, Pixabay, YouTube, legacy Freesound attributions, and community uploads.
+- **Video wallpapers from multiple sources**: browse Reddit live wallpapers and cinemagraphs first, followed by YouTube and optional Pixabay or Pexels results. Local video and GIF import includes loop, crop, Fill, and Fit controls.
+- **More ways to personalize**: Reddit RSS leads the network feeds. Wallhaven, Bing, Pexels, Pixabay, YouTube, Aura Originals, local files, and community uploads add user-controlled choices.
 - **Instant startup**: Discover feed is cached locally. On subsequent launches wallpapers appear immediately while fresh results load in the background.
-- **Performance proof path**: Baseline Profile and Macrobenchmark tests cover startup, Wallpaper Detail, and the main media grids on a physical-device runner.
+- **Performance proof path**: Baseline Profile and Macrobenchmark tests cover startup, Wallpaper Detail, and the main media grids during local physical-device checks.
 - **5 bottom nav tabs**: Wallpapers, Videos, Sounds, Library, Settings.
 
 ## Installing Aura
@@ -120,7 +120,7 @@ the same link is available in Settings > About > Privacy policy.
 
 | Feature | Description |
 |---------|-------------|
-| **HD/4K Wallpapers** | Discover feed from Wallhaven, Pexels, Pixabay & Bing |
+| **HD/4K Wallpapers** | Reddit-first discovery with optional Wallhaven, Pexels, Pixabay, Bing, NASA, and Wikimedia results |
 | **Wallpaper Quality Filters** | Discover chips for For You, AMOLED, 4K+, Portrait, and Icon Safe with curated ranking |
 | **On-Device Style Learning** | Apply, favorite, and hide signals adapt Discover locally with a Settings reset control |
 | **Community Wallpapers** | Upload phone-cropped gallery images with tags, Palette colors, and community voting |
@@ -140,6 +140,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Download Progress** | Download notifications use the Android 16 progress style when available and retain the compatibility progress bar elsewhere |
 | **Touch-Reactive Effects** | Optional ripple and sparkle bursts on live wallpaper touches |
 | **YouTube Sounds** | YouTube-first ringtone, notification, and alarm discovery with duration-aware searches powered by NewPipe + yt-dlp |
+| **Aura Originals** | 25 small CC0 tones included for offline ringtone, notification, and alarm preview, download, and apply |
 | **Community Sound Uploads** | Pick or record sounds, tag them, vote on community picks, and share via Firebase Storage |
 | **Sound Source Badges** | Color-coded source indicators on every sound card |
 | **Sound Quality Filters** | Best, Clean, Short, Calm, and Punchy filters with intent-aware badges |
@@ -186,11 +187,12 @@ rotation, while tapping it still queues one wallpaper change when scheduling is 
 | Source | Content | Auth |
 |--------|---------|------|
 | [Wallhaven](https://wallhaven.cc) | 1M+ HD/4K wallpapers | None (optional key for NSFW) |
-| [Pexels](https://pexels.com) | Curated HD photos + videos | Built-in key |
-| [Pixabay](https://pixabay.com) | Editor's choice photos + videos | Built-in key |
+| [Pexels](https://pexels.com) | Curated HD photos + videos | User key required in public releases |
+| [Pixabay](https://pixabay.com) | Editor's choice photos + videos | User key required in public releases |
 | [Reddit](https://reddit.com) | Reddit-first mobile wallpapers, live wallpapers, and cinemagraphs via 100-entry public Atom pages with cursor pagination, a two-hour cache, and stale fallback | None |
 | [YouTube](https://youtube.com) | Video wallpapers + active sound feed via NewPipe + yt-dlp | None |
-| [Freesound](https://freesound.org) | Legacy sound attribution for older favorites | Built-in key |
+| Aura Originals | 25 offline ringtones, notification sounds, and alarms synthesized for Aura | None |
+| [Freesound](https://freesound.org) | Legacy sound attribution for older favorites | Optional legacy key |
 | Firebase | Community wallpaper/sound uploads + voting | Built-in |
 
 ## Architecture

@@ -88,16 +88,6 @@ class ProviderCapabilityContractTest {
                             capability.endpointIds.isNotEmpty(),
                         )
                     }
-                    // An active source is on out of the box unless it first needs
-                    // something only the user can give: a credential or a permission.
-                    val gatedOnUser =
-                        capability.configuration == ProviderConfiguration.REQUIRED_KEY ||
-                            capability.permission != ProviderPermission.NONE
-                    assertEquals(
-                        "${capability.source} default-enabled state must follow from its gating",
-                        !gatedOnUser,
-                        capability.enabledByDefault,
-                    )
                 }
                 ProviderLifecycle.LOCAL -> {
                     assertTrue(

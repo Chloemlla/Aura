@@ -4,6 +4,20 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Reddit remains the lead media source by design**: the provider registry now
+  matches the working Reddit wallpaper and video feeds instead of describing
+  them as discontinued. Fresh installs keep Reddit on and the optional wallpaper
+  catalogs off. Users can enable Wallhaven or Bing, and can add their own Pexels
+  and Pixabay keys without weakening Reddit-first ranking.
+
+- **Sounds now have a working offline catalog**: the 25 dead Freesound preview
+  links have been replaced by original CC0 Ogg tones packaged with Aura. Ten
+  ringtones, ten notification sounds, and five alarms appear immediately beside
+  network results. The same local resource path now supports preview, download,
+  search, and system-sound application with size and media-type validation.
+  Subsecond notifications now show `<1s` instead of looking like zero-length
+  files.
+
 - **The screenshot release gate works again**: pseudolocale cases no longer
   overwrite ordinary English images, both editor locale baselines now exist,
   and the wallpaper fixture leaves room for its grid. Twelve reviewed phone,

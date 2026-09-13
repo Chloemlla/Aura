@@ -1,5 +1,7 @@
 package com.freevibe.data.local
 
+import com.freevibe.data.legal.providerCapability
+import com.freevibe.data.model.ContentSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -11,6 +13,15 @@ class PreferencesManagerDefaultsTest {
     fun `fresh installs keep optional cloud surfaces disabled by default`() {
         assertFalse(PreferencesManager.DEFAULT_GENERATED_CONTENT_PROVIDER_ENABLED)
         assertFalse(PreferencesManager.DEFAULT_COMMUNITY_PROVIDER_ENABLED)
+    }
+
+    @Test
+    fun `fresh installs preserve reddit first provider defaults`() {
+        assertTrue(providerCapability(ContentSource.REDDIT).enabledByDefault)
+        assertFalse(providerCapability(ContentSource.WALLHAVEN).enabledByDefault)
+        assertFalse(providerCapability(ContentSource.BING).enabledByDefault)
+        assertFalse(providerCapability(ContentSource.PEXELS).enabledByDefault)
+        assertFalse(providerCapability(ContentSource.PIXABAY).enabledByDefault)
     }
 
     @Test

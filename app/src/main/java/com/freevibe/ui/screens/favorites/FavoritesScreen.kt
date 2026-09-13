@@ -722,7 +722,7 @@ private fun sourceDisplayLabel(source: String): String =
         "YOUTUBE" -> "YouTube"
         "CCMIXTER" -> "ccMixter"
         "SOUNDCLOUD" -> "SoundCloud"
-        "BUNDLED" -> "Aura Picks"
+        "BUNDLED" -> "Aura Originals"
         else -> source.split('_', '-')
             .filter { it.isNotBlank() }
             .joinToString(" ") { part ->

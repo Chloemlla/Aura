@@ -8,7 +8,7 @@ metadata: `source`, `license`, `uploaderName`, `sourcePageUrl`, and
 
 | Sound source/license | Apply | Download | Share | Edit/trim | Aura Originals |
 | --- | --- | --- | --- | --- | --- |
-| Aura Picks with CC0/Public Domain metadata | Allowed | Allowed | Allowed with provenance | Allowed | Allowed after bundled curation metadata is present |
+| Aura Originals with CC0/Public Domain metadata | Allowed | Allowed | Allowed with provenance | Allowed | Allowed |
 | CC BY / CC BY-SA | Allowed with attribution metadata | Allowed with attribution metadata | Allowed with source/uploader/license text | Allowed unless no-derivatives applies | Disabled until reviewed as CC0-compatible |
 | CC BY-NC variants | Confirmation required | Confirmation required | Allowed with source/uploader/license text | Confirmation required unless no-derivatives applies | Disabled |
 | No-derivatives variants | Allowed with attribution metadata | Allowed with attribution metadata | Allowed with source/uploader/license text | Disabled | Disabled |
