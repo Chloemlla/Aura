@@ -49,22 +49,6 @@
     ],
     "reviewedOccurrences": [
       {
-        "path": "app/src/main/java/com/chloemlla/aura/service/AudioTrimmer.kt",
-        "terms": [
-          "getDeclaredField(",
-          "isAccessible = true"
-        ],
-        "reason": "Reads youtubedl-android FFmpeg binary and LD_LIBRARY_PATH values only for MP3, FLAC, unavailable OGG or Opus encoders, and unsupported lossless stream-copy cuts after Media3 handles the editor transform."
-      },
-      {
-        "path": "app/src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoCropScreen.kt",
-        "terms": [
-          "getDeclaredField(",
-          "isAccessible = true"
-        ],
-        "reason": "Reads youtubedl-android FFmpeg binary and LD_LIBRARY_PATH values for local video crop/export."
-      },
-      {
         "path": "app/src/main/java/com/chloemlla/aura/service/PhotoPickerCustomization.kt",
         "terms": [
           "Class.forName(",
@@ -75,18 +59,12 @@
         "reason": "Bridges Android 17 Photo Picker 9:16 customization before compileSdk 37 is installed."
       },
       {
-        "path": "app/src/main/java/com/chloemlla/aura/service/SmartCropDetector.kt",
+        "path": "app/src/main/java/com/chloemlla/aura/ui/screens/settings/DiagnosticsComponents.kt",
         "terms": [
-          "getMethod("
+          "getDeclaredField(",
+          "setAccessible("
         ],
-        "reason": "Supports ML Kit subject segmentation beta API shape differences without broad reflection."
-      },
-      {
-        "path": "app/src/main/java/com/chloemlla/aura/service/DepthPortraitComposer.kt",
-        "terms": [
-          "getMethod("
-        ],
-        "reason": "Reads ML Kit beta foreground confidence mask data across API shape differences."
+        "reason": "Marks the copied community-deletion code as a sensitive clipboard item on Android 13+ through ClipDescription's mFlags field, which the compileSdk 37 surface no longer exposes; guarded by SDK_INT and best-effort so a framework change cannot break the copy flow."
       }
     ]
   },

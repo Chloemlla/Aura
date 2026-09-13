@@ -102,6 +102,15 @@ def policy() -> dict:
     }
 
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def live_policy() -> dict:
+    return json.loads(
+        (REPO_ROOT / "docs/security/target37-compatibility.json").read_text(encoding="utf-8")
+    )
+
+
 class Target37CompatibilityCheckTest(unittest.TestCase):
     def test_accepts_reviewed_target37_surface(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -164,6 +173,21 @@ class Target37CompatibilityCheckTest(unittest.TestCase):
                 "allows cleartext",
             ):
                 target37_compatibility_check.validate_policy(repo_root, policy())
+
+
+class Target37CompatibilityLivePolicyTest(unittest.TestCase):
+    def test_live_policy_reviewed_reflection_matches_repository_sources(self):
+        policy = live_policy()
+
+        result = target37_compatibility_check.validate_policy(REPO_ROOT, policy)
+
+        self.assertEqual("ok", result["status"])
+        # Checked separately from the gate so a reviewed entry that outlives the
+        # reflection it reviews fails here even if the checker stops rejecting it.
+        for entry in policy["reflection"]["reviewedOccurrences"]:
+            source = (REPO_ROOT / entry["path"]).read_text(encoding="utf-8")
+            for term in entry["terms"]:
+                self.assertIn(term, source, f"{entry['path']} no longer contains {term!r}")
 
 
 if __name__ == "__main__":
