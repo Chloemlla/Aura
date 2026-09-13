@@ -388,7 +388,7 @@ private fun StylePickerPage(selectedStyles: Set<String>, onToggle: (String) -> U
                             onClick = { onToggle(option.id) },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(132.dp),
+                                .heightIn(min = 148.dp),
                             shape = RoundedCornerShape(8.dp),
                             color = if (selected) option.tint.copy(alpha = 0.18f)
                             else MaterialTheme.colorScheme.surface.copy(alpha = 0.58f),
@@ -400,9 +400,9 @@ private fun StylePickerPage(selectedStyles: Set<String>, onToggle: (String) -> U
                         ) {
                             Column(
                                 modifier = Modifier
-                                    .fillMaxSize()
+                                    .fillMaxWidth()
                                     .padding(14.dp),
-                                verticalArrangement = Arrangement.SpaceBetween,
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -440,7 +440,6 @@ private fun StylePickerPage(selectedStyles: Set<String>, onToggle: (String) -> U
                                         text = option.description,
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 3,
                                     )
                                 }
                             }
@@ -505,6 +504,7 @@ private fun PageLayout(
     badges: List<Pair<ImageVector, String>> = emptyList(),
     content: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
+    val hasSupportingContent = content != null
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -517,35 +517,48 @@ private fun PageLayout(
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 640.dp)
-                .padding(horizontal = 12.dp, vertical = 18.dp),
+                .padding(horizontal = 12.dp, vertical = if (hasSupportingContent) 8.dp else 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             OnboardingLabel(label = eyebrow, icon = Icons.Default.AutoAwesome, tint = iconColor)
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(if (hasSupportingContent) 10.dp else 16.dp))
             Box(
                 modifier = Modifier
-                    .size(96.dp)
+                    .size(if (hasSupportingContent) 68.dp else 96.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(iconColor.copy(alpha = 0.14f)),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(icon, null, tint = iconColor, modifier = Modifier.size(44.dp))
+                Icon(
+                    icon,
+                    null,
+                    tint = iconColor,
+                    modifier = Modifier.size(if (hasSupportingContent) 32.dp else 44.dp),
+                )
             }
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(if (hasSupportingContent) 12.dp else 20.dp))
             Text(
                 title,
-                style = MaterialTheme.typography.headlineLarge,
+                style = if (hasSupportingContent) {
+                    MaterialTheme.typography.headlineMedium
+                } else {
+                    MaterialTheme.typography.headlineLarge
+                },
                 textAlign = TextAlign.Center,
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(if (hasSupportingContent) 8.dp else 12.dp))
             Text(
                 description,
-                style = MaterialTheme.typography.bodyLarge,
+                style = if (hasSupportingContent) {
+                    MaterialTheme.typography.bodyMedium
+                } else {
+                    MaterialTheme.typography.bodyLarge
+                },
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (badges.isNotEmpty()) {
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(if (hasSupportingContent) 12.dp else 18.dp))
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -560,7 +573,7 @@ private fun PageLayout(
                 }
             }
             if (content != null) {
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(12.dp))
                 GlassCard(modifier = Modifier.fillMaxWidth()) {
                     content()
                 }

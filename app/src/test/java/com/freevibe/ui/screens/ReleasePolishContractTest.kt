@@ -142,6 +142,20 @@ class ReleasePolishContractTest {
     }
 
     @Test
+    fun `content heavy onboarding pages stay compact and let style copy grow`() {
+        val source = File("src/main/java/com/freevibe/ui/screens/onboarding/OnboardingScreen.kt").readText()
+        val stylePicker = source.substringAfter("private fun StylePickerPage(").substringBefore("private fun ReadyPage(")
+        val pageLayout = source.substringAfter("private fun PageLayout(")
+
+        assertTrue(source.contains(".verticalScroll(rememberScrollState())"))
+        assertTrue(stylePicker.contains(".heightIn(min = 148.dp)"))
+        assertTrue(!stylePicker.contains(".height(132.dp)"))
+        assertTrue(!stylePicker.contains("maxLines = 3"))
+        assertTrue(pageLayout.contains("val hasSupportingContent = content != null"))
+        assertTrue(pageLayout.contains(".size(if (hasSupportingContent) 68.dp else 96.dp)"))
+    }
+
+    @Test
     fun `video apply guidance uses localized user facing summaries`() {
         val source = File("src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersScreen.kt").readText()
         val quality = File("src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpaperQuality.kt").readText()
