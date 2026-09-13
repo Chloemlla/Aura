@@ -4,6 +4,12 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+## v6.45.3 (2026-09-13)
+
+- **Dated research stays historically accurate**: the manifest gate no longer
+  forces a research snapshot's assessed app version to change with every
+  release. It still checks dependency and platform claims in the same sections.
+
 - **Wallpaper scrolling uses less memory**: Coil's foreground bitmap cache is
   capped at 12.5 percent of the app memory budget instead of 25 percent. The
   existing 256 MB disk cache still avoids repeat downloads, while Compose and

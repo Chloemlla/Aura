@@ -1,0 +1,3 @@
+Aura v6.45.3
+
+Recent highlights: Reddit remains first for wallpaper and video discovery, while Aura Originals adds 25 reliable offline ringtones, notifications, and alarms. Media playback, apply flows, phone layouts, provider guidance, credential safety, and long-feed memory use are more dependable.
