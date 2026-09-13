@@ -35,6 +35,15 @@ def copy_required_tree(destination: Path) -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
 
+    # discover_coroutine_workers scans the whole service directory, and only some
+    # of those files are ledger sourcePath values. Mirror the directory so the
+    # fixture does not trip worker-coverage drift before the assertion under test.
+    service_root = REPO_ROOT / "app/src/main/java/com/chloemlla/aura/service"
+    for source in service_root.rglob("*.kt"):
+        target = destination / source.relative_to(REPO_ROOT)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+
 
 class BackgroundWorkSchedulingCheckTest(unittest.TestCase):
     def test_live_background_work_ledger_passes(self) -> None:
@@ -71,6 +80,52 @@ class BackgroundWorkSchedulingCheckTest(unittest.TestCase):
 
             with self.assertRaises(BackgroundWorkSchedulingError):
                 validate_policy(repo, live_policy())
+
+    def test_rejects_reintroduced_expedited_rotation_trigger(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            copy_required_tree(repo)
+            source = repo / "app/src/main/java/com/chloemlla/aura/service/RotationTriggerService.kt"
+            source.write_text(
+                source.read_text(encoding="utf-8").replace(
+                    "val request = OneTimeWorkRequestBuilder<AutoWallpaperWorker>()",
+                    "val request = OneTimeWorkRequestBuilder<AutoWallpaperWorker>()\n"
+                    "                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)",
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(BackgroundWorkSchedulingError) as context:
+                validate_policy(repo, live_policy())
+            self.assertIn("setExpedited(", str(context.exception))
+
+    def test_rejects_reintroduced_rotation_trigger_foreground_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            copy_required_tree(repo)
+            source = repo / "app/src/main/java/com/chloemlla/aura/service/RotationTriggerService.kt"
+            source.write_text(
+                source.read_text(encoding="utf-8").replace(
+                    ".setConstraints(constraints)",
+                    ".setConstraints(constraints)\n"
+                    "                .setForeground(ForegroundInfo(NOTIFICATION_ID, notif))",
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(BackgroundWorkSchedulingError) as context:
+                validate_policy(repo, live_policy())
+            self.assertIn("setForeground(", str(context.exception))
+
+    def test_accepts_plain_one_shot_rotation_trigger(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            copy_required_tree(repo)
+
+            result = validate_policy(repo, live_policy())
+
+            self.assertEqual("ok", result["status"])
+            self.assertIn("rotation_trigger_oneshot", result["uniqueWorkNames"])
 
     def test_rejects_empty_deferral_reason_list(self) -> None:
         policy = live_policy()

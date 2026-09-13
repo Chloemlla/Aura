@@ -16,6 +16,12 @@ This gate closes both halves:
   * the declared versionName has a matching git tag, and
   * that tag has a published GitHub Release.
 
+A version is published under one of two tag shapes: the bare `v<versionName>`
+the upstream repository cuts, or the run-suffixed `v<versionName>.<run>-<short
+sha>` the release workflow in .github/workflows/aura-android.yml cuts on every
+publish. Either satisfies the tag half. The version base still has to match
+exactly, so a tag cut for 6.45.1 or 6.45.20.1 does not stand in for 6.45.2.
+
 The release half is skipped, not failed, when GitHub cannot be reached (see
 `published_state.release_published`), so an offline checkout stays usable.
 
@@ -35,7 +41,8 @@ if __package__ in (None, ""):
 from tools.published_state import (
     PublishedStateError,
     assert_release_published,
-    assert_tag_exists,
+    is_git_repository,
+    list_tags,
     release_published,
 )
 
@@ -66,13 +73,56 @@ def declared_version(repo_root: Path) -> str:
     return match.group(1)
 
 
+def fork_release_tag_re(version: str) -> re.Pattern[str]:
+    """The run-suffixed tag the release workflow cuts for [version].
+
+    `v<versionName>.<GITHUB_RUN_NUMBER>-<short sha>`: the separator before the
+    run number is a literal dot, so this cannot be satisfied by a longer version
+    that merely starts the same way — `v6.45.20.1-abcdef1` is 6.45.20.1, not
+    6.45.2. The hash is the workflow's `${GITHUB_SHA::8}`, matched loosely
+    across git's abbreviated-hash range rather than pinned to exactly 8.
+    """
+    return re.compile(r"^v" + re.escape(version) + r"\.([0-9]+)-[0-9a-f]{7,40}$")
+
+
+def publication_tag(repo_root: Path, version: str, label: str) -> str:
+    """The tag publishing [version], or a failure saying that none does.
+
+    The exact tag wins when both shapes are present, because it is the one cut
+    deliberately rather than as a build side effect. Otherwise the newest run
+    tag speaks for the version: every publish on the same versionName reuses
+    that base, so the older run tags are strictly older releases of it.
+
+    Outside a git checkout the exact tag is returned unchecked, for the same
+    reason the rest of this module's published-state questions are skipped
+    there — a release tarball cannot answer them, and the gate stays usable.
+    """
+    exact = f"v{version}"
+    if not is_git_repository(repo_root):
+        return exact
+    tags = list_tags(repo_root)
+    if exact in tags:
+        return exact
+    pattern = fork_release_tag_re(version)
+    run_tags: list[tuple[int, str]] = []
+    for tag in tags:
+        match = pattern.match(tag)
+        if match:
+            run_tags.append((int(match.group(1)), tag))
+    if not run_tags:
+        raise PublishedStateError(
+            f"{label}: no git tag {exact} (nor the release workflow's "
+            f"{exact}.<run>-<sha>) exists, so the version is claimed but never released"
+        )
+    return max(run_tags)[1]
+
+
 def validate_release_publication(repo_root: Path) -> dict[str, object]:
     version = declared_version(repo_root)
-    tag = f"v{version}"
     label = f"declared version {version}"
 
     try:
-        assert_tag_exists(repo_root, tag, label)
+        tag = publication_tag(repo_root, version, label)
         assert_release_published(repo_root, tag, label)
     except PublishedStateError as exc:
         raise ReleasePublicationError(str(exc)) from exc

@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
@@ -122,11 +122,61 @@ def read_preferences_surface_text(repo_root: Path, relative_path: str) -> str:
     return "\n".join(sources)
 
 
+BACKUP_SECTIONS = ("cloud-backup", "device-transfer")
+
+
+def parse_backup_scopes(xml_text: str, label: str) -> list[tuple[str, ET.Element | None]]:
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError as exc:
+        raise ProviderCredentialStorageError(f"{label} is not well-formed XML: {exc}") from exc
+    if root.tag == "data-extraction-rules":
+        return [(section, root.find(section)) for section in BACKUP_SECTIONS]
+    return [(root.tag, root)]
+
+
+def scope_rules(scope: ET.Element, tag: str) -> list[tuple[str, str]]:
+    rules: list[tuple[str, str]] = []
+    for element in scope:
+        if element.tag != tag:
+            continue
+        domain = (element.get("domain") or "").strip()
+        path = (element.get("path") or "").strip()
+        if domain and path:
+            rules.append((domain, path))
+    return rules
+
+
+def rule_covers_path(rule_path: str, target_path: str) -> bool:
+    if rule_path == "." or rule_path == target_path:
+        return True
+    return target_path.startswith(rule_path.rstrip("/") + "/")
+
+
+def scope_excludes_path(scope: ET.Element | None, domain: str, path: str) -> bool:
+    if scope is None:
+        return False
+    if any(
+        rule_domain == domain and rule_covers_path(rule_path, path)
+        for rule_domain, rule_path in scope_rules(scope, "exclude")
+    ):
+        return True
+    includes = scope_rules(scope, "include")
+    if not includes:
+        return False
+    return not any(
+        rule_domain == domain and rule_covers_path(rule_path, path)
+        for rule_domain, rule_path in includes
+    )
+
+
 def validate_backup_exclusion(xml_text: str, domain: str, path: str, label: str) -> None:
-    compact = re.sub(r"\s+", " ", xml_text)
-    required = f'domain="{domain}" path="{path}"'
-    if required not in compact:
-        raise ProviderCredentialStorageError(f"{label} must exclude {domain}:{path}")
+    if all(scope_excludes_path(scope, domain, path) for _, scope in parse_backup_scopes(xml_text, label)):
+        return
+    raise ProviderCredentialStorageError(
+        f"{label} must not back up {domain}:{path}: "
+        f'exclude it, or use <include> elements that do not cover it'
+    )
 
 
 def validate_gradle_default(app_gradle_text: str, credential: dict[str, Any]) -> None:

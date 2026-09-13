@@ -96,6 +96,29 @@ def consistent_fixture(destination: Path) -> dict[str, object]:
     return policy
 
 
+# app/build.gradle.kts declares jvmTarget exactly once, and these tests exercise
+# the spellings the gate has to read by swapping that one line. Locating it by
+# name rather than by its exact text is deliberate: AGP 9 already changed the
+# declaration's form once, and a replacement that silently stopped matching
+# would leave the test asserting nothing.
+JVM_TARGET_NAME = "jvmTarget"
+
+
+def rewrite_jvm_target_declaration(original: str, declaration: str) -> str:
+    """Swap the fixture's single jvmTarget declaration for `declaration`."""
+    lines = original.splitlines(keepends=True)
+    hits = [index for index, line in enumerate(lines) if JVM_TARGET_NAME in line]
+    if len(hits) != 1:
+        raise FixtureNotClean(
+            f"app/build.gradle.kts declares jvmTarget {len(hits)} times, not once, "
+            "so rewriting it would not test the spelling it claims to"
+        )
+    index = hits[0]
+    indent = lines[index][: len(lines[index]) - len(lines[index].lstrip())]
+    lines[index] = f"{indent}{declaration}\n"
+    return "".join(lines)
+
+
 class ReleaseMetadataConsistencyCheckTest(unittest.TestCase):
     def test_live_release_metadata_consistency_passes(self) -> None:
         result = validate_policy(REPO_ROOT, live_policy())
@@ -295,6 +318,70 @@ class ReleaseMetadataConsistencyCheckTest(unittest.TestCase):
 
         self.assertIn("claims Java 21 as the compile target", message)
         self.assertIn("jvmTarget is 17", message)
+
+    def test_reads_every_spelling_of_the_jvm_target_declaration(self) -> None:
+        """The same target, declared three ways, has to read as 17.
+
+        AGP 9 moved the declaration onto the Kotlin DSL's type-safe enum, so the
+        live file writes `jvmTarget.set(...JvmTarget.JVM_17)` and the gate that
+        only knew the string form reported the build as declaring no jvmTarget.
+
+        This reads the copied build file directly rather than running the whole
+        gate, so the spelling under test is the only thing that can fail it.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            copy_required_tree(repo)
+            build = repo / "app/build.gradle.kts"
+            original = build.read_text(encoding="utf-8")
+
+            for declaration in (
+                "jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)",
+                "jvmTarget.set(JvmTarget.JVM_17)",
+                'jvmTarget = "17"',
+            ):
+                with self.subTest(declaration=declaration):
+                    build.write_text(
+                        rewrite_jvm_target_declaration(original, declaration),
+                        encoding="utf-8",
+                    )
+                    self.assertEqual("17", parse_gradle(repo)["jvmTarget"])
+
+    def test_accepts_a_type_safe_enum_jvm_target(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            policy = consistent_fixture(repo)
+            build = repo / "app/build.gradle.kts"
+            build.write_text(
+                rewrite_jvm_target_declaration(
+                    build.read_text(encoding="utf-8"), "jvmTarget.set(JvmTarget.JVM_17)"
+                ),
+                encoding="utf-8",
+            )
+
+            self.assertEqual("ok", validate_policy(repo, policy)["status"])
+
+    def test_rejects_a_type_safe_enum_jvm_target_declaring_the_wrong_version(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            policy = consistent_fixture(repo)
+            build = repo / "app/build.gradle.kts"
+            build.write_text(
+                rewrite_jvm_target_declaration(
+                    build.read_text(encoding="utf-8"), "jvmTarget.set(JvmTarget.JVM_11)"
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(ReleaseMetadataConsistencyError) as ctx:
+                validate_policy(repo, policy)
+
+            # The failure has to name the target the enum declares. A parser
+            # that settled for "a jvmTarget is present" would let 11 through,
+            # and so would one that read the enum member as its own name.
+            message = str(ctx.exception)
+            self.assertIn("jvmTarget is 11", message)
+            self.assertIn("claims Java 17 as the compile target", message)
 
     def test_accepts_the_videos_alias_for_the_video_destination(self) -> None:
         """Prose says "Videos"; the destination is VideoWallpapers. Both are correct."""

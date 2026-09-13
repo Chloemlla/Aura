@@ -7,8 +7,9 @@ repository, so a gate reports `ok` for a document that returns 404 to users. The
 in-app Settings > About > Privacy policy button opened such a URL for months.
 
 These helpers answer the published-state questions the content checks cannot:
-is this path tracked in git, does this git tag exist, and does a GitHub Release
-actually exist for it. The first two are offline and deterministic.
+is this path tracked in git, which tags the checkout carries, and does a GitHub
+Release actually exist for one of them. The first two are offline and
+deterministic.
 
 The release check is not, because only GitHub knows what it serves, and a tag
 is not a release: Obtainium reads Releases, so three tagged versions sat
@@ -71,6 +72,20 @@ def assert_tracked(repo_root: Path, relative_path: str, label: str) -> None:
             f"{label} exists locally but is not tracked in git, so {relative_path} "
             "would 404 for anyone following the published link"
         )
+
+
+def list_tags(repo_root: Path) -> list[str]:
+    """Every tag the checkout carries, empty outside a git repository.
+
+    A version can be published under more than one tag shape — the bare
+    `v1.2.3` the upstream repository cuts, and the run-suffixed tag a fork's
+    release workflow cuts — so a caller needs the set, not one name it has to
+    guess at.
+    """
+    result = _git(repo_root, "tag", "--list")
+    if result.returncode != 0:
+        return []
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
 def tag_exists(repo_root: Path, tag: str) -> bool:

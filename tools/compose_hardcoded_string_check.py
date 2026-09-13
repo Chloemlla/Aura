@@ -80,6 +80,11 @@ DEFAULT_MIGRATION_PLAN = {
 }
 
 
+def compute_finding_id(path: str, sink: str, text: str) -> str:
+    payload = "|".join((path, sink, text)).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()[:16]
+
+
 @dataclass(frozen=True)
 class Finding:
     path: str
@@ -93,8 +98,7 @@ class Finding:
 
     @property
     def id(self) -> str:
-        payload = "|".join(self.key).encode("utf-8")
-        return hashlib.sha256(payload).hexdigest()[:16]
+        return compute_finding_id(*self.key)
 
 
 def parse_args() -> argparse.Namespace:
@@ -322,6 +326,23 @@ def require_baseline_entries(value: Any) -> list[dict[str, Any]]:
     return entries
 
 
+def stale_baseline_id_entries(entries: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    stale: list[dict[str, Any]] = []
+    for entry in entries:
+        expected_id = compute_finding_id(entry["path"], entry["sink"], entry["text"])
+        if entry["id"] != expected_id:
+            stale.append(
+                {
+                    "id": entry["id"],
+                    "expectedId": expected_id,
+                    "path": entry["path"],
+                    "sink": entry["sink"],
+                    "text": entry["text"],
+                }
+            )
+    return stale
+
+
 def validate_migration_plan(repo_root: Path, raw_plan: Any) -> dict[str, Any]:
     plan = require_object(raw_plan, "migrationPlan")
     target_resource_file = require_string(plan.get("targetResourceFile"), "migrationPlan.targetResourceFile")
@@ -346,6 +367,25 @@ def validate_baseline(repo_root: Path, baseline_path: Path) -> dict[str, Any]:
     ignored_path_fragments = require_string_list(baseline.get("ignoredPathFragments"), "ignoredPathFragments")
     migration_plan = validate_migration_plan(repo_root, baseline.get("migrationPlan"))
     expected_entries = require_baseline_entries(baseline.get("baseline"))
+    stale_id_entries = stale_baseline_id_entries(expected_entries)
+    if stale_id_entries:
+        raise ComposeHardcodedStringError(
+            "Compose hardcoded-string baseline keys are stale: "
+            f"{len(stale_id_entries)} of {len(expected_entries)} baseline entries store an id that does not equal "
+            "sha256('path|sink|text')[:16] for their own path, sink, and text, so their ids cannot be matched "
+            "against the current scan. Regenerate the baseline keys with "
+            "tools/compose_hardcoded_string_check.py --mode write; this is a key regeneration, not a signal that "
+            "new hardcoded strings need extraction. "
+            + json.dumps(
+                {
+                    "staleBaselineIdCount": len(stale_id_entries),
+                    "baselineEntryCount": len(expected_entries),
+                    "staleBaselineIds": stale_id_entries,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
     actual_entries = summarize_findings(find_hardcoded_strings(repo_root, scan_roots, ignored_path_fragments))
 
     expected_by_id = {entry["id"]: entry for entry in expected_entries}

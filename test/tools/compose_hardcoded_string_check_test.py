@@ -160,6 +160,95 @@ class ComposeHardcodedStringCheckTest(unittest.TestCase):
             self.assertIn(("error", "Existing error"), findings)
             self.assertIn(("FilterControl", "Existing filter"), findings)
 
+    def test_accepts_baseline_with_self_consistent_ids(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            baseline_path = repo_root / "docs/localization/hardcoded-string-baseline.json"
+            write_strings(repo_root)
+            write_screen(repo_root)
+            write_state_source(repo_root)
+            baseline = compose_hardcoded_string_check.write_baseline(repo_root, baseline_path)
+
+            for entry in baseline["baseline"]:
+                self.assertEqual(
+                    entry["id"],
+                    compose_hardcoded_string_check.compute_finding_id(
+                        entry["path"], entry["sink"], entry["text"]
+                    ),
+                )
+
+            result = compose_hardcoded_string_check.validate_baseline(repo_root, baseline_path)
+
+            self.assertEqual(result["status"], "ok")
+
+    def test_reports_stale_baseline_ids_as_key_regeneration(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            baseline_path = repo_root / "docs/localization/hardcoded-string-baseline.json"
+            write_strings(repo_root)
+            write_screen(repo_root)
+            write_state_source(repo_root)
+            baseline = compose_hardcoded_string_check.write_baseline(repo_root, baseline_path)
+            entries = baseline["baseline"]
+            self.assertEqual(len(entries), 3)
+            for index, entry in enumerate(entries[:2]):
+                entry["id"] = f"{index + 1:016x}"
+            baseline_path.write_text(json.dumps(baseline), encoding="utf-8")
+
+            with self.assertRaises(compose_hardcoded_string_check.ComposeHardcodedStringError) as caught:
+                compose_hardcoded_string_check.validate_baseline(repo_root, baseline_path)
+
+            message = str(caught.exception)
+            self.assertIn("baseline keys are stale", message)
+            self.assertIn("Regenerate the baseline keys", message)
+            self.assertIn("not a signal that new hardcoded strings need extraction", message)
+            self.assertNotIn("baseline drifted", message)
+            payload = json.loads(message[message.index("{") :])
+            self.assertEqual(payload["staleBaselineIdCount"], 2)
+            self.assertEqual(payload["baselineEntryCount"], 3)
+            self.assertEqual(len(payload["staleBaselineIds"]), 2)
+            for stale_entry in payload["staleBaselineIds"]:
+                self.assertEqual(
+                    stale_entry["expectedId"],
+                    compose_hardcoded_string_check.compute_finding_id(
+                        stale_entry["path"], stale_entry["sink"], stale_entry["text"]
+                    ),
+                )
+
+    def test_reports_new_literal_as_drift_not_stale_ids(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            baseline_path = repo_root / "docs/localization/hardcoded-string-baseline.json"
+            write_strings(repo_root)
+            write_screen(repo_root)
+            baseline = compose_hardcoded_string_check.write_baseline(repo_root, baseline_path)
+            for entry in baseline["baseline"]:
+                self.assertEqual(
+                    entry["id"],
+                    compose_hardcoded_string_check.compute_finding_id(
+                        entry["path"], entry["sink"], entry["text"]
+                    ),
+                )
+            write_screen(repo_root, "New visible copy")
+
+            with self.assertRaises(compose_hardcoded_string_check.ComposeHardcodedStringError) as caught:
+                compose_hardcoded_string_check.validate_baseline(repo_root, baseline_path)
+
+            message = str(caught.exception)
+            self.assertIn("baseline drifted", message)
+            self.assertIn("--mode write after intentional extraction", message)
+            self.assertNotIn("stale", message)
+            payload = json.loads(message[message.index("{") :])
+            self.assertEqual(
+                [entry["text"] for entry in payload["newHardcodedStrings"]],
+                ["New visible copy"],
+            )
+            self.assertEqual(
+                [entry["text"] for entry in payload["removedOrExtractedStrings"]],
+                ["Existing title"],
+            )
+            self.assertEqual(payload["countChanges"], [])
+
     def test_live_baseline_is_valid(self):
         repo_root = Path(__file__).resolve().parents[2]
         baseline_path = repo_root / "docs/localization/hardcoded-string-baseline.json"

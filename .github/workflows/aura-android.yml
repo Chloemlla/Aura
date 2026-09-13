@@ -267,6 +267,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          # A default shallow clone fetches no tags, and the release-publication
+          # gate asks git which tags exist, so it could never pass here.
+          fetch-depth: 0
 
       - name: Run Python governance tests
         # Mixed suite (unittest.TestCase classes + plain test_* functions), run

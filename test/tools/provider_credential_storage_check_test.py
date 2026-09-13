@@ -6,7 +6,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.provider_credential_storage_check import ProviderCredentialStorageError, validate_policy
+from tools.provider_credential_storage_check import (
+    ProviderCredentialStorageError,
+    validate_backup_exclusion,
+    validate_policy,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -48,6 +52,102 @@ class ProviderCredentialStorageCheckTest(unittest.TestCase):
             write(
                 repo / "backup.xml",
                 '<full-backup-content><exclude domain="file" path="datastore/freevibe_prefs.preferences_pb" /></full-backup-content>\n',
+            )
+
+            with self.assertRaises(ProviderCredentialStorageError):
+                validate_policy(repo, policy)
+
+    def test_accepts_allowlist_backup_exclusions(self) -> None:
+        rules = '<full-backup-content><include domain="sharedpref" path="freevibe_locale.xml" /></full-backup-content>\n'
+        extraction = (
+            "<data-extraction-rules>"
+            '<cloud-backup><include domain="sharedpref" path="freevibe_locale.xml" /></cloud-backup>'
+            '<device-transfer><include domain="sharedpref" path="freevibe_locale.xml" /></device-transfer>'
+            "</data-extraction-rules>\n"
+        )
+
+        self.assertIsNone(
+            validate_backup_exclusion(rules, "file", "datastore/freevibe_prefs.preferences_pb", "backup.xml")
+        )
+        self.assertIsNone(
+            validate_backup_exclusion(rules, "sharedpref", "aura_provider_credentials.xml", "backup.xml")
+        )
+        self.assertIsNone(
+            validate_backup_exclusion(
+                extraction, "file", "datastore/freevibe_prefs.preferences_pb", "data-extraction.xml"
+            )
+        )
+        self.assertIsNone(
+            validate_backup_exclusion(
+                extraction, "sharedpref", "aura_provider_credentials.xml", "data-extraction.xml"
+            )
+        )
+        with self.assertRaises(ProviderCredentialStorageError):
+            validate_backup_exclusion(rules, "sharedpref", "freevibe_locale.xml", "backup.xml")
+
+    def test_accepts_mixed_include_and_exclude_rules(self) -> None:
+        rules = (
+            "<full-backup-content>"
+            '<include domain="sharedpref" path="freevibe_locale.xml" />'
+            '<exclude domain="file" path="datastore/freevibe_prefs.preferences_pb" />'
+            "</full-backup-content>\n"
+        )
+
+        self.assertIsNone(
+            validate_backup_exclusion(rules, "file", "datastore/freevibe_prefs.preferences_pb", "backup.xml")
+        )
+        self.assertIsNone(
+            validate_backup_exclusion(rules, "sharedpref", "aura_provider_credentials.xml", "backup.xml")
+        )
+
+    def test_rejects_allowlist_backup_rules_including_datastore_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = seed_repo(Path(tmpdir))
+            policy = minimal_policy()
+            write(
+                repo / "backup.xml",
+                '<full-backup-content><include domain="file" path="datastore/freevibe_prefs.preferences_pb" /></full-backup-content>\n',
+            )
+
+            with self.assertRaises(ProviderCredentialStorageError):
+                validate_policy(repo, policy)
+
+    def test_rejects_allowlist_extraction_rules_including_encrypted_store_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = seed_repo(Path(tmpdir))
+            policy = minimal_policy()
+            write(
+                repo / "data-extraction.xml",
+                '<data-extraction-rules>'
+                '<cloud-backup><include domain="sharedpref" path="aura_provider_credentials.xml" /></cloud-backup>'
+                '<device-transfer><include domain="sharedpref" path="freevibe_locale.xml" /></device-transfer>'
+                "</data-extraction-rules>\n",
+            )
+
+            with self.assertRaises(ProviderCredentialStorageError):
+                validate_policy(repo, policy)
+
+    def test_rejects_extraction_allowlist_without_device_transfer_section(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = seed_repo(Path(tmpdir))
+            policy = minimal_policy()
+            write(
+                repo / "data-extraction.xml",
+                '<data-extraction-rules>'
+                '<cloud-backup><include domain="sharedpref" path="freevibe_locale.xml" /></cloud-backup>'
+                "</data-extraction-rules>\n",
+            )
+
+            with self.assertRaises(ProviderCredentialStorageError):
+                validate_policy(repo, policy)
+
+    def test_rejects_denylist_backup_rules_missing_credential_exclude(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = seed_repo(Path(tmpdir))
+            policy = minimal_policy()
+            write(
+                repo / "backup.xml",
+                '<full-backup-content><exclude domain="sharedpref" path="aura_provider_credentials.xml" /></full-backup-content>\n',
             )
 
             with self.assertRaises(ProviderCredentialStorageError):

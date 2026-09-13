@@ -4,7 +4,7 @@
     {
       "count": 1,
       "firstLine": 77,
-      "id": "eefaa995ac27d7d3",
+      "id": "938764a1baa58f4d",
       "path": "app/src/full/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperViewModel.kt",
       "sink": "ifBlank",
       "text": "Generated wallpaper"
@@ -12,127 +12,63 @@
     {
       "count": 1,
       "firstLine": 130,
-      "id": "4a602a507a7de7d0",
+      "id": "9e2f3a3cd501732d",
       "path": "app/src/full/java/com/chloemlla/aura/ui/screens/aigenerate/AiWallpaperViewModel.kt",
       "sink": "ifBlank",
       "text": "ai-generated"
     },
     {
       "count": 1,
-      "firstLine": 163,
-      "id": "968cdab32fdf9557",
-      "path": "app/src/main/java/com/chloemlla/aura/ui/screens/community/CommunityReportsScreen.kt",
-      "sink": "error",
-      "text": "This report does not expose a blockable community uploader"
-    },
-    {
-      "count": 1,
-      "firstLine": 116,
-      "id": "fa7bcb58837e894c",
-      "path": "app/src/main/java/com/chloemlla/aura/ui/screens/community/CommunityReportsScreen.kt",
-      "sink": "message",
-      "text": "${status.reviewLabel} reports"
-    },
-    {
-      "count": 1,
-      "firstLine": 173,
-      "id": "99a690a42323d05c",
-      "path": "app/src/main/java/com/chloemlla/aura/ui/screens/community/CommunityReportsScreen.kt",
-      "sink": "message",
-      "text": "Creator blocked"
-    },
-    {
-      "count": 1,
-      "firstLine": 111,
-      "id": "8d5ff1fe69e51d79",
-      "path": "app/src/main/java/com/chloemlla/aura/ui/screens/community/CommunityReportsScreen.kt",
-      "sink": "message",
-      "text": "Report queue refreshed"
-    },
-    {
-      "count": 1,
-      "firstLine": 145,
-      "id": "6b07640b3e420566",
-      "path": "app/src/main/java/com/chloemlla/aura/ui/screens/community/CommunityReportsScreen.kt",
-      "sink": "message",
-      "text": "Upload deleted"
-    },
-    {
-      "count": 1,
-      "firstLine": 115,
-      "id": "65892f66cba5d2fb",
-      "path": "app/src/main/java/com/chloemlla/aura/ui/screens/community/CreatorProfileScreen.kt",
-      "sink": "error",
-      "text": "You cannot block your own creator profile"
-    },
-    {
-      "count": 1,
-      "firstLine": 126,
-      "id": "d6cf0c41b3a39eec",
-      "path": "app/src/main/java/com/chloemlla/aura/ui/screens/community/CreatorProfileScreen.kt",
-      "sink": "message",
-      "text": "Creator blocked"
-    },
-    {
-      "count": 1,
-      "firstLine": 160,
-      "id": "b61a1067fb750110",
-      "path": "app/src/main/java/com/chloemlla/aura/ui/screens/community/CreatorProfileScreen.kt",
-      "sink": "message",
-      "text": "Profile saved"
-    },
-    {
-      "count": 1,
-      "firstLine": 287,
-      "id": "09e9f2e75e4be949",
+      "firstLine": 318,
+      "id": "bee70786ef6b9027",
       "path": "app/src/main/java/com/chloemlla/aura/ui/screens/editor/SoundEditorViewModel.kt",
       "sink": "error",
       "text": "Failed to load file: ${e.message}"
     },
     {
       "count": 1,
-      "firstLine": 227,
-      "id": "357b9d13c27fabed",
+      "firstLine": 254,
+      "id": "6fd232a2aa290286",
       "path": "app/src/main/java/com/chloemlla/aura/ui/screens/editor/SoundEditorViewModel.kt",
       "sink": "error",
       "text": "Failed to load: ${e.message}"
     },
     {
       "count": 1,
-      "firstLine": 441,
-      "id": "293a8ccd5f609390",
+      "firstLine": 504,
+      "id": "be4b2856b32c34f4",
       "path": "app/src/main/java/com/chloemlla/aura/ui/screens/editor/SoundEditorViewModel.kt",
       "sink": "error",
       "text": "System settings access is required before applying sounds."
     },
     {
       "count": 1,
-      "firstLine": 885,
-      "id": "5c36f8bc58a81e8c",
+      "firstLine": 1074,
+      "id": "715292022a9dc611",
       "path": "app/src/main/java/com/chloemlla/aura/ui/screens/editor/SoundEditorViewModel.kt",
       "sink": "ifBlank",
       "text": "audio"
     },
     {
       "count": 1,
-      "firstLine": 468,
-      "id": "e652d3d9502758e2",
+      "firstLine": 531,
+      "id": "52eb563f67a14681",
       "path": "app/src/main/java/com/chloemlla/aura/ui/screens/editor/SoundEditorViewModel.kt",
       "sink": "success",
       "text": "Set as $label"
     },
     {
       "count": 1,
-      "firstLine": 230,
-      "id": "217205d68f7cb5c1",
+      "firstLine": 238,
+      "id": "0d16573015486b15",
       "path": "app/src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperCropViewModel.kt",
       "sink": "error",
       "text": "Couldn't detect a subject \u2014 drag to position manually"
     },
     {
       "count": 1,
-      "firstLine": 248,
-      "id": "b5efdbfdfe69a262",
+      "firstLine": 270,
+      "id": "9f788379845dd5be",
       "path": "app/src/main/java/com/chloemlla/aura/ui/screens/editor/WallpaperCropViewModel.kt",
       "sink": "success",
       "text": "Smart crop applied"
@@ -140,7 +76,7 @@
     {
       "count": 1,
       "firstLine": 240,
-      "id": "d5f44ff0b4cedc85",
+      "id": "32985e823b943dfd",
       "path": "app/src/main/java/com/chloemlla/aura/ui/screens/sounds/ContactPickerScreen.kt",
       "sink": "error",
       "text": "Download failed: ${e.message}"
@@ -148,7 +84,7 @@
     {
       "count": 1,
       "firstLine": 160,
-      "id": "fc4e9342ff6165f5",
+      "id": "9696e5dd8c730e22",
       "path": "app/src/main/java/com/chloemlla/aura/ui/screens/sounds/ContactPickerScreen.kt",
       "sink": "error",
       "text": "No sound selected. Return to Sounds and choose a valid item."
@@ -156,7 +92,7 @@
     {
       "count": 1,
       "firstLine": 195,
-      "id": "f3c43aa573b4fc23",
+      "id": "46a549085e5a0e57",
       "path": "app/src/main/java/com/chloemlla/aura/ui/screens/sounds/ContactPickerScreen.kt",
       "sink": "error",
       "text": "This sound does not have a downloadable ringtone file."
@@ -164,7 +100,7 @@
     {
       "count": 1,
       "firstLine": 207,
-      "id": "5f0917f7dde822d9",
+      "id": "204773d7ff17950c",
       "path": "app/src/main/java/com/chloemlla/aura/ui/screens/sounds/ContactPickerScreen.kt",
       "sink": "success",
       "text": "Ringtone set for contact"
@@ -172,7 +108,7 @@
     {
       "count": 1,
       "firstLine": 56,
-      "id": "43e19af27709fb10",
+      "id": "b55e35d2f5d70ee7",
       "path": "app/src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundApplyActions.kt",
       "sink": "error",
       "text": "Could not resolve audio"
@@ -180,7 +116,7 @@
     {
       "count": 1,
       "firstLine": 84,
-      "id": "ecdafec6fb764859",
+      "id": "b9bcf3c0fc0261e0",
       "path": "app/src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundApplyActions.kt",
       "sink": "error",
       "text": "Could not resolve audio stream URL"
@@ -188,7 +124,7 @@
     {
       "count": 1,
       "firstLine": 48,
-      "id": "f5cef01b0f9b2fea",
+      "id": "6408d63899b9a413",
       "path": "app/src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundApplyActions.kt",
       "sink": "error",
       "text": "System settings access is required before applying sounds."
@@ -196,15 +132,15 @@
     {
       "count": 1,
       "firstLine": 47,
-      "id": "5c5cea4d3897c81b",
+      "id": "82c9e84aac3d83d3",
       "path": "app/src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundCommunityFeed.kt",
       "sink": "error",
       "text": "Community uploads timed out"
     },
     {
       "count": 1,
-      "firstLine": 61,
-      "id": "9f13b4016366565c",
+      "firstLine": 62,
+      "id": "f3cbc49157017057",
       "path": "app/src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundPlaybackActions.kt",
       "sink": "error",
       "text": "Could not load audio"
@@ -212,7 +148,7 @@
     {
       "count": 1,
       "firstLine": 115,
-      "id": "61c05d7dbb74bbe2",
+      "id": "ce05eb56677ac004",
       "path": "app/src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundYouTubeActions.kt",
       "sink": "error",
       "text": "Could not load video: ${e.message}"
@@ -220,66 +156,10 @@
     {
       "count": 1,
       "firstLine": 74,
-      "id": "2758d5766f0f45ec",
+      "id": "597ffb85505074db",
       "path": "app/src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundYouTubeActions.kt",
       "sink": "error",
       "text": "Not a valid YouTube URL"
-    },
-    {
-      "count": 1,
-      "firstLine": 329,
-      "id": "58fa02224d23fc10",
-      "path": "app/src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersViewModel.kt",
-      "sink": "ifBlank",
-      "text": "Pixabay video"
-    },
-    {
-      "count": 1,
-      "firstLine": 113,
-      "id": "ac534b283279fe2a",
-      "path": "app/src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperCommunityActions.kt",
-      "sink": "error",
-      "text": "Block failed: ${error.message ?: "
-    },
-    {
-      "count": 1,
-      "firstLine": 141,
-      "id": "87e516aa994c33e7",
-      "path": "app/src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperCommunityActions.kt",
-      "sink": "error",
-      "text": "Delete failed: ${error.message ?: "
-    },
-    {
-      "count": 1,
-      "firstLine": 82,
-      "id": "8a0473d068df639c",
-      "path": "app/src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperCommunityActions.kt",
-      "sink": "error",
-      "text": "Report failed: ${error.message ?: "
-    },
-    {
-      "count": 1,
-      "firstLine": 97,
-      "id": "d7cf0e3b302757ab",
-      "path": "app/src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperCommunityActions.kt",
-      "sink": "error",
-      "text": "This wallpaper does not expose a blockable community uploader"
-    },
-    {
-      "count": 1,
-      "firstLine": 196,
-      "id": "8d05986e3710c3b1",
-      "path": "app/src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperCommunityActions.kt",
-      "sink": "error",
-      "text": "Upload failed: ${e.message ?: "
-    },
-    {
-      "count": 1,
-      "firstLine": 114,
-      "id": "4cc7317a6147401f",
-      "path": "app/src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperSearchActions.kt",
-      "sink": "error",
-      "text": "Wallpaper unavailable"
     }
   ],
   "ignoredPathFragments": [

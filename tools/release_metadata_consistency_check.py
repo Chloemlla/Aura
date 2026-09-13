@@ -46,7 +46,18 @@ ROOM_SCHEMA_CLAIM = re.compile(r"Room\s*(?:DB\s*)?\(?v(\d+)\)?", re.IGNORECASE)
 VERSION_NAME_CLAIM = re.compile(r"version-(\d+\.\d+\.\d+)-blue|\*\*Current:\*\*\s*v(\d+\.\d+\.\d+)")
 VERSION_CODE_CLAIM = re.compile(r"versionCode\s*(\d+)")
 COMPILE_SDK_RE = re.compile(r"compileSdk\s*=\s*(\d+)")
-JVM_TARGET_RE = re.compile(r'jvmTarget\s*=\s*"([^"]+)"')
+# Two spellings, because the AGP 9 migration moved this declaration onto the
+# Kotlin DSL's type-safe enum: `jvmTarget = "17"` on the old Groovy-ish DSL, and
+# `jvmTarget.set(JvmTarget.JVM_17)` — imported, or written out in full as
+# `jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)` — on the new
+# one. Reading only the string form reported the live build as declaring no
+# jvmTarget at all and failed the release gate on a file that declares 17.
+# The enum member's digits are the target, so JVM_11 still reads as 11 and
+# still fails the comparisons below.
+JVM_TARGET_RE = re.compile(
+    r'jvmTarget\s*(?:=\s*|\.set\(\s*)'
+    r'(?:"(?P<quoted>[^"]+)"|(?:[\w.]+\.)?JvmTarget\.JVM_(?P<enum>\d+)(?!\w))'
+)
 # CONTRIBUTING.md told contributors to install "Android SDK 35" while the build
 # compiled against 36, and asked for "JDK 17+" when Gradle 8.12.1 rejects
 # anything newer than 21. Both are things a reader acts on, so both are checked.
@@ -150,7 +161,7 @@ def parse_gradle(repo_root: Path) -> dict[str, object]:
         "versionName": version_name.group(1),
         "versionCode": int(version_code.group(1)),
         "compileSdk": int(compile_sdk.group(1)),
-        "jvmTarget": jvm_target.group(1),
+        "jvmTarget": jvm_target.group("quoted") or jvm_target.group("enum"),
     }
 
 

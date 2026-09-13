@@ -241,9 +241,30 @@ def validate_android16_audit(
         "app/src/main/java/com/chloemlla/aura/service/RotationTriggerService.kt",
         "rotation trigger service",
     )
-    for term in ("startForeground(", "setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)"):
-        if term not in rotation_source:
-            raise BackgroundWorkSchedulingError(f"rotation trigger quota mitigation missing: {term}")
+    # The rotation trigger is deliberately a plain one-shot (AURA-G2-03): an
+    # expedited request needs getForegroundInfo() on API 26-30 and no worker here
+    # implements it, so expedited runs failed outright there. The service still
+    # starts in the foreground for its unlock/screen-off receivers, and its
+    # constraints still come from the source-aware auto-wallpaper cache rather
+    # than a hard-coded network requirement (AURA-G2-12).
+    if "startForeground(" not in rotation_source:
+        raise BackgroundWorkSchedulingError(
+            "rotation trigger must keep its foreground-service start for the unlock/screen-off receivers",
+        )
+    if "buildAutoWallpaperConstraints(" not in rotation_source:
+        raise BackgroundWorkSchedulingError(
+            "rotation trigger must resolve one-shot constraints through buildAutoWallpaperConstraints",
+        )
+    for forbidden, posture in (
+        ("setExpedited(", "expedited runs need getForegroundInfo() on API 26-30 and no worker here implements it"),
+        ("setForeground(", "a worker foreground path needs that same getForegroundInfo() quota mitigation"),
+        ("setForegroundAsync(", "a worker foreground path needs that same getForegroundInfo() quota mitigation"),
+        ("setRequiredNetworkType(", "one-shot constraints must come from the source-aware auto-wallpaper cache"),
+    ):
+        if forbidden in rotation_source:
+            raise BackgroundWorkSchedulingError(
+                f"rotation trigger quota posture drift: {forbidden} reintroduced ({posture})",
+            )
     require_string_list(audit.get("findings"), "android16Audit.findings")
     return {
         "coroutineWorkerCount": len(discovered_workers),
