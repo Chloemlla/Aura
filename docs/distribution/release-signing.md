@@ -33,8 +33,8 @@ Release signing reads the ignored local files already used by Gradle:
 - `local.properties`
 
 `local.properties` must contain the signing path, keystore password, key alias,
-and key password. It must keep optional provider API keys blank for public
-release builds.
+and key password. Optional provider keys can stay configured for local debug
+work. Release variants force those BuildConfig values blank.
 
 Do not commit `freevibe.jks`, `local.properties`, copied APKs, release
 directories, or generated signing evidence.
@@ -94,11 +94,10 @@ python tools\sbom_readiness_check.py --policy docs\distribution\sbom-readiness.j
 python tools\provider_credential_apk_scan.py --local-properties local.properties --apk app\build\outputs\apk\full\release\app-full-release.apk
 ```
 
-The provider credential check fails if ignored `local.properties` contains
-nonblank Pexels, Pixabay, Freesound, SoundCloud, or Stability values. Only use
-`--allow-nonblank-local-provider-keys` for an explicitly internal build review;
-public GitHub, Obtainium, and Izzy builds must keep those defaults blank and
-rely on user-entered settings.
+The provider credential check confirms that release variants force Pexels,
+Pixabay, Freesound, SoundCloud, and Stability values blank. Local debug keys can
+remain in the ignored `local.properties`; public builds rely on keys entered by
+the user in Settings.
 
 The APK scan fails if any nonblank provider value from `local.properties`
 appears in the release APK. It reports property names and APK entries only, not

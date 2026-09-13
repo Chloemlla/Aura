@@ -4,6 +4,12 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Development API keys cannot leak into release builds**: release variants now
+  replace every optional provider credential with a blank value even when the
+  developer's ignored `local.properties` contains test keys. The release guard
+  verifies the generated policy, and packaged APK scanning remains the final
+  check before publication.
+
 - **The accessibility check now accounts for every screen, not six of them**: it
   described itself as the accessibility release gate while only ever exercising
   six surfaces, so the other twenty screens were not just unchecked, they were

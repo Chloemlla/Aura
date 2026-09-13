@@ -32,7 +32,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--allow-nonblank-local-provider-keys",
         action="store_true",
-        help="Return a warning status instead of failing when local provider keys are nonblank.",
+        help="Deprecated compatibility flag. Release variants always exclude local provider keys.",
     )
     return parser.parse_args()
 
@@ -43,6 +43,11 @@ def read_text(path: Path) -> str:
 
 def validate_app_gradle(path: Path) -> list[str]:
     text = read_text(path)
+    release_start = text.find('        release {')
+    release_end = text.find('\n    compileOptions {', release_start)
+    if release_start < 0 or release_end < 0:
+        raise ProviderCredentialReleaseError(f"{path} is missing the release build type")
+    release_block = text[release_start:release_end]
     checked: list[str] = []
     for row in PROVIDER_KEYS:
         build_config = row["buildConfig"]
@@ -51,7 +56,12 @@ def validate_app_gradle(path: Path) -> list[str]:
             raise ProviderCredentialReleaseError(f"{path} is missing BuildConfig field {build_config}")
         expected = f'localProps.getProperty("{prop}", "")'
         if expected not in text:
-            raise ProviderCredentialReleaseError(f"{path} must default {prop} to a blank release value")
+            raise ProviderCredentialReleaseError(f"{path} must default {prop} to a blank local value")
+        blank_release_field = f'buildConfigField("String", "{build_config}", "\\"\\"")'
+        if blank_release_field not in release_block:
+            raise ProviderCredentialReleaseError(
+                f"{path} must force {build_config} blank in the release build type"
+            )
         checked.append(prop)
     return checked
 
@@ -99,15 +109,11 @@ def validate_local_properties(path: Path | None, allow_nonblank: bool) -> dict[s
         for row in PROVIDER_KEYS
         if props.get(row["property"], "").strip()
     )
-    if nonblank and not allow_nonblank:
-        raise ProviderCredentialReleaseError(
-            f"{path} contains nonblank provider keys that would be bundled into BuildConfig: {', '.join(nonblank)}"
-        )
     return {
         "checked": True,
         "path": str(path),
         "nonblankProviderKeys": nonblank,
-        "status": "nonblankAllowed" if nonblank else "ok",
+        "status": "debugOnly" if nonblank else "ok",
     }
 
 
@@ -126,7 +132,7 @@ def validate_provider_credentials(
         "localProperties": local_result,
         "releaseWorkflow": str(release_workflow) if release_workflow else "local-only release; no workflow",
         "releaseWorkflowBlankProviderKeys": workflow_keys,
-        "status": "warning" if local_result.get("status") == "nonblankAllowed" else "ok",
+        "status": "ok",
     }
 
 

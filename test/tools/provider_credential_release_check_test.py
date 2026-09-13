@@ -31,17 +31,20 @@ class ProviderCredentialReleaseCheckTest(unittest.TestCase):
         self.assertEqual([], result["releaseWorkflowBlankProviderKeys"])
         self.assertEqual("local-only release; no workflow", result["releaseWorkflow"])
 
-    def test_rejects_nonblank_local_provider_keys(self) -> None:
+    def test_allows_nonblank_local_provider_keys_for_debug_builds(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             local_properties = Path(tmpdir) / "local.properties"
             write(local_properties, "pexels.api.key=sentinel-provider-key\npixabay.api.key=\n")
 
-            with self.assertRaises(ProviderCredentialReleaseError):
-                validate_provider_credentials(
-                    REPO_ROOT / "app" / "build.gradle.kts",
-                    None,
-                    local_properties,
-                )
+            result = validate_provider_credentials(
+                REPO_ROOT / "app" / "build.gradle.kts",
+                None,
+                local_properties,
+            )
+
+            self.assertEqual("ok", result["status"])
+            self.assertEqual("debugOnly", result["localProperties"]["status"])
+            self.assertEqual(["pexels.api.key"], result["localProperties"]["nonblankProviderKeys"])
 
     def test_allows_nonblank_local_provider_keys_with_explicit_override_warning(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -55,7 +58,8 @@ class ProviderCredentialReleaseCheckTest(unittest.TestCase):
                 allow_nonblank=True,
             )
 
-            self.assertEqual("warning", result["status"])
+            self.assertEqual("ok", result["status"])
+            self.assertEqual("debugOnly", result["localProperties"]["status"])
             self.assertEqual(["stability.ai.key"], result["localProperties"]["nonblankProviderKeys"])
 
     def test_rejects_missing_blank_release_workflow_assignment(self) -> None:
@@ -78,7 +82,7 @@ class ProviderCredentialReleaseCheckTest(unittest.TestCase):
             with self.assertRaises(ProviderCredentialReleaseError):
                 validate_provider_credentials(app_gradle, release_workflow, None)
 
-    def test_rejects_nonblank_build_config_default(self) -> None:
+    def test_rejects_release_build_that_inherits_local_provider_key(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             app_gradle = repo / "app" / "build.gradle.kts"
@@ -87,8 +91,9 @@ class ProviderCredentialReleaseCheckTest(unittest.TestCase):
             write(
                 app_gradle,
                 gradle_text.replace(
-                    'localProps.getProperty("pexels.api.key", "")',
-                    'localProps.getProperty("pexels.api.key", "sentinel")',
+                    'buildConfigField("String", "PEXELS_API_KEY", "\\"\\"")',
+                    'buildConfigField("String", "PEXELS_API_KEY", "\\"${localProps.getProperty(\\"pexels.api.key\\", \\"\\")}\\"")',
+                    1,
                 ),
             )
             with self.assertRaises(ProviderCredentialReleaseError):

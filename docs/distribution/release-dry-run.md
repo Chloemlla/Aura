@@ -20,7 +20,7 @@ The dry run must:
 - Archive raw Google OSS inputs as `GOOGLE-OSS-RAW-INPUTS.zip`.
 - Generate `NATIVE-COMPLIANCE.md`.
 - Generate `NATIVE-ALIGNMENT.json`.
-- Check that optional provider credentials are blank before the signed release build.
+- Check that the release build type forces optional provider credentials blank.
 - Scan the packaged signed APK for nonblank provider credential values from local `local.properties`.
 - Check Fastlane text metadata, current versionCode changelog, and public privacy-policy URL before the signed release build.
 - Check the store asset capture plan, planned screenshots, feature-graphic requirements, alt text, and future asset-mode command before the signed release build.

@@ -125,6 +125,13 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            // Release artifacts never inherit developer credentials from local.properties.
+            // Users can still add their own provider keys securely in Settings.
+            buildConfigField("String", "PEXELS_API_KEY", "\"\"")
+            buildConfigField("String", "PIXABAY_API_KEY", "\"\"")
+            buildConfigField("String", "FREESOUND_API_KEY", "\"\"")
+            buildConfigField("String", "SOUNDCLOUD_CLIENT_ID", "\"\"")
+            buildConfigField("String", "STABILITY_AI_KEY", "\"\"")
             testProguardFiles("android-test-proguard-rules.pro")
             // Verification builders compare an unsigned FOSS artifact with the
             // owner-signed release modulo its signature. Keeping this opt-in avoids

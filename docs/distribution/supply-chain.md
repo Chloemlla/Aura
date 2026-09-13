@@ -21,7 +21,7 @@ checksum, and release-note validation.
 | Native alignment packet | `tools/native_alignment_check.py` | Records Android native page-alignment evidence as `NATIVE-ALIGNMENT.json`. |
 | Gradle dependency verification | `gradle/verification-metadata.xml` | Records SHA-256 checksums for resolved Gradle plugins and app dependencies. |
 | Gradle wrapper policy | `tools/gradle_wrapper_check.py` | Pins the Gradle wrapper distribution URL, SHA-256, validation, storage roots, and timeout. |
-| Provider credential release guard | `tools/provider_credential_release_check.py` | Fails release preflight when optional provider keys from `local.properties` would be bundled into `BuildConfig`. |
+| Provider credential release guard | `tools/provider_credential_release_check.py` | Confirms release variants force optional provider keys blank even when a developer has local debug keys configured. |
 | Provider credential APK scan | `tools/provider_credential_apk_scan.py` | Scans packaged signed APKs for nonblank local provider values before publication. |
 | Provider credential storage policy | `tools/provider_credential_storage_check.py` | Checks DataStore storage, backup exclusions, clear controls, and privacy/support disclosures for user-entered credentials. |
 | Cleartext release guard | `tools/cleartext_release_check.py` | Rejects cleartext manifest/network drift in public releases. |
