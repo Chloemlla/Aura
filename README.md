@@ -237,7 +237,7 @@ Firebase RTDB (Community Voting + Uploads + Admin Moderation)
 
 ## Building
 
-Requires JDK 21 and Android SDK 37. Android Studio Ladybug (2024.2.1) or later recommended.
+Requires JDK 21 and Android SDK 37. Android Studio Quail 2 (2026.1.2) or later recommended.
 
 ```bash
 ./gradlew assembleDebug      # use gradlew.bat on Windows
@@ -247,7 +247,7 @@ Requires JDK 21 and Android SDK 37. Android Studio Ladybug (2024.2.1) or later r
 ./gradlew bundleFullRelease    # run separately: ABI splits switch off while bundling
 ```
 
-> Always use the included Gradle wrapper. It pins Gradle 8.12, which is what AGP 8.9.3 needs.
+> Always use the included Gradle wrapper. It pins Gradle 9.5.0, which is what AGP 9.3.1 needs.
 
 The legacy Android test lane runs against release-minified Full and FOSS APKs. It
 opens Sounds and exercises NewPipe search on API 26, 27, and 29 without requiring
