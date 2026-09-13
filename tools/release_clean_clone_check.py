@@ -3,8 +3,9 @@
 
 The checker materializes the requested commit with ``git archive``. It never
 copies the caller's working tree, ignored files, local properties, signing
-keys, or build outputs. A temporary Git index is created only so existing
-published-state gates can ask which archived files are tracked.
+keys, build outputs, or remotes. Temporary local Git metadata preserves the
+selected tree's tracked paths, executable modes, and tag names so existing
+published-state gates see the same offline repository facts.
 """
 
 from __future__ import annotations
@@ -112,6 +113,13 @@ def materialize_revision(
     }
     if not tracked_paths:
         raise ReleaseCleanCloneError(f"revision {commit} contains no tracked files")
+    tree_output = _git(repo_root, "ls-tree", "-r", commit)
+    executable_paths = []
+    for line in tree_output.splitlines():
+        metadata, separator, path = line.partition("\t")
+        if separator and metadata.split(maxsplit=1)[0] == "100755":
+            executable_paths.append(path.replace("\\", "/"))
+    tag_names = [line for line in _git(repo_root, "tag", "--list").splitlines() if line]
 
     archive_path = destination.parent / "source.tar"
     _git(
@@ -125,12 +133,20 @@ def materialize_revision(
     destination.mkdir(parents=True, exist_ok=True)
     _safe_extract(archive_path, destination)
 
-    # Existing release gates use `git ls-files` to distinguish a published file
-    # from a maintainer-only file. The archive contains only tracked paths, so a
-    # forced index of all extracted files exactly represents the selected tree.
+    # Existing release gates use Git for tracked-file, executable-mode, and tag
+    # checks. The archive contains only tracked paths. The temporary repository
+    # has no remote, so it cannot accidentally turn a network publication check
+    # into an input from outside the selected commit.
     _git(destination, "init", "--quiet")
     _git(destination, "config", "core.autocrlf", "false")
+    _git(destination, "config", "user.name", "Aura Release Gate")
+    _git(destination, "config", "user.email", "release-gate@example.invalid")
     _git(destination, "add", "--force", "--all", timeout=300)
+    for relative_path in executable_paths:
+        _git(destination, "update-index", "--chmod=+x", "--", relative_path)
+    _git(destination, "commit", "--quiet", "-m", f"Exact tree {commit}", timeout=300)
+    for tag_name in tag_names:
+        _git(destination, "tag", tag_name)
     return commit, tracked_paths
 
 
