@@ -111,6 +111,22 @@ class ManifestConsistencyCheckTest(unittest.TestCase):
             self.assertEqual("fail", result["status"])
             self.assertTrue(any(f["file"] == "README.md" and f["dependency"] == "Room" for f in result["stale_claims"]))
 
+    def test_research_snapshot_keeps_the_app_version_it_assessed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            write_minimal_repo(repo)
+            write(
+                repo / "RESEARCH.md",
+                "# Research\nDate: 2026-09-04\n\n## Executive Summary\n"
+                "Aura versionName 6.30.0 / versionCode 100 was assessed with Kotlin 1.9.0.\n",
+            )
+
+            result = validate_manifest_consistency(repo)
+
+            self.assertEqual("fail", result["status"])
+            self.assertFalse(any(f["dependency"].casefold().startswith("version") for f in result["stale_claims"]))
+            self.assertTrue(any(f["dependency"] == "Kotlin" for f in result["stale_claims"]))
+
     def test_scans_local_context_doc_when_present(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
