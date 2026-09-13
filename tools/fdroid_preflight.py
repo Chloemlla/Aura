@@ -85,6 +85,30 @@ def read_lines(path: Path) -> list[str]:
     return path.read_text(encoding="utf-8").splitlines()
 
 
+def code_lines(lines: list[str]) -> list[tuple[int, str]]:
+    """Return (1-based line number, line) for lines that carry code, not comments.
+
+    A comment naming a provider symbol is documentation, not an implementation, so
+    it must not satisfy or violate a boundary that is about where code lives. Only
+    lines that *start* with a comment marker are skipped, the same conservative
+    rule `scan_blockers` applies, so a trailing comment never hides a declaration.
+    """
+    result: list[tuple[int, str]] = []
+    in_block_comment = False
+    for line_no, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if in_block_comment:
+            in_block_comment = "*/" not in stripped
+            continue
+        if stripped.startswith("/*"):
+            in_block_comment = "*/" not in stripped
+            continue
+        if stripped.startswith(("//", "*", "#")):
+            continue
+        result.append((line_no, line))
+    return result
+
+
 def scan_blockers(path: Path) -> list[Finding]:
     findings: list[Finding] = []
     for line_no, line in enumerate(read_lines(path), start=1):
@@ -127,18 +151,18 @@ def has_foss_flavor(path: Path) -> bool:
 
 def scan_foss_stability_boundary() -> list[Finding]:
     findings: list[Finding] = []
-    gradle_lines = read_lines(APP_GRADLE)
+    gradle_code = code_lines(read_lines(APP_GRADLE))
     full_line = next(
-        (index for index, line in enumerate(gradle_lines) if 'create("full")' in line or "create('full')" in line),
+        (index for index, line in gradle_code if 'create("full")' in line or "create('full')" in line),
         None,
     )
     foss_line = next(
-        (index for index, line in enumerate(gradle_lines) if 'create("foss")' in line or "create('foss')" in line),
+        (index for index, line in gradle_code if 'create("foss")' in line or "create('foss')" in line),
         None,
     )
     key_lines = [
         (index, line)
-        for index, line in enumerate(gradle_lines)
+        for index, line in gradle_code
         if "STABILITY_AI_KEY" in line
     ]
     if key_lines and (full_line is None or foss_line is None or any(
@@ -148,7 +172,7 @@ def scan_foss_stability_boundary() -> list[Finding]:
         findings.append(
             Finding(
                 file="app/build.gradle.kts",
-                line=line_no + 1,
+                line=line_no,
                 label="Stability FOSS boundary",
                 text="STABILITY_AI_KEY must be declared only inside the full flavor",
             )
@@ -193,7 +217,7 @@ def scan_foss_stability_boundary() -> list[Finding]:
     if main_root.exists():
         for pattern in ("*.kt", "*.xml", "*.txt"):
             for path in main_root.rglob(pattern):
-                for line_no, line in enumerate(read_lines(path), start=1):
+                for line_no, line in code_lines(read_lines(path)):
                     if "stability" in line.lower():
                         findings.append(
                             Finding(
@@ -207,7 +231,7 @@ def scan_foss_stability_boundary() -> list[Finding]:
     foss_root = ROOT / "app" / "src" / "foss"
     if foss_root.exists():
         for path in foss_root.rglob("*.kt"):
-            for line_no, line in enumerate(read_lines(path), start=1):
+            for line_no, line in code_lines(read_lines(path)):
                 if any(marker in line.lower() for marker in ("stability", "aiwallpaperscreen", "stability_ai_key")):
                     findings.append(
                         Finding(

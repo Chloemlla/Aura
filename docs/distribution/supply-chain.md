@@ -41,7 +41,7 @@ checksum, and release-note validation.
 | Release metadata consistency | `tools/release_metadata_consistency_check.py` | Keeps package/version metadata, Fastlane text, README links, privacy URLs, release docs, and artifact lists aligned. |
 | SBOM readiness policy | `tools/sbom_readiness_check.py` | Keeps the deferred SBOM decision, current evidence floor, future artifact names, future scope, and local release wiring aligned. |
 | GitHub workflow policy guards | `tools/github_actions_allowlist_check.py`, `tools/github_workflow_permissions_check.py`, `tools/github_workflow_secrets_check.py`, `tools/github_security_workflow_check.py` | Confirm the repository has no required workflow files under the current local-only policy and fail if a workflow is reintroduced without policy review. |
-| F-Droid blocker preflight | `tools/fdroid_preflight.py` | Confirms that the mainline full build remains blocked from F-Droid until proprietary dependency boundaries change. |
+| F-Droid blocker preflight | `tools/fdroid_preflight.py` | Confirms the FOSS flavor carries no Firebase, Play Services, or full-only provider credential, so mainline is ready for F-Droid review. |
 
 ## Release verification
 

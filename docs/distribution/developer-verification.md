@@ -151,7 +151,7 @@ Submit after a signed `v*` release includes:
 - Source-code tag matching the release.
 - App metadata from `fastlane/metadata/android/en-US/`.
 - Disclosure that the current full build uses Firebase, Google Services, and
-  Play Services ML Kit while F-Droid mainline remains blocked.
+  Play Services ML Kit while the FOSS flavor carries none of them.
 
 Source: https://apt.izzysoft.de/fdroid/index/apk
 
@@ -160,7 +160,7 @@ Source: https://apt.izzysoft.de/fdroid/index/apk
 Run the no-build preflight before any F-Droid work:
 
 ```powershell
-py -3 tools/fdroid_preflight.py --expect-blocked
+py -3 tools/fdroid_preflight.py --expect-pass
 ```
 
 Expected result: `F-Droid mainline status: ready-for-review`.

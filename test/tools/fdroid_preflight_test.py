@@ -176,6 +176,45 @@ android {
         self.assertEqual("blocked", result["status"])
         self.assertFalse(result["stabilityFossBoundary"])
 
+    def test_commented_stability_key_does_not_block(self) -> None:
+        result = analyze_temp_repo(
+            """
+android {
+    // STABILITY_AI_KEY moved to the full flavor upstream so the FOSS flavor
+    // carries no generator credential; see productFlavors below.
+    /* STABILITY_AI_KEY stays out of the shared source set. */
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("full") { dimension = "distribution" }
+        create("foss") { dimension = "distribution" }
+    }
+}
+"""
+        )
+
+        self.assertEqual("ready-for-review", result["status"])
+        self.assertEqual([], result["blockers"])
+        self.assertTrue(result["stabilityFossBoundary"])
+
+    def test_stability_key_outside_the_full_flavor_blocks(self) -> None:
+        result = analyze_temp_repo(
+            """
+android {
+    buildConfigField("String", "STABILITY_AI_KEY", "x")
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("full") { dimension = "distribution" }
+        create("foss") { dimension = "distribution" }
+    }
+}
+"""
+        )
+
+        self.assertEqual("blocked", result["status"])
+        self.assertFalse(result["stabilityFossBoundary"])
+        self.assertEqual("Stability FOSS boundary", result["blockers"][0]["label"])
+        self.assertEqual("app/build.gradle.kts", result["blockers"][0]["file"])
+
     def test_missing_binary_update_consent_blocks(self) -> None:
         result = analyze_temp_repo(
             """
