@@ -29,14 +29,14 @@ update an existing install, so rotating it would strand every current user.
 
 Release signing reads the ignored local files already used by Gradle:
 
-- `freevibe.jks`
+- `aura.jks`
 - `local.properties`
 
 `local.properties` must contain the signing path, keystore password, key alias,
 and key password. It must keep optional provider API keys blank for public
 release builds.
 
-Do not commit `freevibe.jks`, `local.properties`, copied APKs, release
+Do not commit `aura.jks`, `local.properties`, copied APKs, release
 directories, or generated signing evidence.
 
 The FOSS reproducibility lane is deliberately separate from public signing. Run
