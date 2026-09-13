@@ -6,25 +6,11 @@ Actionable work only. Historical and completed roadmap material is archived in C
 
 ### P1
 
-- [ ] P1 — Move Reddit's core feeds to registered OAuth and deletion reconciliation
-  Why: Reddit is intentionally Aura's default wallpaper and video source, but both feeds still depend on anonymous `.rss` endpoints. Reddit now requires registered OAuth access, identifiable clients, rate-limit handling, and deletion compliance, and warns that non-OAuth traffic may be blocked. A durable Reddit-first product needs an owned transport rather than a tolerated public feed.
-  Evidence: **Verified.** `RedditRepository.kt:316-332` builds `www.reddit.com/.../.rss` requests with no OAuth; `VideoWallpapersViewModel.kt` consumes the same parser; `ProviderCapability.kt:166-176` declares the endpoint as `reddit-rss`; https://support.reddithelp.com/hc/en-us/articles/16160319875092-Reddit-Data-API-Wiki; https://redditinc.com/policies/data-api-terms; https://redditinc.com/policies/developer-terms; https://github.com/reddit-archive/reddit/wiki/oauth2.
-  Touches: a registered Reddit client configuration, `RedditRepository.kt`, `RedditRssParser.kt` or its replacement, `PreferencesManager.kt`, provider capability/disclosure/network inventories, cached/favorite records, deletion worker, diagnostics, tests.
-  Acceptance: Aura uses the approved installed-app OAuth flow without requiring a Reddit account; tokens refresh safely and are never logged or exported; the user agent matches Reddit's required identifying format; 401 retry, 429/backoff, rate-limit headers, paging, and provider disable states have fixtures; a scheduled reconciliation marks or purges upstream-deleted content within the approved window while preserving a minimal tombstone needed for local references; favorites retain author, subreddit, permalink, and rights/deletion state; the wallpaper and video feeds stay Reddit-first.
-  Complexity: L
-
 - [ ] P1 — Preserve every item during library export and import
   Why: backup is a trust feature, but current limits disagree and collection export can silently omit items. A successful export that loses favorites or collection membership is worse than a clear refusal.
   Evidence: **Verified.** `docs/data/export-format.json:11` records 10,000 favorites and 500 collection items; `FavoritesExporter.kt:23` caps imports at 5,000; `CollectionExporter.kt:47,240-241` uses a lower collection limit; `CollectionExporter.kt:166` calls `take(MAX_IMPORT_ITEMS)` while exporting with no warning.
   Touches: `docs/data/export-format.json`, `FavoritesExporter.kt`, `CollectionExporter.kt`, `LibraryExporter.kt`, import validation, UI progress/error copy, tests.
   Acceptance: one machine-readable contract supplies every export/import limit; export either writes every selected item or refuses before creating the destination; no `take` or equivalent can silently truncate; output is staged and atomically published; tests cover zero, limit minus one, limit, limit plus one, cancellation, partial-write cleanup, duplicate IDs, and round-trip equality for the documented maximum; the UI reports exact exported, skipped, and failed counts.
-  Complexity: M
-
-- [ ] P1 — Make Reddit galleries first-class wallpaper and video items
-  Why: gallery posts are common in the source Aura prioritizes, but the Atom parser drops preview-only galleries. Users lose valid choices before the feed renders, and mixed-media posts cannot preserve post context or child order.
-  Evidence: **Verified.** `RedditRssParser.kt` accepts direct image/video enclosures and drops posts whose useful media exists only in gallery metadata; https://developers.reddit.com/docs/api/redditapi/models/classes/Post; https://github.com/bwalsh0/RedditWallpaperChanger/issues/5; https://www.reddit.com/r/redditdev/comments/k62sc5/.
-  Touches: the OAuth Reddit response models, repository/parser, stable content identity, wallpaper/video feed models, detail carousel, download/apply actions, favorites/collections/export, cache, tests.
-  Acceptance: single-image, multi-image, video, and mixed gallery fixtures preserve post ID, child media ID, author, subreddit, permalink, order, dimensions, caption, and available attribution; wallpaper and video feeds route each supported child correctly without duplicates; detail view shows position and lets the user apply or save one item or an explicitly selected set; unsupported/deleted children degrade visibly; preview-only galleries are no longer discarded.
   Complexity: M
 
 - [ ] P1 — Make public provider claims derive from production truth

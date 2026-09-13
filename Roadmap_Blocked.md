@@ -10,6 +10,18 @@
 
 ## Blocker: External Authorization and Legal Review
 
+- **P1 — Move Reddit's core feeds to registered OAuth and deletion reconciliation**
+  - Current state: Reddit is intentionally Aura's default wallpaper and video
+    source, but both feeds use anonymous `.rss` endpoints. The app and its local
+    configuration contain no Reddit OAuth client ID or approved API registration.
+  - Blocker: Reddit must approve and issue the installed-app client identity.
+    Shipping an invented or maintainer-personal identity would not satisfy the
+    API terms or provide a durable release transport.
+  - Resume when the release owner supplies the approved client ID and registered
+    user-agent identity. Implement anonymous installed-client tokens, safe
+    refresh, 401 retry, 429 backoff, paging, deletion reconciliation, diagnostics,
+    and fixtures while keeping Reddit first in wallpaper and video discovery.
+
 - **P0 — Gate YouTube extraction and offline actions by authorization and release channel**
   - Current state: YouTube-first discovery is intentional. NewPipe and yt-dlp
     currently resolve, download, convert, and apply streams in GitHub-channel
@@ -354,6 +366,17 @@ These items require adb-connected device or Android 17 emulator testing:
 ---
 
 ## Blocker: Dependent on Other Blocked Items
+
+- **P1 — Make Reddit galleries first-class wallpaper and video items**
+  - Current state: the anonymous Atom feed drops preview-only galleries and does
+    not provide a durable mixed-media child model.
+  - Blocker: the accepted implementation depends on the registered Reddit OAuth
+    response models from the blocked core-feed migration above. Building another
+    parser around the unsupported anonymous feed would create a second transport
+    that must immediately be removed.
+  - Resume after the OAuth transport lands. Preserve post and child identities,
+    attribution, order, dimensions, captions, mixed-media routing, selection,
+    favorites, collections, export, and visible deleted-child states.
 
 - **P2 — Source deletion and takedown reconciliation** (Cycle 3)
   - Room metadata, UI badges, gone classifier shipped.
