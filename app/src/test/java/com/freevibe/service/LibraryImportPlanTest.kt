@@ -142,6 +142,27 @@ class LibraryImportPlanTest {
         assertEquals(listOf("wp-1"), plan.favorites.map { it.id })
     }
 
+    @Test
+    fun `an over-limit favorites section refuses the whole backup`() = runTest {
+        val entries = List(LibraryTransferContract.MAX_FAVORITES + 1) { index ->
+            FavoriteExportEntry(
+                id = "favorite-$index",
+                source = "REDDIT",
+                type = "WALLPAPER",
+                thumbnailUrl = "https://i.example/$index.jpg",
+                fullUrl = "https://preview.example/$index.jpg",
+            )
+        }
+        val json = Moshi.Builder().build()
+            .adapter(LibraryExportFile::class.java)
+            .toJson(LibraryExportFile(favorites = entries))
+
+        val failure = runCatching { exporter.buildPlan(json) }.exceptionOrNull()
+
+        assertTrue(failure is LibraryTransferLimitExceededException)
+        assertEquals(0, db.favoriteDao().count().first())
+    }
+
     // -- non-portable reporting --
 
     @Test
@@ -215,9 +236,72 @@ class LibraryImportPlanTest {
         assertEquals(collectionId, plan.collections.single().existingId)
         assertTrue(plan.collections.single().items.isEmpty())
         assertEquals(
+            listOf(
+                LibraryImportSkipReason.DUPLICATE,
+                LibraryImportSkipReason.DUPLICATE,
+            ),
+            plan.skipped.map { it.reason },
+        )
+        assertEquals(0, plan.writeCount)
+    }
+
+    @Test
+    fun `collection identity includes source when IDs match`() = runTest {
+        val collectionId = db.collectionDao().createCollection(WallpaperCollectionEntity(name = "Night"))
+        db.collectionDao().addItem(
+            WallpaperCollectionItemEntity(
+                collectionId = collectionId,
+                wallpaperId = "shared-id",
+                thumbnailUrl = "https://w.example/t.jpg",
+                fullUrl = "https://w.example/f.jpg",
+                source = "WALLHAVEN",
+            ),
+        )
+
+        val plan = exporter.buildPlan(
+            payload(
+                collections = """
+                    [{"id":1,"name":"Night","items":[
+                      {"wallpaperId":"shared-id","source":"REDDIT",
+                       "thumbnailUrl":"https://r.example/t.jpg","fullUrl":"https://r.example/f.jpg"}
+                    ]}]
+                """.trimIndent(),
+            ),
+        )
+
+        assertEquals(listOf("REDDIT"), plan.collections.single().items.map { it.source.name })
+        assertEquals(1, plan.writeCount)
+    }
+
+    @Test
+    fun `duplicate favorite identities are reported and imported once`() = runTest {
+        val duplicate = portableFavorite.replace("\"name\":\"Blue\"", "\"name\":\"Duplicate\"")
+
+        val plan = exporter.buildPlan(payload(favorites = "[$portableFavorite,$duplicate]"))
+
+        assertEquals(listOf("wp-1"), plan.favorites.map { it.id })
+        assertEquals(
             listOf(LibraryImportSkipReason.DUPLICATE),
             plan.skipped.map { it.reason },
         )
+    }
+
+    @Test
+    fun `result counts separate duplicates from failed rows`() = runTest {
+        val duplicate = portableFavorite.replace("\"name\":\"Blue\"", "\"name\":\"Duplicate\"")
+
+        val plan = exporter.buildPlan(
+            payload(favorites = "[$portableFavorite,$duplicate,$localFavorite]"),
+        )
+        val outcome = LibraryImportOutcome(
+            sourceVersion = plan.sourceVersion,
+            written = plan.writeCount,
+            skipped = plan.skipped,
+        )
+
+        assertEquals(1, outcome.written)
+        assertEquals(1, outcome.skippedCount)
+        assertEquals(1, outcome.failed)
     }
 
     @Test

@@ -1,5 +1,23 @@
 {
-  "lastReviewed": "2026-06-16",
+  "lastReviewed": "2026-09-13",
+  "limitsContract": "app/src/main/java/com/freevibe/service/LibraryTransferContract.kt",
+  "documentedLimitKeys": [
+    "MAX_FAVORITES",
+    "MAX_COLLECTIONS",
+    "MAX_COLLECTION_ITEMS",
+    "MAX_SEARCH_HISTORY_ITEMS",
+    "MAX_FAVORITES_DOCUMENT_CHARS",
+    "MAX_COLLECTION_DOCUMENT_BYTES",
+    "MAX_LIBRARY_DOCUMENT_CHARS",
+    "MAX_TEXT_CHARS",
+    "MAX_URL_CHARS",
+    "MAX_COLLECTION_NAME_CHARS",
+    "MIN_SHARE_TOKEN_CHARS",
+    "MAX_SHARE_TOKEN_CHARS",
+    "MAX_QR_IMAGE_BYTES",
+    "MAX_QR_IMAGE_DIMENSION",
+    "MAX_QR_IMAGE_PIXELS"
+  ],
   "formats": {
     "favorites": {
       "currentVersion": 1,
@@ -8,7 +26,12 @@
       "itemClass": "FavoriteExportItem",
       "mimeType": "application/json",
       "fileExtension": ".json",
-      "maxImportItems": 10000,
+      "limitKeys": [
+        "MAX_FAVORITES",
+        "MAX_FAVORITES_DOCUMENT_CHARS",
+        "MAX_TEXT_CHARS",
+        "MAX_URL_CHARS"
+      ],
       "fields": {
         "version": { "type": "Int", "required": true, "since": 1, "description": "Schema version. Must equal 1 for current parser." },
         "exportedAt": { "type": "Long", "required": true, "since": 1, "description": "Unix epoch millis when the export was created." },
@@ -46,7 +69,8 @@
         "fullUrl must be non-blank HTTPS",
         "sourcePageUrl, if present, must be HTTPS",
         "sourceAvailability is normalized to AVAILABLE if null or blank",
-        "Items exceeding maxImportItems are silently dropped"
+        "An item count or document size above the shared contract limit refuses the whole import before any database write",
+        "Duplicate identities already in the file or target library are counted as skipped; invalid entries are counted as failed"
       ],
       "versionPolicy": {
         "bumpRule": "Increment version when adding required fields or changing field semantics. Optional nullable fields may be added without a version bump.",
@@ -68,7 +92,18 @@
       "itemClass": "CollectionExportItem",
       "mimeType": "application/json",
       "fileExtension": ".json",
-      "maxImportItems": 500,
+      "limitKeys": [
+        "MAX_COLLECTION_ITEMS",
+        "MAX_COLLECTION_DOCUMENT_BYTES",
+        "MAX_TEXT_CHARS",
+        "MAX_URL_CHARS",
+        "MAX_COLLECTION_NAME_CHARS",
+        "MIN_SHARE_TOKEN_CHARS",
+        "MAX_SHARE_TOKEN_CHARS",
+        "MAX_QR_IMAGE_BYTES",
+        "MAX_QR_IMAGE_DIMENSION",
+        "MAX_QR_IMAGE_PIXELS"
+      ],
       "fields": {
         "version": { "type": "Int", "required": true, "since": 1, "description": "Schema version. Must equal 1 for current parser." },
         "exportedAt": { "type": "Long", "required": true, "since": 1, "description": "Unix epoch millis when the export was created." },
@@ -88,8 +123,8 @@
         "source must match a known ContentSource enum value",
         "fullUrl must be non-blank HTTPS",
         "thumbnailUrl defaults to fullUrl if blank",
-        "Items exceeding maxImportItems are silently dropped",
-        "Duplicate wallpaperId+source pairs are deduplicated"
+        "An item count or document size above the shared contract limit refuses the whole import before any database write",
+        "Duplicate wallpaperId+source pairs are counted as skipped; invalid entries are counted as failed"
       ],
       "versionPolicy": {
         "bumpRule": "Increment version when adding required fields or changing field semantics. Optional nullable fields may be added without a version bump.",
@@ -100,6 +135,35 @@
       "privacyExclusions": [
         "Export does not include collection creator identity or local IDs",
         "Shared collections via Firebase include creatorUid for ownership rules"
+      ]
+    },
+    "library": {
+      "currentVersion": 2,
+      "sourceFile": "app/src/main/java/com/freevibe/service/LibraryExporter.kt",
+      "rootClass": "LibraryExportFile",
+      "mimeType": "application/json",
+      "fileExtension": ".json",
+      "limitKeys": [
+        "MAX_FAVORITES",
+        "MAX_COLLECTIONS",
+        "MAX_COLLECTION_ITEMS",
+        "MAX_SEARCH_HISTORY_ITEMS",
+        "MAX_LIBRARY_DOCUMENT_CHARS",
+        "MAX_TEXT_CHARS",
+        "MAX_URL_CHARS",
+        "MAX_COLLECTION_NAME_CHARS"
+      ],
+      "overflowPolicy": "Refuse the whole export or import before opening the destination or writing any restored row.",
+      "publicationPolicy": "Serialize and sync a private staging file before opening an external destination; clean the destination and staging file after a failed or cancelled copy.",
+      "resultCounts": {
+        "exportedOrImported": "Rows and non-empty preference sections actually written",
+        "skipped": "Duplicate or migrated rows intentionally not written",
+        "failed": "Invalid or device-only rows that could not be restored"
+      },
+      "privacyExclusions": [
+        "Library backups do not include provider API keys or user credentials",
+        "Library backups do not include device-local downloaded media bytes",
+        "Legacy device-local download rows are reported but not restored"
       ]
     }
   }

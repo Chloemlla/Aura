@@ -9,6 +9,7 @@ import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.local.SearchHistoryDao
 import com.freevibe.data.model.FavoriteEntity
 import com.freevibe.data.model.SearchHistoryEntity
+import com.freevibe.data.model.favoriteIdentity
 import com.freevibe.data.repository.CollectionRepository
 import com.freevibe.util.rethrowIfCancelled
 import com.squareup.moshi.JsonClass
@@ -19,12 +20,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
-
-private const val MAX_IMPORT_SIZE_CHARS = 10_000_000
-private const val MAX_IMPORT_FAVORITES = 5_000
-private const val MAX_IMPORT_COLLECTIONS = 100
-private const val MAX_IMPORT_COLLECTION_ITEMS = 500
-private const val MAX_IMPORT_SEARCHES = 200
 
 @JsonClass(generateAdapter = true)
 data class LibraryExportFile(
@@ -113,15 +108,29 @@ class LibraryExporter @Inject constructor(
      */
     internal var failBeforeCommit: (suspend () -> Unit)? = null
 
-    suspend fun exportLibrary(outputUri: Uri): Result<Int> = withContext(Dispatchers.IO) {
+    suspend fun exportLibrary(outputUri: Uri): Result<LibraryExportOutcome> = withContext(Dispatchers.IO) {
         runCatching {
             val favorites = favoriteDao.getAll().first().map { it.toExportEntry() }
             val collections = exportCollections()
-            val wallpaperSearches = searchHistoryDao.getRecent("WALLPAPER", 100).first()
-            val soundSearches = searchHistoryDao.getRecent("SOUND", 100).first()
-            val searchHistory = (wallpaperSearches + soundSearches).map { it.toExportEntry() }
+            val searchHistory = searchHistoryDao.getAll().map { it.toExportEntry() }
             val wallpaperPack = prefs.wallpaperPackJson.first()
             val soundProfiles = prefs.soundProfilesJson.first()
+
+            requireWithinTransferLimit(
+                "Library favorites",
+                favorites.size,
+                LibraryTransferContract.MAX_FAVORITES,
+            )
+            requireWithinTransferLimit(
+                "Library collections",
+                collections.size,
+                LibraryTransferContract.MAX_COLLECTIONS,
+            )
+            requireWithinTransferLimit(
+                "Library search history",
+                searchHistory.size,
+                LibraryTransferContract.MAX_SEARCH_HISTORY_ITEMS,
+            )
 
             val exportFile = LibraryExportFile(
                 version = LIBRARY_EXPORT_VERSION,
@@ -134,11 +143,21 @@ class LibraryExporter @Inject constructor(
             )
 
             val json = adapter.indent("  ").toJson(exportFile)
-            context.contentResolver.openOutputStream(outputUri)?.use { out ->
-                out.write(json.toByteArray())
-            } ?: throw IllegalStateException("Failed to open output stream")
+            requireWithinTransferLimit(
+                "Library backup document characters",
+                json.length,
+                LibraryTransferContract.MAX_LIBRARY_DOCUMENT_CHARS,
+            )
+            publishStagedDocument(context, outputUri, json.toByteArray(Charsets.UTF_8))
 
-            favorites.size + collections.size + searchHistory.size
+            LibraryExportOutcome(
+                exported = favorites.size + collections.size +
+                    collections.sumOf { it.items.size } + searchHistory.size +
+                    (if (wallpaperPack.isNotBlank()) 1 else 0) +
+                    (if (soundProfiles.isNotBlank()) 1 else 0),
+                skipped = 0,
+                failed = 0,
+            )
         }.onFailure { it.rethrowIfCancelled() }
     }
 
@@ -181,8 +200,11 @@ class LibraryExporter @Inject constructor(
             var read: Int
             while (reader.read(buffer).also { read = it } != -1) {
                 sb.append(buffer, 0, read)
-                if (sb.length > MAX_IMPORT_SIZE_CHARS) {
-                    throw IllegalStateException("Import file too large (>${MAX_IMPORT_SIZE_CHARS / 1_000_000}MB)")
+                if (sb.length > LibraryTransferContract.MAX_LIBRARY_DOCUMENT_CHARS) {
+                    throw IllegalStateException(
+                        "Import file too large " +
+                            "(>${LibraryTransferContract.MAX_LIBRARY_DOCUMENT_CHARS / 1_000_000}MB)"
+                    )
                 }
             }
             sb.toString()
@@ -208,6 +230,29 @@ class LibraryExporter @Inject constructor(
 
         val exportFile = adapter.fromJson(json)
             ?: throw IllegalStateException("Invalid library backup format")
+
+        requireWithinTransferLimit(
+            "Library favorites",
+            exportFile.favorites.size,
+            LibraryTransferContract.MAX_FAVORITES,
+        )
+        requireWithinTransferLimit(
+            "Library collections",
+            exportFile.collections.size,
+            LibraryTransferContract.MAX_COLLECTIONS,
+        )
+        exportFile.collections.forEach { collection ->
+            requireWithinTransferLimit(
+                "Collection '${normalizeImportedText(collection.name)}' items",
+                collection.items.size,
+                LibraryTransferContract.MAX_COLLECTION_ITEMS,
+            )
+        }
+        requireWithinTransferLimit(
+            "Library search history",
+            exportFile.searchHistory.size,
+            LibraryTransferContract.MAX_SEARCH_HISTORY_ITEMS,
+        )
 
         val skipped = mutableListOf<LibraryImportSkip>()
 
@@ -239,26 +284,37 @@ class LibraryExporter @Inject constructor(
         )
     }
 
-    private fun planFavorites(
+    private suspend fun planFavorites(
         exportFile: LibraryExportFile,
         skipped: MutableList<LibraryImportSkip>,
     ): List<FavoriteEntity> {
-        exportFile.favorites.drop(MAX_IMPORT_FAVORITES).forEach {
-            skipped += LibraryImportSkip("favorite", it.label(), LibraryImportSkipReason.OVER_LIMIT)
-        }
-        return exportFile.favorites.take(MAX_IMPORT_FAVORITES).mapNotNull { entry ->
+        val seen = favoriteDao.getAll().first().mapTo(mutableSetOf()) { it.favoriteIdentity() }
+        return exportFile.favorites.mapNotNull { entry ->
             val entity = entry.toEntity()
-            if (entity != null) return@mapNotNull entity
-            skipped += LibraryImportSkip(
-                section = "favorite",
-                label = entry.label(),
-                reason = if (isNonPortableLocator(entry.fullUrl) || isNonPortableLocator(entry.thumbnailUrl)) {
-                    LibraryImportSkipReason.NON_PORTABLE
-                } else {
-                    LibraryImportSkipReason.INVALID
-                },
-            )
-            null
+            if (entity == null) {
+                skipped += LibraryImportSkip(
+                    section = "favorite",
+                    label = entry.label(),
+                    reason = if (
+                        isNonPortableLocator(entry.fullUrl) ||
+                        isNonPortableLocator(entry.thumbnailUrl)
+                    ) {
+                        LibraryImportSkipReason.NON_PORTABLE
+                    } else {
+                        LibraryImportSkipReason.INVALID
+                    },
+                )
+                return@mapNotNull null
+            }
+            if (!seen.add(entity.favoriteIdentity())) {
+                skipped += LibraryImportSkip(
+                    section = "favorite",
+                    label = entry.label(),
+                    reason = LibraryImportSkipReason.DUPLICATE,
+                )
+                return@mapNotNull null
+            }
+            entity
         }
     }
 
@@ -266,38 +322,42 @@ class LibraryExporter @Inject constructor(
         exportFile: LibraryExportFile,
         skipped: MutableList<LibraryImportSkip>,
     ): List<PlannedCollection> {
-        exportFile.collections.drop(MAX_IMPORT_COLLECTIONS).forEach {
-            skipped += LibraryImportSkip(
-                "collection",
-                normalizeImportedText(it.name).ifBlank { "collection" },
-                LibraryImportSkipReason.OVER_LIMIT,
-            )
-        }
         // Merge by name so re-importing the same backup doesn't duplicate
         // collections (favorites already dedupe at the DAO layer).
         val existingByName = collectionRepo.getAll().first()
             .associateBy({ it.name }, { it.collectionId })
         val planned = mutableListOf<PlannedCollection>()
-        exportFile.collections.take(MAX_IMPORT_COLLECTIONS).forEach { collection ->
+        exportFile.collections.forEach { collection ->
             val name = normalizeImportedText(collection.name)
             if (name.isBlank()) {
                 skipped += LibraryImportSkip("collection", "(unnamed)", LibraryImportSkipReason.INVALID)
+                collection.items.forEach { item ->
+                    skipped += LibraryImportSkip(
+                        "collectionItem",
+                        "(unnamed) / ${item.label()}",
+                        LibraryImportSkipReason.INVALID,
+                    )
+                }
                 return@forEach
             }
             val existingId = existingByName[name]
-            val existingItemIds = existingId
-                ?.let { collectionRepo.getItems(it).first().map { item -> item.wallpaperId }.toSet() }
-                .orEmpty()
-
-            collection.items.drop(MAX_IMPORT_COLLECTION_ITEMS).forEach {
+            if (existingId != null) {
                 skipped += LibraryImportSkip(
-                    "collectionItem",
-                    "$name / ${it.label()}",
-                    LibraryImportSkipReason.OVER_LIMIT,
+                    "collection",
+                    name,
+                    LibraryImportSkipReason.DUPLICATE,
                 )
             }
+            val existingItemIds = existingId
+                ?.let {
+                    collectionRepo.getItems(it).first()
+                        .map { item -> item.source to item.wallpaperId }
+                        .toSet()
+                }
+                .orEmpty()
+
             val seen = existingItemIds.toMutableSet()
-            val items = collection.items.take(MAX_IMPORT_COLLECTION_ITEMS).mapNotNull { item ->
+            val items = collection.items.mapNotNull { item ->
                 val wallpaper = item.toWallpaperOrNull()
                 if (wallpaper == null) {
                     skipped += LibraryImportSkip(
@@ -311,7 +371,7 @@ class LibraryExporter @Inject constructor(
                     )
                     return@mapNotNull null
                 }
-                if (!seen.add(wallpaper.id)) {
+                if (!seen.add(wallpaper.source.name to wallpaper.id)) {
                     skipped += LibraryImportSkip(
                         "collectionItem",
                         "$name / ${item.label()}",
@@ -326,28 +386,36 @@ class LibraryExporter @Inject constructor(
         return planned
     }
 
-    private fun planSearchHistory(
+    private suspend fun planSearchHistory(
         exportFile: LibraryExportFile,
         skipped: MutableList<LibraryImportSkip>,
     ): List<SearchHistoryEntity> {
-        exportFile.searchHistory.drop(MAX_IMPORT_SEARCHES).forEach {
-            skipped += LibraryImportSkip(
-                "search",
-                normalizeImportedText(it.query).ifBlank { "(blank)" },
-                LibraryImportSkipReason.OVER_LIMIT,
-            )
-        }
-        return exportFile.searchHistory.take(MAX_IMPORT_SEARCHES).mapNotNull { entry ->
+        val seen = searchHistoryDao.getAll().mapTo(mutableSetOf()) { it.query to it.type }
+        return exportFile.searchHistory.mapNotNull { entry ->
             val query = normalizeImportedText(entry.query)
-            if (query.isBlank()) {
-                skipped += LibraryImportSkip("search", "(blank)", LibraryImportSkipReason.INVALID)
+            val type = normalizeImportedText(entry.type).uppercase(java.util.Locale.ROOT)
+            if (query.isBlank() || type !in setOf("WALLPAPER", "SOUND", "UNIVERSAL")) {
+                skipped += LibraryImportSkip(
+                    "search",
+                    query.ifBlank { "(blank)" },
+                    LibraryImportSkipReason.INVALID,
+                )
                 return@mapNotNull null
             }
-            SearchHistoryEntity(
+            val entity = SearchHistoryEntity(
                 query = query,
-                type = normalizeImportedText(entry.type),
-                timestamp = entry.searchedAt,
+                type = type,
+                timestamp = entry.searchedAt.coerceAtLeast(0),
             )
+            if (!seen.add(entity.query to entity.type)) {
+                skipped += LibraryImportSkip(
+                    "search",
+                    query,
+                    LibraryImportSkipReason.DUPLICATE,
+                )
+                return@mapNotNull null
+            }
+            entity
         }
     }
 
@@ -397,8 +465,18 @@ class LibraryExporter @Inject constructor(
 
     private suspend fun exportCollections(): List<CollectionExportEntry> {
         val collections = collectionRepo.getAll().first()
+        requireWithinTransferLimit(
+            "Library collections",
+            collections.size,
+            LibraryTransferContract.MAX_COLLECTIONS,
+        )
         return collections.map { collection ->
             val items = collectionRepo.getItems(collection.collectionId).first()
+            requireWithinTransferLimit(
+                "Collection '${collection.name}' items",
+                items.size,
+                LibraryTransferContract.MAX_COLLECTION_ITEMS,
+            )
             CollectionExportEntry(
                 id = collection.collectionId,
                 name = collection.name,

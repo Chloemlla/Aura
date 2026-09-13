@@ -483,7 +483,9 @@ class ReleasePolishContractTest {
         assertTrue(source.contains("Icon(Icons.Default.CreateNewFolder, stringResource(R.string.collections_create))"))
         assertTrue(emptyList.contains("primaryAction = AuraStateAction("))
         assertTrue(emptyList.contains("showCreateDialog = true"))
-        assertTrue(source.contains("R.plurals.collections_import_success"))
+        assertTrue(source.contains("R.string.collections_import_summary"))
+        assertTrue(source.contains("result.skippedCount"))
+        assertTrue(source.contains("result.failedCount"))
         assertFalse(source.contains("Couldn't import this collection."))
     }
 

@@ -153,11 +153,12 @@ class CollectionsViewModel @Inject constructor(
         onSuccess { result ->
             _selectedCollectionId.value = result.collectionId
             _shareEvent.value = ShareCollectionEvent.Message(
-                context.resources.getQuantityString(
-                    R.plurals.collections_import_success,
-                    result.itemCount,
-                    result.itemCount,
+                context.getString(
+                    R.string.collections_import_summary,
                     result.collectionName,
+                    result.itemCount,
+                    result.skippedCount,
+                    result.failedCount,
                 )
             )
         }.onFailure { e ->

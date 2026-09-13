@@ -4,9 +4,10 @@ import android.content.Context
 import android.net.Uri
 import com.freevibe.data.local.FavoriteDao
 import com.freevibe.data.model.FavoriteEntity
-import com.freevibe.util.rethrowIfCancelled
+import com.freevibe.data.model.FavoriteIdentity
 import com.freevibe.data.model.favoriteIdentity
 import com.freevibe.data.model.normalizeSourceAvailability
+import com.freevibe.util.rethrowIfCancelled
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
@@ -20,8 +21,6 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val CURRENT_EXPORT_VERSION = 1
-private const val MAX_IMPORT_ITEMS = 5000
-private const val MAX_IMPORT_CHARS = 2_000_000
 
 @Singleton
 class FavoritesExporter @Inject constructor(
@@ -37,6 +36,11 @@ class FavoritesExporter @Inject constructor(
     suspend fun export(outputUri: Uri): Result<Int> = withContext(Dispatchers.IO) {
         runCatching {
             val favorites = favoriteDao.getAll().first()
+            requireWithinTransferLimit(
+                "Favorites export",
+                favorites.size,
+                LibraryTransferContract.MAX_FAVORITES,
+            )
             val items = favorites.map { it.toExportItem() }
             val exportFile = FavoritesExportFile(
                 version = CURRENT_EXPORT_VERSION,
@@ -44,46 +48,74 @@ class FavoritesExporter @Inject constructor(
                 items = items,
             )
             val json = fileAdapter.indent("  ").toJson(exportFile)
-            context.contentResolver.openOutputStream(outputUri)?.use { out ->
-                out.write(json.toByteArray())
-            } ?: throw IllegalStateException("Failed to open output stream")
+            requireWithinTransferLimit(
+                "Favorites export document characters",
+                json.length,
+                LibraryTransferContract.MAX_FAVORITES_DOCUMENT_CHARS,
+            )
+            publishStagedDocument(context, outputUri, json.toByteArray(Charsets.UTF_8))
             items.size
         }.onFailure { it.rethrowIfCancelled() }
     }
 
     /** Import favorites from a JSON file */
-    suspend fun import(inputUri: Uri): Result<Int> = withContext(Dispatchers.IO) {
+    suspend fun import(inputUri: Uri): Result<FavoriteImportOutcome> = withContext(Dispatchers.IO) {
         runCatching {
             val json = readJson(inputUri)
             val items = parseItems(json)
+            requireWithinTransferLimit(
+                "Favorites import",
+                items.size,
+                LibraryTransferContract.MAX_FAVORITES,
+            )
 
-            if (items.size > MAX_IMPORT_ITEMS) {
-                throw IllegalStateException("Too many favorites (${items.size}). Maximum is $MAX_IMPORT_ITEMS")
+            val seen = favoriteDao.getAll().first()
+                .mapTo(mutableSetOf<FavoriteIdentity>()) { it.favoriteIdentity() }
+            var skipped = 0
+            var failed = 0
+            val entities = buildList {
+                items.forEach { item ->
+                    val entity = item.toValidatedEntity()
+                    when {
+                        entity == null -> failed++
+                        !seen.add(entity.favoriteIdentity()) -> skipped++
+                        else -> add(entity)
+                    }
+                }
             }
-
-            val entities = items
-                .mapNotNull { it.toValidatedEntity() }
-                .distinctBy { it.favoriteIdentity() }
-            if (entities.isEmpty()) {
-                throw IllegalStateException("No valid favorites found in file")
+            if (entities.isNotEmpty()) {
+                favoriteDao.insertAll(entities)
             }
-
-            favoriteDao.insertAll(entities)
-            entities.size
+            FavoriteImportOutcome(
+                imported = entities.size,
+                skipped = skipped,
+                failed = failed,
+            )
         }.onFailure { it.rethrowIfCancelled() }
     }
 
     /** Generate export as string (for sharing) */
     suspend fun exportToString(): String = withContext(Dispatchers.IO) {
         val favorites = favoriteDao.getAll().first()
+        requireWithinTransferLimit(
+            "Favorites export",
+            favorites.size,
+            LibraryTransferContract.MAX_FAVORITES,
+        )
         val items = favorites.map { it.toExportItem() }
-        fileAdapter.indent("  ").toJson(
+        val json = fileAdapter.indent("  ").toJson(
             FavoritesExportFile(
                 version = CURRENT_EXPORT_VERSION,
                 exportedAt = System.currentTimeMillis(),
                 items = items,
             )
         )
+        requireWithinTransferLimit(
+            "Favorites export document characters",
+            json.length,
+            LibraryTransferContract.MAX_FAVORITES_DOCUMENT_CHARS,
+        )
+        json
     }
 
     private fun readJson(inputUri: Uri): String {
@@ -95,7 +127,7 @@ class FavoritesExporter @Inject constructor(
                     val read = reader.read(buffer)
                     if (read == -1) break
                     builder.append(buffer, 0, read)
-                    if (builder.length > MAX_IMPORT_CHARS) {
+                    if (builder.length > LibraryTransferContract.MAX_FAVORITES_DOCUMENT_CHARS) {
                         throw IllegalStateException("Favorites file is too large to import")
                     }
                 }
@@ -135,6 +167,12 @@ data class FavoritesExportFile(
     val version: Int,
     val exportedAt: Long,
     val items: List<FavoriteExportItem>,
+)
+
+data class FavoriteImportOutcome(
+    val imported: Int,
+    val skipped: Int,
+    val failed: Int,
 )
 
 @JsonClass(generateAdapter = true)

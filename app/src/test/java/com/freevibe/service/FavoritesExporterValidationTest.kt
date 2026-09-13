@@ -3,6 +3,7 @@ package com.freevibe.service
 import com.freevibe.data.model.SOURCE_AVAILABILITY_AVAILABLE
 import com.freevibe.data.model.SOURCE_AVAILABILITY_UNAVAILABLE
 import com.freevibe.data.model.isSourceUnavailable
+import com.squareup.moshi.Moshi
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -10,6 +11,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FavoritesExporterValidationTest {
+
+    private val adapter = Moshi.Builder().build().adapter(FavoritesExportFile::class.java)
 
     @Test
     fun `imported favorites only allow https urls`() {
@@ -98,5 +101,23 @@ class FavoritesExporterValidationTest {
 
         assertNotNull(entity)
         assertEquals("CC BY-NC", entity?.license)
+    }
+
+    @Test
+    fun `documented maximum favorites round trips without loss`() {
+        val expected = List(LibraryTransferContract.MAX_FAVORITES) { index ->
+            FavoriteExportItem(
+                id = "favorite-$index",
+                source = "REDDIT",
+                type = "WALLPAPER",
+                thumbnailUrl = "https://i.example/$index.jpg",
+                fullUrl = "https://preview.example/$index.jpg",
+            )
+        }
+        val file = FavoritesExportFile(version = 1, exportedAt = 1, items = expected)
+
+        val restored = adapter.fromJson(adapter.toJson(file))
+
+        assertEquals(expected, restored?.items)
     }
 }

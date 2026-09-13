@@ -465,7 +465,7 @@
     <string name="editor_sound_discard_title">Discard edits?</string>
     <string name="editor_sound_discard_body">Your trim, fade, and speed settings will be lost. Apply them first or discard?</string>
     <string name="editor_sound_guidance_ready">Ready for ringtone</string>
-    <string name="editor_sound_guidance_ready_body">Ringtones usually work best at 8–30s. Fine-tune the handles, then preview before applying.</string>
+    <string name="editor_sound_guidance_ready_body">Ringtones usually work best at 8 to 30 seconds. Fine-tune the handles, then preview before applying.</string>
     <string name="editor_sound_guidance_short">Better for notifications</string>
     <string name="editor_sound_guidance_short_body">This clip is under 8s. It can still work well as a notification or alarm.</string>
     <string name="editor_sound_guidance_long">Shorten the selection</string>
@@ -504,6 +504,7 @@
     <string name="collections_share_prepare_failed">Couldn\'t prepare this collection for sharing.</string>
     <string name="collections_share_link_failed">Couldn\'t create a share link for this collection.</string>
     <string name="collections_import_failed">Couldn\'t import this collection.</string>
+    <string name="collections_import_summary">%1$s imported: %2$d added, %3$d skipped, %4$d failed.</string>
     <plurals name="collections_import_success">
         <item quantity="one">Imported %1$d wallpaper into %2$s.</item>
         <item quantity="other">Imported %1$d wallpapers into %2$s.</item>
@@ -791,7 +792,7 @@
     <string name="favorites_import">Import favorites</string>
     <string name="favorites_download_all">Download all wallpapers</string>
     <string name="favorites_sort_recent">Sort: Recent first</string>
-    <string name="favorites_sort_name">Sort: Name A–Z</string>
+    <string name="favorites_sort_name">Sort: Name A to Z</string>
     <string name="favorites_sort_oldest">Sort: Oldest first</string>
     <string name="favorites_source_unavailable">Source unavailable</string>
     <plurals name="favorites_exported">
@@ -808,6 +809,8 @@
     </plurals>
     <string name="favorites_export_failed">Favorites export failed: %1$s</string>
     <string name="favorites_import_failed">Favorites import failed: %1$s</string>
+    <string name="favorites_export_summary">Favorites export complete: %1$d exported, %2$d skipped, %3$d failed.</string>
+    <string name="favorites_import_summary">Favorites import complete: %1$d imported, %2$d skipped, %3$d failed.</string>
     <string name="favorites_select_wallpaper">Select at least one wallpaper</string>
     <string name="favorites_batch_already_running">A batch download is already running</string>
     <plurals name="favorites_batch_provider_blocked">
@@ -1241,7 +1244,7 @@
     <string name="settings_reddit_subreddits_summary">%1$d selected • tap to edit</string>
     <string name="settings_reddit_subreddits_hint">Enter subreddit names separated by commas or new lines. The r/ prefix is optional. Leave the field empty to restore Aura\'s defaults.</string>
     <string name="settings_reddit_subreddits_input_label">Subreddits</string>
-    <string name="settings_reddit_subreddits_error">Use 2–40 letters, numbers, or underscores per name, with no more than 12 communities.</string>
+    <string name="settings_reddit_subreddits_error">Use 2 to 40 letters, numbers, or underscores per name, with no more than 12 communities.</string>
     <string name="settings_wp_bing_title">Enable Bing Daily source</string>
     <string name="settings_wp_bing_on_subtitle">Adds Bing Image of the Day to Discover and rotations</string>
     <string name="settings_wp_bing_off_subtitle">Skips Bing daily-image calls and hides it from rotation pickers</string>
@@ -1876,12 +1879,12 @@
 
     <!-- Sound profiles -->
     <string name="settings_sounds_profiles_title">Time-of-day sound profiles</string>
-    <string name="settings_sounds_profiles_on_subtitle">%1$d profile(s) active — sounds change by schedule</string>
+    <string name="settings_sounds_profiles_on_subtitle">%1$d profile(s) active. Sounds change by schedule.</string>
     <string name="settings_sounds_profiles_off_subtitle">Assign different ringtone, notification, and alarm sounds to time slots</string>
 
     <!-- Wallpaper packs (24H) -->
     <string name="settings_wp_pack_title">24H wallpaper pack</string>
-    <string name="settings_wp_pack_on_subtitle">%1$d daypart slot(s) — wallpaper changes by time of day</string>
+    <string name="settings_wp_pack_on_subtitle">%1$d daypart slot(s) active. Wallpaper changes by time of day.</string>
     <string name="settings_wp_pack_off_subtitle">Map different wallpapers to morning, day, evening, and night</string>
 
     <!-- Sound detail: similar sounds -->
@@ -1891,23 +1894,24 @@
     <string name="settings_library_export_title">Export whole library</string>
     <string name="settings_library_export_subtitle">Favorites, collections, packs, and profiles to one JSON file for device transfer</string>
     <string name="settings_library_import_title">Import whole library</string>
-    <string name="settings_library_import_subtitle">Restore a library backup — items merge with what\'s already here</string>
+    <string name="settings_library_import_subtitle">Restore a library backup. Items merge with what\'s already here.</string>
     <string name="settings_library_default_filename">aura-library-backup.json</string>
     <plurals name="settings_library_export_done">
         <item quantity="one">Library exported: %1$d item</item>
         <item quantity="other">Library exported: %1$d items</item>
     </plurals>
     <string name="settings_library_export_failed">Library export failed: %1$s</string>
+    <string name="settings_library_export_summary">Library export complete: %1$d exported, %2$d skipped, %3$d failed.</string>
     <plurals name="settings_library_import_done">
         <item quantity="one">Library imported: %1$d item</item>
         <item quantity="other">Library imported: %1$d items</item>
     </plurals>
     <string name="settings_library_import_failed">Library import failed: %1$s</string>
+    <string name="settings_library_import_summary">Library import complete: %1$d imported, %2$d skipped, %3$d failed.</string>
     <string name="settings_library_import_more">, and more</string>
-    <string name="settings_library_import_skipped_invalid">Skipped %1$d unreadable entries (%2$s).</string>
+    <string name="settings_library_import_skipped_invalid">Failed to import %1$d unreadable entries (%2$s).</string>
     <string name="settings_library_import_skipped_non_portable">%1$d items point at files that only exist on the device that made this backup, so they were not restored (%2$s).</string>
     <string name="settings_library_import_skipped_duplicate">Skipped %1$d items already in your library (%2$s).</string>
-    <string name="settings_library_import_skipped_over_limit">Skipped %1$d items past the per-section import limit (%2$s).</string>
     <string name="settings_library_import_skipped_migration">%1$d downloads from an older backup format were not restored; downloads stay on the device that made them (%2$s).</string>
 
     <!-- Global apply/undo feedback (FreeVibeRoot snackbar) -->

@@ -4,6 +4,13 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Backups no longer report success after dropping library items**: favorites,
+  collections, collection membership, and search history now share one checked
+  transfer contract. Oversized exports stop before the destination is opened,
+  completed payloads are staged before publication, and failed copies clean up
+  partial files. Imports distinguish duplicates from invalid rows, and the app
+  reports exact imported, skipped, and failed counts.
+
 - **Release checks now prove the committed tree**: one command archives the
   selected Git commit and runs every tracked-input release, documentation, and
   legal gate inside it. Ignored maintainer files can no longer make the release

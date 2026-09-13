@@ -157,7 +157,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Shuffle FAB** | One-tap random wallpaper from current tab |
 | **Per-Contact Ringtones** | Assign custom ringtones with DND priority guidance and a VIP-only silent-default preset |
 | **Dual Wallpapers** | Coordinated home + lock screen wallpaper pairs |
-| **Favorites Export** | JSON export/import with full metadata via Android SAF |
+| **Portable Library Backup** | Staged JSON export/import for favorites, collections, searches, packs, and profiles. Checked limits prevent silent item loss, and import results separate duplicates from failed rows. |
 | **Theme Packs** | Local zip export/import for wallpaper, video, sound, widget tint, and launcher shortcut recipes |
 | **Community Voting** | Upvote/downvote wallpapers and sounds via Firebase |
 | **OLED Dark Theme** | Deep blacks, zero burn-in, Material 3 |

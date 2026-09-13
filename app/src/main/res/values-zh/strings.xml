@@ -417,7 +417,7 @@
     <string name="editor_sound_discard_title">放弃编辑？</string>
     <string name="editor_sound_discard_body">您的裁剪、淡入淡出和标准化设置将丢失。先应用它们还是放弃？</string>
     <string name="editor_sound_guidance_ready">适合用作铃声</string>
-    <string name="editor_sound_guidance_ready_body">铃声通常在 8–30 秒效果最佳。微调手柄，然后在应用前预览。</string>
+    <string name="editor_sound_guidance_ready_body">铃声通常在 8 至 30 秒效果最佳。微调手柄，然后在应用前预览。</string>
     <string name="editor_sound_guidance_short">更适合通知</string>
     <string name="editor_sound_guidance_short_body">此片段不足 8 秒。它仍然可以很好地用作通知或闹钟。</string>
     <string name="editor_sound_guidance_long">缩短选区</string>
@@ -456,6 +456,7 @@
     <string name="collections_share_prepare_failed">无法准备此收藏集以供分享。</string>
     <string name="collections_share_link_failed">无法为此收藏集创建分享链接。</string>
     <string name="collections_import_failed">无法导入此收藏集。</string>
+    <string name="collections_import_summary">%1$s 导入完成：已添加 %2$d 个，已跳过 %3$d 个，失败 %4$d 个。</string>
     <plurals name="collections_import_success">
         <item quantity="other">已将 %1$d 张壁纸导入 %2$s。</item>
     </plurals>
@@ -722,9 +723,11 @@
     <string name="favorites_title">收藏</string>
     <string name="favorites_export">导出收藏</string>
     <string name="favorites_import">导入收藏</string>
+    <string name="favorites_export_summary">收藏导出完成：已导出 %1$d 个，已跳过 %2$d 个，失败 %3$d 个。</string>
+    <string name="favorites_import_summary">收藏导入完成：已导入 %1$d 个，已跳过 %2$d 个，失败 %3$d 个。</string>
     <string name="favorites_download_all">下载所有壁纸</string>
     <string name="favorites_sort_recent">排序：最新在前</string>
-    <string name="favorites_sort_name">排序：名称 A–Z</string>
+    <string name="favorites_sort_name">排序：名称 A 至 Z</string>
     <string name="favorites_sort_oldest">排序：最早在前</string>
     <string name="favorites_source_unavailable">来源不可用</string>
 
@@ -1096,7 +1099,7 @@
     <string name="settings_reddit_subreddits_summary">已选择 %1$d 个 • 点击编辑</string>
     <string name="settings_reddit_subreddits_hint">输入以逗号或换行分隔的 subreddit 名称。r/ 前缀可选。留空可恢复 Aura 的默认设置。</string>
     <string name="settings_reddit_subreddits_input_label">子版块</string>
-    <string name="settings_reddit_subreddits_error">每个名称使用 2–40 个字母、数字或下划线，且社区数量不超过 12 个。</string>
+    <string name="settings_reddit_subreddits_error">每个名称使用 2 至 40 个字母、数字或下划线，且社区数量不超过 12 个。</string>
     <string name="settings_wp_bing_title">启用 Bing 每日来源</string>
     <string name="settings_wp_bing_on_subtitle">将 Bing 每日图片添加到发现和轮换中</string>
     <string name="settings_wp_bing_off_subtitle">跳过 Bing 每日图片请求，并将其从轮换选择器中隐藏</string>
@@ -1704,12 +1707,12 @@
 
     <!-- Sound profiles -->
     <string name="settings_sounds_profiles_title">按时段的声音配置文件</string>
-    <string name="settings_sounds_profiles_on_subtitle">%1$d 个配置文件生效中 — 声音按计划变化</string>
+    <string name="settings_sounds_profiles_on_subtitle">%1$d 个配置文件生效中。声音按计划变化。</string>
     <string name="settings_sounds_profiles_off_subtitle">为不同时间段分配不同的铃声、通知音和闹钟音</string>
 
     <!-- Wallpaper packs (24H) -->
     <string name="settings_wp_pack_title">24 小时壁纸包</string>
-    <string name="settings_wp_pack_on_subtitle">%1$d 个时段槽位 — 壁纸按一天中的时间变化</string>
+    <string name="settings_wp_pack_on_subtitle">%1$d 个时段槽位生效中。壁纸按一天中的时间变化。</string>
     <string name="settings_wp_pack_off_subtitle">将不同的壁纸映射到早晨、白天、傍晚和夜间</string>
 
     <!-- Sound detail: similar sounds -->
@@ -1719,23 +1722,24 @@
     <string name="settings_library_export_title">导出整个图库</string>
     <string name="settings_library_export_subtitle">将收藏、收藏集、壁纸包和配置文件导出为一个 JSON 文件，用于设备迁移</string>
     <string name="settings_library_import_title">导入整个图库</string>
-    <string name="settings_library_import_subtitle">恢复图库备份 — 项目将与现有内容合并</string>
+    <string name="settings_library_import_subtitle">恢复图库备份。项目将与现有内容合并。</string>
     <string name="settings_library_default_filename">aura-library-backup.json</string>
     <plurals name="settings_library_export_done">
         <item quantity="one">图库已导出：%1$d 个项目</item>
         <item quantity="other">图库已导出：%1$d 个项目</item>
     </plurals>
     <string name="settings_library_export_failed">图库导出失败：%1$s</string>
+    <string name="settings_library_export_summary">图库导出完成：已导出 %1$d 个，已跳过 %2$d 个，失败 %3$d 个。</string>
     <plurals name="settings_library_import_done">
         <item quantity="one">图库已导入：%1$d 个项目</item>
         <item quantity="other">图库已导入：%1$d 个项目</item>
     </plurals>
     <string name="settings_library_import_failed">图库导入失败：%1$s</string>
+    <string name="settings_library_import_summary">图库导入完成：已导入 %1$d 个，已跳过 %2$d 个，失败 %3$d 个。</string>
     <string name="settings_library_import_more">，以及更多</string>
-    <string name="settings_library_import_skipped_invalid">跳过了 %1$d 个无法读取的条目（%2$s）。</string>
+    <string name="settings_library_import_skipped_invalid">%1$d 个无法读取的条目导入失败（%2$s）。</string>
     <string name="settings_library_import_skipped_non_portable">%1$d 个项目指向仅存在于创建此备份的设备上的文件，因此未恢复（%2$s）。</string>
     <string name="settings_library_import_skipped_duplicate">跳过了 %1$d 个已在图库中的项目（%2$s）。</string>
-    <string name="settings_library_import_skipped_over_limit">跳过了 %1$d 个超出每部分导入限制的项目（%2$s）。</string>
     <string name="settings_library_import_skipped_migration">来自旧版备份格式的 %1$d 个下载未恢复；下载内容保留在创建它们的设备上（%2$s）。</string>
 
     <!-- Global apply/undo feedback (FreeVibeRoot snackbar) -->

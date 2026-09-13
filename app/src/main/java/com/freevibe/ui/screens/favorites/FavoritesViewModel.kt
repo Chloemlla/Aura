@@ -78,7 +78,12 @@ class FavoritesViewModel @Inject constructor(
         exporter.export(uri)
             .onSuccess { count ->
                 _message.update {
-                    context.resources.getQuantityString(R.plurals.favorites_exported, count, count)
+                    context.getString(
+                        R.string.favorites_export_summary,
+                        count,
+                        0,
+                        0,
+                    )
                 }
             }
             .onFailure { e ->
@@ -93,9 +98,14 @@ class FavoritesViewModel @Inject constructor(
 
     fun importFavorites(uri: Uri) = viewModelScope.launch {
         exporter.import(uri)
-            .onSuccess { count ->
+            .onSuccess { outcome ->
                 _message.update {
-                    context.resources.getQuantityString(R.plurals.favorites_imported, count, count)
+                    context.getString(
+                        R.string.favorites_import_summary,
+                        outcome.imported,
+                        outcome.skipped,
+                        outcome.failed,
+                    )
                 }
             }
             .onFailure { e ->

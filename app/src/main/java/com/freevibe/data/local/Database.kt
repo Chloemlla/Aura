@@ -155,6 +155,9 @@ interface DownloadDao {
 @Dao
 interface SearchHistoryDao {
 
+    @Query("SELECT * FROM search_history ORDER BY timestamp DESC")
+    suspend fun getAll(): List<SearchHistoryEntity>
+
     @Query("SELECT * FROM search_history WHERE type = :type ORDER BY timestamp DESC LIMIT :limit")
     fun getRecent(type: String, limit: Int = 20): Flow<List<SearchHistoryEntity>>
 

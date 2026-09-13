@@ -39,12 +39,10 @@ import javax.inject.Singleton
  * links that fit comfortably in QR codes.
  */
 private val FILENAME_SANITIZE_REGEX = Regex("[^a-zA-Z0-9_-]")
-private val SHARE_TOKEN_REGEX = Regex("^[A-Za-z0-9_-]{8,80}$")
-private const val MAX_IMPORT_BYTES = 512 * 1024
-private const val MAX_QR_IMAGE_BYTES = 4L * 1024 * 1024
-private const val MAX_QR_IMAGE_DIMENSION = 4096
-private const val MAX_QR_IMAGE_PIXELS = 12_000_000L
-private const val MAX_IMPORT_ITEMS = 250
+private val SHARE_TOKEN_REGEX = Regex(
+    "^[A-Za-z0-9_-]{${LibraryTransferContract.MIN_SHARE_TOKEN_CHARS}," +
+        "${LibraryTransferContract.MAX_SHARE_TOKEN_CHARS}}$"
+)
 private const val CURRENT_VERSION = 1
 
 @Singleton
@@ -63,7 +61,7 @@ class CollectionExporter @Inject constructor(
         withContext(Dispatchers.IO) {
             runCatching {
                 val file = buildExportFile(collectionId, collectionName)
-                val json = adapter.toJson(file)
+                val json = serialize(file)
                 val uri = writeShareFile(collectionId, file.collectionName, json)
                 val token = publishPayload(json, file.collectionName, file.items.size)
                 CollectionShareBundle(
@@ -78,15 +76,15 @@ class CollectionExporter @Inject constructor(
     suspend fun prepareShareUri(collectionId: Long, collectionName: String): Result<Uri> = withContext(Dispatchers.IO) {
         runCatching {
             val file = buildExportFile(collectionId, collectionName)
-            writeShareFile(collectionId, file.collectionName, adapter.toJson(file))
+            writeShareFile(collectionId, file.collectionName, serialize(file))
         }.onFailure { it.rethrowIfCancelled() }
     }
 
     suspend fun publishShareLink(collectionId: Long, collectionName: String): Result<CollectionShareLink> =
         withContext(Dispatchers.IO) {
             runCatching {
-                val file = buildExportFile(collectionId, collectionName)
-                val token = publishPayload(adapter.toJson(file), file.collectionName, file.items.size)
+            val file = buildExportFile(collectionId, collectionName)
+            val token = publishPayload(serialize(file), file.collectionName, file.items.size)
                 CollectionShareLink(
                     token = token,
                     link = buildShareLink(token),
@@ -139,6 +137,11 @@ class CollectionExporter @Inject constructor(
         }
 
     fun buildQrBitmap(text: String, sizePx: Int = 768): Bitmap {
+        requireWithinTransferLimit(
+            "Collection QR dimensions",
+            sizePx,
+            LibraryTransferContract.MAX_QR_IMAGE_DIMENSION,
+        )
         val matrix = QRCodeWriter().encode(
             text,
             BarcodeFormat.QR_CODE,
@@ -158,12 +161,17 @@ class CollectionExporter @Inject constructor(
     private suspend fun buildExportFile(collectionId: Long, collectionName: String): CollectionExportFile {
         val items = collectionDao.getCollectionItems(collectionId).first()
         if (items.isEmpty()) throw IllegalStateException("This collection is empty - add a wallpaper first.")
+        requireWithinTransferLimit(
+            "Collection export items",
+            items.size,
+            LibraryTransferContract.MAX_COLLECTION_ITEMS,
+        )
 
         return CollectionExportFile(
             version = CURRENT_VERSION,
             exportedAt = System.currentTimeMillis(),
             collectionName = sanitizeImportedCollectionName(collectionName),
-            items = items.take(MAX_IMPORT_ITEMS).map {
+            items = items.map {
                 CollectionExportItem(
                     wallpaperId = it.wallpaperId,
                     source = it.source,
@@ -176,13 +184,22 @@ class CollectionExporter @Inject constructor(
         )
     }
 
+    private fun serialize(file: CollectionExportFile): String {
+        val json = adapter.toJson(file)
+        requireWithinTransferLimit(
+            "Collection document bytes",
+            json.toByteArray(Charsets.UTF_8).size,
+            LibraryTransferContract.MAX_COLLECTION_DOCUMENT_BYTES,
+        )
+        return json
+    }
+
     private fun writeShareFile(collectionId: Long, collectionName: String, json: String): Uri {
         ShareOutbox.pruneStaleFiles(context)
         val shareDir = ShareOutbox.directory(context)
         val safeName = collectionName.replace(FILENAME_SANITIZE_REGEX, "_").ifBlank { "collection" }
-        val shareFile = File(shareDir, "aura_${safeName}_${collectionId}.json").apply {
-            writeBytes(json.toByteArray(Charsets.UTF_8))
-        }
+        val shareFile = File(shareDir, "aura_${safeName}_${collectionId}.json")
+        publishAtomicLocalFile(shareFile, json.toByteArray(Charsets.UTF_8))
         return ShareOutbox.uriFor(context, shareFile)
     }
 
@@ -218,7 +235,7 @@ class CollectionExporter @Inject constructor(
                 val read = input.read(buffer)
                 if (read < 0) break
                 total += read
-                if (total > MAX_IMPORT_BYTES) {
+                if (total > LibraryTransferContract.MAX_COLLECTION_DOCUMENT_BYTES) {
                     throw IllegalArgumentException("Collection file is too large to import safely.")
                 }
                 output.write(buffer, 0, read)
@@ -229,7 +246,10 @@ class CollectionExporter @Inject constructor(
     }
 
     private suspend fun importJson(json: String): CollectionImportResult {
-        if (json.toByteArray(Charsets.UTF_8).size > MAX_IMPORT_BYTES) {
+        if (
+            json.toByteArray(Charsets.UTF_8).size >
+            LibraryTransferContract.MAX_COLLECTION_DOCUMENT_BYTES
+        ) {
             throw IllegalArgumentException("Collection file is too large to import safely.")
         }
         val file = adapter.fromJson(json)
@@ -237,11 +257,13 @@ class CollectionExporter @Inject constructor(
         if (file.version != CURRENT_VERSION) {
             throw IllegalArgumentException("This collection format is not supported by this Aura version.")
         }
-        if (file.items.size > MAX_IMPORT_ITEMS) {
-            throw IllegalArgumentException("Too many collection items (${file.items.size}). Maximum is $MAX_IMPORT_ITEMS.")
-        }
-        val importItems = buildCollectionImportItems(file.items)
-        if (importItems.isEmpty()) {
+        requireWithinTransferLimit(
+            "Collection import items",
+            file.items.size,
+            LibraryTransferContract.MAX_COLLECTION_ITEMS,
+        )
+        val importPlan = buildCollectionImportPlan(file.items)
+        if (importPlan.items.isEmpty()) {
             throw IllegalArgumentException("This collection does not contain importable wallpapers.")
         }
 
@@ -249,19 +271,21 @@ class CollectionExporter @Inject constructor(
         val importedName = "$name (Imported)"
         val collectionId = collectionDao.importCollection(
             collection = WallpaperCollectionEntity(name = importedName),
-            items = importItems,
+            items = importPlan.items,
         )
         return CollectionImportResult(
             collectionId = collectionId,
             collectionName = importedName,
-            itemCount = importItems.size,
+            itemCount = importPlan.items.size,
+            skippedCount = importPlan.skippedCount,
+            failedCount = importPlan.failedCount,
         )
     }
 
     private fun decodeQrText(uri: Uri): String {
         val bytes = try {
             context.contentResolver.openInputStream(uri)?.use { input ->
-                readStreamCapped(input, MAX_QR_IMAGE_BYTES)
+                readStreamCapped(input, LibraryTransferContract.MAX_QR_IMAGE_BYTES)
             }
         } catch (e: MediaIngestionLimitExceeded) {
             throw IllegalArgumentException("QR image is too large to import safely.", e)
@@ -274,9 +298,9 @@ class CollectionExporter @Inject constructor(
         if (
             width <= 0 ||
             height <= 0 ||
-            width > MAX_QR_IMAGE_DIMENSION ||
-            height > MAX_QR_IMAGE_DIMENSION ||
-            pixels > MAX_QR_IMAGE_PIXELS
+            width > LibraryTransferContract.MAX_QR_IMAGE_DIMENSION ||
+            height > LibraryTransferContract.MAX_QR_IMAGE_DIMENSION ||
+            pixels > LibraryTransferContract.MAX_QR_IMAGE_PIXELS
         ) {
             throw IllegalArgumentException("QR image is too large to import safely.")
         }
@@ -317,6 +341,14 @@ data class CollectionImportResult(
     val collectionId: Long,
     val collectionName: String,
     val itemCount: Int,
+    val skippedCount: Int,
+    val failedCount: Int,
+)
+
+internal data class CollectionImportPlan(
+    val items: List<WallpaperCollectionItemEntity>,
+    val skippedCount: Int,
+    val failedCount: Int,
 )
 
 @JsonClass(generateAdapter = true)
@@ -359,29 +391,49 @@ internal fun extractCollectionShareToken(input: String): String? {
 internal fun sanitizeImportedCollectionName(name: String): String =
     name.trim()
         .replace(Regex("\\s+"), " ")
-        .take(80)
+        .take(LibraryTransferContract.MAX_COLLECTION_NAME_CHARS)
 
 internal fun buildCollectionImportItems(items: List<CollectionExportItem>): List<WallpaperCollectionItemEntity> =
-    items.asSequence()
-        .take(MAX_IMPORT_ITEMS)
-        .mapNotNull { item ->
-            val wallpaperId = normalizeImportedText(item.wallpaperId).takeIf { it.isNotBlank() }
-                ?: return@mapNotNull null
-            val fullUrl = normalizeImportedHttpsUrl(item.fullUrl) ?: return@mapNotNull null
-            val thumbnailUrl = normalizeImportedHttpsUrl(item.thumbnailUrl, allowBlank = true)
-                ?.ifBlank { fullUrl }
-                ?: return@mapNotNull null
-            val source = normalizeImportedContentSource(item.source, blankDefault = "REDDIT")
-                ?: return@mapNotNull null
-            WallpaperCollectionItemEntity(
-                collectionId = 0L,
-                wallpaperId = wallpaperId,
-                thumbnailUrl = thumbnailUrl,
-                fullUrl = fullUrl,
-                source = source,
-                width = item.width.coerceAtLeast(0),
-                height = item.height.coerceAtLeast(0),
-            )
+    buildCollectionImportPlan(items).items
+
+internal fun buildCollectionImportPlan(items: List<CollectionExportItem>): CollectionImportPlan {
+    requireWithinTransferLimit(
+        "Collection import items",
+        items.size,
+        LibraryTransferContract.MAX_COLLECTION_ITEMS,
+    )
+    val seen = mutableSetOf<Pair<String, String>>()
+    val imported = mutableListOf<WallpaperCollectionItemEntity>()
+    var skipped = 0
+    var failed = 0
+    items.forEach { item ->
+        val wallpaperId = normalizeImportedText(item.wallpaperId).takeIf { it.isNotBlank() }
+        val fullUrl = normalizeImportedHttpsUrl(item.fullUrl)
+        val thumbnailUrl = fullUrl?.let { fallbackUrl ->
+            normalizeImportedHttpsUrl(item.thumbnailUrl, allowBlank = true)?.ifBlank { fallbackUrl }
         }
-        .distinctBy { item -> item.source to item.wallpaperId }
-        .toList()
+        val source = normalizeImportedContentSource(item.source, blankDefault = "REDDIT")
+        if (wallpaperId == null || fullUrl == null || thumbnailUrl == null || source == null) {
+            failed++
+            return@forEach
+        }
+        if (!seen.add(source to wallpaperId)) {
+            skipped++
+            return@forEach
+        }
+        imported += WallpaperCollectionItemEntity(
+            collectionId = 0L,
+            wallpaperId = wallpaperId,
+            thumbnailUrl = thumbnailUrl,
+            fullUrl = fullUrl,
+            source = source,
+            width = item.width.coerceAtLeast(0),
+            height = item.height.coerceAtLeast(0),
+        )
+    }
+    return CollectionImportPlan(
+        items = imported,
+        skippedCount = skipped,
+        failedCount = failed,
+    )
+}

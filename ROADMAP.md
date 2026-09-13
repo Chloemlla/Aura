@@ -6,13 +6,6 @@ Actionable work only. Historical and completed roadmap material is archived in C
 
 ### P1
 
-- [ ] P1 — Preserve every item during library export and import
-  Why: backup is a trust feature, but current limits disagree and collection export can silently omit items. A successful export that loses favorites or collection membership is worse than a clear refusal.
-  Evidence: **Verified.** `docs/data/export-format.json:11` records 10,000 favorites and 500 collection items; `FavoritesExporter.kt:23` caps imports at 5,000; `CollectionExporter.kt:47,240-241` uses a lower collection limit; `CollectionExporter.kt:166` calls `take(MAX_IMPORT_ITEMS)` while exporting with no warning.
-  Touches: `docs/data/export-format.json`, `FavoritesExporter.kt`, `CollectionExporter.kt`, `LibraryExporter.kt`, import validation, UI progress/error copy, tests.
-  Acceptance: one machine-readable contract supplies every export/import limit; export either writes every selected item or refuses before creating the destination; no `take` or equivalent can silently truncate; output is staged and atomically published; tests cover zero, limit minus one, limit, limit plus one, cancellation, partial-write cleanup, duplicate IDs, and round-trip equality for the documented maximum; the UI reports exact exported, skipped, and failed counts.
-  Complexity: M
-
 - [ ] P1 — Make public provider claims derive from production truth
   Why: source availability is described differently in the app, capability registry, README, store metadata, distribution packets, and community posts. Users cannot tell which providers are active, require a key, are legacy-only, or are disabled by channel.
   Evidence: **Verified.** `README.md:189-193` calls Reddit active and first; `fastlane/metadata/android/en-US/full_description.txt:30` says Reddit's public feed is off and calls Freesound active; `ProviderCapability.kt` marks Reddit active and several old sound sources legacy; `docs/distribution/alt-store-metadata.json` still lists dormant providers; Discussion #45 says there are no translations after PR #48 added Chinese.

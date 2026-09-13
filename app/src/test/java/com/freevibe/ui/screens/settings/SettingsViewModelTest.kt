@@ -513,7 +513,9 @@ class SettingsViewModelTest {
             ytDlpUpdateManager = ytDlpUpdateManager,
             themePackRecipeManager = themePackRecipeManager,
             libraryExporter = mockk<com.freevibe.service.LibraryExporter>().also {
-                coEvery { it.exportLibrary(any()) } returns Result.success(0)
+                coEvery { it.exportLibrary(any()) } returns Result.success(
+                    com.freevibe.service.LibraryExportOutcome(0, 0, 0)
+                )
                 coEvery { it.importLibrary(any()) } returns Result.success(
                     com.freevibe.service.LibraryImportOutcome(
                         sourceVersion = 2,

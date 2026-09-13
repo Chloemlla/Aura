@@ -25,12 +25,12 @@ enum class LibraryImportSkipReason {
     /** Already present here; the existing row wins. */
     DUPLICATE,
 
-    /** Past the per-section import ceiling. */
-    OVER_LIMIT,
-
     /** The field existed in an older payload version and this build no longer restores it. */
     DROPPED_BY_MIGRATION,
 }
+
+internal val LibraryImportSkipReason.isFailure: Boolean
+    get() = this == LibraryImportSkipReason.INVALID || this == LibraryImportSkipReason.NON_PORTABLE
 
 /** One row that will not be written, and why. */
 data class LibraryImportSkip(
@@ -63,10 +63,17 @@ data class LibraryImportPlan(
 ) {
     /** Rows that will actually be written. */
     val writeCount: Int
-        get() = favorites.size + collections.size + collections.sumOf { it.items.size } +
+        get() = favorites.size + collections.count { it.existingId == null } +
+            collections.sumOf { it.items.size } +
             searchHistory.size +
             (if (wallpaperPackJson.isNotBlank()) 1 else 0) +
             (if (soundProfilesJson.isNotBlank()) 1 else 0)
+
+    val skippedCount: Int
+        get() = skipped.count { !it.reason.isFailure }
+
+    val failedCount: Int
+        get() = skipped.count { it.reason.isFailure }
 
     /** Rows the user's backup contained but this device cannot restore. */
     val nonPortable: List<LibraryImportSkip>
@@ -78,6 +85,18 @@ data class LibraryImportOutcome(
     val sourceVersion: Int,
     val written: Int,
     val skipped: List<LibraryImportSkip>,
+) {
+    val skippedCount: Int
+        get() = skipped.count { !it.reason.isFailure }
+
+    val failed: Int
+        get() = skipped.count { it.reason.isFailure }
+}
+
+data class LibraryExportOutcome(
+    val exported: Int,
+    val skipped: Int,
+    val failed: Int,
 )
 
 /** Raised when a payload cannot be restored at all. Message is user-facing. */

@@ -36,6 +36,7 @@ checksum, and release-note validation.
 | Background work network posture | `tools/background_work_network_check.py` | Checks worker network posture, Data Saver gaps, privacy surfaces, scheduler source terms, and release docs. |
 | Background work device evidence | `tools/background_work_device_evidence_check.py` | Checks the device/emulator scheduler evidence plan, adb/dumpsys commands, source URLs, and release docs. |
 | Community guidelines consent | `tools/community_guidelines_consent_check.py` | Checks UGC guidelines, consent state, Settings entry, community screens, repository gates, and Play packet evidence. |
+| Library transfer contract | `tools/export_format_check.py` | Keeps every backup limit tied to the runtime contract and rejects silent item truncation or unstaged publication. |
 | Play App content packet | `tools/play_app_content_packet_check.py` | Keeps Play app access, target audience, content rating, Data safety, UGC, generated content, and sensitive-permission evidence aligned. |
 | Alternative-store disclosure matrix | `tools/alt_store_metadata_check.py` | Keeps GitHub/Obtainium/Izzy/F-Droid channel status, permission disclosures, network service rows, and proprietary dependency markers aligned. |
 | Release metadata consistency | `tools/release_metadata_consistency_check.py` | Keeps package/version metadata, Fastlane text, README links, privacy URLs, release docs, and artifact lists aligned. |
@@ -98,6 +99,7 @@ python3 tools/background_work_scheduling_check.py --policy docs/background-work-
 python3 tools/background_work_network_check.py --policy docs/background-work-network-posture.json --repo-root .
 python3 tools/background_work_device_evidence_check.py --policy docs/background-work-device-evidence.json --repo-root .
 python3 tools/community_guidelines_consent_check.py --repo-root .
+python3 tools/export_format_check.py --spec docs/data/export-format.json --repo-root .
 python3 tools/play_app_content_packet_check.py --policy docs/distribution/play-app-content.json --repo-root .
 python3 tools/alt_store_metadata_check.py --policy docs/distribution/alt-store-metadata.json --repo-root .
 python3 tools/release_metadata_consistency_check.py --policy docs/distribution/release-metadata-consistency.json --repo-root .

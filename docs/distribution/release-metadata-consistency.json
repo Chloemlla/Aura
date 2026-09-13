@@ -9,6 +9,9 @@
     "README.md",
     "CHANGELOG.md",
     "tools/release_clean_clone_check.py",
+    "tools/export_format_check.py",
+    "app/src/main/java/com/freevibe/service/LibraryTransferContract.kt",
+    "docs/data/export-format.json",
     "fastlane/metadata/android/en-US/title.txt",
     "fastlane/metadata/android/en-US/short_description.txt",
     "fastlane/metadata/android/en-US/full_description.txt",
@@ -46,6 +49,7 @@
     "tools/background_work_network_check.py",
     "tools/background_work_device_evidence_check.py",
     "tools/community_guidelines_consent_check.py",
+    "tools/export_format_check.py",
     "tools/play_app_content_packet_check.py",
     "tools/alt_store_metadata_check.py",
     "tools/sbom_readiness_check.py",
@@ -158,6 +162,10 @@
     {
       "id": "community-guidelines",
       "command": ["tools/community_guidelines_consent_check.py", "--repo-root", "."]
+    },
+    {
+      "id": "export-format",
+      "command": ["tools/export_format_check.py", "--spec", "docs/data/export-format.json", "--repo-root", "."]
     },
     {
       "id": "play-app-content",
