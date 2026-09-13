@@ -238,8 +238,13 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
         credential["gradleProperty"] = require_nullable_string(credential["gradleProperty"], f"{credential_id}.gradleProperty")
         settings_label = require_nullable_string(credential["settingsLabel"], f"{credential_id}.settingsLabel")
         release_default = require_string(credential["releaseDefault"], f"{credential_id}.releaseDefault")
-        require_string(credential["userControl"], f"{credential_id}.userControl")
+        user_control = require_string(credential["userControl"], f"{credential_id}.userControl")
         redaction_terms = require_string_list(credential["redactionTerms"], f"{credential_id}.redactionTerms")
+        settings_exposure = credential.get("settingsExposure")
+        if settings_exposure is not None and settings_exposure != "legacyHidden":
+            raise ProviderCredentialStorageError(
+                f"{credential_id}.settingsExposure must be legacyHidden when present"
+            )
 
         for term in (credential_id, provider, classification):
             if term not in docs_text:
@@ -253,8 +258,16 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
                 raise ProviderCredentialStorageError(f"PreferencesManager missing legacy key {preference_key}")
             if provider_credential_source_marker(preference_key) not in preferences_manager_text:
                 raise ProviderCredentialStorageError(f"PreferencesManager missing encrypted mapping for {preference_key}")
-            if not settings_label or settings_label not in settings_screen_text:
+            if settings_label and settings_label not in settings_screen_text:
                 raise ProviderCredentialStorageError(f"Settings screen missing label for {credential_id}")
+            if not settings_label and settings_exposure != "legacyHidden":
+                raise ProviderCredentialStorageError(
+                    f"{credential_id} encrypted rows require a Settings label unless marked legacyHidden"
+                )
+            if settings_exposure == "legacyHidden" and "no settings field" not in user_control.lower():
+                raise ProviderCredentialStorageError(
+                    f"{credential_id} legacyHidden rows must document that no Settings field is exposed"
+                )
         elif preference_key:
             raise ProviderCredentialStorageError(f"{credential_id} buildConfigOnly rows must not set preferenceKey")
 

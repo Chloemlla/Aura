@@ -184,16 +184,34 @@ rotation, while tapping it still queues one wallpaper change when scheduling is 
 
 ## Content Sources
 
-| Source | Content | Auth |
-|--------|---------|------|
-| [Wallhaven](https://wallhaven.cc) | 1M+ HD/4K wallpapers | None (optional key for NSFW) |
-| [Pexels](https://pexels.com) | Curated HD photos + videos | User key required in public releases |
-| [Pixabay](https://pixabay.com) | Editor's choice photos + videos | User key required in public releases |
-| [Reddit](https://reddit.com) | Reddit-first mobile wallpapers, live wallpapers, and cinemagraphs via 100-entry public Atom pages with cursor pagination, a two-hour cache, and stale fallback | None |
-| [YouTube](https://youtube.com) | Video wallpapers + active sound feed via NewPipe + yt-dlp | None |
-| Aura Originals | 25 offline ringtones, notification sounds, and alarms synthesized for Aura | None |
-| [Freesound](https://freesound.org) | Legacy sound attribution for older favorites | Optional legacy key |
-| Firebase | Community wallpaper/sound uploads + voting | Built-in |
+<!-- provider-manifest:start -->
+| Source | Media and role | Status | Access |
+|---|---|---|---|
+| [Reddit](https://reddit.com) | Wallpapers, Videos. Reddit-first mobile wallpapers and video wallpapers from public Atom feeds. | Active | No key; Full + FOSS; GitHub/Obtainium + Play |
+| [YouTube](https://youtube.com) | Sounds, Videos. YouTube-first sound discovery and optional video wallpapers in GitHub and Obtainium builds. | Active | No key; Full + FOSS; GitHub/Obtainium |
+| [Wallhaven](https://wallhaven.cc) | Wallpapers. HD and 4K wallpaper browsing and search with an optional key for account-level access. | Active | Optional key; Full + FOSS; GitHub/Obtainium + Play |
+| [Aura Originals](https://github.com/SysAdminDoc/Aura/blob/main/docs/aura-originals-license.md) | Sounds. Twenty-five offline ringtones, notification sounds, and alarms included with Aura. | Active | No key; Full + FOSS; GitHub/Obtainium + Play |
+| [Pexels](https://pexels.com) | Wallpapers, Videos. Photo and video browsing after the user adds a Pexels API key. | Active | User key required; Full + FOSS; GitHub/Obtainium + Play |
+| [Pixabay](https://pixabay.com) | Wallpapers, Videos. Photo and video browsing after the user adds a Pixabay API key. | Active | User key required; Full + FOSS; GitHub/Obtainium + Play |
+| [Bing Image of the Day](https://www.bing.com) | Wallpapers. Bing's daily image with its source and copyright details. | Active | No key; Full + FOSS; GitHub/Obtainium + Play |
+| [Wikimedia Commons](https://commons.wikimedia.org) | Wallpapers. Wikimedia's Picture of the Day with author and license metadata. | Active | No key; Full + FOSS; GitHub/Obtainium + Play |
+| [NASA APOD](https://apod.nasa.gov) | Wallpapers. Astronomy Picture of the Day and historical picks with photographer credit. | Active | No key; Full + FOSS; GitHub/Obtainium + Play |
+| [Lemmy](https://lemmy.world) | Wallpapers. Community-voted wallpapers from public federated wallpaper communities. | Active | No key; Full + FOSS; GitHub/Obtainium + Play |
+| [Aura Community](https://github.com/SysAdminDoc/Aura) | Wallpapers, Sounds. Opt-in community wallpaper and sound uploads with voting and reporting. | Community (opt-in) | No key; Full build; GitHub/Obtainium + Play |
+| [Local device media](https://developer.android.com/training/data-storage/shared/photopicker) | Wallpapers, Videos, Sounds. Wallpapers, videos, and sounds selected from the device by the user. | Local | No key; Full + FOSS; GitHub/Obtainium + Play |
+| [AI-generated](https://platform.stability.ai/legal) | Wallpapers. Prompt-created wallpapers after the user accepts the disclosure and supplies a provider key. | Generated (opt-in) | User key required; Full build; GitHub/Obtainium + Play |
+| [Open-Meteo](https://open-meteo.com) | Wallpapers. Weather data used only when optional wallpaper effects are enabled. | Active | No key; Full + FOSS; GitHub/Obtainium + Play |
+| [Lorem Picsum](https://picsum.photos) | Wallpapers. Legacy attribution only for older saved placeholder images. | Legacy attribution only | Saved items only; Full + FOSS; GitHub/Obtainium + Play |
+| [Internet Archive](https://archive.org) | Sounds. Legacy attribution only for older saved audio. | Legacy attribution only | Saved items only; Full + FOSS; GitHub/Obtainium + Play |
+| [Freesound](https://freesound.org) | Sounds. Legacy attribution only for older saved and bundled-source sounds. | Legacy attribution only | Saved items only; Full + FOSS; GitHub/Obtainium + Play |
+| [Jamendo](https://www.jamendo.com) | Sounds. Legacy attribution only for older saved music. | Legacy attribution only | Saved items only; Full + FOSS; GitHub/Obtainium + Play |
+| [Audius](https://audius.co) | Sounds. Legacy attribution only for older saved music. | Legacy attribution only | Saved items only; Full + FOSS; GitHub/Obtainium + Play |
+| [ccMixter](https://ccmixter.org) | Sounds. Legacy attribution only for older saved Creative Commons music. | Legacy attribution only | Saved items only; Full + FOSS; GitHub/Obtainium + Play |
+| [Klipy](https://klipy.com) | Videos. Legacy attribution only for older saved animated media. | Legacy attribution only | Saved items only; Full + FOSS; GitHub/Obtainium + Play |
+| [SoundCloud](https://soundcloud.com) | Sounds. Legacy attribution only for older saved sounds. | Legacy attribution only | Saved items only; Full + FOSS; GitHub/Obtainium + Play |
+<!-- provider-manifest:end -->
+
+This table is checked against the [provider capability manifest](docs/providers/provider-manifest.json), which also controls provider order and channel availability.
 
 ## Architecture
 

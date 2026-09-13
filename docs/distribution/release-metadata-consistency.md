@@ -96,6 +96,11 @@ working tree. It fails if required evidence is missing or untracked, if an
 active document points to a deleted workflow file, or if any tracked-input
 release, documentation, or legal gate fails.
 
+Provider availability is part of this contract. The provider-truth gate checks
+the production registry against `docs/providers/provider-manifest.json`, then
+checks the README table, Play description, and both distribution packets. A
+provider lifecycle or channel change cannot ship with stale public copy.
+
 ## Sources
 
 - Google Play app creation and store listing fields: https://support.google.com/googleplay/android-developer/answer/9859152

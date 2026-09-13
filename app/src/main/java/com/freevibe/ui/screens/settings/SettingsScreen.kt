@@ -433,7 +433,6 @@ fun SettingsScreen(
                 wallhavenApiKey = wallhavenApiKey,
                 pexelsApiKey = pexelsApiKey,
                 pixabayApiKey = pixabayApiKey,
-                freesoundApiKey = freesoundApiKey,
                 generatedWallpaperProviderKey = generatedWallpaperProviderKey,
                 providerCredentialStorageUnavailable = providerCredentialStorageUnavailable,
                 generatedContentProviderEnabled = generatedContentProviderEnabled,

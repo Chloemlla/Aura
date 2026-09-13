@@ -1501,11 +1501,6 @@
     <string name="settings_services_pixabay_dialog_title">Pixabay API Key</string>
     <string name="settings_services_pixabay_dialog_desc">Get a free key at pixabay.com/api/docs</string>
     <string name="settings_services_pixabay_dialog_placeholder">Paste API key here</string>
-    <string name="settings_services_freesound_key_title">Freesound API Key</string>
-    <string name="settings_services_freesound_key_subtitle">Optional token for Freesound sound search</string>
-    <string name="settings_services_freesound_dialog_title">Freesound API Key</string>
-    <string name="settings_services_freesound_dialog_desc">Paste a Freesound API token for sound search.</string>
-    <string name="settings_services_freesound_dialog_placeholder">Paste API token here</string>
     <string name="settings_storage_downloads_title">Downloads</string>
     <string name="settings_storage_downloads_subtitle">Review wallpapers, sounds, and videos saved by Aura</string>
     <string name="settings_storage_free_up_title">Free up storage</string>
@@ -1619,7 +1614,7 @@
     <string name="settings_perm_wallpaper">Set wallpaper</string>
     <string name="settings_perm_wallpaper_desc">Apply images as home or lock screen wallpaper. No data leaves the device.</string>
     <string name="settings_perm_internet">Internet</string>
-    <string name="settings_perm_internet_desc">Fetch wallpapers, videos, and sounds from Wallhaven, Pexels, Pixabay, YouTube (NewPipe/yt-dlp), and Freesound. Community features use Firebase.</string>
+    <string name="settings_perm_internet_desc">Fetch media from Reddit, Wallhaven, Bing, Wikimedia, NASA, Lemmy, and optional Pexels or Pixabay sources. GitHub builds also offer YouTube. Community features use Firebase.</string>
     <string name="settings_perm_notifications">Notifications</string>
     <string name="settings_perm_notifications_desc">Daily wallpaper reminders and download completion alerts. Only active when you enable daily wallpaper or download content.</string>
     <string name="settings_perm_location">Approximate location</string>

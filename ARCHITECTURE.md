@@ -19,17 +19,17 @@ Living architecture overview for contributors. Internal working notes live in `C
 │   process-death survival — NX-4).                                  │
 ├────────────────────────────────────────────────────────────────────┤
 │  Repositories (data/repository/)                                   │
-│   One per source: Wallhaven / Pexels / Pixabay / Bing / Reddit /   │
-│   YouTube / Freesound v2 (legacy) / SoundCloud (legacy) / Audius   │
-│   (legacy) / ccMixter (legacy) / AI / Collection / Vote / Upload / │
-│   CreatorProfile / Favorites / SearchHistory / WallpaperUpload.    │
+│   One per active source: Wallhaven / Pexels / Pixabay / Bing /     │
+│   Reddit / YouTube / AI / Collection / Vote / Upload / Favorites / │
+│   CreatorProfile / SearchHistory / WallpaperUpload. Dormant source  │
+│   repositories remain only for legacy record attribution.          │
 │   Aggregator: WallpaperRepository.getDiscover() mixes feeds with   │
 │   per-source timeouts.                                             │
 ├────────────────────────────────────────────────────────────────────┤
 │  Network (data/remote/)                                            │
-│   Retrofit interfaces + Moshi + OkHttp. RateLimitInterceptor on    │
-│   Freesound. SourceMetrics singleton wraps every fetch with p50/p95│
-│   latency + success-ratio rolling counters (Settings → Diagnostics)│
+│   Retrofit interfaces + Moshi + OkHttp. ProviderCapability sets    │
+│   lifecycle, build, channel, media, priority, and allowed actions.  │
+│   SourceMetrics wraps active fetches with latency/success counters. │
 ├────────────────────────────────────────────────────────────────────┤
 │  Local (data/local/)                                               │
 │   Room DB v17 (favorites, downloads, search_history, wallpaper_    │

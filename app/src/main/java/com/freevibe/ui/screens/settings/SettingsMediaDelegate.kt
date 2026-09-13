@@ -84,7 +84,6 @@ internal class SettingsMediaDelegate(
     val wallhavenApiKey = prefs.wallhavenApiKey.stateIn(scope, sharing, "")
     val pexelsApiKey = prefs.pexelsApiKey.stateIn(scope, sharing, "")
     val pixabayApiKey = prefs.pixabayApiKey.stateIn(scope, sharing, "")
-    val freesoundApiKey = prefs.freesoundApiKey.stateIn(scope, sharing, "")
     val generatedWallpaperProviderKey = prefs.generatedWallpaperProviderKey.stateIn(scope, sharing, "")
     val providerCredentialStorageUnavailable = prefs.providerCredentialStorageUnavailable
     val generatedContentProviderEnabled = prefs.generatedContentProviderEnabled.stateIn(
@@ -165,7 +164,6 @@ internal class SettingsMediaDelegate(
     fun setWallhavenKey(key: String) = scope.launch { prefs.setWallhavenKey(key) }
     fun setPexelsKey(key: String) = scope.launch { prefs.setPexelsKey(key) }
     fun setPixabayKey(key: String) = scope.launch { prefs.setPixabayKey(key) }
-    fun setFreesoundKey(key: String) = scope.launch { prefs.setFreesoundKey(key) }
     fun setGeneratedWallpaperProviderKey(key: String) =
         scope.launch { prefs.setGeneratedWallpaperProviderKey(key) }
     fun setWallhavenProviderEnabled(enabled: Boolean) = scope.launch { prefs.setWallhavenProviderEnabled(enabled) }

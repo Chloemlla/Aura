@@ -15,7 +15,6 @@ import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.ImageSearch
 import androidx.compose.material.icons.filled.Key
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Report
@@ -62,7 +61,6 @@ internal fun ServicesCommunitySettingsSection(
     wallhavenApiKey: String,
     pexelsApiKey: String,
     pixabayApiKey: String,
-    freesoundApiKey: String,
     generatedWallpaperProviderKey: String,
     providerCredentialStorageUnavailable: Boolean,
     generatedContentProviderEnabled: Boolean,
@@ -83,7 +81,6 @@ internal fun ServicesCommunitySettingsSection(
     var showWallhavenKey by remember { mutableStateOf(false) }
     var showPexelsKey by remember { mutableStateOf(false) }
     var showPixabayKey by remember { mutableStateOf(false) }
-    var showFreesoundKey by remember { mutableStateOf(false) }
 
     LaunchedEffect(communityBlockAction.message, communityBlockAction.error) {
         communityBlockAction.message?.let {
@@ -250,12 +247,6 @@ internal fun ServicesCommunitySettingsSection(
             subtitle = stringResource(R.string.settings_services_pixabay_key_subtitle),
             onClick = { showPixabayKey = true },
         )
-        SettingsItem(
-            icon = Icons.Default.MusicNote,
-            title = stringResource(R.string.settings_services_freesound_key_title),
-            subtitle = stringResource(R.string.settings_services_freesound_key_subtitle),
-            onClick = { showFreesoundKey = true },
-        )
         GeneratedWallpaperProviderSettings(
             viewModel = viewModel,
             providerKey = generatedWallpaperProviderKey,
@@ -333,16 +324,6 @@ internal fun ServicesCommunitySettingsSection(
             placeholder = stringResource(R.string.settings_services_pixabay_dialog_placeholder),
             onSave = viewModel::setPixabayKey,
             onDismiss = { showPixabayKey = false },
-        )
-    }
-    if (showFreesoundKey) {
-        ProviderApiKeyDialog(
-            title = stringResource(R.string.settings_services_freesound_dialog_title),
-            description = stringResource(R.string.settings_services_freesound_dialog_desc),
-            value = freesoundApiKey,
-            placeholder = stringResource(R.string.settings_services_freesound_dialog_placeholder),
-            onSave = viewModel::setFreesoundKey,
-            onDismiss = { showFreesoundKey = false },
         )
     }
 }

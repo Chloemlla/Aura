@@ -4,6 +4,15 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Provider availability now has one checked public contract**: all 22 source
+  records now declare media types, lifecycle, default order, credential needs,
+  build and release-channel availability, and allowed actions. Reddit stays
+  first for wallpapers and video wherever it ships, while YouTube stays first
+  for sounds in GitHub and Obtainium builds and is absent from Play copy. The
+  README, in-app legal catalog, diagnostics, store listing, and distribution
+  packets now agree. Legacy sources retain attribution for old items without
+  presenting dead feeds or credential prompts.
+
 - **Backups no longer report success after dropping library items**: favorites,
   collections, collection membership, and search history now share one checked
   transfer contract. Oversized exports stop before the destination is opened,

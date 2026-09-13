@@ -18,7 +18,7 @@ contract is [`alt-store-metadata.json`](alt-store-metadata.json).
 | Label | Applies | en-US detail |
 | --- | --- | --- |
 | NonFreeDep | Yes | The full build depends on Firebase libraries, the Google Services Gradle plugin, and Google Play services ML Kit subject segmentation. |
-| NonFreeNet | Yes | Community features use Firebase Auth, Realtime Database, Storage, Functions, and App Check. Remote providers include Wallhaven, Bing, Pexels, Pixabay, Reddit, NASA APOD, Wikimedia POTD, Lemmy, Freesound, SoundCloud, Audius, ccMixter, Open-Meteo, Stability, and YouTube extraction paths. |
+| NonFreeNet | Yes | Active remote paths include Reddit, Wallhaven, Bing, Pexels, Pixabay, Wikimedia Commons, NASA APOD, Lemmy, Open-Meteo, Stability, Firebase community services, and YouTube in GitHub-channel builds. Freesound, SoundCloud, Audius, Openverse, and ccMixter entries document legacy attribution only and are not active feeds. |
 | Tracking | No | Aura does not use automatic analytics or crash reporting. Diagnostics export is local-only and user-initiated. |
 | Ads | No | Aura has no ads, ad SDKs, subscriptions, or in-app purchases. |
 | TetheredNet | No | The full build is not entirely dependent on one irreplaceable service; provider switches and local/bundled flows leave core personalization usable when individual services are disabled. |
@@ -38,11 +38,12 @@ during Do Not Disturb, and Aura does not change the user's policy silently.
 ## Network services
 
 Every reviewed endpoint ID in `docs/security/network-endpoints.json` must stay
-listed in the JSON `networkServices` array. Current rows cover Wallhaven, Bing,
-Pexels, Pixabay, Reddit, NASA APOD, Wikimedia POTD, Lemmy, Openverse,
-Freesound, SoundCloud, Audius, ccMixter, Open-Meteo, Stability, YouTube/NewPipe
-extraction, the optional user-selected YouTube PO-token provider, Aura collection
-links, and Firebase community surfaces.
+listed in the JSON `networkServices` array. Active rows cover Reddit first,
+Wallhaven, Bing, Pexels, Pixabay, NASA APOD, Wikimedia Commons, Lemmy,
+Open-Meteo, Stability, YouTube for GitHub-channel builds, Aura collection links,
+and Firebase community surfaces. Openverse, Freesound, SoundCloud, Audius, and
+ccMixter are retained as legacy attribution only. Aura does not fetch new media
+from those legacy entries.
 
 ## Generated wallpaper provider key behavior
 

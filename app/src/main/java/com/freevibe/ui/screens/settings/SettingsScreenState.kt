@@ -113,7 +113,6 @@ internal data class SettingsScreenState(
     val wallhavenApiKey: String,
     val pexelsApiKey: String,
     val pixabayApiKey: String,
-    val freesoundApiKey: String,
     val generatedWallpaperProviderKey: String,
     val providerCredentialStorageUnavailable: Boolean,
     val generatedContentProviderEnabled: Boolean,
@@ -230,7 +229,6 @@ internal fun rememberSettingsScreenState(
     val wallhavenApiKey by viewModel.wallhavenApiKey.collectAsStateWithLifecycle()
     val pexelsApiKey by viewModel.pexelsApiKey.collectAsStateWithLifecycle()
     val pixabayApiKey by viewModel.pixabayApiKey.collectAsStateWithLifecycle()
-    val freesoundApiKey by viewModel.freesoundApiKey.collectAsStateWithLifecycle()
     val generatedWallpaperProviderKey by viewModel.generatedWallpaperProviderKey.collectAsStateWithLifecycle()
     val providerCredentialStorageUnavailable by viewModel.providerCredentialStorageUnavailable.collectAsStateWithLifecycle()
     val generatedContentProviderEnabled by viewModel.generatedContentProviderEnabled.collectAsStateWithLifecycle()
@@ -281,10 +279,9 @@ internal fun rememberSettingsScreenState(
         wallhavenApiKey,
         pexelsApiKey,
         pixabayApiKey,
-        freesoundApiKey,
         generatedWallpaperProviderKey,
     ) {
-        listOf(wallhavenApiKey, pexelsApiKey, pixabayApiKey, freesoundApiKey, generatedWallpaperProviderKey)
+        listOf(wallhavenApiKey, pexelsApiKey, pixabayApiKey, generatedWallpaperProviderKey)
             .count { it.isNotBlank() }
     }
 
@@ -358,7 +355,6 @@ internal fun rememberSettingsScreenState(
         wallhavenApiKey = wallhavenApiKey,
         pexelsApiKey = pexelsApiKey,
         pixabayApiKey = pixabayApiKey,
-        freesoundApiKey = freesoundApiKey,
         generatedWallpaperProviderKey = generatedWallpaperProviderKey,
         providerCredentialStorageUnavailable = providerCredentialStorageUnavailable,
         generatedContentProviderEnabled = generatedContentProviderEnabled,

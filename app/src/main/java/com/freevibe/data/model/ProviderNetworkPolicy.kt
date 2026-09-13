@@ -67,6 +67,9 @@ data class ProviderNetworkPolicy(
                 "channels ${entry.channels.map { it.name.lowercase(Locale.ROOT) }.sorted().joinToString("+")}",
                 "config ${entry.configuration.name.lowercase(Locale.ROOT)}",
                 "permission ${entry.permission.name.lowercase(Locale.ROOT)}",
+                "media ${entry.mediaTypes.map { it.name.lowercase(Locale.ROOT) }.sorted().joinToString("+")}",
+                "priority ${entry.defaultPriority.entries.sortedBy { it.key.name }.joinToString("+") { "${it.key.name.lowercase(Locale.ROOT)}:${it.value}" }}",
+                "actions ${entry.permittedActions.map { it.name.lowercase(Locale.ROOT) }.sorted().joinToString("+")}",
                 "default ${if (entry.enabledByDefault) "on" else "off"}",
                 "kill switch ${entry.killSwitchKey ?: "none"}",
             ).joinToString(" / ")

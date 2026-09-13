@@ -10,8 +10,11 @@
     "CHANGELOG.md",
     "tools/release_clean_clone_check.py",
     "tools/export_format_check.py",
+    "tools/provider_truth_check.py",
     "app/src/main/java/com/freevibe/service/LibraryTransferContract.kt",
+    "app/src/main/java/com/freevibe/data/legal/ProviderCapability.kt",
     "docs/data/export-format.json",
+    "docs/providers/provider-manifest.json",
     "fastlane/metadata/android/en-US/title.txt",
     "fastlane/metadata/android/en-US/short_description.txt",
     "fastlane/metadata/android/en-US/full_description.txt",
@@ -50,6 +53,7 @@
     "tools/background_work_device_evidence_check.py",
     "tools/community_guidelines_consent_check.py",
     "tools/export_format_check.py",
+    "tools/provider_truth_check.py",
     "tools/play_app_content_packet_check.py",
     "tools/alt_store_metadata_check.py",
     "tools/sbom_readiness_check.py",
@@ -63,7 +67,8 @@
     "docs/distribution/sbom-readiness.md",
     "docs/distribution/store-assets.md",
     "docs/distribution/developer-verification.md",
-    "docs/distribution/supply-chain.md"
+    "docs/distribution/supply-chain.md",
+    "docs/providers/provider-manifest.json"
   ],
   "requiredReleaseArtifacts": [
     "Aura-vX.Y.Z-versionCode-N-universal-release.apk",
@@ -166,6 +171,10 @@
     {
       "id": "export-format",
       "command": ["tools/export_format_check.py", "--spec", "docs/data/export-format.json", "--repo-root", "."]
+    },
+    {
+      "id": "provider-truth",
+      "command": ["tools/provider_truth_check.py", "--manifest", "docs/providers/provider-manifest.json", "--repo-root", "."]
     },
     {
       "id": "play-app-content",

@@ -6,13 +6,6 @@ Actionable work only. Historical and completed roadmap material is archived in C
 
 ### P1
 
-- [ ] P1 — Make public provider claims derive from production truth
-  Why: source availability is described differently in the app, capability registry, README, store metadata, distribution packets, and community posts. Users cannot tell which providers are active, require a key, are legacy-only, or are disabled by channel.
-  Evidence: **Verified.** `README.md:189-193` calls Reddit active and first; `fastlane/metadata/android/en-US/full_description.txt:30` says Reddit's public feed is off and calls Freesound active; `ProviderCapability.kt` marks Reddit active and several old sound sources legacy; `docs/distribution/alt-store-metadata.json` still lists dormant providers; Discussion #45 says there are no translations after PR #48 added Chinese.
-  Touches: `ProviderCapability.kt`, a machine-readable provider manifest, provider menus and diagnostics, `README.md`, Fastlane metadata, `docs/distribution/**`, discussion templates or linked contribution copy, truth-gate tests.
-  Acceptance: one checked provider manifest records media types, lifecycle, default priority, credential need, build flavor, release channel, and permitted actions; app menus, diagnostics, README source table, Fastlane text, and distribution packets are generated from it or validated against it; Reddit is first wherever available; dormant providers are described only as legacy attribution; a fixture that changes lifecycle or channel without updating a public surface fails.
-  Complexity: M
-
 - [ ] P1 — Align privacy, credential, and backup claims with actual storage
   Why: Aura encrypts provider credentials with Android Keystore, but some public and diagnostic text denies Keystore use or describes backup in ways that do not match the XML rules. Restoring ciphertext without the device-bound key can also create confusing failures after migration.
   Evidence: **Verified.** `ProviderCredentialStore.kt:28-100` uses AES-GCM with Android Keystore; `docs/privacy/privacy-policy.md`, `docs/privacy/data-safety.json`, and crash-diagnostics disclosures contain conflicting credential/storage statements; `app/src/main/res/xml/backup_rules.xml` and `data_extraction_rules.xml` do not match every backup row.

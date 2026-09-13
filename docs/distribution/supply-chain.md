@@ -37,6 +37,7 @@ checksum, and release-note validation.
 | Background work device evidence | `tools/background_work_device_evidence_check.py` | Checks the device/emulator scheduler evidence plan, adb/dumpsys commands, source URLs, and release docs. |
 | Community guidelines consent | `tools/community_guidelines_consent_check.py` | Checks UGC guidelines, consent state, Settings entry, community screens, repository gates, and Play packet evidence. |
 | Library transfer contract | `tools/export_format_check.py` | Keeps every backup limit tied to the runtime contract and rejects silent item truncation or unstaged publication. |
+| Provider truth contract | `tools/provider_truth_check.py` | Checks provider media, lifecycle, priority, credentials, builds, channels, actions, app diagnostics, README, Play copy, and distribution packets against one manifest. |
 | Play App content packet | `tools/play_app_content_packet_check.py` | Keeps Play app access, target audience, content rating, Data safety, UGC, generated content, and sensitive-permission evidence aligned. |
 | Alternative-store disclosure matrix | `tools/alt_store_metadata_check.py` | Keeps GitHub/Obtainium/Izzy/F-Droid channel status, permission disclosures, network service rows, and proprietary dependency markers aligned. |
 | Release metadata consistency | `tools/release_metadata_consistency_check.py` | Keeps package/version metadata, Fastlane text, README links, privacy URLs, release docs, and artifact lists aligned. |
@@ -100,6 +101,7 @@ python3 tools/background_work_network_check.py --policy docs/background-work-net
 python3 tools/background_work_device_evidence_check.py --policy docs/background-work-device-evidence.json --repo-root .
 python3 tools/community_guidelines_consent_check.py --repo-root .
 python3 tools/export_format_check.py --spec docs/data/export-format.json --repo-root .
+python3 tools/provider_truth_check.py --manifest docs/providers/provider-manifest.json --repo-root .
 python3 tools/play_app_content_packet_check.py --policy docs/distribution/play-app-content.json --repo-root .
 python3 tools/alt_store_metadata_check.py --policy docs/distribution/alt-store-metadata.json --repo-root .
 python3 tools/release_metadata_consistency_check.py --policy docs/distribution/release-metadata-consistency.json --repo-root .
@@ -151,10 +153,12 @@ activity because that runtime path pulls broad UI dependency upgrades on the
 current AGP 8.9.3 / Gradle 8.12 stack.
 
 Generated dependency notices do not replace Aura's content-source disclosures.
-`ProviderDisclosure.kt` remains the source of truth for provider policy rows
-such as YouTube, Reddit, Pexels, Pixabay, community uploads, bundled media, and
-AI-generated content. Settings > Open source licenses links users to the latest
-release notice artifacts while keeping provider disclosures visible in-app.
+`ProviderCapability.kt` is the production registry, and
+`docs/providers/provider-manifest.json` is its checked public mirror. The
+provider-truth gate rejects drift in media types, lifecycle, default order,
+credentials, build or channel availability, and permitted actions. Settings >
+Open source licenses uses the same registry order while keeping provider
+disclosures visible in-app.
 
 ## Raw Google OSS inputs
 
