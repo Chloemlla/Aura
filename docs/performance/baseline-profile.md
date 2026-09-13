@@ -36,11 +36,13 @@ Expected artifacts:
 - Benchmark JSON and Perfetto traces: `baselineprofile/build/outputs/connected_android_test_additional_output/`
 - Instrumentation reports: `baselineprofile/build/reports/`
 
-## CI
+## Local evidence
 
-`.github/workflows/performance.yml` is manual and targets a Linux self-hosted runner labeled `self-hosted`, `linux`, `android`, and `physical-device`. GitHub-hosted runners are intentionally not used because they do not provide representative physical-device startup or frame timing.
+Run performance capture locally on a representative physical Android device.
+Emulators and hosted virtual devices do not provide representative startup or
+frame timing.
 
-Attach the uploaded `aura-performance-*` artifact to release notes when it contains both:
+Attach the resulting `aura-performance-*` evidence to release notes when it contains both:
 
 - `StartupBenchmark` results for `CompilationMode.None()` and `CompilationMode.Partial(BaselineProfileMode.Require)`.
-- `GridScrollBenchmark` frame metrics for Wallpapers, Videos, Sounds, and Favorites.
+- `GridScrollBenchmark` frame metrics for Wallpapers, Videos, Sounds, and Library.

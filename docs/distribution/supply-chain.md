@@ -64,7 +64,19 @@ For each `v*` release:
 
 ## Local release checks
 
-Run these checks before the release APK build:
+Commit the release candidate and run the exact-commit umbrella check before the
+release APK build:
+
+```bash
+python3 tools/release_clean_clone_check.py --repo-root . --revision HEAD
+```
+
+It archives only Git-tracked inputs, verifies the required evidence set, and
+runs the local release, documentation, and legal gates listed in the release
+metadata policy. It reports owner-only signing, artifact, console, publication,
+and device evidence with pass, fail, or unknown status.
+
+The umbrella command runs these source-backed checks in its isolated tree:
 
 ```bash
 python3 tools/github_actions_allowlist_check.py --policy docs/distribution/github-actions-allowlist.json --repo-root .

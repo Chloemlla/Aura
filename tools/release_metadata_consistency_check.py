@@ -10,7 +10,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 POLICY_PATH = "docs/distribution/release-metadata-consistency.json"
 TITLE_MAX_CHARS = 30
 SHORT_DESCRIPTION_MAX_CHARS = 80
@@ -42,9 +41,19 @@ REQUIRED_SOURCE_URLS = {
 
 # Room's schema version, which the exported schema directory is the truth for.
 ROOM_SCHEMA_CLAIM = re.compile(r"Room\s*(?:DB\s*)?\(?v(\d+)\)?", re.IGNORECASE)
-# Version strings quoted in prose, e.g. a README badge or a "Current: v6.41.0" line.
-VERSION_NAME_CLAIM = re.compile(r"version-(\d+\.\d+\.\d+)-blue|\*\*Current:\*\*\s*v(\d+\.\d+\.\d+)")
-VERSION_CODE_CLAIM = re.compile(r"versionCode\s*(\d+)")
+# Version strings quoted in prose, e.g. a README badge, a "Current: v6.41.0"
+# line, or the release packet's package table.
+VERSION_NAME_CLAIM = re.compile(
+    r"version-(\d+\.\d+\.\d+)-blue"
+    r"|\*\*Current:\*\*\s*v(\d+\.\d+\.\d+)"
+    r"|\|\s*Version name\s*\|\s*`?(\d+\.\d+\.\d+)`?\s*\|",
+    re.IGNORECASE,
+)
+VERSION_CODE_CLAIM = re.compile(
+    r"versionCode\s*(\d+)"
+    r"|\|\s*Version code\s*\|\s*`?(\d+)`?\s*\|",
+    re.IGNORECASE,
+)
 COMPILE_SDK_RE = re.compile(r"compileSdk\s*=\s*(\d+)")
 JVM_TARGET_RE = re.compile(r'jvmTarget\s*=\s*"([^"]+)"')
 # CONTRIBUTING.md told contributors to install "Android SDK 35" while the build
@@ -59,7 +68,13 @@ JAVA_TARGET_CLAIM = re.compile(r"Java\s+(\d+)\s+as the compile target", re.IGNOR
 # stating facts no gate read: ARCHITECTURE.md claimed Room v14 and a "Favorites"
 # bottom-nav destination against a shipped v17 and "Library", and CONTRIBUTING.md
 # asked for "JDK 17+ and Android SDK 35" against compileSdk 36.
-FACT_SURFACES = ("README.md", "CLAUDE.md", "ARCHITECTURE.md", "CONTRIBUTING.md")
+FACT_SURFACES = (
+    "README.md",
+    "CLAUDE.md",
+    "ARCHITECTURE.md",
+    "CONTRIBUTING.md",
+    "docs/distribution/release-metadata-consistency.md",
+)
 
 SCREEN_NAV = "app/src/main/java/com/freevibe/ui/navigation/Screen.kt"
 BOTTOM_NAV_ITEMS = re.compile(r"bottomNavItems[^=]*=\s*listOf\(([^)]*)\)", re.DOTALL)
@@ -247,7 +262,7 @@ def validate_fact_surfaces(repo_root: Path, gradle: dict[str, object]) -> dict[s
                 )
 
         for match in VERSION_NAME_CLAIM.finditer(text):
-            claimed = match.group(1) or match.group(2)
+            claimed = next(value for value in match.groups() if value is not None)
             if claimed != gradle["versionName"]:
                 errors.append(
                     f"{relative_path} claims version {claimed} but the build declares "
@@ -255,7 +270,7 @@ def validate_fact_surfaces(repo_root: Path, gradle: dict[str, object]) -> dict[s
                 )
 
         for match in VERSION_CODE_CLAIM.finditer(text):
-            claimed = int(match.group(1))
+            claimed = int(next(value for value in match.groups() if value is not None))
             if claimed != gradle["versionCode"]:
                 errors.append(
                     f"{relative_path} claims versionCode {claimed} but the build declares "
@@ -290,8 +305,33 @@ def validate_fact_surfaces(repo_root: Path, gradle: dict[str, object]) -> dict[s
     }
 
 
+def resolve_required_evidence_paths(policy: dict[str, Any]) -> list[str]:
+    """Resolve version-shaped evidence paths from the policy's release facts."""
+    values = {
+        "versionName": require_string(policy.get("versionName"), "versionName"),
+        "versionCode": require_int(policy.get("versionCode"), "versionCode"),
+    }
+    resolved: list[str] = []
+    for template in require_string_list(
+        policy.get("requiredEvidencePaths"), "requiredEvidencePaths"
+    ):
+        try:
+            relative_path = template.format_map(values)
+        except KeyError as exc:
+            raise ReleaseMetadataConsistencyError(
+                f"requiredEvidencePaths entry uses an unknown placeholder: {template}"
+            ) from exc
+        normalized = Path(relative_path.replace("\\", "/"))
+        if normalized.is_absolute() or ".." in normalized.parts:
+            raise ReleaseMetadataConsistencyError(
+                f"requiredEvidencePaths entry must stay inside the repository: {relative_path}"
+            )
+        resolved.append(normalized.as_posix())
+    return resolved
+
+
 def validate_required_paths(repo_root: Path, policy: dict[str, Any]) -> None:
-    for relative_path in require_string_list(policy.get("requiredEvidencePaths"), "requiredEvidencePaths"):
+    for relative_path in resolve_required_evidence_paths(policy):
         if not (repo_root / relative_path).is_file():
             raise ReleaseMetadataConsistencyError(f"requiredEvidencePaths entry is missing: {relative_path}")
 
@@ -385,8 +425,8 @@ def validate_release_docs(repo_root: Path, policy: dict[str, Any]) -> None:
 
 
 def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, object]:
-    if policy.get("schemaVersion") != 1:
-        raise ReleaseMetadataConsistencyError("schemaVersion must be 1")
+    if policy.get("schemaVersion") != 2:
+        raise ReleaseMetadataConsistencyError("schemaVersion must be 2")
     if policy.get("policyKind") != "releaseMetadataConsistency":
         raise ReleaseMetadataConsistencyError("policyKind must be releaseMetadataConsistency")
     gradle = parse_gradle(repo_root)

@@ -10,8 +10,8 @@ disclosures, and GitHub Release artifacts. The machine-readable contract is
 | Field | Value |
 | --- | --- |
 | Package | `com.freevibe` |
-| Version name | `6.34.6` |
-| Version code | `133` |
+| Version name | `6.45.3` |
+| Version code | `149` |
 | Fastlane metadata root | `fastlane/metadata/android/en-US` |
 | Privacy policy URL | `https://github.com/SysAdminDoc/Aura/blob/main/docs/privacy/privacy-policy.md` |
 
@@ -20,7 +20,7 @@ disclosures, and GitHub Release artifacts. The machine-readable contract is
 - `app/build.gradle.kts` is the source for package, version name, and version
   code.
 - Fastlane `title.txt`, `short_description.txt`, `full_description.txt`, and
-  `changelogs/133.txt` are the store text surface.
+  the current versionCode changelog are the store text surface.
 - `README.md` must keep links to the privacy policy, release signing, channel
   strategy, alternative-store disclosures, release metadata consistency, SBOM
   readiness, store asset planning, developer verification, and supply-chain
@@ -86,10 +86,15 @@ artifacts:
 
 Before any public release:
 
-1. Run `py -3 tools\release_metadata_consistency_check.py --policy docs\distribution\release-metadata-consistency.json --repo-root .`.
-2. Run the store metadata, store asset pipeline, privacy, Data safety, rotation boot permission, rotation foreground-service policy, background work scheduling, background work network posture, community guidelines, Play App content, alternative-store, and SBOM readiness gates listed above.
+1. Commit the release candidate, then run `py -3 tools\release_clean_clone_check.py --repo-root . --revision HEAD`.
+2. Review the command's owner-only evidence rows. Resolve every `fail` and record owner evidence for any `unknown` row needed by the release channel.
 3. Confirm the current `versionCode` changelog mentions the current `versionName`.
 4. Confirm the local release directory and GitHub Release contain the expected release files.
+
+The clean-clone command archives the exact commit instead of copying the
+working tree. It fails if required evidence is missing or untracked, if an
+active document points to a deleted workflow file, or if any tracked-input
+release, documentation, or legal gate fails.
 
 ## Sources
 

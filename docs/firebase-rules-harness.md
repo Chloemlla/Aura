@@ -50,12 +50,11 @@ These commands start local Firebase emulators through the project-local
 login is not required for local emulator execution; the CLI may still print an
 unauthenticated warning.
 
-## CI Verification
+## Local verification
 
-`.github/workflows/verify.yml` includes a `firebase-rules` job. It detects
-changes to Firebase rules, emulator config, npm lockfiles, rules tests, this
-runbook, the admin-claims runbook, or the workflow itself. When those files
-change, the job installs the pinned npm dependencies with `npm ci` and runs:
+Aura does not use remote build workflows. After changes to Firebase rules,
+emulator config, npm lockfiles, rules tests, this runbook, or the admin-claims
+runbook, install the pinned npm dependencies with `npm ci` and run:
 
 ```bash
 python3 tools/community_backend_manifest.py --mode check
@@ -63,7 +62,7 @@ python3 -m unittest discover -s test/tools -p '*_test.py'
 npm run test:firebase-rules
 ```
 
-Manual `workflow_dispatch` runs always execute the Firebase rules suite.
+Run the same commands before committing or deploying rules.
 
 ## Current Realtime Database Policy
 

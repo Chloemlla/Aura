@@ -4,29 +4,6 @@ Actionable work only. Historical and completed roadmap material is archived in C
 
 ## Research-Driven Additions
 
-### P0
-
-- [ ] P0 — Gate YouTube extraction and offline actions by authorization and release channel
-  Why: YouTube-first discovery is a product strength, but Aura currently treats store positioning as the main risk and still lets NewPipe and yt-dlp resolve, download, convert, and apply streams. YouTube's current terms prohibit downloading except where the service permits it or YouTube and the applicable rights holder authorize it. A provider toggle and softer store copy do not create that authorization.
-  Evidence: **Verified policy text, Likely release risk.** `YouTubeRepository.kt:150-151,253,381,410,469`, `SoundYouTubeActions.kt`, and `VideoWallpapersViewModel.kt` implement undocumented search/extraction and offline media actions; `docs/distribution/youtube-store-risk-profile.json` allows the path by channel; https://www.youtube.com/static?template=terms; https://developers.google.com/youtube/terms/developer-policies; https://support.google.com/googleplay/android-developer/answer/9888072?hl=en.
-  Touches: `ProviderCapability.kt`, `ProviderDisclosure.kt`, `YouTubeRepository.kt`, `SoundYouTubeActions.kt`, `VideoWallpapersViewModel.kt`, `docs/distribution/youtube-store-risk-profile.json`, Fastlane/README claims, release gates, tests.
-  Acceptance: an executable channel policy keeps YouTube first in discovery but disables stream extraction, download, conversion, and wallpaper/tone application unless a checked authorization record covers that channel and action; unapproved builds retain attribution and open official playback; disabled actions explain why without hiding saved items; release tests prove no unapproved code path can invoke NewPipe or yt-dlp acquisition; existing AV1, visible-window resolution, and video-action roadmap items run only inside an approved path.
-  Complexity: L
-
-- [ ] P0 — Resolve GPL obligations for the combined APK
-  Why: Aura's root license is MIT while the shipped APK combines NewPipeExtractor under GPL-3.0-or-later and an FFmpeg payload configured with `--enable-gpl --enable-version3`. The repository inventories these components but has no closed decision that makes the distributable's license, corresponding source, notices, and installation information coherent.
-  Evidence: **Verified packaging mismatch, Likely legal consequence pending counsel.** `LICENSE`; `app/build.gradle.kts:427-431`; `docs/legal/dependency-notice-overrides.json:23-27,50-55`; `docs/legal/native-compliance.lock.json`; https://github.com/TeamNewPipe/NewPipeExtractor; https://www.gnu.org/licenses/gpl-faq.en.html. Production pins NewPipe v0.26.5 while `docs/legal/dependency-notices.lock.json:1064` and `tools/native_compliance_inventory.py:24,81` still name v0.26.3.
-  Touches: `LICENSE`, `README.md`, `app/build.gradle.kts`, `docs/legal/**`, `tools/dependency_notice_lock.py`, `tools/native_compliance_inventory.py`, release bundle checks, release artifacts.
-  Acceptance: counsel or a documented license review selects one path: distribute the combined work under compatible terms with complete corresponding source, scripts, notices, and any required installation information, or remove/replace the GPL components; every runtime coordinate and legal lock agrees; a clean release scan has no unresolved GPL review state; the public APK, source archive, license, and notices all implement the selected decision.
-  Complexity: L
-
-- [ ] P0 — Make release truth reproducible from a clean clone
-  Why: release gates can pass using maintainer-only files and stale documentation references that a contributor or release consumer never receives. That makes a green local gate weaker than the artifact claim it is meant to prove.
-  Evidence: **Verified.** `docs/distribution/release-metadata-consistency.json:11` requires `COMPLETED.md`; `.gitignore:40` excludes it; the metadata checker tests the working tree rather than a tracked-input clone; `docs/distribution/raw-oss-input-retention.md:46` and other distribution pages still require deleted `.github/workflows/*` files even though `docs/distribution/supply-chain.md:123-130` declares local-only builds.
-  Touches: `tools/release_metadata_consistency_check.py`, release-policy JSON, `docs/distribution/**`, `.gitignore` only if the selected evidence becomes tracked, clean-clone test fixtures, release runbook.
-  Acceptance: one command creates an isolated checkout from the exact commit and runs every release/document/legal gate using only tracked inputs; every required evidence path is tracked and present or explicitly owner-only with a tri-state result; references to absent workflows or files fail; deleting a required tracked file fails a fixture; the current release commit passes without copying anything from the maintainer's working tree.
-  Complexity: M
-
 ### P1
 
 - [ ] P1 — Move Reddit's core feeds to registered OAuth and deletion reconciliation

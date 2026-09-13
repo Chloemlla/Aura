@@ -4,6 +4,13 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Release checks now prove the committed tree**: one command archives the
+  selected Git commit and runs every tracked-input release, documentation, and
+  legal gate inside it. Ignored maintainer files can no longer make the release
+  packet pass. Missing tracked evidence and references to deleted workflow files
+  fail clearly, while signing, generated artifacts, console access, publication,
+  and device checks report an explicit owner-only status.
+
 ## v6.45.3 (2026-09-13)
 
 - **Dated research stays historically accurate**: the manifest gate no longer

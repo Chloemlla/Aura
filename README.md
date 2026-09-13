@@ -266,6 +266,17 @@ Debug builds include Android pseudolocales; the route screenshot gate covers com
 
 Copy `local.properties.example` to `local.properties` for local SDK, optional API keys, and release signing values. Release variants force local provider keys blank, so development credentials cannot be packaged by mistake. Public releases are built locally as signed, non-debuggable APK/AAB artifacts, verified with `apksigner`, checked against `SHA256SUMS.txt`, and uploaded to GitHub Releases for GitHub/Obtainium users. See [release signing docs](docs/distribution/release-signing.md), the [distribution channel strategy](docs/distribution/channel-strategy.md), [alternative-store disclosures](docs/distribution/alt-store-metadata.md), [release metadata consistency](docs/distribution/release-metadata-consistency.md), [SBOM readiness](docs/distribution/sbom-readiness.md), [store asset planning](docs/distribution/store-assets.md), [Android developer verification prep](docs/distribution/developer-verification.md), and [supply-chain verification](docs/distribution/supply-chain.md).
 
+After committing a release candidate, verify its exact tracked tree with:
+
+```powershell
+python tools\release_clean_clone_check.py --repo-root . --revision HEAD
+```
+
+This runs the source-backed release, documentation, and legal gates in an
+isolated archive. Signing keys, generated release artifacts, console checks,
+publication, and device evidence are reported separately as owner-only pass,
+fail, or unknown results.
+
 To verify the FOSS release lane reproducibly, start from a clean checkout and run:
 
 ```powershell

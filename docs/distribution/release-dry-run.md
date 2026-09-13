@@ -39,6 +39,7 @@ versionCode, and Room schema version, and every other version-shaped artifact
 (README badge, release-metadata policy, Fastlane changelog) is derived from it.
 
 ```bash
+python3 tools/release_clean_clone_check.py --repo-root . --revision HEAD
 python3 tools/release_manifest.py --mode check --repo-root .
 python3 tools/provider_credential_release_check.py --app-gradle app/build.gradle.kts --local-properties local.properties
 python3 tools/provider_credential_storage_check.py --policy docs/security/provider-credential-storage.json --repo-root .
@@ -63,7 +64,10 @@ python3 tools/sbom_readiness_check.py --policy docs/distribution/sbom-readiness.
 The text-mode checks fail when title or description limits drift, the current
 versionCode changelog is missing or stale, stale branding returns, privacy URLs
 drift, background-work evidence packets drift, or the local release artifact
-list no longer matches the docs.
+list no longer matches the docs. The clean-clone check is the umbrella gate. It
+uses only files stored in the selected commit and reports signing, generated
+artifact, console, publication, and device evidence separately when those
+owner-only inputs are unavailable.
 
 After real assets are committed, the future asset-mode command is:
 

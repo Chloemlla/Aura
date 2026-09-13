@@ -8,11 +8,11 @@
     "app/build.gradle.kts",
     "README.md",
     "CHANGELOG.md",
-    "COMPLETED.md",
+    "tools/release_clean_clone_check.py",
     "fastlane/metadata/android/en-US/title.txt",
     "fastlane/metadata/android/en-US/short_description.txt",
     "fastlane/metadata/android/en-US/full_description.txt",
-    "fastlane/metadata/android/en-US/changelogs/136.txt",
+    "fastlane/metadata/android/en-US/changelogs/{versionCode}.txt",
     "docs/privacy/privacy-policy-link.json",
     "docs/privacy/data-safety.json",
     "docs/rotation-trigger-boot-behavior.json",
@@ -78,7 +78,198 @@
     "aab-keytool.txt",
     "PLAY-APP-SIGNING-OWNER-STEPS.txt"
   ],
-  "schemaVersion": 1,
+  "trackedInputGates": [
+    {
+      "id": "release-manifest",
+      "command": ["tools/release_manifest.py", "--mode", "check", "--repo-root", "."]
+    },
+    {
+      "id": "github-actions-allowlist",
+      "command": ["tools/github_actions_allowlist_check.py", "--policy", "docs/distribution/github-actions-allowlist.json", "--repo-root", "."]
+    },
+    {
+      "id": "github-workflow-permissions",
+      "command": ["tools/github_workflow_permissions_check.py", "--policy", "docs/distribution/github-workflow-permissions.json", "--repo-root", "."]
+    },
+    {
+      "id": "github-workflow-secrets",
+      "command": ["tools/github_workflow_secrets_check.py", "--policy", "docs/distribution/github-workflow-secrets.json", "--repo-root", "."]
+    },
+    {
+      "id": "github-security-workflows",
+      "command": ["tools/github_security_workflow_check.py", "--policy", "docs/distribution/github-security-workflows.json", "--repo-root", "."]
+    },
+    {
+      "id": "gradle-wrapper",
+      "command": ["tools/gradle_wrapper_check.py", "--properties", "gradle/wrapper/gradle-wrapper.properties"]
+    },
+    {
+      "id": "provider-credential-release",
+      "command": ["tools/provider_credential_release_check.py", "--app-gradle", "app/build.gradle.kts"]
+    },
+    {
+      "id": "provider-credential-storage",
+      "command": ["tools/provider_credential_storage_check.py", "--policy", "docs/security/provider-credential-storage.json", "--repo-root", "."]
+    },
+    {
+      "id": "cleartext-release",
+      "command": ["tools/cleartext_release_check.py", "--repo-root", "."]
+    },
+    {
+      "id": "network-endpoint-inventory",
+      "command": ["tools/network_endpoint_inventory_check.py", "--inventory", "docs/security/network-endpoints.json", "--repo-root", "."]
+    },
+    {
+      "id": "store-metadata",
+      "command": ["tools/store_metadata_preflight.py", "--repo-root", "."]
+    },
+    {
+      "id": "store-assets",
+      "command": ["tools/store_asset_pipeline_check.py", "--policy", "docs/distribution/store-assets.json", "--repo-root", "."]
+    },
+    {
+      "id": "privacy-policy-link",
+      "command": ["tools/privacy_policy_link_check.py", "--policy", "docs/privacy/privacy-policy-link.json", "--repo-root", "."]
+    },
+    {
+      "id": "privacy-data-safety",
+      "command": ["tools/privacy_data_safety_check.py", "--policy", "docs/privacy/data-safety.json", "--repo-root", "."]
+    },
+    {
+      "id": "rotation-boot-permission",
+      "command": ["tools/rotation_boot_permission_check.py", "--policy", "docs/rotation-trigger-boot-behavior.json", "--repo-root", "."]
+    },
+    {
+      "id": "rotation-foreground-service",
+      "command": ["tools/rotation_fgs_policy_check.py", "--policy", "docs/rotation-trigger-fgs-policy.json", "--repo-root", "."]
+    },
+    {
+      "id": "background-work-scheduling",
+      "command": ["tools/background_work_scheduling_check.py", "--policy", "docs/background-work-scheduling-ledger.json", "--repo-root", "."]
+    },
+    {
+      "id": "background-work-network",
+      "command": ["tools/background_work_network_check.py", "--policy", "docs/background-work-network-posture.json", "--repo-root", "."]
+    },
+    {
+      "id": "background-work-device-evidence",
+      "command": ["tools/background_work_device_evidence_check.py", "--policy", "docs/background-work-device-evidence.json", "--repo-root", "."]
+    },
+    {
+      "id": "community-guidelines",
+      "command": ["tools/community_guidelines_consent_check.py", "--repo-root", "."]
+    },
+    {
+      "id": "play-app-content",
+      "command": ["tools/play_app_content_packet_check.py", "--policy", "docs/distribution/play-app-content.json", "--repo-root", "."]
+    },
+    {
+      "id": "alternative-store-metadata",
+      "command": ["tools/alt_store_metadata_check.py", "--policy", "docs/distribution/alt-store-metadata.json", "--repo-root", "."]
+    },
+    {
+      "id": "release-metadata",
+      "command": ["tools/release_metadata_consistency_check.py", "--policy", "docs/distribution/release-metadata-consistency.json", "--repo-root", "."]
+    },
+    {
+      "id": "sbom-readiness",
+      "command": ["tools/sbom_readiness_check.py", "--policy", "docs/distribution/sbom-readiness.json", "--repo-root", "."]
+    },
+    {
+      "id": "on-device-ai-decision",
+      "command": ["tools/on_device_ai_decision_check.py", "--policy", "docs/ai/on-device-wallpaper-decision.json", "--repo-root", "."]
+    },
+    {
+      "id": "accessibility-release",
+      "command": ["tools/accessibility_release_gate_check.py", "--policy", "docs/qa/accessibility-release-gate.json", "--repo-root", "."]
+    },
+    {
+      "id": "target-37-compatibility",
+      "command": ["tools/target37_compatibility_check.py", "--policy", "docs/security/target37-compatibility.json", "--repo-root", "."]
+    },
+    {
+      "id": "documentation-links",
+      "command": ["tools/docs_link_check.py", "--repo-root", "."]
+    },
+    {
+      "id": "manifest-consistency",
+      "command": ["tools/manifest_consistency_check.py", "--repo-root", "."]
+    },
+    {
+      "id": "source-byte-hygiene",
+      "command": ["tools/source_byte_hygiene_check.py", "--repo-root", "."]
+    },
+    {
+      "id": "dependency-overlay",
+      "command": ["tools/dependency_overlay_check.py", "--overlay", "docs/legal/dependency-notice-overrides.json", "--repo-root", "."]
+    },
+    {
+      "id": "dependency-license-policy",
+      "command": ["tools/dependency_license_policy.py", "--policy", "docs/legal/dependency-license-policy.json", "--overlay", "docs/legal/dependency-notice-overrides.json"]
+    },
+    {
+      "id": "signing-certificate",
+      "command": ["tools/signing_certificate_check.py", "--policy", "docs/distribution/signing-certificate.json", "--repo-root", "."]
+    },
+    {
+      "id": "developer-verification-decision",
+      "command": ["tools/distribution_decision_check.py", "--repo-root", "."]
+    },
+    {
+      "id": "youtube-store-risk",
+      "command": ["tools/youtube_store_risk_check.py", "--profile", "docs/distribution/youtube-store-risk-profile.json", "--repo-root", "."]
+    },
+    {
+      "id": "yt-dlp-cve-policy",
+      "command": ["tools/ytdlp_cve_policy_check.py", "--policy", "docs/security/ytdlp-cve-policy.json", "--repo-root", "."]
+    },
+    {
+      "id": "fdroid-boundary",
+      "command": ["tools/fdroid_preflight.py"]
+    },
+    {
+      "id": "release-tool-tests",
+      "command": ["-m", "unittest", "discover", "-s", "test/tools", "-p", "*_test.py"]
+    }
+  ],
+  "ownerOnlyEvidence": [
+    {
+      "id": "signed-release-build",
+      "status": "unknown",
+      "reason": "Requires the release owner's local signing properties and keystore; neither belongs in Git."
+    },
+    {
+      "id": "packaged-provider-credential-scan",
+      "status": "unknown",
+      "reason": "Requires the locally signed universal release APK and ignored local.properties values."
+    },
+    {
+      "id": "generated-license-and-native-packets",
+      "status": "unknown",
+      "reason": "Requires release Gradle outputs and resolved dependency payloads from the release owner's build machine."
+    },
+    {
+      "id": "release-artifact-bundle",
+      "status": "unknown",
+      "reason": "Requires the assembled APK, AAB, signatures, checksums, notices, and release notes."
+    },
+    {
+      "id": "play-app-signing-console",
+      "status": "unknown",
+      "reason": "Requires release-owner access to Play Console App integrity."
+    },
+    {
+      "id": "github-release-publication",
+      "status": "unknown",
+      "reason": "Requires network access and the release owner's GitHub publication state."
+    },
+    {
+      "id": "physical-device-release-smoke",
+      "status": "unknown",
+      "reason": "Requires an installable matching-signature release build on a disposable physical device."
+    }
+  ],
+  "schemaVersion": 2,
   "sourceUrls": [
     "https://developer.android.com/guide/app-bundle",
     "https://developer.android.com/studio/publish/app-signing",
