@@ -105,10 +105,12 @@ fun ProductionRouteState(
 }
 
 @Composable
-private fun RouteColumn(content: @Composable ColumnScope.() -> Unit) {
+private fun RouteColumn(
+    modifier: Modifier = Modifier.fillMaxSize(),
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
+        modifier = modifier
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -119,7 +121,7 @@ private fun RouteColumn(content: @Composable ColumnScope.() -> Unit) {
 @Composable
 private fun WallpapersGridState() {
     Column(modifier = Modifier.fillMaxSize()) {
-        RouteColumn {
+        RouteColumn(modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.nav_wallpapers), style = MaterialTheme.typography.headlineSmall)
             CompactSearchField(
                 value = "",
@@ -134,7 +136,7 @@ private fun WallpapersGridState() {
                 tone = MaterialTheme.colorScheme.secondary,
             )
         }
-        Box(modifier = Modifier.fillMaxSize().weight(1f)) {
+        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
             WallpaperGrid(
                 wallpapers = PREVIEW_WALLPAPERS,
                 isLoadingMore = false,
@@ -150,7 +152,7 @@ private fun WallpapersGridState() {
 @Composable
 private fun WallpapersOfflineState() {
     Column(modifier = Modifier.fillMaxSize()) {
-        RouteColumn {
+        RouteColumn(modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.nav_wallpapers), style = MaterialTheme.typography.headlineSmall)
             AuraStatusBanner(
                 icon = Icons.Default.CloudOff,
@@ -169,7 +171,7 @@ private fun WallpapersOfflineState() {
                 ),
             )
         }
-        Box(modifier = Modifier.fillMaxSize().weight(1f)) {
+        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
             ShimmerWallpaperGrid(Modifier.fillMaxWidth())
         }
     }

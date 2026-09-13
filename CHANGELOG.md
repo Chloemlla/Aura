@@ -4,6 +4,11 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **The screenshot release gate works again**: pseudolocale cases no longer
+  overwrite ordinary English images, both editor locale baselines now exist,
+  and the wallpaper fixture leaves room for its grid. Twelve reviewed phone,
+  large-font, RTL, and tablet images now pass in both app flavors.
+
 - **Development API keys cannot leak into release builds**: release variants now
   replace every optional provider credential with a blank value even when the
   developer's ignored `local.properties` contains test keys. The release guard

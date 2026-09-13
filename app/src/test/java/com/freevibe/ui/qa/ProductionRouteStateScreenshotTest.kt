@@ -84,6 +84,7 @@ class ProductionRouteStateScreenshotTest {
         captureScenario(
             scenario = ProductionRouteScenario.WallpapersGridSuccess,
             darkTheme = true,
+            localeSuffix = "_en_XA",
         )
     }
 
@@ -95,6 +96,7 @@ class ProductionRouteStateScreenshotTest {
             darkTheme = false,
             fontScale = 1.3f,
             layoutDirection = LayoutDirection.Rtl,
+            localeSuffix = "_ar_XB",
         )
     }
 
