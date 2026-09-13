@@ -119,6 +119,7 @@ class VideoWallpaperService : WallpaperService() {
         private var watchdogRunnable: Runnable? = null
         private val recoveryHandler = Handler(Looper.getMainLooper())
         private var pendingResumePositionMs = 0
+        private var gifValidationGeneration = 0L
         @Volatile private var destroyed = false
         private val colorPublisher = LiveWallpaperColorPublisher()
         // A video has no source bitmap lying around, so one representative frame has
@@ -320,12 +321,12 @@ class VideoWallpaperService : WallpaperService() {
                 }
                 lastModified = file.lastModified()
                 lastPath = path
-                refreshWallpaperColors(path, lastModified)
                 if (file.extension.equals("gif", ignoreCase = true)) {
                     activeMediaType = "gif"
-                    initializeGifPlayback(holder, file)
+                    validateAndInitializeGifPlayback(holder, file)
                     return
                 }
+                refreshWallpaperColors(path, lastModified)
                 activeMediaType = "video"
                 val speed = getPlaybackSpeed()
                 val scaleMode = getScaleMode()
@@ -589,6 +590,42 @@ class VideoWallpaperService : WallpaperService() {
             }
         }
 
+        /** Keeps malformed GIF data away from native decoders, which may abort the process. */
+        private fun validateAndInitializeGifPlayback(holder: SurfaceHolder, file: File) {
+            val path = file.absolutePath
+            val modifiedAt = file.lastModified()
+            val length = file.length()
+            val generation = gifValidationGeneration
+            colorLoader.request {
+                val valid = GifStructureValidator.isValid(file)
+                recoveryHandler.post {
+                    if (
+                        destroyed || generation != gifValidationGeneration ||
+                        currentHolder !== holder || getVideoPath() != path ||
+                        !file.exists() || file.lastModified() != modifiedAt || file.length() != length
+                    ) {
+                        return@post
+                    }
+                    if (!valid) {
+                        handlePlaybackFailure(
+                            VideoPlaybackFailure.PREPARE_ERROR,
+                            "Selected GIF failed structural validation",
+                        )
+                        return@post
+                    }
+                    refreshWallpaperColors(path, modifiedAt)
+                    try {
+                        initializeGifPlayback(holder, file)
+                    } catch (e: Exception) {
+                        handlePlaybackFailure(
+                            VideoPlaybackFailure.PREPARE_ERROR,
+                            "${e.javaClass.simpleName}: ${e.message}",
+                        )
+                    }
+                }
+            }
+        }
+
         private fun resumeGifPlayback(holder: SurfaceHolder) {
             pauseGifPlayback()
             if (gifMovie == null || !visible || motionPausedForPowerSave) return
@@ -668,6 +705,7 @@ class VideoWallpaperService : WallpaperService() {
             )
 
         private fun releasePlayback() {
+            gifValidationGeneration += 1
             pauseGifPlayback()
             gifMovie = null
             activeMediaType = "none"

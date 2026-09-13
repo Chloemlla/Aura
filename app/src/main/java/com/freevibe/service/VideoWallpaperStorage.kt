@@ -178,26 +178,25 @@ class VideoWallpaperStorage @Inject constructor(
     }
 
     private fun validatePreparedMotionFile(file: File, extension: String) {
-        if (!file.exists() || file.length() < 1024) {
+        if (!file.exists() || file.length() == 0L) {
             throw IOException("Selected file is empty or invalid")
         }
         if (file.length() > MAX_VIDEO_WALLPAPER_BYTES) {
             throw IOException("Selected file exceeds video wallpaper limit")
         }
         if (extension.equals("gif", ignoreCase = true)) {
-            validateGifHeader(file)
+            try {
+                GifStructureValidator.requireValid(file)
+            } catch (e: IOException) {
+                throw IOException("Selected GIF is invalid", e)
+            }
             return
+        }
+        if (file.length() < 1024) {
+            throw IOException("Selected file is empty or invalid")
         }
         val probe = probeVideoFile(file)
         videoWallpaperProbeFailure(probe)?.let { throw IOException(it) }
-    }
-
-    private fun validateGifHeader(file: File) {
-        val header = ByteArray(6)
-        val read = file.inputStream().use { it.read(header) }
-        if (read != header.size || !hasValidGifHeader(header)) {
-            throw IOException("Selected GIF is invalid")
-        }
     }
 
     private fun probeVideoFile(file: File): VideoWallpaperProbe {

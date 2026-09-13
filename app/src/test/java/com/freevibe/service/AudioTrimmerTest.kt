@@ -194,9 +194,9 @@ class AudioTrimmerTest {
     }
 
     @Test
-    fun `trim duration tolerance is exactly one audio frame`() {
-        assertTrue(isTrimDurationWithinOneAudioFrame(5_000L, 5_023L, 23L))
-        assertFalse(isTrimDurationWithinOneAudioFrame(5_000L, 5_024L, 23L))
+    fun `trim duration tolerance covers both codec frame boundaries`() {
+        assertTrue(isTrimDurationWithinCodecBoundaries(5_000L, 5_046L, 23L))
+        assertFalse(isTrimDurationWithinCodecBoundaries(5_000L, 5_047L, 23L))
     }
 
     private fun processPcmFixture(

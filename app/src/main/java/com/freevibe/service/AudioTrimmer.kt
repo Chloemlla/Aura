@@ -93,11 +93,12 @@ enum class AudioExportFormat(
     M4A("m4a", listOf(96, 128, 192, 256), 192),
 }
 
-internal fun isTrimDurationWithinOneAudioFrame(
+internal fun isTrimDurationWithinCodecBoundaries(
     expectedDurationMs: Long,
     actualDurationMs: Long,
     frameDurationMs: Long,
-): Boolean = abs(expectedDurationMs - actualDurationMs) <= frameDurationMs.coerceAtLeast(1L)
+): Boolean = abs(expectedDurationMs - actualDurationMs) <=
+    frameDurationMs.coerceAtLeast(1L) * 2L
 
 internal fun isLosslessCutAllowed(
     fadeInMs: Long,
@@ -634,14 +635,14 @@ class AudioTrimmer @Inject constructor(
             val expectedDurationMs = speedAdjustedDurationMs(endMs - startMs, playbackSpeed)
             if (
                 timing.durationMs > 0L &&
-                !isTrimDurationWithinOneAudioFrame(
+                !isTrimDurationWithinCodecBoundaries(
                     expectedDurationMs = expectedDurationMs,
                     actualDurationMs = timing.durationMs,
                     frameDurationMs = timing.frameDurationMs,
                 )
             ) {
                 throw Exception(
-                    "Audio export duration ${timing.durationMs}ms exceeded one-frame trim tolerance",
+                    "Audio export duration ${timing.durationMs}ms exceeded codec-boundary trim tolerance",
                 )
             }
             outputFile.absolutePath

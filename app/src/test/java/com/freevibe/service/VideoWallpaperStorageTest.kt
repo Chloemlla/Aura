@@ -104,4 +104,42 @@ class VideoWallpaperStorageTest {
         assertFalse(hasValidGifHeader("MP4....".toByteArray()))
         assertFalse(hasValidGifHeader(byteArrayOf(1, 2, 3)))
     }
+
+    @Test
+    fun `gif structure validation accepts complete animated image data`() {
+        assertTrue(GifStructureValidator.isValid(validAnimatedGif()))
+    }
+
+    @Test
+    fun `gif structure validation rejects frames that decode too few pixels`() {
+        val malformed = validAnimatedGif().also { bytes ->
+            bytes[32] = 0x02
+            bytes[34] = 0x02
+        }
+
+        assertFalse(GifStructureValidator.isValid(malformed))
+    }
+
+    @Test
+    fun `gif structure validation rejects truncated and trailing data`() {
+        val valid = validAnimatedGif()
+
+        assertFalse(GifStructureValidator.isValid(valid.copyOf(valid.size - 1)))
+        assertFalse(GifStructureValidator.isValid(valid + 0x00))
+    }
+
+    private fun validAnimatedGif(): ByteArray = byteArrayOf(
+        0x47, 0x49, 0x46, 0x38, 0x39, 0x61,
+        0x02, 0x00, 0x02, 0x00,
+        0xF0.toByte(), 0x00, 0x00,
+        0x00, 0x00, 0x00,
+        0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(),
+        0x21, 0xF9.toByte(), 0x04, 0x00, 0x0A, 0x00, 0x00, 0x00,
+        0x2C, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
+        0x02, 0x02, 0x44, 0x01, 0x00,
+        0x21, 0xF9.toByte(), 0x04, 0x00, 0x0A, 0x00, 0x00, 0x00,
+        0x2C, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
+        0x02, 0x02, 0x4C, 0x01, 0x00,
+        0x3B,
+    )
 }
