@@ -22,6 +22,10 @@ on:
       - "functions/**"
       - "test/**"
       - "tools/**"
+      # The governance checkers live in tools/ and read the prose in docs/ and the
+      # root markdown files, so an edit to those documents has to re-run them.
+      - "docs/**"
+      - "*.md"
       - "lumen-crash.version"
   pull_request:
     branches:
@@ -42,6 +46,10 @@ on:
       - "functions/**"
       - "test/**"
       - "tools/**"
+      # The governance checkers live in tools/ and read the prose in docs/ and the
+      # root markdown files, so an edit to those documents has to re-run them.
+      - "docs/**"
+      - "*.md"
       - "lumen-crash.version"
   workflow_dispatch:
     inputs:
