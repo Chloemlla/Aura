@@ -14,11 +14,15 @@ import sys
 import xml.etree.ElementTree as ET
 
 
+APP_PACKAGE = "com.chloemlla.aura"
+BOOT_COMPLETED_ACTION = "android.intent.action.BOOT_COMPLETED"
+
+
 def main():
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     packet_path = os.path.join(repo_root, "docs", "distribution", "foreground-service-declaration.json")
     manifest_path = os.path.join(repo_root, "app", "src", "main", "AndroidManifest.xml")
-    channels_path = os.path.join(repo_root, "app", "src", "main", "java", "com", "freevibe", "service", "NotificationChannels.kt")
+    channels_path = os.path.join(repo_root, "app", "src", "main", "java", "com", "chloemlla", "aura", "service", "NotificationChannels.kt")
 
     errors = []
 
@@ -58,9 +62,14 @@ def main():
             if type_match:
                 manifest_fgs_services[svc_name] = type_match.group(1)
 
-        boot_fgs = re.search(r'BOOT_COMPLETED.*mediaPlayback|mediaPlayback.*BOOT_COMPLETED', manifest_text, re.DOTALL)
-        if boot_fgs:
-            errors.append("BOOT_COMPLETED receiver appears linked to mediaPlayback service — Play policy risk")
+        boot_launch = _boot_completed_media_playback_launch(
+            repo_root, manifest_text, manifest_fgs_services
+        )
+        if boot_launch:
+            errors.append(
+                f"BOOT_COMPLETED receiver {boot_launch} starts the mediaPlayback "
+                "foreground service — Play policy risk"
+            )
     else:
         errors.append(f"Missing AndroidManifest.xml: {manifest_path}")
 
@@ -108,6 +117,69 @@ def main():
             errors.append(f"Packet channel '{ch['id']}' not found in NotificationChannels.kt")
 
     _report(errors)
+
+
+def _receiver_blocks(manifest_text):
+    """(android:name, block) for every <receiver>, paired or self-closing."""
+    for match in re.finditer(r"<receiver\b[^>]*?(/?)>", manifest_text):
+        block_end = match.end()
+        if match.group(1) != "/":
+            close = manifest_text.find("</receiver>", match.end())
+            if close >= 0:
+                block_end = close + len("</receiver>")
+        block = manifest_text[match.start():block_end]
+        name = re.search(r'android:name="([^"]+)"', block)
+        yield (name.group(1) if name else ""), block
+
+
+def _receiver_source(source_root, receiver_name):
+    """Source of a receiver this app owns, or None for one it does not.
+
+    Component names are written relative to the app package (".service.Foo"),
+    fully qualified, or belong to a library — the last is not ours to read.
+    """
+    if receiver_name.startswith("."):
+        qualified = APP_PACKAGE + receiver_name
+    elif receiver_name.startswith(APP_PACKAGE + "."):
+        qualified = receiver_name
+    else:
+        return None
+    path = os.path.join(source_root, qualified.replace(".", os.sep) + ".kt")
+    if not os.path.isfile(path):
+        return None
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
+def _boot_completed_media_playback_launch(repo_root, manifest_text, fgs_services):
+    """The receiver that turns the boot broadcast into a mediaPlayback FGS, if any.
+
+    A <receiver> cannot declare which service it starts, so the manifest alone
+    cannot answer this — searching it for "BOOT_COMPLETED" near "mediaPlayback"
+    only ever finds the RECEIVE_BOOT_COMPLETED permission next to an unrelated
+    service type, which every manifest that has both would report. The check
+    instead follows each boot receiver into its own source and looks for the
+    class the manifest typed as mediaPlayback; an app whose boot receiver
+    enqueues a worker (the normal shape) is clear.
+    """
+    media_playback = [
+        name for name, svc_type in fgs_services.items()
+        if "mediaPlayback" in svc_type.split("|")
+    ]
+    if not media_playback:
+        return None
+    source_root = os.path.join(repo_root, "app", "src", "main", "java")
+    for receiver_name, block in _receiver_blocks(manifest_text):
+        if not receiver_name or BOOT_COMPLETED_ACTION not in block:
+            continue
+        body = _receiver_source(source_root, receiver_name)
+        if body is None:
+            continue
+        for service in media_playback:
+            simple_name = service.rsplit(".", 1)[-1]
+            if re.search(rf"\b{re.escape(simple_name)}\b", body):
+                return receiver_name
+    return None
 
 
 def _report(errors):

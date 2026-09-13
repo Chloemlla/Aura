@@ -43,7 +43,7 @@
       "interruptionImpact": "Wallpaper rotation stops firing on unlock/screen-off; scheduled periodic rotation (AutoWallpaperWorker) continues independently",
       "notificationDeniedBehavior": "Service runs without a visible notification on Android 13+; triggers still fire but the user cannot see the ongoing indicator",
       "bootCompleted": false,
-      "bootBehavior": "Triggers resume after the user opens Aura (FreeVibeApp.reconcileRotationTriggers on cold start); they do not auto-start on boot",
+      "bootBehavior": "Triggers resume after the user opens Aura (AuraApp.reconcileRotationTriggers on cold start); they do not auto-start on boot",
       "demoVideoSteps": [
         "Open Aura > Settings > Auto wallpaper rotation section",
         "Enable 'Change on every unlock'",

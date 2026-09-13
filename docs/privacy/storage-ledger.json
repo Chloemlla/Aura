@@ -88,7 +88,7 @@
       "backupExcluded": true,
       "userCleanup": "Settings > Clear cache",
       "uninstallBehavior": "Removed with app",
-      "sourceFile": "FreeVibeApp.kt"
+      "sourceFile": "AuraApp.kt"
     },
     {
       "id": "room_database",
@@ -168,6 +168,7 @@
     {"path": "cacheDir/crop_output.mp4", "purpose": "Video crop FFmpeg output", "sourceFile": "VideoCropScreen.kt"}
   ],
   "sharedPreferencesFiles": [
+    "freevibe_locale.xml",
     "freevibe_widget.xml",
     "freevibe_app.xml",
     "aura_provider_credentials.xml",
