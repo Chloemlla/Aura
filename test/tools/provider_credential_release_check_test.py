@@ -99,6 +99,21 @@ class ProviderCredentialReleaseCheckTest(unittest.TestCase):
             with self.assertRaises(ProviderCredentialReleaseError):
                 validate_provider_credentials(app_gradle, None, None)
 
+    def test_rejects_missing_full_release_stability_override(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app_gradle = Path(tmpdir) / "app" / "build.gradle.kts"
+            gradle_text = (REPO_ROOT / "app" / "build.gradle.kts").read_text(encoding="utf-8")
+            write(
+                app_gradle,
+                gradle_text.replace(
+                    '.withFlavor("distribution" to "full")',
+                    '.withFlavor("distribution" to "foss")',
+                ),
+            )
+
+            with self.assertRaises(ProviderCredentialReleaseError):
+                validate_provider_credentials(app_gradle, None, None)
+
 
 if __name__ == "__main__":
     unittest.main()

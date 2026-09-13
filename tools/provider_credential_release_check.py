@@ -48,6 +48,13 @@ def validate_app_gradle(path: Path) -> list[str]:
     if release_start < 0 or release_end < 0:
         raise ProviderCredentialReleaseError(f"{path} is missing the release build type")
     release_block = text[release_start:release_end]
+    android_components_start = text.find("androidComponents {")
+    android_components_end = text.find("\nbaselineProfile {", android_components_start)
+    android_components_block = (
+        text[android_components_start:android_components_end]
+        if android_components_start >= 0 and android_components_end >= 0
+        else ""
+    )
     checked: list[str] = []
     for row in PROVIDER_KEYS:
         build_config = row["buildConfig"]
@@ -58,7 +65,18 @@ def validate_app_gradle(path: Path) -> list[str]:
         if expected not in text:
             raise ProviderCredentialReleaseError(f"{path} must default {prop} to a blank local value")
         blank_release_field = f'buildConfigField("String", "{build_config}", "\\"\\"")'
-        if blank_release_field not in release_block:
+        if build_config == "STABILITY_AI_KEY":
+            full_release_markers = (
+                '.withBuildType("release")',
+                '.withFlavor("distribution" to "full")',
+                '"STABILITY_AI_KEY"',
+                'BuildConfigField("String", "\\"\\""',
+            )
+            if any(marker not in android_components_block for marker in full_release_markers):
+                raise ProviderCredentialReleaseError(
+                    f"{path} must force {build_config} blank for the full release variant"
+                )
+        elif blank_release_field not in release_block:
             raise ProviderCredentialReleaseError(
                 f"{path} must force {build_config} blank in the release build type"
             )

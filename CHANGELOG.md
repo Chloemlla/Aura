@@ -10,10 +10,11 @@ All notable changes to Aura will be documented in this file.
   large-font, RTL, and tablet images now pass in both app flavors.
 
 - **Development API keys cannot leak into release builds**: release variants now
-  replace every optional provider credential with a blank value even when the
-  developer's ignored `local.properties` contains test keys. The release guard
-  verifies the generated policy, and packaged APK scanning remains the final
-  check before publication.
+  replace every shipped optional provider credential with a blank value even
+  when the developer's ignored `local.properties` contains test keys. Stability
+  is blank in the full release and remains absent from FOSS. The release guard
+  verifies that split, and packaged APK scanning remains the final check before
+  publication.
 
 - **The accessibility check now accounts for every screen, not six of them**: it
   described itself as the accessibility release gate while only ever exercising

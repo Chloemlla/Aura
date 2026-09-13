@@ -41,7 +41,7 @@ Settings warning instead of crashing or silently discarding provider keys.
 | `pixabay-api-key` | Pixabay | `optionalQuotaKey` | Encrypted key `pixabay_api_key`, defaulting to `BuildConfig.PIXABAY_API_KEY`; migrates legacy DataStore key `pixabay_api_key`. | Blank in public release workflow. | Settings > API Keys > Pixabay API Key; Clear or save blank to remove. |
 | `freesound-api-key` | Freesound | `optionalQuotaKey` | Encrypted key `freesound_api_key`, defaulting to `BuildConfig.FREESOUND_API_KEY`; migrates legacy DataStore key `freesound_api_key`. | Blank in public release workflow. | Settings > API Keys > Freesound API Key; Clear or save blank to remove. |
 | `soundcloud-client-id` | SoundCloud | `publicClientId` | BuildConfig-only `SOUNDCLOUD_CLIENT_ID`; no DataStore key. | Blank in public release workflow. | No Settings field; blank public default makes the dormant source return no results. |
-| `stability-ai-key` | Stability AI | `paidSensitiveSecret` | Encrypted key `stability_ai_key`, defaulting to `BuildConfig.STABILITY_AI_KEY`; migrates legacy DataStore key `stability_ai_key`. | Blank in public release workflow. | Settings > API Keys > Stability AI API Key and generated wallpaper key field; Clear or save blank to remove. |
+| `stability-ai-key` | Stability AI | `paidSensitiveSecret` | Encrypted key `stability_ai_key`, defaulting to `BuildConfig.STABILITY_AI_KEY` in full builds; migrates legacy DataStore key `stability_ai_key`. | Blank in full public releases and absent from FOSS builds. | Settings > API Keys > Stability AI API Key and generated wallpaper key field; Clear or save blank to remove. |
 
 ## Guard
 
@@ -60,7 +60,7 @@ exclusions disappear, or if diagnostics/privacy docs stop describing redaction
 and device storage.
 
 The guard also treats `stability-ai-key` as the paid-sensitive sentinel row. It
-fails if Stability stops being an encrypted `paidSensitiveSecret`, if the
-`STABILITY_AI_KEY` / `stability.ai.key` release default is no longer blank, if
-`stability.ai.key` is missing from redaction coverage, or if the explicit Clear
-control is no longer documented.
+fails if Stability stops being an encrypted `paidSensitiveSecret`, if the full
+release `STABILITY_AI_KEY` / `stability.ai.key` default is no longer blank, if
+the key crosses into the FOSS flavor, if `stability.ai.key` is missing from
+redaction coverage, or if the explicit Clear control is no longer documented.

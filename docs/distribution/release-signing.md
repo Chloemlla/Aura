@@ -95,9 +95,10 @@ python tools\provider_credential_apk_scan.py --local-properties local.properties
 ```
 
 The provider credential check confirms that release variants force Pexels,
-Pixabay, Freesound, SoundCloud, and Stability values blank. Local debug keys can
-remain in the ignored `local.properties`; public builds rely on keys entered by
-the user in Settings.
+Pixabay, Freesound, and SoundCloud values blank. Full releases also force the
+Stability value blank, while FOSS builds omit that integration entirely. Local
+debug keys can remain in the ignored `local.properties`; public builds rely on
+keys entered by the user in Settings.
 
 The APK scan fails if any nonblank provider value from `local.properties`
 appears in the release APK. It reports property names and APK entries only, not

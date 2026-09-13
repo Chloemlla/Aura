@@ -176,6 +176,37 @@ android {
         self.assertEqual("blocked", result["status"])
         self.assertFalse(result["stabilityFossBoundary"])
 
+    def test_full_release_variant_override_preserves_foss_boundary(self) -> None:
+        result = analyze_temp_repo(
+            """
+android {
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("full") {
+            dimension = "distribution"
+            buildConfigField("String", "STABILITY_AI_KEY", localKey)
+        }
+        create("foss") { dimension = "distribution" }
+    }
+}
+androidComponents {
+    onVariants(
+        selector()
+            .withBuildType("release")
+            .withFlavor("distribution" to "full"),
+    ) { variant ->
+        variant.buildConfigFields.put(
+            "STABILITY_AI_KEY",
+            BuildConfigField("String", "\\"\\"", "release blank"),
+        )
+    }
+}
+""",
+        )
+
+        self.assertEqual("ready-for-review", result["status"])
+        self.assertTrue(result["stabilityFossBoundary"])
+
     def test_missing_binary_update_consent_blocks(self) -> None:
         result = analyze_temp_repo(
             """
