@@ -4,6 +4,39 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **The editor and Sounds flows no longer show English to Chinese users** — the error and
+  success feedback for loading a sound, applying a ringtone, downloading, importing from
+  YouTube, smart crop, and community upload timeouts was written straight into the Kotlin,
+  so it ignored the language setting. All of it now comes from the string resources,
+  including the "Set as …" confirmation, whose target name was an English word interpolated
+  into an otherwise translated sentence. The check that enforces this had a blind spot worth
+  naming: it anchored on a word boundary, so `applySuccess = "…"` sitting next to an
+  already-extracted `success = "…"` counted as done. That shape now matches, and it
+  immediately found more of the same elsewhere. The baseline it compares against is now
+  empty rather than a list of tolerated exceptions.
+
+- **The release checks no longer read a package the app stopped shipping** — two governance
+  scripts still pointed at `com.freevibe`, the pre-rename package, and one of them had its
+  backup rule backwards: it required backup-excluded stores to appear in
+  `data_extraction_rules.xml`, which is an allowlist, so a store that was *correctly* excluded
+  was reported as a defect. Both now read the real sources, and the backup check fails on the
+  condition that actually leaks data — an excluded store reappearing in the allowlist.
+
+- **A stale reflection entry was hiding a real one** — the Android 16 compatibility policy
+  listed four reflection call sites whose reflection had since been deliberately removed, and
+  the checker validated those entries *before* it looked at anything unreviewed, so a genuine
+  unreviewed reflection went unreported. The stale entries are gone, the real one is recorded
+  with its reason, and a test now re-reads the repository to prove every reviewed entry still
+  names code that exists.
+
+- **Editing documentation now re-runs the checks that read it** — CI only triggered on code
+  paths, so a change to `docs/` or a root markdown file could invalidate a governance check
+  without ever running it.
+
+- **Contributor docs match the toolchain again** — `CONTRIBUTING.md` and `README.md` described
+  a Gradle, AGP, and SDK combination several upgrades out of date, including an Android Studio
+  release too old to open the project.
+
 - **Reliability: a Clash partner refusal no longer masquerades as "not routing"** — CMFA
   `partnerStatus` v3 returns a non-null bundle even when the partner app is refused access, and
   that refusal was previously read as a live "VPN off" status: the VPN-active fallback was
