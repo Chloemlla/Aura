@@ -505,6 +505,17 @@ class ReleasePolishContractTest {
     }
 
     @Test
+    fun `categories are localized and require a searchable provider`() {
+        val categories = File("src/main/java/com/freevibe/ui/screens/categories/CategoriesScreen.kt").readText()
+        val settings = File("src/main/java/com/freevibe/ui/screens/settings/SettingsWallpaperSection.kt").readText()
+
+        assertTrue(categories.contains("val nameRes: Int"))
+        assertTrue(categories.contains("stringResource(category.nameRes)"))
+        assertTrue(settings.contains("val categoriesAvailable = wallhavenProviderEnabled || pixabayProviderEnabled"))
+        assertTrue(settings.contains("settings_wp_categories_unavailable_feedback"))
+    }
+
+    @Test
     fun `media discovery keeps warm caches and vertical swipe viewers`() {
         val videos = File("src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersScreen.kt").readText()
         val videoModel = File("src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersViewModel.kt").readText()

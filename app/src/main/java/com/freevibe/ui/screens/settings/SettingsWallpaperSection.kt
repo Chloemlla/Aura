@@ -375,11 +375,24 @@ internal fun WallpaperRotationSettingsSection(
             checked = bingProviderEnabled,
             onCheckedChange = viewModel::setBingProviderEnabled,
         )
+        val categoriesAvailable = wallhavenProviderEnabled || pixabayProviderEnabled
         SettingsItem(
             icon = Icons.Default.Category,
             title = stringResource(R.string.settings_wp_categories_title),
-            subtitle = stringResource(R.string.settings_wp_categories_subtitle),
-            onClick = onCategoriesClick,
+            subtitle = stringResource(
+                if (categoriesAvailable) {
+                    R.string.settings_wp_categories_subtitle
+                } else {
+                    R.string.settings_wp_categories_unavailable_subtitle
+                }
+            ),
+            onClick = {
+                if (categoriesAvailable) {
+                    onCategoriesClick()
+                } else {
+                    onFeedback(context.getString(R.string.settings_wp_categories_unavailable_feedback))
+                }
+            },
         )
         SettingsItem(
             icon = Icons.Default.Folder,

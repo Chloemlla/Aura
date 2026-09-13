@@ -575,6 +575,22 @@
 
     <!-- Categories -->
     <string name="categories_title">分类</string>
+    <string name="category_nature">自然</string>
+    <string name="category_space">太空</string>
+    <string name="category_abstract">抽象</string>
+    <string name="category_minimal">极简</string>
+    <string name="category_anime">动漫</string>
+    <string name="category_cars">汽车</string>
+    <string name="category_city">城市</string>
+    <string name="category_dark">暗色</string>
+    <string name="category_ocean">海洋</string>
+    <string name="category_mountains">山脉</string>
+    <string name="category_sunset">日落</string>
+    <string name="category_flowers">花卉</string>
+    <string name="category_technology">科技</string>
+    <string name="category_animals">动物</string>
+    <string name="category_retro">复古</string>
+    <string name="category_neon">霓虹</string>
 
     <!-- Video wallpapers -->
     <string name="video_downloading">正在下载 &amp; 应用…</string>
@@ -1086,6 +1102,8 @@
     <string name="settings_wp_bing_off_subtitle">跳过 Bing 每日图片请求，并将其从轮换选择器中隐藏</string>
     <string name="settings_wp_categories_title">浏览类别</string>
     <string name="settings_wp_categories_subtitle">自然、太空、动漫、深色、霓虹及另外 12 个</string>
+    <string name="settings_wp_categories_unavailable_subtitle">启用 Wallhaven 或 Pixabay 以浏览可搜索类别</string>
+    <string name="settings_wp_categories_unavailable_feedback">请先在高级外部服务中启用 Wallhaven 或 Pixabay。</string>
     <string name="settings_wp_collections_title">收藏集</string>
     <string name="settings_wp_collections_subtitle">将壁纸整理到文件夹中</string>
     <string name="settings_wp_history_title">壁纸历史</string>
