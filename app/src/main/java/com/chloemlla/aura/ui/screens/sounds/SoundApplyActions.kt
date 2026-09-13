@@ -1,5 +1,7 @@
 package com.chloemlla.aura.ui.screens.sounds
 
+import android.content.Context
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.ContentType
 import com.chloemlla.aura.data.model.Sound
 import com.chloemlla.aura.data.model.SoundAction
@@ -24,6 +26,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 internal class SoundApplyActions(
+    private val context: Context,
     private val soundApplier: SoundApplier,
     private val downloadManager: DownloadManager,
     private val favoritesRepo: FavoritesRepository,
@@ -45,7 +48,7 @@ internal class SoundApplyActions(
                 state.update {
                     it.copy(
                         isApplying = false,
-                        error = "System settings access is required before applying sounds.",
+                        error = context.getString(R.string.sound_apply_settings_required),
                     )
                 }
                 return@launch
@@ -53,19 +56,32 @@ internal class SoundApplyActions(
             state.update { it.copy(isApplying = true, applySuccess = null) }
             val url = resolveDownloadUrl(sound)
                 ?: run {
-                    state.update { it.copy(isApplying = false, error = "Could not resolve audio") }
+                    state.update {
+                        it.copy(
+                            isApplying = false,
+                            error = context.getString(R.string.sound_feedback_apply_missing_audio),
+                        )
+                    }
                     return@launch
                 }
             soundApplier.downloadAndApply(url, sound.name, type)
                 .onSuccess {
-                    val label = when (type) {
-                        ContentType.RINGTONE -> "ringtone"
-                        ContentType.NOTIFICATION -> "notification sound"
-                        ContentType.ALARM -> "alarm sound"
-                        else -> "sound"
+                    val labelRes = when (type) {
+                        ContentType.RINGTONE -> R.string.editor_sound_apply_ringtone
+                        ContentType.NOTIFICATION -> R.string.editor_sound_apply_notification
+                        ContentType.ALARM -> R.string.editor_sound_apply_alarm
+                        else -> R.string.downloads_type_sound
                     }
                     clearSoundSourceUnavailableAfterSuccess(sound)
-                    state.update { it.copy(isApplying = false, applySuccess = "Set as $label") }
+                    state.update {
+                        it.copy(
+                            isApplying = false,
+                            applySuccess = context.getString(
+                                R.string.sound_feedback_set_as,
+                                context.getString(labelRes),
+                            ),
+                        )
+                    }
                 }
                 .onFailure { e ->
                     markSoundSourceUnavailableIfRemoved(sound, e)
@@ -81,7 +97,7 @@ internal class SoundApplyActions(
                 return@launch
             }
             val dlUrl = resolveDownloadUrl(sound) ?: run {
-                state.update { it.copy(error = "Could not resolve audio stream URL") }
+                state.update { it.copy(error = context.getString(R.string.sound_feedback_download_missing_url)) }
                 return@launch
             }
             val ext = sound.fileType.substringAfterLast("/", "mp3").substringAfterLast(".", "mp3").lowercase(java.util.Locale.ROOT)
@@ -93,7 +109,9 @@ internal class SoundApplyActions(
             ).fold(
                 onSuccess = {
                     clearSoundSourceUnavailableAfterSuccess(sound)
-                    state.update { it.copy(applySuccess = "Download started") }
+                    state.update {
+                        it.copy(applySuccess = context.getString(R.string.sound_feedback_download_started))
+                    }
                 },
                 onFailure = { error ->
                     markSoundSourceUnavailableIfRemoved(sound, error)

@@ -249,6 +249,33 @@ class ComposeHardcodedStringCheckTest(unittest.TestCase):
             )
             self.assertEqual(payload["countChanges"], [])
 
+    def test_scans_a_camel_case_state_message_sink(self):
+        # `applySuccess` ends in a state-message word. A sink pattern anchored on
+        # a word boundary reads it as already extracted, which is how the twin of
+        # a sink extracted right next door stayed hardcoded.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir)
+            baseline_path = repo_root / "docs/localization/hardcoded-string-baseline.json"
+            write_strings(repo_root)
+            write_screen(repo_root)
+            write_state_source(repo_root)
+            write_text(
+                repo_root / "app/src/main/java/com/chloemlla/aura/ui/ApplyViewModel.kt",
+                "\n".join(
+                    [
+                        "package com.chloemlla.aura.ui",
+                        "fun apply() {",
+                        '    state.update { it.copy(applySuccess = "Set as ringtone") }',
+                        "}",
+                    ]
+                ),
+            )
+
+            baseline = compose_hardcoded_string_check.write_baseline(repo_root, baseline_path)
+
+            findings = {(entry["sink"], entry["text"]) for entry in baseline["baseline"]}
+            self.assertIn(("applySuccess", "Set as ringtone"), findings)
+
     def test_live_baseline_is_valid(self):
         repo_root = Path(__file__).resolve().parents[2]
         baseline_path = repo_root / "docs/localization/hardcoded-string-baseline.json"

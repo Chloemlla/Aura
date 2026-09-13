@@ -28,6 +28,7 @@
     <string name="ai_duplicate_body">This prompt and %1$s style already produced a wallpaper this session.</string>
     <string name="ai_duplicate_credit_warning">Running it again may spend another Stability credit charge.</string>
     <string name="ai_duplicate_confirm">Generate Again</string>
+    <string name="ai_duplicate_prompt_fallback">Generated wallpaper</string>
     <string name="ai_result_cd">Generated wallpaper</string>
     <string name="ai_save">Save</string>
     <string name="ai_saved">Saved</string>

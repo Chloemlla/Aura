@@ -1,5 +1,7 @@
 package com.chloemlla.aura.ui.screens.sounds
 
+import android.content.Context
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.Sound
@@ -22,6 +24,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withContext
 
 internal class SoundYouTubeActions(
+    private val context: Context,
     private val youtubeRepo: YouTubeRepository,
     private val prefs: PreferencesManager,
     private val searchHistoryRepo: SearchHistoryRepository,
@@ -71,7 +74,7 @@ internal class SoundYouTubeActions(
         }
         val videoId = extractYouTubeId(url)
         if (videoId == null) {
-            state.update { it.copy(error = "Not a valid YouTube URL") }
+            state.update { it.copy(error = context.getString(R.string.sound_feedback_youtube_invalid_url)) }
             return
         }
         state.update {
@@ -112,7 +115,12 @@ internal class SoundYouTubeActions(
                 youtubeRepo.getAudioPreviewUrl(videoId)?.let { cacheResolvedPreview(sound, it) }
             } catch (e: Exception) {
                 e.rethrowIfCancelled()
-                state.update { it.copy(isLoading = false, error = "Could not load video: ${e.message}") }
+                state.update {
+                    it.copy(
+                        isLoading = false,
+                        error = context.getString(R.string.sound_feedback_youtube_load_failed, e.message),
+                    )
+                }
             }
         }
     }

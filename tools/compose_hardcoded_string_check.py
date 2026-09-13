@@ -40,7 +40,11 @@ LABELLED_ARG_RE = re.compile(
     re.DOTALL,
 )
 STATE_MESSAGE_RE = re.compile(
-    r"\b(?P<sink>success|error|notice|message|qualityWarning|fileUsageLabel)\s*=\s*(?P<literal>"
+    # The sink name is allowed a prefix ("applySuccess") and matched
+    # case-insensitively: a word-boundary anchor on the bare word reads
+    # `applySuccess = "Set as ringtone"` as already extracted, which is how the
+    # twin of a sink that was extracted right next door stayed hardcoded.
+    r"\b(?P<sink>\w*(?i:success|error|notice|message|qualityWarning|fileUsageLabel))\s*=\s*(?P<literal>"
     + STRING_LITERAL_PATTERN
     + r")",
     re.DOTALL,

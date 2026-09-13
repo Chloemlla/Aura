@@ -139,6 +139,9 @@ data class SoundEditorState(
 private val FILE_SANITIZE_REGEX = Regex("[^a-zA-Z0-9._-]")
 private val NAME_SANITIZE_REGEX = Regex("[^a-zA-Z0-9]")
 
+/** Not user-visible: a cache file name stem, so it stays out of the string resources. */
+private const val REMOTE_AUDIO_CACHE_FALLBACK_STEM = "audio"
+
 @HiltViewModel
 class SoundEditorViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -251,7 +254,7 @@ class SoundEditorViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
-                _state.update { it.copy(isLoading = false, error = "Failed to load: ${e.message}") }
+                _state.update { it.copy(isLoading = false, error = context.getString(R.string.editor_sound_load_failed, e.message)) }
             }
         }
     }
@@ -315,7 +318,7 @@ class SoundEditorViewModel @Inject constructor(
                 // A revoked or malformed local URI can fail after the bounded copy
                 // succeeds. Do not leave that unusable cache entry behind.
                 cachedFile?.delete()
-                _state.update { it.copy(isLoading = false, error = "Failed to load file: ${e.message}") }
+                _state.update { it.copy(isLoading = false, error = context.getString(R.string.editor_sound_load_file_failed, e.message)) }
             }
         }
     }
@@ -501,7 +504,7 @@ class SoundEditorViewModel @Inject constructor(
         val path = s.localFilePath ?: return
         viewModelScope.launch {
             if (!soundApplier.canWriteSettings()) {
-                _state.update { it.copy(error = "System settings access is required before applying sounds.") }
+                _state.update { it.copy(error = context.getString(R.string.sound_apply_settings_required)) }
                 return@launch
             }
             _state.update { it.copy(isApplying = true) }
@@ -522,13 +525,21 @@ class SoundEditorViewModel @Inject constructor(
 
                 soundApplier.applyFromLocalFile(trimmedPath, s.fileName, type)
                     .onSuccess {
-                        val label = when (type) {
-                            ContentType.RINGTONE -> "ringtone"
-                            ContentType.NOTIFICATION -> "notification"
-                            ContentType.ALARM -> "alarm"
-                            else -> "sound"
+                        val labelRes = when (type) {
+                            ContentType.RINGTONE -> R.string.editor_sound_apply_ringtone
+                            ContentType.NOTIFICATION -> R.string.editor_sound_apply_notification
+                            ContentType.ALARM -> R.string.editor_sound_apply_alarm
+                            else -> R.string.downloads_type_sound
                         }
-                        _state.update { it.copy(isApplying = false, success = "Set as $label") }
+                        _state.update {
+                            it.copy(
+                                isApplying = false,
+                                success = context.getString(
+                                    R.string.sound_feedback_set_as,
+                                    context.getString(labelRes),
+                                ),
+                            )
+                        }
                     }
                     .onFailure { e ->
                         _state.update { it.copy(isApplying = false, error = e.message) }
@@ -1071,7 +1082,7 @@ internal fun buildRemoteAudioCacheFileName(name: String, cacheIdentity: String, 
         url.contains(".flac", ignoreCase = true) -> ".flac"
         else -> ".mp3"
     }
-    val safeName = name.replace(NAME_SANITIZE_REGEX, "_").trim('_').ifBlank { "audio" }
+    val safeName = name.replace(NAME_SANITIZE_REGEX, "_").trim('_').ifBlank { REMOTE_AUDIO_CACHE_FALLBACK_STEM }
     val scopedSuffix = cacheIdentity.hashCode().toUInt().toString(16)
     return "${safeName}_$scopedSuffix$ext"
 }

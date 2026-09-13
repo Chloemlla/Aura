@@ -157,7 +157,7 @@ class ContactPickerViewModel @Inject constructor(
         ignoreDnd: Boolean,
     ) {
         val sound = _state.value.selectedSound ?: run {
-            _state.update { it.copy(error = "No sound selected. Return to Sounds and choose a valid item.") }
+            _state.update { it.copy(error = context.getString(R.string.contact_picker_no_sound_selected)) }
             return
         }
         soundActionGateMessage(sound, confirmed)?.let { message ->
@@ -192,7 +192,13 @@ class ContactPickerViewModel @Inject constructor(
             }
             val dlUrl = soundUrlResolver.resolve(sound)
             if (dlUrl.isNullOrBlank()) {
-                _state.update { it.copy(isApplying = false, applyingContactId = null, error = "This sound does not have a downloadable ringtone file.") }
+                _state.update {
+                    it.copy(
+                        isApplying = false,
+                        applyingContactId = null,
+                        error = context.getString(R.string.contact_picker_sound_not_downloadable),
+                    )
+                }
                 return@launch
             }
             soundApplier.downloadOnly(dlUrl, sound.name, ContentType.RINGTONE)
@@ -204,7 +210,7 @@ class ContactPickerViewModel @Inject constructor(
                                     it.copy(
                                         isApplying = false,
                                         applyingContactId = null,
-                                        success = "Ringtone set for contact",
+                                        success = context.getString(R.string.contact_picker_ringtone_set),
                                     )
                                 }
                             } else {
@@ -237,7 +243,13 @@ class ContactPickerViewModel @Inject constructor(
                         }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(isApplying = false, applyingContactId = null, error = "Download failed: ${e.message}") }
+                    _state.update {
+                        it.copy(
+                            isApplying = false,
+                            applyingContactId = null,
+                            error = context.getString(R.string.contact_picker_download_failed, e.message),
+                        )
+                    }
                 }
         }
     }

@@ -2,6 +2,7 @@ package com.chloemlla.aura.ui.screens.aigenerate
 
 import android.content.Context
 import android.net.Uri
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chloemlla.aura.R
@@ -36,13 +37,6 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 const val SOURCE_AI_GENERATED = "ai_generated"
-const val GENERATED_CONTENT_DISABLED_MESSAGE = "Generated wallpapers are disabled in Settings."
-const val GENERATED_CONTENT_DISCLOSURE_REQUIRED_MESSAGE =
-    "Review and accept the generated wallpaper disclosure before generating."
-const val GENERATED_CONTENT_IN_FLIGHT_MESSAGE =
-    "Generation already in progress. Wait for it to finish before starting another Stability request."
-const val GENERATED_PROMPT_REQUIRED_MESSAGE = "Describe your wallpaper to get started."
-const val GENERATED_API_KEY_REQUIRED_MESSAGE = "Enter your Stability AI key to generate images."
 
 private val GENERATED_PROMPT_WHITESPACE_RE = "\\s+".toRegex()
 
@@ -69,28 +63,30 @@ fun duplicateGenerationConfirmation(
     prompt: String,
     style: AiStyle,
     lastSuccessfulRequest: GeneratedWallpaperRequestSignature?,
+    blankPromptPreviewFallback: String,
 ): DuplicateGenerationConfirmation? {
     val current = generatedWallpaperRequestSignature(prompt, style) ?: return null
     if (current != lastSuccessfulRequest) return null
     val preview = prompt.trim().replace(GENERATED_PROMPT_WHITESPACE_RE, " ").take(80)
     return DuplicateGenerationConfirmation(
-        promptPreview = preview.ifBlank { "Generated wallpaper" },
+        promptPreview = preview.ifBlank { blankPromptPreviewFallback },
         styleLabel = style.label,
     )
 }
 
+@StringRes
 fun generatedWallpaperRequestError(
     providerEnabled: Boolean,
     prompt: String,
     apiKey: String,
     disclosureAccepted: Boolean,
     isGenerating: Boolean = false,
-): String? = when {
-    !providerEnabled -> GENERATED_CONTENT_DISABLED_MESSAGE
-    isGenerating -> GENERATED_CONTENT_IN_FLIGHT_MESSAGE
-    prompt.isBlank() -> GENERATED_PROMPT_REQUIRED_MESSAGE
-    apiKey.isBlank() -> GENERATED_API_KEY_REQUIRED_MESSAGE
-    !disclosureAccepted -> GENERATED_CONTENT_DISCLOSURE_REQUIRED_MESSAGE
+): Int? = when {
+    !providerEnabled -> R.string.ai_feedback_provider_disabled
+    isGenerating -> R.string.ai_feedback_generation_in_progress
+    prompt.isBlank() -> R.string.ai_feedback_prompt_required
+    apiKey.isBlank() -> R.string.ai_feedback_key_required
+    !disclosureAccepted -> R.string.ai_feedback_disclosure_required
     else -> null
 }
 
@@ -112,8 +108,11 @@ fun generatedWallpaperReportInput(
 internal fun generatedWallpaperCommunityAiFlag(wallpaper: Wallpaper): Boolean =
     wallpaper.source == ContentSource.AI_GENERATED || wallpaper.isAiGenerated == true
 
+/** Not user-visible: a community tag value, so it stays out of the string resources. */
+private const val GENERATED_WALLPAPER_FALLBACK_TAG = "ai-generated"
+
 private val GENERATED_WALLPAPER_SAFE_TAGS =
-    setOf("ai-generated") + AiStyle.entries.mapNotNull { it.preset.takeIf(String::isNotBlank) }
+    setOf(GENERATED_WALLPAPER_FALLBACK_TAG) + AiStyle.entries.mapNotNull { it.preset.takeIf(String::isNotBlank) }
 
 fun generatedWallpaperFavoriteEntity(wallpaper: Wallpaper): FavoriteEntity = FavoriteEntity(
     id = wallpaper.id,
@@ -127,7 +126,7 @@ fun generatedWallpaperFavoriteEntity(wallpaper: Wallpaper): FavoriteEntity = Fav
     tags = wallpaper.tags
         .filter { it in GENERATED_WALLPAPER_SAFE_TAGS }
         .joinToString(",")
-        .ifBlank { "ai-generated" },
+        .ifBlank { GENERATED_WALLPAPER_FALLBACK_TAG },
     category = "AI Generated",
     uploaderName = "AI",
 )
@@ -239,7 +238,7 @@ class AiWallpaperViewModel @Inject constructor(
         )
         if (requestError != null) {
             if (!providerEnabled) sourceMetrics.recordDisabled(SOURCE_AI_GENERATED)
-            _state.update { it.copy(error = localizedRequestError(requestError)) }
+            _state.update { it.copy(error = context.getString(requestError)) }
             return
         }
 
@@ -250,6 +249,7 @@ class AiWallpaperViewModel @Inject constructor(
                 prompt = current.prompt,
                 style = current.selectedStyle,
                 lastSuccessfulRequest = lastSuccessfulGeneration,
+                blankPromptPreviewFallback = context.getString(R.string.ai_duplicate_prompt_fallback),
             )
         }
         if (duplicateConfirmation != null) {
@@ -450,15 +450,4 @@ class AiWallpaperViewModel @Inject constructor(
         }
     }
 
-    private fun localizedRequestError(error: String): String {
-        val stringRes = when (error) {
-            GENERATED_CONTENT_DISABLED_MESSAGE -> R.string.ai_feedback_provider_disabled
-            GENERATED_CONTENT_IN_FLIGHT_MESSAGE -> R.string.ai_feedback_generation_in_progress
-            GENERATED_PROMPT_REQUIRED_MESSAGE -> R.string.ai_feedback_prompt_required
-            GENERATED_API_KEY_REQUIRED_MESSAGE -> R.string.ai_feedback_key_required
-            GENERATED_CONTENT_DISCLOSURE_REQUIRED_MESSAGE -> R.string.ai_feedback_disclosure_required
-            else -> return error
-        }
-        return context.getString(stringRes)
-    }
 }

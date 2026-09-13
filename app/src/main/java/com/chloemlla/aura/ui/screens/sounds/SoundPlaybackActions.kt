@@ -1,5 +1,7 @@
 package com.chloemlla.aura.ui.screens.sounds
 
+import android.content.Context
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.Sound
 import com.chloemlla.aura.data.model.stableKey
@@ -19,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap
 private const val FIRST_VISIBLE_PREVIEW_COUNT = 8
 
 internal class SoundPlaybackActions(
+    private val context: Context,
     private val audioPlaybackManager: AudioPlaybackManager,
     private val audioPreviewCache: AudioPreviewCache,
     private val selectedContent: SelectedContentHolder,
@@ -59,7 +62,12 @@ internal class SoundPlaybackActions(
                     state.update { it.copy(resolvingId = null) }
                     startPlayback(updatedSound)
                 } else {
-                    state.update { it.copy(resolvingId = null, error = "Could not load audio") }
+                    state.update {
+                        it.copy(
+                            resolvingId = null,
+                            error = context.getString(R.string.sound_feedback_playback_unavailable),
+                        )
+                    }
                 }
             }
         } else {

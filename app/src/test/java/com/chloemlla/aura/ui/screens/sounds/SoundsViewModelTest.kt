@@ -1509,6 +1509,8 @@ class SoundsViewModelTest {
         every { context.getString(R.string.feedback_creator_blocked) } returns "Creator blocked"
         every { context.getString(R.string.feedback_upload_deleted) } returns "Upload deleted"
         every { context.getString(R.string.feedback_delete_failed, "Offline") } returns "Delete failed: Offline"
+        every { context.getString(R.string.sound_feedback_download_missing_url) } returns
+            "Could not resolve audio stream URL"
     }
 
     private fun stubCommonDependencies(

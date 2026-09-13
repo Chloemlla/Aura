@@ -17,6 +17,7 @@
     <string name="ai_duplicate_body">此提示词和 %1$s 风格本次会话已经生成过一张壁纸。</string>
     <string name="ai_duplicate_confirm">再次生成</string>
     <string name="ai_duplicate_credit_warning">再次运行可能会再消耗一次 Stability 积分。</string>
+    <string name="ai_duplicate_prompt_fallback">生成的壁纸</string>
     <string name="ai_duplicate_title">再次生成？</string>
     <string name="ai_feedback_disclosure_required">生成前，请查看并接受生成壁纸披露声明。</string>
     <string name="ai_feedback_generation_cancelled">生成已取消</string>

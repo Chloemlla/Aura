@@ -122,6 +122,7 @@ class SoundsViewModel @Inject constructor(
     val playbackProgress = _playbackProgress.asStateFlow()
 
     internal val playback: SoundPlaybackActions = SoundPlaybackActions(
+        context = context,
         audioPlaybackManager = audioPlaybackManager,
         audioPreviewCache = audioPreviewCache,
         selectedContent = selectedContent,
@@ -150,6 +151,7 @@ class SoundsViewModel @Inject constructor(
     )
 
     internal val youtubeActions: SoundYouTubeActions = SoundYouTubeActions(
+        context = context,
         youtubeRepo = youtubeRepo,
         prefs = prefs,
         searchHistoryRepo = searchHistoryRepo,
@@ -163,6 +165,7 @@ class SoundsViewModel @Inject constructor(
     )
 
     internal val communityFeed: SoundCommunityFeed = SoundCommunityFeed(
+        context = context,
         uploadRepo = uploadRepo,
         sourceMetrics = sourceMetrics,
         state = _state,
@@ -200,6 +203,7 @@ class SoundsViewModel @Inject constructor(
     )
 
     internal val applyActions: SoundApplyActions = SoundApplyActions(
+        context = context,
         soundApplier = soundApplier,
         downloadManager = downloadManager,
         favoritesRepo = favoritesRepo,

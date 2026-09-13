@@ -380,6 +380,8 @@
     <string name="editor_crop_gesture_hint">双指缩放，拖动调整位置</string>
     <string name="editor_crop_detecting">正在检测…</string>
     <string name="editor_crop_smart_crop">智能裁剪</string>
+    <string name="editor_crop_subject_not_found">未能检测到主体 — 请拖动以手动定位</string>
+    <string name="editor_crop_smart_applied">已应用智能裁剪</string>
 
     <!-- Sound editor -->
     <string name="editor_sound_create_title">创建声音</string>
@@ -390,6 +392,8 @@
     <string name="editor_sound_unavailable_title">声音不可用</string>
     <string name="editor_sound_unavailable_body">此声音无法恢复以进行编辑。请返回声音并选择其他项目。</string>
     <string name="editor_sound_unavailable_action">返回声音</string>
+    <string name="editor_sound_load_failed">加载失败：%1$s</string>
+    <string name="editor_sound_load_file_failed">加载文件失败：%1$s</string>
     <string name="editor_sound_no_audio">未加载音频</string>
     <string name="editor_sound_preparing_waveform">正在准备波形…</string>
     <string name="editor_sound_preparing_hint">对于较长的文件，这通常需要几秒钟。</string>
@@ -1836,6 +1840,15 @@
     <string name="sound_feedback_upload_complete">上传完成</string>
     <string name="sound_feedback_upload_failed">上传失败：%1$s</string>
     <string name="sound_feedback_unblockable_uploader">此声音未提供可屏蔽的社区上传者</string>
+    <string name="sound_apply_settings_required">应用声音前需要系统设置访问权限。</string>
+    <string name="sound_feedback_set_as">已设为 %1$s</string>
+    <string name="sound_feedback_download_started">已开始下载</string>
+    <string name="sound_feedback_apply_missing_audio">无法解析音频</string>
+    <string name="sound_feedback_download_missing_url">无法解析音频流地址</string>
+    <string name="sound_feedback_community_timeout">社区上传加载超时</string>
+    <string name="sound_feedback_playback_unavailable">无法加载音频</string>
+    <string name="sound_feedback_youtube_invalid_url">不是有效的 YouTube 链接</string>
+    <string name="sound_feedback_youtube_load_failed">无法加载视频：%1$s</string>
     <string name="community_guidelines_action_required">请先在设置中查看并接受社区准则。</string>
     <string name="community_ai_generated_badge">AI 生成</string>
     <string name="community_hide_ai_filter">隐藏 AI</string>
@@ -1932,6 +1945,10 @@
     <string name="contact_picker_vip_preset">仅 VIP 预设</string>
     <string name="contact_picker_vip_success">已应用“仅 VIP 响铃”预设</string>
     <string name="contact_picker_vip_default_failed">已设置联系人铃声，但无法静音默认铃声：%1$s</string>
+    <string name="contact_picker_no_sound_selected">未选择声音。请返回声音页面并选择一个有效的项目。</string>
+    <string name="contact_picker_sound_not_downloadable">此声音没有可下载的铃声文件。</string>
+    <string name="contact_picker_ringtone_set">已为联系人设置铃声</string>
+    <string name="contact_picker_download_failed">下载失败：%1$s</string>
     <plurals name="favorites_exported">
         <item quantity="one">已导出 %1$d 个收藏</item>
         <item quantity="other">已导出 %1$d 个收藏</item>

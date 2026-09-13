@@ -433,6 +433,8 @@
     <string name="editor_crop_gesture_hint">Pinch to zoom, drag to position</string>
     <string name="editor_crop_detecting">Detecting…</string>
     <string name="editor_crop_smart_crop">Smart Crop</string>
+    <string name="editor_crop_subject_not_found">Couldn\'t detect a subject — drag to position manually</string>
+    <string name="editor_crop_smart_applied">Smart crop applied</string>
 
     <!-- Sound editor -->
     <string name="editor_sound_create_title">Create Sound</string>
@@ -443,6 +445,8 @@
     <string name="editor_sound_unavailable_title">Sound unavailable</string>
     <string name="editor_sound_unavailable_body">This sound could not be restored for editing. Return to Sounds and choose another item.</string>
     <string name="editor_sound_unavailable_action">Back to sounds</string>
+    <string name="editor_sound_load_failed">Failed to load: %1$s</string>
+    <string name="editor_sound_load_file_failed">Failed to load file: %1$s</string>
     <string name="editor_sound_no_audio">No audio loaded</string>
     <string name="editor_sound_preparing_waveform">Preparing waveform…</string>
     <string name="editor_sound_preparing_hint">This usually takes a few seconds for longer files.</string>
@@ -846,6 +850,10 @@
     <string name="contact_picker_vip_preset">VIP-only preset</string>
     <string name="contact_picker_vip_success">VIP-only ringing preset applied</string>
     <string name="contact_picker_vip_default_failed">The contact ringtone was set, but the default ringtone could not be silenced: %1$s</string>
+    <string name="contact_picker_no_sound_selected">No sound selected. Return to Sounds and choose a valid item.</string>
+    <string name="contact_picker_sound_not_downloadable">This sound does not have a downloadable ringtone file.</string>
+    <string name="contact_picker_ringtone_set">Ringtone set for contact</string>
+    <string name="contact_picker_download_failed">Download failed: %1$s</string>
 
     <!-- Wallpaper history -->
     <string name="history_title">Wallpaper History</string>
@@ -2090,6 +2098,16 @@
     <string name="sound_feedback_upload_complete">Upload complete</string>
     <string name="sound_feedback_upload_failed">Upload failed: %1$s</string>
     <string name="sound_feedback_unblockable_uploader">This sound does not expose a blockable community uploader</string>
+    <!-- Sound apply, download, and playback feedback -->
+    <string name="sound_apply_settings_required">System settings access is required before applying sounds.</string>
+    <string name="sound_feedback_set_as">Set as %1$s</string>
+    <string name="sound_feedback_download_started">Download started</string>
+    <string name="sound_feedback_apply_missing_audio">Could not resolve audio</string>
+    <string name="sound_feedback_download_missing_url">Could not resolve audio stream URL</string>
+    <string name="sound_feedback_community_timeout">Community uploads timed out</string>
+    <string name="sound_feedback_playback_unavailable">Could not load audio</string>
+    <string name="sound_feedback_youtube_invalid_url">Not a valid YouTube URL</string>
+    <string name="sound_feedback_youtube_load_failed">Could not load video: %1$s</string>
     <string name="community_guidelines_action_required">Review and accept the community guidelines in Settings first.</string>
     <string name="community_ai_generated_badge">AI-generated</string>
     <string name="community_hide_ai_filter">Hide AI</string>

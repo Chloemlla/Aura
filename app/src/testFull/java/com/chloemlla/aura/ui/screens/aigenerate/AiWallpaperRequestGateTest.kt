@@ -1,5 +1,6 @@
 package com.chloemlla.aura.ui.screens.aigenerate
 
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.CommunityReportReason
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.Wallpaper
@@ -15,7 +16,7 @@ class AiWallpaperRequestGateTest {
     @Test
     fun `disabled generated source wins before prompt and key checks`() {
         assertEquals(
-            GENERATED_CONTENT_DISABLED_MESSAGE,
+            R.string.ai_feedback_provider_disabled,
             generatedWallpaperRequestError(
                 providerEnabled = false,
                 prompt = "",
@@ -28,7 +29,7 @@ class AiWallpaperRequestGateTest {
     @Test
     fun `enabled generated source still requires prompt and key`() {
         assertEquals(
-            "Describe your wallpaper to get started.",
+            R.string.ai_feedback_prompt_required,
             generatedWallpaperRequestError(
                 providerEnabled = true,
                 prompt = "",
@@ -38,7 +39,7 @@ class AiWallpaperRequestGateTest {
         )
 
         assertEquals(
-            "Enter your Stability AI key to generate images.",
+            R.string.ai_feedback_key_required,
             generatedWallpaperRequestError(
                 providerEnabled = true,
                 prompt = "misty canyon",
@@ -51,7 +52,7 @@ class AiWallpaperRequestGateTest {
     @Test
     fun `enabled generated source requires disclosure acceptance before request`() {
         assertEquals(
-            GENERATED_CONTENT_DISCLOSURE_REQUIRED_MESSAGE,
+            R.string.ai_feedback_disclosure_required,
             generatedWallpaperRequestError(
                 providerEnabled = true,
                 prompt = "misty canyon",
@@ -76,7 +77,7 @@ class AiWallpaperRequestGateTest {
     @Test
     fun `active generation blocks duplicate submits before another request`() {
         assertEquals(
-            GENERATED_CONTENT_IN_FLIGHT_MESSAGE,
+            R.string.ai_feedback_generation_in_progress,
             generatedWallpaperRequestError(
                 providerEnabled = true,
                 prompt = "misty canyon",
@@ -98,6 +99,7 @@ class AiWallpaperRequestGateTest {
             prompt = "  misty   canyon at dawn  ",
             style = AiStyle.PHOTOGRAPHIC,
             lastSuccessfulRequest = last,
+            blankPromptPreviewFallback = "Fallback preview",
         )
 
         assertEquals("misty canyon at dawn", confirmation?.promptPreview)
@@ -116,6 +118,7 @@ class AiWallpaperRequestGateTest {
                 prompt = "Misty canyon at dawn",
                 style = AiStyle.CINEMATIC,
                 lastSuccessfulRequest = last,
+                blankPromptPreviewFallback = "Fallback preview",
             ),
         )
     }

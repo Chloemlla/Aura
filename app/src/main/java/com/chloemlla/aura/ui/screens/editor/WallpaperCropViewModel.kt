@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.Wallpaper
 import com.chloemlla.aura.data.model.WallpaperTarget
 import com.chloemlla.aura.data.model.stableKey
@@ -235,7 +236,7 @@ class WallpaperCropViewModel @Inject constructor(
                 _state.update {
                     it.copy(
                         smartCropInProgress = false,
-                        error = "Couldn't detect a subject — drag to position manually",
+                        error = appContext.getString(R.string.editor_crop_subject_not_found),
                     )
                 }
                 return null
@@ -267,7 +268,7 @@ class WallpaperCropViewModel @Inject constructor(
                     scale = display.scale,
                     offsetX = display.offsetX,
                     offsetY = display.offsetY,
-                    success = "Smart crop applied",
+                    success = appContext.getString(R.string.editor_crop_smart_applied),
                 )
             }
             display
