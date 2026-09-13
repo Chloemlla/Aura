@@ -291,6 +291,13 @@ jobs:
         # gates that very job — leaving it in would make every version bump
         # unreleasable. Everything else blocks: the baseline is green now, so
         # continue-on-error is gone.
+        #
+        # GH_TOKEN is what makes the publication gate whole where it does run.
+        # Unauthenticated, `gh` cannot answer on the runner, and
+        # published_state.release_published() reports "unknown" rather than
+        # checking, which silently degrades the gate to a tag-name test.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 -m venv /tmp/aura-governance
           /tmp/aura-governance/bin/pip install --quiet pytest
@@ -502,6 +509,12 @@ jobs:
           fetch-depth: 0
 
       - name: Check the declared version is released
+        # GH_TOKEN is required, not optional: unauthenticated `gh` cannot answer
+        # on the runner, and published_state.release_published() then reports
+        # "unknown" instead of checking, so this would pass on the tag alone and
+        # never notice a tag with no Release behind it.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 -m venv /tmp/aura-publication
           /tmp/aura-publication/bin/pip install --quiet pytest
