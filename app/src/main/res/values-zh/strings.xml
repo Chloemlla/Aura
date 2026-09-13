@@ -430,6 +430,9 @@
     <string name="collections_show_qr">显示二维码</string>
     <string name="collections_delete">删除收藏集</string>
     <string name="collections_import">导入收藏集</string>
+    <string name="collections_create">创建收藏集</string>
+    <string name="collections_create_title">新建收藏集</string>
+    <string name="collections_create_action">创建</string>
     <string name="collections_empty_title">此收藏集为空</string>
     <string name="collections_empty_body">从详情页保存壁纸，将其变成一个精选集合。</string>
     <string name="collections_list_empty_title">还没有收藏集</string>
@@ -446,10 +449,16 @@
     <string name="collections_import_qr">二维码图片</string>
     <string name="collections_qr_title">收藏集二维码</string>
     <string name="collections_qr_cd">%1$s 的二维码</string>
-    <string name="collections_qr_info">%1$s — %2$d 张壁纸</string>
+    <string name="collections_qr_info">%1$s · %2$d 张壁纸</string>
     <string name="collections_qr_copy">复制链接</string>
     <string name="collections_share_chooser">分享 &quot;%1$s&quot;</string>
     <string name="collections_no_share_target">没有可分享的应用</string>
+    <string name="collections_share_prepare_failed">无法准备此收藏集以供分享。</string>
+    <string name="collections_share_link_failed">无法为此收藏集创建分享链接。</string>
+    <string name="collections_import_failed">无法导入此收藏集。</string>
+    <plurals name="collections_import_success">
+        <item quantity="other">已将 %1$d 张壁纸导入 %2$s。</item>
+    </plurals>
     <string name="collections_wallpaper_count">%1$d 张壁纸</string>
 
     <!-- Community reports (admin) -->

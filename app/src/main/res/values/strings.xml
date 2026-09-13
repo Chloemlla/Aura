@@ -478,6 +478,9 @@
     <string name="collections_show_qr">Show QR code</string>
     <string name="collections_delete">Delete collection</string>
     <string name="collections_import">Import collection</string>
+    <string name="collections_create">Create collection</string>
+    <string name="collections_create_title">New collection</string>
+    <string name="collections_create_action">Create</string>
     <string name="collections_empty_title">This collection is empty</string>
     <string name="collections_empty_body">Save wallpapers from detail pages to turn this into a curated set.</string>
     <string name="collections_list_empty_title">No collections yet</string>
@@ -494,10 +497,17 @@
     <string name="collections_import_qr">QR image</string>
     <string name="collections_qr_title">Collection QR code</string>
     <string name="collections_qr_cd">QR code for %1$s</string>
-    <string name="collections_qr_info">%1$s — %2$d wallpapers</string>
+    <string name="collections_qr_info">%1$s · %2$d wallpapers</string>
     <string name="collections_qr_copy">Copy link</string>
     <string name="collections_share_chooser">Share &quot;%1$s&quot;</string>
     <string name="collections_no_share_target">No app to share to</string>
+    <string name="collections_share_prepare_failed">Couldn\'t prepare this collection for sharing.</string>
+    <string name="collections_share_link_failed">Couldn\'t create a share link for this collection.</string>
+    <string name="collections_import_failed">Couldn\'t import this collection.</string>
+    <plurals name="collections_import_success">
+        <item quantity="one">Imported %1$d wallpaper into %2$s.</item>
+        <item quantity="other">Imported %1$d wallpapers into %2$s.</item>
+    </plurals>
     <string name="collections_wallpaper_count">%1$d wallpapers</string>
 
     <!-- Community reports (admin) -->

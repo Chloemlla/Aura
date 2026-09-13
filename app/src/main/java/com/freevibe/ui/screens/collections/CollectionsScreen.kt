@@ -1,7 +1,9 @@
 package com.freevibe.ui.screens.collections
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -51,9 +53,11 @@ import com.freevibe.service.PhotoPickerCustomization
 import com.freevibe.service.SelectedContentHolder
 import com.freevibe.service.DeletedCollectionSnapshot
 import com.freevibe.ui.components.AuraSnackbarHost
+import com.freevibe.ui.components.AuraStateAction
 import com.freevibe.ui.components.AuraStateCard
 import com.freevibe.ui.components.EmbeddedImagePickerSheet
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -74,6 +78,7 @@ data class CollectionQrState(
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class CollectionsViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val collectionRepo: CollectionRepository,
     private val selectedContent: SelectedContentHolder,
     private val collectionExporter: CollectionExporter,
@@ -97,8 +102,9 @@ class CollectionsViewModel @Inject constructor(
                     )
                 }
                 .onFailure { e ->
+                    Log.w(TAG, "Collection share bundle preparation failed", e)
                     _shareEvent.value = ShareCollectionEvent.Failure(
-                        e.message ?: "Couldn't prepare this collection for sharing."
+                        context.getString(R.string.collections_share_prepare_failed)
                     )
                 }
         }
@@ -115,8 +121,9 @@ class CollectionsViewModel @Inject constructor(
                     )
                 }
                 .onFailure { e ->
+                    Log.w(TAG, "Collection share link creation failed", e)
                     _shareEvent.value = ShareCollectionEvent.Failure(
-                        e.message ?: "Couldn't create a share link for this collection.",
+                        context.getString(R.string.collections_share_link_failed),
                     )
                 }
         }
@@ -146,11 +153,17 @@ class CollectionsViewModel @Inject constructor(
         onSuccess { result ->
             _selectedCollectionId.value = result.collectionId
             _shareEvent.value = ShareCollectionEvent.Message(
-                "Imported ${result.itemCount} wallpapers into ${result.collectionName}."
+                context.resources.getQuantityString(
+                    R.plurals.collections_import_success,
+                    result.itemCount,
+                    result.itemCount,
+                    result.collectionName,
+                )
             )
         }.onFailure { e ->
+            Log.w(TAG, "Collection import failed", e)
             _shareEvent.value = ShareCollectionEvent.Failure(
-                e.message ?: "Couldn't import this collection.",
+                context.getString(R.string.collections_import_failed),
             )
         }
     }
@@ -169,6 +182,14 @@ class CollectionsViewModel @Inject constructor(
 
     fun selectCollection(id: Long) { _selectedCollectionId.value = id }
     fun clearSelection() { _selectedCollectionId.value = null }
+
+    fun createCollection(name: String) {
+        val normalizedName = name.trim()
+        if (normalizedName.isEmpty()) return
+        viewModelScope.launch {
+            _selectedCollectionId.value = collectionRepo.create(normalizedName)
+        }
+    }
 
     fun selectWallpaper(item: WallpaperCollectionItemEntity, items: List<WallpaperCollectionItemEntity>) {
         val wallpapers = items.map { it.toWallpaper() }
@@ -210,6 +231,10 @@ class CollectionsViewModel @Inject constructor(
 
     fun getItemCount(collectionId: Long): Flow<Int> = collectionRepo.getItemCount(collectionId)
     fun getCoverThumbnails(collectionId: Long): Flow<List<String>> = collectionRepo.getCoverThumbnails(collectionId)
+
+    private companion object {
+        const val TAG = "CollectionsViewModel"
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -229,6 +254,7 @@ fun CollectionsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showImportSheet by remember { mutableStateOf(false) }
+    var showCreateDialog by remember { mutableStateOf(false) }
 
     // Observe prepared share/import events and keep system intents out of recomposition.
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -308,6 +334,15 @@ fun CollectionsScreen(
             onOpenQrImage = {
                 showImportSheet = false
                 launchQrImportPicker()
+            },
+        )
+    }
+    if (showCreateDialog) {
+        CreateCollectionDialog(
+            onDismiss = { showCreateDialog = false },
+            onCreate = { name ->
+                showCreateDialog = false
+                viewModel.createCollection(name)
             },
         )
     }
@@ -404,6 +439,9 @@ fun CollectionsScreen(
                             }
                         }
                     } else {
+                        IconButton(onClick = { showCreateDialog = true }) {
+                            Icon(Icons.Default.CreateNewFolder, stringResource(R.string.collections_create))
+                        }
                         IconButton(onClick = { showImportSheet = true }) {
                             Icon(Icons.Default.FileDownload, stringResource(R.string.collections_import))
                         }
@@ -487,6 +525,11 @@ fun CollectionsScreen(
                         icon = Icons.Default.CreateNewFolder,
                         title = stringResource(R.string.collections_list_empty_title),
                         description = stringResource(R.string.collections_list_empty_body),
+                        primaryAction = AuraStateAction(
+                            label = stringResource(R.string.collections_create),
+                            icon = Icons.Default.CreateNewFolder,
+                            onClick = { showCreateDialog = true },
+                        ),
                         modifier = Modifier.padding(24.dp),
                     )
                 }
@@ -507,6 +550,44 @@ fun CollectionsScreen(
             }
         }
     }
+}
+
+@Composable
+private fun CreateCollectionDialog(
+    onDismiss: () -> Unit,
+    onCreate: (String) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    val normalizedName = name.trim()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.CreateNewFolder, contentDescription = null) },
+        title = { Text(stringResource(R.string.collections_create_title)) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.detail_collection_name_placeholder)) },
+                singleLine = true,
+                shape = RoundedCornerShape(8.dp),
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onCreate(normalizedName) },
+                enabled = normalizedName.isNotEmpty(),
+            ) {
+                Text(stringResource(R.string.collections_create_action))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        },
+        shape = RoundedCornerShape(8.dp),
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

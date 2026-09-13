@@ -1,6 +1,7 @@
 package com.freevibe.ui.screens
 
 import java.io.File
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -467,6 +468,20 @@ class ReleasePolishContractTest {
         assertTrue(qrDialog.contains("shape = RoundedCornerShape(8.dp)"))
         assertTrue(pickerSheet.contains(".verticalScroll(rememberScrollState())"))
         assertTrue(pickerSheet.contains(".imePadding()"))
+    }
+
+    @Test
+    fun `empty collections expose creation as a first class action`() {
+        val source = File("src/main/java/com/freevibe/ui/screens/collections/CollectionsScreen.kt").readText()
+        val emptyList = source.substringAfter("// Collection list").substringBefore("LazyColumn(")
+
+        assertTrue(source.contains("fun createCollection(name: String)"))
+        assertTrue(source.contains("private fun CreateCollectionDialog("))
+        assertTrue(source.contains("Icon(Icons.Default.CreateNewFolder, stringResource(R.string.collections_create))"))
+        assertTrue(emptyList.contains("primaryAction = AuraStateAction("))
+        assertTrue(emptyList.contains("showCreateDialog = true"))
+        assertTrue(source.contains("R.plurals.collections_import_success"))
+        assertFalse(source.contains("Couldn't import this collection."))
     }
 
     @Test
