@@ -17,8 +17,10 @@ class NetworkInventoryError(ValueError):
 
 URL_LITERAL_RE = re.compile(r'"([^"\n]*https?://[^"\n]*)"')
 HOST_RE = re.compile(r"https?://([^/\s\"'?#$:]+)")
+ENDPOINT_OWNERSHIPS = {"content-source", "app-infrastructure"}
 REQUIRED_ENDPOINT_FIELDS = {
     "id",
+    "ownership",
     "hosts",
     "schemes",
     "surface",
@@ -126,6 +128,11 @@ def validate_inventory_shape(inventory: dict[str, Any]) -> tuple[list[str], list
         endpoint["sourceFiles"] = require_string_list(endpoint["sourceFiles"], f"{endpoint_id}.sourceFiles")
         for field in REQUIRED_ENDPOINT_FIELDS - {"id", "hosts", "schemes", "sourceFiles"}:
             endpoint[field] = require_string(endpoint[field], f"{endpoint_id}.{field}")
+        ownership = endpoint["ownership"]
+        if ownership not in ENDPOINT_OWNERSHIPS:
+            raise NetworkInventoryError(
+                f"{endpoint_id}.ownership must be one of {', '.join(sorted(ENDPOINT_OWNERSHIPS))}, not {ownership}"
+            )
         endpoints.append(endpoint)
     return source_roots, endpoints, docs_path
 

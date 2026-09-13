@@ -160,17 +160,38 @@ class ProviderCapabilityContractTest {
     }
 
     @Test
-    fun `every manifest endpoint is owned by exactly one source`() {
+    fun `every manifest endpoint is owned by exactly one source or by Aura itself`() {
         val declared = providerCapabilities.flatMap { it.endpointIds }
         assertEquals(
             "an endpoint may not be claimed twice",
             declared.size,
             declared.toSet().size,
         )
+
+        val ownership = endpointsById().mapValues { (id, endpoint) ->
+            val value = endpoint.optString("ownership", "")
+            assertTrue(
+                "$id must declare whether a content source or Aura itself owns it, not \"$value\"",
+                value == "content-source" || value == "app-infrastructure",
+            )
+            value
+        }
+        val providerOwned = ownership.filterValues { it == "content-source" }.keys
+        val firstParty = ownership.filterValues { it == "app-infrastructure" }.keys
+
         assertEquals(
-            "every documented endpoint must belong to a registry entry",
-            endpointsById().keys,
+            "every documented content-source endpoint must belong to a registry entry, and " +
+                "every registry endpoint must be documented",
             declared.toSet(),
+            providerOwned,
+        )
+        // Aura's own infrastructure is reviewed one id at a time. A new network
+        // surface is not a free pass past this gate: adding one here means
+        // declaring that no content source owns it, which is a reviewed act.
+        assertEquals(
+            "the endpoints Aura itself owns must be declared here, one by one",
+            setOf("ffmpeg-kit-binary-download"),
+            firstParty,
         )
     }
 

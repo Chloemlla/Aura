@@ -24,6 +24,20 @@ Every literal HTTP(S) host in those roots must appear in
 `docs/security/network-endpoints.json`. The Markdown runbook must mention every
 endpoint ID and reviewed host.
 
+## Ownership
+
+Every endpoint declares an `ownership`:
+
+- `content-source` — the request exists for a catalog provider, and that
+  provider owns the id in `providerCapabilities`.
+  `ProviderCapabilityContractTest` fails when these rows and the registry's
+  `endpointIds` stop matching one for one.
+- `app-infrastructure` — Aura makes the request for itself, so no content
+  source owns it. These ids are reviewed one at a time in the same test, so a
+  new network surface cannot pass the gate by declaring itself infrastructure.
+  Today the only one is `ffmpeg-kit-binary-download`, the FFmpeg payload Aura
+  fetches for its own audio-trim and video-crop tooling.
+
 ## Endpoints
 
 | ID | Hosts | Auth location | Data sent | Cache / rate / fallback / owner |

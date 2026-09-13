@@ -13,6 +13,7 @@
   "endpoints": [
     {
       "id": "wallhaven-api",
+      "ownership": "content-source",
       "hosts": ["wallhaven.cc"],
       "schemes": ["https"],
       "surface": "Wallhaven wallpapers",
@@ -31,6 +32,7 @@
     },
     {
       "id": "bing-daily",
+      "ownership": "content-source",
       "hosts": ["www.bing.com", "www2.bing.com", "cn.bing.com"],
       "schemes": ["https"],
       "surface": "Bing Daily wallpaper feed",
@@ -48,6 +50,7 @@
     },
     {
       "id": "pexels-api",
+      "ownership": "content-source",
       "hosts": ["api.pexels.com"],
       "schemes": ["https"],
       "surface": "Pexels photo and video provider",
@@ -65,6 +68,7 @@
     },
     {
       "id": "pixabay-api",
+      "ownership": "content-source",
       "hosts": ["pixabay.com", "i.vimeocdn.com"],
       "schemes": ["https"],
       "surface": "Pixabay photo and video provider",
@@ -82,6 +86,7 @@
     },
     {
       "id": "reddit-rss",
+      "ownership": "content-source",
       "hosts": ["www.reddit.com", "i.redd.it", "v.redd.it", "preview.redd.it", "external-preview.redd.it"],
       "schemes": ["https"],
       "surface": "Reddit public Atom wallpaper/cinemagraph feed and returned media URLs",
@@ -99,6 +104,7 @@
     },
     {
       "id": "nasa-apod",
+      "ownership": "content-source",
       "hosts": ["api.nasa.gov", "apod.nasa.gov"],
       "schemes": ["https"],
       "surface": "NASA Astronomy Picture of the Day wallpaper metadata and source pages",
@@ -116,6 +122,7 @@
     },
     {
       "id": "wikimedia-potd",
+      "ownership": "content-source",
       "hosts": ["api.wikimedia.org"],
       "schemes": ["https"],
       "surface": "Wikimedia Picture of the Day metadata",
@@ -132,6 +139,7 @@
     },
     {
       "id": "lemmy-wallpapers",
+      "ownership": "content-source",
       "hosts": ["lemmy.world"],
       "schemes": ["https"],
       "surface": "Lemmy wallpaper community posts and source pages",
@@ -150,6 +158,7 @@
     },
     {
       "id": "openverse-audio",
+      "ownership": "content-source",
       "hosts": ["api.openverse.org"],
       "schemes": ["https"],
       "surface": "Openverse audio search provider",
@@ -167,6 +176,7 @@
     },
     {
       "id": "freesound-v2",
+      "ownership": "content-source",
       "hosts": ["freesound.org"],
       "schemes": ["https"],
       "surface": "Freesound v2 API, preview URLs, and source pages",
@@ -186,6 +196,7 @@
     },
     {
       "id": "soundcloud-api",
+      "ownership": "content-source",
       "hosts": ["api-v2.soundcloud.com", "soundcloud.com"],
       "schemes": ["https"],
       "surface": "SoundCloud search, stream, and source page URLs",
@@ -203,6 +214,7 @@
     },
     {
       "id": "audius-api",
+      "ownership": "content-source",
       "hosts": ["api.audius.co", "audius.co"],
       "schemes": ["https"],
       "surface": "Audius search and source page URLs",
@@ -220,6 +232,7 @@
     },
     {
       "id": "ccmixter-api",
+      "ownership": "content-source",
       "hosts": ["ccmixter.org"],
       "schemes": ["https"],
       "surface": "ccMixter API",
@@ -237,6 +250,7 @@
     },
     {
       "id": "open-meteo-api",
+      "ownership": "content-source",
       "hosts": ["api.open-meteo.com"],
       "schemes": ["https"],
       "surface": "Weather effects current weather lookup",
@@ -253,6 +267,7 @@
     },
     {
       "id": "generated-wallpaper-api",
+      "ownership": "content-source",
       "hosts": ["api.stability.ai"],
       "schemes": ["https"],
       "surface": "Generated wallpaper image generation",
@@ -270,6 +285,7 @@
     },
     {
       "id": "youtube-newpipe",
+      "ownership": "content-source",
       "hosts": ["www.youtube.com"],
       "schemes": ["https"],
       "surface": "YouTube page URL passed to NewPipe/yt-dlp extraction",
@@ -286,6 +302,7 @@
     },
     {
       "id": "youtube-pot-provider",
+      "ownership": "content-source",
       "hosts": ["user-configured provider host"],
       "schemes": ["https"],
       "surface": "Optional self-hosted bgutil proof-of-origin token provider",
@@ -303,6 +320,7 @@
     },
     {
       "id": "aura-collection-links",
+      "ownership": "content-source",
       "hosts": ["aura.app"],
       "schemes": ["https"],
       "surface": "Collection import deep-link allowlist",
@@ -319,6 +337,7 @@
     },
     {
       "id": "firebase-community",
+      "ownership": "content-source",
       "hosts": [
         "firebaseio.com",
         "firebasestorage.googleapis.com",
@@ -344,6 +363,7 @@
     },
     {
       "id": "ffmpeg-kit-binary-download",
+      "ownership": "app-infrastructure",
       "hosts": ["github.com"],
       "schemes": ["https"],
       "surface": "On-demand FFmpeg native binary download from the arthenica/ffmpeg-kit release assets used by audio trim/export and video crop",

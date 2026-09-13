@@ -22,9 +22,16 @@ class NetworkEndpointInventoryCheckTest(unittest.TestCase):
 
         self.assertEqual("networkEndpointInventory", result["policyKind"])
         self.assertEqual(1, result["schemaVersion"])
-        self.assertEqual(19, result["endpointCount"])
+        self.assertEqual(20, result["endpointCount"])
         self.assertIn("wallhaven.cc", result["scannedLiteralHosts"])
         self.assertIn("api-v2.soundcloud.com", result["scannedLiteralHosts"])
+
+    def test_rejects_unknown_endpoint_ownership(self) -> None:
+        inventory = copy.deepcopy(live_inventory())
+        inventory["endpoints"][0]["ownership"] = "someone-else"  # type: ignore[index]
+
+        with self.assertRaises(NetworkInventoryError):
+            validate_inventory(REPO_ROOT, inventory)
 
     def test_rejects_unreviewed_literal_host(self) -> None:
         inventory = copy.deepcopy(live_inventory())
