@@ -1,5 +1,27 @@
 {
   "schemaVersion": 1,
   "policyKind": "githubSecurityWorkflowPolicy",
-  "workflows": []
+  "workflows": [
+    {
+      "name": "Build Aura Android",
+      "path": ".github/workflows/aura-android.yml",
+      "requiredSnippets": [
+        "pull_request:",
+        "workflow_dispatch:",
+        "contents: read",
+        "packages: read",
+        "uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+        "uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d",
+        "contents: write",
+        "github.ref == 'refs/heads/main'",
+        "uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65",
+        "if: always()"
+      ],
+      "forbiddenSnippets": [
+        "pull_request_target:",
+        "permissions: write-all",
+        "persist-credentials: true"
+      ]
+    }
+  ]
 }

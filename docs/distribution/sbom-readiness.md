@@ -9,21 +9,20 @@ or Gradle-plugin churn. The machine-readable contract is
 
 | Field | Value |
 | --- | --- |
-| Package | `com.freevibe` |
+| Package | `com.chloemlla.aura` |
 | Status | `deferredUntilN1ToolchainUpgrade` |
 | Current release SBOM artifact | Not generated |
 | Current provenance surface | Signed APK/AAB, checksums, generated notices, raw notice inputs, native compliance packet, native alignment packet, and local build receipt |
 
 The deferral is a release-owner decision, not an absence of supply-chain
 evidence. Aura already gates release dependency notices, curated high-risk
-license rows, native/copyleft payload facts, Gradle checksum metadata, release
-bundle completeness, and checksum validation before publication.
+license rows, native/copyleft payload facts, release bundle completeness, and
+checksum validation before publication.
 
 ## Current release evidence
 
 Current releases must keep these evidence files and controls in place:
 
-- `gradle/verification-metadata.xml`
 - `docs/legal/dependency-notices.lock.json`
 - `docs/legal/dependency-notice-overrides.json`
 - `docs/legal/dependency-license-policy.json`
@@ -41,6 +40,14 @@ Current releases must keep these evidence files and controls in place:
 
 These controls do not claim to be a complete SBOM. They are the current
 release evidence floor until the dedicated SBOM lane lands.
+
+Gradle dependency checksum metadata (`gradle/verification-metadata.xml`) is not
+part of that floor today: the file is neither committed nor generated, because
+producing it requires a dependency-resolution pass. It is deferred until the N-1
+toolchain upgrade, the same point at which the SBOM lane lands. The
+`--write-verification-metadata` procedure in
+[supply-chain.md](supply-chain.md#gradle-dependency-verification) remains the
+documented step for when it lands.
 
 ## Future SBOM lane
 

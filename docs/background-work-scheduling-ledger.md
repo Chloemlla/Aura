@@ -18,14 +18,14 @@ release docs, and verify/release workflow wiring.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Auto wallpaper rotation | `AutoWallpaperWorker` | Periodic | `auto_wallpaper` | `ExistingPeriodicWorkPolicy.UPDATE` | Default 360 minutes; WorkManager floor 15 minutes; one source, configurable clock-based day/night sources, or system light/dark theme sources | Connected network when any active phase is remote, unmetered when Wi-Fi-only is enabled, battery-not-low, optional charging, optional idle | No |
 | Automatic backup | `AutoBackupWorker` | Periodic | `auto_backup` | `ExistingPeriodicWorkPolicy.UPDATE` | User-selected hours; minimum 1 hour | Battery-not-low | No |
-| Daily wallpaper notification | `DailyWallpaperWorker` | Periodic | `daily_wallpaper` | `ExistingPeriodicWorkPolicy.KEEP` | 24 hours with 8-hour initial delay | Connected network | No |
+| Daily wallpaper notification | `DailyWallpaperWorker` | Periodic | `daily_wallpaper` | `ExistingPeriodicWorkPolicy.UPDATE` | 24 hours with 8-hour initial delay; re-enabling updates the existing unique work | Connected network | No |
 | Ringtone restoration | `RingtoneRestorationWorker` | One-time | `ringtone_restoration` | `ExistingWorkPolicy.REPLACE` | Device boot or package replacement | No explicit constraints | No |
 | Ringtone shuffle | `RingtoneShuffleWorker` | Periodic | `ringtone_shuffle` | `ExistingPeriodicWorkPolicy.UPDATE` | User-selected hours; minimum 1 hour | No explicit constraints | No |
 | Sound profile | `SoundProfileWorker` | Periodic | `sound_profile` | `ExistingPeriodicWorkPolicy.UPDATE` | 15 minutes | No explicit constraints | No |
 | Wallpaper pack | `WallpaperPackWorker` | Periodic | `wallpaper_pack` | `ExistingPeriodicWorkPolicy.UPDATE` | 15 minutes | No explicit constraints | No |
 | Weather effect refresh | `WeatherUpdateWorker` | Periodic | `weather_update` | `ExistingPeriodicWorkPolicy.KEEP` | 30 minutes | Connected network | No |
-| Aura Originals download | `AuraOriginalsDownloader` | One-time | `aura_originals_download` | `ExistingWorkPolicy.KEEP` | Enqueued on app startup, idempotent after hashes match | Unmetered network | Yes, downgraded to non-expedited on quota exhaustion |
-| Rotation trigger one-shot | `AutoWallpaperWorker` through `RotationTriggerService` | One-time | `rotation_trigger_oneshot` | `ExistingWorkPolicy.KEEP` | Unlock, screen-off, Tasker, MacroDroid, adb, or Termux trigger | Connected network and battery-not-low | Yes, downgraded to non-expedited on quota exhaustion |
+| Aura Originals download | `AuraOriginalsDownloader` | One-time | `aura_originals_download` | `ExistingWorkPolicy.KEEP` | Enqueued on app startup, idempotent after hashes match | Unmetered network | No |
+| Rotation trigger one-shot | `AutoWallpaperWorker` through `RotationTriggerService` | One-time | `rotation_trigger_oneshot` | `ExistingWorkPolicy.APPEND_OR_REPLACE` | Unlock, screen-off, Tasker, MacroDroid, adb, or Termux trigger | Source-aware network requirement (none, unmetered, or connected) plus battery-not-low, optional charging, optional idle | No |
 
 ## Android 16 quota audit
 
@@ -45,11 +45,19 @@ Android 16 still charges ordinary and expedited WorkManager jobs against job
 runtime quota when they continue after a TOP-state start and while they run
 concurrently with a foreground service. The only Aura concurrency path is
 `RotationTriggerService` enqueuing `rotation_trigger_oneshot`. That path uses
-unique `KEEP` to coalesce chatty events and
-`RUN_AS_NON_EXPEDITED_WORK_REQUEST` to preserve the request when expedited quota
-is unavailable. Settings and copied support diagnostics now report every unique
-work name and summarize non-active `WorkInfo.stopReason` values such as `QUOTA`,
-`TIMEOUT`, `BACKGROUND_RESTRICTION`, and constraint stops.
+unique `APPEND_OR_REPLACE` so a new trigger is queued behind rotation work that
+is already pending instead of replacing or dropping it, and the requests are
+plain non-expedited one-shots, so they consume no expedited quota and have no
+quota downgrade path. Settings and copied support diagnostics now report every
+unique work name and summarize non-active `WorkInfo.stopReason` values such as
+`QUOTA`, `TIMEOUT`, `BACKGROUND_RESTRICTION`, and constraint stops.
+
+No Aura one-shot requests expedited work: the Aura Originals download and the
+rotation trigger are both plain one-shots because expedited execution requires
+`getForegroundInfo()`, which neither worker implements, so expedited runs failed
+outright on API 26-30. Ordinary WorkManager jobs can still be charged against
+job runtime quota on Android 16, which is why the ledger keeps recording every
+deferral path above.
 
 ## Deferral reasons
 
@@ -62,10 +70,12 @@ worker receipts:
 - Battery-not-low, charging, or idle constraints are not met.
 - Location permission or last-known location is missing for weather effects.
 - Notification permission is denied for daily wallpaper notifications.
-- The Reddit provider is disabled for daily wallpaper notifications.
-- Expedited quota is exhausted and the work was downgraded to a normal
-  WorkRequest.
-- Unique KEEP coalesced a pending one-shot.
+- The Bing and Wallhaven daily providers are both unavailable for daily
+  wallpaper notifications.
+- The daily wallpaper notification could not find an eligible image from either
+  provider.
+- A rotation is already pending, so `APPEND_OR_REPLACE` queues the new trigger
+  behind it and the two run in order.
 - Doze or App Standby delayed execution until a maintenance window.
 - A remote fetch, manifest, or hash check failed and WorkManager is waiting for
   exponential backoff.
@@ -85,7 +95,7 @@ bundles also expose, for every unique work name:
 
 - enabled state;
 - declared constraints;
-- direct OS scheduler evidence for quota downgrade, low battery,
+- direct OS scheduler evidence for job quota stops, low battery,
   Doze/App Standby, and constraint-delay causes that WorkManager does not expose
   through the current local receipt layer.
 

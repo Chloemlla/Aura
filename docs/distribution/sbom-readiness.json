@@ -5,7 +5,6 @@
   "packageName": "com.chloemlla.aura",
   "docsPath": "docs/distribution/sbom-readiness.md",
   "currentEvidencePaths": [
-    "gradle/verification-metadata.xml",
     "docs/legal/dependency-notices.lock.json",
     "docs/legal/dependency-notice-overrides.json",
     "docs/legal/dependency-license-policy.json",

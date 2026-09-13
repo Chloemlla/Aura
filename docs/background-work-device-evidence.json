@@ -156,14 +156,14 @@
       ],
       "expectedEvidence": [
         "TOP-started and foreground-service-concurrent quota enforcement overrides are active before scheduler capture and reset afterward.",
-        "rotation_trigger_oneshot is correlated with RotationTriggerService state, unique KEEP coalescing, and non-expedited fallback under quota pressure.",
+        "rotation_trigger_oneshot is correlated with RotationTriggerService state: the trigger is enqueued with ExistingWorkPolicy.APPEND_OR_REPLACE, which queues a later trigger behind rotation work that is already pending and runs the queued runs in order rather than coalescing them.",
         "Settings and the support bundle expose any QUOTA, TIMEOUT, BACKGROUND_RESTRICTION, or constraint WorkInfo stop reason for all audited unique work names.",
         "No direct Aura JobService, retained JobParameters, or STOP_REASON_TIMEOUT_ABANDONED failure is present."
       ]
     },
     {
       "id": "rotation-trigger-coalescing",
-      "title": "Rotation trigger coalescing and fallback",
+      "title": "Rotation trigger append ordering and constraint deferral",
       "coversWorkNames": [
         "rotation_trigger_oneshot",
         "auto_wallpaper"
@@ -181,8 +181,8 @@
         "artifacts/background-work-device-evidence/rotation-trigger-notes.md"
       ],
       "expectedEvidence": [
-        "Repeated public rotation broadcasts coalesce under the unique work policy.",
-        "Expedited fallback or deferral is described alongside WorkManager and foreground-service evidence."
+        "Repeated public rotation broadcasts enqueue onto the single unique work name rotation_trigger_oneshot, where ExistingWorkPolicy.APPEND_OR_REPLACE queues a later trigger behind rotation work that is already pending and runs the queued runs in order instead of coalescing or dropping them.",
+        "Any rotation-trigger deferral is attributed to the constraints resolved by buildAutoWallpaperConstraints(...) from the cached source-aware flags (network requirement derived from the active wallpaper source, battery-not-low, plus opt-in charging and device-idle) rather than to expedited-work quota, since the request is a plain non-expedited one-shot."
       ]
     }
   ],

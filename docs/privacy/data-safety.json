@@ -365,6 +365,15 @@
       "userControl": "Community source switch, upload/report/delete flows, and account deletion request tools.",
       "retention": "Public upload metadata can remain public; private moderation, quota, report, and deletion evidence is retained for operator review.",
       "deletionPath": "Use owner delete actions, support deletion request flow, local cleanup, or clear app data depending on data type."
+    },
+    {
+      "endpointId": "ffmpeg-kit-binary-download",
+      "dataTypes": ["Fixed public release-asset request for the device ABI archive"],
+      "collectionStatus": "notCollected",
+      "sharingStatus": "notShared",
+      "userControl": "Runs only for a user-started audio trim/export or video crop; no separate provider switch, and clearing app data removes the cached binary.",
+      "retention": "The archive is streamed to app-private no-backup storage while hashing, and only the extracted ffmpeg binary is cached at noBackupFilesDir/ffmpeg/ffmpeg until app data is cleared.",
+      "deletionPath": "Clear Aura app data or uninstall; each download's temporary archive is deleted after the attempt."
     }
   ],
   "localStorageSurfaces": [

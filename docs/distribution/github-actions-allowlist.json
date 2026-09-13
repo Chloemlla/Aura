@@ -2,8 +2,16 @@
   "schemaVersion": 1,
   "policyKind": "githubActionsAllowlist",
   "workflowDirectory": ".github/workflows",
-  "requiredWorkflowPaths": [],
-  "allowedActions": [],
+  "requiredWorkflowPaths": [
+    ".github/workflows/aura-android.yml"
+  ],
+  "allowedActions": [
+    "actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd",
+    "actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520",
+    "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+    "gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d",
+    "softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65"
+  ],
   "forbiddenRefs": [
     "latest",
     "main",

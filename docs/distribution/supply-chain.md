@@ -19,7 +19,6 @@ checksum, and release-note validation.
 | Dependency license policy | `tools/dependency_license_policy.py --policy` | Fails when curated dependency or native-payload license IDs are disallowed, unknown, or missing required review notes. |
 | Native compliance packet | `tools/native_compliance_inventory.py --mode check-lock` | Inventories youtubedl-android, yt-dlp/Python, FFmpeg, QuickJS, and NewPipeExtractor payload evidence and publishes `NATIVE-COMPLIANCE.md`. |
 | Native alignment packet | `tools/native_alignment_check.py` | Records Android native page-alignment evidence as `NATIVE-ALIGNMENT.json`. |
-| Gradle dependency verification | `gradle/verification-metadata.xml` | Records SHA-256 checksums for resolved Gradle plugins and app dependencies. |
 | Gradle wrapper policy | `tools/gradle_wrapper_check.py` | Pins the Gradle wrapper distribution URL, SHA-256, validation, storage roots, and timeout. |
 | Provider credential release guard | `tools/provider_credential_release_check.py` | Fails release preflight when optional provider keys from `local.properties` would be bundled into `BuildConfig`. |
 | Provider credential APK scan | `tools/provider_credential_apk_scan.py` | Scans packaged signed APKs for nonblank local provider values before publication. |
@@ -134,7 +133,7 @@ same change.
 Google's OSS Licenses Gradle task is the release notice input. Aura does not add
 the `play-services-oss-licenses` runtime dependency or stock Google notice
 activity because that runtime path pulls broad UI dependency upgrades on the
-current AGP 8.9.3 / Gradle 8.12 stack.
+current AGP 9.3.1 / Gradle 9.5 stack.
 
 Generated dependency notices do not replace Aura's content-source disclosures.
 `ProviderDisclosure.kt` remains the source of truth for provider policy rows
@@ -175,8 +174,13 @@ and keep the unresolved-owner-action section accurate.
 
 ## Gradle dependency verification
 
-Gradle checksum metadata is committed at `gradle/verification-metadata.xml`.
-Regenerate it only during a dependency-resolution maintenance pass.
+Gradle dependency checksum metadata (`gradle/verification-metadata.xml`) is not
+currently in place. The file is neither committed nor generated: producing it
+requires a dependency-resolution pass, so this control is deferred until the N-1
+toolchain upgrade, alongside [SBOM generation](#sbom-scope).
+
+The procedure below is the documented step for when it lands. It is not run as
+part of the current release checks.
 
 Use Android Studio's bundled JBR:
 
@@ -185,9 +189,9 @@ $env:JAVA_HOME = "C:/Program Files/Android/Android Studio/jbr"
 .\gradlew.bat --write-verification-metadata sha256 :app:dependencies --stacktrace --no-daemon
 ```
 
-Then review and commit the resulting diff. Future dependency changes should
-update `gradle/verification-metadata.xml` in the same commit as the version or
-catalog change.
+Once generated, review and commit the resulting diff, and keep future dependency
+changes and `gradle/verification-metadata.xml` updates in the same commit as the
+version or catalog change.
 
 ## Provider credential release guard
 

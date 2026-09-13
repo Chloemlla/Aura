@@ -42,7 +42,8 @@ listed in the JSON `networkServices` array. Current rows cover Wallhaven, Bing,
 Pexels, Pixabay, Reddit, NASA APOD, Wikimedia POTD, Lemmy, Openverse,
 Freesound, SoundCloud, Audius, ccMixter, Open-Meteo, Stability, YouTube/NewPipe
 extraction, the optional user-selected YouTube PO-token provider, Aura collection
-links, and Firebase community surfaces.
+links, Firebase community surfaces, and the on-demand FFmpeg release-asset
+download used by audio trim/export and video crop.
 
 ## Generated wallpaper provider key behavior
 

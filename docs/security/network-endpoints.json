@@ -341,6 +341,22 @@
         "app/src/main/java/com/chloemlla/aura/data/repository",
         "app/src/main/java/com/chloemlla/aura/data/repository/CommunityCallableClient.kt"
       ]
+    },
+    {
+      "id": "ffmpeg-kit-binary-download",
+      "hosts": ["github.com"],
+      "schemes": ["https"],
+      "surface": "On-demand FFmpeg native binary download from the arthenica/ffmpeg-kit release assets used by audio trim/export and video crop",
+      "authLocation": "none",
+      "dataSent": "no user data; a fixed public release-asset request for the device ABI archive with Accept: application/octet-stream",
+      "mediaCached": "the archive is streamed to app-private no-backup storage while hashing, then the ffmpeg binary is extracted and cached at noBackupFilesDir/ffmpeg/ffmpeg",
+      "rateLimitCachePolicy": "no automatic retry or rate limiting; each ABI archive is fetched at most once per install through the shared OkHttp client (30s connect, 60s read/write, 90s call) and bounded at 200 MB",
+      "fallbackBehavior": "fails closed: a non-success response, a download over the size cap, an ABI without a pinned SHA-256 digest, or a digest mismatch deletes the partial file and leaves the cached binary absent",
+      "killSwitch": "none",
+      "releaseOwner": "maintainer",
+      "sourceFiles": [
+        "app/src/main/java/com/chloemlla/aura/service/FfmpegDownloader.kt"
+      ]
     }
   ]
 }

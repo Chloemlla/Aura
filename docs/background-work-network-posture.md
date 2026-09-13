@@ -22,14 +22,14 @@ bundles.
 | --- | --- | --- | --- | --- |
 | Auto wallpaper rotation | `auto_wallpaper` | Connected by default; unmetered when Wi-Fi-only is enabled | User-selectable | Settings reads active metered/Data Saver state |
 | Automatic backup | `auto_backup` | Not required | No network used | Local SAF export is unaffected by Data Saver |
-| Daily wallpaper notification | `daily_wallpaper` | Connected | Allowed for Reddit metadata and thumbnail fetch | Settings reads active metered/Data Saver state |
+| Daily wallpaper notification | `daily_wallpaper` | Connected | Allowed for Bing or Wallhaven metadata and thumbnail fetch | Settings reads active metered/Data Saver state |
 | Ringtone restoration | `ringtone_restoration` | Not required | No network used | Local URI restoration is unaffected by Data Saver |
 | Ringtone shuffle | `ringtone_shuffle` | Not required | No network used | Local download selection is unaffected by Data Saver |
 | Sound profile | `sound_profile` | Not required | No network used | Local profile application is unaffected by Data Saver |
 | Wallpaper pack | `wallpaper_pack` | Not required at scheduling time | Local slots use no network; remote locators may use the active metered network | Remote locators inherit platform Data Saver behavior and retry on the next periodic run |
 | Weather effect refresh | `weather_update` | Connected | Allowed for lightweight Open-Meteo refresh | Settings reads active metered/Data Saver state |
 | Aura Originals download | `aura_originals_download` | Unmetered | Blocked | Current larger-transfer-safe posture; Settings reads active metered/Data Saver state |
-| Rotation trigger one-shot | `rotation_trigger_oneshot` | Connected plus battery-not-low | Allowed for explicit user/automation-triggered attempts | Settings reads active metered/Data Saver state; expedited-quota labeling remains open |
+| Rotation trigger one-shot | `rotation_trigger_oneshot` | Source-aware: no requirement for local-folder sources, unmetered when Wi-Fi-only rotation is enabled, otherwise connected | Allowed unless the user enabled Wi-Fi-only rotation | Settings reads active metered/Data Saver state |
 
 ## Data Saver handling
 
@@ -45,9 +45,13 @@ is:
   wallpaper-pack slots perform no remote request;
 - auto wallpaper can be user-tightened to unmetered network through the
   existing Wi-Fi-only setting;
-- daily wallpaper, weather refresh, and explicit rotation trigger attempts use
-  connected-network constraints and diagnostics label them as metered/Data
-  Saver candidates when the live network receipt indicates a restriction;
+- daily wallpaper and weather refresh use connected-network constraints and
+  diagnostics label them as metered/Data Saver candidates when the live network
+  receipt indicates a restriction;
+- rotation trigger one-shots inherit the auto-wallpaper posture: they declare no
+  network requirement when the active source is a local folder, require
+  unmetered network when Wi-Fi-only rotation is enabled, and otherwise require a
+  connected network;
 - Data safety and endpoint inventory rows remain the privacy surface for which
   remote services can be contacted by each worker.
 

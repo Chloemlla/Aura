@@ -28,10 +28,12 @@
     "Context.RECEIVER_NOT_EXPORTED",
     "Intent.ACTION_USER_PRESENT",
     "Intent.ACTION_SCREEN_OFF",
-    "ExistingWorkPolicy.KEEP",
-    "OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST",
-    "setRequiredNetworkType(NetworkType.CONNECTED)",
-    "setRequiresBatteryNotLow(true)",
+    "ExistingWorkPolicy.APPEND_OR_REPLACE",
+    "buildAutoWallpaperConstraints(",
+    "AutoWallpaperWorker.cachedRequiresCharging",
+    "AutoWallpaperWorker.cachedRequiresWiFiOnly",
+    "AutoWallpaperWorker.cachedRequiresIdle",
+    "AutoWallpaperWorker.cachedRequiresNetwork",
     "stopSelf()"
   ],
   "requiredSettingsTerms": [

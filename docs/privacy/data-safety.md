@@ -73,6 +73,7 @@ must have a matching `networkSurfaces` row in `docs/privacy/data-safety.json`.
 | `youtube-pot-provider` | YouTube attestation challenge, video-bound token context, and response metadata shared only with the HTTPS provider selected by the user. | PO-token provider URL, YouTube source switch, and clear-app-data controls. |
 | `aura-collection-links` | No app-initiated network collection; links are import locators. | User chooses whether to import a collection link. |
 | `firebase-community` | Firebase UID, community uploads, votes, follows, reports, blocks, profile edits, storage uploads, and callable payloads. | Community source switch, upload/report/delete flows, and support deletion tools. |
+| `ffmpeg-kit-binary-download` | Fixed public release-asset request for the device ABI archive; no user identifiers collected or shared. | Runs only for a user-started audio trim/export or video crop; the cached binary is removed by clearing app data. |
 
 ## Local Storage Ledger
 

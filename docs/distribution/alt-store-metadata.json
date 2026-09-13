@@ -302,6 +302,10 @@
     {
       "id": "firebase-community",
       "disclosure": "Firebase community backend for anonymous identity, uploads, votes, reports, follows, blocks, profiles, and moderation."
+    },
+    {
+      "id": "ffmpeg-kit-binary-download",
+      "disclosure": "Fixed public GitHub release-asset download of the FFmpeg binary used by audio trim/export and video crop; no user data is sent."
     }
   ],
   "izzySubmission": {

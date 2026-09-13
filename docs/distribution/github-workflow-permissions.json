@@ -2,6 +2,32 @@
   "schemaVersion": 1,
   "policyKind": "githubWorkflowPermissionsPolicy",
   "workflowDirectory": ".github/workflows",
-  "requiredWorkflowPaths": [],
-  "workflows": []
+  "requiredWorkflowPaths": [
+    ".github/workflows/aura-android.yml"
+  ],
+  "workflows": [
+    {
+      "name": "Build Aura Android",
+      "path": ".github/workflows/aura-android.yml",
+      "allowedEvents": [
+        "pull_request",
+        "push",
+        "workflow_dispatch"
+      ],
+      "topLevelPermissions": {
+        "contents": "read",
+        "packages": "read"
+      },
+      "jobs": {
+        "backend": null,
+        "build": null,
+        "governance": null,
+        "release": {
+          "contents": "write",
+          "packages": "read"
+        },
+        "verify": null
+      }
+    }
+  ]
 }

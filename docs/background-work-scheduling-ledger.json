@@ -37,7 +37,7 @@
       "All persistent jobs are owned by WorkManager; Aura does not retain JobParameters or implement JobService, so STOP_REASON_TIMEOUT_ABANDONED does not apply directly.",
       "No CoroutineWorker calls setForeground or setForegroundAsync; Aura has no long-running WorkManager worker that consumes Android 16 quota through a worker-owned foreground service.",
       "Ordinary and expedited WorkManager jobs consume quota when started while the app is TOP and while concurrent with a foreground service on Android 16.",
-      "RotationTriggerService can overlap rotation_trigger_oneshot; unique KEEP coalesces triggers and expedited quota exhaustion downgrades to ordinary work instead of dropping the request.",
+      "RotationTriggerService can overlap rotation_trigger_oneshot; the trigger path enqueues a plain non-expedited one-shot with ExistingWorkPolicy.APPEND_OR_REPLACE so a later trigger is queued behind pending rotation work instead of dropped, and it resolves constraints from auto-wallpaper's source-aware cache rather than a hard-coded network type.",
       "Every CoroutineWorker rethrows CancellationException so WorkManager can complete stop handling without abandoned in-process work.",
       "Settings and support diagnostics expose WorkInfo stop reasons, including QUOTA, TIMEOUT, and BACKGROUND_RESTRICTION."
     ]
@@ -140,7 +140,7 @@
       ],
       "workKind": "periodic",
       "enqueueApi": "enqueueUniquePeriodicWork",
-      "existingWorkPolicy": "ExistingPeriodicWorkPolicy.KEEP",
+      "existingWorkPolicy": "ExistingPeriodicWorkPolicy.UPDATE",
       "interval": "24 hours",
       "initialDelay": "8 hours",
       "constraints": [
@@ -149,13 +149,13 @@
       "backoff": "exponential, 15 minutes",
       "expedited": false,
       "enabledSurface": "Settings daily wallpaper toggle",
-      "scheduleTrigger": "Enable daily wallpaper",
+      "scheduleTrigger": "Enable daily wallpaper; re-enabling updates the existing unique work with the current interval, constraints, and backoff",
       "cancelTrigger": "Disable daily wallpaper",
       "deferralReasons": [
         "network unavailable",
-        "Reddit provider disabled",
+        "Bing and Wallhaven daily providers both unavailable",
         "notification permission denied",
-        "no eligible safe Reddit image",
+        "no eligible daily wallpaper was available from either provider",
         "Doze or App Standby maintenance window delay"
       ],
       "sourceTerms": [
@@ -163,7 +163,7 @@
         "PeriodicWorkRequestBuilder<DailyWallpaperWorker>",
         "24, TimeUnit.HOURS",
         ".setInitialDelay(8, TimeUnit.HOURS)",
-        "ExistingPeriodicWorkPolicy.KEEP",
+        "ExistingPeriodicWorkPolicy.UPDATE",
         "NetworkType.CONNECTED",
         "setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)"
       ]
@@ -357,14 +357,12 @@
         "NetworkType.UNMETERED"
       ],
       "backoff": "exponential, 15 minutes",
-      "expedited": true,
-      "outOfQuotaPolicy": "OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST",
+      "expedited": false,
       "enabledSurface": "App startup enqueue; worker is idempotent once bundled files pass hash checks",
       "scheduleTrigger": "Application startup calls enqueueAuraOriginalsDownload",
       "cancelTrigger": "none; unique KEEP coalesces startup requests",
       "deferralReasons": [
         "unmetered network unavailable",
-        "expedited quota exhausted and downgraded",
         "manifest unavailable",
         "download hash mismatch",
         "Doze or App Standby maintenance window delay"
@@ -374,7 +372,6 @@
         "OneTimeWorkRequestBuilder<AuraOriginalsDownloader>",
         "ExistingWorkPolicy.KEEP",
         "NetworkType.UNMETERED",
-        "setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)",
         "setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)"
       ]
     },
@@ -389,33 +386,34 @@
       ],
       "workKind": "oneTime",
       "enqueueApi": "enqueueUniqueWork",
-      "existingWorkPolicy": "ExistingWorkPolicy.KEEP",
+      "existingWorkPolicy": "ExistingWorkPolicy.APPEND_OR_REPLACE",
       "interval": "not periodic",
       "initialDelay": "none",
       "constraints": [
-        "NetworkType.CONNECTED",
-        "battery not low"
+        "source-aware network requirement resolved from the auto-wallpaper constraint cache: none for local-folder sources, unmetered when Wi-Fi-only rotation is enabled, otherwise connected",
+        "battery not low",
+        "charging when the user enabled it",
+        "device idle when the user enabled it"
       ],
-      "backoff": "WorkManager default for one-shot trigger work",
-      "expedited": true,
-      "outOfQuotaPolicy": "OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST",
+      "backoff": "WorkManager default; the trigger request sets no explicit backoff criteria",
+      "expedited": false,
       "enabledSurface": "Rotation trigger foreground service toggles and public Tasker/MacroDroid actions",
       "scheduleTrigger": "Unlock, screen-off, ROTATE_NOW, or SHUFFLE_NOW trigger",
-      "cancelTrigger": "Unique KEEP coalesces chatty triggers; no explicit cancel path",
+      "cancelTrigger": "No explicit cancel path; APPEND_OR_REPLACE appends a later trigger behind rotation work that is already pending and runs them in order",
       "deferralReasons": [
-        "network unavailable",
+        "resolved network constraint not satisfied when the active source needs network",
         "battery low",
-        "expedited quota exhausted and downgraded",
-        "existing trigger work already enqueued",
+        "charging or device-idle constraint not met when the user enabled it",
+        "a rotation is already pending ahead of this trigger and APPEND_OR_REPLACE runs them in order",
         "Doze or App Standby maintenance window delay"
       ],
       "sourceTerms": [
         "\"rotation_trigger_oneshot\"",
         "OneTimeWorkRequestBuilder<AutoWallpaperWorker>",
-        "ExistingWorkPolicy.KEEP",
-        "NetworkType.CONNECTED",
-        "setRequiresBatteryNotLow(true)",
-        "setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)"
+        "ExistingWorkPolicy.APPEND_OR_REPLACE",
+        "buildAutoWallpaperConstraints(",
+        "AutoWallpaperWorker.cachedRequiresNetwork",
+        "AutoWallpaperWorker.cachedRequiresWiFiOnly"
       ]
     }
   ],

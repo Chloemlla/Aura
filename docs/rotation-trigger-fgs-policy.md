@@ -26,11 +26,23 @@ notification, and starts foreground with
 `ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE` on Android 14 and newer.
 
 Each trigger enqueues the existing `AutoWallpaperWorker` as one unique
-`rotation_trigger_oneshot` request with `ExistingWorkPolicy.KEEP`. The request
-uses connected-network and battery-not-low constraints, and `OutOfQuotaPolicy`
-downgrades expedited work to non-expedited work when quota is unavailable. This
-means the service listens for opted-in trigger events, while actual wallpaper
-application can still be deferred by system constraints.
+`rotation_trigger_oneshot` request. The request is a plain one-shot, not
+expedited. It is enqueued with `ExistingWorkPolicy.APPEND_OR_REPLACE` so that a
+tap on the tile or "Run now" while a rotation is already queued is appended
+behind the pending work instead of being silently dropped, and the queued runs
+execute in order rather than concurrently.
+
+Constraints come from the same `buildAutoWallpaperConstraints` builder the
+periodic schedule uses, fed from the cached source-aware flags
+(`AutoWallpaperWorker.cachedRequiresNetwork`, `cachedRequiresWiFiOnly`,
+`cachedRequiresCharging`, `cachedRequiresIdle`). The network requirement is
+therefore resolved from the active wallpaper source rather than hard-coded: a
+local-folder source declares no network requirement, Wi-Fi-only rotation
+tightens it to unmetered, and otherwise a connected network is required. The
+builder always applies a battery-not-low constraint and adds charging and
+device-idle only when the user opted in. This means the service listens for
+opted-in trigger events, while actual wallpaper application can still be
+deferred by the resolved system constraints.
 
 ## Play Console declaration packet
 
@@ -40,7 +52,7 @@ Use these answers for the Play Console foreground-service declaration:
 | --- | --- |
 | App functionality | Aura lets users opt into wallpaper rotation when the device unlocks or when the screen turns off, so the next visible wallpaper can be refreshed without requiring a manual app open. |
 | Why foreground service | Android does not deliver these trigger broadcasts to a manifest-only background receiver for Aura's use case. The foreground service keeps a user-visible, opt-in listener alive only while at least one trigger toggle is enabled. |
-| If deferred | Wallpaper rotation may happen later or not at all until network and battery constraints allow `AutoWallpaperWorker` to run. The app remains usable and the user can still change wallpaper manually. |
+| If deferred | Wallpaper rotation may happen later or not at all until the resolved constraints allow `AutoWallpaperWorker` to run: a battery-not-low floor, plus a network requirement only when the active wallpaper source needs one. The app remains usable and the user can still change wallpaper manually. |
 | If interrupted | Trigger listening stops until Aura restarts the service from Settings or app cold start. Existing wallpapers remain applied; no user data is lost. |
 | Demo video status | `ownerActionRequired`; record Settings toggle enablement, the persistent notification, unlock or screen-off trigger behavior, and toggle disablement stopping the service. |
 

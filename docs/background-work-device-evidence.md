@@ -12,7 +12,7 @@ This packet does not claim that live scheduler evidence has been captured. It
 defines the exact adb, dumpsys, WorkManager, Data Saver, low-battery, Doze/App
 Standby, and rotation-trigger evidence required before release notes or support
 docs can claim those states were verified on a device. The package under test is
-`com.freevibe`.
+`com.chloemlla.aura`.
 
 ## Scenario matrix
 
@@ -23,7 +23,7 @@ docs can claim those states were verified on a device. The package under test is
 | `low-battery-constraint` - Low battery constraint state | `auto_wallpaper`, `auto_backup`, `rotation_trigger_oneshot` | Battery, jobscheduler, restore, and notes artifacts proving battery-not-low constrained work defers while battery is forced low. |
 | `doze-standby` - Doze and App Standby scheduling delay | All 10 unique work names in the scheduling ledger | Device-idle, jobscheduler, restore, and notes artifacts proving Doze or restricted standby state and the matching Settings diagnostics copy. |
 | `android16-job-quota` - Android 16 TOP-started and FGS-concurrent job quota | All 10 unique work names in the scheduling ledger | Compat overrides, jobscheduler, service, support-bundle, restore, and notes artifacts proving quota behavior, stop-reason visibility, and absence of abandoned direct jobs. |
-| `rotation-trigger-coalescing` - Rotation trigger coalescing and fallback | `rotation_trigger_oneshot`, `auto_wallpaper` | Public broadcast, jobscheduler, service, and notes artifacts proving repeated trigger broadcasts coalesce and any expedited fallback is documented. |
+| `rotation-trigger-coalescing` - Rotation trigger append ordering and constraint deferral | `rotation_trigger_oneshot`, `auto_wallpaper` | Public broadcast, jobscheduler, service, and notes artifacts proving repeated trigger broadcasts enqueue onto the single unique work name `rotation_trigger_oneshot`, that `ExistingWorkPolicy.APPEND_OR_REPLACE` queues a later trigger behind rotation work that is already pending and runs the queued runs in order instead of coalescing or dropping them, and that the request is a plain non-expedited one-shot whose deferral follows from the source-aware `buildAutoWallpaperConstraints(...)` constraints. |
 
 ## Artifact packet
 
@@ -66,9 +66,9 @@ matched the captured device state.
 Baseline:
 
 ```bash
-adb shell dumpsys jobscheduler com.freevibe
-adb shell dumpsys activity services com.freevibe
-adb shell dumpsys package com.freevibe
+adb shell dumpsys jobscheduler com.chloemlla.aura
+adb shell dumpsys activity services com.chloemlla.aura
+adb shell dumpsys package com.chloemlla.aura
 ```
 
 Metered network and Data Saver:
@@ -76,7 +76,7 @@ Metered network and Data Saver:
 ```bash
 adb shell dumpsys connectivity
 adb shell dumpsys netpolicy
-adb shell dumpsys jobscheduler com.freevibe
+adb shell dumpsys jobscheduler com.chloemlla.aura
 ```
 
 Low battery:
@@ -85,7 +85,7 @@ Low battery:
 adb shell dumpsys battery
 adb shell cmd battery unplug
 adb shell cmd battery set level 10
-adb shell dumpsys jobscheduler com.freevibe
+adb shell dumpsys jobscheduler com.chloemlla.aura
 ```
 
 After the low-battery capture, restore the device battery override and save the
@@ -102,8 +102,8 @@ Doze and App Standby:
 adb shell dumpsys deviceidle
 adb shell dumpsys battery unplug
 adb shell dumpsys deviceidle force-idle
-adb shell am set-standby-bucket com.freevibe restricted
-adb shell dumpsys jobscheduler com.freevibe
+adb shell am set-standby-bucket com.chloemlla.aura restricted
+adb shell dumpsys jobscheduler com.chloemlla.aura
 ```
 
 After the Doze/App Standby capture, restore the device and save the output as
@@ -111,27 +111,27 @@ After the Doze/App Standby capture, restore the device and save the output as
 
 ```bash
 adb shell dumpsys deviceidle unforce
-adb shell am set-standby-bucket com.freevibe active
+adb shell am set-standby-bucket com.chloemlla.aura active
 adb shell cmd battery reset
 ```
 
-Rotation trigger coalescing:
+Rotation trigger append ordering:
 
 ```bash
-adb shell am broadcast -a com.freevibe.action.ROTATE_NOW -p com.freevibe
-adb shell am broadcast -a com.freevibe.action.SHUFFLE_NOW -p com.freevibe
-adb shell dumpsys jobscheduler com.freevibe
-adb shell dumpsys activity services com.freevibe
+adb shell am broadcast -a com.chloemlla.aura.action.ROTATE_NOW -p com.chloemlla.aura
+adb shell am broadcast -a com.chloemlla.aura.action.SHUFFLE_NOW -p com.chloemlla.aura
+adb shell dumpsys jobscheduler com.chloemlla.aura
+adb shell dumpsys activity services com.chloemlla.aura
 ```
 
 Android 16 TOP-started and foreground-service-concurrent quota enforcement:
 
 ```bash
-adb shell am compat enable OVERRIDE_QUOTA_ENFORCEMENT_TO_TOP_STARTED_JOBS com.freevibe
-adb shell am compat enable OVERRIDE_QUOTA_ENFORCEMENT_TO_FGS_JOBS com.freevibe
-adb shell am set-standby-bucket com.freevibe active
-adb shell dumpsys jobscheduler com.freevibe
-adb shell dumpsys activity services com.freevibe
+adb shell am compat enable OVERRIDE_QUOTA_ENFORCEMENT_TO_TOP_STARTED_JOBS com.chloemlla.aura
+adb shell am compat enable OVERRIDE_QUOTA_ENFORCEMENT_TO_FGS_JOBS com.chloemlla.aura
+adb shell am set-standby-bucket com.chloemlla.aura active
+adb shell dumpsys jobscheduler com.chloemlla.aura
+adb shell dumpsys activity services com.chloemlla.aura
 ```
 
 Capture the Settings diagnostics and copied support bundle after exercising the
@@ -142,8 +142,8 @@ jobscheduler/service state, and confirm there is no Aura `JobService`, retained
 changes and save the output:
 
 ```bash
-adb shell am compat reset OVERRIDE_QUOTA_ENFORCEMENT_TO_TOP_STARTED_JOBS com.freevibe
-adb shell am compat reset OVERRIDE_QUOTA_ENFORCEMENT_TO_FGS_JOBS com.freevibe
+adb shell am compat reset OVERRIDE_QUOTA_ENFORCEMENT_TO_TOP_STARTED_JOBS com.chloemlla.aura
+adb shell am compat reset OVERRIDE_QUOTA_ENFORCEMENT_TO_FGS_JOBS com.chloemlla.aura
 ```
 
 ## Release gate

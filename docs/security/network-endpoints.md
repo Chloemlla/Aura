@@ -15,10 +15,10 @@ py -3 tools\network_endpoint_inventory_check.py --inventory docs\security\networ
 
 The guard scans:
 
-- `app/src/main/java/com/freevibe/di`
-- `app/src/main/java/com/freevibe/data/remote`
-- `app/src/main/java/com/freevibe/data/repository`
-- `app/src/main/java/com/freevibe/service`
+- `app/src/main/java/com/chloemlla/aura/di`
+- `app/src/main/java/com/chloemlla/aura/data/remote`
+- `app/src/main/java/com/chloemlla/aura/data/repository`
+- `app/src/main/java/com/chloemlla/aura/service`
 
 Every literal HTTP(S) host in those roots must appear in
 `docs/security/network-endpoints.json`. The Markdown runbook must mention every
@@ -46,6 +46,7 @@ endpoint ID and reviewed host.
 | `youtube-newpipe` | `www.youtube.com` | None. | Video ID in watch URL. | Resolved stream URLs have a short in-memory TTL and can be cached by user action. Kill switch: `youtube_provider_enabled`. Owner: maintainer. |
 | `youtube-pot-provider` | `user-configured provider host` | None; credential-bearing URLs are rejected. | YouTube attestation challenge, Innertube client context, and video-bound token context. | Optional credential-free HTTPS path; clear its Settings URL or disable `youtube_provider_enabled`. Owner: user-configured. |
 | `aura-collection-links` | `aura.app` | None. | No app-initiated network; links are parsed as import locators. | Invalid links are rejected by import validation. Owner: maintainer. |
+| `ffmpeg-kit-binary-download` | `github.com` | None. | No user data; a fixed public release-asset request for the device ABI archive from the arthenica/ffmpeg-kit GitHub Release. | Each ABI archive is fetched at most once per install, streamed to app-private no-backup storage while hashing, verified against a pinned SHA-256, and cached under noBackupFilesDir/ffmpeg. Fails closed on a non-success response, a download over the 200 MB cap, an ABI without a pinned digest, or a digest mismatch. Kill switch: none. Owner: maintainer. |
 | `firebase-community` | `firebaseio.com`, `firebasestorage.googleapis.com`, `identitytoolkit.googleapis.com`, `firebaseappcheck.googleapis.com`, `firebaseinstallations.googleapis.com`, `cloudfunctions.net` | Firebase SDK credentials and App Check tokens. | Firebase UID, community upload metadata, reports, votes, follows, blocks, profile edits, storage uploads, callable payloads. | Callable quota/dedupe ledgers enforce write limits. Community paths fail closed when Auth, App Check, or callable prerequisites are unavailable. Kill switch: `community_provider_enabled`. Owner: maintainer. |
 
 ## Review Notes
