@@ -497,6 +497,14 @@ class ReleasePolishContractTest {
     }
 
     @Test
+    fun `wallpaper toolbar hides the overflow menu when it has no actions`() {
+        val source = File("src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt").readText()
+
+        assertTrue(source.contains("val hasQuickActionsMenu = showGeneratedContentEntry ||"))
+        assertTrue(source.contains("if (hasQuickActionsMenu) {"))
+    }
+
+    @Test
     fun `media discovery keeps warm caches and vertical swipe viewers`() {
         val videos = File("src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersScreen.kt").readText()
         val videoModel = File("src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersViewModel.kt").readText()
