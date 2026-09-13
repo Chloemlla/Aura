@@ -20,8 +20,8 @@ If your PR contradicts the charter and you think the charter is wrong, open an i
 Requires JDK 21 and Android SDK 37. Android Studio Quail 2 (2026.1.2) or later —
 that is the earliest release whose supported AGP range reaches 9.3. Use Adoptium
 JDK 21 specifically: the app compiles to Java 17 bytecode, and JDK 21 is what CI
-runs the build on. The wrapper's Gradle 9.5.0 also runs on the JDK 25 bundled with
-current Android Studio, so 21 is the lane we verify rather than a limit Gradle
+runs the build on. The wrapper's Gradle 9.5.0 also runs on JDK 25 (Gradle accepts
+any JVM from 17 to 26), so 21 is the lane we verify rather than a limit Gradle
 imposes.
 
 ```bash
