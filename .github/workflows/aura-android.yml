@@ -284,16 +284,18 @@ jobs:
         # Mixed suite (unittest.TestCase classes + plain test_* functions), run
         # the way CONTRIBUTING.md documents: `python -m pytest test/tools`.
         # A venv avoids the runner image's PEP-668 externally-managed Python.
-        # Landing baseline: a few live-repo drifts are pre-existing (wrapper
-        # policy pins 8.12.1, workflow policy JSONs are empty while
-        # aura-android.yml exists). Kept non-blocking until those are reconciled —
-        # remove continue-on-error once the baseline is green (see fix-ci.md
-        # AURA-G10-07 "风险与需要 CI 验证的点").
-        continue-on-error: true
+        #
+        # The one test that asks whether the declared version is already
+        # published is deselected here and runs in the `publication` job below.
+        # It cannot go green until the release job has cut the tag, and this job
+        # gates that very job — leaving it in would make every version bump
+        # unreleasable. Everything else blocks: the baseline is green now, so
+        # continue-on-error is gone.
         run: |
           python3 -m venv /tmp/aura-governance
           /tmp/aura-governance/bin/pip install --quiet pytest
-          /tmp/aura-governance/bin/python -m pytest test/tools -q
+          /tmp/aura-governance/bin/python -m pytest test/tools -q \
+            --deselect test/tools/release_publication_check_test.py::ReleasePublicationCheckTest::test_live_declared_version_is_tagged_and_released
 
   backend:
     name: Firebase rules + functions
@@ -474,3 +476,34 @@ jobs:
           prerelease: false
           name: "Aura Android ${{ env.AURA_ANDROID_RELEASE_VERSION }}"
           files: release-assets/*
+
+  publication:
+    name: Release publication
+    # This job must never be added to the release job's `needs`. The check it
+    # runs cannot pass until `release` has cut the tag and the Release, so
+    # making it a prerequisite would deadlock every version bump: bind the
+    # version, push, and there would be no way left to publish it.
+    #
+    # It runs after the release attempt, so a successful publish ends green,
+    # and on every push to main, where a version declared but never released is
+    # exactly what it is there to report. Between 2026-07-29 and 2026-08-20
+    # three versions were declared and tagged with nothing published, and
+    # Obtainium quietly held every user on the last real release because
+    # obtainium.json sets fallbackToOlderReleases. Pull requests are skipped:
+    # there the version is not shipped yet, so red would say nothing.
+    needs: [release]
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5bad9bfd
+        with:
+          # The gate asks git which tags exist, so the clone needs them.
+          fetch-depth: 0
+
+      - name: Check the declared version is released
+        run: |
+          python3 -m venv /tmp/aura-publication
+          /tmp/aura-publication/bin/pip install --quiet pytest
+          /tmp/aura-publication/bin/python -m pytest -q \
+            test/tools/release_publication_check_test.py::ReleasePublicationCheckTest::test_live_declared_version_is_tagged_and_released
