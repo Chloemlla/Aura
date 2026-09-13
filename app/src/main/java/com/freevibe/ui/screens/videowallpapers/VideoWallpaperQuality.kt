@@ -175,7 +175,7 @@ private val LOOP_TERMS = setOf(
  * Build the live source cycle from the provider manifest order. Reddit keeps the
  * majority of each cycle while every eligible provider retains one slot.
  */
-private fun videoProviderMix(available: Set<ContentSource>): List<ContentSource> {
+internal fun videoProviderMix(available: Set<ContentSource>): List<ContentSource> {
     val ordered = orderedCurrentProviderCapabilities(ProviderMediaType.VIDEO)
         .map { it.source }
         .filter { it in available }
@@ -184,16 +184,17 @@ private fun videoProviderMix(available: Set<ContentSource>): List<ContentSource>
     val primary = ordered.firstOrNull() ?: return emptyList()
     if (primary != ContentSource.REDDIT) return ordered
     val secondary = ordered.drop(1)
+    if (secondary.isEmpty()) return listOf(primary)
     return buildList {
         repeat(3) { add(primary) }
-        secondary.forEachIndexed { index, source ->
-            add(source)
-            if (index < secondary.lastIndex) add(primary)
+        repeat(3) { index ->
+            add(secondary[index % secondary.size])
+            if (index < 2) add(primary)
         }
     }
 }
 
-private fun VideoWallpaperItem.providerSource(): ContentSource = when (source.lowercase(java.util.Locale.ROOT)) {
+internal fun VideoWallpaperItem.providerSource(): ContentSource = when (source.lowercase(java.util.Locale.ROOT)) {
     "reddit" -> ContentSource.REDDIT
     "youtube" -> ContentSource.YOUTUBE
     "pexels" -> ContentSource.PEXELS

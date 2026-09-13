@@ -4,6 +4,11 @@ import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.SearchResult
 import com.freevibe.data.model.Sound
 import com.freevibe.BuildConfig
+import com.freevibe.data.legal.ProviderBuild
+import com.freevibe.data.legal.ProviderChannel
+import com.freevibe.data.legal.currentProviderBuild
+import com.freevibe.data.legal.currentProviderChannel
+import com.freevibe.data.legal.providerCapability
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.service.SourceMetrics
 import com.freevibe.service.YtDlpUpdateManager
@@ -27,6 +32,11 @@ import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import java.net.URLEncoder
 import javax.inject.Inject
 import javax.inject.Singleton
+
+internal fun isYouTubeRuntimeAvailable(
+    build: ProviderBuild = currentProviderBuild,
+    channel: ProviderChannel = currentProviderChannel,
+): Boolean = providerCapability(ContentSource.YOUTUBE).availableIn(build, channel)
 
 internal data class VideoDisplayDimensions(
     val width: Int,
@@ -174,6 +184,7 @@ class YouTubeRepository @Inject constructor(
 
     /** Check if a video's audio URL is cached and fresh */
     fun isCached(videoId: String): Boolean {
+        if (!isYouTubeRuntimeAvailable()) return false
         val cached = streamCache[videoId] ?: return false
         if (System.currentTimeMillis() - cached.cachedAt > STREAM_TTL_MS) {
             streamCache.remove(videoId)
@@ -184,17 +195,20 @@ class YouTubeRepository @Inject constructor(
 
     /** Restore a still-fresh signed preview URL from the persistent sound feed cache. */
     fun rememberAudioPreviewUrl(videoId: String, url: String, cachedAtMs: Long) {
+        if (!isYouTubeRuntimeAvailable()) return
         if (videoId.isBlank() || url.isBlank()) return
         if (System.currentTimeMillis() - cachedAtMs > STREAM_TTL_MS) return
         streamCache[videoId] = CachedStream(url, cachedAtMs)
     }
 
     init {
-        try {
-            NewPipe.init(DownloaderImpl.instance)
-            if (BuildConfig.DEBUG) android.util.Log.d("YouTubeRepo", "NewPipe Extractor initialized")
-        } catch (e: Exception) {
-            if (BuildConfig.DEBUG) android.util.Log.e("YouTubeRepo", "Failed to init NewPipe: ${e.message}", e)
+        if (isYouTubeRuntimeAvailable()) {
+            try {
+                NewPipe.init(DownloaderImpl.instance)
+                if (BuildConfig.DEBUG) android.util.Log.d("YouTubeRepo", "NewPipe Extractor initialized")
+            } catch (e: Exception) {
+                if (BuildConfig.DEBUG) android.util.Log.e("YouTubeRepo", "Failed to init NewPipe: ${e.message}", e)
+            }
         }
     }
 
@@ -433,7 +447,8 @@ class YouTubeRepository @Inject constructor(
         }
     }
 
-    private suspend fun isProviderEnabled(): Boolean = prefs.youtubeProviderEnabled.first()
+    private suspend fun isProviderEnabled(): Boolean =
+        isYouTubeRuntimeAvailable() && prefs.youtubeProviderEnabled.first()
 
     private fun filterSearchSounds(
         sounds: List<Sound>,
@@ -557,6 +572,9 @@ private val YOUTUBE_VIDEO_ID = Regex("[A-Za-z0-9_-]{11}")
 class DownloaderImpl private constructor() : org.schabi.newpipe.extractor.downloader.Downloader() {
 
     override fun execute(request: org.schabi.newpipe.extractor.downloader.Request): org.schabi.newpipe.extractor.downloader.Response {
+        if (!isYouTubeRuntimeAvailable()) {
+            throw java.io.IOException("YouTube is unavailable in this Aura artifact")
+        }
         val url = java.net.URL(request.url())
         val conn = url.openConnection() as java.net.HttpURLConnection
         try {

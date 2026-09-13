@@ -8,17 +8,22 @@ import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheWriter
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.freevibe.BuildConfig
+import com.freevibe.data.legal.isProviderAvailableInCurrentArtifact
+import com.freevibe.data.model.ContentSource
+import com.freevibe.data.remote.providerSourceForHost
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import javax.inject.Inject
@@ -52,6 +57,11 @@ internal fun shouldPrebufferVideoPreview(url: String): Boolean {
     return mime.startsWith("video/mp4") || mime.startsWith("video/webm")
 }
 
+internal fun isVideoPreviewHostAllowed(
+    rawHost: String,
+    isAvailable: (ContentSource) -> Boolean = ::isProviderAvailableInCurrentArtifact,
+): Boolean = providerSourceForHost(rawHost)?.let(isAvailable) ?: true
+
 @OptIn(UnstableApi::class)
 @Singleton
 class VideoPreviewCache @Inject constructor(
@@ -73,11 +83,21 @@ class VideoPreviewCache @Inject constructor(
         )
     }
 
-    private val dataSourceFactory by lazy {
+    private val cacheDataSourceFactory by lazy {
         CacheDataSource.Factory()
             .setCache(cache)
             .setUpstreamDataSourceFactory(upstreamFactory)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+    }
+
+    private val dataSourceFactory by lazy {
+        ResolvingDataSource.Factory(cacheDataSourceFactory) { dataSpec ->
+            val host = dataSpec.uri.host.orEmpty()
+            if (!isVideoPreviewHostAllowed(host)) {
+                throw IOException("Provider for $host is unavailable in this Aura artifact")
+            }
+            dataSpec
+        }
     }
 
     fun mediaSourceFactory(): DefaultMediaSourceFactory =
@@ -85,6 +105,7 @@ class VideoPreviewCache @Inject constructor(
 
     suspend fun prebuffer(cacheKey: String, url: String): Boolean {
         if (!shouldPrebufferVideoPreview(url)) return false
+        if (!isVideoPreviewHostAllowed(Uri.parse(url).host.orEmpty())) return false
         return withContext(Dispatchers.IO) {
             try {
                 val dataSpec = DataSpec.Builder()
@@ -93,7 +114,7 @@ class VideoPreviewCache @Inject constructor(
                     .setPosition(0)
                     .setLength(PREBUFFER_BYTES)
                     .build()
-                CacheWriter(dataSourceFactory.createDataSource(), dataSpec, null, null).cache()
+                CacheWriter(cacheDataSourceFactory.createDataSource(), dataSpec, null, null).cache()
                 true
             } catch (e: CancellationException) {
                 throw e

@@ -16,9 +16,11 @@ All notable changes to Aura will be documented in this file.
   with YouTube disabled, live sound and video ranking follows manifest priority,
   and legacy items cannot apply, download, edit, share, or enter Aura Originals.
   Upgraded installs delete retired Freesound credentials on startup. Network
-  requests also stop at a final artifact-availability gate. The drift
-  check covers 20 runtime and release surfaces, including feed ranking, Settings,
-  action policy, diagnostics, and the separate Play build command.
+  requests also stop at a final artifact-availability gate. Saved wallpaper
+  previews, restored video-feed caches, Media3 preview traffic, and NewPipe's
+  direct transport now enforce the same rule. The drift check covers 25 runtime
+  and release surfaces, including feed ranking, Settings, action policy,
+  diagnostics, and the separate Play build command.
 
 - **Backups no longer report success after dropping library items**: favorites,
   collections, collection membership, and search history now share one checked

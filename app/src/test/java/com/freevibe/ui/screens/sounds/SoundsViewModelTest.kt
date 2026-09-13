@@ -4,6 +4,7 @@ import com.freevibe.BuildConfig
 import android.content.Context
 import com.freevibe.R
 import com.freevibe.data.local.PreferencesManager
+import com.freevibe.data.legal.isProviderAvailableInCurrentArtifact
 import com.freevibe.data.model.CommunityBlockReason
 import com.freevibe.data.model.CommunityReportReason
 import com.freevibe.data.model.CommunityUploadRights
@@ -53,6 +54,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
+import org.junit.Assume.assumeTrue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -77,6 +79,7 @@ class SoundsViewModelTest {
 
     @Test
     fun `initial sound feed uses youtube only and does not advertise pagination`() = runTest(dispatcher) {
+        assumeYouTubeAvailable()
         val youtubeRepo = mockk<YouTubeRepository>()
         val freesoundRepo = mockk<FreesoundRepository>()
         val freesoundV2Repo = mockk<FreesoundV2Repository>()
@@ -138,6 +141,7 @@ class SoundsViewModelTest {
 
     @Test
     fun `offline originals appear immediately and remain beside youtube results`() = runTest(dispatcher) {
+        assumeYouTubeAvailable()
         val youtubeRepo = mockk<YouTubeRepository>()
         val freesoundRepo = mockk<FreesoundRepository>()
         val freesoundV2Repo = mockk<FreesoundV2Repository>()
@@ -292,7 +296,12 @@ class SoundsViewModelTest {
         viewModel.downloadSound(youtubeSound, confirmed = true)
         advanceUntilIdle()
 
-        assertEquals("Could not resolve audio stream URL", viewModel.state.value.error)
+        val expectedError = if (isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE)) {
+            "Could not resolve audio stream URL"
+        } else {
+            "This provider is unavailable in this Aura build."
+        }
+        assertEquals(expectedError, viewModel.state.value.error)
         coVerify(exactly = 0) { youtubeRepo.getAudioStreamUrl(any()) }
         coVerify(exactly = 0) { downloadManager.downloadSound(any(), any(), any(), any(), any()) }
     }
@@ -334,7 +343,12 @@ class SoundsViewModelTest {
         viewModel.downloadSound(youtubeSound)
         advanceUntilIdle()
 
-        assertEquals("Confirm YouTube source terms before downloading this sound.", viewModel.state.value.error)
+        val expectedError = if (isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE)) {
+            "Confirm YouTube source terms before downloading this sound."
+        } else {
+            "This provider is unavailable in this Aura build."
+        }
+        assertEquals(expectedError, viewModel.state.value.error)
         coVerify(exactly = 0) { youtubeRepo.getAudioStreamUrl(any()) }
         coVerify(exactly = 0) { downloadManager.downloadSound(any(), any(), any(), any(), any()) }
     }
@@ -606,6 +620,7 @@ class SoundsViewModelTest {
 
     @Test
     fun `initial load prebuffers first eight provider preview urls`() = runTest(dispatcher) {
+        assumeYouTubeAvailable()
         val youtubeRepo = mockk<YouTubeRepository>()
         val freesoundRepo = mockk<FreesoundRepository>()
         val freesoundV2Repo = mockk<FreesoundV2Repository>()
@@ -656,6 +671,7 @@ class SoundsViewModelTest {
 
     @Test
     fun `loadMore is disabled for youtube sound feed`() = runTest(dispatcher) {
+        assumeYouTubeAvailable()
         val youtubeRepo = mockk<YouTubeRepository>()
         val freesoundRepo = mockk<FreesoundRepository>()
         val freesoundV2Repo = mockk<FreesoundV2Repository>()
@@ -703,6 +719,7 @@ class SoundsViewModelTest {
 
     @Test
     fun `youtube search does not expose unsupported pagination`() = runTest(dispatcher) {
+        assumeYouTubeAvailable()
         val youtubeRepo = mockk<YouTubeRepository>()
         val freesoundRepo = mockk<FreesoundRepository>()
         val freesoundV2Repo = mockk<FreesoundV2Repository>()
@@ -747,6 +764,7 @@ class SoundsViewModelTest {
 
     @Test
     fun `selecting youtube tab loads default results`() = runTest(dispatcher) {
+        assumeYouTubeAvailable()
         val youtubeRepo = mockk<YouTubeRepository>()
         val freesoundRepo = mockk<FreesoundRepository>()
         val freesoundV2Repo = mockk<FreesoundV2Repository>()
@@ -794,6 +812,7 @@ class SoundsViewModelTest {
 
     @Test
     fun `notification tab uses youtube queries with short duration cap`() = runTest(dispatcher) {
+        assumeYouTubeAvailable()
         val youtubeRepo = mockk<YouTubeRepository>()
         val freesoundRepo = mockk<FreesoundRepository>()
         val freesoundV2Repo = mockk<FreesoundV2Repository>()
@@ -834,6 +853,7 @@ class SoundsViewModelTest {
 
     @Test
     fun `resolving youtube preview updates selected sound`() = runTest(dispatcher) {
+        assumeYouTubeAvailable()
         val youtubeRepo = mockk<YouTubeRepository>()
         val freesoundRepo = mockk<FreesoundRepository>()
         val freesoundV2Repo = mockk<FreesoundV2Repository>()
@@ -875,6 +895,7 @@ class SoundsViewModelTest {
 
     @Test
     fun `youtube sounds refresh stale preview urls before playback`() = runTest(dispatcher) {
+        assumeYouTubeAvailable()
         val youtubeRepo = mockk<YouTubeRepository>()
         val freesoundRepo = mockk<FreesoundRepository>()
         val freesoundV2Repo = mockk<FreesoundV2Repository>()
@@ -917,6 +938,7 @@ class SoundsViewModelTest {
 
     @Test
     fun `cached youtube playback shows loading state until audio starts`() = runTest(dispatcher) {
+        assumeYouTubeAvailable()
         val youtubeRepo = mockk<YouTubeRepository>()
         val freesoundRepo = mockk<FreesoundRepository>()
         val freesoundV2Repo = mockk<FreesoundV2Repository>()
@@ -1015,6 +1037,7 @@ class SoundsViewModelTest {
 
     @Test
     fun `downloadSound refreshes youtube stream urls instead of reusing stale favorites`() = runTest(dispatcher) {
+        assumeYouTubeAvailable()
         val youtubeRepo = mockk<YouTubeRepository>()
         val freesoundRepo = mockk<FreesoundRepository>()
         val freesoundV2Repo = mockk<FreesoundV2Repository>()
@@ -1167,6 +1190,7 @@ class SoundsViewModelTest {
 
     @Test
     fun `empty search surfaces provider failure`() = runTest(dispatcher) {
+        assumeYouTubeAvailable()
         val youtubeRepo = mockk<YouTubeRepository>()
         val freesoundRepo = mockk<FreesoundRepository>()
         val freesoundV2Repo = mockk<FreesoundV2Repository>()
@@ -1212,6 +1236,7 @@ class SoundsViewModelTest {
 
     @Test
     fun `refresh preserves current sounds when providers return empty`() = runTest(dispatcher) {
+        assumeYouTubeAvailable()
         val youtubeRepo = mockk<YouTubeRepository>()
         val freesoundRepo = mockk<FreesoundRepository>()
         val freesoundV2Repo = mockk<FreesoundV2Repository>()
@@ -1259,6 +1284,7 @@ class SoundsViewModelTest {
 
     @Test
     fun `refresh preserves current search results but updates pagination when providers go empty`() = runTest(dispatcher) {
+        assumeYouTubeAvailable()
         val youtubeRepo = mockk<YouTubeRepository>()
         val freesoundRepo = mockk<FreesoundRepository>()
         val freesoundV2Repo = mockk<FreesoundV2Repository>()
@@ -1311,6 +1337,7 @@ class SoundsViewModelTest {
 
     @Test
     fun `refresh preserves current sounds and surfaces degraded error`() = runTest(dispatcher) {
+        assumeYouTubeAvailable()
         val youtubeRepo = mockk<YouTubeRepository>()
         val freesoundRepo = mockk<FreesoundRepository>()
         val freesoundV2Repo = mockk<FreesoundV2Repository>()
@@ -1476,7 +1503,7 @@ class SoundsViewModelTest {
         reportRepoOverride: CommunityReportRepository? = null,
         communityBlockRepoOverride: CommunityBlockRepository? = null,
         uploadRepoOverride: UploadRepository? = null,
-        youtubeProviderEnabled: Boolean = true,
+        youtubeProviderEnabled: Boolean = isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE),
         communityProviderEnabled: Boolean = true,
     ): SoundsViewModel {
         val prefs = mockk<PreferencesManager>()
@@ -1579,6 +1606,13 @@ class SoundsViewModelTest {
         currentPage = page,
         hasMore = false,
     )
+
+    private fun assumeYouTubeAvailable() {
+        assumeTrue(
+            "YouTube is intentionally excluded from this artifact",
+            isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE),
+        )
+    }
 
     private fun testSound(id: String, source: ContentSource, name: String) = Sound(
         id = id,

@@ -2,7 +2,10 @@ package com.freevibe.ui.screens.videowallpapers
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.freevibe.data.legal.ProviderBuild
+import com.freevibe.data.legal.ProviderChannel
 import com.freevibe.data.local.PreferencesManager
+import com.freevibe.data.model.ContentSource
 import com.freevibe.data.remote.pexels.PexelsApi
 import com.freevibe.data.remote.pixabay.PixabayApi
 import com.freevibe.data.remote.pixabay.PixabayVideo
@@ -78,6 +81,52 @@ class VideoWallpapersViewModelTest {
     fun tearDown() {
         unmockkStatic(android.util.Log::class)
         Dispatchers.resetMain()
+    }
+
+    @Test
+    fun `play cache drops youtube and legacy entries with their stream urls`() {
+        val reddit = VideoWallpaperItem(
+            id = "reddit",
+            title = "Reddit loop",
+            thumbnailUrl = "https://example.com/reddit.jpg",
+            source = "Reddit",
+            contentSource = ContentSource.REDDIT,
+        )
+        val pexels = VideoWallpaperItem(
+            id = "pexels",
+            title = "Pexels loop",
+            thumbnailUrl = "https://example.com/pexels.jpg",
+            source = "Pexels",
+            contentSource = ContentSource.PEXELS,
+        )
+        val youtube = VideoWallpaperItem(
+            id = "youtube",
+            title = "YouTube loop",
+            thumbnailUrl = "https://example.com/youtube.jpg",
+            source = "YouTube",
+            contentSource = ContentSource.YOUTUBE,
+        )
+        val klipy = VideoWallpaperItem(
+            id = "klipy",
+            title = "Legacy loop",
+            thumbnailUrl = "https://example.com/klipy.jpg",
+            source = "Klipy",
+            contentSource = ContentSource.KLIPY,
+        )
+        val result = PixabayVideoMetadataResult(
+            items = listOf(youtube, klipy, reddit, pexels),
+            streamUrls = listOf(youtube, klipy, reddit, pexels)
+                .associate { it.id to "https://example.com/${it.id}.mp4" },
+        )
+
+        val filtered = filterVideoMetadataForArtifact(
+            result = result,
+            build = ProviderBuild.FULL,
+            channel = ProviderChannel.PLAY,
+        )
+
+        assertEquals(listOf("reddit", "pexels"), filtered.items.map { it.id })
+        assertEquals(setOf("reddit", "pexels"), filtered.streamUrls.keys)
     }
 
     @Test

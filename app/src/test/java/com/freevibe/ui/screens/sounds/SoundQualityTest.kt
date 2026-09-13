@@ -1,5 +1,6 @@
 package com.freevibe.ui.screens.sounds
 
+import com.freevibe.data.legal.isProviderAvailableInCurrentArtifact
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Sound
 import org.junit.Assert.assertEquals
@@ -199,7 +200,8 @@ class SoundQualityTest {
             filter = SoundQualityFilter.BEST,
         )
 
-        assertEquals(4, ranked.size)
+        val expectedSize = if (isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE)) 4 else 3
+        assertEquals(expectedSize, ranked.size)
         assertTrue(ranked.none { it.id == "weak_mix" })
     }
 
@@ -228,11 +230,16 @@ class SoundQualityTest {
 
         val ranked = rankSounds(sounds, SoundTab.RINGTONES, SoundQualityFilter.BEST)
 
+        val expectedSources = if (isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE)) {
+            listOf(ContentSource.YOUTUBE, ContentSource.BUNDLED, ContentSource.LOCAL)
+        } else {
+            listOf(ContentSource.BUNDLED, ContentSource.LOCAL)
+        }
+        assertEquals(expectedSources, ranked.take(expectedSources.size).map { it.source })
         assertEquals(
-            listOf(ContentSource.YOUTUBE, ContentSource.BUNDLED, ContentSource.LOCAL),
-            ranked.take(3).map { it.source },
+            if (isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE)) "youtube_best" else "bundled_1",
+            ranked.first().id,
         )
-        assertEquals("youtube_best", ranked.first().id)
     }
 
     private fun testSound(

@@ -31,8 +31,13 @@ class SoundLicensePolicyTest {
             sourcePageUrl = "https://www.youtube.com/watch?v=abc12345678",
         ).soundLicenseCapabilities()
 
-        assertEquals(SoundActionDecision.CONFIRMATION_REQUIRED, capabilities.capability(SoundAction.APPLY).decision)
-        assertEquals(SoundActionDecision.CONFIRMATION_REQUIRED, capabilities.capability(SoundAction.DOWNLOAD).decision)
+        val expectedDecision = if (isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE)) {
+            SoundActionDecision.CONFIRMATION_REQUIRED
+        } else {
+            SoundActionDecision.DISABLED
+        }
+        assertEquals(expectedDecision, capabilities.capability(SoundAction.APPLY).decision)
+        assertEquals(expectedDecision, capabilities.capability(SoundAction.DOWNLOAD).decision)
         assertEquals(SoundActionDecision.DISABLED, capabilities.capability(SoundAction.EDIT).decision)
         assertEquals(SoundActionDecision.DISABLED, capabilities.capability(SoundAction.BUNDLE).decision)
     }

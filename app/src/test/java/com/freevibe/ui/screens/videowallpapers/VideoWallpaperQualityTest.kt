@@ -1,5 +1,7 @@
 package com.freevibe.ui.screens.videowallpapers
 
+import com.freevibe.data.legal.isProviderAvailableInCurrentArtifact
+import com.freevibe.data.model.ContentSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -63,7 +65,8 @@ class VideoWallpaperQualityTest {
             orientation = OrientationFilter.PORTRAIT,
         )
 
-        assertEquals(4, ranked.size)
+        val expectedSize = if (isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE)) 4 else 3
+        assertEquals(expectedSize, ranked.size)
         assertTrue(ranked.none { it.id == "yt_weak" })
     }
 
@@ -113,7 +116,9 @@ class VideoWallpaperQualityTest {
         }
         val alternatives = listOf(
             video("px_1", "Pexels", "Abstract loop", 12, 40_000, 1080, 1920),
+            video("px_2", "Pexels", "Neon loop", 11, 35_000, 1080, 1920),
             video("pb_1", "Pixabay", "Ambient loop", 12, 40_000, 1080, 1920),
+            video("pb_2", "Pixabay", "Rain loop", 10, 35_000, 1080, 1920),
             video("yt_1", "YouTube", "Galaxy loop", 12, 40_000, 1080, 1920),
         )
 
@@ -124,9 +129,12 @@ class VideoWallpaperQualityTest {
         )
 
         assertEquals(listOf("rd_6", "rd_5", "rd_4"), ranked.take(3).map { it.id })
-        assertEquals("YouTube", ranked[3].source)
-        assertEquals("Pexels", ranked[5].source)
-        assertEquals("Pixabay", ranked[7].source)
+        val expectedSources = if (isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE)) {
+            listOf("Reddit", "Reddit", "Reddit", "YouTube", "Reddit", "Pexels", "Reddit", "Pixabay")
+        } else {
+            listOf("Reddit", "Reddit", "Reddit", "Pexels", "Reddit", "Pixabay", "Reddit", "Pexels")
+        }
+        assertEquals(expectedSources, ranked.take(8).map { it.source })
         assertEquals(5, ranked.take(8).count { it.source == "Reddit" })
         assertTrue(
             ranked.filter { it.source == "Reddit" }

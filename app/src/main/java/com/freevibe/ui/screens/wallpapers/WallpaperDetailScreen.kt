@@ -472,7 +472,7 @@ fun WallpaperDetailScreen(
                                 modifier = Modifier
                                     .weight(1f)
                                     .heightIn(min = 48.dp),
-                                enabled = !state.isApplying,
+                                enabled = canApply && !state.isApplying,
                                 shape = RoundedCornerShape(8.dp),
                             ) {
                                 if (state.isApplying) {

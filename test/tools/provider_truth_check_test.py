@@ -34,7 +34,12 @@ FIXTURE_PATHS = (
     "app/src/main/java/com/freevibe/data/model/WallpaperLicensePolicy.kt",
     "app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperApplyActions.kt",
     "app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperDetailScreen.kt",
+    "app/src/main/java/com/freevibe/ui/FreeVibeRoot.kt",
+    "app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperPreviewScreen.kt",
     "app/src/main/java/com/freevibe/data/model/VideoWallpaperLicensePolicy.kt",
+    "app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersViewModel.kt",
+    "app/src/main/java/com/freevibe/service/VideoPreviewCache.kt",
+    "app/src/main/java/com/freevibe/data/repository/YouTubeRepository.kt",
     "docs/distribution/release-dry-run.md",
     "docs/distribution/release-signing.md",
     "docs/distribution/supply-chain.md",
@@ -62,7 +67,7 @@ class ProviderTruthCheckTest(unittest.TestCase):
         self.assertEqual(22, result["providerCount"])
         self.assertEqual(8, result["legacyProviderCount"])
         self.assertEqual(4, result["publicSurfaceCount"])
-        self.assertEqual(20, result["runtimeSurfaceCount"])
+        self.assertEqual(25, result["runtimeSurfaceCount"])
 
     def test_runtime_priority_drift_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -174,6 +179,66 @@ class ProviderTruthCheckTest(unittest.TestCase):
             path.write_text(text, encoding="utf-8")
 
             with self.assertRaisesRegex(ProviderTruthError, "soundActions runtime surface"):
+                validate_provider_truth(root, MANIFEST)
+
+    def test_wallpaper_preview_apply_bypass_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            make_fixture(root)
+            path = root / "app/src/main/java/com/freevibe/ui/FreeVibeRoot.kt"
+            text = path.read_text(encoding="utf-8").replace(
+                "if (!canApplyFromWallpaperPreview(wallpaper))",
+                "if (false)",
+                1,
+            )
+            path.write_text(text, encoding="utf-8")
+
+            with self.assertRaisesRegex(ProviderTruthError, "wallpaper preview navigation"):
+                validate_provider_truth(root, MANIFEST)
+
+    def test_video_cache_restore_without_artifact_filter_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            make_fixture(root)
+            path = root / "app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersViewModel.kt"
+            text = path.read_text(encoding="utf-8").replace(
+                "filterVideoMetadataForCurrentArtifact(cached.result)",
+                "cached.result",
+                1,
+            )
+            path.write_text(text, encoding="utf-8")
+
+            with self.assertRaisesRegex(ProviderTruthError, "video cache restore"):
+                validate_provider_truth(root, MANIFEST)
+
+    def test_video_preview_transport_without_provider_guard_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            make_fixture(root)
+            path = root / "app/src/main/java/com/freevibe/service/VideoPreviewCache.kt"
+            text = path.read_text(encoding="utf-8").replace(
+                "if (!isVideoPreviewHostAllowed(host))",
+                "if (false)",
+                1,
+            )
+            path.write_text(text, encoding="utf-8")
+
+            with self.assertRaisesRegex(ProviderTruthError, "video preview transport"):
+                validate_provider_truth(root, MANIFEST)
+
+    def test_youtube_extractor_unconditional_init_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            make_fixture(root)
+            path = root / "app/src/main/java/com/freevibe/data/repository/YouTubeRepository.kt"
+            text = path.read_text(encoding="utf-8").replace(
+                "if (isYouTubeRuntimeAvailable()) {",
+                "if (true) {",
+                1,
+            )
+            path.write_text(text, encoding="utf-8")
+
+            with self.assertRaisesRegex(ProviderTruthError, "YouTube extractor init"):
                 validate_provider_truth(root, MANIFEST)
 
     def test_artifact_action_gate_drift_fails(self) -> None:

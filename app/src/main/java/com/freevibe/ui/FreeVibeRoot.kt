@@ -30,6 +30,8 @@ import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Sound
 import com.freevibe.data.model.Wallpaper
+import com.freevibe.data.model.WallpaperAction
+import com.freevibe.data.model.wallpaperActionMessage
 import com.freevibe.data.remote.toSound
 import com.freevibe.data.remote.toWallpaper
 import com.freevibe.ui.navigation.LocalAuraNavigationLayout
@@ -63,6 +65,7 @@ import com.freevibe.ui.screens.sounds.SoundDetailScreen
 import com.freevibe.ui.screens.sounds.SoundsScreen
 import com.freevibe.ui.screens.wallpapers.WallpaperDetailScreen
 import com.freevibe.ui.screens.wallpapers.WallpapersScreen
+import com.freevibe.ui.screens.wallpapers.canApplyFromWallpaperPreview
 import com.freevibe.ui.components.AuraSnackbarHost
 import com.freevibe.ui.components.CountBadge
 
@@ -808,7 +811,16 @@ fun FreeVibeRoot(
                 com.freevibe.ui.screens.wallpapers.WallpaperPreviewScreen(
                     wallpaper = wallpaper,
                     onBack = { navController.popBackStack() },
-                    onApply = { target ->
+                    onApply = previewApply@{ target ->
+                        if (!canApplyFromWallpaperPreview(wallpaper)) {
+                            entryPoint.applyFeedbackBus().post(
+                                com.freevibe.service.ApplyFeedbackEvent(
+                                    message = wallpaper.wallpaperActionMessage(WallpaperAction.APPLY),
+                                    undoTarget = null,
+                                ),
+                            )
+                            return@previewApply
+                        }
                         // Kick off the apply in the root composition scope (survives pop)
                         // so the bitmap download + WallpaperManager call complete even if
                         // the preview destination is removed from the back stack first.

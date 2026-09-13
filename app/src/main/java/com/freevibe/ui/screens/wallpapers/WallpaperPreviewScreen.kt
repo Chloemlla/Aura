@@ -24,7 +24,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.freevibe.data.model.Wallpaper
+import com.freevibe.data.model.WallpaperAction
 import com.freevibe.data.model.WallpaperTarget
+import com.freevibe.data.model.canUseWallpaperAction
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -56,6 +58,7 @@ fun WallpaperPreviewScreen(
 ) {
     val palette by viewModel.colorPalette.collectAsStateWithLifecycle()
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val canApply = remember(wallpaper) { canApplyFromWallpaperPreview(wallpaper) }
     LaunchedEffect(wallpaper.fullUrl) {
         viewModel.extractColors(wallpaper.fullUrl)
     }
@@ -102,6 +105,7 @@ fun WallpaperPreviewScreen(
         bottomBar = {
             PreviewApplyBar(
                 isApplying = state.isApplying,
+                canApply = canApply,
                 onApply = onApply,
             )
         },
@@ -336,6 +340,7 @@ private fun mockLabel(row: Int, col: Int): String {
 @Composable
 private fun PreviewApplyBar(
     isApplying: Boolean,
+    canApply: Boolean,
     onApply: (WallpaperTarget) -> Unit,
 ) {
     Surface(
@@ -353,27 +358,30 @@ private fun PreviewApplyBar(
             ApplyActionButton(
                 label = stringResource(R.string.common_lock),
                 onClick = { onApply(WallpaperTarget.LOCK) },
-                enabled = !isApplying,
+                enabled = canApply && !isApplying,
                 tonal = true,
                 modifier = Modifier.weight(1f),
             )
             ApplyActionButton(
                 label = stringResource(R.string.common_home),
                 onClick = { onApply(WallpaperTarget.HOME) },
-                enabled = !isApplying,
+                enabled = canApply && !isApplying,
                 tonal = true,
                 modifier = Modifier.weight(1f),
             )
             ApplyActionButton(
                 label = stringResource(R.string.common_both),
                 onClick = { onApply(WallpaperTarget.BOTH) },
-                enabled = !isApplying,
+                enabled = canApply && !isApplying,
                 tonal = false,
                 modifier = Modifier.weight(1.2f),
             )
         }
     }
 }
+
+internal fun canApplyFromWallpaperPreview(wallpaper: Wallpaper): Boolean =
+    wallpaper.canUseWallpaperAction(WallpaperAction.APPLY)
 
 @Composable
 private fun ApplyActionButton(

@@ -1,5 +1,6 @@
 package com.freevibe.data.model
 
+import com.freevibe.data.legal.isProviderAvailableInCurrentArtifact
 import com.freevibe.ui.screens.videowallpapers.VideoWallpaperItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -54,8 +55,13 @@ class VideoWallpaperLicensePolicyTest {
         assertEquals("https://www.youtube.com/t/terms", capabilities.providerPolicyLinks.termsUrl)
         assertEquals("https://support.google.com/youtube/answer/2802027", capabilities.providerPolicyLinks.reportUrl)
         assertEquals("https://support.google.com/youtube/answer/2807622", capabilities.providerPolicyLinks.takedownUrl)
-        assertTrue(capabilities.requiresConfirmation(VideoWallpaperAction.APPLY))
-        assertTrue(capabilities.requiresConfirmation(VideoWallpaperAction.DOWNLOAD))
+        if (isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE)) {
+            assertTrue(capabilities.requiresConfirmation(VideoWallpaperAction.APPLY))
+            assertTrue(capabilities.requiresConfirmation(VideoWallpaperAction.DOWNLOAD))
+        } else {
+            assertFalse(capabilities.canUse(VideoWallpaperAction.APPLY))
+            assertFalse(capabilities.canUse(VideoWallpaperAction.DOWNLOAD))
+        }
         assertFalse(capabilities.canUse(VideoWallpaperAction.SHARE))
     }
 

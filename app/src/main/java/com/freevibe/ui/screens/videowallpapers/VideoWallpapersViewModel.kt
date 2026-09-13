@@ -7,6 +7,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.freevibe.data.local.PixabayVideoCacheStore
 import com.freevibe.data.local.PreferencesManager
+import com.freevibe.data.legal.ProviderAction
+import com.freevibe.data.legal.ProviderBuild
+import com.freevibe.data.legal.ProviderChannel
+import com.freevibe.data.legal.currentProviderBuild
+import com.freevibe.data.legal.currentProviderChannel
+import com.freevibe.data.legal.isProviderActionPermitted
+import com.freevibe.data.legal.isProviderActionPermittedIn
+import com.freevibe.data.model.ContentSource
+import com.freevibe.data.model.VideoWallpaperAction
+import com.freevibe.data.model.canUseVideoAction
+import com.freevibe.data.model.videoActionMessage
 import com.freevibe.util.rethrowIfCancelled
 import com.freevibe.data.remote.pexels.PexelsApi
 import com.freevibe.data.remote.pixabay.PixabayVideo
@@ -89,6 +100,30 @@ internal data class CachedPixabayVideoMetadata(
     val nextAfter: String? = null,
     val pageExhausted: Boolean? = null,
 )
+
+internal fun filterVideoMetadataForArtifact(
+    result: PixabayVideoMetadataResult,
+    build: ProviderBuild = currentProviderBuild,
+    channel: ProviderChannel = currentProviderChannel,
+): PixabayVideoMetadataResult {
+    val allowedItems = result.items.filter { item ->
+        val source = item.providerSource()
+        isProviderActionPermittedIn(source, ProviderAction.BROWSE, build, channel) &&
+            isProviderActionPermittedIn(source, ProviderAction.PREVIEW, build, channel)
+    }
+    val allowedIds = allowedItems.mapTo(hashSetOf()) { it.id }
+    return PixabayVideoMetadataResult(
+        items = allowedItems,
+        streamUrls = result.streamUrls.filterKeys { it in allowedIds },
+    )
+}
+
+internal fun filterVideoMetadataForCurrentArtifact(
+    result: PixabayVideoMetadataResult,
+): PixabayVideoMetadataResult = filterVideoMetadataForArtifact(result)
+
+internal fun canPreviewVideoInCurrentArtifact(item: VideoWallpaperItem): Boolean =
+    isProviderActionPermitted(item.providerSource(), ProviderAction.PREVIEW)
 
 internal data class RedditMotionFeedGroup(
     val key: String,
@@ -618,18 +653,22 @@ class VideoWallpapersViewModel @Inject constructor(
     fun previewMediaSourceFactory() = videoPreviewCache.mediaSourceFactory()
 
     fun ensureStreamResolved(item: VideoWallpaperItem) {
+        if (!canPreviewVideoInCurrentArtifact(item)) {
+            streamUrls.remove(item.id)
+            _resolvedIds.update { it - item.id }
+            return
+        }
         val cachedUrl = streamUrls[item.id]
         if (cachedUrl != null) {
-            prebufferPreview(item.id, cachedUrl)
+            prebufferPreview(item, cachedUrl)
             return
         }
         if (item.source != "YouTube" || item.videoId.isBlank() || !previewResolveInFlight.add(item.id)) return
         viewModelScope.launch {
             try {
                 youtubeRepo.getVideoStreamUrl(item.videoId)?.let { url ->
-                    streamUrls[item.id] = url
-                    _resolvedIds.update { it + item.id }
-                    prebufferPreview(item.id, url)
+                    rememberStreamUrl(item, url)
+                    prebufferPreview(item, url)
                 }
             } catch (e: Throwable) {
                 e.rethrowIfCancelled()
@@ -639,10 +678,10 @@ class VideoWallpapersViewModel @Inject constructor(
         }
     }
 
-    private fun prebufferPreview(id: String, url: String) {
-        if (!shouldPrebufferVideoPreview(url)) return
+    private fun prebufferPreview(item: VideoWallpaperItem, url: String) {
+        if (!canPreviewVideoInCurrentArtifact(item) || !shouldPrebufferVideoPreview(url)) return
         viewModelScope.launch {
-            runCatching { videoPreviewCache.prebuffer(id, url) }
+            runCatching { videoPreviewCache.prebuffer(item.id, url) }
         }
     }
 
@@ -669,6 +708,14 @@ class VideoWallpapersViewModel @Inject constructor(
         scaleMode: String = VIDEO_WALLPAPER_SCALE_MODE_ZOOM,
     ) {
         if (_state.value.isApplying != null) return
+        if (!item.canUseVideoAction(VideoWallpaperAction.APPLY)) {
+            Toast.makeText(
+                context,
+                item.videoActionMessage(VideoWallpaperAction.APPLY),
+                Toast.LENGTH_SHORT,
+            ).show()
+            return
+        }
         viewModelScope.launch {
             _state.update { it.copy(isApplying = item.id) }
             try {
@@ -684,7 +731,7 @@ class VideoWallpapersViewModel @Inject constructor(
                 val videoUrl = streamUrls[item.id] ?: run {
                     if (com.freevibe.BuildConfig.DEBUG) Log.d("VideoWP", "Resolving stream URL for apply: ${item.videoId}")
                     val url = youtubeRepo.getVideoStreamUrl(item.videoId)
-                    if (url != null) { streamUrls[item.id] = url }
+                    if (url != null) rememberStreamUrl(item, url)
                     url
                 }
 
@@ -839,13 +886,16 @@ class VideoWallpapersViewModel @Inject constructor(
                     cacheKey = videoFeedCacheKey(s.searchQuery, s.orientation, s.focusFilter),
                     freshOnly = true,
                 )?.let { cachedFeed ->
-                    rememberPixabayVideoMetadata(cachedFeed)
+                    val warmFeed = cachedFeed.copy(
+                        items = rankVideoWallpapers(cachedFeed.items, s.focusFilter, s.orientation),
+                    ).let(::filterVideoMetadataForCurrentArtifact)
+                    rememberPixabayVideoMetadata(warmFeed)
                     _state.update { current ->
-                        current.copy(items = cachedFeed.items, isLoading = false)
+                        current.copy(items = warmFeed.items, isLoading = false)
                     }
-                    cachedFeed.items.take(2).forEach(::ensureStreamResolved)
+                    warmFeed.items.take(2).forEach(::ensureStreamResolved)
                     if (com.freevibe.BuildConfig.DEBUG) {
-                        Log.d("VideoWP", "Warm feed ready: ${cachedFeed.items.size} cached items")
+                        Log.d("VideoWP", "Warm feed ready: ${warmFeed.items.size} cached items")
                     }
                 }
             }
@@ -892,7 +942,7 @@ class VideoWallpapersViewModel @Inject constructor(
                                 ?: video.videoFiles.firstOrNull { it.link.endsWith(".mp4") }
                             file?.let {
                                 val item = VideoWallpaperItem(id = "px_${video.id}", title = context.getString(com.freevibe.R.string.video_wp_by_creator, video.user.name), thumbnailUrl = video.image, source = "Pexels", duration = video.duration.toLong(), uploaderName = video.user.name, videoWidth = video.width, videoHeight = video.height, contentSource = com.freevibe.data.model.ContentSource.PEXELS, license = "Pexels License", sourcePageUrl = video.url)
-                                streamUrls[item.id] = it.link
+                                rememberStreamUrl(item, it.link)
                                 _resolvedIds.update { it + item.id }
                                 item
                             }
@@ -1106,9 +1156,8 @@ class VideoWallpapersViewModel @Inject constructor(
                     launch {
                         sem.acquire()
                         try {
-                            youtubeRepo.getVideoStreamUrl(item.videoId)?.let {
-                                streamUrls[item.id] = it
-                                _resolvedIds.update { ids -> ids + item.id }
+                            youtubeRepo.getVideoStreamUrl(item.videoId)?.let { url ->
+                                rememberStreamUrl(item, url)
                             }
                         } catch (t: Throwable) {
                             t.rethrowIfCancelled()
@@ -1286,7 +1335,14 @@ class VideoWallpapersViewModel @Inject constructor(
             nowMs = System.currentTimeMillis(),
             requireFresh = freshOnly,
             freshnessTtlMs = freshnessTtlMs,
-        )
+        )?.let { cached ->
+            val filtered = filterVideoMetadataForCurrentArtifact(cached.result)
+            if (cached.result.items.isNotEmpty() && filtered.items.isEmpty()) {
+                null
+            } else {
+                cached.copy(result = filtered)
+            }
+        }
 
     private fun writePixabayVideoCache(
         cacheKey: String,
@@ -1308,10 +1364,16 @@ class VideoWallpapersViewModel @Inject constructor(
     }
 
     private fun rememberPixabayVideoMetadata(result: PixabayVideoMetadataResult) {
-        streamUrls.putAll(result.streamUrls)
-        if (result.streamUrls.isNotEmpty()) {
-            _resolvedIds.update { it + result.streamUrls.keys }
+        val filtered = filterVideoMetadataForCurrentArtifact(result)
+        filtered.items.forEach { item ->
+            filtered.streamUrls[item.id]?.let { url -> rememberStreamUrl(item, url) }
         }
+    }
+
+    private fun rememberStreamUrl(item: VideoWallpaperItem, url: String) {
+        if (!canPreviewVideoInCurrentArtifact(item)) return
+        streamUrls[item.id] = url
+        _resolvedIds.update { it + item.id }
     }
 
     private fun cacheVisibleVideoFeed(snapshot: VideoWallpapersState) {

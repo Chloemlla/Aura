@@ -60,7 +60,12 @@ RUNTIME_SURFACE_KEYS = (
     "wallpaperActions",
     "wallpaperActionRuntime",
     "wallpaperActionUi",
+    "wallpaperPreviewNavigation",
+    "wallpaperPreviewUi",
     "videoActions",
+    "videoRuntime",
+    "videoPreviewTransport",
+    "youtubeRuntime",
     "releaseDryRun",
     "releaseSigning",
     "supplyChain",
@@ -113,11 +118,38 @@ RUNTIME_SURFACE_MARKERS = {
     "wallpaperActionUi": (
         "wp.wallpaperLicenseCapabilities()",
         "canApply = actionCapabilities.canUse(WallpaperAction.APPLY)",
+        "enabled = canApply && !state.isApplying",
         "canDownload = actionCapabilities.canUse(WallpaperAction.DOWNLOAD)",
         "canShare = actionCapabilities.canUse(WallpaperAction.SHARE)",
         "canEdit = actionCapabilities.canUse(WallpaperAction.EDIT)",
     ),
+    "wallpaperPreviewNavigation": (
+        "onApply = previewApply@{",
+        "canApplyFromWallpaperPreview(wallpaper)",
+        "wallpaperApplier().applyFromUrl",
+    ),
+    "wallpaperPreviewUi": (
+        "canApplyFromWallpaperPreview(wallpaper)",
+        "canApply = canApply",
+        "enabled = canApply && !isApplying",
+    ),
     "videoActions": ("isProviderActionPermitted",),
+    "videoRuntime": (
+        "filterVideoMetadataForCurrentArtifact",
+        "canPreviewVideoInCurrentArtifact(item)",
+        "item.canUseVideoAction(VideoWallpaperAction.APPLY)",
+        "rememberStreamUrl(item, url)",
+    ),
+    "videoPreviewTransport": (
+        "ResolvingDataSource.Factory",
+        "isVideoPreviewHostAllowed",
+        "providerSourceForHost",
+    ),
+    "youtubeRuntime": (
+        "isYouTubeRuntimeAvailable()",
+        "NewPipe.init(DownloaderImpl.instance)",
+        "throw java.io.IOException",
+    ),
     "releaseDryRun": ("-PauraReleaseChannel=play :app:bundleFullRelease",),
     "releaseSigning": ("-PauraReleaseChannel=play :app:bundleFullRelease",),
     "supplyChain": ("-PauraReleaseChannel=play :app:bundleFullRelease",),
@@ -194,6 +226,39 @@ def _extract_calls(text: str, function_name: str) -> list[str]:
         content, _ = _balanced_content(text, opening)
         calls.append(content)
     return calls
+
+
+def _checked_block(
+    text: str,
+    marker: str,
+    label: str,
+    errors: list[str],
+) -> str:
+    start = text.find(marker)
+    opening = text.find("{", start) if start >= 0 else -1
+    if start < 0 or opening < 0:
+        errors.append(f"{label} is missing checked block: {marker}")
+        return ""
+    try:
+        content, _ = _balanced_content(text, opening)
+        return content
+    except ProviderTruthError:
+        errors.append(f"{label} has an unterminated checked block: {marker}")
+        return ""
+
+
+def _require_marker_order(
+    text: str,
+    markers: tuple[str, ...],
+    label: str,
+    errors: list[str],
+) -> None:
+    positions = [text.find(marker) for marker in markers]
+    missing = [marker for marker, position in zip(markers, positions, strict=True) if position < 0]
+    if missing:
+        errors.append(f"{label} is missing behavior marker: {', '.join(missing)}")
+    elif positions != sorted(positions):
+        errors.append(f"{label} behavior markers are not in enforcement order")
 
 
 def _field_expression(block: str, field: str) -> str:
@@ -570,6 +635,90 @@ def _validate_runtime_surfaces(
                 errors.append(
                     f"{surface_key} runtime surface is missing checked marker: {marker}"
                 )
+
+    wallpaper_navigation = _checked_block(
+        surface_texts["wallpaperPreviewNavigation"],
+        "onApply = previewApply@{",
+        "wallpaper preview navigation",
+        errors,
+    )
+    _require_marker_order(
+        wallpaper_navigation,
+        ("if (!canApplyFromWallpaperPreview(wallpaper))", "wallpaperApplier().applyFromUrl"),
+        "wallpaper preview navigation",
+        errors,
+    )
+
+    wallpaper_preview_bar = _checked_block(
+        surface_texts["wallpaperPreviewUi"],
+        "private fun PreviewApplyBar(",
+        "wallpaper preview UI",
+        errors,
+    )
+    if wallpaper_preview_bar.count("enabled = canApply && !isApplying") != 3:
+        errors.append("wallpaper preview UI must gate all three apply targets")
+
+    video_runtime = surface_texts["videoRuntime"]
+    video_resolve = _checked_block(
+        video_runtime,
+        "fun ensureStreamResolved(",
+        "video stream resolution",
+        errors,
+    )
+    _require_marker_order(
+        video_resolve,
+        ("if (!canPreviewVideoInCurrentArtifact(item))", "val cachedUrl = streamUrls[item.id]"),
+        "video stream resolution",
+        errors,
+    )
+    video_apply = _checked_block(
+        video_runtime,
+        "fun applyVideoWallpaper(",
+        "video apply runtime",
+        errors,
+    )
+    _require_marker_order(
+        video_apply,
+        ("if (!item.canUseVideoAction(VideoWallpaperAction.APPLY))", "viewModelScope.launch"),
+        "video apply runtime",
+        errors,
+    )
+    if "filterVideoMetadataForCurrentArtifact(cached.result)" not in video_runtime:
+        errors.append("video cache restore must filter metadata for the current artifact")
+
+    video_transport = _checked_block(
+        surface_texts["videoPreviewTransport"],
+        "private val dataSourceFactory by lazy",
+        "video preview transport",
+        errors,
+    )
+    _require_marker_order(
+        video_transport,
+        ("ResolvingDataSource.Factory", "if (!isVideoPreviewHostAllowed(host))"),
+        "video preview transport",
+        errors,
+    )
+
+    youtube_runtime = surface_texts["youtubeRuntime"]
+    youtube_init = _checked_block(youtube_runtime, "init {", "YouTube extractor init", errors)
+    _require_marker_order(
+        youtube_init,
+        ("if (isYouTubeRuntimeAvailable())", "NewPipe.init(DownloaderImpl.instance)"),
+        "YouTube extractor init",
+        errors,
+    )
+    youtube_execute = _checked_block(
+        youtube_runtime,
+        "override fun execute(",
+        "YouTube direct transport",
+        errors,
+    )
+    _require_marker_order(
+        youtube_execute,
+        ("if (!isYouTubeRuntimeAvailable())", "val url = java.net.URL"),
+        "YouTube direct transport",
+        errors,
+    )
 
     diagnostics = surface_texts["diagnostics"]
     for provider in manifest_providers:
