@@ -154,6 +154,19 @@ class VideoWallpaperLicensePolicyTest {
         assertFalse(capabilities.uploaderRequired)
     }
 
+    @Test
+    fun `legacy klipy record stays attribution only`() {
+        val capabilities = videoItem(
+            contentSource = ContentSource.KLIPY,
+            license = "CC0",
+            sourcePageUrl = "https://klipy.com/clip/1",
+        ).videoWallpaperLicenseCapabilities()
+
+        VideoWallpaperAction.entries.forEach { action ->
+            assertFalse(capabilities.canUse(action))
+        }
+    }
+
     private fun videoItem(
         contentSource: ContentSource,
         license: String,

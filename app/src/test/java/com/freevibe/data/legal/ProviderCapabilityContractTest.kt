@@ -1,5 +1,6 @@
 package com.freevibe.data.legal
 
+import com.freevibe.BuildConfig
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.providerNetworkPolicies
 import java.io.File
@@ -300,6 +301,51 @@ class ProviderCapabilityContractTest {
             .toSet()
 
         assertEquals(setOf(ContentSource.YOUTUBE), playExcluded)
+        assertTrue(
+            providerCapability(ContentSource.YOUTUBE).availableIn(
+                ProviderBuild.FULL,
+                ProviderChannel.GITHUB,
+            ),
+        )
+        assertFalse(
+            providerCapability(ContentSource.YOUTUBE).availableIn(
+                ProviderBuild.FULL,
+                ProviderChannel.PLAY,
+            ),
+        )
+    }
+
+    @Test
+    fun `current artifact availability uses the compiled release channel`() {
+        assertEquals(providerChannel(BuildConfig.AURA_RELEASE_CHANNEL), currentProviderChannel)
+        assertEquals(
+            currentProviderChannel == ProviderChannel.GITHUB,
+            isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE),
+        )
+    }
+
+    @Test
+    fun `provider action ceiling covers legacy and bundled sound actions`() {
+        assertFalse(isProviderActionPermitted(ContentSource.FREESOUND, ProviderAction.APPLY))
+        assertFalse(isProviderActionPermitted(ContentSource.FREESOUND, ProviderAction.BUNDLE))
+        assertTrue(isProviderActionPermitted(ContentSource.FREESOUND, ProviderAction.OPEN_SOURCE))
+        assertTrue(isProviderActionPermitted(ContentSource.BUNDLED, ProviderAction.BUNDLE))
+        assertTrue(
+            isProviderActionPermittedIn(
+                ContentSource.YOUTUBE,
+                ProviderAction.PREVIEW,
+                ProviderBuild.FULL,
+                ProviderChannel.GITHUB,
+            ),
+        )
+        assertFalse(
+            isProviderActionPermittedIn(
+                ContentSource.YOUTUBE,
+                ProviderAction.PREVIEW,
+                ProviderBuild.FULL,
+                ProviderChannel.PLAY,
+            ),
+        )
     }
 
     @Test

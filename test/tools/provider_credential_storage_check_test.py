@@ -6,8 +6,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.provider_credential_storage_check import ProviderCredentialStorageError, validate_policy
-
+from tools.provider_credential_storage_check import (
+    ProviderCredentialStorageError,
+    validate_policy,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -130,6 +132,21 @@ class ProviderCredentialStorageCheckTest(unittest.TestCase):
         with self.assertRaises(ProviderCredentialStorageError):
             validate_policy(REPO_ROOT, policy)
 
+    def test_rejects_legacy_hidden_credential_without_retirement_cleanup(self) -> None:
+        policy = copy.deepcopy(live_policy())
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = seed_repo(Path(tmpdir))
+            copy_live_support_files(repo)
+            preferences_path = repo / policy["preferencesManager"]  # type: ignore[index]
+            preferences = preferences_path.read_text(encoding="utf-8").replace(
+                "providerCredentialStore.clear(ProviderCredentialKey.FREESOUND)",
+                "// retired cleanup missing",
+            )
+            write(preferences_path, preferences)
+
+            with self.assertRaisesRegex(ProviderCredentialStorageError, "retirement cleanup"):
+                validate_policy(repo, policy)
+
 
 def minimal_policy() -> dict[str, object]:
     return {
@@ -137,6 +154,7 @@ def minimal_policy() -> dict[str, object]:
         "policyKind": "providerCredentialStorage",
         "docsPath": "docs.md",
         "preferencesManager": "PreferencesManager.kt",
+        "application": "Application.kt",
         "settingsScreen": "SettingsScreen.kt",
         "appGradle": "build.gradle.kts",
         "backupRules": "backup.xml",
@@ -189,6 +207,7 @@ def seed_repo(repo: Path) -> Path:
         'dataStore.edit { it.remove(legacyKey) }\n'
         'providerCredentialStorageUnavailable\n',
     )
+    write(repo / "Application.kt", "class Application\n")
     write(
         repo / "app/src/main/java/com/freevibe/data/local/ProviderCredentialStore.kt",
         'AndroidKeyStore\nKeyGenParameterSpec\nKeyProperties.KEY_ALGORITHM_AES\n'
@@ -218,7 +237,9 @@ def seed_repo(repo: Path) -> Path:
 def copy_live_support_files(repo: Path) -> None:
     policy = live_policy()
     for key in (
+        "docsPath",
         "preferencesManager",
+        "application",
         "settingsScreen",
         "appGradle",
         "backupRules",
@@ -228,6 +249,21 @@ def copy_live_support_files(repo: Path) -> None:
     ):
         source = REPO_ROOT / policy[key]  # type: ignore[index]
         write(repo / policy[key], source.read_text(encoding="utf-8"))  # type: ignore[index]
+    for relative_dir in (
+        "app/src/main/java/com/freevibe/ui/screens/settings",
+        "app/src/full/java/com/freevibe/ui/screens/settings",
+    ):
+        source_dir = REPO_ROOT / relative_dir
+        if source_dir.is_dir():
+            for source in source_dir.glob("*.kt"):
+                write(repo / relative_dir / source.name, source.read_text(encoding="utf-8"))
+    for relative in (
+        "app/src/main/res/values/strings.xml",
+        "app/src/full/res/values/strings.xml",
+    ):
+        source = REPO_ROOT / relative
+        if source.is_file():
+            write(repo / relative, source.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

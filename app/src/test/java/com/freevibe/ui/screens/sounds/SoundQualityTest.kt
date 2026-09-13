@@ -110,7 +110,7 @@ class SoundQualityTest {
     fun `clean filter returns only clean sounding entries`() {
         val clean = testSound(
             id = "clean",
-            source = ContentSource.FREESOUND,
+            source = ContentSource.BUNDLED,
             name = "Soft Bell Tone",
             duration = 2.0,
             tags = listOf("soft", "chime"),
@@ -161,24 +161,24 @@ class SoundQualityTest {
                 license = "CC0",
             ),
             testSound(
-                id = "jamendo_best",
-                source = ContentSource.JAMENDO,
+                id = "bundled_pulse",
+                source = ContentSource.BUNDLED,
                 name = "Night Pulse Ringtone",
                 duration = 16.0,
                 tags = listOf("ringtone", "bright", "electro"),
                 license = "CC BY",
             ),
             testSound(
-                id = "audius_best",
-                source = ContentSource.AUDIUS,
+                id = "local_best",
+                source = ContentSource.LOCAL,
                 name = "Minimal Echo Tone",
                 duration = 12.0,
                 tags = listOf("tone", "clean", "soft"),
                 license = "CC BY",
             ),
             testSound(
-                id = "freesound_best",
-                source = ContentSource.FREESOUND,
+                id = "youtube_best",
+                source = ContentSource.YOUTUBE,
                 name = "Glass Ping Alert",
                 duration = 11.0,
                 tags = listOf("ping", "alert", "clean"),
@@ -201,6 +201,38 @@ class SoundQualityTest {
 
         assertEquals(4, ranked.size)
         assertTrue(ranked.none { it.id == "weak_mix" })
+    }
+
+    @Test
+    fun `live sound ranking omits legacy providers`() {
+        val ranked = rankSounds(
+            sounds = listOf(
+                testSound("legacy", ContentSource.FREESOUND, "Legacy Chime", 12.0, license = "CC0"),
+                testSound("current", ContentSource.BUNDLED, "Current Chime", 12.0, license = "CC0"),
+            ),
+            tab = SoundTab.RINGTONES,
+            filter = SoundQualityFilter.BEST,
+        )
+
+        assertEquals(listOf("current"), ranked.map { it.id })
+    }
+
+    @Test
+    fun `sound feed follows current provider priority while preserving quality within source`() {
+        val sounds = listOf(
+            testSound("local_1", ContentSource.LOCAL, "Bright Local Alert", 12.0, listOf("alert", "clean"), "CC0"),
+            testSound("bundled_1", ContentSource.BUNDLED, "Soft Original Chime", 12.0, listOf("chime", "clean"), "CC0"),
+            testSound("youtube_weak", ContentSource.YOUTUBE, "Plain Tone", 12.0),
+            testSound("youtube_best", ContentSource.YOUTUBE, "Crystal YouTube Chime", 12.0, listOf("chime", "clean")),
+        )
+
+        val ranked = rankSounds(sounds, SoundTab.RINGTONES, SoundQualityFilter.BEST)
+
+        assertEquals(
+            listOf(ContentSource.YOUTUBE, ContentSource.BUNDLED, ContentSource.LOCAL),
+            ranked.take(3).map { it.source },
+        )
+        assertEquals("youtube_best", ranked.first().id)
     }
 
     private fun testSound(

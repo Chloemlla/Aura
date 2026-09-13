@@ -1,5 +1,6 @@
 package com.freevibe.data.model
 
+import com.freevibe.data.legal.isProviderAvailableInCurrentArtifact
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -37,7 +38,7 @@ class SoundLicensePolicyTest {
     }
 
     @Test
-    fun `soundcloud sounds are link only until permissions are reviewed`() {
+    fun `legacy soundcloud records are attribution only`() {
         val capabilities = sound(
             source = ContentSource.SOUNDCLOUD,
             license = "SoundCloud",
@@ -47,21 +48,43 @@ class SoundLicensePolicyTest {
         assertEquals(SoundActionDecision.DISABLED, capabilities.capability(SoundAction.APPLY).decision)
         assertEquals(SoundActionDecision.DISABLED, capabilities.capability(SoundAction.DOWNLOAD).decision)
         assertEquals(SoundActionDecision.DISABLED, capabilities.capability(SoundAction.EDIT).decision)
-        assertTrue(capabilities.canUse(SoundAction.SHARE))
+        assertFalse(capabilities.canUse(SoundAction.SHARE))
     }
 
     @Test
     fun `noncommercial licenses require confirmation and cannot be bundled`() {
         val capabilities = sound(
-            source = ContentSource.FREESOUND,
+            source = ContentSource.COMMUNITY,
             license = "Attribution-NonCommercial 4.0",
-            sourcePageUrl = "https://freesound.org/s/42/",
+            sourcePageUrl = "https://example.com/community/sound/42",
         ).soundLicenseCapabilities()
 
         assertEquals("CC BY-NC", capabilities.normalizedLicense)
-        assertTrue(capabilities.requiresConfirmation(SoundAction.APPLY))
-        assertTrue(capabilities.requiresConfirmation(SoundAction.DOWNLOAD))
-        assertTrue(capabilities.requiresConfirmation(SoundAction.EDIT))
+        if (isProviderAvailableInCurrentArtifact(ContentSource.COMMUNITY)) {
+            assertTrue(capabilities.requiresConfirmation(SoundAction.APPLY))
+            assertTrue(capabilities.requiresConfirmation(SoundAction.DOWNLOAD))
+            assertTrue(capabilities.requiresConfirmation(SoundAction.EDIT))
+        } else {
+            assertFalse(capabilities.canUse(SoundAction.APPLY))
+            assertFalse(capabilities.canUse(SoundAction.DOWNLOAD))
+            assertFalse(capabilities.canUse(SoundAction.EDIT))
+        }
+        assertFalse(capabilities.canUse(SoundAction.BUNDLE))
+    }
+
+    @Test
+    fun `legacy freesound record stays attribution only even with complete CC0 metadata`() {
+        val capabilities = sound(
+            source = ContentSource.FREESOUND,
+            license = "CC0",
+            sourcePageUrl = "https://freesound.org/s/42/",
+        ).soundLicenseCapabilities()
+
+        assertFalse(capabilities.canUse(SoundAction.APPLY))
+        assertFalse(capabilities.canUse(SoundAction.PREVIEW))
+        assertFalse(capabilities.canUse(SoundAction.DOWNLOAD))
+        assertFalse(capabilities.canUse(SoundAction.EDIT))
+        assertFalse(capabilities.canUse(SoundAction.SHARE))
         assertFalse(capabilities.canUse(SoundAction.BUNDLE))
     }
 
@@ -73,10 +96,17 @@ class SoundLicensePolicyTest {
         ).soundLicenseCapabilities()
 
         assertEquals("User Upload", capabilities.normalizedLicense)
-        assertTrue(capabilities.requiresConfirmation(SoundAction.APPLY))
-        assertTrue(capabilities.requiresConfirmation(SoundAction.DOWNLOAD))
-        assertTrue(capabilities.requiresConfirmation(SoundAction.EDIT))
-        assertTrue(capabilities.canUse(SoundAction.SHARE))
+        if (isProviderAvailableInCurrentArtifact(ContentSource.COMMUNITY)) {
+            assertTrue(capabilities.requiresConfirmation(SoundAction.APPLY))
+            assertTrue(capabilities.requiresConfirmation(SoundAction.DOWNLOAD))
+            assertTrue(capabilities.requiresConfirmation(SoundAction.EDIT))
+            assertTrue(capabilities.canUse(SoundAction.SHARE))
+        } else {
+            assertFalse(capabilities.canUse(SoundAction.APPLY))
+            assertFalse(capabilities.canUse(SoundAction.DOWNLOAD))
+            assertFalse(capabilities.canUse(SoundAction.EDIT))
+            assertFalse(capabilities.canUse(SoundAction.SHARE))
+        }
         assertFalse(capabilities.canUse(SoundAction.BUNDLE))
     }
 
@@ -88,10 +118,11 @@ class SoundLicensePolicyTest {
         ).soundLicenseCapabilities()
 
         assertEquals("CC0", capabilities.normalizedLicense)
-        assertTrue(capabilities.canUse(SoundAction.APPLY))
-        assertTrue(capabilities.canUse(SoundAction.DOWNLOAD))
-        assertTrue(capabilities.canUse(SoundAction.EDIT))
-        assertTrue(capabilities.canUse(SoundAction.SHARE))
+        val available = isProviderAvailableInCurrentArtifact(ContentSource.COMMUNITY)
+        assertEquals(available, capabilities.canUse(SoundAction.APPLY))
+        assertEquals(available, capabilities.canUse(SoundAction.DOWNLOAD))
+        assertEquals(available, capabilities.canUse(SoundAction.EDIT))
+        assertEquals(available, capabilities.canUse(SoundAction.SHARE))
         assertFalse(capabilities.canUse(SoundAction.BUNDLE))
     }
 

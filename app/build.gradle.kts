@@ -71,6 +71,13 @@ val localProps = Properties().apply {
 val instrumentationBuildType = providers.gradleProperty("auraInstrumentationBuildType")
     .orElse("debug")
     .get()
+val auraReleaseChannel = providers.gradleProperty("auraReleaseChannel")
+    .orElse("github")
+    .get()
+    .lowercase()
+require(auraReleaseChannel in setOf("github", "play")) {
+    "auraReleaseChannel must be github or play"
+}
 
 android {
     namespace = "com.freevibe"
@@ -98,6 +105,7 @@ android {
         versionName = "6.45.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "AURA_RELEASE_CHANNEL", "\"$auraReleaseChannel\"")
 
         // API keys — defaults baked in, user can override via settings
         buildConfigField("String", "PEXELS_API_KEY", "\"${localProps.getProperty("pexels.api.key", "")}\"")

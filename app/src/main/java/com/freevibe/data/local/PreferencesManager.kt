@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.freevibe.data.legal.isProviderAvailableInCurrentArtifact
 import com.freevibe.data.legal.providerCapability
 import com.freevibe.data.model.COMMUNITY_GUIDELINES_VERSION
 import com.freevibe.data.model.ContentSource
@@ -45,6 +46,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
@@ -289,6 +291,13 @@ class PreferencesManager @Inject constructor(
         setProviderCredential(ProviderCredentialKey.PIXABAY, Keys.PIXABAY_KEY, key)
     suspend fun setFreesoundKey(key: String) =
         setProviderCredential(ProviderCredentialKey.FREESOUND, Keys.FREESOUND_KEY, key)
+
+    /** Removes credentials for providers that can no longer originate requests. */
+    suspend fun retireLegacyProviderCredentials() {
+        providerCredentialStore.clear(ProviderCredentialKey.FREESOUND)
+        dataStore.edit { it.remove(Keys.FREESOUND_KEY) }
+        providerCredentialRevision.update { it + 1 }
+    }
     suspend fun setGeneratedWallpaperProviderKey(key: String) =
         setGeneratedWallpaperProviderKeyForFlavor(key)
     suspend fun setGeneratedContentProviderEnabled(enabled: Boolean) {
@@ -574,14 +583,23 @@ class PreferencesManager @Inject constructor(
     val ytSoundQueryNotifications: Flow<String> = get(Keys.YT_SOUND_NOTIFICATIONS, defaultNotificationQuery())
     val ytSoundQueryAlarms: Flow<String> = get(Keys.YT_SOUND_ALARMS, defaultAlarmQuery())
     val ytSoundBlockedWords: Flow<String> = get(Keys.YT_SOUND_BLOCKED, "compilation,mix,playlist,ranked,tier list,reaction,review,tutorial,how to,podcast,interview,live stream,part,episode")
-    val youtubeProviderEnabled: Flow<Boolean> = get(Keys.YOUTUBE_PROVIDER_ENABLED, true)
+    val youtubeProviderAvailable: Boolean = isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE)
+    val youtubeProviderEnabled: Flow<Boolean> = if (youtubeProviderAvailable) {
+        get(
+            Keys.YOUTUBE_PROVIDER_ENABLED,
+            providerCapability(ContentSource.YOUTUBE).enabledByDefault,
+        )
+    } else {
+        flowOf(false)
+    }
     val youtubePoTokenProviderUrl: Flow<String> = get(Keys.YOUTUBE_PO_TOKEN_PROVIDER_URL, "")
 
     suspend fun setYtSoundQueryRingtones(q: String) = set(Keys.YT_SOUND_RINGTONES, q)
     suspend fun setYtSoundQueryNotifications(q: String) = set(Keys.YT_SOUND_NOTIFICATIONS, q)
     suspend fun setYtSoundQueryAlarms(q: String) = set(Keys.YT_SOUND_ALARMS, q)
     suspend fun setYtSoundBlockedWords(words: String) = set(Keys.YT_SOUND_BLOCKED, words)
-    suspend fun setYoutubeProviderEnabled(enabled: Boolean) = set(Keys.YOUTUBE_PROVIDER_ENABLED, enabled)
+    suspend fun setYoutubeProviderEnabled(enabled: Boolean) =
+        set(Keys.YOUTUBE_PROVIDER_ENABLED, enabled && youtubeProviderAvailable)
     suspend fun setYoutubePoTokenProviderUrl(url: String) = set(Keys.YOUTUBE_PO_TOKEN_PROVIDER_URL, url)
 
     // ── Wallpaper scheduler ─────────────────────────────────────

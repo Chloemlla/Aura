@@ -39,7 +39,7 @@ Settings warning instead of crashing or silently discarding provider keys.
 | `wallhaven-api-key` | Wallhaven | `optionalQuotaKey` | Encrypted key `wallhaven_api_key`; migrates legacy DataStore key `wallhaven_api_key`; no bundled BuildConfig field. | Blank. | Settings > API Keys > Wallhaven API Key; Clear or save blank to remove. |
 | `pexels-api-key` | Pexels | `optionalQuotaKey` | Encrypted key `pexels_api_key`, defaulting to `BuildConfig.PEXELS_API_KEY`; migrates legacy DataStore key `pexels_api_key`. | Blank in public releases, so Pexels defaults off until a user adds a key. | Settings > API Keys > Pexels API Key; Clear or save blank to remove. |
 | `pixabay-api-key` | Pixabay | `optionalQuotaKey` | Encrypted key `pixabay_api_key`, defaulting to `BuildConfig.PIXABAY_API_KEY`; migrates legacy DataStore key `pixabay_api_key`. | Blank in public releases, so Pixabay defaults off until a user adds a key. | Settings > API Keys > Pixabay API Key; Clear or save blank to remove. |
-| `freesound-api-key` | Freesound | `optionalQuotaKey` | Encrypted key `freesound_api_key`, defaulting to `BuildConfig.FREESOUND_API_KEY`; migrates an old DataStore key for upgrade compatibility. | Blank in public release workflow. | No Settings field because Freesound is legacy attribution only. The Clear API keys action removes an old stored value. |
+| `freesound-api-key` | Freesound | `optionalQuotaKey` | Retired encrypted key `freesound_api_key` and its old DataStore key are deleted on app start. | Blank in public release workflow. | No Settings field because Freesound is legacy attribution only. Aura removes any old stored value automatically. |
 | `soundcloud-client-id` | SoundCloud | `publicClientId` | BuildConfig-only `SOUNDCLOUD_CLIENT_ID`; no DataStore key. | Blank in public release workflow. | No Settings field; blank public default makes the dormant source return no results. |
 | `stability-ai-key` | Stability AI | `paidSensitiveSecret` | Encrypted key `stability_ai_key`, defaulting to `BuildConfig.STABILITY_AI_KEY` in full builds; migrates legacy DataStore key `stability_ai_key`. | Blank in full public releases and absent from FOSS builds. | Settings > API Keys > Stability AI API Key and generated wallpaper key field; Clear or save blank to remove. |
 
@@ -58,6 +58,10 @@ Settings label, explicit Clear action, or Keystore warning is missing, if
 Gradle release defaults drift away from blank provider values, if backup
 exclusions disappear, or if diagnostics/privacy docs stop describing redaction
 and device storage.
+
+Legacy hidden credentials have a stricter rule. The guard requires both
+encrypted and DataStore cleanup plus an app-start call, so removing a Settings
+field can't strand a credential on an upgraded device.
 
 The guard also treats `stability-ai-key` as the paid-sensitive sentinel row. It
 fails if Stability stops being an encrypted `paidSensitiveSecret`, if the full

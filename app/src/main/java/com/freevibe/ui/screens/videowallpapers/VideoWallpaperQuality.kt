@@ -1,5 +1,10 @@
 package com.freevibe.ui.screens.videowallpapers
 
+import com.freevibe.data.legal.ProviderMediaType
+import com.freevibe.data.legal.currentProviderPriorityBonus
+import com.freevibe.data.legal.orderedCurrentProviderCapabilities
+import com.freevibe.data.model.ContentSource
+
 enum class VideoFocusFilter { BEST, LOOP_SAFE, LOW_BATTERY, PHONE_FIT }
 
 internal fun rankVideoWallpapers(
@@ -7,12 +12,15 @@ internal fun rankVideoWallpapers(
     filter: VideoFocusFilter,
     orientation: OrientationFilter,
 ): List<VideoWallpaperItem> {
+    val availableSources = orderedCurrentProviderCapabilities(ProviderMediaType.VIDEO)
+        .mapTo(mutableSetOf()) { it.source }
+    val availableItems = items.filter { it.providerSource() in availableSources }
     val filtered = if (filter == VideoFocusFilter.BEST) {
-        items
+        availableItems
     } else {
-        items.filter { it.matchesFilter(filter, orientation) }
+        availableItems.filter { it.matchesFilter(filter, orientation) }
     }
-    val rankedBase = filtered.ifEmpty { items }
+    val rankedBase = filtered.ifEmpty { availableItems }
     val curated = applyVideoQualityFloor(
         rankedBase
             .distinctBy { it.id }
@@ -21,14 +29,15 @@ internal fun rankVideoWallpapers(
     ).map { it.first }
     val grouped = curated
         .distinctBy { it.id }
-        .groupBy { it.source }
+        .groupBy { it.providerSource() }
         .mapValues { (_, sourceItems) ->
             sourceItems.sortedByDescending { videoQualityScore(it, filter, orientation) }.toMutableList()
         }
         .toMutableMap()
     val mixed = mutableListOf<VideoWallpaperItem>()
+    val sourceMix = videoProviderMix(grouped.keys)
     while (grouped.values.any { it.isNotEmpty() }) {
-        REDDIT_FIRST_SOURCE_MIX.forEach { key ->
+        sourceMix.forEach { key ->
             grouped[key]?.let { sourceItems ->
                 if (sourceItems.isNotEmpty()) {
                     mixed += sourceItems.removeAt(0)
@@ -36,8 +45,8 @@ internal fun rankVideoWallpapers(
             }
         }
         grouped.keys
-            .filterNot { it in REDDIT_FIRST_SOURCE_MIX_SET }
-            .sorted()
+            .filterNot { it in sourceMix }
+            .sortedBy { it.name }
             .forEach { key ->
                 grouped[key]?.let { sourceItems ->
                     if (sourceItems.isNotEmpty()) {
@@ -60,13 +69,7 @@ private fun videoQualityScore(
     orientation: OrientationFilter,
 ): Int {
     var score = 35
-    score += when (item.source) {
-        "Pexels" -> 16
-        "Pixabay" -> 15
-        "Reddit" -> 28
-        "YouTube" -> 12
-        else -> 8
-    }
+    score += currentProviderPriorityBonus(item.providerSource(), ProviderMediaType.VIDEO)
     score += when {
         item.duration in 6..18 -> 16
         item.duration in 4..30 -> 10
@@ -116,7 +119,20 @@ private fun applyVideoQualityFloor(
         // Reddit Atom entries often omit duration and dimensions. Those unknowns
         // must not make the primary community inventory disappear at this stage.
         index < 3 || item.source == "Reddit" || score >= qualityFloor
-    }
+    }.toMutableList()
+    scored
+        .groupBy { it.first.providerSource() }
+        .values
+        .mapNotNull { sourceItems -> sourceItems.firstOrNull() }
+        .forEach { bestForSource ->
+            if (
+                bestForSource.second >= qualityFloor - 12 &&
+                curated.none { it.first.id == bestForSource.first.id }
+            ) {
+                curated += bestForSource
+            }
+        }
+    curated.sortByDescending { it.second }
     return if (curated.size >= minOf(scored.size, 4)) curated else scored
 }
 
@@ -155,10 +171,33 @@ private val LOOP_TERMS = setOf(
     "loop", "cinemagraph", "ambient", "waves", "rain", "particles", "abstract", "clouds", "neon",
 )
 
-// Reddit is the primary community catalog. The repeated slots are intentional:
-// each pass starts with three Reddit items and gives Reddit five of eight known-
-// source positions while every enabled provider still gets exposure.
-private val REDDIT_FIRST_SOURCE_MIX = listOf(
-    "Reddit", "Reddit", "Reddit", "Pexels", "Reddit", "Pixabay", "Reddit", "YouTube",
-)
-private val REDDIT_FIRST_SOURCE_MIX_SET = REDDIT_FIRST_SOURCE_MIX.toSet()
+/**
+ * Build the live source cycle from the provider manifest order. Reddit keeps the
+ * majority of each cycle while every eligible provider retains one slot.
+ */
+private fun videoProviderMix(available: Set<ContentSource>): List<ContentSource> {
+    val ordered = orderedCurrentProviderCapabilities(ProviderMediaType.VIDEO)
+        .map { it.source }
+        .filter { it in available }
+        .toMutableList()
+    ordered += available.filterNot { it in ordered }.sortedBy { it.name }
+    val primary = ordered.firstOrNull() ?: return emptyList()
+    if (primary != ContentSource.REDDIT) return ordered
+    val secondary = ordered.drop(1)
+    return buildList {
+        repeat(3) { add(primary) }
+        secondary.forEachIndexed { index, source ->
+            add(source)
+            if (index < secondary.lastIndex) add(primary)
+        }
+    }
+}
+
+private fun VideoWallpaperItem.providerSource(): ContentSource = when (source.lowercase(java.util.Locale.ROOT)) {
+    "reddit" -> ContentSource.REDDIT
+    "youtube" -> ContentSource.YOUTUBE
+    "pexels" -> ContentSource.PEXELS
+    "pixabay" -> ContentSource.PIXABAY
+    "klipy" -> ContentSource.KLIPY
+    else -> contentSource
+}

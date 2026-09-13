@@ -12,6 +12,13 @@ All notable changes to Aura will be documented in this file.
   README, in-app legal catalog, diagnostics, store listing, and distribution
   packets now agree. Legacy sources retain attribution for old items without
   presenting dead feeds or credential prompts.
+  The contract now controls the installed artifact too. Play bundles compile
+  with YouTube disabled, live sound and video ranking follows manifest priority,
+  and legacy items cannot apply, download, edit, share, or enter Aura Originals.
+  Upgraded installs delete retired Freesound credentials on startup. Network
+  requests also stop at a final artifact-availability gate. The drift
+  check covers 20 runtime and release surfaces, including feed ranking, Settings,
+  action policy, diagnostics, and the separate Play build command.
 
 - **Backups no longer report success after dropping library items**: favorites,
   collections, collection membership, and search history now share one checked

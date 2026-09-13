@@ -10,7 +10,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 REQUIRED_CREDENTIAL_FIELDS = {
     "id",
     "provider",
@@ -111,7 +110,7 @@ def read_settings_surface_text(repo_root: Path, relative_path: str) -> str:
         )
         if strings_path.is_file()
     )
-    return "\n".join([text, section_text, strings_text])
+    return f"{text}\n{section_text}\n{strings_text}"
 
 
 def read_preferences_surface_text(repo_root: Path, relative_path: str) -> str:
@@ -149,6 +148,7 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
 
     docs_path = require_string(policy.get("docsPath"), "docsPath")
     preferences_manager_path = require_string(policy.get("preferencesManager"), "preferencesManager")
+    application_path = require_string(policy.get("application"), "application")
     settings_screen_path = require_string(policy.get("settingsScreen"), "settingsScreen")
     app_gradle_path = require_string(policy.get("appGradle"), "appGradle")
     backup_rules_path = require_string(policy.get("backupRules"), "backupRules")
@@ -176,6 +176,7 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
 
     docs_text = read_text(repo_root, docs_path)
     preferences_manager_text = read_preferences_surface_text(repo_root, preferences_manager_path)
+    application_text = read_text(repo_root, application_path)
     settings_screen_text = read_settings_surface_text(repo_root, settings_screen_path)
     app_gradle_text = read_text(repo_root, app_gradle_path)
     backup_rules_text = read_text(repo_root, backup_rules_path)
@@ -268,6 +269,12 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
                 raise ProviderCredentialStorageError(
                     f"{credential_id} legacyHidden rows must document that no Settings field is exposed"
                 )
+            if settings_exposure == "legacyHidden":
+                validate_legacy_hidden_retirement(
+                    credential_id=credential_id,
+                    preferences_manager_text=preferences_manager_text,
+                    application_text=application_text,
+                )
         elif preference_key:
             raise ProviderCredentialStorageError(f"{credential_id} buildConfigOnly rows must not set preferenceKey")
 
@@ -317,6 +324,28 @@ def provider_credential_source_marker(preference_key: str) -> str:
     if preference_key not in mapping:
         raise ProviderCredentialStorageError(f"missing ProviderCredentialKey mapping for {preference_key}")
     return mapping[preference_key]
+
+
+def validate_legacy_hidden_retirement(
+    *,
+    credential_id: str,
+    preferences_manager_text: str,
+    application_text: str,
+) -> None:
+    required_preferences_markers = (
+        "suspend fun retireLegacyProviderCredentials()",
+        "providerCredentialStore.clear(ProviderCredentialKey.FREESOUND)",
+        "dataStore.edit { it.remove(Keys.FREESOUND_KEY) }",
+    )
+    for marker in required_preferences_markers:
+        if marker not in preferences_manager_text:
+            raise ProviderCredentialStorageError(
+                f"{credential_id} legacyHidden credential is missing retirement cleanup: {marker}"
+            )
+    if ".retireLegacyProviderCredentials()" not in application_text:
+        raise ProviderCredentialStorageError(
+            f"{credential_id} legacyHidden credential cleanup must run at app start"
+        )
 
 
 def validate_encrypted_store_source(

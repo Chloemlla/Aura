@@ -6,11 +6,14 @@ import com.freevibe.R
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Wallpaper
+import com.freevibe.data.model.WallpaperAction
+import com.freevibe.data.model.WallpaperActionDecision
 import com.freevibe.data.model.WallpaperTarget
 import com.freevibe.data.model.favoriteIdentity
 import com.freevibe.data.model.isSourceUnavailable
 import com.freevibe.data.model.sourceUnavailableReasonForFailure
 import com.freevibe.data.model.stableKey
+import com.freevibe.data.model.wallpaperLicenseCapabilities
 import com.freevibe.data.remote.toFavoriteEntity
 import com.freevibe.data.repository.AiWallpaperRepository
 import com.freevibe.data.repository.FavoritesRepository
@@ -53,6 +56,7 @@ internal class WallpaperApplyActions(
     val activeDownloads = downloadManager.activeDownloads
 
     fun applyWallpaper(wallpaper: Wallpaper, target: WallpaperTarget) {
+        if (blockDisallowedAction(wallpaper, WallpaperAction.APPLY)) return
         scope.launch {
             state.update { it.copy(isApplying = true, applySuccess = null) }
             // History, undo, night-variant, style learning, and feedback all commit
@@ -118,6 +122,8 @@ internal class WallpaperApplyActions(
     }
 
     fun applySplitCrop(wallpaper: Wallpaper) {
+        if (blockDisallowedAction(wallpaper, WallpaperAction.APPLY)) return
+        if (blockDisallowedAction(wallpaper, WallpaperAction.EDIT)) return
         scope.launch {
             state.update { it.copy(isApplying = true, applySuccess = null) }
             // Split crop keeps its own success copy but commits through the same
@@ -143,6 +149,8 @@ internal class WallpaperApplyActions(
     }
 
     fun applyParallax(wallpaper: Wallpaper) {
+        if (blockDisallowedAction(wallpaper, WallpaperAction.APPLY)) return
+        if (blockDisallowedAction(wallpaper, WallpaperAction.EDIT)) return
         scope.launch {
             state.update { it.copy(isApplying = true, applySuccess = null) }
             val ext = guessImageExtension(wallpaper.fileType, wallpaper.fullUrl)
@@ -171,6 +179,7 @@ internal class WallpaperApplyActions(
     )
 
     fun downloadWallpaper(wallpaper: Wallpaper) {
+        if (blockDisallowedAction(wallpaper, WallpaperAction.DOWNLOAD)) return
         scope.launch {
             val ext = guessImageExtension(wallpaper.fileType, wallpaper.fullUrl)
             downloadManager.downloadWallpaper(
@@ -224,6 +233,13 @@ internal class WallpaperApplyActions(
     }
 
     fun isFavorite(wallpaper: Wallpaper): Flow<Boolean> = favoritesRepo.isFavorite(wallpaper.favoriteIdentity())
+
+    private fun blockDisallowedAction(wallpaper: Wallpaper, action: WallpaperAction): Boolean {
+        val capability = wallpaper.wallpaperLicenseCapabilities().capability(action)
+        if (capability.decision != WallpaperActionDecision.DISABLED) return false
+        state.update { it.copy(error = capability.reason) }
+        return true
+    }
 
     /**
      * Persist an unavailable state only when the remote item is genuinely gone.

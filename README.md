@@ -263,8 +263,8 @@ Requires JDK 21 and Android SDK 36. Android Studio Ladybug (2024.2.1) or later r
 ./gradlew assembleDebug      # use gradlew.bat on Windows
 ./gradlew testDebugUnitTest
 ./gradlew lintDebug
-./gradlew assembleFullRelease  # requires signing config
-./gradlew bundleFullRelease    # run separately: ABI splits switch off while bundling
+./gradlew assembleFullRelease  # GitHub/Obtainium APK; requires signing config
+./gradlew -PauraReleaseChannel=play bundleFullRelease  # Play AAB; run separately
 ```
 
 > Always use the included Gradle wrapper. It pins Gradle 8.12, which is what AGP 8.9.3 needs.

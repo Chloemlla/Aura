@@ -399,9 +399,9 @@ val providerRuntimeControls = listOf(
         source = ContentSource.YOUTUBE,
         surfaces = "Sound tabs, sound search, pasted URL import, top hits, similar sounds, video wallpaper feed.",
         status = ProviderRuntimeControlStatus.COVERED,
-        currentControl = "Settings exposes a YouTube provider-enabled flag in addition to query customization and blocked words.",
-        disabledBehavior = "Disabled mode hides YouTube browsing, skips top hits and video discovery, falls back to bundled sounds, and blocks stream resolution before cache or downloader use.",
-        followUp = "Carry the flag into channel-specific distribution defaults when store profiles are added.",
+        currentControl = "The artifact channel blocks YouTube in Play builds. GitHub and Obtainium builds also expose a YouTube provider-enabled flag, query customization, and blocked words.",
+        disabledBehavior = "Play builds omit YouTube controls and downloader initialization. Disabled GitHub mode hides browsing, skips top hits and video discovery, falls back to bundled sounds, and blocks stream resolution before cache or downloader use.",
+        followUp = "None.",
     ),
     ProviderRuntimeControl(
         source = ContentSource.PEXELS,
@@ -409,7 +409,7 @@ val providerRuntimeControls = listOf(
         status = ProviderRuntimeControlStatus.COVERED,
         currentControl = "Settings exposes a Pexels provider-enabled flag and user API key field.",
         disabledBehavior = "Disabled mode hides Pexels wallpaper browsing, skips Discover/search/style-biased/video API calls, and records disabled diagnostics before reading bundled keys.",
-        followUp = "Carry the flag into channel-specific distribution defaults when store profiles are added.",
+        followUp = "None.",
     ),
     ProviderRuntimeControl(
         source = ContentSource.PIXABAY,
@@ -457,7 +457,7 @@ val providerRuntimeControls = listOf(
         status = ProviderRuntimeControlStatus.COVERED,
         currentControl = "Settings exposes a generated-wallpapers source flag in addition to the provider key.",
         disabledBehavior = "Disabled mode hides generation entry points and blocks provider requests before key validation while saved generated outputs can remain visible.",
-        followUp = "Carry the flag into channel-specific distribution defaults when store profiles are added.",
+        followUp = "None.",
     ),
     ProviderRuntimeControl(
         source = ContentSource.OPEN_METEO,

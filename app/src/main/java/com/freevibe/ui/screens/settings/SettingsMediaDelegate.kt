@@ -1,9 +1,11 @@
 package com.freevibe.ui.screens.settings
 
 import android.content.Context
+import com.freevibe.data.legal.isProviderAvailableInCurrentArtifact
 import com.freevibe.data.local.DEFAULT_REDDIT_VIDEO_SUBREDDITS
 import com.freevibe.data.local.DEFAULT_REDDIT_WALLPAPER_SUBREDDITS
 import com.freevibe.data.local.PreferencesManager
+import com.freevibe.data.model.ContentSource
 import com.freevibe.service.RingtoneShuffleWorker
 import com.freevibe.service.SoundProfileWorker
 import com.freevibe.service.WallpaperPackWorker
@@ -76,7 +78,11 @@ internal class SettingsMediaDelegate(
         sharing,
         "compilation,mix,playlist,ranked,tier list,reaction,review,tutorial,how to,podcast,interview,live stream,part,episode",
     )
-    val youtubeProviderEnabled = prefs.youtubeProviderEnabled.stateIn(scope, sharing, true)
+    val youtubeProviderEnabled = prefs.youtubeProviderEnabled.stateIn(
+        scope,
+        sharing,
+        isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE),
+    )
     val youtubePoTokenProviderUrl = prefs.youtubePoTokenProviderUrl.stateIn(scope, sharing, "")
     val videoFpsLimit = prefs.videoFpsLimit.stateIn(scope, sharing, 30)
     val videoFpsOverlayEnabled = prefs.videoFpsOverlayEnabled.stateIn(scope, sharing, false)

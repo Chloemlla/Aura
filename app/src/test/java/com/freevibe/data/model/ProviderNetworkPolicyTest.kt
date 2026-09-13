@@ -1,5 +1,7 @@
 package com.freevibe.data.model
 
+import com.freevibe.data.legal.ProviderLifecycle
+import com.freevibe.data.legal.providerCapability
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
@@ -47,21 +49,43 @@ class ProviderNetworkPolicyTest {
     }
 
     @Test
-    fun `freesound and openverse share retry policy lookup`() {
-        val policy = providerNetworkPoliciesBySource.getValue(ContentSource.FREESOUND)
+    fun `legacy providers are inactive attribution only policies`() {
+        providerNetworkPolicies
+            .filter { providerCapability(it.source).lifecycle == ProviderLifecycle.LEGACY }
+            .forEach { policy ->
+                assertEquals(null, policy.requestCacheTtlMs)
+                assertEquals(null, policy.mediaUrlTtlMs)
+                assertEquals(RetryAfterHandling.NONE, policy.retryAfterHandling)
+                assertFalse(policy.allowsAutomaticPrefetch(1))
+                assertFalse(policy.allowsBatchDownload(1))
+                assertTrue(policy.quotaSummary.startsWith("Legacy attribution only."))
+                assertTrue(policy.diagnosticSummary.contains("prefetch blocked"))
+                assertTrue(policy.diagnosticSummary.contains("batch blocked"))
+            }
 
-        assertEquals(RetryAfterHandling.DELTA_SECONDS, policy.retryAfterHandling)
-        assertSame(policy, providerNetworkPolicyForSourceKey("freesound"))
-        assertSame(policy, providerNetworkPolicyForSourceKey("openverse"))
+        val freesound = providerNetworkPoliciesBySource.getValue(ContentSource.FREESOUND)
+        assertSame(freesound, providerNetworkPolicyForSourceKey("freesound"))
+        assertSame(freesound, providerNetworkPolicyForSourceKey("openverse"))
     }
 
     @Test
     fun `retry host suffixes are policy derived`() {
         val hosts = providerRetryAfterHostSuffixes()
 
-        assertTrue(hosts.contains("freesound.org"))
-        assertTrue(hosts.contains("openverse.org"))
         assertTrue(hosts.contains("pixabay.com"))
+        assertFalse(hosts.contains("freesound.org"))
+        assertFalse(hosts.contains("openverse.org"))
         assertFalse(hosts.contains("wallhaven.cc"))
+    }
+
+    @Test
+    fun `active NASA diagnostics describe live APOD fetching`() {
+        val policy = providerNetworkPoliciesBySource.getValue(ContentSource.NASA)
+
+        assertEquals(ProviderLifecycle.ACTIVE, providerCapability(ContentSource.NASA).lifecycle)
+        assertEquals(PROVIDER_CACHE_TTL_DEFAULT_MS, policy.requestCacheTtlMs)
+        assertTrue(policy.cacheFallbackPolicy.contains("APOD cache"))
+        assertTrue(policy.quotaSummary.contains("One APOD request"))
+        assertFalse(policy.diagnosticSummary.contains("Legacy"))
     }
 }

@@ -1,5 +1,10 @@
 package com.freevibe.data.model
 
+import com.freevibe.data.legal.ProviderAction
+import com.freevibe.data.legal.ProviderLifecycle
+import com.freevibe.data.legal.isProviderAvailableInCurrentArtifact
+import com.freevibe.data.legal.isProviderActionPermitted
+import com.freevibe.data.legal.providerCapability
 import java.util.Locale
 
 enum class WallpaperAction {
@@ -63,6 +68,7 @@ fun Wallpaper.wallpaperLicenseCapabilities(): WallpaperLicenseCapabilities {
     val missingUploader = uploaderRequired && uploaderName.isBlank()
 
     val actions = mutableAllowedWallpaperActions()
+    enforceWallpaperProviderActionCeiling(source, actions)
 
     if (missingLicense && source in REMOTE_WALLPAPER_SOURCES) {
         requireWallpaperConfirmation(actions, WallpaperAction.APPLY, "Confirm source terms before applying this wallpaper.")
@@ -173,6 +179,32 @@ private fun mutableAllowedWallpaperActions(): MutableMap<WallpaperAction, Wallpa
     WallpaperAction.entries.associateWith {
         WallpaperActionCapability(WallpaperActionDecision.ALLOWED)
     }.toMutableMap()
+
+private fun enforceWallpaperProviderActionCeiling(
+    source: ContentSource,
+    actions: MutableMap<WallpaperAction, WallpaperActionCapability>,
+) {
+    val provider = providerCapability(source)
+    WALLPAPER_PROVIDER_ACTIONS.forEach { (wallpaperAction, providerAction) ->
+        if (!isProviderActionPermitted(source, providerAction)) {
+            val reason = if (provider.lifecycle == ProviderLifecycle.LEGACY) {
+                "Legacy source items are kept for attribution only; ${wallpaperAction.name.lowercase()} is disabled."
+            } else if (!isProviderAvailableInCurrentArtifact(source)) {
+                "This provider is unavailable in this Aura build."
+            } else {
+                "${provider.source.name.lowercase().replaceFirstChar { it.titlecase() }} does not permit ${wallpaperAction.name.lowercase()}."
+            }
+            disableWallpaperAction(actions, wallpaperAction, reason)
+        }
+    }
+}
+
+private val WALLPAPER_PROVIDER_ACTIONS = mapOf(
+    WallpaperAction.APPLY to ProviderAction.APPLY,
+    WallpaperAction.DOWNLOAD to ProviderAction.DOWNLOAD,
+    WallpaperAction.SHARE to ProviderAction.SHARE,
+    WallpaperAction.EDIT to ProviderAction.EDIT,
+)
 
 private fun disabledWallpaperActions(reason: String): Map<WallpaperAction, WallpaperActionCapability> =
     WallpaperAction.entries.associateWith {

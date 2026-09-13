@@ -16,6 +16,7 @@ import com.freevibe.data.local.SearchHistoryDao
 import com.freevibe.data.local.WallpaperCacheDao
 import com.freevibe.data.local.WallpaperHistoryDao
 import com.freevibe.data.model.providerRetryAfterHostSuffixes
+import com.freevibe.data.remote.ProviderAvailabilityInterceptor
 import com.freevibe.data.remote.RateLimitInterceptor
 import com.freevibe.data.remote.audius.AudiusApi
 import com.freevibe.data.remote.bing.BingDailyApi
@@ -73,6 +74,7 @@ object AppModule {
                 })
             }
         }
+        .addInterceptor(ProviderAvailabilityInterceptor())
         .addInterceptor { chain ->
             val original = chain.request()
             val request = if (original.header("User-Agent") == null) {

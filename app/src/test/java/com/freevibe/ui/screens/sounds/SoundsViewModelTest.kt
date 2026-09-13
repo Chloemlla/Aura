@@ -1,5 +1,6 @@
 package com.freevibe.ui.screens.sounds
 
+import com.freevibe.BuildConfig
 import android.content.Context
 import com.freevibe.R
 import com.freevibe.data.local.PreferencesManager
@@ -12,7 +13,6 @@ import com.freevibe.data.model.FavoriteEntity
 import com.freevibe.data.model.SearchResult
 import com.freevibe.data.model.Sound
 import com.freevibe.data.model.SearchHistoryEntity
-import com.freevibe.data.model.favoriteIdentity
 import com.freevibe.data.model.stableKey
 import com.freevibe.data.repository.AudiusRepository
 import com.freevibe.data.repository.CcMixterRepository
@@ -174,7 +174,7 @@ class SoundsViewModelTest {
         advanceUntilIdle()
 
         assertEquals(setOf("bundled_ring", "yt_focus"), viewModel.state.value.sounds.map { it.id }.toSet())
-        assertEquals(ContentSource.BUNDLED, viewModel.state.value.sounds.first().source)
+        assertEquals(ContentSource.YOUTUBE, viewModel.state.value.sounds.first().source)
     }
 
     @Test
@@ -470,6 +470,11 @@ class SoundsViewModelTest {
 
         viewModel.selectTab(SoundTab.COMMUNITY)
         advanceUntilIdle()
+        if (BuildConfig.FOSS_BUILD) {
+            assertTrue(viewModel.state.value.sounds.isEmpty())
+            coVerify(exactly = 0) { blockRepo.blockUser(any(), any()) }
+            return@runTest
+        }
         assertEquals(listOf("cu_blocked", "cu_same", "cu_keep"), viewModel.state.value.sounds.map { it.id })
 
         assertTrue(viewModel.canBlockCommunitySound(blocked))
@@ -1068,7 +1073,7 @@ class SoundsViewModelTest {
     }
 
     @Test
-    fun `downloadSound marks saved favorite unavailable when provider returns gone status`() = runTest(dispatcher) {
+    fun `downloadSound blocks legacy attribution-only records before transport`() = runTest(dispatcher) {
         val youtubeRepo = mockk<YouTubeRepository>()
         val freesoundRepo = mockk<FreesoundRepository>()
         val freesoundV2Repo = mockk<FreesoundV2Repository>()
@@ -1109,13 +1114,9 @@ class SoundsViewModelTest {
         viewModel.downloadSound(sound)
         advanceUntilIdle()
 
-        coVerify(exactly = 1) {
-            favoritesRepo.markSourceUnavailable(
-                sound.favoriteIdentity(),
-                "Freesound media is unavailable or removed (gone)",
-            )
-        }
-        assertEquals("Download failed: HTTP 410", viewModel.state.value.error)
+        coVerify(exactly = 0) { downloadManager.downloadSound(any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { favoritesRepo.markSourceUnavailable(any(), any()) }
+        assertTrue(viewModel.state.value.error.orEmpty().contains("attribution only"))
     }
 
     @Test

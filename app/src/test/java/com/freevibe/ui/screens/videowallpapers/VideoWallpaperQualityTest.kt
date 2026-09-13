@@ -124,12 +124,29 @@ class VideoWallpaperQualityTest {
         )
 
         assertEquals(listOf("rd_6", "rd_5", "rd_4"), ranked.take(3).map { it.id })
+        assertEquals("YouTube", ranked[3].source)
+        assertEquals("Pexels", ranked[5].source)
+        assertEquals("Pixabay", ranked[7].source)
         assertEquals(5, ranked.take(8).count { it.source == "Reddit" })
         assertTrue(
             ranked.filter { it.source == "Reddit" }
                 .zipWithNext()
                 .all { (first, second) -> first.popularity >= second.popularity },
         )
+    }
+
+    @Test
+    fun `live video ranking omits legacy providers`() {
+        val ranked = rankVideoWallpapers(
+            items = listOf(
+                video("legacy", "Klipy", "Old loop", 12, 50_000, 1080, 1920),
+                video("current", "Reddit", "Current loop", 12, 5_000, 1080, 1920),
+            ),
+            filter = VideoFocusFilter.BEST,
+            orientation = OrientationFilter.PORTRAIT,
+        )
+
+        assertEquals(listOf("current"), ranked.map { it.id })
     }
 
     private fun video(

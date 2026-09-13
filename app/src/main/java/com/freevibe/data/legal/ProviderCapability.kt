@@ -1,6 +1,8 @@
 package com.freevibe.data.legal
 
+import com.freevibe.BuildConfig
 import com.freevibe.data.model.ContentSource
+import java.util.Locale
 
 /**
  * Where a source sits in its life: this is what decides whether Aura is allowed
@@ -80,6 +82,7 @@ enum class ProviderAction {
     OPEN_SOURCE,
     VIEW_SAVED,
     REMOVE_SAVED,
+    BUNDLE,
 }
 
 /**
@@ -138,6 +141,9 @@ data class ProviderCapability(
     fun availableIn(build: ProviderBuild): Boolean = build in builds
 
     fun availableOn(channel: ProviderChannel): Boolean = channel in channels
+
+    fun availableIn(build: ProviderBuild, channel: ProviderChannel): Boolean =
+        availableIn(build) && availableOn(channel) && lifecycle != ProviderLifecycle.LEGACY
 
     fun priorityFor(mediaType: ProviderMediaType): Int =
         defaultPriority[mediaType] ?: Int.MAX_VALUE
@@ -216,6 +222,7 @@ val providerCapabilities: List<ProviderCapability> = listOf(
             ProviderAction.FAVORITE,
             ProviderAction.DOWNLOAD,
             ProviderAction.APPLY,
+            ProviderAction.EDIT,
             ProviderAction.OPEN_SOURCE,
         ),
         lifecycle = ProviderLifecycle.ACTIVE,
@@ -238,6 +245,7 @@ val providerCapabilities: List<ProviderCapability> = listOf(
             ProviderAction.FAVORITE,
             ProviderAction.DOWNLOAD,
             ProviderAction.APPLY,
+            ProviderAction.EDIT,
             ProviderAction.SHARE,
             ProviderAction.OPEN_SOURCE,
         ),
@@ -289,6 +297,7 @@ val providerCapabilities: List<ProviderCapability> = listOf(
             ProviderAction.FAVORITE,
             ProviderAction.DOWNLOAD,
             ProviderAction.APPLY,
+            ProviderAction.EDIT,
             ProviderAction.SHARE,
             ProviderAction.OPEN_SOURCE,
         ),
@@ -372,6 +381,7 @@ val providerCapabilities: List<ProviderCapability> = listOf(
             ProviderAction.EDIT,
             ProviderAction.SHARE,
             ProviderAction.REMOVE_SAVED,
+            ProviderAction.DOWNLOAD,
         ),
         lifecycle = ProviderLifecycle.LOCAL,
         builds = ALL_BUILDS,
@@ -534,6 +544,7 @@ val providerCapabilities: List<ProviderCapability> = listOf(
             ProviderAction.APPLY,
             ProviderAction.EDIT,
             ProviderAction.SHARE,
+            ProviderAction.BUNDLE,
         ),
         lifecycle = ProviderLifecycle.ACTIVE,
         builds = ALL_BUILDS,
@@ -617,6 +628,41 @@ val providerCapabilitiesBySource: Map<ContentSource, ProviderCapability> =
 fun providerCapability(source: ContentSource): ProviderCapability =
     providerCapabilitiesBySource.getValue(source)
 
+/** Build and channel carried by the installed artifact, not a mutable user preference. */
+val currentProviderBuild: ProviderBuild
+    get() = if (BuildConfig.FOSS_BUILD) ProviderBuild.FOSS else ProviderBuild.FULL
+
+val currentProviderChannel: ProviderChannel
+    get() = providerChannel(BuildConfig.AURA_RELEASE_CHANNEL)
+
+internal fun providerChannel(raw: String): ProviderChannel = when (raw.lowercase(Locale.ROOT)) {
+    "github" -> ProviderChannel.GITHUB
+    "play" -> ProviderChannel.PLAY
+    else -> error("Unsupported provider release channel: $raw")
+}
+
+fun isProviderAvailableInCurrentArtifact(source: ContentSource): Boolean =
+    providerCapability(source).availableIn(currentProviderBuild, currentProviderChannel)
+
+fun isProviderActionPermitted(source: ContentSource, action: ProviderAction): Boolean =
+    isProviderActionPermittedIn(
+        source = source,
+        action = action,
+        build = currentProviderBuild,
+        channel = currentProviderChannel,
+    )
+
+internal fun isProviderActionPermittedIn(
+    source: ContentSource,
+    action: ProviderAction,
+    build: ProviderBuild,
+    channel: ProviderChannel,
+): Boolean {
+    val capability = providerCapability(source)
+    if (action !in capability.permittedActions) return false
+    return capability.lifecycle == ProviderLifecycle.LEGACY || capability.availableIn(build, channel)
+}
+
 /** Providers offered for [mediaType], ordered exactly as their default feed policy. */
 fun orderedProviderCapabilities(
     mediaType: ProviderMediaType,
@@ -630,6 +676,26 @@ fun orderedProviderCapabilities(
     .filter { includeLegacy || it.lifecycle != ProviderLifecycle.LEGACY }
     .sortedWith(compareBy({ it.priorityFor(mediaType) }, { it.source.name }))
     .toList()
+
+/** Provider order used by live feed ranking for the installed artifact. */
+fun orderedCurrentProviderCapabilities(
+    mediaType: ProviderMediaType,
+    includeLegacy: Boolean = false,
+): List<ProviderCapability> = orderedProviderCapabilities(
+    mediaType = mediaType,
+    build = currentProviderBuild,
+    channel = currentProviderChannel,
+    includeLegacy = includeLegacy,
+)
+
+/** Small quality-score bias derived from the manifest priority rather than a second source table. */
+fun currentProviderPriorityBonus(source: ContentSource, mediaType: ProviderMediaType): Int {
+    val capability = providerCapability(source)
+    if (!capability.availableIn(currentProviderBuild, currentProviderChannel) || mediaType !in capability.mediaTypes) {
+        return 0
+    }
+    return (30 - capability.priorityFor(mediaType)).coerceAtLeast(0)
+}
 
 /** Stable provider order for user-facing catalog and legal menus. */
 val providerCatalogCapabilities: List<ProviderCapability> = providerCapabilities.sortedWith(

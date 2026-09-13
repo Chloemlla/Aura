@@ -1,5 +1,6 @@
 package com.freevibe.ui.screens.editor
 
+import com.freevibe.data.legal.isProviderAvailableInCurrentArtifact
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Sound
 import com.freevibe.service.AudioExportFormat
@@ -253,14 +254,18 @@ class SoundEditorViewModelTest {
     @Test
     fun `editor requires confirmation for non-commercial licensed sounds`() {
         val sound = sound(
-            source = ContentSource.FREESOUND,
+            source = ContentSource.COMMUNITY,
             license = "CC BY-NC",
-            sourcePageUrl = "https://freesound.org/s/123",
+            sourcePageUrl = "https://example.com/community/sound/123",
             uploaderName = "creator",
         )
 
         assertNotNull(soundEditorEditGateMessage(sound, editConfirmed = false))
-        assertNull(soundEditorEditGateMessage(sound, editConfirmed = true))
+        if (isProviderAvailableInCurrentArtifact(ContentSource.COMMUNITY)) {
+            assertNull(soundEditorEditGateMessage(sound, editConfirmed = true))
+        } else {
+            assertNotNull(soundEditorEditGateMessage(sound, editConfirmed = true))
+        }
     }
 
     @Test

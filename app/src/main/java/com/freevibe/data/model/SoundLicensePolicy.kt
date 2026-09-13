@@ -1,8 +1,14 @@
 package com.freevibe.data.model
 
+import com.freevibe.data.legal.ProviderAction
+import com.freevibe.data.legal.ProviderLifecycle
+import com.freevibe.data.legal.isProviderAvailableInCurrentArtifact
+import com.freevibe.data.legal.isProviderActionPermitted
+import com.freevibe.data.legal.providerCapability
 import java.util.Locale
 
 enum class SoundAction {
+    PREVIEW,
     APPLY,
     DOWNLOAD,
     SHARE,
@@ -64,6 +70,7 @@ fun Sound.soundLicenseCapabilities(): SoundLicenseCapabilities {
     val missingUploader = uploaderRequired && uploaderName.isBlank()
 
     val actions = mutableAllowedActions()
+    enforceSoundProviderActionCeiling(source, actions)
 
     if (missingLicense) {
         return SoundLicenseCapabilities(
@@ -194,6 +201,34 @@ private fun mutableAllowedActions(): MutableMap<SoundAction, SoundActionCapabili
     SoundAction.entries.associateWith {
         SoundActionCapability(SoundActionDecision.ALLOWED)
     }.toMutableMap()
+
+private fun enforceSoundProviderActionCeiling(
+    source: ContentSource,
+    actions: MutableMap<SoundAction, SoundActionCapability>,
+) {
+    val provider = providerCapability(source)
+    SOUND_PROVIDER_ACTIONS.forEach { (soundAction, providerAction) ->
+        if (!isProviderActionPermitted(source, providerAction)) {
+            val reason = if (provider.lifecycle == ProviderLifecycle.LEGACY) {
+                "Legacy source items are kept for attribution only; ${soundAction.name.lowercase()} is disabled."
+            } else if (!isProviderAvailableInCurrentArtifact(source)) {
+                "This provider is unavailable in this Aura build."
+            } else {
+                "${provider.source.name.lowercase().replaceFirstChar { it.titlecase() }} does not permit ${soundAction.name.lowercase()}."
+            }
+            disable(actions, soundAction, reason)
+        }
+    }
+}
+
+private val SOUND_PROVIDER_ACTIONS = mapOf(
+    SoundAction.PREVIEW to ProviderAction.PREVIEW,
+    SoundAction.APPLY to ProviderAction.APPLY,
+    SoundAction.DOWNLOAD to ProviderAction.DOWNLOAD,
+    SoundAction.SHARE to ProviderAction.SHARE,
+    SoundAction.EDIT to ProviderAction.EDIT,
+    SoundAction.BUNDLE to ProviderAction.BUNDLE,
+)
 
 private fun disabledActions(reason: String): Map<SoundAction, SoundActionCapability> =
     SoundAction.entries.associateWith {

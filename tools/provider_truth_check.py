@@ -39,9 +39,94 @@ ACTIONS = {
     "OPEN_SOURCE",
     "VIEW_SAVED",
     "REMOVE_SAVED",
+    "BUNDLE",
 }
 LEGACY_ACTIONS = {"VIEW_SAVED", "REMOVE_SAVED", "OPEN_SOURCE"}
 LEGACY_PRIORITY = 1_000
+RUNTIME_SURFACE_KEYS = (
+    "buildChannel",
+    "preferences",
+    "application",
+    "networkGate",
+    "networkWiring",
+    "licensesMenu",
+    "settingsMenu",
+    "diagnostics",
+    "wallpaperFeed",
+    "videoFeed",
+    "soundFeed",
+    "soundActions",
+    "soundPlayback",
+    "wallpaperActions",
+    "wallpaperActionRuntime",
+    "wallpaperActionUi",
+    "videoActions",
+    "releaseDryRun",
+    "releaseSigning",
+    "supplyChain",
+)
+RUNTIME_SURFACE_MARKERS = {
+    "buildChannel": ("auraReleaseChannel", "AURA_RELEASE_CHANNEL"),
+    "preferences": (
+        "val youtubeProviderAvailable",
+        "isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE)",
+        "flowOf(false)",
+        "enabled && youtubeProviderAvailable",
+        "retireLegacyProviderCredentials",
+    ),
+    "application": (
+        ".retireLegacyProviderCredentials()",
+        "if (!isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE)) return",
+    ),
+    "networkGate": (
+        "isProviderAvailableInCurrentArtifact",
+        "providerSourceForHost",
+        "throw IOException",
+    ),
+    "networkWiring": ("addInterceptor(ProviderAvailabilityInterceptor())",),
+    "licensesMenu": ("providerCatalogCapabilities",),
+    "settingsMenu": ("youtubeProviderAvailable",),
+    "diagnostics": (
+        "capabilitySummary",
+        "ProviderLifecycle.LEGACY",
+        "require(maxAutomaticPrefetch == 0)",
+        "require(maxBatchDownloadPerUserAction == 0)",
+        'quotaSummary = "Legacy attribution only. $quotaDetail"',
+    ),
+    "wallpaperFeed": ("mergeRedditFirstHomeResults",),
+    "videoFeed": (
+        "orderedCurrentProviderCapabilities",
+        "currentProviderPriorityBonus",
+    ),
+    "soundFeed": (
+        "orderedCurrentProviderCapabilities",
+        "currentProviderPriorityBonus",
+    ),
+    "soundActions": ("isProviderActionPermitted",),
+    "soundPlayback": (
+        "soundLicenseCapabilities().capability(SoundAction.PREVIEW)",
+        "previewCapability.decision == SoundActionDecision.DISABLED",
+        ".filter { it.canUseSoundAction(SoundAction.PREVIEW) }",
+    ),
+    "wallpaperActions": ("isProviderActionPermitted",),
+    "wallpaperActionRuntime": ("wallpaperLicenseCapabilities().capability(action)",),
+    "wallpaperActionUi": (
+        "wp.wallpaperLicenseCapabilities()",
+        "canApply = actionCapabilities.canUse(WallpaperAction.APPLY)",
+        "canDownload = actionCapabilities.canUse(WallpaperAction.DOWNLOAD)",
+        "canShare = actionCapabilities.canUse(WallpaperAction.SHARE)",
+        "canEdit = actionCapabilities.canUse(WallpaperAction.EDIT)",
+    ),
+    "videoActions": ("isProviderActionPermitted",),
+    "releaseDryRun": ("-PauraReleaseChannel=play :app:bundleFullRelease",),
+    "releaseSigning": ("-PauraReleaseChannel=play :app:bundleFullRelease",),
+    "supplyChain": ("-PauraReleaseChannel=play :app:bundleFullRelease",),
+}
+RUNTIME_REGISTRY_MARKERS = (
+    "fun isProviderActionPermittedIn(",
+    "action !in capability.permittedActions",
+    "capability.lifecycle == ProviderLifecycle.LEGACY || capability.availableIn(build, channel)",
+)
 
 
 class ProviderTruthError(ValueError):
@@ -464,6 +549,68 @@ def _replace_section(text: str, start: str, end: str) -> str:
     return text[start_index : end_index + len(end)]
 
 
+def _network_policy_call(source: str, identifier: str) -> tuple[str, str] | None:
+    marker = f"source = ContentSource.{identifier}"
+    for function_name in ("legacyProviderNetworkPolicy", "ProviderNetworkPolicy"):
+        for block in _extract_calls(source, function_name):
+            if marker in block:
+                return function_name, block
+    return None
+
+
+def _validate_runtime_surfaces(
+    manifest_providers: list[dict[str, Any]],
+    surface_texts: dict[str, str],
+    errors: list[str],
+) -> None:
+    for surface_key, markers in RUNTIME_SURFACE_MARKERS.items():
+        text = surface_texts[surface_key]
+        for marker in markers:
+            if marker not in text:
+                errors.append(
+                    f"{surface_key} runtime surface is missing checked marker: {marker}"
+                )
+
+    diagnostics = surface_texts["diagnostics"]
+    for provider in manifest_providers:
+        identifier = provider["id"]
+        entry = _network_policy_call(diagnostics, identifier)
+        if entry is None:
+            errors.append(f"diagnostics runtime surface is missing {identifier}")
+            continue
+        function_name, block = entry
+        if provider["lifecycle"] == "LEGACY":
+            if function_name != "legacyProviderNetworkPolicy":
+                errors.append(
+                    f"diagnostics exposes legacy provider {identifier} as an active network policy"
+                )
+        elif function_name == "legacyProviderNetworkPolicy" or "Legacy attribution only" in block:
+            errors.append(
+                f"diagnostics exposes active provider {identifier} as legacy attribution only"
+            )
+
+    nasa_entry = _network_policy_call(diagnostics, "NASA")
+    if nasa_entry is not None:
+        _, nasa_block = nasa_entry
+        for forbidden in (
+            "Legacy restored",
+            "no active automatic fetching",
+            "hidden from active source lists",
+        ):
+            if forbidden.lower() in nasa_block.lower():
+                errors.append(f"diagnostics contradicts active NASA lifecycle with: {forbidden}")
+
+    release_docs = "\n".join(
+        surface_texts[key]
+        for key in ("releaseDryRun", "releaseSigning", "supplyChain")
+    )
+    if any(
+        "assembleFullRelease" in line and "bundleFullRelease" in line
+        for line in release_docs.splitlines()
+    ):
+        errors.append("release docs must build GitHub APK and Play AAB in separate commands")
+
+
 def validate_provider_truth(repo_root: Path, manifest_relative: str) -> dict[str, Any]:
     manifest_path = repo_root / manifest_relative
     if not manifest_path.is_file():
@@ -475,6 +622,11 @@ def validate_provider_truth(repo_root: Path, manifest_relative: str) -> dict[str
     surfaces = _require_dict(manifest.get("publicSurfaces"), "publicSurfaces")
     for key in ("readme", "playStore", "playPacket", "alternativeStorePacket"):
         _require_string(surfaces.get(key), f"publicSurfaces.{key}")
+    runtime_surfaces = _require_dict(manifest.get("runtimeSurfaces"), "runtimeSurfaces")
+    for key in RUNTIME_SURFACE_KEYS:
+        _require_string(runtime_surfaces.get(key), f"runtimeSurfaces.{key}")
+    if set(runtime_surfaces) != set(RUNTIME_SURFACE_KEYS):
+        raise ProviderTruthError("runtimeSurfaces must contain exactly the checked runtime surface keys")
     providers_raw = manifest.get("providers")
     if not isinstance(providers_raw, list) or not providers_raw:
         raise ProviderTruthError("providers must be a non-empty list")
@@ -486,6 +638,15 @@ def validate_provider_truth(repo_root: Path, manifest_relative: str) -> dict[str
         errors.append("provider manifest contains duplicate ids")
     if ids[0] != "REDDIT":
         errors.append("Reddit must be the first provider in the public catalog")
+
+    surface_texts: dict[str, str] = {}
+    for key in RUNTIME_SURFACE_KEYS:
+        relative = runtime_surfaces[key]
+        path = repo_root / relative
+        if not path.is_file():
+            raise ProviderTruthError(f"runtime surface not found: {relative}")
+        surface_texts[key] = path.read_text(encoding="utf-8")
+    _validate_runtime_surfaces(providers, surface_texts, errors)
 
     models_text = (repo_root / "app/src/main/java/com/freevibe/data/model/Models.kt").read_text(encoding="utf-8")
     enum_match = re.search(r"enum class ContentSource\s*\{([^}]*)}", models_text)
@@ -502,7 +663,11 @@ def validate_provider_truth(repo_root: Path, manifest_relative: str) -> dict[str
 
     manifest_by_id = {item["id"]: item for item in normalized}
     runtime_path = repo_root / runtime_relative
-    runtime = _parse_runtime_registry(runtime_path.read_text(encoding="utf-8"))
+    runtime_text = runtime_path.read_text(encoding="utf-8")
+    for marker in RUNTIME_REGISTRY_MARKERS:
+        if marker not in runtime_text:
+            errors.append(f"runtime registry is missing checked artifact-action marker: {marker}")
+    runtime = _parse_runtime_registry(runtime_text)
     if set(runtime) != set(manifest_by_id):
         errors.append("runtime provider ids do not match the provider manifest")
     comparable_fields = (
@@ -615,6 +780,7 @@ def validate_provider_truth(repo_root: Path, manifest_relative: str) -> dict[str
         "providerCount": len(providers),
         "legacyProviderCount": sum(item["lifecycle"] == "LEGACY" for item in providers),
         "publicSurfaceCount": len(surfaces),
+        "runtimeSurfaceCount": len(runtime_surfaces),
     }
 
 

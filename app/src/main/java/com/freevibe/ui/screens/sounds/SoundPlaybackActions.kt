@@ -2,6 +2,10 @@ package com.freevibe.ui.screens.sounds
 
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Sound
+import com.freevibe.data.model.SoundAction
+import com.freevibe.data.model.SoundActionDecision
+import com.freevibe.data.model.canUseSoundAction
+import com.freevibe.data.model.soundLicenseCapabilities
 import com.freevibe.data.model.stableKey
 import com.freevibe.service.AudioPlaybackManager
 import com.freevibe.service.AudioPreviewCache
@@ -40,6 +44,11 @@ internal class SoundPlaybackActions(
 
     fun togglePlayback(sound: Sound) {
         val soundKey = sound.stableKey()
+        val previewCapability = sound.soundLicenseCapabilities().capability(SoundAction.PREVIEW)
+        if (previewCapability.decision == SoundActionDecision.DISABLED) {
+            state.update { it.copy(error = previewCapability.reason) }
+            return
+        }
         if (sound.source == ContentSource.YOUTUBE && !youtubeProviderEnabled.value) {
             state.update { it.copy(error = youtubeDisabledMessage()) }
             return
@@ -87,6 +96,7 @@ internal class SoundPlaybackActions(
         sounds
             .asSequence()
             .filter { it.previewUrl.isNotBlank() }
+            .filter { it.canUseSoundAction(SoundAction.PREVIEW) }
             .filter { it.source != ContentSource.YOUTUBE || youtubeProviderEnabled.value }
             .take(FIRST_VISIBLE_PREVIEW_COUNT)
             .forEach { sound ->

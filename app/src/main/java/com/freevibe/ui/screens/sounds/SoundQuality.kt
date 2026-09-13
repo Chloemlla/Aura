@@ -1,7 +1,11 @@
 package com.freevibe.ui.screens.sounds
 
+import com.freevibe.data.legal.ProviderMediaType
+import com.freevibe.data.legal.currentProviderPriorityBonus
+import com.freevibe.data.legal.orderedCurrentProviderCapabilities
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.Sound
+import com.freevibe.data.model.stableKey
 import kotlin.math.roundToInt
 
 enum class SoundQualityFilter { BEST, CLEAN, SHORT, CALM, PUNCHY }
@@ -11,17 +15,22 @@ internal fun rankSounds(
     tab: SoundTab,
     filter: SoundQualityFilter,
 ): List<Sound> {
+    val availableSources = orderedCurrentProviderCapabilities(ProviderMediaType.SOUND)
+        .mapTo(mutableSetOf()) { it.source }
+    val availableSounds = sounds.filter { it.source in availableSources }
     val candidatePool = if (filter == SoundQualityFilter.BEST) {
-        sounds
+        availableSounds
     } else {
-        sounds.filter { soundMatchesFilter(it, tab, filter) }
+        availableSounds.filter { soundMatchesFilter(it, tab, filter) }
     }
     val deduped = dedupeSounds(candidatePool, tab, filter)
-    val rankedBase = deduped.ifEmpty { dedupeSounds(sounds, tab, SoundQualityFilter.BEST) }
+    val rankedBase = deduped.ifEmpty {
+        dedupeSounds(availableSounds, tab, SoundQualityFilter.BEST)
+    }
     val scored = rankedBase
         .map { sound -> sound to soundQualityScore(sound, tab, filter) }
         .sortedByDescending { it.second }
-    return applySoundQualityFloor(scored).map { it.first }
+    return mixSoundsByProviderPriority(applySoundQualityFloor(scored).map { it.first })
 }
 
 internal fun soundQualityScore(
@@ -33,18 +42,7 @@ internal fun soundQualityScore(
     val normalizedTags = sound.tags.flatMap(::normalizedSoundTerms)
     var score = 45
 
-    score += when (sound.source) {
-        ContentSource.BUNDLED -> 25
-        ContentSource.JAMENDO -> 18
-        ContentSource.AUDIUS -> 17
-        ContentSource.FREESOUND -> 16
-        ContentSource.CCMIXTER -> 15
-        ContentSource.SOUNDCLOUD -> 14
-        ContentSource.YOUTUBE -> 12
-        ContentSource.WIKIMEDIA -> 12
-        ContentSource.COMMUNITY -> 10
-        else -> 8
-    }
+    score += currentProviderPriorityBonus(sound.source, ProviderMediaType.SOUND)
     score += when (tab) {
         SoundTab.RINGTONES -> when {
             sound.duration in 10.0..28.0 -> 16
@@ -143,8 +141,45 @@ private fun applySoundQualityFloor(
     val qualityFloor = maxOf(56, topScore - 30)
     val curated = scored.filterIndexed { index, (_, score) ->
         index < 3 || score >= qualityFloor
-    }
+    }.toMutableList()
+    scored
+        .groupBy { it.first.source }
+        .values
+        .mapNotNull { sourceSounds -> sourceSounds.firstOrNull() }
+        .forEach { bestForSource ->
+            if (
+                bestForSource.second >= qualityFloor - 12 &&
+                curated.none { it.first.stableKey() == bestForSource.first.stableKey() }
+            ) {
+                curated += bestForSource
+            }
+        }
+    curated.sortByDescending { it.second }
     return if (curated.size >= minOf(scored.size, 4)) curated else scored
+}
+
+private fun mixSoundsByProviderPriority(ranked: List<Sound>): List<Sound> {
+    val grouped = ranked
+        .groupBy { it.source }
+        .mapValues { (_, sounds) -> sounds.toMutableList() }
+        .toMutableMap()
+    val orderedSources = orderedCurrentProviderCapabilities(ProviderMediaType.SOUND)
+        .map { it.source }
+        .filter { it in grouped }
+        .toMutableList()
+    orderedSources += grouped.keys
+        .filterNot { it in orderedSources }
+        .sortedBy { it.name }
+
+    return buildList {
+        while (grouped.values.any { it.isNotEmpty() }) {
+            orderedSources.forEach { source ->
+                grouped[source]?.let { sourceSounds ->
+                    if (sourceSounds.isNotEmpty()) add(sourceSounds.removeAt(0))
+                }
+            }
+        }
+    }
 }
 
 private fun dedupeSounds(

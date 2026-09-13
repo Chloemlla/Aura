@@ -10,7 +10,7 @@ checksum, and release-note validation.
 | Control | Local source | Purpose |
 | --- | --- | --- |
 | Signed release APK | `.\gradlew.bat :app:assembleFullRelease --stacktrace --no-daemon` | Builds the non-debuggable GitHub/Obtainium release variant with local signing inputs. |
-| Signed Play AAB | `.\gradlew.bat :app:bundleFullRelease --stacktrace --no-daemon` | Builds the Play-ready app bundle for the same version and upload key. |
+| Signed Play AAB | `.\gradlew.bat -PauraReleaseChannel=play :app:bundleFullRelease --stacktrace --no-daemon` | Builds the Play-ready app bundle for the same version and upload key, with GitHub-only providers disabled by the compiled channel policy. |
 | Release bundle validator | `tools/release_artifact_bundle_check.py` | Fails dry runs when the final APK/AAB/notices/native/checksum/release-note bundle is incomplete or internally inconsistent. |
 | Third-party notices | `tools/google_oss_to_markdown.py` | Generates `THIRD-PARTY-NOTICES.md` from the release OSS license task output. |
 | Raw Google OSS inputs | `tools/google_oss_raw_archive.py`, `docs/distribution/raw-oss-input-retention.md` | Archives generated license metadata and raw text inputs as `GOOGLE-OSS-RAW-INPUTS.zip`. |

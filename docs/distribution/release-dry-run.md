@@ -79,8 +79,13 @@ Build the signed release artifacts with the flavor-specific release tasks:
 
 ```powershell
 $env:JAVA_HOME = "C:/Program Files/Android/Android Studio/jbr"
-.\gradlew.bat :app:assembleFullRelease :app:bundleFullRelease --stacktrace --no-daemon
+.\gradlew.bat :app:assembleFullRelease --stacktrace --no-daemon
+.\gradlew.bat -PauraReleaseChannel=play :app:bundleFullRelease --stacktrace --no-daemon
 ```
+
+These are separate invocations on purpose. The APK keeps the GitHub/Obtainium
+provider catalog. The Play AAB compiles the Play catalog and removes YouTube
+controls and downloader initialization.
 
 Copy and name the release artifacts:
 

@@ -64,13 +64,13 @@ token can't continue to assert `admin: true` until expiry.
 After `setCustomUserClaims` is called, the new claim is **not** visible
 on the client until that user gets a fresh ID token. Three paths:
 
-1. **Automatic on next refresh** — Firebase Auth rotates ID tokens every
+1. **Automatic on next refresh:** Firebase Auth rotates ID tokens every
    1 hour. Worst case the claim is live within an hour.
-2. **Force on sign-in** — Aura calls `VoteRepository.refreshAdminFromClaims()`
+2. **Force on sign-in:** Aura calls `VoteRepository.refreshAdminFromClaims()`
    in `FreeVibeApp.warmCommunityIdentity()`, which invokes
    `currentUser.getIdToken(true)` (forceRefresh = true). New admins
    become live on the next cold start.
-3. **Explicit force** — programmatic UI button can call
+3. **Explicit force:** A programmatic UI button can call
    `voteRepository.refreshAdminFromClaims()` from a coroutine.
 
 ## Deploying the security rules

@@ -14,7 +14,9 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.annotation.ExperimentalCoilApi
 import coil3.memoryCacheMaxSizePercentWhileInBackground
 import coil3.request.crossfade
+import com.freevibe.data.legal.isProviderAvailableInCurrentArtifact
 import com.freevibe.data.local.WallpaperCacheManager
+import com.freevibe.data.model.ContentSource
 import com.freevibe.service.NotificationChannels
 import com.freevibe.service.CrashDiagnosticsCollector
 import com.freevibe.service.CrashDiagnosticsText
@@ -102,6 +104,7 @@ class FreeVibeApp : Application(), Configuration.Provider, SingletonImageLoader.
         NotificationChannels.createAll(this)
         evictStaleCaches()
         startSystemThemeListener()
+        retireLegacyProviderCredentials()
         initYtDlp()
         enqueueAuraOriginalsDownload()
         publishWidgetPreview()
@@ -140,6 +143,18 @@ class FreeVibeApp : Application(), Configuration.Provider, SingletonImageLoader.
         }
     }
 
+    private fun retireLegacyProviderCredentials() {
+        appScope.launch {
+            try {
+                com.freevibe.data.local.PreferencesManager(this@FreeVibeApp)
+                    .retireLegacyProviderCredentials()
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                if (BuildConfig.DEBUG) Log.w("FreeVibeApp", "Legacy credential cleanup failed", e)
+            }
+        }
+    }
+
     /**
      * Roadmap N-5: schedule the Aura Originals CC0 sound pack download on Wi-Fi.
      * Worker is enqueued every cold start with KEEP policy, so existing successful
@@ -166,6 +181,7 @@ class FreeVibeApp : Application(), Configuration.Provider, SingletonImageLoader.
     }
 
     private fun initYtDlp() {
+        if (!isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE)) return
         appScope.launch {
             try {
                 com.yausername.youtubedl_android.YoutubeDL.getInstance().init(this@FreeVibeApp)

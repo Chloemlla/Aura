@@ -18,6 +18,26 @@ FIXTURE_PATHS = (
     "fastlane/metadata/android/en-US/full_description.txt",
     "docs/distribution/play-app-content.json",
     "docs/distribution/alt-store-metadata.json",
+    "app/build.gradle.kts",
+    "app/src/main/java/com/freevibe/data/local/PreferencesManager.kt",
+    "app/src/main/java/com/freevibe/FreeVibeApp.kt",
+    "app/src/main/java/com/freevibe/data/remote/ProviderAvailabilityInterceptor.kt",
+    "app/src/main/java/com/freevibe/di/AppModule.kt",
+    "app/src/main/java/com/freevibe/ui/screens/licenses/LicensesScreen.kt",
+    "app/src/main/java/com/freevibe/ui/screens/settings/SettingsSoundSection.kt",
+    "app/src/main/java/com/freevibe/data/model/ProviderNetworkPolicy.kt",
+    "app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperBrowseViewModel.kt",
+    "app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpaperQuality.kt",
+    "app/src/main/java/com/freevibe/ui/screens/sounds/SoundQuality.kt",
+    "app/src/main/java/com/freevibe/data/model/SoundLicensePolicy.kt",
+    "app/src/main/java/com/freevibe/ui/screens/sounds/SoundPlaybackActions.kt",
+    "app/src/main/java/com/freevibe/data/model/WallpaperLicensePolicy.kt",
+    "app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperApplyActions.kt",
+    "app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperDetailScreen.kt",
+    "app/src/main/java/com/freevibe/data/model/VideoWallpaperLicensePolicy.kt",
+    "docs/distribution/release-dry-run.md",
+    "docs/distribution/release-signing.md",
+    "docs/distribution/supply-chain.md",
 )
 
 
@@ -42,6 +62,7 @@ class ProviderTruthCheckTest(unittest.TestCase):
         self.assertEqual(22, result["providerCount"])
         self.assertEqual(8, result["legacyProviderCount"])
         self.assertEqual(4, result["publicSurfaceCount"])
+        self.assertEqual(20, result["runtimeSurfaceCount"])
 
     def test_runtime_priority_drift_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -111,6 +132,90 @@ class ProviderTruthCheckTest(unittest.TestCase):
             write_manifest(root, manifest)
 
             with self.assertRaisesRegex(ProviderTruthError, "Legacy attribution only"):
+                validate_provider_truth(root, MANIFEST)
+
+    def test_youtube_channel_gate_drift_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            make_fixture(root)
+            path = root / "app/src/main/java/com/freevibe/data/local/PreferencesManager.kt"
+            text = path.read_text(encoding="utf-8").replace(
+                "enabled && youtubeProviderAvailable",
+                "enabled",
+            )
+            path.write_text(text, encoding="utf-8")
+
+            with self.assertRaisesRegex(ProviderTruthError, "preferences runtime surface"):
+                validate_provider_truth(root, MANIFEST)
+
+    def test_manifest_driven_video_ranking_drift_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            make_fixture(root)
+            path = root / "app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpaperQuality.kt"
+            text = path.read_text(encoding="utf-8").replace(
+                "orderedCurrentProviderCapabilities",
+                "orderedProviderCapabilities",
+            )
+            path.write_text(text, encoding="utf-8")
+
+            with self.assertRaisesRegex(ProviderTruthError, "videoFeed runtime surface"):
+                validate_provider_truth(root, MANIFEST)
+
+    def test_provider_action_ceiling_drift_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            make_fixture(root)
+            path = root / "app/src/main/java/com/freevibe/data/model/SoundLicensePolicy.kt"
+            text = path.read_text(encoding="utf-8").replace(
+                "isProviderActionPermitted",
+                "providerActionPermitted",
+            )
+            path.write_text(text, encoding="utf-8")
+
+            with self.assertRaisesRegex(ProviderTruthError, "soundActions runtime surface"):
+                validate_provider_truth(root, MANIFEST)
+
+    def test_artifact_action_gate_drift_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            make_fixture(root)
+            path = root / "app/src/main/java/com/freevibe/data/legal/ProviderCapability.kt"
+            text = path.read_text(encoding="utf-8").replace(
+                "capability.lifecycle == ProviderLifecycle.LEGACY || capability.availableIn(build, channel)",
+                "true",
+            )
+            path.write_text(text, encoding="utf-8")
+
+            with self.assertRaisesRegex(ProviderTruthError, "artifact-action marker"):
+                validate_provider_truth(root, MANIFEST)
+
+    def test_active_nasa_legacy_diagnostics_drift_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            make_fixture(root)
+            path = root / "app/src/main/java/com/freevibe/data/model/ProviderNetworkPolicy.kt"
+            text = path.read_text(encoding="utf-8").replace(
+                "One APOD request per Discover refresh; random history requests stay inside the secondary-source budget.",
+                "Legacy restored records only; no active automatic fetching.",
+            )
+            path.write_text(text, encoding="utf-8")
+
+            with self.assertRaisesRegex(ProviderTruthError, "active NASA lifecycle"):
+                validate_provider_truth(root, MANIFEST)
+
+    def test_play_bundle_without_channel_property_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            make_fixture(root)
+            path = root / "docs/distribution/release-dry-run.md"
+            text = path.read_text(encoding="utf-8").replace(
+                "-PauraReleaseChannel=play :app:bundleFullRelease",
+                ":app:bundleFullRelease",
+            )
+            path.write_text(text, encoding="utf-8")
+
+            with self.assertRaisesRegex(ProviderTruthError, "releaseDryRun runtime surface"):
                 validate_provider_truth(root, MANIFEST)
 
 

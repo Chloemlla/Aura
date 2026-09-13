@@ -1,5 +1,10 @@
 package com.freevibe.data.model
 
+import com.freevibe.data.legal.ProviderAction
+import com.freevibe.data.legal.ProviderLifecycle
+import com.freevibe.data.legal.isProviderAvailableInCurrentArtifact
+import com.freevibe.data.legal.isProviderActionPermitted
+import com.freevibe.data.legal.providerCapability
 import com.freevibe.ui.screens.videowallpapers.VideoWallpaperItem
 import java.util.Locale
 
@@ -53,6 +58,7 @@ fun VideoWallpaperItem.videoWallpaperLicenseCapabilities(): VideoWallpaperLicens
     val missingUploader = uploaderRequired && uploaderName.isBlank()
 
     val actions = mutableAllowedVideoActions()
+    enforceVideoProviderActionCeiling(contentSource, actions)
 
     if (missingSourceLink || missingUploader) {
         val missing = buildList {
@@ -153,6 +159,31 @@ private fun mutableAllowedVideoActions(): MutableMap<VideoWallpaperAction, Video
     VideoWallpaperAction.entries.associateWith {
         VideoWallpaperActionCapability(VideoWallpaperActionDecision.ALLOWED)
     }.toMutableMap()
+
+private fun enforceVideoProviderActionCeiling(
+    source: ContentSource,
+    actions: MutableMap<VideoWallpaperAction, VideoWallpaperActionCapability>,
+) {
+    val provider = providerCapability(source)
+    VIDEO_PROVIDER_ACTIONS.forEach { (videoAction, providerAction) ->
+        if (!isProviderActionPermitted(source, providerAction)) {
+            val reason = if (provider.lifecycle == ProviderLifecycle.LEGACY) {
+                "Legacy source items are kept for attribution only; ${videoAction.name.lowercase()} is disabled."
+            } else if (!isProviderAvailableInCurrentArtifact(source)) {
+                "This provider is unavailable in this Aura build."
+            } else {
+                "${provider.source.name.lowercase().replaceFirstChar { it.titlecase() }} does not permit ${videoAction.name.lowercase()}."
+            }
+            disableVideoAction(actions, videoAction, reason)
+        }
+    }
+}
+
+private val VIDEO_PROVIDER_ACTIONS = mapOf(
+    VideoWallpaperAction.APPLY to ProviderAction.APPLY,
+    VideoWallpaperAction.DOWNLOAD to ProviderAction.DOWNLOAD,
+    VideoWallpaperAction.SHARE to ProviderAction.SHARE,
+)
 
 private fun requireVideoConfirmation(
     actions: MutableMap<VideoWallpaperAction, VideoWallpaperActionCapability>,

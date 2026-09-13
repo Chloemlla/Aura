@@ -47,6 +47,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.freevibe.R
+import com.freevibe.data.legal.isProviderAvailableInCurrentArtifact
+import com.freevibe.data.model.ContentSource
 import com.freevibe.service.normalizeYouTubePoTokenProviderUrl
 import com.freevibe.service.YtDlpUpdateConsent
 
@@ -74,6 +76,7 @@ internal fun SoundSettingsSection(
     var showYtBlockedEditor by remember { mutableStateOf(false) }
     var showPoTokenProviderEditor by remember { mutableStateOf(false) }
     var showYtDlpConsent by remember { mutableStateOf(false) }
+    val youtubeProviderAvailable = isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE)
     val ytDlpUpdateNotice = ytDlpUpdateFeedbackMessage(ytDlpUpdate)
 
     LaunchedEffect(ytDlpUpdate.completedStatus, ytDlpUpdate.error) {
@@ -103,56 +106,58 @@ internal fun SoundSettingsSection(
             previewVolume = previewVolume,
             onPreviewVolumeChange = viewModel::setPreviewVolume,
         )
-        SettingsItem(
-            icon = Icons.Default.SmartDisplay,
-            title = stringResource(R.string.settings_sounds_yt_queries_title),
-            subtitle = stringResource(R.string.settings_sounds_yt_queries_subtitle),
-            onClick = { showYtSoundEditor = true },
-        )
-        SettingsToggle(
-            icon = Icons.Default.SmartDisplay,
-            title = stringResource(R.string.settings_sounds_yt_enable_title),
-            subtitle = if (youtubeProviderEnabled) {
-                stringResource(R.string.settings_sounds_yt_on_subtitle)
-            } else {
-                stringResource(R.string.settings_sounds_yt_off_subtitle)
-            },
-            checked = youtubeProviderEnabled,
-            onCheckedChange = viewModel::setYoutubeProviderEnabled,
-            searchAliases = setOf("youtube", "video", "extractor"),
-        )
-        SettingsItem(
-            icon = Icons.Default.Update,
-            title = stringResource(R.string.settings_ytdlp_update_title),
-            subtitle = ytDlpUpdateSubtitle(
-                state = ytDlpUpdate,
-                youtubeProviderEnabled = youtubeProviderEnabled,
-            ),
-            onClick = {
-                if (youtubeProviderEnabled && !ytDlpUpdate.isUpdating) {
-                    showYtDlpConsent = true
-                }
-            },
-        )
-        SettingsItem(
-            icon = Icons.Default.SmartDisplay,
-            title = stringResource(R.string.settings_youtube_pot_provider_title),
-            subtitle = if (youtubePoTokenProviderUrl.isBlank()) {
-                stringResource(R.string.settings_youtube_pot_provider_off)
-            } else {
-                stringResource(R.string.settings_youtube_pot_provider_on)
-            },
-            onClick = { showPoTokenProviderEditor = true },
-        )
-        SettingsItem(
-            icon = Icons.Default.Block,
-            title = stringResource(R.string.settings_sounds_blocked_words_title),
-            subtitle = stringResource(
-                R.string.settings_sounds_blocked_words_subtitle,
-                ytBlockedWords.split(",").count { it.isNotBlank() },
-            ),
-            onClick = { showYtBlockedEditor = true },
-        )
+        if (youtubeProviderAvailable) {
+            SettingsItem(
+                icon = Icons.Default.SmartDisplay,
+                title = stringResource(R.string.settings_sounds_yt_queries_title),
+                subtitle = stringResource(R.string.settings_sounds_yt_queries_subtitle),
+                onClick = { showYtSoundEditor = true },
+            )
+            SettingsToggle(
+                icon = Icons.Default.SmartDisplay,
+                title = stringResource(R.string.settings_sounds_yt_enable_title),
+                subtitle = if (youtubeProviderEnabled) {
+                    stringResource(R.string.settings_sounds_yt_on_subtitle)
+                } else {
+                    stringResource(R.string.settings_sounds_yt_off_subtitle)
+                },
+                checked = youtubeProviderEnabled,
+                onCheckedChange = viewModel::setYoutubeProviderEnabled,
+                searchAliases = setOf("youtube", "video", "extractor"),
+            )
+            SettingsItem(
+                icon = Icons.Default.Update,
+                title = stringResource(R.string.settings_ytdlp_update_title),
+                subtitle = ytDlpUpdateSubtitle(
+                    state = ytDlpUpdate,
+                    youtubeProviderEnabled = youtubeProviderEnabled,
+                ),
+                onClick = {
+                    if (youtubeProviderEnabled && !ytDlpUpdate.isUpdating) {
+                        showYtDlpConsent = true
+                    }
+                },
+            )
+            SettingsItem(
+                icon = Icons.Default.SmartDisplay,
+                title = stringResource(R.string.settings_youtube_pot_provider_title),
+                subtitle = if (youtubePoTokenProviderUrl.isBlank()) {
+                    stringResource(R.string.settings_youtube_pot_provider_off)
+                } else {
+                    stringResource(R.string.settings_youtube_pot_provider_on)
+                },
+                onClick = { showPoTokenProviderEditor = true },
+            )
+            SettingsItem(
+                icon = Icons.Default.Block,
+                title = stringResource(R.string.settings_sounds_blocked_words_title),
+                subtitle = stringResource(
+                    R.string.settings_sounds_blocked_words_subtitle,
+                    ytBlockedWords.split(",").count { it.isNotBlank() },
+                ),
+                onClick = { showYtBlockedEditor = true },
+            )
+        }
         SettingsItem(
             icon = Icons.Default.LibraryMusic,
             title = stringResource(R.string.settings_sounds_sources_title),
@@ -203,7 +208,7 @@ internal fun SoundSettingsSection(
         )
     }
 
-    if (showYtDlpConsent) {
+    if (youtubeProviderAvailable && showYtDlpConsent) {
         AlertDialog(
             onDismissRequest = { showYtDlpConsent = false },
             title = { Text(stringResource(R.string.settings_ytdlp_consent_title)) },
@@ -235,7 +240,7 @@ internal fun SoundSettingsSection(
         )
     }
 
-    if (showYtSoundEditor) {
+    if (youtubeProviderAvailable && showYtSoundEditor) {
         YouTubeSoundQueriesDialog(
             ytRingtonesQuery = ytRingtonesQuery,
             ytNotificationsQuery = ytNotificationsQuery,
@@ -249,7 +254,7 @@ internal fun SoundSettingsSection(
             onDismiss = { showYtSoundEditor = false },
         )
     }
-    if (showYtBlockedEditor) {
+    if (youtubeProviderAvailable && showYtBlockedEditor) {
         YouTubeBlockedWordsDialog(
             ytBlockedWords = ytBlockedWords,
             onSave = {
@@ -259,7 +264,7 @@ internal fun SoundSettingsSection(
             onDismiss = { showYtBlockedEditor = false },
         )
     }
-    if (showPoTokenProviderEditor) {
+    if (youtubeProviderAvailable && showPoTokenProviderEditor) {
         YouTubePoTokenProviderDialog(
             currentUrl = youtubePoTokenProviderUrl,
             onSave = {

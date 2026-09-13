@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.freevibe.R
 import com.freevibe.data.local.PreferencesManager
+import com.freevibe.data.legal.isProviderAvailableInCurrentArtifact
 import com.freevibe.data.model.CommunityReportReason
 import com.freevibe.data.model.CommunityUploadRights
 import com.freevibe.data.model.ContentSource
@@ -77,7 +78,11 @@ class SoundsViewModel @Inject constructor(
 
     val autoPreview = prefs.autoPreviewSounds.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
     val previewVolume = prefs.soundPreviewVolume.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.7f)
-    val youtubeProviderEnabled = prefs.youtubeProviderEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val youtubeProviderEnabled = prefs.youtubeProviderEnabled.stateIn(
+        viewModelScope,
+        SharingStarted.Eagerly,
+        isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE),
+    )
     val communityProviderEnabled = prefs.communityProviderEnabled.stateIn(
         viewModelScope,
         SharingStarted.Eagerly,
