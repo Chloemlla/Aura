@@ -49,7 +49,7 @@ class GitHubActionsAllowlistCheckTest(unittest.TestCase):
         self.assertEqual(1, result["workflowCount"])
         self.assertEqual([".github/workflows/aura-android.yml"], result["workflows"])
         self.assertEqual(5, result["allowedActionCount"])
-        self.assertEqual(18, result["actionReferenceCount"])
+        self.assertEqual(19, result["actionReferenceCount"])
 
     def test_rejects_unreviewed_action(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
