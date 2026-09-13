@@ -300,13 +300,17 @@ class ReleaseMetadataConsistencyCheckTest(unittest.TestCase):
         self.assertIn("v17", message)
 
     def test_rejects_a_contributing_sdk_claim_the_build_contradicts(self) -> None:
+        # Read the level the build declares instead of restating it, so the
+        # seeded defect stays a defect after the next SDK bump.
+        compile_sdk = int(parse_gradle(REPO_ROOT)["compileSdk"])
+        wrong_claim = compile_sdk + 1
         message = self._drifted(
-            lambda text: text.replace("Android SDK 36", "Android SDK 35"),
+            lambda text: text.replace(f"Android SDK {compile_sdk}", f"Android SDK {wrong_claim}"),
             surface="CONTRIBUTING.md",
         )
 
-        self.assertIn("install Android SDK 35", message)
-        self.assertIn("compiles against 36", message)
+        self.assertIn(f"install Android SDK {wrong_claim}", message)
+        self.assertIn(f"compiles against {compile_sdk}", message)
 
     def test_rejects_a_contributing_java_target_the_build_contradicts(self) -> None:
         message = self._drifted(

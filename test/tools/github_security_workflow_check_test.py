@@ -53,8 +53,18 @@ class GitHubSecurityWorkflowCheckTest(unittest.TestCase):
 
         self.assertEqual("githubSecurityWorkflowPolicy", result["policyKind"])
         self.assertEqual(1, result["schemaVersion"])
-        self.assertEqual(0, result["workflowCount"])
-        self.assertEqual([], result["workflows"])
+        self.assertEqual(1, result["workflowCount"])
+        self.assertEqual(
+            [
+                {
+                    "forbiddenSnippetCount": 3,
+                    "name": "Build Aura Android",
+                    "path": ".github/workflows/aura-android.yml",
+                    "requiredSnippetCount": 10,
+                }
+            ],
+            result["workflows"],
+        )
 
     def test_rejects_missing_required_snippet(self) -> None:
         policy = {

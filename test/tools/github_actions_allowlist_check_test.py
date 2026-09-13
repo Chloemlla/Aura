@@ -46,9 +46,10 @@ class GitHubActionsAllowlistCheckTest(unittest.TestCase):
         result = validate_github_actions_allowlist(REPO_ROOT, live_policy())
 
         self.assertEqual("ok", result["status"])
-        self.assertEqual(0, result["workflowCount"])
-        self.assertEqual(0, result["allowedActionCount"])
-        self.assertEqual(0, result["actionReferenceCount"])
+        self.assertEqual(1, result["workflowCount"])
+        self.assertEqual([".github/workflows/aura-android.yml"], result["workflows"])
+        self.assertEqual(5, result["allowedActionCount"])
+        self.assertEqual(18, result["actionReferenceCount"])
 
     def test_rejects_unreviewed_action(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

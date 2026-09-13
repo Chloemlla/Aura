@@ -89,14 +89,20 @@ class RotationFgsPolicyCheckTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             copy_required_tree(repo)
-            source = repo / str(live_policy()["serviceSource"])
-            source.write_text(
-                source.read_text(encoding="utf-8").replace("ExistingWorkPolicy.KEEP", "ExistingWorkPolicy.REPLACE"),
-                encoding="utf-8",
-            )
+            policy = live_policy()
+            # Whatever the policy requires today is the safeguard to remove.
+            # Seeding a term the policy stopped requiring would pass while
+            # testing nothing.
+            safeguard = str(policy["requiredServiceTerms"][0])
+            source = repo / str(policy["serviceSource"])
+            original = source.read_text(encoding="utf-8")
+            self.assertIn(safeguard, original)
+            source.write_text(original.replace(safeguard, "removed"), encoding="utf-8")
 
-            with self.assertRaises(RotationFgsPolicyError):
-                validate_policy(repo, live_policy())
+            with self.assertRaises(RotationFgsPolicyError) as ctx:
+                validate_policy(repo, policy)
+
+            self.assertIn(safeguard, str(ctx.exception))
 
     def test_rejects_missing_play_owner_action(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
