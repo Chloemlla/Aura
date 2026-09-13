@@ -232,12 +232,12 @@ Firebase RTDB (Community Voting + Uploads + Admin Moderation)
 | Widget | Glance 1.2.0-rc01 |
 | Performance | Baseline Profile + Macrobenchmark 1.4.1 |
 | Min SDK | 26 (Android 8.0) |
-| Target SDK | 35 (Android 15) |
-| Kotlin | 2.1.0 |
+| Target SDK | 37 (Android 17) |
+| Kotlin | 2.3.21 |
 
 ## Building
 
-Requires JDK 21 and Android SDK 36. Android Studio Ladybug (2024.2.1) or later recommended.
+Requires JDK 21 and Android SDK 37. Android Studio Ladybug (2024.2.1) or later recommended.
 
 ```bash
 ./gradlew assembleDebug      # use gradlew.bat on Windows

@@ -11,7 +11,7 @@ Machine-readable contract:
 
 | Field | Answer |
 | --- | --- |
-| Package | `com.freevibe` |
+| Package | `com.chloemlla.aura` |
 | App | Aura |
 | Status | `ownerActionRequired` |
 | Primary category | Personalization |
@@ -157,9 +157,9 @@ Current implemented and documented controls:
 Evidence:
 
 - `docs/legal/community-guidelines.md`
-- `app/src/main/java/com/freevibe/data/model/CommunityGuidelinesPolicy.kt`
-- `app/src/main/java/com/freevibe/data/local/PreferencesManager.kt`
-- `app/src/main/java/com/freevibe/ui/components/CommunityGuidelinesDialog.kt`
+- `app/src/main/java/com/chloemlla/aura/data/model/CommunityGuidelinesPolicy.kt`
+- `app/src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt`
+- `app/src/main/java/com/chloemlla/aura/ui/components/CommunityGuidelinesDialog.kt`
 - `docs/legal/community-upload-rights.md`
 - `docs/support/community-reporting.md`
 - `docs/community-block-user-policy.md`
@@ -209,7 +209,7 @@ Evidence:
 
 - `docs/rotation-trigger-fgs-policy.md`
 - `app/src/main/AndroidManifest.xml`
-- `app/src/main/java/com/freevibe/service/RotationTriggerService.kt`
+- `app/src/main/java/com/chloemlla/aura/service/RotationTriggerService.kt`
 
 ## Sensitive Permissions
 

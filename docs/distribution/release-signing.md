@@ -151,7 +151,7 @@ The `application-debuggable` search should return no output.
 The AAB is signed with the local upload key. Before any Play upload, the release
 owner must open Play Console > App integrity, compare the local upload-key
 SHA-256 from `aab-keytool.txt`, and confirm the owner-managed Play app signing
-key for `com.freevibe` remains intended. Record that check in
+key for `com.chloemlla.aura` remains intended. Record that check in
 `PLAY-APP-SIGNING-OWNER-STEPS.txt`; the local artifact validator fails if the
 receipt is missing.
 
@@ -165,6 +165,6 @@ it to `SHA256SUMS.txt` when verifying a release manually.
 
 Android developer verification and IzzyOnDroid prep live in
 [developer-verification.md](developer-verification.md). Keep release notes at
-`owner-confirmation-required` until the owner confirms `com.freevibe` and the
+`owner-confirmation-required` until the owner confirms `com.chloemlla.aura` and the
 current signing certificate SHA-256 in Android Developer Console or Play
 Console.

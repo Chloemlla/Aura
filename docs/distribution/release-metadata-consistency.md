@@ -9,7 +9,7 @@ disclosures, and GitHub Release artifacts. The machine-readable contract is
 
 | Field | Value |
 | --- | --- |
-| Package | `com.freevibe` |
+| Package | `com.chloemlla.aura` |
 | Version name | `6.34.6` |
 | Version code | `133` |
 | Fastlane metadata root | `fastlane/metadata/android/en-US` |

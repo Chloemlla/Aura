@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "policyKind": "releaseSigningCertificate",
-  "packageName": "com.freevibe",
+  "packageName": "com.chloemlla.aura",
   "keyAlias": "freevibe",
   "keystoreProperty": "signing.keystore.path",
   "certificateSha256": "F28E44BEA32F5B2890C8268B7FBED43C44A4D671A512FB07EBF18FDD41C66E5A",

@@ -8,7 +8,7 @@ Aura's Fastlane metadata. The machine-readable contract is
 
 | Field | Value |
 | --- | --- |
-| Package | `com.freevibe` |
+| Package | `com.chloemlla.aura` |
 | Status | `capturePending` |
 | Metadata root | `fastlane/metadata/android/en-US` |
 | Asset preflight | `tools/store_metadata_preflight.py --repo-root . --require-assets --min-phone-screenshots 4` |

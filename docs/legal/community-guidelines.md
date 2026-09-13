@@ -28,17 +28,17 @@ hide or delete community uploads and their uploaded media files.
 
 ## Evidence
 
-- Runtime copy: `app/src/main/java/com/freevibe/data/model/CommunityGuidelinesPolicy.kt`
-- Consent storage: `app/src/main/java/com/freevibe/data/local/PreferencesManager.kt`
-- Consent UI: `app/src/main/java/com/freevibe/ui/components/CommunityGuidelinesDialog.kt`
-- Settings entry: `app/src/main/java/com/freevibe/ui/screens/settings/SettingsScreen.kt`
-- Community surfaces: `app/src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt`,
-  `app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt`
-- Backend gates: `app/src/main/java/com/freevibe/data/repository/UploadRepository.kt`,
-  `app/src/main/java/com/freevibe/data/repository/WallpaperUploadRepository.kt`,
-  `app/src/main/java/com/freevibe/data/repository/CommunityBlockRepository.kt`,
-  `app/src/main/java/com/freevibe/data/repository/CreatorProfileRepository.kt`,
-  `app/src/main/java/com/freevibe/data/repository/VoteRepository.kt`
+- Runtime copy: `app/src/main/java/com/chloemlla/aura/data/model/CommunityGuidelinesPolicy.kt`
+- Consent storage: `app/src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt`
+- Consent UI: `app/src/main/java/com/chloemlla/aura/ui/components/CommunityGuidelinesDialog.kt`
+- Settings entry: `app/src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsScreen.kt`
+- Community surfaces: `app/src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsScreen.kt`,
+  `app/src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpapersScreen.kt`
+- Backend gates: `app/src/main/java/com/chloemlla/aura/data/repository/UploadRepository.kt`,
+  `app/src/main/java/com/chloemlla/aura/data/repository/WallpaperUploadRepository.kt`,
+  `app/src/main/java/com/chloemlla/aura/data/repository/CommunityBlockRepository.kt`,
+  `app/src/main/java/com/chloemlla/aura/data/repository/CreatorProfileRepository.kt`,
+  `app/src/main/java/com/chloemlla/aura/data/repository/VoteRepository.kt`
 
 Reference policy source:
 https://support.google.com/googleplay/android-developer/answer/12923286

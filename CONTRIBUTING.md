@@ -17,7 +17,7 @@ If your PR contradicts the charter and you think the charter is wrong, open an i
 
 ## Build
 
-Requires JDK 21 and Android SDK 36. Android Studio Ladybug (2024.2.1) or later.
+Requires JDK 21 and Android SDK 37. Android Studio Ladybug (2024.2.1) or later.
 Use Adoptium JDK 21 specifically, not "17 or newer": the app compiles to Java 17
 bytecode, but Gradle 8.12.1 refuses newer JDKs, and the JBR bundled with current
 Android Studio is JDK 25.

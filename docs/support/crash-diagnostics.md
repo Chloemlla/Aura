@@ -75,7 +75,7 @@ The generated bundle redacts:
 - API keys, tokens, passwords, secrets, client IDs, and dotted provider
   property names in assignment form, including `local.properties` entries such
   as `stability.ai.key`.
-- App-private Android paths under `com.freevibe`.
+- App-private Android paths under `com.chloemlla.aura`.
 - `file://` paths.
 
 The same request redactor is used before in-app source diagnostics store the

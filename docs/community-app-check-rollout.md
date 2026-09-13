@@ -7,11 +7,11 @@ legitimate installs are sending tokens.
 
 ## Client State
 
-- `app/src/debug/java/com/freevibe/service/AppCheckInstaller.kt` installs the
+- `app/src/debug/java/com/chloemlla/aura/service/AppCheckInstaller.kt` installs the
   debug provider for debug builds.
-- `app/src/release/java/com/freevibe/service/AppCheckInstaller.kt` installs the
+- `app/src/release/java/com/chloemlla/aura/service/AppCheckInstaller.kt` installs the
   Play Integrity provider for release builds.
-- `FreeVibeApp.onCreate()` installs App Check before the app warms community
+- `AuraApp.onCreate()` installs App Check before the app warms community
   identity, votes, reports, uploads, or other Firebase-backed repositories.
 - `app/build.gradle.kts` keeps App Check versions under the existing Firebase
   BoM and keeps the debug provider out of release builds.
@@ -19,7 +19,7 @@ legitimate installs are sending tokens.
 ## Firebase Console Setup
 
 1. Open Firebase Console > Security > App Check.
-2. Register Android app `com.freevibe` with the Play Integrity provider.
+2. Register Android app `com.chloemlla.aura` with the Play Integrity provider.
 3. Add the release signing certificate SHA-256 fingerprint used for GitHub
    release APKs.
 4. For the current GitHub/Obtainium/Izzy distribution path, configure Play

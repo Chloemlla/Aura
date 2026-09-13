@@ -8,18 +8,18 @@ runbook current before broader non-Play distribution.
 
 | Area | Status |
 | --- | --- |
-| Package name | `com.freevibe` |
+| Package name | `com.chloemlla.aura` |
 | Release artifact | Locally built and signed universal APK |
 | Release provenance | `SHA256SUMS.txt`, `apksigner.txt`, and the signing certificate SHA-256 in release notes |
 | Android developer verification | Decision recorded; owner identity verification and package registration remain |
 | F-Droid mainline | `ready-for-review` since the FOSS flavor isolated Firebase, Play Services, and ML Kit; confirm with `tools/fdroid_preflight.py` |
 | IzzyOnDroid | Ready for owner submission after a signed `v*` GitHub Release is visible |
-| Accrescent | Not submitted. Enforces the Play target-SDK bar by removing apps and caps an APK set at 128 MiB; Aura is on targetSdk 35 |
+| Accrescent | Not submitted. Enforces the Play target-SDK bar by removing apps and caps an APK set at 128 MiB; Aura is on targetSdk 37 |
 
 ## Decision record: register the existing release identity
 
 **Decision (2026-07-16):** use a full-distribution Android Developer Console
-account to register `com.freevibe` and Aura's existing stable release signing
+account to register `com.chloemlla.aura` and Aura's existing stable release signing
 certificate before the global enforcement expansion. Registration verifies the
 developer/package relationship; it does not publish Aura on Google Play, replace
 the signing key, or prevent distribution through GitHub, Obtainium, or
@@ -64,8 +64,7 @@ them to be re-derived.
   access to the program. Registration is therefore aligned with an Accrescent
   submission, but that channel is gated on other things first: it enforces the
   Play target-SDK bar by removing non-compliant apps rather than hiding them,
-  and caps an APK set at 128 MiB. Aura is on targetSdk 35, so it does not
-  qualify yet.
+  and caps an APK set at 128 MiB. Aura is on targetSdk 37.
   Source: https://blog.accrescent.app/posts/android-developer-verification/
 
 
@@ -101,7 +100,7 @@ release owner must:
    registration instead.
 2. Complete individual or organization identity verification. Organizations
    should prepare a D-U-N-S number and Search Console-verified website.
-3. Register package name `com.freevibe`.
+3. Register package name `com.chloemlla.aura`.
 4. Add the SHA-256 certificate fingerprint from the existing release key. Read
    it from the locally generated `apksigner.txt` or run
    `apksigner verify --verbose --print-certs` against the signed release APK.
@@ -131,7 +130,7 @@ For each `v*` GitHub Release:
 7. Install or update through Obtainium and confirm the selected asset is the
    signed universal APK.
 
-Use `registered` only after the owner confirms `com.freevibe` and the current
+Use `registered` only after the owner confirms `com.chloemlla.aura` and the current
 signing key in Android Developer Console or Play Console.
 
 ## IzzyOnDroid submission prep
@@ -143,7 +142,7 @@ not submit a debug APK or locally signed test build.
 Submit after a signed `v*` release includes:
 
 - Repository URL: `https://github.com/SysAdminDoc/Aura`
-- Package id: `com.freevibe`
+- Package id: `com.chloemlla.aura`
 - APK URL from the GitHub Release.
 - `SHA256SUMS.txt` URL from the same release.
 - Signing certificate SHA-256 from release notes.

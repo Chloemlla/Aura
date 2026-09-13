@@ -106,7 +106,7 @@ bundletool validate --bundle=$aabPath
 jarsigner -verify -verbose -certs $aabPath *> "$releaseDir\aab-jarsigner.txt"
 keytool -printcert -jarfile $aabPath *> "$releaseDir\aab-keytool.txt"
 @"
-Play App Signing owner-confirmation-required for com.freevibe.
+Play App Signing owner-confirmation-required for com.chloemlla.aura.
 Open Play Console > App integrity.
 Compare the local upload key SHA-256 in aab-keytool.txt with the Play upload key.
 Confirm the Play app signing key SHA-256 remains the intended owner-managed key.
@@ -146,7 +146,7 @@ The check fails when:
 - `RELEASE_NOTES.md` lacks the APK digest, AAB digest, notice/native-compliance/native-alignment entries, signing certificate, upload-key certificate, Play App Signing owner steps, local build receipt, build type, or package ID.
 - `apksigner.txt` lacks the signing certificate SHA-256 digest.
 - `aapt-badging.txt` reports `application-debuggable`.
-- `aab-manifest.txt` does not include `com.freevibe`, versionCode, and versionName.
+- `aab-manifest.txt` does not include `com.chloemlla.aura`, versionCode, and versionName.
 - `bundletool-validate.txt` does not record a successful validation for the named AAB.
 - `aab-jarsigner.txt` does not record `jar verified.`
 - `aab-keytool.txt` does not include an upload-key SHA-256 fingerprint.
@@ -169,14 +169,14 @@ $aab = "Aura-v6.42.0-versionCode-143-play-release.aab"
 "third-party" | Set-Content -Encoding ascii (Join-Path $tmp "THIRD-PARTY-NOTICES.md")
 "raw" | Set-Content -Encoding ascii (Join-Path $tmp "GOOGLE-OSS-RAW-INPUTS.zip")
 "native" | Set-Content -Encoding ascii (Join-Path $tmp "NATIVE-COMPLIANCE.md")
-'{"status":"ok","policyKind":"nativePageAlignment","packageName":"com.freevibe","requiredLoadSegmentAlignmentBytes":16384,"checked64BitLoadSegments":2,"seen64BitAbis":["arm64-v8a","x86_64"]}' | Set-Content -Encoding ascii (Join-Path $tmp "NATIVE-ALIGNMENT.json")
+'{"status":"ok","policyKind":"nativePageAlignment","packageName":"com.chloemlla.aura","requiredLoadSegmentAlignmentBytes":16384,"checked64BitLoadSegments":2,"seen64BitAbis":["arm64-v8a","x86_64"]}' | Set-Content -Encoding ascii (Join-Path $tmp "NATIVE-ALIGNMENT.json")
 "Signer #1 certificate SHA-256 digest: test" | Set-Content -Encoding ascii (Join-Path $tmp "apksigner.txt")
-"package: name='com.freevibe'" | Set-Content -Encoding ascii (Join-Path $tmp "aapt-badging.txt")
-'manifest package="com.freevibe" android:versionCode="143" android:versionName="6.42.0"' | Set-Content -Encoding ascii (Join-Path $tmp "aab-manifest.txt")
+"package: name='com.chloemlla.aura'" | Set-Content -Encoding ascii (Join-Path $tmp "aapt-badging.txt")
+'manifest package="com.chloemlla.aura" android:versionCode="143" android:versionName="6.42.0"' | Set-Content -Encoding ascii (Join-Path $tmp "aab-manifest.txt")
 "bundletool validate passed: $aab" | Set-Content -Encoding ascii (Join-Path $tmp "bundletool-validate.txt")
 "jar verified." | Set-Content -Encoding ascii (Join-Path $tmp "aab-jarsigner.txt")
 "Certificate fingerprints:`n`t SHA256: upload-test" | Set-Content -Encoding ascii (Join-Path $tmp "aab-keytool.txt")
-"Play App Signing owner-confirmation-required for com.freevibe. Open Play Console App integrity, compare upload key and app signing key." | Set-Content -Encoding ascii (Join-Path $tmp "PLAY-APP-SIGNING-OWNER-STEPS.txt")
+"Play App Signing owner-confirmation-required for com.chloemlla.aura. Open Play Console App integrity, compare upload key and app signing key." | Set-Content -Encoding ascii (Join-Path $tmp "PLAY-APP-SIGNING-OWNER-STEPS.txt")
 $files = @($apk, $aab, "THIRD-PARTY-NOTICES.md", "GOOGLE-OSS-RAW-INPUTS.zip", "NATIVE-COMPLIANCE.md", "NATIVE-ALIGNMENT.json")
 $sumLines = foreach ($file in $files) { "$((Get-FileHash (Join-Path $tmp $file) -Algorithm SHA256).Hash.ToLower())  $file" }
 $sumLines | Set-Content -Encoding ascii (Join-Path $tmp "SHA256SUMS.txt")
@@ -201,7 +201,7 @@ Signed release artifacts:
 - Build type: release, android:debuggable=false
 
 Android developer verification:
-- Package: com.freevibe
+- Package: com.chloemlla.aura
 "@ | Set-Content -Encoding ascii (Join-Path $tmp "RELEASE_NOTES.md")
 python tools\release_artifact_bundle_check.py --release-dir $tmp --apk-name $apk --aab-name $aab --version-name 6.42.0 --version-code 143
 ```
