@@ -35,6 +35,9 @@ import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
 
+internal const val IMAGE_MEMORY_CACHE_MAX_FRACTION = 0.125
+internal const val IMAGE_MEMORY_CACHE_BACKGROUND_FRACTION = 0.15
+
 @HiltAndroidApp
 class FreeVibeApp : Application(), Configuration.Provider, SingletonImageLoader.Factory {
 
@@ -75,12 +78,14 @@ class FreeVibeApp : Application(), Configuration.Provider, SingletonImageLoader.
         }
         .memoryCache {
             MemoryCache.Builder()
-                .maxSizePercent(context, 0.25) // 25% of available app memory
+                // Wallpaper grids can keep several screen-sized bitmaps alive outside Coil.
+                // Bound Coil to 12.5% so scrolling has headroom for Compose and decoders.
+                .maxSizePercent(context, IMAGE_MEMORY_CACHE_MAX_FRACTION)
                 .build()
         }
         // Shrink the bitmap cache to 15% of its max while backgrounded so a wallpaper app
         // that holds many large images does not retain foreground-sized RAM off-screen.
-        .memoryCacheMaxSizePercentWhileInBackground(0.15)
+        .memoryCacheMaxSizePercentWhileInBackground(IMAGE_MEMORY_CACHE_BACKGROUND_FRACTION)
         .diskCache {
             DiskCache.Builder()
                 .directory(File(context.cacheDir, "coil_cache").toOkioPath())

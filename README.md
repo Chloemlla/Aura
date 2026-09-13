@@ -31,7 +31,7 @@ Aura is built as a local-first tool rather than an ad-and-credit marketplace:
 - **Reddit-first discovery**: mobile wallpaper and motion communities lead the home feeds, with real cached Atom cursor pagination instead of a fixed recent slice.
 - **Video wallpapers from multiple sources**: browse Reddit live wallpapers and cinemagraphs first, followed by YouTube and optional Pixabay or Pexels results. Local video and GIF import includes loop, crop, Fill, and Fit controls.
 - **More ways to personalize**: Reddit RSS leads the network feeds. Wallhaven, Bing, Pexels, Pixabay, YouTube, Aura Originals, local files, and community uploads add user-controlled choices.
-- **Instant startup**: Discover feed is cached locally. On subsequent launches wallpapers appear immediately while fresh results load in the background.
+- **Fast, bounded feeds**: Discover metadata and a 256 MB image disk cache make repeat visits immediate, while the foreground bitmap cache stays capped at 12.5 percent of app memory.
 - **Performance proof path**: Baseline Profile and Macrobenchmark tests cover startup, Wallpaper Detail, and the main media grids during local physical-device checks.
 - **5 bottom nav tabs**: Wallpapers, Videos, Sounds, Library, Settings.
 

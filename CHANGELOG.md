@@ -4,6 +4,11 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Wallpaper scrolling uses less memory**: Coil's foreground bitmap cache is
+  capped at 12.5 percent of the app memory budget instead of 25 percent. The
+  existing 256 MB disk cache still avoids repeat downloads, while Compose and
+  image decoders get more headroom on long feed sessions.
+
 - **Reddit remains the lead media source by design**: the provider registry now
   matches the working Reddit wallpaper and video feeds instead of describing
   them as discontinued. Fresh installs keep Reddit on and the optional wallpaper
