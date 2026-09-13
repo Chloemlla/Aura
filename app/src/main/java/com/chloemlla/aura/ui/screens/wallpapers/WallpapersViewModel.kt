@@ -75,12 +75,6 @@ class WallpapersViewModel @Inject constructor(
     /** Non-null only when a seasonal theme is currently active (holiday, summer, etc.). */
     val seasonalTheme = seasonalContentManager.currentTheme()
 
-    private var lastRouteQuery: String? = null
-    private var lastRouteColor: String? = null
-    private var lastRouteSimilarId: String? = null
-    private var lastRouteSimilarSource: String? = null
-    private var lastRouteSimilarFullUrl: String? = null
-    private var hasInitiallyLoaded = false
     private var hasStartedBrowsing = false
 
     val selectedWallpaper = selectedContent.selectedWallpaper
@@ -201,6 +195,15 @@ class WallpapersViewModel @Inject constructor(
         fetchTopVoted = browse::fetchTopVoted,
     )
 
+    internal val filterNavigation = WallpaperFilterNavigation(
+        state = _state,
+        browse = browse,
+        searchActions = searchActions,
+        redditRepo = redditRepo,
+        searchHistoryRepo = searchHistoryRepo,
+        scope = viewModelScope,
+    )
+
     /**
      * Six screens obtain this ViewModel, but only the wallpaper list renders the daily pick,
      * top-voted rail and source-health state. Starting the feed from `init` made every one of
@@ -224,53 +227,7 @@ class WallpapersViewModel @Inject constructor(
         similarId: String? = null,
         similarSource: String? = null,
         similarFullUrl: String? = null,
-    ) {
-        val normalizedQuery = query?.ifBlank { null }
-        val normalizedColor = color?.ifBlank { null }
-        val normalizedSimilarId = similarId?.ifBlank { null }
-        val normalizedSimilarSource = similarSource?.ifBlank { null }
-        val normalizedSimilarFullUrl = similarFullUrl?.ifBlank { null }
-
-        // Skip dedup only for non-initial calls with identical filters
-        if (
-            hasInitiallyLoaded &&
-            normalizedQuery == lastRouteQuery &&
-            normalizedColor == lastRouteColor &&
-            normalizedSimilarId == lastRouteSimilarId &&
-            normalizedSimilarSource == lastRouteSimilarSource &&
-            normalizedSimilarFullUrl == lastRouteSimilarFullUrl
-        ) return
-
-        lastRouteQuery = normalizedQuery
-        lastRouteColor = normalizedColor
-        lastRouteSimilarId = normalizedSimilarId
-        lastRouteSimilarSource = normalizedSimilarSource
-        lastRouteSimilarFullUrl = normalizedSimilarFullUrl
-        hasInitiallyLoaded = true
-
-        val resolvedSimilarSource = normalizedSimilarSource?.let { sourceName ->
-            runCatching { ContentSource.valueOf(sourceName) }.getOrNull()
-        }
-
-        when {
-            normalizedQuery != null -> {
-                if (_state.value.selectedTab != WallpaperTab.SEARCH || _state.value.query != normalizedQuery) {
-                    search(normalizedQuery)
-                }
-            }
-            normalizedColor != null -> {
-                if (_state.value.selectedTab != WallpaperTab.COLOR || _state.value.selectedColor != normalizedColor) {
-                    searchByColor(normalizedColor)
-                }
-            }
-            normalizedSimilarId != null -> findSimilarById(
-                wallpaperId = normalizedSimilarId,
-                source = resolvedSimilarSource,
-                fullUrl = normalizedSimilarFullUrl,
-            )
-            _state.value.wallpapers.isEmpty() && !_state.value.isLoading -> browse.loadWallpapers()
-        }
-    }
+    ) = filterNavigation.handle(query, color, similarId, similarSource, similarFullUrl)
 
     fun selectTab(tab: WallpaperTab) {
         val targetTab = if (browse.isProviderDisabledTab(tab)) WallpaperTab.DISCOVER else tab
@@ -299,72 +256,16 @@ class WallpapersViewModel @Inject constructor(
 
     fun setDiscoverFilter(filter: WallpaperDiscoverFilter) = styleActions.setDiscoverFilter(filter)
 
-    fun search(query: String) {
-        if (query.isBlank()) {
-            clearActiveFilter()
-            return
-        }
-        val returnTab = _state.value.selectedTab
-            .takeIf { it != WallpaperTab.SEARCH && it != WallpaperTab.COLOR }
-            ?: _state.value.browseTab
-        searchActions.cancel()
-        _state.update {
-            it.copy(
-                query = query,
-                selectedTab = WallpaperTab.SEARCH,
-                browseTab = returnTab,
-                selectedColor = null,
-                wallpapers = emptyList(),
-                currentPage = 1,
-                hasMore = true,
-            )
-        }
-        viewModelScope.launch { searchHistoryRepo.addWallpaperSearch(query) }
-        browse.loadWallpapers()
-    }
+    fun search(query: String) = filterNavigation.search(query)
 
-    fun removeSearch(query: String) {
-        viewModelScope.launch { searchHistoryRepo.removeSearch(query, "WALLPAPER") }
-    }
+    fun removeSearch(query: String) = filterNavigation.removeSearch(query)
 
-    fun clearSearchHistory() {
-        viewModelScope.launch { searchHistoryRepo.clearWallpaperHistory() }
-    }
+    fun clearSearchHistory() = filterNavigation.clearSearchHistory()
 
     // #9: Color-based search
-    fun searchByColor(color: String) {
-        if (color.isBlank()) {
-            clearActiveFilter()
-            return
-        }
-        searchActions.searchByColor(color)
-    }
+    fun searchByColor(color: String) = filterNavigation.searchByColor(color)
 
-    fun clearActiveFilter() {
-        val returnTab = if (browse.isProviderDisabledTab(_state.value.browseTab)) {
-            WallpaperTab.DISCOVER
-        } else {
-            _state.value.browseTab
-        }
-        if (returnTab == WallpaperTab.REDDIT) redditRepo.resetPagination()
-        searchActions.cancel()
-        _state.update {
-            it.copy(
-                selectedTab = returnTab,
-                query = "",
-                selectedColor = null,
-                wallpapers = emptyList(),
-                currentPage = 1,
-                hasMore = true,
-                error = null,
-                errorSource = null,
-                isLoading = false,
-                isLoadingMore = false,
-                isRefreshing = false,
-            )
-        }
-        browse.loadWallpapers()
-    }
+    fun clearActiveFilter() = filterNavigation.clearActiveFilter()
 
     // #4: Pull-to-refresh
     fun refresh() {
