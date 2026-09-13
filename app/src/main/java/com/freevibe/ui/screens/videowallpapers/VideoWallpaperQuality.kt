@@ -49,44 +49,6 @@ internal fun rankVideoWallpapers(
     return mixed
 }
 
-internal fun VideoWallpaperItem.loopBadge(): String =
-    if (isLoopFriendly()) "Loop-safe" else "Dynamic"
-
-internal fun VideoWallpaperItem.batteryBadge(): String = when (batteryTier()) {
-    BatteryTier.LOW -> "Low battery"
-    BatteryTier.MEDIUM -> "Balanced"
-    BatteryTier.HIGH -> "High motion"
-}
-
-internal fun VideoWallpaperItem.fitBadge(orientation: OrientationFilter): String = when {
-    !hasDimensions -> "Flexible"
-    orientation == OrientationFilter.PORTRAIT && isPortrait -> "Phone fit"
-    orientation == OrientationFilter.LANDSCAPE && isLandscape -> "Wide fit"
-    orientation == OrientationFilter.ALL && isPortrait -> "Phone fit"
-    else -> "Needs crop"
-}
-
-internal fun VideoWallpaperItem.videoTechnicalSummary(): String {
-    val dimensions = if (hasDimensions) {
-        "${videoWidth}x${videoHeight} (${if (isPortrait) "Portrait" else "Landscape"})"
-    } else {
-        "Unknown video dimensions"
-    }
-    val aspectRatio = if (hasDimensions && videoHeight > 0) {
-        val ratio = videoWidth.toFloat() / videoHeight.toFloat()
-        String.format(java.util.Locale.ROOT, "%.2f:1", ratio)
-    } else {
-        null
-    }
-    val durationLabel = duration.takeIf { it > 0 }?.let { "${it}s" }
-    val rotation = videoRotationDegrees
-        .takeIf { it != 0 }
-        ?.let { "rotated ${it}deg" }
-    val codec = videoCodec.takeIf { it.isNotBlank() }
-    val mime = videoMimeType.takeIf { it.isNotBlank() }
-    return listOfNotNull(dimensions, aspectRatio, durationLabel, rotation, codec, mime).joinToString(" · ")
-}
-
 internal fun VideoWallpaperItem.previewAspectRatio(): Float = when {
     hasDimensions -> (videoWidth.toFloat() / videoHeight.toFloat()).coerceIn(0.56f, 1.8f)
     else -> 9f / 16f
@@ -169,14 +131,14 @@ private fun VideoWallpaperItem.matchesFilter(filter: VideoFocusFilter, orientati
     }
 }
 
-private fun VideoWallpaperItem.isLoopFriendly(): Boolean {
+internal fun VideoWallpaperItem.isLoopFriendly(): Boolean {
     val title = title.lowercase(java.util.Locale.ROOT)
     return LOOP_TERMS.any { it in title } ||
         duration in 4..18 ||
         source == "Pixabay"
 }
 
-private fun VideoWallpaperItem.batteryTier(): BatteryTier = batteryTierOf(this)
+internal fun VideoWallpaperItem.batteryTier(): BatteryTier = batteryTierOf(this)
 
 private fun batteryTierOf(item: VideoWallpaperItem): BatteryTier {
     val pixels = item.videoWidth.toLong() * item.videoHeight.toLong()
@@ -187,7 +149,7 @@ private fun batteryTierOf(item: VideoWallpaperItem): BatteryTier {
     }
 }
 
-private enum class BatteryTier { LOW, MEDIUM, HIGH }
+internal enum class BatteryTier { LOW, MEDIUM, HIGH }
 
 private val LOOP_TERMS = setOf(
     "loop", "cinemagraph", "ambient", "waves", "rain", "particles", "abstract", "clouds", "neon",

@@ -711,14 +711,18 @@ fun VideoWallpapersScreen(
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     Text(item.title, style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(2.dp))
-                    Text(item.videoTechnicalSummary(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        localizedVideoSummary(item),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         stringResource(
                             R.string.video_wp_badge_summary,
-                            item.loopBadge(),
-                            item.batteryBadge(),
-                            item.fitBadge(state.orientation),
+                            localizedLoopBadge(item),
+                            localizedBatteryBadge(item),
+                            localizedFitBadge(item, state.orientation),
                         ),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
@@ -829,6 +833,50 @@ fun VideoWallpapersScreen(
         }
     }
 }
+
+@Composable
+private fun localizedVideoSummary(item: VideoWallpaperItem): String {
+    val format = if (item.hasDimensions) {
+        stringResource(
+            R.string.video_wp_technical_dimensions,
+            item.videoWidth,
+            item.videoHeight,
+            stringResource(
+                if (item.isPortrait) R.string.video_wp_badge_portrait else R.string.video_wp_badge_landscape,
+            ),
+        )
+    } else {
+        stringResource(R.string.video_wp_technical_adaptive_stream)
+    }
+    val duration = item.duration.takeIf { it > 0 }
+        ?.let { stringResource(R.string.video_wp_duration_seconds, it) }
+    return listOfNotNull(format, duration).joinToString(" · ")
+}
+
+@Composable
+private fun localizedLoopBadge(item: VideoWallpaperItem): String = stringResource(
+    if (item.isLoopFriendly()) R.string.video_wp_badge_loop_safe else R.string.video_wp_badge_dynamic,
+)
+
+@Composable
+private fun localizedBatteryBadge(item: VideoWallpaperItem): String = stringResource(
+    when (item.batteryTier()) {
+        BatteryTier.LOW -> R.string.video_wp_badge_low_battery
+        BatteryTier.MEDIUM -> R.string.video_wp_badge_balanced
+        BatteryTier.HIGH -> R.string.video_wp_badge_high_motion
+    },
+)
+
+@Composable
+private fun localizedFitBadge(item: VideoWallpaperItem, orientation: OrientationFilter): String = stringResource(
+    when {
+        !item.hasDimensions -> R.string.video_wp_badge_flexible
+        orientation == OrientationFilter.PORTRAIT && item.isPortrait -> R.string.video_wp_badge_phone_fit
+        orientation == OrientationFilter.LANDSCAPE && item.isLandscape -> R.string.video_wp_badge_wide_fit
+        orientation == OrientationFilter.ALL && item.isPortrait -> R.string.video_wp_badge_phone_fit
+        else -> R.string.video_wp_badge_needs_crop
+    },
+)
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable

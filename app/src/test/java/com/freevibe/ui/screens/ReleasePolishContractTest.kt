@@ -116,6 +116,44 @@ class ReleasePolishContractTest {
     }
 
     @Test
+    fun `expanded wallpaper details stay bounded and scroll to every action`() {
+        val source = File("src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperDetailScreen.kt").readText()
+        val overlay = source
+            .substringAfter("Column(modifier = Modifier.fillMaxSize())")
+            .substringBefore("if (showApplyOptions)")
+
+        assertTrue(source.contains("val detailsScrollState = rememberScrollState()"))
+        assertTrue(overlay.contains("if (!showDetailsPanel) Spacer(Modifier.weight(1f))"))
+        assertTrue(overlay.contains("if (showDetailsPanel) Modifier.weight(1f) else Modifier"))
+        assertTrue(overlay.contains("if (showDetailsPanel) Modifier.verticalScroll(detailsScrollState) else Modifier"))
+        assertTrue(overlay.contains("FlowRow("))
+        assertTrue(overlay.contains("maxItemsInEachRow = 4"))
+        assertTrue(!overlay.contains(".horizontalScroll(scrollState)"))
+    }
+
+    @Test
+    fun `library and settings descriptions remain readable on phone screens`() {
+        val shared = File("src/main/java/com/freevibe/ui/components/SharedComponents.kt").readText()
+        val header = shared.substringAfter("fun AuraScreenHeader(").substringBefore("fun SourceBadge(")
+        val settings = File("src/main/java/com/freevibe/ui/screens/settings/SettingsComponents.kt").readText()
+
+        assertTrue(header.contains("maxLines = 2"))
+        assertTrue(settings.split("maxLines = 2").size >= 4)
+    }
+
+    @Test
+    fun `video apply guidance uses localized user facing summaries`() {
+        val source = File("src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersScreen.kt").readText()
+        val quality = File("src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpaperQuality.kt").readText()
+
+        assertTrue(source.contains("localizedVideoSummary(item)"))
+        assertTrue(source.contains("video_wp_technical_adaptive_stream"))
+        assertTrue(source.contains("video_wp_badge_loop_safe"))
+        assertTrue(!quality.contains("Unknown video dimensions"))
+        assertTrue(!quality.contains("Loop-safe"))
+    }
+
+    @Test
     fun `creator profile edit dialog is scrollable and keyboard aware`() {
         val source = File("src/main/java/com/freevibe/ui/screens/community/CreatorProfileScreen.kt").readText()
         val dialog = source.substringAfter("private fun CreatorProfileEditDialog(").substringBefore("private fun CreatorMetric(")

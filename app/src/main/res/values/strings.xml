@@ -1011,7 +1011,18 @@
     <string name="video_wp_saved_manual">Video saved to Movies/Aura for manual setup.</string>
     <string name="video_wp_cropped_saved_manual">Cropped video saved to Movies/Aura for manual setup.</string>
     <string name="video_wp_cropped_ready_manual">Cropped video ready. Open Settings &gt; Wallpaper &gt; Live Wallpapers to finish setup.</string>
-    <string name="video_wp_badge_summary">%1$s - %2$s - %3$s</string>
+    <string name="video_wp_badge_summary">%1$s · %2$s · %3$s</string>
+    <string name="video_wp_badge_loop_safe">Smooth loop</string>
+    <string name="video_wp_badge_dynamic">Dynamic</string>
+    <string name="video_wp_badge_low_battery">Low battery use</string>
+    <string name="video_wp_badge_balanced">Balanced</string>
+    <string name="video_wp_badge_high_motion">High motion</string>
+    <string name="video_wp_badge_flexible">Flexible fit</string>
+    <string name="video_wp_badge_phone_fit">Phone fit</string>
+    <string name="video_wp_badge_wide_fit">Wide fit</string>
+    <string name="video_wp_badge_needs_crop">Crop suggested</string>
+    <string name="video_wp_technical_adaptive_stream">Adaptive video stream</string>
+    <string name="video_wp_technical_dimensions">%1$d × %2$d · %3$s</string>
     <string name="video_wp_youtube_disabled">YouTube features are disabled in Settings</string>
     <string name="video_wp_apply_failed">Failed: %1$s</string>
     <string name="video_wp_by_creator">by %1$s</string>
@@ -1630,19 +1641,22 @@
 
     <!-- Library screen -->
     <string name="library_title">Local Library</string>
-    <string name="library_subtitle">Saved wallpapers, sounds, downloads, collections, imports, and restore tools in one on-device hub.</string>
+    <string name="library_subtitle">Everything you have saved or downloaded, together on this device.</string>
     <string name="library_search_title">Search</string>
-    <string name="library_search_body">Search saved wallpapers, videos, sounds, collections, downloads, local files, and available providers from one place.</string>
+    <string name="library_search_body">Find saved media, downloads, local files, and provider results.</string>
     <string name="library_search_status">Local history, offline results</string>
     <string name="library_favorites_title">Favorites</string>
-    <string name="library_favorites_body">Review saved wallpapers and sounds, batch download wallpapers, or restore a local backup.</string>
+    <string name="library_favorites_body">Review saved wallpapers and sounds, download a batch, or restore a backup.</string>
     <string name="library_favorites_count">%1$d saved</string>
     <string name="library_downloads_title">Downloads</string>
     <string name="library_downloads_body">Open files Aura has downloaded for offline use and clean up stale local paths.</string>
     <string name="library_downloads_count">%1$d offline</string>
     <string name="library_collections_title">Collections</string>
     <string name="library_collections_body">Manage saved sets, QR imports, and portable collection exports.</string>
-    <string name="library_collections_count">%1$d set(s)</string>
+    <plurals name="library_collections_count">
+        <item quantity="one">%1$d collection</item>
+        <item quantity="other">%1$d collections</item>
+    </plurals>
     <string name="library_imports_title">Local imports</string>
     <string name="library_imports_body">Bring in collection links, exported bundles, or files already stored on this device.</string>
     <string name="library_imports_status">Handled by collection import and file pickers</string>

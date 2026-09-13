@@ -6,7 +6,6 @@ import android.content.Intent
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -255,6 +254,7 @@ fun WallpaperDetailScreen(
     var showBlockCreatorDialog by remember(wp.stableKey()) { mutableStateOf(false) }
     var showDeleteUploadDialog by remember(wp.stableKey()) { mutableStateOf(false) }
     var showDetailsPanel by remember { mutableStateOf(false) }
+    val detailsScrollState = rememberScrollState()
     val isGeneratedWallpaper = wp.source == ContentSource.AI_GENERATED
     val canReportWallpaper = wp.source != ContentSource.LOCAL
     var canDeleteUpload by remember(wp.stableKey(), communityProviderEnabled) { mutableStateOf(false) }
@@ -264,6 +264,9 @@ fun WallpaperDetailScreen(
     val canBlockCreator = viewModel.canBlockCommunityWallpaper(wp) && !canDeleteUpload
     LaunchedEffect(wp.stableKey()) {
         showDetailsPanel = false
+    }
+    LaunchedEffect(showDetailsPanel) {
+        if (showDetailsPanel) detailsScrollState.scrollTo(0)
     }
 
     val parallaxDirectMessage = stringResource(R.string.settings_feedback_parallax_direct)
@@ -371,11 +374,13 @@ fun WallpaperDetailScreen(
                     }
                 }
 
-                Spacer(Modifier.weight(1f))
+                if (!showDetailsPanel) Spacer(Modifier.weight(1f))
 
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .then(if (showDetailsPanel) Modifier.weight(1f) else Modifier)
+                        .then(if (showDetailsPanel) Modifier.verticalScroll(detailsScrollState) else Modifier)
                         .padding(horizontal = 14.dp)
                         .padding(
                             top = 14.dp,
@@ -518,12 +523,11 @@ fun WallpaperDetailScreen(
                             Spacer(Modifier.height(16.dp))
                             DetailSectionTitle(stringResource(R.string.detail_theme_colors_title))
                             Spacer(Modifier.height(8.dp))
-                            val scrollState = rememberScrollState()
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalScroll(scrollState),
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                maxItemsInEachRow = 4,
                             ) {
                                 listOf(
                                     stringResource(R.string.detail_color_dominant) to palette.dominantColor,

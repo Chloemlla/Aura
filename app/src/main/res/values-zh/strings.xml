@@ -917,7 +917,18 @@
     <string name="video_wp_saved_manual">视频已保存到 Movies/Aura 以便手动设置。</string>
     <string name="video_wp_cropped_saved_manual">裁剪后的视频已保存到 Movies/Aura 以便手动设置。</string>
     <string name="video_wp_cropped_ready_manual">裁剪后的视频已就绪。打开设置 &gt; 壁纸 &gt; 动态壁纸以完成设置。</string>
-    <string name="video_wp_badge_summary">%1$s - %2$s - %3$s</string>
+    <string name="video_wp_badge_summary">%1$s · %2$s · %3$s</string>
+    <string name="video_wp_badge_loop_safe">流畅循环</string>
+    <string name="video_wp_badge_dynamic">动态效果</string>
+    <string name="video_wp_badge_low_battery">低耗电</string>
+    <string name="video_wp_badge_balanced">均衡</string>
+    <string name="video_wp_badge_high_motion">高动态</string>
+    <string name="video_wp_badge_flexible">灵活适配</string>
+    <string name="video_wp_badge_phone_fit">适合手机</string>
+    <string name="video_wp_badge_wide_fit">适合宽屏</string>
+    <string name="video_wp_badge_needs_crop">建议裁剪</string>
+    <string name="video_wp_technical_adaptive_stream">自适应视频流</string>
+    <string name="video_wp_technical_dimensions">%1$d × %2$d · %3$s</string>
     <string name="video_wp_youtube_disabled">YouTube 功能已在设置中禁用</string>
     <string name="video_wp_apply_failed">失败：%1$s</string>
     <string name="video_wp_by_creator">由 %1$s 提供</string>
@@ -1470,19 +1481,21 @@
 
     <!-- Library screen -->
     <string name="library_title">本地图库</string>
-    <string name="library_subtitle">在一个设备端中心里汇集保存的壁纸、声音、下载、收藏、导入和恢复工具。</string>
+    <string name="library_subtitle">集中查看此设备上保存或下载的所有内容。</string>
     <string name="library_search_title">搜索</string>
-    <string name="library_search_body">在同一个地方搜索已保存的壁纸、视频、声音、收藏、下载、本地文件和可用的提供商。</string>
+    <string name="library_search_body">查找已保存的媒体、下载、本地文件和提供商结果。</string>
     <string name="library_search_status">本地历史记录、离线结果</string>
     <string name="library_favorites_title">收藏</string>
-    <string name="library_favorites_body">查看已保存的壁纸和声音、批量下载壁纸，或恢复本地备份。</string>
+    <string name="library_favorites_body">查看保存的壁纸和声音、批量下载或恢复备份。</string>
     <string name="library_favorites_count">已保存 %1$d 项</string>
     <string name="library_downloads_title">下载</string>
     <string name="library_downloads_body">打开 Aura 已下载以供离线使用的文件，并清理过期的本地路径。</string>
     <string name="library_downloads_count">%1$d 项离线</string>
     <string name="library_collections_title">收藏集</string>
     <string name="library_collections_body">管理已保存的集合、QR 码导入和可移植的收藏集导出。</string>
-    <string name="library_collections_count">%1$d 个收藏集</string>
+    <plurals name="library_collections_count">
+        <item quantity="other">%1$d 个收藏集</item>
+    </plurals>
     <string name="library_imports_title">本地导入</string>
     <string name="library_imports_body">导入收藏集链接、导出的信息包或已存储在此设备上的文件。</string>
     <string name="library_imports_status">由收藏集导入和文件选择器处理</string>

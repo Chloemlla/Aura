@@ -484,7 +484,6 @@ class VideoWallpapersViewModelTest {
         assertFalse(item.hasDimensions)
         assertEquals(0, item.videoWidth)
         assertEquals(0, item.videoHeight)
-        assertEquals("Unknown video dimensions · 16s", item.videoTechnicalSummary())
     }
 
     @Test
@@ -506,7 +505,6 @@ class VideoWallpapersViewModelTest {
         assertEquals(1920, item.videoHeight)
         assertEquals(90, item.videoRotationDegrees)
         assertEquals(12L, item.duration)
-        assertEquals("1080x1920 (Portrait) · 0.56:1 · 12s · rotated 90deg · avc1.640028 · video/mp4", item.videoTechnicalSummary())
     }
 
     @Test
