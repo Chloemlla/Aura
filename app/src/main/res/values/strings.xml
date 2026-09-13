@@ -1070,6 +1070,8 @@
     <string name="settings_title">Settings</string>
     <string name="settings_apikey_save">Save</string>
     <string name="settings_apikey_clear">Clear</string>
+    <string name="settings_apikey_show">Show API key</string>
+    <string name="settings_apikey_hide">Hide API key</string>
     <string name="settings_feedback_local_folder_saved">Local wallpaper folder saved</string>
     <string name="settings_feedback_local_folder_no_persist">Folder selected. If rotation cannot read it, choose the folder again.</string>
     <string name="settings_feedback_backup_folder_on">Backup folder saved. Scheduled backup is on.</string>

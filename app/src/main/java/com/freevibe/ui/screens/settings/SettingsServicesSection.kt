@@ -21,8 +21,11 @@ import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -37,6 +40,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.freevibe.R
 import com.freevibe.data.repository.CommunityBlockedUser
@@ -352,6 +357,7 @@ internal fun ProviderApiKeyDialog(
     onDismiss: () -> Unit,
 ) {
     var keyText by remember(value) { mutableStateOf(value) }
+    var keyVisible by remember { mutableStateOf(false) }
     val canClear = keyText.isNotBlank() || value.isNotBlank()
 
     AlertDialog(
@@ -379,6 +385,21 @@ internal fun ProviderApiKeyDialog(
                         keyboardType = KeyboardType.Password,
                         imeAction = ImeAction.Done,
                     ),
+                    visualTransformation = if (keyVisible) {
+                        VisualTransformation.None
+                    } else {
+                        PasswordVisualTransformation()
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = { keyVisible = !keyVisible }) {
+                            Icon(
+                                imageVector = if (keyVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = stringResource(
+                                    if (keyVisible) R.string.settings_apikey_hide else R.string.settings_apikey_show
+                                ),
+                            )
+                        }
+                    },
                 )
             }
         },

@@ -975,6 +975,8 @@
     <string name="settings_title">设置</string>
     <string name="settings_apikey_save">保存</string>
     <string name="settings_apikey_clear">清除</string>
+    <string name="settings_apikey_show">显示 API 密钥</string>
+    <string name="settings_apikey_hide">隐藏 API 密钥</string>
     <string name="settings_feedback_local_folder_saved">本地壁纸文件夹已保存</string>
     <string name="settings_feedback_local_folder_no_persist">已选择文件夹。如果轮换无法读取它，请重新选择该文件夹。</string>
     <string name="settings_feedback_backup_folder_on">备份文件夹已保存。定时备份已开启。</string>
