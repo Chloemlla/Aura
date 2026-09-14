@@ -1,11 +1,24 @@
 package com.freevibe.service
 
+import android.content.Context
+import com.freevibe.data.model.DownloadEntity
+import io.mockk.coEvery
+import io.mockk.every
+import io.mockk.mockk
+import java.io.File
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 
 class VideoWallpaperStorageTest {
+
+    @get:Rule
+    val temporaryFolder = TemporaryFolder()
 
     @Test
     fun `gif selections are detected by mime type and file name`() {
@@ -27,6 +40,59 @@ class VideoWallpaperStorageTest {
     @Test
     fun `video wallpaper picker accepts video and gif mime types`() {
         assertEquals(listOf("video/*", "image/gif"), videoWallpaperMimeTypes().toList())
+    }
+
+    @Test
+    fun `stored motion extension follows verified bytes instead of a stale url suffix`() {
+        assertEquals(
+            "mp4",
+            resolvedMotionExtension(
+                SniffedMediaType(MediaFamily.CONTAINER, "video/mp4", "mp4"),
+                "webm",
+            ),
+        )
+        assertEquals(
+            "gif",
+            resolvedMotionExtension(
+                SniffedMediaType(MediaFamily.IMAGE, "image/gif", "gif"),
+                "mp4",
+            ),
+        )
+    }
+
+    @Test
+    fun `download history identity is stable across feed reapply`() {
+        assertEquals(
+            "video:reddit:rd_abc123",
+            downloadedVideoHistoryId("Reddit", "rd_abc123"),
+        )
+    }
+
+    @Test
+    fun `saved feed original is reused only while its bytes still match`() = runTest {
+        val filesDir = temporaryFolder.newFolder("video-reapply")
+        val original = File(filesDir, "media_originals/saved.mp4").apply {
+            parentFile?.mkdirs()
+            writeBytes(byteArrayOf(1, 2, 3, 4))
+        }
+        val record = DownloadEntity(
+            id = downloadedVideoHistoryId("Reddit", "rd_saved"),
+            source = "Reddit",
+            type = "VIDEO",
+            localPath = original.absolutePath,
+            originalSha256 = sha256File(original),
+            originalSizeBytes = original.length(),
+        )
+        val context = mockk<Context>()
+        every { context.filesDir } returns filesDir
+        val copyStore = mockk<MediaCopyStore>()
+        coEvery { copyStore.findOriginal(record.id, "") } returns (record to original.absolutePath)
+        val storage = VideoWallpaperStorage(context, mockk(), copyStore)
+
+        assertEquals(original.canonicalPath, storage.findSavedDownloadedVideo("rd_saved", "Reddit")?.canonicalPath)
+
+        original.writeBytes(byteArrayOf(4, 3, 2, 1))
+        assertNull(storage.findSavedDownloadedVideo("rd_saved", "Reddit"))
     }
 
     @Test

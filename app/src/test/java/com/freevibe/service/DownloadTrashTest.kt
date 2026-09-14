@@ -49,6 +49,7 @@ class DownloadTrashTest {
         id: String,
         deletedAtMs: Long = 0L,
         stagedPath: String = "",
+        optimizedPath: String = "",
     ) = TrashedDownload(
         id = id,
         source = "WALLHAVEN",
@@ -56,6 +57,16 @@ class DownloadTrashTest {
         name = "Sunset",
         localPath = "/storage/emulated/0/Pictures/Aura/$id.jpg",
         downloadedAt = 100L,
+        provenanceUrl = "https://example.com/source/$id",
+        originalSha256 = "original-$id",
+        originalMimeType = "image/jpeg",
+        originalWidth = 1_440,
+        originalHeight = 3_088,
+        originalSizeBytes = 4_096L,
+        optimizedPath = optimizedPath,
+        optimizedSha256 = "optimized-$id",
+        optimizationKey = "settings-$id",
+        optimizationReason = "Oversized wallpaper",
         stagedPath = stagedPath,
         deletedAtMs = deletedAtMs,
     )
@@ -158,5 +169,29 @@ class DownloadTrashTest {
         assertEquals("WALLPAPER", restored.type)
         assertEquals("Sunset", restored.name)
         assertEquals(100L, restored.downloadedAt)
+        assertEquals("https://example.com/source/a", restored.provenanceUrl)
+        assertEquals("original-a", restored.originalSha256)
+        assertEquals(1_440, restored.originalWidth)
+        assertEquals(3_088, restored.originalHeight)
+        assertEquals(4_096L, restored.originalSizeBytes)
+        assertEquals("optimized-a", restored.optimizedSha256)
+        assertEquals("settings-a", restored.optimizationKey)
+        assertEquals("Oversized wallpaper", restored.optimizationReason)
+    }
+
+    @Test
+    fun `expired entry removes its managed derivative but not a lookalike path`() {
+        val applyDirectory = File(context.filesDir, MediaCopyStore.APPLY_COPY_DIRECTORY).apply { mkdirs() }
+        val managed = File(applyDirectory, "working.mp4").apply { writeBytes(ByteArray(16)) }
+        val outside = File(context.filesDir, "working.mp4").apply { writeBytes(ByteArray(16)) }
+        trash.add(entry("managed", deletedAtMs = 0L, optimizedPath = managed.absolutePath))
+        trash.add(entry("outside", deletedAtMs = 0L, optimizedPath = outside.absolutePath))
+
+        trash.purgeExpired(nowMs = DELETION_RETENTION_MS * 2)
+
+        assertFalse(managed.exists())
+        assertTrue(outside.exists())
+        outside.delete()
+        applyDirectory.delete()
     }
 }

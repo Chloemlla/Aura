@@ -1,8 +1,10 @@
 package com.freevibe.ui.screens.downloads
 
 import com.freevibe.data.model.DownloadEntity
+import com.freevibe.data.model.MediaTechnicalMetadata
 import com.freevibe.service.DownloadProgress
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class DownloadsScreenPolishTest {
@@ -56,5 +58,58 @@ class DownloadsScreenPolishTest {
                 ),
             ),
         )
+    }
+
+    @Test
+    fun `video rows open with video mime and expose copy metadata`() {
+        val video = DownloadEntity(
+            id = "video-1",
+            source = "REDDIT",
+            type = "VIDEO",
+            localPath = "/path/loop.webm",
+            name = "Night loop",
+        )
+
+        assertEquals("video/*", downloadOpenMimeType(video))
+        assertEquals("Video", downloadHealthLabel(video, broken = false, sourceUnavailable = false))
+        assertEquals(
+            "3840×2160 · H264 · 1:02 · 12 MB · HDR",
+            formatMediaTechnicalMetadata(
+                MediaTechnicalMetadata(
+                    codec = "H264",
+                    width = 3840,
+                    height = 2160,
+                    durationMs = 62_000,
+                    sizeBytes = 12L * 1024L * 1024L,
+                    isHdr = true,
+                ),
+            ),
+        )
+        assertEquals(
+            "Night loop. Video. Downloaded Jun 12, 9:30 AM. Original: 1920×1080 · H264 · 8 MB. Optimized copy: 1080×1920 · H264 · 3 MB.",
+            downloadHistorySummary(
+                download = video,
+                broken = false,
+                sourceUnavailable = false,
+                downloadedAtLabel = "Jun 12, 9:30 AM",
+                copyDetails = listOf(
+                    "Original" to "1920×1080 · H264 · 8 MB",
+                    "Optimized copy" to "1080×1920 · H264 · 3 MB",
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun `absolute and file locators are checked while content uris stay provider backed`() {
+        assertEquals(
+            "loop.mp4",
+            downloadLocalFile("/data/user/0/com.freevibe/files/media_originals/loop.mp4")?.name,
+        )
+        assertEquals(
+            "loop.mp4",
+            downloadLocalFile("file:///data/user/0/com.freevibe/files/media_originals/loop.mp4")?.name,
+        )
+        assertNull(downloadLocalFile("content://media/external/video/media/42"))
     }
 }

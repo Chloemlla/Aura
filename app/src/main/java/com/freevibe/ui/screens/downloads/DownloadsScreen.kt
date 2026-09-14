@@ -26,12 +26,16 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.freevibe.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.freevibe.data.model.DownloadEntity
+import com.freevibe.data.model.MediaTechnicalMetadata
 import com.freevibe.data.model.RotationExclusionIndex
 import com.freevibe.data.model.isSourceUnavailable
+import com.freevibe.data.model.optimizedTechnicalMetadata
+import com.freevibe.data.model.originalTechnicalMetadata
 import com.freevibe.data.model.rotationIdentity
 import com.freevibe.service.DownloadProgress
 import com.freevibe.ui.components.AuraSnackbarHost
@@ -57,6 +61,7 @@ fun DownloadsScreen(
     val tabs = listOf(
         stringResource(R.string.downloads_tab_all),
         stringResource(R.string.nav_wallpapers),
+        stringResource(R.string.nav_videos),
         stringResource(R.string.nav_sounds),
     )
     val context = LocalContext.current
@@ -71,7 +76,8 @@ fun DownloadsScreen(
     val displayList = remember(allDownloads, selectedTab) {
         when (selectedTab) {
             1 -> allDownloads.filter { it.type == "WALLPAPER" }
-            2 -> allDownloads.filter { it.type == "SOUND" }
+            2 -> allDownloads.filter { it.type == "VIDEO" }
+            3 -> allDownloads.filter { it.type == "SOUND" }
             else -> allDownloads
         }
     }
@@ -79,11 +85,8 @@ fun DownloadsScreen(
     LaunchedEffect(displayList) {
         brokenIds = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             displayList.filter { it.localPath.isNotBlank() }.mapNotNullTo(mutableSetOf()) { item ->
-                val parsed = Uri.parse(item.localPath)
-                if (parsed.scheme == "file") {
-                    val path = parsed.path
-                    if (path != null && !java.io.File(path).exists()) item.id else null
-                } else null
+                val file = downloadLocalFile(item.localPath)
+                if (file != null && !file.exists()) item.id else null
             }
         }
     }
@@ -103,7 +106,7 @@ fun DownloadsScreen(
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            TabRow(selectedTabIndex = selectedTab, containerColor = MaterialTheme.colorScheme.surface) {
+            PrimaryTabRow(selectedTabIndex = selectedTab, containerColor = MaterialTheme.colorScheme.surface) {
                 tabs.forEachIndexed { i, title ->
                     Tab(selected = selectedTab == i, onClick = { selectedTab = i }, text = { Text(title) })
                 }
@@ -150,16 +153,14 @@ fun DownloadsScreen(
                                         scope.launch { snackbarHostState.showSnackbar(missingPathMessage) }
                                         return@DownloadHistoryCard
                                     }
-                                    val uri = Uri.parse(path)
-                                    if (uri.scheme == "file") {
-                                        val file = java.io.File(uri.path ?: "")
-                                        if (!file.exists()) {
-                                            scope.launch { snackbarHostState.showSnackbar(missingFileMessage) }
-                                            return@DownloadHistoryCard
-                                        }
+                                    val localFile = downloadLocalFile(path)
+                                    if (localFile != null && !localFile.exists()) {
+                                        scope.launch { snackbarHostState.showSnackbar(missingFileMessage) }
+                                        return@DownloadHistoryCard
                                     }
+                                    val uri = downloadOpenUri(context, path, localFile)
                                     val intent = Intent(Intent.ACTION_VIEW).apply {
-                                        setDataAndType(uri, if (download.type == "WALLPAPER") "image/*" else "audio/*")
+                                        setDataAndType(uri, downloadOpenMimeType(download))
                                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                     }
                                     context.startActivity(intent)
@@ -185,6 +186,23 @@ fun DownloadsScreen(
                                     }
                                 }
                             },
+                            onDeleteOptimized = if (download.optimizedPath.isNotBlank()) ({
+                                scope.launch {
+                                    val deleted = try {
+                                        viewModel.deleteOptimizedCopy(download.id)
+                                    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                        throw cancelled
+                                    } catch (_: Exception) {
+                                        false
+                                    }
+                                    snackbarHostState.showSnackbar(
+                                        resources.getString(
+                                            if (deleted) R.string.downloads_optimized_deleted
+                                            else R.string.downloads_optimized_delete_failed,
+                                        ),
+                                    )
+                                }
+                            }) else null,
                             rotationExcluded = rotationExclusion != null,
                             onToggleRotationExclusion = if (download.type == "WALLPAPER") ({
                                 scope.launch {
@@ -256,7 +274,11 @@ private fun ActiveDownloadCard(dl: DownloadProgress, onDismiss: () -> Unit) {
                             .size(48.dp)
                             .semantics { onClick(label = dismissLabel, action = null) },
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = dismissLabel,
+                            modifier = Modifier.size(16.dp),
+                        )
                     }
                 }
             }
@@ -279,21 +301,43 @@ private fun ActiveDownloadCard(dl: DownloadProgress, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun DownloadHistoryCard(
+internal fun DownloadHistoryCard(
     download: DownloadEntity,
     broken: Boolean = false,
     sourceUnavailable: Boolean = false,
     onOpen: () -> Unit,
     onDelete: () -> Unit,
+    onDeleteOptimized: (() -> Unit)? = null,
     rotationExcluded: Boolean = false,
     onToggleRotationExclusion: (() -> Unit)? = null,
 ) {
     val dateFormat = remember { SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()) }
     val dateLabel = remember(download.downloadedAt) { dateFormat.format(Date(download.downloadedAt)) }
     val healthLabel = downloadHealthLabel(download, broken, sourceUnavailable)
-    val itemSummary = downloadHistorySummary(download, broken, sourceUnavailable, dateLabel)
+    val originalLabel = stringResource(R.string.downloads_original)
+    val optimizedLabel = stringResource(R.string.downloads_optimized_copy)
+    val unavailableDetails = stringResource(R.string.downloads_details_unavailable)
+    val originalDetails = formatMediaTechnicalMetadata(
+        download.originalTechnicalMetadata(),
+        unavailableDetails,
+    )
+    val optimizedDetails = formatMediaTechnicalMetadata(
+        download.optimizedTechnicalMetadata(),
+        unavailableDetails,
+    )
+    val itemSummary = downloadHistorySummary(
+        download,
+        broken,
+        sourceUnavailable,
+        dateLabel,
+        buildList {
+            add(originalLabel to originalDetails)
+            if (download.optimizedPath.isNotBlank()) add(optimizedLabel to optimizedDetails)
+        },
+    )
     val openLabel = downloadOpenActionLabel(download, broken)
     val deleteLabel = stringResource(R.string.downloads_delete_file, download.name.ifEmpty { download.id })
+    val deleteOptimizedLabel = stringResource(R.string.downloads_delete_optimized)
 
     Surface(
         onClick = onOpen,
@@ -306,79 +350,139 @@ private fun DownloadHistoryCard(
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.24f)),
     ) {
-        Row(
-            Modifier.fillMaxWidth().padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Icon(
-                if (broken || sourceUnavailable) Icons.Default.Warning
-                else if (download.type == "WALLPAPER") Icons.Default.Image else Icons.Default.MusicNote,
-                null, Modifier.size(24.dp),
-                tint = if (broken || sourceUnavailable) MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
-                       else MaterialTheme.colorScheme.primary,
-            )
-            Column(Modifier.weight(1f)) {
-                Text(
-                    download.name.ifEmpty { download.id },
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = if (broken) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                            else MaterialTheme.colorScheme.onSurface,
+        Column(Modifier.fillMaxWidth().padding(14.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Icon(
+                    downloadHistoryIcon(download, broken, sourceUnavailable),
+                    null,
+                    Modifier.size(24.dp),
+                    tint = if (broken || sourceUnavailable) MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                    else MaterialTheme.colorScheme.primary,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(dateLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (broken) {
-                        Text(stringResource(R.string.downloads_file_missing), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f))
-                    } else if (sourceUnavailable) {
-                        Text(stringResource(R.string.downloads_source_unavailable), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f))
-                    } else {
-                        Text(
-                            if (download.type == "WALLPAPER") {
-                                stringResource(R.string.downloads_type_wallpaper)
-                            } else {
-                                stringResource(R.string.downloads_type_sound)
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        download.name.ifEmpty { download.id },
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = if (broken) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        else MaterialTheme.colorScheme.onSurface,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(dateLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        when {
+                            broken -> Text(stringResource(R.string.downloads_file_missing), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f))
+                            sourceUnavailable -> Text(stringResource(R.string.downloads_source_unavailable), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f))
+                            else -> Text(
+                                stringResource(downloadTypeLabel(download.type)),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                }
+                if (onToggleRotationExclusion != null) {
+                    val exclusionLabel = stringResource(
+                        if (rotationExcluded) R.string.rotation_restore_action else R.string.rotation_exclude_action,
+                    )
+                    IconButton(
+                        onClick = onToggleRotationExclusion,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .semantics { onClick(label = exclusionLabel, action = null) },
+                    ) {
+                        Icon(
+                            if (rotationExcluded) Icons.Default.Restore else Icons.Default.PlaylistRemove,
+                            contentDescription = exclusionLabel,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.secondary,
                         )
                     }
                 }
-            }
-            if (onToggleRotationExclusion != null) {
-                val exclusionLabel = stringResource(
-                    if (rotationExcluded) R.string.rotation_restore_action else R.string.rotation_exclude_action,
-                )
                 IconButton(
-                    onClick = onToggleRotationExclusion,
+                    onClick = onDelete,
                     modifier = Modifier
                         .size(48.dp)
-                        .semantics { onClick(label = exclusionLabel, action = null) },
+                        .semantics { onClick(label = deleteLabel, action = null) },
                 ) {
                     Icon(
-                        if (rotationExcluded) Icons.Default.Restore else Icons.Default.PlaylistRemove,
-                        contentDescription = null,
+                        Icons.Default.Delete,
+                        contentDescription = deleteLabel,
                         modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.secondary,
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                     )
                 }
             }
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier
-                    .size(48.dp)
-                    .semantics { onClick(label = deleteLabel, action = null) },
-            ) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+            HorizontalDivider(
+                Modifier.padding(vertical = 10.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.38f),
+            )
+            MediaCopyDetails(
+                label = originalLabel,
+                details = originalDetails,
+            )
+            if (download.optimizedPath.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                MediaCopyDetails(
+                    label = optimizedLabel,
+                    details = listOf(
+                        download.optimizationReason,
+                        optimizedDetails,
+                    ).filter(String::isNotBlank).joinToString(" · "),
+                    action = {
+                        IconButton(
+                            onClick = { onDeleteOptimized?.invoke() },
+                            modifier = Modifier
+                                .size(48.dp)
+                                .semantics { onClick(label = deleteOptimizedLabel, action = null) },
+                        ) {
+                            Icon(
+                                Icons.Default.DeleteSweep,
+                                contentDescription = deleteOptimizedLabel,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.secondary,
+                            )
+                        }
+                    },
                 )
             }
         }
     }
+}
+
+@Composable
+private fun MediaCopyDetails(
+    label: String,
+    details: String,
+    action: (@Composable () -> Unit)? = null,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+            Text(details, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        action?.invoke()
+    }
+}
+
+private fun downloadHistoryIcon(
+    download: DownloadEntity,
+    broken: Boolean,
+    sourceUnavailable: Boolean,
+) = when {
+    broken || sourceUnavailable -> Icons.Default.Warning
+    download.type == "WALLPAPER" -> Icons.Default.Image
+    download.type == "VIDEO" -> Icons.Default.VideoLibrary
+    else -> Icons.Default.MusicNote
+}
+
+private fun downloadTypeLabel(type: String): Int = when (type) {
+    "WALLPAPER" -> R.string.downloads_type_wallpaper
+    "VIDEO" -> R.string.downloads_type_video
+    else -> R.string.downloads_type_sound
 }
 
 internal fun downloadHealthLabel(
@@ -389,7 +493,80 @@ internal fun downloadHealthLabel(
     broken -> "File missing"
     sourceUnavailable -> "Source unavailable"
     download.type == "WALLPAPER" -> "Wallpaper"
+    download.type == "VIDEO" -> "Video"
     else -> "Sound"
+}
+
+internal fun downloadOpenMimeType(download: DownloadEntity): String = when (download.type) {
+    "WALLPAPER" -> "image/*"
+    "VIDEO" -> "video/*"
+    else -> "audio/*"
+}
+
+internal fun downloadLocalFile(locator: String): java.io.File? {
+    val normalized = locator.trim()
+    if (normalized.startsWith('/')) return java.io.File(normalized)
+    if (!normalized.startsWith("file:", ignoreCase = true)) return null
+    val path = runCatching { java.net.URI(normalized).path }.getOrNull()
+    return path?.takeIf(String::isNotBlank)?.let { java.io.File(it) }
+}
+
+private fun downloadOpenUri(
+    context: android.content.Context,
+    locator: String,
+    localFile: java.io.File?,
+): Uri {
+    if (localFile != null) {
+        val originalRoot = runCatching {
+            java.io.File(context.filesDir, "media_originals").canonicalFile
+        }.getOrNull()
+        val canonicalFile = runCatching { localFile.canonicalFile }.getOrNull()
+        if (
+            originalRoot != null &&
+            canonicalFile != null &&
+            canonicalFile.path.startsWith(originalRoot.path + java.io.File.separator)
+        ) {
+            return FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                canonicalFile,
+            )
+        }
+    }
+    return Uri.parse(locator)
+}
+
+internal fun formatMediaTechnicalMetadata(
+    metadata: MediaTechnicalMetadata,
+    unavailableLabel: String = "Details unavailable",
+): String {
+    val facts = buildList {
+        if (metadata.width > 0 && metadata.height > 0) add("${metadata.width}×${metadata.height}")
+        metadata.codec.trim().takeIf(String::isNotBlank)?.let(::add)
+        if (metadata.durationMs > 0) {
+            val totalSeconds = metadata.durationMs / 1_000L
+            add("${totalSeconds / 60}:${(totalSeconds % 60).toString().padStart(2, '0')}")
+        }
+        if (metadata.sizeBytes > 0) add(formatMediaSize(metadata.sizeBytes))
+        if (metadata.isHdr) add("HDR")
+    }
+    return facts.joinToString(" · ").ifBlank { unavailableLabel }
+}
+
+private fun formatMediaSize(bytes: Long): String {
+    val units = arrayOf("B", "KB", "MB", "GB", "TB")
+    var value = bytes.coerceAtLeast(0L).toDouble()
+    var unit = 0
+    while (value >= 1_024.0 && unit < units.lastIndex) {
+        value /= 1_024.0
+        unit += 1
+    }
+    val formatted = if (unit == 0 || value >= 10.0) {
+        value.toLong().toString()
+    } else {
+        String.format(Locale.ROOT, "%.1f", value).removeSuffix(".0")
+    }
+    return "$formatted ${units[unit]}"
 }
 
 internal fun downloadHistorySummary(
@@ -397,9 +574,13 @@ internal fun downloadHistorySummary(
     broken: Boolean,
     sourceUnavailable: Boolean,
     downloadedAtLabel: String,
+    copyDetails: List<Pair<String, String>> = emptyList(),
 ): String {
     val name = download.name.ifEmpty { download.id }
-    return "$name. ${downloadHealthLabel(download, broken, sourceUnavailable)}. Downloaded $downloadedAtLabel."
+    return buildString {
+        append("$name. ${downloadHealthLabel(download, broken, sourceUnavailable)}. Downloaded $downloadedAtLabel.")
+        copyDetails.forEach { (label, details) -> append(" $label: $details.") }
+    }
 }
 
 internal fun downloadOpenActionLabel(download: DownloadEntity, broken: Boolean): String =

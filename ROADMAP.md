@@ -6,13 +6,6 @@ Actionable work only. Historical and completed roadmap material is archived in C
 
 ### P2
 
-- [ ] P2 — Separate optimized apply copies from saved originals
-  Why: the best file to preserve is not always the best file to apply. Users should be able to keep the source-quality image, video, or sound while Aura creates a bounded, device-compatible working copy only when application requires it.
-  Evidence: **Verified architecture gap, Likely quality gain.** `WallpaperApplier.kt` can re-encode downloads; YouTube video apply can retain an incompatible codec; existing Ultra HDR and AV1 roadmap items show why preservation and compatibility must be separate; Backdrops, Abstruct, and Wallpaper Engine distinguish collection-quality assets from device playback behavior.
-  Touches: `DownloadManager.kt`, `WallpaperApplier.kt`, `VideoWallpaperStorage.kt`, `AudioTrimmer.kt`, media metadata/database schema, storage UI, export, tests.
-  Acceptance: Save Original writes untouched source bytes plus provenance; Apply prepares a separate named derivative only when resolution, codec, container, crop, or target constraints require it; the UI labels original versus optimized copy and shows dimensions, codec, and size; reapply reuses a valid derivative; replacing or deleting a derivative never removes the original; static HDR behavior coordinates with the existing gainmap item; tests compare hashes and cover incompatible video, oversized image, edited sound, and low-storage rollback.
-  Complexity: M
-
 - [ ] P2 — Relink missing local media without losing library identity
   Why: revoked SAF grants, moved files, renamed folders, and device migration can invalidate a locator while the user's favorite, collection membership, edit choices, and history are still valuable. Clearing the path turns a recoverable move into apparent data loss.
   Evidence: **Verified.** `PathBackedRecordReconciler.kt` clears missing paths and has no user-driven relink path; Nothing Wallpaper Changer preserves membership and edits when users repair broken media references: https://github.com/NineCSdev/nothing-wallpaper-changer.

@@ -6,6 +6,7 @@ import com.freevibe.data.local.DownloadDao
 import com.freevibe.data.model.SOURCE_AVAILABILITY_AVAILABLE
 import com.freevibe.data.model.SOURCE_AVAILABILITY_UNAVAILABLE
 import com.freevibe.service.DownloadManager
+import com.freevibe.service.MediaCopyStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -16,6 +17,7 @@ import javax.inject.Inject
 class DownloadsViewModel @Inject constructor(
     private val downloadDao: DownloadDao,
     private val downloadManager: DownloadManager,
+    private val mediaCopyStore: MediaCopyStore,
 ) : ViewModel() {
     val allDownloads = downloadDao.getAll().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val wallpaperDownloads = downloadDao.getByType("WALLPAPER").stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -23,6 +25,7 @@ class DownloadsViewModel @Inject constructor(
     val activeDownloads = downloadManager.activeDownloads
 
     fun deleteDownload(id: String) = viewModelScope.launch { downloadManager.deleteDownload(id) }
+    suspend fun deleteOptimizedCopy(id: String): Boolean = mediaCopyStore.deleteOptimizedCopy(id)
 
     /** Puts a staged download back, file included, from the Undo action. */
     fun restoreDownload(id: String) = viewModelScope.launch { downloadManager.restoreDownload(id) }

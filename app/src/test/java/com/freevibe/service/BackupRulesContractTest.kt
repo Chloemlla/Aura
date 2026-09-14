@@ -50,6 +50,8 @@ private val requiredBackupExclusions = listOf(
     BackupExclusion("file", "offline_favorites/"),
     BackupExclusion("file", "ai_wallpapers/"),
     BackupExclusion("file", "aura_originals/"),
+    BackupExclusion("file", "apply_copies/"),
+    BackupExclusion("file", "media_originals/"),
     BackupExclusion("file", "parallax/"),
     BackupExclusion("file", "live_wallpaper.mp4"),
     BackupExclusion("file", "live_wallpaper.webm"),

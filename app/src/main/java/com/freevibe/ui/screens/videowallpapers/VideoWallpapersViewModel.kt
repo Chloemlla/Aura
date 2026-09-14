@@ -743,6 +743,22 @@ class VideoWallpapersViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(isApplying = item.id) }
             try {
+                videoWallpaperStorage.findSavedDownloadedVideo(item.id, item.source)?.let { savedOriginal ->
+                    val preparedFile = videoWallpaperStorage.preparePresentation(
+                        file = savedOriginal,
+                        scaleMode = scaleMode,
+                        canvasStyle = canvasStyle,
+                    ).getOrElse { throw it }
+                    launchOrExportVideoWallpaper(
+                        context = context,
+                        file = preparedFile,
+                        scaleMode = scaleMode,
+                        canvasStyle = canvasStyle,
+                        selectionAlreadyPersisted = true,
+                    )
+                    _state.update { it.copy(isApplying = null) }
+                    return@launch
+                }
                 if (item.source == "YouTube" && !prefs.youtubeProviderEnabled.first()) {
                     sourceMetrics.recordDisabled("youtube")
                     withContext(Dispatchers.Main) {
@@ -773,7 +789,13 @@ class VideoWallpapersViewModel @Inject constructor(
                     videoUrl.substringBefore('?').endsWith(".webm", ignoreCase = true) -> "webm"
                     else -> "mp4"
                 }
-                val file = videoWallpaperStorage.prepareDownloadedVideo(extension = downloadedExtension) { cacheFile ->
+                val file = videoWallpaperStorage.prepareDownloadedVideo(
+                    extension = downloadedExtension,
+                    contentId = item.id,
+                    source = item.source,
+                    displayName = item.title,
+                    provenanceUrl = item.sourcePageUrl.ifBlank { videoUrl },
+                ) { cacheFile ->
                     if (isHlsMotionUrl(videoUrl)) {
                         // A Reddit HLS URL is a playlist, not a video file. Let yt-dlp and
                         // ffmpeg fetch its segments and produce a bounded MP4; raw-copying

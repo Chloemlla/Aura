@@ -698,7 +698,7 @@ class WallpapersViewModelTest {
         )
         coEvery { favoritesRepo.markSourceUnavailable(any(), any()) } returns Unit
         coEvery {
-            downloadManager.downloadWallpaper(any(), any(), any(), any())
+            downloadManager.downloadWallpaper(any(), any(), any(), any(), any())
         } returns Result.failure(IllegalStateException("Download failed: HTTP 404"))
 
         val viewModel = createViewModel(

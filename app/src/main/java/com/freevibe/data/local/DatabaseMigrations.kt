@@ -283,6 +283,33 @@ object DatabaseMigrations {
         }
     }
 
+    // v18->19: Keep untouched saved media separate from device-optimized apply copies.
+    val MIGRATION_18_19 = object : Migration(18, 19) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `provenanceUrl` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `originalSha256` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `originalMimeType` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `originalCodec` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `originalWidth` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `originalHeight` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `originalDurationMs` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `originalSizeBytes` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `originalHdr` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedPath` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedSha256` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedMimeType` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedCodec` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedWidth` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedHeight` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedDurationMs` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedSizeBytes` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedHdr` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizationKey` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizationReason` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedAt` INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
     val ALL_MIGRATIONS = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
@@ -301,5 +328,6 @@ object DatabaseMigrations {
         MIGRATION_15_16,
         MIGRATION_16_17,
         MIGRATION_17_18,
+        MIGRATION_18_19,
     )
 }

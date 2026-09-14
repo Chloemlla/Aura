@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.freevibe.R
 import com.freevibe.data.model.ContentSource
+import com.freevibe.data.model.DownloadEntity
 import com.freevibe.data.model.FitCanvasMode
 import com.freevibe.data.model.FitCanvasStyle
 import com.freevibe.data.model.ROTATION_MEDIA_VIDEO
@@ -65,6 +66,7 @@ import com.freevibe.ui.components.ShimmerWallpaperGrid
 import com.freevibe.ui.preview.PREVIEW_SOUNDS
 import com.freevibe.ui.preview.PREVIEW_WALLPAPERS
 import com.freevibe.ui.screens.editor.WallpaperEditorPreview
+import com.freevibe.ui.screens.downloads.DownloadHistoryCard
 import com.freevibe.ui.screens.settings.SettingsMetric
 import com.freevibe.ui.screens.settings.RotationExclusionsManagerDialog
 import com.freevibe.ui.screens.settings.SettingsItem
@@ -98,6 +100,7 @@ enum class ProductionRouteScenario(
     WallpaperEditorLoading("wallpaper_editor_loading", R.string.editor_wallpaper_title),
     FitCanvasPreview("fit_canvas_preview", R.string.fit_canvas_controls_title),
     RotationExclusionsManager("rotation_exclusions_manager", R.string.settings_rotation_exclusions_title),
+    DownloadsMediaCopies("downloads_media_copies", R.string.downloads_optimized_copy),
 }
 
 @Composable
@@ -119,6 +122,7 @@ fun ProductionRouteState(
             ProductionRouteScenario.WallpaperEditorLoading -> WallpaperEditorState()
             ProductionRouteScenario.FitCanvasPreview -> FitCanvasPreviewState()
             ProductionRouteScenario.RotationExclusionsManager -> RotationExclusionsManagerState()
+            ProductionRouteScenario.DownloadsMediaCopies -> DownloadsMediaCopiesState()
         }
     }
 }
@@ -477,6 +481,50 @@ private fun RotationExclusionsManagerState() {
             onRestore = {},
             onRestoreAll = {},
             onDismiss = {},
+        )
+    }
+}
+
+@Composable
+private fun DownloadsMediaCopiesState() {
+    RouteColumn {
+        Text(stringResource(R.string.downloads_title), style = MaterialTheme.typography.headlineSmall)
+        DownloadHistoryCard(
+            download = DownloadEntity(
+                id = "video:reddit:aurora-loop",
+                source = "REDDIT",
+                type = "VIDEO",
+                localPath = "/media_originals/aurora-loop.webm",
+                name = "Aurora over the mountains",
+                downloadedAt = 1_788_897_600_000,
+                provenanceUrl = "https://www.reddit.com/r/EarthPorn/",
+                originalSha256 = "original-sha256",
+                originalMimeType = "video/webm",
+                originalCodec = "AV1",
+                originalWidth = 3_840,
+                originalHeight = 2_160,
+                originalDurationMs = 18_000,
+                originalSizeBytes = 42L * 1_024L * 1_024L,
+                originalHdr = true,
+                optimizedPath = "/apply_copies/aurora-loop.mp4",
+                optimizedSha256 = "optimized-sha256",
+                optimizedMimeType = "video/mp4",
+                optimizedCodec = "H264",
+                optimizedWidth = 1_920,
+                optimizedHeight = 1_080,
+                optimizedDurationMs = 18_000,
+                optimizedSizeBytes = 9L * 1_024L * 1_024L,
+                optimizationReason = "Compatible H.264 MP4",
+            ),
+            onOpen = {},
+            onDelete = {},
+            onDeleteOptimized = {},
+        )
+        AuraStatusBanner(
+            icon = Icons.Default.Info,
+            title = stringResource(R.string.downloads_original),
+            message = stringResource(R.string.downloads_optimized_deleted),
+            tone = MaterialTheme.colorScheme.secondary,
         )
     }
 }

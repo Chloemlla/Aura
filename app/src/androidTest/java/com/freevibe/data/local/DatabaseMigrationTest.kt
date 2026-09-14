@@ -61,7 +61,7 @@ class DatabaseMigrationTest {
     }
 
     @Test
-    fun migrate14To18_preservesRepresentativeRowsAndBackfillsAvailabilityDefaults() {
+    fun migrate14ToCurrent_preservesRepresentativeRowsAndBackfillsDefaults() {
         createVersion14DatabaseWithRepresentativeRows()
 
         helper.runMigrationsAndValidate(
@@ -97,7 +97,8 @@ class DatabaseMigrationTest {
 
             db.query(
                 """
-                SELECT name, sourceAvailability, sourceAvailabilityReason
+                SELECT name, sourceAvailability, sourceAvailabilityReason,
+                    originalSha256, originalSizeBytes, optimizedPath, optimizationKey
                 FROM downloads
                 WHERE id = 'download-1'
                 """.trimIndent()
@@ -106,6 +107,10 @@ class DatabaseMigrationTest {
                 assertEquals("Downloaded tone", cursor.getString(0))
                 assertEquals("AVAILABLE", cursor.getString(1))
                 assertTrue(cursor.isNull(2))
+                assertEquals("", cursor.getString(3))
+                assertEquals(0L, cursor.getLong(4))
+                assertEquals("", cursor.getString(5))
+                assertEquals("", cursor.getString(6))
             }
 
             db.query(
@@ -232,7 +237,7 @@ class DatabaseMigrationTest {
     companion object {
         private const val TEST_DB = "room-migration-test.db"
         private const val EXPORTED_SCHEMA_START_VERSION = 9
-        private const val CURRENT_SCHEMA_VERSION = 18
+        private const val CURRENT_SCHEMA_VERSION = 19
 
         private fun migrationsFrom(startVersion: Int): Array<Migration> =
             DatabaseMigrations.ALL_MIGRATIONS

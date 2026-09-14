@@ -158,6 +158,32 @@ internal fun videoFitCanvasFfmpegArgs(
     )
 }
 
+internal fun videoCompatibilityFfmpegArgs(
+    ffmpegPath: String,
+    inputPath: String,
+    outputPath: String,
+    width: Int,
+    height: Int,
+): List<String> {
+    require(width > 0 && height > 0 && width % 2 == 0 && height % 2 == 0)
+    return listOf(
+        ffmpegPath,
+        "-y",
+        "-i", inputPath,
+        "-map", "0:v:0",
+        "-map_metadata", "0",
+        "-vf", "scale=$width:$height:force_original_aspect_ratio=decrease:force_divisible_by=2,format=yuv420p",
+        "-c:v", "libx264",
+        "-preset", "ultrafast",
+        "-crf", "20",
+        "-pix_fmt", "yuv420p",
+        "-an",
+        "-movflags", "+faststart",
+        "-f", "mp4",
+        outputPath,
+    )
+}
+
 @Singleton
 class VideoFitCanvasComposer @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -180,6 +206,48 @@ class VideoFitCanvasComposer @Inject constructor(
             runCatching { prepareBlocking(file, style, targetWidth, targetHeight) }
                 .onFailure { it.rethrowIfCancelled() }
         }
+
+    suspend fun writeCompatibleCopy(
+        source: File,
+        output: File,
+        targetWidth: Int = context.resources.displayMetrics.widthPixels.coerceAtLeast(2),
+        targetHeight: Int = context.resources.displayMetrics.heightPixels.coerceAtLeast(2),
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val metadata = readMediaTechnicalMetadata(source)
+            if (metadata.width <= 0 || metadata.height <= 0) {
+                throw IOException("Video dimensions could not be read")
+            }
+            val maxLongEdge = (max(targetWidth, targetHeight).coerceAtLeast(2) * 2)
+                .coerceAtMost(4_096)
+            val (longEdgeWidth, longEdgeHeight) = boundedVideoFrameSize(
+                metadata.width,
+                metadata.height,
+                maxLongEdge,
+            )
+            val bounded = boundedVideoCanvasSize(
+                longEdgeWidth,
+                longEdgeHeight,
+                FitCanvasRenderer.MAX_OUTPUT_PIXELS,
+            )
+            val (ffmpeg, libraryPath) = initializeFfmpegRuntime()
+            val command = videoCompatibilityFfmpegArgs(
+                ffmpegPath = ffmpeg.absolutePath,
+                inputPath = source.absolutePath,
+                outputPath = output.absolutePath,
+                width = bounded.width,
+                height = bounded.height,
+            )
+            executeFfmpeg(command, libraryPath, "Video optimization", output)
+            if (output.length() > MAX_VIDEO_WALLPAPER_BYTES) {
+                throw IOException("Optimized video exceeds the video wallpaper limit")
+            }
+            val result = readMediaTechnicalMetadata(output, "video/mp4")
+            if (result.width <= 0 || result.height <= 0) {
+                throw IOException("Optimized video could not be validated")
+            }
+        }.onFailure { it.rethrowIfCancelled() }
+    }
 
     private fun prepareBlocking(
         file: File,
@@ -288,6 +356,35 @@ class VideoFitCanvasComposer @Inject constructor(
             }
         } finally {
             backgroundTemp.delete()
+        }
+    }
+
+    private fun executeFfmpeg(
+        command: List<String>,
+        libraryPath: String,
+        operation: String,
+        output: File,
+    ) {
+        val builder = ProcessBuilder(command)
+            .redirectErrorStream(true)
+            .directory(context.cacheDir)
+        if (libraryPath.isNotBlank()) builder.environment()["LD_LIBRARY_PATH"] = libraryPath
+        val process = builder.start()
+        val tail = StringBuilder()
+        val drain = Thread({
+            process.inputStream.bufferedReader().useLines { lines ->
+                lines.forEach { line ->
+                    if (tail.length > 4096) tail.delete(0, tail.length - 2048)
+                    tail.appendLine(line)
+                }
+            }
+        }, "aura-video-ffmpeg").apply { start() }
+        val completed = process.waitFor(VIDEO_FIT_CANVAS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        if (!completed) process.destroyForcibly()
+        drain.join(2_000L)
+        val exitCode = if (completed) process.exitValue() else -1
+        if (exitCode != 0 || !output.exists() || output.length() < 1024L) {
+            throw IOException("$operation failed: ${tail.takeLast(400)}")
         }
     }
 

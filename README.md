@@ -148,6 +148,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Shader Wallpapers** | Curated AGSL live wallpaper backgrounds with static fallback on older Android releases |
 | **Live Wallpaper Instances** | Android 16 descriptions keep selected video, parallax, and weather settings with a legacy fallback on older releases |
 | **Download Progress** | Download notifications use the Android 16 progress style when available and retain the compatibility progress bar elsewhere |
+| **Saved Originals** | Downloads preserve source bytes and provenance. Apply creates a named device-compatible copy only when needed, then reuses it. [Storage behavior](docs/media-copy-lifecycle.md) is documented. |
 | **Touch-Reactive Effects** | Optional ripple and sparkle bursts on live wallpaper touches |
 | **YouTube Sounds** | YouTube-first ringtone, notification, and alarm discovery with duration-aware searches powered by NewPipe + yt-dlp |
 | **Aura Originals** | 25 small CC0 tones included for offline ringtone, notification, and alarm preview, download, and apply |
@@ -235,11 +236,11 @@ ViewModels (Hilt) + Cache Layer
          Collections
   Services: WallpaperApplier, SoundApplier, VideoWallpaperService,
             ParallaxWallpaperService, WeatherWallpaperService, DualWallpaperService,
-            DownloadManager, AudioTrimmer, BatchDownload,
+            DownloadManager, MediaCopyStore, AudioTrimmer, BatchDownload,
             ContactRingtone, FavoritesExporter, OfflineFavorites
   Audio: Media3 platform transforms + bounded FFmpeg codec fallbacks
   YouTube: NewPipe Extractor (search) + yt-dlp (stream extraction + FFmpeg crop)
-Room DB v18 (Favorites, Downloads, Search History, Wallpaper Cache,
+Room DB v19 (Favorites, Downloads, Search History, Wallpaper Cache,
             Wallpaper History, Collections, Local Wallpapers, Rotation Exclusions)
 DataStore (Settings, Onboarding)
 Firebase RTDB (Community Voting + Uploads + Admin Moderation)

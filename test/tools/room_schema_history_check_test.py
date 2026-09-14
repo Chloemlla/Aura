@@ -16,13 +16,15 @@ class RoomSchemaHistoryCheckTest(unittest.TestCase):
         result = validate_room_schema_history(REPO_ROOT)
 
         self.assertEqual("ok", result["status"])
-        self.assertEqual(18, result["databaseVersion"])
-        self.assertEqual(list(range(9, 19)), result["schemaVersions"])
+        self.assertEqual(19, result["databaseVersion"])
+        self.assertEqual(list(range(9, 20)), result["schemaVersions"])
 
     def test_rejects_missing_latest_schema(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = copy_required_tree(Path(tmpdir))
-            (repo / "app/schemas/com.freevibe.data.local.FreeVibeDatabase/18.json").unlink()
+            schema_dir = repo / "app/schemas/com.freevibe.data.local.FreeVibeDatabase"
+            latest_schema = max(schema_dir.glob("*.json"), key=lambda path: int(path.stem))
+            latest_schema.unlink()
 
             with self.assertRaises(RoomSchemaHistoryError):
                 validate_room_schema_history(repo)

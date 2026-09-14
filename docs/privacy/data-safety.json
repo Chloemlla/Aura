@@ -618,6 +618,49 @@
       "backupStatus": "excludedFromBackupAndTransfer"
     },
     {
+      "surfaceId": "optimized-apply-copy-files",
+      "storageLocation": "files/apply_copies/",
+      "sourcePaths": [
+        "app/src/main/java/com/freevibe/service/MediaCopyStore.kt",
+        "app/src/main/java/com/freevibe/ui/screens/downloads/DownloadsScreen.kt",
+        "app/src/main/res/xml/backup_rules.xml",
+        "app/src/main/res/xml/data_extraction_rules.xml",
+        "docs/media-copy-lifecycle.md"
+      ],
+      "dataTypes": ["Photos or images", "Video files", "Audio files", "Media technical metadata"],
+      "collectionStatus": "localOnly",
+      "sharingStatus": "userDirectedShare",
+      "userControl": "Downloads labels each optimized copy and provides a derivative-only delete action. Clearing app data or uninstalling also removes all copies.",
+      "retention": "One validated working copy is referenced per saved media item and apply configuration. Replacing it removes the earlier copy after the database accepts the new reference.",
+      "deletionPath": "Use Delete optimized copy in Downloads, delete the complete download, clear app data, or uninstall.",
+      "backupExclusions": [
+        {"domain": "file", "path": "apply_copies/"}
+      ],
+      "backupStatus": "excludedFromBackupAndTransfer"
+    },
+    {
+      "surfaceId": "saved-video-original-files",
+      "storageLocation": "files/media_originals/",
+      "sourcePaths": [
+        "app/src/main/java/com/freevibe/service/VideoWallpaperStorage.kt",
+        "app/src/main/java/com/freevibe/ui/screens/downloads/DownloadsScreen.kt",
+        "app/src/main/res/xml/backup_rules.xml",
+        "app/src/main/res/xml/data_extraction_rules.xml",
+        "app/src/main/res/xml/file_paths.xml",
+        "docs/media-copy-lifecycle.md"
+      ],
+      "dataTypes": ["Video files", "Animated images", "Provider source provenance", "Media technical metadata"],
+      "collectionStatus": "localOnly",
+      "sharingStatus": "userDirectedShare",
+      "userControl": "Downloads exposes saved video originals for opening and deletion. Reapply can use the verified local file without contacting its provider.",
+      "retention": "A named source-quality video remains until the user deletes its download, a replacement is committed, app data is cleared, or Aura is uninstalled.",
+      "deletionPath": "Delete the video from Downloads, clear app data, or uninstall.",
+      "backupExclusions": [
+        {"domain": "file", "path": "media_originals/"}
+      ],
+      "backupStatus": "excludedFromBackupAndTransfer"
+    },
+    {
       "surfaceId": "community-recording-temp-files",
       "storageLocation": "cache/sounds/community_recordings/",
       "sourcePaths": [

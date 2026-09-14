@@ -46,4 +46,23 @@ class VideoFitCanvasComposerTest {
         assertFalse(command.contains("gblur"))
         assertFalse(command.contains("boxblur"))
     }
+
+    @Test
+    fun `compatibility copy is a silent fast start h264 mp4`() {
+        val args = videoCompatibilityFfmpegArgs(
+            ffmpegPath = "/ffmpeg",
+            inputPath = "/source.webm",
+            outputPath = "/optimized.pending",
+            width = 1080,
+            height = 1920,
+        )
+        val command = args.joinToString(" ")
+
+        assertTrue(command.contains("-map 0:v:0"))
+        assertTrue(command.contains("-c:v libx264"))
+        assertTrue(command.contains("-pix_fmt yuv420p"))
+        assertTrue(command.contains("-an"))
+        assertTrue(command.contains("-movflags +faststart"))
+        assertTrue(command.contains("-f mp4"))
+    }
 }

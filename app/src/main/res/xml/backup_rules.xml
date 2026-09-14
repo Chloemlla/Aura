@@ -6,6 +6,7 @@
     <exclude domain="database" path="freevibe.db-wal" />
     <exclude domain="file" path="ai_wallpapers/" />
     <exclude domain="file" path="aura_originals/" />
+    <exclude domain="file" path="apply_copies/" />
     <exclude domain="file" path="crash.log" />
     <exclude domain="file" path="datastore/freevibe_prefs.preferences_pb" />
     <exclude domain="file" path="live_wallpaper.gif" />
@@ -15,6 +16,7 @@
     <exclude domain="file" path="live_wallpaper.mov" />
     <exclude domain="file" path="live_wallpaper.mp4" />
     <exclude domain="file" path="live_wallpaper.webm" />
+    <exclude domain="file" path="media_originals/" />
     <exclude domain="file" path="offline_favorites/" />
     <exclude domain="file" path="parallax/" />
     <exclude domain="sharedpref" path="aura_provider_credentials.xml" />

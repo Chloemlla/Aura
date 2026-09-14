@@ -8,6 +8,9 @@ import com.freevibe.data.model.FitCanvasMode
 import com.freevibe.data.model.FitCanvasStyle
 import com.freevibe.data.model.WALLPAPER_PRESENTATION_FILL
 import com.freevibe.data.model.WALLPAPER_PRESENTATION_FIT
+import com.freevibe.data.model.decideVideoOptimization
+import com.freevibe.data.model.mediaOptimizationKey
+import com.freevibe.data.model.originalTechnicalMetadata
 import com.freevibe.data.model.normalizeWallpaperPresentation
 import com.freevibe.util.rethrowIfCancelled
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -47,6 +50,7 @@ internal data class VideoWallpaperProbe(
     val width: Int,
     val height: Int,
     val mimeType: String?,
+    val codec: String = "",
 )
 
 internal fun normalizeVideoWallpaperScaleMode(scaleMode: String?): String =
@@ -54,6 +58,9 @@ internal fun normalizeVideoWallpaperScaleMode(scaleMode: String?): String =
         VIDEO_WALLPAPER_SCALE_MODE_FIT -> VIDEO_WALLPAPER_SCALE_MODE_FIT
         else -> VIDEO_WALLPAPER_SCALE_MODE_ZOOM
     }
+
+internal fun downloadedVideoHistoryId(source: String, contentId: String): String =
+    downloadHistoryId("VIDEO", "${source.lowercase(Locale.ROOT)}:${contentId.trim()}")
 
 internal data class VideoWallpaperPresentation(
     val scaleMode: String,
@@ -178,6 +185,7 @@ internal fun persistVideoWallpaperSelection(
 class VideoWallpaperStorage @Inject constructor(
     @ApplicationContext private val context: Context,
     private val fitCanvasComposer: VideoFitCanvasComposer,
+    private val mediaCopyStore: MediaCopyStore,
 ) {
 
     suspend fun prepareFromUri(uri: Uri): Result<File> = withContext(Dispatchers.IO) {
@@ -185,8 +193,12 @@ class VideoWallpaperStorage @Inject constructor(
             val resolver = context.contentResolver
             val mimeType = resolver.getType(uri)
             val extension = resolveVideoWallpaperExtension(mimeType, uri.lastPathSegment)
-            val targetFile = managedVideoFile(extension)
-            val tempFile = File(targetFile.parentFile, "${targetFile.name}.tmp")
+            val originalDirectory = mediaOriginalDirectory().apply {
+                if (!exists() && !mkdirs()) throw IOException("Could not create original-media storage")
+            }
+            val tempFile = File.createTempFile(".aura-video-original-", ".$extension.pending", originalDirectory)
+            var committedOriginal: CommittedOriginalVideo? = null
+            var originalRecorded = false
 
             try {
                 val advertisedSize = resolver.advertisedSize(uri)
@@ -199,13 +211,37 @@ class VideoWallpaperStorage @Inject constructor(
                     }
                 } ?: throw IOException("Could not open the selected file")
 
-                validatePreparedMotionFile(tempFile, extension)
-                commitPreparedVideo(tempFile, targetFile)
+                val verifiedExtension = resolvedMotionExtension(sniffMediaFile(tempFile), extension)
+                validatePreparedMotionFile(tempFile, verifiedExtension)
+                committedOriginal = commitOriginalVideo(tempFile, verifiedExtension, uri.toString())
+                val targetFile = committedOriginal.file
+                val metadata = readMediaTechnicalMetadata(targetFile, mimeType.orEmpty())
+                val digest = sha256File(targetFile)
+                if (!digest.equals(committedOriginal.sha256, ignoreCase = true)) {
+                    throw IOException("Saved original video did not match its source bytes")
+                }
+                val recordId = downloadHistoryId("VIDEO", "local:$digest")
+                val previousOriginal = mediaCopyStore.findOriginal(recordId, "").first?.localPath
+                mediaCopyStore.recordOriginal(
+                    id = recordId,
+                    source = "LOCAL",
+                    type = "VIDEO",
+                    locator = targetFile.absolutePath,
+                    name = resolver.displayName(uri).ifBlank { "Local video wallpaper.$verifiedExtension" },
+                    provenanceUrl = uri.toString(),
+                    sha256 = digest,
+                    metadata = metadata,
+                )
+                originalRecorded = true
+                previousOriginal
+                    ?.takeIf { it.isNotBlank() && it != targetFile.absolutePath }
+                    ?.let(::deleteManagedOriginalVideo)
                 val presentation = readDefaultVideoWallpaperPresentation(context)
                 preparePresentation(targetFile, presentation.scaleMode, presentation.canvasStyle)
                     .getOrElse { throw it }
             } catch (e: Exception) {
                 tempFile.delete()
+                if (!originalRecorded) committedOriginal?.takeIf { it.created }?.file?.delete()
                 throw e
             }
         }.onFailure { it.rethrowIfCancelled() }
@@ -213,19 +249,56 @@ class VideoWallpaperStorage @Inject constructor(
 
     suspend fun prepareDownloadedVideo(
         extension: String = "mp4",
+        contentId: String = "",
+        source: String = "VIDEO",
+        displayName: String = "Video wallpaper",
+        provenanceUrl: String = "",
         writer: suspend (File) -> Unit,
     ): Result<File> = withContext(Dispatchers.IO) {
         runCatching {
-            val targetFile = managedVideoFile(extension)
-            val tempFile = File(targetFile.parentFile, "${targetFile.name}.tmp")
+            val originalDirectory = mediaOriginalDirectory().apply {
+                if (!exists() && !mkdirs()) throw IOException("Could not create original-media storage")
+            }
+            val tempFile = File.createTempFile(".aura-video-original-", ".$extension.pending", originalDirectory)
+            var committedOriginal: CommittedOriginalVideo? = null
+            var originalRecorded = false
 
             try {
                 writer(tempFile)
-                validatePreparedMotionFile(tempFile, extension)
-                commitPreparedVideo(tempFile, targetFile)
+                val verifiedExtension = resolvedMotionExtension(sniffMediaFile(tempFile), extension)
+                validatePreparedMotionFile(tempFile, verifiedExtension)
+                committedOriginal = commitOriginalVideo(
+                    tempFile,
+                    verifiedExtension,
+                    "$source:${contentId.ifBlank { displayName }}",
+                )
+                val targetFile = committedOriginal.file
+                val metadata = readMediaTechnicalMetadata(targetFile)
+                val digest = sha256File(targetFile)
+                if (!digest.equals(committedOriginal.sha256, ignoreCase = true)) {
+                    throw IOException("Saved original video did not match its source bytes")
+                }
+                val stableContentId = contentId.trim().ifBlank { digest }
+                val recordId = downloadedVideoHistoryId(source, stableContentId)
+                val previousOriginal = mediaCopyStore.findOriginal(recordId, "").first?.localPath
+                mediaCopyStore.recordOriginal(
+                    id = recordId,
+                    source = source,
+                    type = "VIDEO",
+                    locator = targetFile.absolutePath,
+                    name = displayName.ifBlank { "Video wallpaper" },
+                    provenanceUrl = provenanceUrl,
+                    sha256 = digest,
+                    metadata = metadata,
+                )
+                originalRecorded = true
+                previousOriginal
+                    ?.takeIf { it.isNotBlank() && it != targetFile.absolutePath }
+                    ?.let(::deleteManagedOriginalVideo)
                 targetFile
             } catch (e: Exception) {
                 tempFile.delete()
+                if (!originalRecorded) committedOriginal?.takeIf { it.created }?.file?.delete()
                 throw e
             }
         }.onFailure { it.rethrowIfCancelled() }
@@ -237,34 +310,147 @@ class VideoWallpaperStorage @Inject constructor(
         canvasStyle: FitCanvasStyle,
     ): Result<File> = withContext(Dispatchers.IO) {
         runCatching {
-            if (normalizeVideoWallpaperScaleMode(scaleMode) != VIDEO_WALLPAPER_SCALE_MODE_FIT) {
+            val normalizedScaleMode = normalizeVideoWallpaperScaleMode(scaleMode)
+            val (originalRecord, originalLocator) = mediaCopyStore.findOriginal(null, file.absolutePath)
+            val originalFile = File(originalLocator)
+            if (!originalFile.isFile) throw IOException("Saved original video is unavailable")
+            if (originalRecord == null) throw IOException("Saved original video record is unavailable")
+            val originalMetadata = originalRecord.originalTechnicalMetadata()
+            val fitRequested = normalizedScaleMode == VIDEO_WALLPAPER_SCALE_MODE_FIT
+            val originalIsGif = originalFile.extension.equals("gif", ignoreCase = true)
+            val targetWidth = context.resources.displayMetrics.widthPixels.coerceAtLeast(2)
+            val targetHeight = context.resources.displayMetrics.heightPixels.coerceAtLeast(2)
+            val decision = decideVideoOptimization(
+                metadata = originalMetadata,
+                fileExtension = originalFile.extension,
+                targetWidth = targetWidth,
+                targetHeight = targetHeight,
+                fitRequested = fitRequested,
+            )
+            if (fitRequested && originalIsGif && !decision.required) {
+                val gifPresentation = fitCanvasComposer.prepare(originalFile, canvasStyle)
+                    .getOrElse { throw it }
+                persistVideoWallpaperSelection(
+                    context = context,
+                    file = originalFile,
+                    scaleMode = VIDEO_WALLPAPER_SCALE_MODE_FIT,
+                    canvasStyle = FitCanvasStyle(
+                        mode = gifPresentation.resolvedCanvas.mode,
+                        customColor = gifPresentation.resolvedCanvas.color,
+                    ),
+                    canvasBackgroundFile = gifPresentation.backgroundFile,
+                    canvasBaked = false,
+                )
+                return@runCatching originalFile
+            }
+            if (!decision.required) {
                 File(context.filesDir, VIDEO_WALLPAPER_CANVAS_BACKGROUND_FILE).delete()
                 persistVideoWallpaperSelection(
                     context = context,
-                    file = file,
+                    file = originalFile,
                     scaleMode = VIDEO_WALLPAPER_SCALE_MODE_ZOOM,
                 )
-                return@runCatching file
+                return@runCatching originalFile
             }
-            val prepared = fitCanvasComposer.prepare(file, canvasStyle).getOrElse { throw it }
-            validatePreparedMotionFile(prepared.file, prepared.file.extension)
-            if (prepared.file !== file && prepared.file.absolutePath != file.absolutePath) {
-                file.delete()
+
+            val sourceHash = originalRecord.originalSha256.ifBlank {
+                sha256File(originalFile)
+            }
+            val optimizationKey = mediaOptimizationKey(
+                "video-wallpaper",
+                sourceHash,
+                normalizedScaleMode,
+                canvasStyle.mode.preferenceValue,
+                canvasStyle.customColor,
+                targetWidth,
+                targetHeight,
+                originalMetadata.codec,
+                originalMetadata.mimeType,
+            )
+            var resolvedStyle = canvasStyle.normalized()
+            var canvasBackground: File? = null
+            val prepared = mediaCopyStore.reusableCopy(originalRecord.id, optimizationKey)
+                ?: mediaCopyStore.prepareCopy(
+                    downloadId = originalRecord.id,
+                    sourceIdentity = sourceHash,
+                    optimizationKey = optimizationKey,
+                    reason = decision.reason,
+                    extension = "mp4",
+                    expectedBytes = originalFile.length(),
+                    maxBytes = MAX_VIDEO_WALLPAPER_BYTES,
+                ) { pending ->
+                    if (fitRequested && !originalIsGif) {
+                        val composed = fitCanvasComposer.prepare(originalFile, canvasStyle)
+                            .getOrElse { throw it }
+                        resolvedStyle = FitCanvasStyle(
+                            mode = composed.resolvedCanvas.mode,
+                            customColor = composed.resolvedCanvas.color,
+                        )
+                        canvasBackground = composed.backgroundFile
+                        try {
+                            composed.file.inputStream().use { input ->
+                                pending.outputStream().use { output ->
+                                    copyStreamCapped(input, output, MAX_VIDEO_WALLPAPER_BYTES)
+                                }
+                            }
+                        } finally {
+                            if (composed.file.absolutePath != originalFile.absolutePath) {
+                                composed.file.delete()
+                            }
+                        }
+                    } else {
+                        fitCanvasComposer.writeCompatibleCopy(
+                            source = originalFile,
+                            output = pending,
+                            targetWidth = targetWidth,
+                            targetHeight = targetHeight,
+                        ).getOrElse { throw it }
+                    }
+                }
+            validatePreparedMotionFile(prepared.file, "mp4")
+            if (fitRequested && originalIsGif) {
+                val gifPresentation = fitCanvasComposer.prepare(originalFile, canvasStyle)
+                    .getOrElse { throw it }
+                resolvedStyle = FitCanvasStyle(
+                    mode = gifPresentation.resolvedCanvas.mode,
+                    customColor = gifPresentation.resolvedCanvas.color,
+                )
+                canvasBackground = gifPresentation.backgroundFile
             }
             persistVideoWallpaperSelection(
                 context = context,
                 file = prepared.file,
-                scaleMode = VIDEO_WALLPAPER_SCALE_MODE_FIT,
-                canvasStyle = FitCanvasStyle(
-                    mode = prepared.resolvedCanvas.mode,
-                    customColor = prepared.resolvedCanvas.color,
-                ),
-                canvasBackgroundFile = prepared.backgroundFile,
-                canvasBaked = prepared.bakedIntoVideo,
+                scaleMode = normalizedScaleMode,
+                canvasStyle = resolvedStyle,
+                canvasBackgroundFile = canvasBackground,
+                canvasBaked = fitRequested && !originalIsGif,
             )
             prepared.file
         }.onFailure { it.rethrowIfCancelled() }
     }
+
+    /** Return a byte-verified saved feed original so reapply works offline and skips a refetch. */
+    suspend fun findSavedDownloadedVideo(contentId: String, source: String): File? =
+        withContext(Dispatchers.IO) {
+            val stableContentId = contentId.trim().takeIf(String::isNotBlank)
+                ?: return@withContext null
+            val record = mediaCopyStore.findOriginal(
+                downloadedVideoHistoryId(source, stableContentId),
+                "",
+            ).first ?: return@withContext null
+            val file = managedOriginalVideo(record.localPath) ?: return@withContext null
+            if (!file.isFile || file.length() <= 0L) return@withContext null
+            if (record.originalSizeBytes > 0L && file.length() != record.originalSizeBytes) {
+                return@withContext null
+            }
+            if (
+                record.originalSha256.isBlank() ||
+                !sha256File(file).equals(record.originalSha256, ignoreCase = true)
+            ) {
+                return@withContext null
+            }
+            file
+        }
 
     private fun validatePreparedMotionFile(file: File, extension: String) {
         if (!file.exists() || file.length() == 0L) {
@@ -289,6 +475,7 @@ class VideoWallpaperStorage @Inject constructor(
     }
 
     private fun probeVideoFile(file: File): VideoWallpaperProbe {
+        val technicalMetadata = readMediaTechnicalMetadata(file)
         val retriever = MediaMetadataRetriever()
         return try {
             retriever.setDataSource(file.absolutePath)
@@ -302,7 +489,9 @@ class VideoWallpaperStorage @Inject constructor(
                     ?.toIntOrNull() ?: 0,
                 height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
                     ?.toIntOrNull() ?: 0,
-                mimeType = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE),
+                mimeType = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE)
+                    ?: technicalMetadata.mimeType,
+                codec = technicalMetadata.codec,
             )
         } catch (e: Exception) {
             throw IOException("Selected video could not be decoded", e)
@@ -311,31 +500,38 @@ class VideoWallpaperStorage @Inject constructor(
         }
     }
 
-    private fun commitPreparedVideo(tempFile: File, targetFile: File) {
-        if (!tempFile.renameTo(targetFile)) {
-            tempFile.copyTo(targetFile, overwrite = true)
+    private fun commitOriginalVideo(
+        tempFile: File,
+        extension: String,
+        sourceIdentity: String,
+    ): CommittedOriginalVideo {
+        val digest = sha256File(tempFile)
+        val sourceToken = mediaOptimizationKey(sourceIdentity).take(12)
+        val safeExtension = extension.lowercase(Locale.ROOT).filter(Char::isLetterOrDigit).take(8)
+            .ifBlank { "mp4" }
+        val destination = File(
+            mediaOriginalDirectory(),
+            "aura_original_video_${sourceToken}_$digest.$safeExtension",
+        )
+        if (destination.isFile && destination.length() == tempFile.length() && sha256File(destination) == digest) {
             tempFile.delete()
+            return CommittedOriginalVideo(destination, created = false, sha256 = digest)
         }
-        pruneOlderManagedCopies(targetFile)
+        replaceApplyCopy(tempFile, destination)
+        return CommittedOriginalVideo(destination, created = true, sha256 = digest)
     }
 
-    private fun pruneOlderManagedCopies(activeFile: File) {
-        context.filesDir.listFiles()
-            ?.filter { candidate ->
-                candidate.isFile &&
-                    candidate.name.startsWith("live_wallpaper.") &&
-                    candidate.absolutePath != activeFile.absolutePath
-            }
-            ?.forEach { stale ->
-                try {
-                    stale.delete()
-                } catch (_: Exception) {
-                }
-            }
+    private fun mediaOriginalDirectory(): File = File(context.filesDir, MEDIA_ORIGINAL_DIRECTORY)
+
+    private fun deleteManagedOriginalVideo(path: String): Boolean {
+        return managedOriginalVideo(path)?.delete() ?: false
     }
 
-    private fun managedVideoFile(extension: String): File =
-        File(context.filesDir, "live_wallpaper.$extension")
+    private fun managedOriginalVideo(path: String): File? {
+        val root = runCatching { mediaOriginalDirectory().canonicalFile }.getOrNull() ?: return null
+        val candidate = runCatching { File(path).canonicalFile }.getOrNull() ?: return null
+        return candidate.takeIf { it.path.startsWith(root.path + File.separator) }
+    }
 
     private fun android.content.ContentResolver.advertisedSize(uri: Uri): Long =
         query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
@@ -343,4 +539,30 @@ class VideoWallpaperStorage @Inject constructor(
             if (index >= 0 && cursor.moveToFirst()) cursor.getLong(index) else -1L
         } ?: -1L
 
+    private fun android.content.ContentResolver.displayName(uri: Uri): String =
+        query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (index >= 0 && cursor.moveToFirst() && !cursor.isNull(index)) cursor.getString(index) else ""
+        }.orEmpty()
+
+    private companion object {
+        const val MEDIA_ORIGINAL_DIRECTORY = "media_originals"
+    }
+
+    private data class CommittedOriginalVideo(
+        val file: File,
+        val created: Boolean,
+        val sha256: String,
+    )
+
+}
+
+internal fun resolvedMotionExtension(
+    sniffed: SniffedMediaType?,
+    fallbackExtension: String,
+): String = when {
+    sniffed?.mimeType == "image/gif" -> "gif"
+    sniffed?.family == MediaFamily.CONTAINER -> sniffed.extension
+    else -> fallbackExtension.lowercase(Locale.ROOT).filter(Char::isLetterOrDigit).take(8)
+        .ifBlank { "mp4" }
 }

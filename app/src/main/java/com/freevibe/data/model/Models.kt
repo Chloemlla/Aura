@@ -158,6 +158,30 @@ data class DownloadEntity(
     val downloadedAt: Long = System.currentTimeMillis(),
     val sourceAvailability: String = SOURCE_AVAILABILITY_AVAILABLE,
     val sourceAvailabilityReason: String? = null,
+    /** Source page or download URL retained as provenance, never used as the local locator. */
+    val provenanceUrl: String = "",
+    /** Digest and technical details for the untouched bytes at [localPath]. */
+    val originalSha256: String = "",
+    val originalMimeType: String = "",
+    val originalCodec: String = "",
+    val originalWidth: Int = 0,
+    val originalHeight: Int = 0,
+    val originalDurationMs: Long = 0,
+    val originalSizeBytes: Long = 0,
+    val originalHdr: Boolean = false,
+    /** Optional device-compatible working copy. The original fields never point here. */
+    val optimizedPath: String = "",
+    val optimizedSha256: String = "",
+    val optimizedMimeType: String = "",
+    val optimizedCodec: String = "",
+    val optimizedWidth: Int = 0,
+    val optimizedHeight: Int = 0,
+    val optimizedDurationMs: Long = 0,
+    val optimizedSizeBytes: Long = 0,
+    val optimizedHdr: Boolean = false,
+    val optimizationKey: String = "",
+    val optimizationReason: String = "",
+    val optimizedAt: Long = 0,
 )
 
 fun Wallpaper.isSourceUnavailable(): Boolean = isSourceUnavailable(sourceAvailability)

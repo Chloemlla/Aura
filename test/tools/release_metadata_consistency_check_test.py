@@ -217,10 +217,13 @@ class ReleaseMetadataConsistencyCheckTest(unittest.TestCase):
         self.assertEqual(read_manifest(REPO_ROOT)["roomSchemaVersion"], result["roomSchemaVersion"])
 
     def test_rejects_a_stale_room_schema_claim(self) -> None:
-        message = self._drifted(lambda text: text.replace("Room DB v18", "Room DB v14"))
+        current = int(read_manifest(REPO_ROOT)["roomSchemaVersion"])
+        message = self._drifted(
+            lambda text: text.replace(f"Room DB v{current}", "Room DB v14")
+        )
 
         self.assertIn("Room v14", message)
-        self.assertIn("v18", message)
+        self.assertIn(f"v{current}", message)
 
     def test_rejects_a_stale_version_badge(self) -> None:
         # Derived, not hardcoded: a literal version here becomes the stale
@@ -269,13 +272,14 @@ class ReleaseMetadataConsistencyCheckTest(unittest.TestCase):
         self.assertIn("ARCHITECTURE.md claims 4 bottom nav tabs but the app builds 5", message)
 
     def test_rejects_a_stale_room_version_in_architecture(self) -> None:
+        current = int(read_manifest(REPO_ROOT)["roomSchemaVersion"])
         message = self._drifted(
-            lambda text: text.replace("Room DB v18", "Room DB v14"),
+            lambda text: text.replace(f"Room DB v{current}", "Room DB v14"),
             surface="ARCHITECTURE.md",
         )
 
         self.assertIn("ARCHITECTURE.md claims Room v14", message)
-        self.assertIn("v18", message)
+        self.assertIn(f"v{current}", message)
 
     def test_rejects_a_stale_version_in_the_release_packet(self) -> None:
         version_name = read_manifest(REPO_ROOT)["versionName"]

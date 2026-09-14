@@ -680,7 +680,7 @@
     <string name="downloads_tab_all">全部</string>
     <string name="downloads_active">进行中</string>
     <string name="downloads_empty_title">还没有下载内容</string>
-    <string name="downloads_empty_body">已保存的壁纸、声音和进行中的传输将显示在这里，并带有文件健康状态和快速打开状态。</string>
+    <string name="downloads_empty_body">已保存的壁纸、视频、声音和进行中的传输将显示在这里，并带有文件健康状态和快速打开状态。</string>
     <string name="downloads_file_path_missing">文件路径缺失</string>
     <string name="downloads_file_no_longer_exists">文件不再存在</string>
     <string name="downloads_cannot_open_file">无法打开文件</string>
@@ -688,7 +688,14 @@
     <string name="downloads_active_summary">%1$s. %2$s</string>
     <string name="downloads_delete_file">删除 %1$s</string>
     <string name="downloads_type_wallpaper">壁纸</string>
+    <string name="downloads_type_video">视频</string>
     <string name="downloads_type_sound">声音</string>
+    <string name="downloads_original">原始文件</string>
+    <string name="downloads_optimized_copy">优化副本</string>
+    <string name="downloads_details_unavailable">详细信息不可用</string>
+    <string name="downloads_delete_optimized">删除优化副本</string>
+    <string name="downloads_optimized_deleted">优化副本已删除。原始文件仍保留。</string>
+    <string name="downloads_optimized_delete_failed">无法删除优化副本。原始文件未更改。</string>
     <string name="downloads_file_missing">文件缺失</string>
     <string name="downloads_source_unavailable">来源不可用</string>
 

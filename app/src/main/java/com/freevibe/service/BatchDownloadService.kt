@@ -90,6 +90,7 @@ class BatchDownloadService @Inject constructor(
                                     url = wp.fullUrl,
                                     fileName = buildBatchFileName(wp, ext),
                                     source = wp.source.name,
+                                    provenanceUrl = wp.sourcePageUrl.ifBlank { wp.fullUrl },
                                 ).onSuccess {
                                     _state.update { s -> s.copy(completedCount = s.completedCount + 1) }
                                 }.onFailure {

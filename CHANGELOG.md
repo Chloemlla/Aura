@@ -4,6 +4,17 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Saved media keeps its source quality**: wallpaper and sound downloads now
+  verify that MediaStore received the exact source bytes, while video wallpaper
+  feeds and local imports retain named originals with provenance. Apply creates
+  a separate copy only for transforms, oversized media, or incompatible video
+  and sound formats. Valid copies are reused. The Downloads screen now includes
+  videos and shows original and optimized metadata, with a control that removes
+  only the optimized file. Pending writes roll back on storage or encoder
+  failure, and Ultra HDR transforms are identified as SDR working copies while
+  the gainmap-bearing original remains intact. Saved video feed items reapply
+  without another network fetch after their size and digest are verified.
+
 - **Rotation can skip a bad item without deleting it**: wallpapers and videos
   now have a persistent Exclude from rotation action with immediate Undo.
   Downloads, local media, and history expose the same control. A manager in

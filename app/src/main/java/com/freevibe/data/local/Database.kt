@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.Flow
  * Read by [DatabaseDowngradeGuard] to recognise a database written by a newer
  * Aura before Room tries to open it and throws.
  */
-const val FREEVIBE_DATABASE_VERSION = 18
+const val FREEVIBE_DATABASE_VERSION = 19
 
 @Database(
     entities = [
@@ -42,7 +42,7 @@ const val FREEVIBE_DATABASE_VERSION = 18
         LocalWallpaperEntity::class,
         RotationExclusionEntity::class,
     ],
-    version = 18,
+    version = 19,
     exportSchema = true,
 )
 abstract class FreeVibeDatabase : RoomDatabase() {
@@ -153,6 +153,9 @@ interface DownloadDao {
 
     @Query("SELECT * FROM downloads WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): DownloadEntity?
+
+    @Query("SELECT * FROM downloads WHERE localPath = :localPath ORDER BY downloadedAt DESC LIMIT 1")
+    suspend fun getByLocalPath(localPath: String): DownloadEntity?
 
     @Query("SELECT * FROM downloads WHERE type = :type AND (id = :legacyId OR id = :scopedId) ORDER BY downloadedAt DESC")
     suspend fun findMatching(type: String, legacyId: String, scopedId: String): List<DownloadEntity>

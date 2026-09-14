@@ -27,6 +27,7 @@ import com.freevibe.service.WallpaperApplyPolicy
 import com.freevibe.service.WallpaperApplier
 import com.freevibe.service.WallpaperHistoryManager
 import com.freevibe.service.WallpaperStyleLearningSignal
+import com.freevibe.service.downloadHistoryId
 import com.freevibe.service.shouldUseNightWallpaperVariant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -73,6 +74,9 @@ internal class WallpaperApplyActions(
                     wallpaper.fullUrl,
                     target,
                     nightVariant = shouldApplyNightVariant(),
+                    savedOriginalId = downloadHistoryId("WALLPAPER", wallpaper.stableKey()),
+                    sourceWidth = wallpaper.width,
+                    sourceHeight = wallpaper.height,
                 )
             }
                 .onSuccess {
@@ -187,6 +191,7 @@ internal class WallpaperApplyActions(
                 url = wallpaper.fullUrl,
                 fileName = buildWallpaperDownloadFileName(wallpaper, ext),
                 source = wallpaper.source.name,
+                provenanceUrl = wallpaper.sourcePageUrl.ifBlank { wallpaper.fullUrl },
             ).onSuccess {
                 clearSourceUnavailableAfterSuccess(wallpaper)
             }.onFailure { error ->
