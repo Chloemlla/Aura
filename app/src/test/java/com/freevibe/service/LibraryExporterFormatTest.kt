@@ -1,6 +1,7 @@
 package com.freevibe.service
 
 import com.squareup.moshi.Moshi
+import com.freevibe.data.model.FitCanvasMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -81,5 +82,25 @@ class LibraryExporterFormatTest {
         ).forEach { forbidden ->
             assertFalse("Credential material reached library export: $forbidden", exported.contains(forbidden))
         }
+    }
+
+    @Test
+    fun `fit canvas preferences round trip as portable settings`() {
+        val original = LibraryExportFile(
+            fitCanvasPreferences = FitCanvasPreferencesExport(
+                staticPresentation = "fit",
+                staticCanvasMode = FitCanvasMode.CUSTOM_COLOR.preferenceValue,
+                staticCanvasColor = 0xFF123456.toInt(),
+                videoPresentation = "fit",
+                videoCanvasMode = FitCanvasMode.BLURRED_EDGE.preferenceValue,
+            ),
+        )
+
+        val restored = adapter.fromJson(adapter.toJson(original))!!.fitCanvasPreferences!!
+
+        assertEquals("fit", restored.staticPresentation)
+        assertEquals(FitCanvasMode.CUSTOM_COLOR.preferenceValue, restored.staticCanvasMode)
+        assertEquals(0xFF123456.toInt(), restored.staticCanvasColor)
+        assertEquals(FitCanvasMode.BLURRED_EDGE, restored.toPreferences().videoStyle.mode)
     }
 }

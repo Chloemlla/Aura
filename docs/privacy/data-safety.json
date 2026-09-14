@@ -377,13 +377,15 @@
       "storageLocation": "datastore/freevibe_prefs.preferences_pb",
       "sourcePaths": [
         "app/src/main/java/com/freevibe/data/local/PreferencesManager.kt",
+        "app/src/main/java/com/freevibe/data/model/FitCanvas.kt",
+        "app/src/main/java/com/freevibe/service/LibraryExporter.kt",
         "app/src/main/res/xml/backup_rules.xml",
         "app/src/main/res/xml/data_extraction_rules.xml"
       ],
-      "dataTypes": ["App settings", "Generated content disclosure", "Provider source switches", "Scheduler preferences", "Legacy provider-key migration inputs"],
+      "dataTypes": ["App settings", "Wallpaper presentation choices", "Generated content disclosure", "Provider source switches", "Scheduler preferences", "Legacy provider-key migration inputs"],
       "collectionStatus": "localOnly",
       "sharingStatus": "notShared",
-      "userControl": "Settings feature switches, generated-content disclosure reset, or Android clear-app-data.",
+      "userControl": "Settings feature switches, wallpaper preview controls, explicit library export/import, generated-content disclosure reset, or Android clear-app-data.",
       "retention": "Retained until the user changes the setting, clears the key/disclosure where available, or clears app data.",
       "deletionPath": "Use Settings controls for keys and toggles, or clear Aura app data.",
       "backupExclusions": [
@@ -480,7 +482,7 @@
     },
     {
       "surfaceId": "live-wallpaper-prefs-and-media",
-      "storageLocation": "shared_prefs/freevibe_live_wp.xml, shared_prefs/freevibe_weather_wp.xml, shared_prefs/freevibe_parallax.xml, files/live_wallpaper.*, and files/parallax/",
+      "storageLocation": "shared_prefs/freevibe_live_wp.xml, shared_prefs/freevibe_weather_wp.xml, shared_prefs/freevibe_parallax.xml, files/live_wallpaper.*, files/fit_canvas_background.png, and files/parallax/",
       "sourcePaths": [
         "app/src/main/java/com/freevibe/data/local/PreferencesManager.kt",
         "app/src/main/java/com/freevibe/service/VideoWallpaperStorage.kt",
@@ -494,10 +496,12 @@
       "collectionStatus": "localOnly",
       "sharingStatus": "notShared",
       "userControl": "Live wallpaper/video/weather/parallax settings, media replacement actions, and Android clear-app-data.",
-      "retention": "Latest managed live wallpaper media and state persist until replaced, disabled, or app data is cleared; weather/live-wallpaper prefs are excluded from backup.",
+      "retention": "Latest managed live wallpaper media, generated Fit Canvas background or apply copy, and state persist until replaced, disabled, or app data is cleared; weather/live-wallpaper prefs are excluded from backup.",
       "deletionPath": "Replace or disable the live wallpaper feature, clear weather state, delete managed media by clearing app data, or uninstall.",
       "backupExclusions": [
+        {"domain": "file", "path": "fit_canvas_background.png"},
         {"domain": "file", "path": "live_wallpaper.gif"},
+        {"domain": "file", "path": "live_wallpaper.fit.mp4"},
         {"domain": "file", "path": "live_wallpaper.mkv"},
         {"domain": "file", "path": "live_wallpaper.mov"},
         {"domain": "file", "path": "live_wallpaper.mp4"},

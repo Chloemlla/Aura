@@ -4,8 +4,11 @@ import android.content.Context
 import androidx.room.Room
 import com.freevibe.data.local.FreeVibeDatabase
 import com.freevibe.data.local.PreferencesManager
+import com.freevibe.data.model.FitCanvasMode
+import com.freevibe.data.model.FitCanvasStyle
 import com.freevibe.data.model.WallpaperCollectionEntity
 import com.freevibe.data.model.WallpaperCollectionItemEntity
+import com.freevibe.data.model.FitCanvasPreferences
 import com.freevibe.data.repository.CollectionRepository
 import com.squareup.moshi.Moshi
 import io.mockk.coEvery
@@ -37,20 +40,24 @@ class LibraryImportPlanTest {
 
     private lateinit var db: FreeVibeDatabase
     private lateinit var exporter: LibraryExporter
+    private lateinit var prefs: PreferencesManager
 
     private val packJson = MutableStateFlow("")
     private val profilesJson = MutableStateFlow("")
+    private var fitCanvasPreferences = FitCanvasPreferences()
 
     @Before
     fun setUp() {
         db = Room.inMemoryDatabaseBuilder(context, FreeVibeDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        val prefs = mockk<PreferencesManager>()
+        prefs = mockk()
         every { prefs.wallpaperPackJson } returns packJson
         every { prefs.soundProfilesJson } returns profilesJson
         coEvery { prefs.setWallpaperPackJson(any()) } answers { packJson.value = firstArg() }
         coEvery { prefs.setSoundProfilesJson(any()) } answers { profilesJson.value = firstArg() }
+        coEvery { prefs.fitCanvasPreferencesSnapshot() } answers { fitCanvasPreferences }
+        coEvery { prefs.restoreFitCanvasPreferences(any()) } answers { fitCanvasPreferences = firstArg() }
         exporter = LibraryExporter(
             context = context,
             database = db,
@@ -323,6 +330,11 @@ class LibraryImportPlanTest {
     fun `an injected mid-write failure leaves the pre-import state intact`() = runTest {
         packJson.value = "original-pack"
         profilesJson.value = "original-profiles"
+        val originalFitCanvasPreferences = FitCanvasPreferences(
+            staticPresentation = "fit",
+            staticStyle = FitCanvasStyle(FitCanvasMode.CUSTOM_COLOR, 0xFF123456.toInt()),
+        )
+        fitCanvasPreferences = originalFitCanvasPreferences
         exporter.failBeforeCommit = { throw IllegalStateException("disk full") }
 
         val plan = exporter.buildPlan(
@@ -330,7 +342,12 @@ class LibraryImportPlanTest {
                 favorites = "[$portableFavorite]",
                 collections = """[{"id":1,"name":"Night","items":[]}]""",
                 searchHistory = """[{"query":"blue","type":"WALLPAPER","searchedAt":1}]""",
-                extra = ""","wallpaperPackJson":"new-pack","soundProfilesJson":"new-profiles"""",
+                extra = ""","wallpaperPackJson":"new-pack","soundProfilesJson":"new-profiles",
+                    "fitCanvasPreferences":{
+                      "staticPresentation":"fill","staticCanvasMode":"amoled_black",
+                      "staticCanvasColor":-16777216,"videoPresentation":"fit",
+                      "videoCanvasMode":"blurred_edge","videoCanvasColor":-15584170
+                    }""".trimIndent(),
             ),
         )
 
@@ -342,6 +359,35 @@ class LibraryImportPlanTest {
         assertEquals(0, db.searchHistoryDao().count("WALLPAPER"))
         assertEquals("original-pack", packJson.value)
         assertEquals("original-profiles", profilesJson.value)
+        assertEquals(originalFitCanvasPreferences, fitCanvasPreferences)
+    }
+
+    @Test
+    fun `a partial Fit Canvas preference failure is rolled back`() = runTest {
+        val original = FitCanvasPreferences(
+            staticPresentation = "fit",
+            staticStyle = FitCanvasStyle(FitCanvasMode.CUSTOM_COLOR, 0xFF123456.toInt()),
+        )
+        val replacement = FitCanvasPreferences(
+            videoPresentation = "fit",
+            videoStyle = FitCanvasStyle(FitCanvasMode.BLURRED_EDGE),
+        )
+        fitCanvasPreferences = original
+        var restoreCalls = 0
+        coEvery { prefs.restoreFitCanvasPreferences(any()) } answers {
+            fitCanvasPreferences = firstArg()
+            if (restoreCalls++ == 0) throw IllegalStateException("preference write failed")
+        }
+
+        val failure = runCatching {
+            exporter.applyPlan(
+                LibraryImportPlan(sourceVersion = 2, fitCanvasPreferences = replacement),
+            )
+        }.exceptionOrNull()
+
+        assertTrue(failure is IllegalStateException)
+        assertEquals(2, restoreCalls)
+        assertEquals(original, fitCanvasPreferences)
     }
 
     @Test

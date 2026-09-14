@@ -15,6 +15,8 @@ import com.freevibe.data.legal.currentProviderChannel
 import com.freevibe.data.legal.isProviderActionPermitted
 import com.freevibe.data.legal.isProviderActionPermittedIn
 import com.freevibe.data.model.ContentSource
+import com.freevibe.data.model.FitCanvasMode
+import com.freevibe.data.model.FitCanvasStyle
 import com.freevibe.data.model.VideoWallpaperAction
 import com.freevibe.data.model.canUseVideoAction
 import com.freevibe.data.model.videoActionMessage
@@ -51,8 +53,10 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
@@ -480,6 +484,21 @@ class VideoWallpapersViewModel @Inject constructor(
     val state = _state.asStateFlow()
     private val _gallerySelectionResult = MutableStateFlow<VideoWallpaperSelectionResult?>(null)
     val gallerySelectionResult = _gallerySelectionResult.asStateFlow()
+    val videoWallpaperPresentation = prefs.videoWallpaperPresentation.stateIn(
+        viewModelScope,
+        SharingStarted.Eagerly,
+        com.freevibe.data.model.WALLPAPER_PRESENTATION_FILL,
+    )
+    val videoFitCanvasMode = prefs.videoFitCanvasMode.stateIn(
+        viewModelScope,
+        SharingStarted.Eagerly,
+        FitCanvasMode.AMOLED_BLACK.preferenceValue,
+    )
+    val videoFitCanvasColor = prefs.videoFitCanvasColor.stateIn(
+        viewModelScope,
+        SharingStarted.Eagerly,
+        com.freevibe.data.model.DEFAULT_FIT_CANVAS_COLOR,
+    )
     private val pixabayVideoCache = PixabayVideoCacheStore(context)
     @Volatile
     private var pixabayVideoRateLimitedUntilMs: Long = 0L
@@ -690,6 +709,10 @@ class VideoWallpapersViewModel @Inject constructor(
     fun undoDownvote(id: String) { viewModelScope.launch { voteRepo.undoDownvote(id) } }
     fun clearGallerySelectionResult() { _gallerySelectionResult.value = null }
 
+    fun setVideoFitCanvasPreferences(presentation: String, style: FitCanvasStyle) {
+        viewModelScope.launch { prefs.setVideoFitCanvasPreferences(presentation, style) }
+    }
+
     fun prepareGalleryVideoWallpaper(uri: android.net.Uri) {
         viewModelScope.launch {
             _gallerySelectionResult.value = VideoWallpaperSelectionResult.Preparing
@@ -706,6 +729,7 @@ class VideoWallpapersViewModel @Inject constructor(
     fun applyVideoWallpaper(
         item: VideoWallpaperItem,
         scaleMode: String = VIDEO_WALLPAPER_SCALE_MODE_ZOOM,
+        canvasStyle: FitCanvasStyle = FitCanvasStyle(),
     ) {
         if (_state.value.isApplying != null) return
         if (!item.canUseVideoAction(VideoWallpaperAction.APPLY)) {
@@ -825,7 +849,21 @@ class VideoWallpapersViewModel @Inject constructor(
                     if (com.freevibe.BuildConfig.DEBUG) Log.d("VideoWP", "Downloaded: ${cacheFile.length() / 1024}KB")
                 }.getOrElse { throw it }
 
-                launchOrExportVideoWallpaper(context, file, scaleMode = scaleMode)
+                val preparedFile = videoWallpaperStorage.preparePresentation(
+                    file = file,
+                    scaleMode = scaleMode,
+                    canvasStyle = canvasStyle,
+                ).getOrElse { throw it }
+                launchOrExportVideoWallpaper(
+                    context = context,
+                    file = preparedFile,
+                    scaleMode = scaleMode,
+                    canvasStyle = canvasStyle,
+                    // Storage persists the resolved fallback mode and generated
+                    // background. Do not replace it with the user's pre-fallback
+                    // request just before opening the system picker.
+                    selectionAlreadyPersisted = true,
+                )
                 _state.update { it.copy(isApplying = null) }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e

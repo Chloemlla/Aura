@@ -1,6 +1,7 @@
 package com.freevibe.service
 
 import com.freevibe.data.model.FavoriteEntity
+import com.freevibe.data.model.FitCanvasPreferences
 import com.freevibe.data.model.SearchHistoryEntity
 import com.freevibe.data.model.Wallpaper
 import java.net.URI
@@ -59,6 +60,7 @@ data class LibraryImportPlan(
     val searchHistory: List<SearchHistoryEntity> = emptyList(),
     val wallpaperPackJson: String = "",
     val soundProfilesJson: String = "",
+    val fitCanvasPreferences: FitCanvasPreferences? = null,
     val skipped: List<LibraryImportSkip> = emptyList(),
 ) {
     /** Rows that will actually be written. */
@@ -67,7 +69,8 @@ data class LibraryImportPlan(
             collections.sumOf { it.items.size } +
             searchHistory.size +
             (if (wallpaperPackJson.isNotBlank()) 1 else 0) +
-            (if (soundProfilesJson.isNotBlank()) 1 else 0)
+            (if (soundProfilesJson.isNotBlank()) 1 else 0) +
+            (if (fitCanvasPreferences != null) 1 else 0)
 
     val skippedCount: Int
         get() = skipped.count { !it.reason.isFailure }

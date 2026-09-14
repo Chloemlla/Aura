@@ -4,6 +4,14 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Fit can now look intentional instead of leaving unexplained bars**: static
+  wallpapers, videos, and GIFs can use AMOLED black, a chosen color, a Palette
+  color, or a blurred edge behind the complete frame. Preview and apply share
+  the same saved choice. Video builds one canvas from a bounded representative
+  frame and reuses it instead of blurring during playback. HDR and missing-frame
+  fallbacks are deterministic, all generated media stays inside existing memory
+  and file limits, and portable library backups retain the non-secret defaults.
+
 - **Restored provider keys now fail safely and visibly**: Aura keeps user-entered
   provider keys in its Android Keystore-backed AES-GCM store and excludes both
   current and legacy credential files from cloud backup and device transfer. If

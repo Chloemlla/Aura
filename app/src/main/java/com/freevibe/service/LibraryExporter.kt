@@ -8,6 +8,9 @@ import com.freevibe.data.local.FreeVibeDatabase
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.local.SearchHistoryDao
 import com.freevibe.data.model.FavoriteEntity
+import com.freevibe.data.model.FitCanvasMode
+import com.freevibe.data.model.FitCanvasPreferences
+import com.freevibe.data.model.FitCanvasStyle
 import com.freevibe.data.model.SearchHistoryEntity
 import com.freevibe.data.model.favoriteIdentity
 import com.freevibe.data.repository.CollectionRepository
@@ -30,7 +33,39 @@ data class LibraryExportFile(
     val searchHistory: List<SearchHistoryExportEntry> = emptyList(),
     val wallpaperPackJson: String = "",
     val soundProfilesJson: String = "",
+    val fitCanvasPreferences: FitCanvasPreferencesExport? = null,
 )
+
+@JsonClass(generateAdapter = true)
+data class FitCanvasPreferencesExport(
+    val staticPresentation: String = com.freevibe.data.model.WALLPAPER_PRESENTATION_FILL,
+    val staticCanvasMode: String = FitCanvasMode.AMOLED_BLACK.preferenceValue,
+    val staticCanvasColor: Int = com.freevibe.data.model.DEFAULT_FIT_CANVAS_COLOR,
+    val videoPresentation: String = com.freevibe.data.model.WALLPAPER_PRESENTATION_FILL,
+    val videoCanvasMode: String = FitCanvasMode.AMOLED_BLACK.preferenceValue,
+    val videoCanvasColor: Int = com.freevibe.data.model.DEFAULT_FIT_CANVAS_COLOR,
+) {
+    fun toPreferences(): FitCanvasPreferences = FitCanvasPreferences(
+        staticPresentation = staticPresentation,
+        staticStyle = FitCanvasStyle(FitCanvasMode.fromPreference(staticCanvasMode), staticCanvasColor),
+        videoPresentation = videoPresentation,
+        videoStyle = FitCanvasStyle(FitCanvasMode.fromPreference(videoCanvasMode), videoCanvasColor),
+    ).normalized()
+
+    companion object {
+        fun from(preferences: FitCanvasPreferences): FitCanvasPreferencesExport {
+            val normalized = preferences.normalized()
+            return FitCanvasPreferencesExport(
+                staticPresentation = normalized.staticPresentation,
+                staticCanvasMode = normalized.staticStyle.mode.preferenceValue,
+                staticCanvasColor = normalized.staticStyle.customColor,
+                videoPresentation = normalized.videoPresentation,
+                videoCanvasMode = normalized.videoStyle.mode.preferenceValue,
+                videoCanvasColor = normalized.videoStyle.customColor,
+            )
+        }
+    }
+}
 
 /**
  * Only the fields needed to decide *whether* a payload can be restored, plus the
@@ -115,6 +150,7 @@ class LibraryExporter @Inject constructor(
             val searchHistory = searchHistoryDao.getAll().map { it.toExportEntry() }
             val wallpaperPack = prefs.wallpaperPackJson.first()
             val soundProfiles = prefs.soundProfilesJson.first()
+            val fitCanvasPreferences = prefs.fitCanvasPreferencesSnapshot()
 
             requireWithinTransferLimit(
                 "Library favorites",
@@ -140,6 +176,7 @@ class LibraryExporter @Inject constructor(
                 searchHistory = searchHistory,
                 wallpaperPackJson = wallpaperPack,
                 soundProfilesJson = soundProfiles,
+                fitCanvasPreferences = FitCanvasPreferencesExport.from(fitCanvasPreferences),
             )
 
             val json = adapter.indent("  ").toJson(exportFile)
@@ -154,7 +191,8 @@ class LibraryExporter @Inject constructor(
                 exported = favorites.size + collections.size +
                     collections.sumOf { it.items.size } + searchHistory.size +
                     (if (wallpaperPack.isNotBlank()) 1 else 0) +
-                    (if (soundProfiles.isNotBlank()) 1 else 0),
+                    (if (soundProfiles.isNotBlank()) 1 else 0) +
+                    1,
                 skipped = 0,
                 failed = 0,
             )
@@ -280,6 +318,7 @@ class LibraryExporter @Inject constructor(
             searchHistory = searchHistory,
             wallpaperPackJson = exportFile.wallpaperPackJson,
             soundProfilesJson = exportFile.soundProfilesJson,
+            fitCanvasPreferences = exportFile.fitCanvasPreferences?.toPreferences(),
             skipped = skipped,
         )
     }
@@ -425,21 +464,26 @@ class LibraryExporter @Inject constructor(
      * safe to roll back wholesale.
      */
     internal suspend fun applyPlan(plan: LibraryImportPlan) {
-        // DataStore has no transaction, so its two values are written first and
-        // restored by hand if the database transaction fails. Doing it in this
-        // order means a database failure can never leave preferences ahead of the
-        // library they describe.
+        // DataStore has no transaction with Room, so preference sections are
+        // written first and restored by hand if any later write fails. Mark the
+        // rollback as necessary before each call because Fit Canvas restore spans
+        // its static, video, and service-mirror values.
         val previousPack = prefs.wallpaperPackJson.first()
         val previousProfiles = prefs.soundProfilesJson.first()
+        val previousFitCanvasPreferences = prefs.fitCanvasPreferencesSnapshot()
         var prefsWritten = false
         try {
             if (plan.wallpaperPackJson.isNotBlank()) {
-                prefs.setWallpaperPackJson(plan.wallpaperPackJson)
                 prefsWritten = true
+                prefs.setWallpaperPackJson(plan.wallpaperPackJson)
             }
             if (plan.soundProfilesJson.isNotBlank()) {
-                prefs.setSoundProfilesJson(plan.soundProfilesJson)
                 prefsWritten = true
+                prefs.setSoundProfilesJson(plan.soundProfilesJson)
+            }
+            plan.fitCanvasPreferences?.let {
+                prefsWritten = true
+                prefs.restoreFitCanvasPreferences(it)
             }
             database.withTransaction {
                 if (plan.favorites.isNotEmpty()) {
@@ -454,10 +498,9 @@ class LibraryExporter @Inject constructor(
             }
         } catch (error: Throwable) {
             if (prefsWritten) {
-                runCatching {
-                    prefs.setWallpaperPackJson(previousPack)
-                    prefs.setSoundProfilesJson(previousProfiles)
-                }
+                runCatching { prefs.setWallpaperPackJson(previousPack) }
+                runCatching { prefs.setSoundProfilesJson(previousProfiles) }
+                runCatching { prefs.restoreFitCanvasPreferences(previousFitCanvasPreferences) }
             }
             throw error
         }

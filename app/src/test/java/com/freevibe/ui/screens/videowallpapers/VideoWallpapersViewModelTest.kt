@@ -6,6 +6,9 @@ import com.freevibe.data.legal.ProviderBuild
 import com.freevibe.data.legal.ProviderChannel
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.model.ContentSource
+import com.freevibe.data.model.DEFAULT_FIT_CANVAS_COLOR
+import com.freevibe.data.model.FitCanvasMode
+import com.freevibe.data.model.WALLPAPER_PRESENTATION_FILL
 import com.freevibe.data.remote.pexels.PexelsApi
 import com.freevibe.data.remote.pixabay.PixabayApi
 import com.freevibe.data.remote.pixabay.PixabayVideo
@@ -177,6 +180,9 @@ class VideoWallpapersViewModelTest {
             )
 
         val prefs = mockk<PreferencesManager>()
+        every { prefs.videoWallpaperPresentation } returns flowOf(WALLPAPER_PRESENTATION_FILL)
+        every { prefs.videoFitCanvasMode } returns flowOf(FitCanvasMode.AMOLED_BLACK.preferenceValue)
+        every { prefs.videoFitCanvasColor } returns flowOf(DEFAULT_FIT_CANVAS_COLOR)
         every { prefs.youtubeProviderEnabled } returns flowOf(false)
         every { prefs.redditProviderEnabled } returns flowOf(false)
         every { prefs.pexelsProviderEnabled } returns flowOf(false)

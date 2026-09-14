@@ -4,6 +4,11 @@ import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.OpenableColumns
+import com.freevibe.data.model.FitCanvasMode
+import com.freevibe.data.model.FitCanvasStyle
+import com.freevibe.data.model.WALLPAPER_PRESENTATION_FILL
+import com.freevibe.data.model.WALLPAPER_PRESENTATION_FIT
+import com.freevibe.data.model.normalizeWallpaperPresentation
 import com.freevibe.util.rethrowIfCancelled
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +27,14 @@ sealed interface VideoWallpaperSelectionResult {
 
 internal const val VIDEO_WALLPAPER_SCALE_MODE_ZOOM = "zoom"
 internal const val VIDEO_WALLPAPER_SCALE_MODE_FIT = "fit"
+internal const val VIDEO_WALLPAPER_DEFAULT_SCALE_MODE_PREF = "default_scale_mode"
+internal const val VIDEO_WALLPAPER_DEFAULT_CANVAS_MODE_PREF = "default_canvas_mode"
+internal const val VIDEO_WALLPAPER_DEFAULT_CANVAS_COLOR_PREF = "default_canvas_color"
+internal const val VIDEO_WALLPAPER_CANVAS_MODE_PREF = "canvas_mode"
+internal const val VIDEO_WALLPAPER_CANVAS_COLOR_PREF = "canvas_color"
+internal const val VIDEO_WALLPAPER_CANVAS_BACKGROUND_PREF = "canvas_background_path"
+internal const val VIDEO_WALLPAPER_CANVAS_BAKED_PREF = "canvas_baked"
+internal const val VIDEO_WALLPAPER_CANVAS_BACKGROUND_FILE = "fit_canvas_background.png"
 
 internal fun videoWallpaperMimeTypes(): Array<String> = arrayOf("video/*", "image/gif")
 
@@ -41,6 +54,35 @@ internal fun normalizeVideoWallpaperScaleMode(scaleMode: String?): String =
         VIDEO_WALLPAPER_SCALE_MODE_FIT -> VIDEO_WALLPAPER_SCALE_MODE_FIT
         else -> VIDEO_WALLPAPER_SCALE_MODE_ZOOM
     }
+
+internal data class VideoWallpaperPresentation(
+    val scaleMode: String,
+    val canvasStyle: FitCanvasStyle,
+)
+
+internal fun readDefaultVideoWallpaperPresentation(context: Context): VideoWallpaperPresentation {
+    val preferences = context.getSharedPreferences("freevibe_live_wp", Context.MODE_PRIVATE)
+    return VideoWallpaperPresentation(
+        scaleMode = when (normalizeWallpaperPresentation(
+            preferences.getString(VIDEO_WALLPAPER_DEFAULT_SCALE_MODE_PREF, WALLPAPER_PRESENTATION_FILL),
+        )) {
+            WALLPAPER_PRESENTATION_FIT -> VIDEO_WALLPAPER_SCALE_MODE_FIT
+            else -> VIDEO_WALLPAPER_SCALE_MODE_ZOOM
+        },
+        canvasStyle = FitCanvasStyle(
+            mode = FitCanvasMode.fromPreference(
+                preferences.getString(
+                    VIDEO_WALLPAPER_DEFAULT_CANVAS_MODE_PREF,
+                    FitCanvasMode.AMOLED_BLACK.preferenceValue,
+                ),
+            ),
+            customColor = preferences.getInt(
+                VIDEO_WALLPAPER_DEFAULT_CANVAS_COLOR_PREF,
+                com.freevibe.data.model.DEFAULT_FIT_CANVAS_COLOR,
+            ),
+        ).normalized(),
+    )
+}
 
 internal fun isGifVideoWallpaperSelection(
     mimeType: String?,
@@ -113,17 +155,29 @@ internal fun persistVideoWallpaperSelection(
     context: Context,
     file: File,
     scaleMode: String = VIDEO_WALLPAPER_SCALE_MODE_ZOOM,
+    canvasStyle: FitCanvasStyle = FitCanvasStyle(),
+    canvasBackgroundFile: File? = null,
+    canvasBaked: Boolean = false,
 ) {
+    val normalizedStyle = canvasStyle.normalized()
     context.getSharedPreferences("freevibe_live_wp", Context.MODE_PRIVATE)
         .edit()
         .putString("video_path", file.absolutePath)
         .putString("scale_mode", normalizeVideoWallpaperScaleMode(scaleMode))
+        .putString(VIDEO_WALLPAPER_CANVAS_MODE_PREF, normalizedStyle.mode.preferenceValue)
+        .putInt(VIDEO_WALLPAPER_CANVAS_COLOR_PREF, normalizedStyle.customColor)
+        .putString(
+            VIDEO_WALLPAPER_CANVAS_BACKGROUND_PREF,
+            canvasBackgroundFile?.takeIf { it.exists() }?.absolutePath.orEmpty(),
+        )
+        .putBoolean(VIDEO_WALLPAPER_CANVAS_BAKED_PREF, canvasBaked)
         .apply()
 }
 
 @Singleton
 class VideoWallpaperStorage @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val fitCanvasComposer: VideoFitCanvasComposer,
 ) {
 
     suspend fun prepareFromUri(uri: Uri): Result<File> = withContext(Dispatchers.IO) {
@@ -147,8 +201,9 @@ class VideoWallpaperStorage @Inject constructor(
 
                 validatePreparedMotionFile(tempFile, extension)
                 commitPreparedVideo(tempFile, targetFile)
-                persistSelectedVideoWallpaper(targetFile)
-                targetFile
+                val presentation = readDefaultVideoWallpaperPresentation(context)
+                preparePresentation(targetFile, presentation.scaleMode, presentation.canvasStyle)
+                    .getOrElse { throw it }
             } catch (e: Exception) {
                 tempFile.delete()
                 throw e
@@ -168,12 +223,46 @@ class VideoWallpaperStorage @Inject constructor(
                 writer(tempFile)
                 validatePreparedMotionFile(tempFile, extension)
                 commitPreparedVideo(tempFile, targetFile)
-                persistSelectedVideoWallpaper(targetFile)
                 targetFile
             } catch (e: Exception) {
                 tempFile.delete()
                 throw e
             }
+        }.onFailure { it.rethrowIfCancelled() }
+    }
+
+    suspend fun preparePresentation(
+        file: File,
+        scaleMode: String,
+        canvasStyle: FitCanvasStyle,
+    ): Result<File> = withContext(Dispatchers.IO) {
+        runCatching {
+            if (normalizeVideoWallpaperScaleMode(scaleMode) != VIDEO_WALLPAPER_SCALE_MODE_FIT) {
+                File(context.filesDir, VIDEO_WALLPAPER_CANVAS_BACKGROUND_FILE).delete()
+                persistVideoWallpaperSelection(
+                    context = context,
+                    file = file,
+                    scaleMode = VIDEO_WALLPAPER_SCALE_MODE_ZOOM,
+                )
+                return@runCatching file
+            }
+            val prepared = fitCanvasComposer.prepare(file, canvasStyle).getOrElse { throw it }
+            validatePreparedMotionFile(prepared.file, prepared.file.extension)
+            if (prepared.file !== file && prepared.file.absolutePath != file.absolutePath) {
+                file.delete()
+            }
+            persistVideoWallpaperSelection(
+                context = context,
+                file = prepared.file,
+                scaleMode = VIDEO_WALLPAPER_SCALE_MODE_FIT,
+                canvasStyle = FitCanvasStyle(
+                    mode = prepared.resolvedCanvas.mode,
+                    customColor = prepared.resolvedCanvas.color,
+                ),
+                canvasBackgroundFile = prepared.backgroundFile,
+                canvasBaked = prepared.bakedIntoVideo,
+            )
+            prepared.file
         }.onFailure { it.rethrowIfCancelled() }
     }
 
@@ -254,7 +343,4 @@ class VideoWallpaperStorage @Inject constructor(
             if (index >= 0 && cursor.moveToFirst()) cursor.getLong(index) else -1L
         } ?: -1L
 
-    private fun persistSelectedVideoWallpaper(file: File) {
-        persistVideoWallpaperSelection(context, file)
-    }
 }

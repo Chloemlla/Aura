@@ -9,6 +9,8 @@
     <exclude domain="file" path="crash.log" />
     <exclude domain="file" path="datastore/freevibe_prefs.preferences_pb" />
     <exclude domain="file" path="live_wallpaper.gif" />
+    <exclude domain="file" path="fit_canvas_background.png" />
+    <exclude domain="file" path="live_wallpaper.fit.mp4" />
     <exclude domain="file" path="live_wallpaper.mkv" />
     <exclude domain="file" path="live_wallpaper.mov" />
     <exclude domain="file" path="live_wallpaper.mp4" />

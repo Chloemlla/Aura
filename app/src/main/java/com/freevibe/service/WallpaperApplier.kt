@@ -8,6 +8,7 @@ import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.Rect
+import com.freevibe.data.model.FitCanvasStyle
 import com.freevibe.data.model.WallpaperTarget
 import com.freevibe.util.rethrowIfCancelled
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -40,12 +41,14 @@ class WallpaperApplier @Inject constructor(
         target: WallpaperTarget = WallpaperTarget.BOTH,
         cropRect: Rect? = null,
         nightVariant: Boolean = false,
+        fitCanvasStyle: FitCanvasStyle? = null,
         imageFlow: MediaIngestionImageFlow = MediaIngestionImageFlow.LOCAL_APPLY,
     ): Result<Unit> = applyByLocator(
         locator = url,
         target = target,
         cropRect = cropRect,
         nightVariant = nightVariant,
+        fitCanvasStyle = fitCanvasStyle,
         imageFlow = imageFlow,
     )
 
@@ -61,19 +64,26 @@ class WallpaperApplier @Inject constructor(
         cropRect: Rect? = null,
         darkenPercent: Int = 0,
         nightVariant: Boolean = false,
+        fitCanvasStyle: FitCanvasStyle? = null,
         imageFlow: MediaIngestionImageFlow = MediaIngestionImageFlow.LOCAL_APPLY,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             // WallpaperManager can consume the encoded source directly. Keep the bitmap
             // path below for transformations, but avoid expanding a normal JPEG/PNG into
             // a full ARGB bitmap before the system receives it.
-            if (darkenPercent <= 0 && !nightVariant &&
+            if (darkenPercent <= 0 && !nightVariant && fitCanvasStyle == null &&
                 !isWallpaperClockOverlayEnabled(context) &&
                 streamLocatorToWallpaper(locator, target, cropRect)
             ) {
                 return@runCatching Unit
             }
-            var bitmap = decodeFromLocator(locator, imageFlow)
+            val decodeLongEdge = if (fitCanvasStyle != null) {
+                val (screenWidth, screenHeight) = getScreenDimensions()
+                maxOf(screenWidth, screenHeight).coerceAtLeast(1)
+            } else {
+                targetWallpaperDecodeLongEdge()
+            }
+            var bitmap = decodeFromLocator(locator, imageFlow, decodeLongEdge)
                 ?: throw IllegalStateException("Failed to decode wallpaper image")
             try {
                 if (darkenPercent > 0) {
@@ -85,6 +95,17 @@ class WallpaperApplier @Inject constructor(
                     val nightBitmap = applyNightVariant(bitmap)
                     bitmap.recycle()
                     bitmap = nightBitmap
+                }
+                if (fitCanvasStyle != null) {
+                    val (targetWidth, targetHeight) = getScreenDimensions()
+                    val fitted = FitCanvasRenderer.render(
+                        source = bitmap,
+                        targetWidth = targetWidth,
+                        targetHeight = targetHeight,
+                        style = fitCanvasStyle,
+                    ).bitmap
+                    bitmap.recycle()
+                    bitmap = fitted
                 }
                 val overlayBitmap = bitmapWithWallpaperClockOverlay(context, bitmap)
                 if (overlayBitmap !== bitmap) {
@@ -160,13 +181,20 @@ class WallpaperApplier @Inject constructor(
     suspend fun applyFromBitmap(
         bitmap: Bitmap,
         target: WallpaperTarget = WallpaperTarget.BOTH,
+        fitCanvasStyle: FitCanvasStyle? = null,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            val overlayBitmap = bitmapWithWallpaperClockOverlay(context, bitmap)
+            val fittedBitmap = fitCanvasStyle?.let { style ->
+                val (targetWidth, targetHeight) = getScreenDimensions()
+                FitCanvasRenderer.render(bitmap, targetWidth, targetHeight, style).bitmap
+            }
+            val sourceBitmap = fittedBitmap ?: bitmap
+            val overlayBitmap = bitmapWithWallpaperClockOverlay(context, sourceBitmap)
             try {
                 wallpaperManager.setBitmap(overlayBitmap, null, true, wallpaperFlags(target))
             } finally {
-                if (overlayBitmap !== bitmap && !overlayBitmap.isRecycled) overlayBitmap.recycle()
+                if (overlayBitmap !== sourceBitmap && !overlayBitmap.isRecycled) overlayBitmap.recycle()
+                if (fittedBitmap != null && !fittedBitmap.isRecycled) fittedBitmap.recycle()
             }
             Unit
         }.onFailure { it.rethrowIfCancelled() }
@@ -308,21 +336,22 @@ class WallpaperApplier @Inject constructor(
     internal suspend fun decodeFromLocator(
         locator: String,
         imageFlow: MediaIngestionImageFlow = MediaIngestionImageFlow.LOCAL_APPLY,
+        maxLongEdge: Int = targetWallpaperDecodeLongEdge(),
     ): Bitmap? {
         if (locator.isBlank()) return null
         return when {
             locator.startsWith("http://", ignoreCase = true) ||
                 locator.startsWith("https://", ignoreCase = true) ->
-                downloadBitmap(locator, imageFlow)
+                downloadBitmap(locator, imageFlow, maxLongEdge)
             locator.startsWith("content://", ignoreCase = true) ->
-                decodeFromContentUri(locator, imageFlow)
+                decodeFromContentUri(locator, imageFlow, maxLongEdge)
             locator.startsWith("file:", ignoreCase = true) -> {
                 // Both file:/path and file:///path produce a parseable Uri; decode the
                 // raw path so local wallpaper files share the same bounded image helper.
                 val path = android.net.Uri.parse(locator).path
-                if (path.isNullOrBlank()) null else decodeLocalPath(path, imageFlow)
+                if (path.isNullOrBlank()) null else decodeLocalPath(path, imageFlow, maxLongEdge)
             }
-            locator.startsWith("/") -> decodeLocalPath(locator, imageFlow)
+            locator.startsWith("/") -> decodeLocalPath(locator, imageFlow, maxLongEdge)
             else -> null
         }
     }
@@ -330,19 +359,21 @@ class WallpaperApplier @Inject constructor(
     private suspend fun decodeFromContentUri(
         uri: String,
         imageFlow: MediaIngestionImageFlow,
+        maxLongEdge: Int,
     ): Bitmap? = withContext(Dispatchers.IO) {
         val parsed = runCatching { android.net.Uri.parse(uri) }.getOrNull() ?: return@withContext null
         decodeImageUriForFlow(
             context = context,
             uri = parsed,
             flow = imageFlow,
-            maxLongEdge = targetWallpaperDecodeLongEdge(),
+            maxLongEdge = maxLongEdge,
         )
     }
 
     private suspend fun decodeLocalPath(
         path: String,
         imageFlow: MediaIngestionImageFlow,
+        maxLongEdge: Int,
     ): Bitmap? = withContext(Dispatchers.IO) {
         val file = java.io.File(path)
         if (!file.exists() || !file.canRead()) return@withContext null
@@ -352,7 +383,7 @@ class WallpaperApplier @Inject constructor(
         decodeImageFileForFlow(
             file = file,
             flow = imageFlow,
-            maxLongEdge = targetWallpaperDecodeLongEdge(),
+            maxLongEdge = maxLongEdge,
         )
     }
 
@@ -364,6 +395,7 @@ class WallpaperApplier @Inject constructor(
     private suspend fun downloadBitmap(
         url: String,
         imageFlow: MediaIngestionImageFlow,
+        maxLongEdge: Int,
     ): Bitmap? = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(url).build()
         val response = okHttpClient.newCall(request).execute()
@@ -389,7 +421,7 @@ class WallpaperApplier @Inject constructor(
                 flow = imageFlow,
                 declaredMimeType = body.contentType()?.toString(),
                 extension = url.substringBefore('?').substringAfterLast('.', missingDelimiterValue = ""),
-                maxLongEdge = targetWallpaperDecodeLongEdge(),
+                maxLongEdge = maxLongEdge,
             )
         }
     }

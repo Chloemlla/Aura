@@ -32,10 +32,15 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.freevibe.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.freevibe.data.model.Wallpaper
+import com.freevibe.data.model.FitCanvasMode
+import com.freevibe.data.model.FitCanvasStyle
+import com.freevibe.data.model.WALLPAPER_PRESENTATION_FIT
 import com.freevibe.data.model.WallpaperTarget
 import com.freevibe.ui.components.AuraSnackbarHost
 import com.freevibe.ui.components.AuraStateAction
 import com.freevibe.ui.components.AuraStateCard
+import com.freevibe.ui.components.FitCanvasControls
+import com.freevibe.ui.components.FitCanvasMedia
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,6 +53,12 @@ fun WallpaperCropScreen(
     viewModel: WallpaperCropViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val presentation by recoveryViewModel.staticWallpaperPresentation.collectAsStateWithLifecycle()
+    val savedCanvasMode by recoveryViewModel.staticFitCanvasMode.collectAsStateWithLifecycle()
+    val savedCanvasColor by recoveryViewModel.staticFitCanvasColor.collectAsStateWithLifecycle()
+    val canvasStyle = remember(savedCanvasMode, savedCanvasColor) {
+        FitCanvasStyle(FitCanvasMode.fromPreference(savedCanvasMode), savedCanvasColor).normalized()
+    }
     val context = LocalContext.current
     // Reading a string off LocalContext is not a composition read. LocalResources is.
     val resources = LocalResources.current
@@ -161,30 +172,43 @@ fun WallpaperCropScreen(
                     .background(Color.Black)
                     .clipToBounds()
                     .onSizeChanged { viewportSize = it }
-                    .pointerInput(Unit) {
-                        detectTransformGestures { _, pan, zoom, _ ->
-                            scale = (scale * zoom).coerceIn(0.5f, 5f)
-                            offsetX += pan.x
-                            offsetY += pan.y
-                            viewModel.updateTransform(scale, offsetX, offsetY)
+                    .pointerInput(presentation) {
+                        if (presentation != WALLPAPER_PRESENTATION_FIT) {
+                            detectTransformGestures { _, pan, zoom, _ ->
+                                scale = (scale * zoom).coerceIn(0.5f, 5f)
+                                offsetX += pan.x
+                                offsetY += pan.y
+                                viewModel.updateTransform(scale, offsetX, offsetY)
+                            }
                         }
                     },
                 contentAlignment = Alignment.Center,
             ) {
                 state.bitmap?.let { bitmap ->
-                    androidx.compose.foundation.Image(
-                        bitmap = bitmap.asImageBitmap(),
-                        contentDescription = stringResource(R.string.editor_crop_image_cd),
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer(
-                                scaleX = scale,
-                                scaleY = scale,
-                                translationX = offsetX,
-                                translationY = offsetY,
-                            ),
-                    )
+                    if (presentation == WALLPAPER_PRESENTATION_FIT) {
+                        FitCanvasMedia(
+                            model = bitmap,
+                            presentation = presentation,
+                            style = canvasStyle,
+                            dominantColor = null,
+                            contentDescription = stringResource(R.string.editor_crop_image_cd),
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        androidx.compose.foundation.Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = stringResource(R.string.editor_crop_image_cd),
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer(
+                                    scaleX = scale,
+                                    scaleY = scale,
+                                    translationX = offsetX,
+                                    translationY = offsetY,
+                                ),
+                        )
+                    }
                 }
 
                 // Screen overlay guides
@@ -199,6 +223,18 @@ fun WallpaperCropScreen(
                 }
             }
 
+            FitCanvasControls(
+                presentation = presentation,
+                style = canvasStyle,
+                onPresentationChange = { selected ->
+                    recoveryViewModel.setStaticFitCanvasPreferences(selected, canvasStyle)
+                },
+                onStyleChange = { selected ->
+                    recoveryViewModel.setStaticFitCanvasPreferences(presentation, selected)
+                },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+
             // Zoom info + aspect ratio presets
             Row(
                 modifier = Modifier
@@ -208,7 +244,13 @@ fun WallpaperCropScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    stringResource(R.string.editor_crop_gesture_hint),
+                    stringResource(
+                        if (presentation == WALLPAPER_PRESENTATION_FIT) {
+                            R.string.fit_canvas_fit_help
+                        } else {
+                            R.string.editor_crop_gesture_hint
+                        },
+                    ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -220,7 +262,7 @@ fun WallpaperCropScreen(
             }
 
             // Aspect ratio quick presets + Smart Crop (NX-3)
-            Row(
+            if (presentation != WALLPAPER_PRESENTATION_FIT) Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp),
@@ -305,7 +347,12 @@ fun WallpaperCropScreen(
             ) {
                 OutlinedButton(
                     onClick = {
-                        viewModel.applyCropped(WallpaperTarget.HOME, viewportSize.width, viewportSize.height)
+                        viewModel.applyCropped(
+                            WallpaperTarget.HOME,
+                            viewportSize.width,
+                            viewportSize.height,
+                            canvasStyle.takeIf { presentation == WALLPAPER_PRESENTATION_FIT },
+                        )
                     },
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                     enabled = !state.isApplying && state.bitmap != null,
@@ -313,7 +360,12 @@ fun WallpaperCropScreen(
                 ) { Text(stringResource(R.string.common_home)) }
                 OutlinedButton(
                     onClick = {
-                        viewModel.applyCropped(WallpaperTarget.LOCK, viewportSize.width, viewportSize.height)
+                        viewModel.applyCropped(
+                            WallpaperTarget.LOCK,
+                            viewportSize.width,
+                            viewportSize.height,
+                            canvasStyle.takeIf { presentation == WALLPAPER_PRESENTATION_FIT },
+                        )
                     },
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                     enabled = !state.isApplying && state.bitmap != null,
@@ -321,7 +373,12 @@ fun WallpaperCropScreen(
                 ) { Text(stringResource(R.string.common_lock)) }
                 Button(
                     onClick = {
-                        viewModel.applyCropped(WallpaperTarget.BOTH, viewportSize.width, viewportSize.height)
+                        viewModel.applyCropped(
+                            WallpaperTarget.BOTH,
+                            viewportSize.width,
+                            viewportSize.height,
+                            canvasStyle.takeIf { presentation == WALLPAPER_PRESENTATION_FIT },
+                        )
                     },
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                     enabled = !state.isApplying && state.bitmap != null,

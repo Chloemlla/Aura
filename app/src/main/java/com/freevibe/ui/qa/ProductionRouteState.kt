@@ -39,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
@@ -49,9 +50,14 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.freevibe.R
 import com.freevibe.data.model.ContentSource
+import com.freevibe.data.model.FitCanvasMode
+import com.freevibe.data.model.FitCanvasStyle
+import com.freevibe.data.model.WALLPAPER_PRESENTATION_FIT
 import com.freevibe.ui.components.AuraStatusAction
 import com.freevibe.ui.components.AuraStatusBanner
 import com.freevibe.ui.components.CompactSearchField
+import com.freevibe.ui.components.FitCanvasControls
+import com.freevibe.ui.components.FitCanvasMedia
 import com.freevibe.ui.components.ShimmerWallpaperGrid
 import com.freevibe.ui.preview.PREVIEW_SOUNDS
 import com.freevibe.ui.preview.PREVIEW_WALLPAPERS
@@ -86,6 +92,7 @@ enum class ProductionRouteScenario(
     SettingsCredentialRecovery("settings_credential_recovery", R.string.settings_services_provider_key_reentry_title),
     VideoWallpapersError("video_wallpapers_error", R.string.nav_videos),
     WallpaperEditorLoading("wallpaper_editor_loading", R.string.editor_wallpaper_title),
+    FitCanvasPreview("fit_canvas_preview", R.string.fit_canvas_controls_title),
 }
 
 @Composable
@@ -105,6 +112,7 @@ fun ProductionRouteState(
             ProductionRouteScenario.SettingsCredentialRecovery -> SettingsCredentialRecoveryState()
             ProductionRouteScenario.VideoWallpapersError -> VideoWallpapersState()
             ProductionRouteScenario.WallpaperEditorLoading -> WallpaperEditorState()
+            ProductionRouteScenario.FitCanvasPreview -> FitCanvasPreviewState()
         }
     }
 }
@@ -383,6 +391,48 @@ private fun WallpaperEditorState() {
             stringResource(R.string.editor_wallpaper_quality_warning_title),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+@Composable
+private fun FitCanvasPreviewState() {
+    val previewBitmap = remember {
+        Bitmap.createBitmap(900, 420, Bitmap.Config.ARGB_8888).apply {
+            val canvas = android.graphics.Canvas(this)
+            canvas.drawColor(android.graphics.Color.rgb(24, 32, 58))
+            val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.rgb(105, 214, 186)
+            }
+            canvas.drawCircle(210f, 210f, 150f, paint)
+            paint.color = android.graphics.Color.rgb(164, 110, 255)
+            canvas.drawCircle(690f, 210f, 180f, paint)
+        }
+    }
+    val style = FitCanvasStyle(FitCanvasMode.BLURRED_EDGE)
+    RouteColumn {
+        Text(stringResource(R.string.fit_canvas_controls_title), style = MaterialTheme.typography.headlineSmall)
+        FitCanvasMedia(
+            model = previewBitmap,
+            presentation = WALLPAPER_PRESENTATION_FIT,
+            style = style,
+            dominantColor = android.graphics.Color.rgb(24, 32, 58),
+            contentDescription = stringResource(R.string.preview_wallpaper_cd),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(610.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color.Black, RoundedCornerShape(8.dp)),
+        )
+        Text(
+            stringResource(R.string.fit_canvas_fit_help),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        FitCanvasControls(
+            presentation = WALLPAPER_PRESENTATION_FIT,
+            style = style,
+            onPresentationChange = {},
+            onStyleChange = {},
         )
     }
 }

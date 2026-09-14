@@ -1056,7 +1056,7 @@
     <string name="video_wp_apply_failed">Failed: %1$s</string>
     <string name="video_wp_by_creator">by %1$s</string>
     <string name="video_wp_confirm_presentation">Presentation</string>
-    <string name="video_wp_confirm_fit_landscape_letterbox">Fit preserves the full landscape frame with letterboxing. Crop creates a portrait version.</string>
+    <string name="video_wp_confirm_fit_landscape_letterbox">Fit preserves the full landscape frame and fills the canvas with your selected style. Crop creates a portrait version.</string>
     <string name="video_wp_confirm_fill_landscape_crop">Fill crops landscape edges to avoid stretching. Use Crop for more control.</string>
     <string name="video_wp_confirm_fit_portrait">Fill uses the whole screen; Fit keeps the full frame visible.</string>
     <string name="video_wp_unavailable">Unavailable</string>
@@ -1989,4 +1989,15 @@
     <string name="rotation_health_battery_exempt">Unrestricted</string>
     <string name="rotation_health_battery_restricted">Restricted, which can stop rotation</string>
     <string name="rotation_health_interval_minutes">%1$d minutes</string>
+    <string name="fit_canvas_fill">Fill</string>
+    <string name="fit_canvas_fit">Fit</string>
+    <string name="fit_canvas_amoled">AMOLED black</string>
+    <string name="fit_canvas_custom">Your color</string>
+    <string name="fit_canvas_dominant">From image</string>
+    <string name="fit_canvas_blur">Blurred edge</string>
+    <string name="fit_canvas_custom_title">Choose a canvas color</string>
+    <string name="fit_canvas_custom_hint">Enter a hex color such as #241A38</string>
+    <string name="fit_canvas_controls_title">Framing and canvas</string>
+    <string name="fit_canvas_fit_help">Keeps the whole image and fills the extra canvas with your choice.</string>
+    <string name="fit_canvas_hdr_fallback">Blurred canvas uses the image color for HDR media.</string>
 </resources>

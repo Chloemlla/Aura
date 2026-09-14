@@ -35,11 +35,11 @@ Aura is built as a local-first tool rather than an ad-and-credit marketplace:
 | **Account** | Browsing, downloading, editing, applying, and backing up content do not require an Aura account; community features use an anonymous app identity. |
 | **Credits and paywalls** | No Aura credit balance, subscription, or in-app paywall. In full builds, optional Stability AI generation uses the user's own provider key and may consume Stability credits. |
 | **AI-generated content** | Generation is off by default in full builds and omitted from FOSS builds. Declared AI uploads are labeled, Aura-generated uploads are labeled automatically, and community feeds provide a Hide AI filter. |
-| **Offline library** | Downloads and offline favorites stay on the device for local use. Portable backups carry favorites, collections, searches, wallpaper packs, and sound profiles without exporting device-specific download paths. |
+| **Offline library** | Downloads and offline favorites stay on the device for local use. Portable backups carry favorites, collections, searches, wallpaper packs, sound profiles, and Fit Canvas defaults without exporting device-specific download paths. |
 
 - **Sounds that work offline**: 25 Aura Originals ship with the app, then quality-ranked YouTube results add more ringtones, notifications, and alarms when connected.
 - **Reddit-first discovery**: mobile wallpaper and motion communities lead the home feeds, with real cached Atom cursor pagination instead of a fixed recent slice.
-- **Video wallpapers from multiple sources**: browse Reddit live wallpapers and cinemagraphs first, followed by YouTube and optional Pixabay or Pexels results. Local video and GIF import includes loop, crop, Fill, and Fit controls.
+- **Video wallpapers from multiple sources**: browse Reddit live wallpapers and cinemagraphs first, followed by YouTube and optional Pixabay or Pexels results. Local video and GIF import includes loop, crop, Fill, and Fit Canvas controls.
 - **More ways to personalize**: Reddit RSS leads the network feeds. Wallhaven, Bing, Pexels, Pixabay, YouTube, Aura Originals, local files, and community uploads add user-controlled choices.
 - **Fast, bounded feeds**: Discover metadata and a 256 MB image disk cache make repeat visits immediate, while the foreground bitmap cache stays capped at 12.5 percent of app memory.
 - **Performance proof path**: Baseline Profile and Macrobenchmark tests cover startup, Wallpaper Detail, and the main media grids during local physical-device checks.
@@ -140,7 +140,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Video Wallpapers** | Browse YouTube video wallpapers with ExoPlayer auto-preview or import local clips/GIFs |
 | **Video Feed Pagination** | Warm-cache loading and pagination share one request gate, so provider results aren't duplicated or dropped |
 | **Video Quality Hints** | Loop-safe, low-battery, and phone-fit filters plus per-card motion hints |
-| **Video Fit Modes** | Fill for full-screen crop or Fit to preserve the full frame |
+| **Wallpaper Fit Canvas** | Keep the complete image, video, or GIF over AMOLED black, a chosen color, a Palette color, or a cached blurred edge. [Behavior and limits](docs/fit-canvas.md) are defined for transparent, HDR, missing-frame, and ultrawide media. |
 | **Video Loop & Crop Editor** | Trim intros/outros with frame thumbnails, preview the loop, and convert landscape videos to portrait |
 | **Video Battery Dashboard** | Live wallpaper-service heartbeat, battery status, effective FPS, and automatic low-battery capping |
 | **Parallax Wallpapers** | ML Kit depth segmentation for layered tilt-responsive live wallpapers |
@@ -167,7 +167,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Shuffle FAB** | One-tap random wallpaper from current tab |
 | **Per-Contact Ringtones** | Assign custom ringtones with DND priority guidance and a VIP-only silent-default preset |
 | **Dual Wallpapers** | Coordinated home + lock screen wallpaper pairs |
-| **Portable Library Backup** | Staged JSON export/import for favorites, collections, searches, packs, and profiles. Checked limits prevent silent item loss, and import results separate duplicates from failed rows. |
+| **Portable Library Backup** | Staged JSON export/import for favorites, collections, searches, packs, profiles, and Fit Canvas defaults. Checked limits prevent silent item loss, and import results separate duplicates from failed rows. |
 | **Theme Packs** | Local zip export/import for wallpaper, video, sound, widget tint, and launcher shortcut recipes |
 | **Community Voting** | Upvote/downvote wallpapers and sounds via Firebase |
 | **OLED Dark Theme** | Deep blacks, zero burn-in, Material 3 |

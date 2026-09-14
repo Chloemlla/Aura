@@ -6,9 +6,12 @@ import com.freevibe.data.local.WallpaperCacheManager
 import com.freevibe.data.model.CommunityBlockReason
 import com.freevibe.data.model.CommunityReportReason
 import com.freevibe.data.model.ContentSource
+import com.freevibe.data.model.DEFAULT_FIT_CANVAS_COLOR
 import com.freevibe.data.model.FavoriteIdentity
+import com.freevibe.data.model.FitCanvasMode
 import com.freevibe.data.model.SearchResult
 import com.freevibe.data.model.SearchHistoryEntity
+import com.freevibe.data.model.WALLPAPER_PRESENTATION_FILL
 import com.freevibe.data.model.Wallpaper
 import com.freevibe.data.model.WallpaperCollectionEntity
 import com.freevibe.data.model.favoriteIdentity
@@ -891,6 +894,9 @@ class WallpapersViewModelTest {
 
         val prefs = mockk<PreferencesManager>()
         every { prefs.wallpaperGridColumns } returns flowOf(2)
+        every { prefs.staticWallpaperPresentation } returns flowOf(WALLPAPER_PRESENTATION_FILL)
+        every { prefs.staticFitCanvasMode } returns flowOf(FitCanvasMode.AMOLED_BLACK.preferenceValue)
+        every { prefs.staticFitCanvasColor } returns flowOf(DEFAULT_FIT_CANVAS_COLOR)
         every { prefs.wallhavenProviderEnabled } returns flowOf(wallhavenProviderEnabled)
         every { prefs.bingProviderEnabled } returns flowOf(bingProviderEnabled)
         every { prefs.redditProviderEnabled } returns flowOf(redditProviderEnabled)

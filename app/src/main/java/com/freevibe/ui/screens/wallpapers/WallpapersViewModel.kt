@@ -8,6 +8,10 @@ import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.model.CommunityReportReason
 import com.freevibe.data.model.CommunityUploadRights
 import com.freevibe.data.model.ContentSource
+import com.freevibe.data.model.DEFAULT_FIT_CANVAS_COLOR
+import com.freevibe.data.model.FitCanvasMode
+import com.freevibe.data.model.FitCanvasStyle
+import com.freevibe.data.model.WALLPAPER_PRESENTATION_FILL
 import com.freevibe.data.model.Wallpaper
 import com.freevibe.data.model.WallpaperTarget
 import com.freevibe.data.repository.CollectionRepository
@@ -84,22 +88,16 @@ class WallpapersViewModel @Inject constructor(
 
     // #9: Grid columns preference
     val gridColumns = prefs.wallpaperGridColumns.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 2)
+    val staticWallpaperPresentation = prefs.staticWallpaperPresentation.stateIn(viewModelScope, SharingStarted.Eagerly, WALLPAPER_PRESENTATION_FILL)
+    val staticFitCanvasMode = prefs.staticFitCanvasMode.stateIn(viewModelScope, SharingStarted.Eagerly, FitCanvasMode.AMOLED_BLACK.preferenceValue)
+    val staticFitCanvasColor = prefs.staticFitCanvasColor.stateIn(viewModelScope, SharingStarted.Eagerly, DEFAULT_FIT_CANVAS_COLOR)
     val wallhavenProviderEnabled = prefs.wallhavenProviderEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val redditProviderEnabled = prefs.redditProviderEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val pexelsProviderEnabled = prefs.pexelsProviderEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val pixabayProviderEnabled = prefs.pixabayProviderEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
-    val communityProviderEnabled = prefs.communityProviderEnabled.stateIn(
-        viewModelScope,
-        SharingStarted.Eagerly,
-        PreferencesManager.DEFAULT_COMMUNITY_PROVIDER_ENABLED,
-    )
+    val communityProviderEnabled = prefs.communityProviderEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, PreferencesManager.DEFAULT_COMMUNITY_PROVIDER_ENABLED)
     val communityGuidelinesAccepted = prefs.communityGuidelinesAccepted.stateIn(viewModelScope, SharingStarted.Eagerly, false)
-    val generatedContentProviderEnabled =
-        prefs.generatedContentProviderEnabled.stateIn(
-            viewModelScope,
-            SharingStarted.Eagerly,
-            PreferencesManager.DEFAULT_GENERATED_CONTENT_PROVIDER_ENABLED,
-        )
+    val generatedContentProviderEnabled = prefs.generatedContentProviderEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, PreferencesManager.DEFAULT_GENERATED_CONTENT_PROVIDER_ENABLED)
 
     val recentSearches = searchHistoryRepo.getRecentWallpaperSearches(8)
         .map { list -> list.map { it.query } }
@@ -466,6 +464,8 @@ class WallpapersViewModel @Inject constructor(
             _colorPalette.value = palette
         }
     }
+
+    fun setStaticFitCanvasPreferences(presentation: String, style: FitCanvasStyle) = viewModelScope.launch { prefs.setStaticFitCanvasPreferences(presentation, style) }
 
     fun applyRandom() {
         val wallpapers = _state.value.wallpapers

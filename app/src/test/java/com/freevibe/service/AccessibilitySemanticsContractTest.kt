@@ -84,7 +84,14 @@ class AccessibilitySemanticsContractTest {
                     "contentDescription = immersivePreviewDescription",
                     "IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS",
                     "onClick(label = applyVideoLabel",
-                    "stateDescription = selectedDescription",
+                ),
+            ),
+            SemanticsRequirement(
+                path = "src/main/java/com/freevibe/ui/components/FitCanvasControls.kt",
+                tokens = listOf(
+                    "FilterChip(",
+                    "selected = selected",
+                    "label = { Text(stringResource(R.string.fit_canvas_custom)) }",
                 ),
             ),
             SemanticsRequirement(

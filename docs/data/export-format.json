@@ -155,6 +155,9 @@
       ],
       "overflowPolicy": "Refuse the whole export or import before opening the destination or writing any restored row.",
       "publicationPolicy": "Serialize and sync a private staging file before opening an external destination; clean the destination and staging file after a failed or cancelled copy.",
+      "portablePreferenceSections": {
+        "fitCanvasPreferences": "Optional static and video Fill or Fit defaults, canvas mode, and opaque custom color. Media files and generated canvas images are not included."
+      },
       "resultCounts": {
         "exportedOrImported": "Rows and non-empty preference sections actually written",
         "skipped": "Duplicate or migrated rows intentionally not written",

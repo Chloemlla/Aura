@@ -9,6 +9,11 @@ import com.freevibe.data.legal.isProviderAvailableInCurrentArtifact
 import com.freevibe.data.legal.providerCapability
 import com.freevibe.data.model.COMMUNITY_GUIDELINES_VERSION
 import com.freevibe.data.model.ContentSource
+import com.freevibe.data.model.FitCanvasMode
+import com.freevibe.data.model.FitCanvasPreferences
+import com.freevibe.data.model.FitCanvasStyle
+import com.freevibe.data.model.WALLPAPER_PRESENTATION_FILL
+import com.freevibe.data.model.normalizeWallpaperPresentation
 import com.freevibe.data.model.hasAcceptedCommunityGuidelinesVersion
 import com.freevibe.service.ADAPTIVE_TINT_ENABLED_PREF
 import com.freevibe.service.ADAPTIVE_TINT_INTENSITY_PREF
@@ -20,6 +25,9 @@ import com.freevibe.service.LIVE_WALLPAPER_DIM_ENABLED_PREF
 import com.freevibe.service.LIVE_WALLPAPER_SHADER_PRESET_PREF
 import com.freevibe.service.PARALLAX_WALLPAPER_PREFS_NAME
 import com.freevibe.service.VIDEO_WALLPAPER_PREFS_NAME
+import com.freevibe.service.VIDEO_WALLPAPER_DEFAULT_CANVAS_COLOR_PREF
+import com.freevibe.service.VIDEO_WALLPAPER_DEFAULT_CANVAS_MODE_PREF
+import com.freevibe.service.VIDEO_WALLPAPER_DEFAULT_SCALE_MODE_PREF
 import com.freevibe.service.REDUCE_ANIMATIONS_PREF
 import com.freevibe.service.TOUCH_EFFECT_STRENGTH_PREF
 import com.freevibe.service.WEATHER_WALLPAPER_PREFS_NAME
@@ -692,6 +700,75 @@ class PreferencesManager @Inject constructor(
         set(Keys.VIDEO_AUTO_BATTERY_SAVER, enabled)
     }
 
+    val staticWallpaperPresentation: Flow<String> = get(
+        Keys.STATIC_WALLPAPER_PRESENTATION,
+        WALLPAPER_PRESENTATION_FILL,
+    ).map(::normalizeWallpaperPresentation)
+    val staticFitCanvasMode: Flow<String> = get(
+        Keys.STATIC_FIT_CANVAS_MODE,
+        FitCanvasMode.AMOLED_BLACK.preferenceValue,
+    ).map { FitCanvasMode.fromPreference(it).preferenceValue }
+    val staticFitCanvasColor: Flow<Int> = get(
+        Keys.STATIC_FIT_CANVAS_COLOR,
+        com.freevibe.data.model.DEFAULT_FIT_CANVAS_COLOR,
+    ).map { it or 0xFF000000.toInt() }
+    val videoWallpaperPresentation: Flow<String> = get(
+        Keys.VIDEO_WALLPAPER_PRESENTATION,
+        WALLPAPER_PRESENTATION_FILL,
+    ).map(::normalizeWallpaperPresentation)
+    val videoFitCanvasMode: Flow<String> = get(
+        Keys.VIDEO_FIT_CANVAS_MODE,
+        FitCanvasMode.AMOLED_BLACK.preferenceValue,
+    ).map { FitCanvasMode.fromPreference(it).preferenceValue }
+    val videoFitCanvasColor: Flow<Int> = get(
+        Keys.VIDEO_FIT_CANVAS_COLOR,
+        com.freevibe.data.model.DEFAULT_FIT_CANVAS_COLOR,
+    ).map { it or 0xFF000000.toInt() }
+
+    suspend fun setStaticFitCanvasPreferences(presentation: String, style: FitCanvasStyle) {
+        val normalizedStyle = style.normalized()
+        dataStore.edit { values ->
+            values[Keys.STATIC_WALLPAPER_PRESENTATION] = normalizeWallpaperPresentation(presentation)
+            values[Keys.STATIC_FIT_CANVAS_MODE] = normalizedStyle.mode.preferenceValue
+            values[Keys.STATIC_FIT_CANVAS_COLOR] = normalizedStyle.customColor
+        }
+    }
+
+    suspend fun setVideoFitCanvasPreferences(presentation: String, style: FitCanvasStyle) {
+        val normalizedPresentation = normalizeWallpaperPresentation(presentation)
+        val normalizedStyle = style.normalized()
+        context.getSharedPreferences(VIDEO_WALLPAPER_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(VIDEO_WALLPAPER_DEFAULT_SCALE_MODE_PREF, normalizedPresentation)
+            .putString(VIDEO_WALLPAPER_DEFAULT_CANVAS_MODE_PREF, normalizedStyle.mode.preferenceValue)
+            .putInt(VIDEO_WALLPAPER_DEFAULT_CANVAS_COLOR_PREF, normalizedStyle.customColor)
+            .apply()
+        dataStore.edit { values ->
+            values[Keys.VIDEO_WALLPAPER_PRESENTATION] = normalizedPresentation
+            values[Keys.VIDEO_FIT_CANVAS_MODE] = normalizedStyle.mode.preferenceValue
+            values[Keys.VIDEO_FIT_CANVAS_COLOR] = normalizedStyle.customColor
+        }
+    }
+
+    suspend fun fitCanvasPreferencesSnapshot(): FitCanvasPreferences = FitCanvasPreferences(
+        staticPresentation = staticWallpaperPresentation.first(),
+        staticStyle = FitCanvasStyle(
+            mode = FitCanvasMode.fromPreference(staticFitCanvasMode.first()),
+            customColor = staticFitCanvasColor.first(),
+        ),
+        videoPresentation = videoWallpaperPresentation.first(),
+        videoStyle = FitCanvasStyle(
+            mode = FitCanvasMode.fromPreference(videoFitCanvasMode.first()),
+            customColor = videoFitCanvasColor.first(),
+        ),
+    ).normalized()
+
+    suspend fun restoreFitCanvasPreferences(preferences: FitCanvasPreferences) {
+        val normalized = preferences.normalized()
+        setStaticFitCanvasPreferences(normalized.staticPresentation, normalized.staticStyle)
+        setVideoFitCanvasPreferences(normalized.videoPresentation, normalized.videoStyle)
+    }
+
     // ── Effects / adaptive settings ─────────────────────────────
 
     val adaptiveTintEnabled: Flow<Boolean> = get(Keys.ADAPTIVE_TINT, false)
@@ -969,6 +1046,12 @@ class PreferencesManager @Inject constructor(
         val VIDEO_PLAYBACK_SPEED = floatPreferencesKey("video_playback_speed")
         val VIDEO_FPS_OVERLAY = booleanPreferencesKey("video_fps_overlay_enabled")
         val VIDEO_AUTO_BATTERY_SAVER = booleanPreferencesKey("video_auto_battery_saver")
+        val STATIC_WALLPAPER_PRESENTATION = stringPreferencesKey("static_wallpaper_presentation")
+        val STATIC_FIT_CANVAS_MODE = stringPreferencesKey("static_fit_canvas_mode")
+        val STATIC_FIT_CANVAS_COLOR = intPreferencesKey("static_fit_canvas_color")
+        val VIDEO_WALLPAPER_PRESENTATION = stringPreferencesKey("video_wallpaper_presentation")
+        val VIDEO_FIT_CANVAS_MODE = stringPreferencesKey("video_fit_canvas_mode")
+        val VIDEO_FIT_CANVAS_COLOR = intPreferencesKey("video_fit_canvas_color")
         // Effects / adaptive
         val ADAPTIVE_TINT = booleanPreferencesKey("adaptive_tint_enabled")
         val ADAPTIVE_TINT_INTENSITY = floatPreferencesKey("adaptive_tint_intensity")

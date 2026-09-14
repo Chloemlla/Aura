@@ -6,13 +6,6 @@ Actionable work only. Historical and completed roadmap material is archived in C
 
 ### P2
 
-- [ ] P2 — Add Fit Canvas backgrounds for static and video wallpaper
-  Why: Fit preserves the whole image or frame but leaves unused screen area as unexplained black bars. Users should be able to choose how the canvas is filled without losing content or being forced into crop.
-  Evidence: **Verified need, Likely satisfaction gain.** `VideoWallpaperService.kt` and the static preview/apply path expose Fit versus Fill but no canvas policy; `VideoWallpapersScreen.kt` warns about letterboxing; Paperize users request black, white, custom-color, palette, and blurred fill choices in https://github.com/Anthonyy232/Paperize/issues/608.
-  Touches: wallpaper editor/preview, `WallpaperApplier.kt`, `VideoWallpaperService.kt`, `VideoWallpaperStorage.kt`, palette extraction, settings/schema/export, tests.
-  Acceptance: Fit offers AMOLED black, user color, dominant/palette color, and blurred-edge canvas choices; preview and applied output match; video derives and caches its canvas from the poster or first valid frame rather than blurring every frame; Fill remains unchanged; portrait, landscape, ultrawide, transparent, HDR, and missing-poster fixtures have defined fallbacks; no option exceeds the existing bitmap or live-wallpaper memory budget.
-  Complexity: M
-
 - [ ] P2 — Add persistent rotation exclusions with Undo
   Why: users need to remove one bad item from automatic rotation without deleting it, hiding it from discovery, or rebuilding a collection. Feed Hide and rotation exclusion are different actions and should not share state.
   Evidence: **Verified product gap.** Aura has hidden-feed IDs and wallpaper history but no rotation-exclusion model; `AutoWallpaperWorker.kt` can select any eligible source item; https://github.com/Anthonyy232/Paperize/issues/604 requests per-image exclusion from wallpaper rotation.

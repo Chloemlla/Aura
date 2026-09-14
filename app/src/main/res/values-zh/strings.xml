@@ -961,7 +961,7 @@
     <string name="video_wp_apply_failed">失败：%1$s</string>
     <string name="video_wp_by_creator">由 %1$s 提供</string>
     <string name="video_wp_confirm_presentation">呈现方式</string>
-    <string name="video_wp_confirm_fit_landscape_letterbox">适应会保留完整的横向画面并采用信箱式黑边。裁剪会创建竖屏版本。</string>
+    <string name="video_wp_confirm_fit_landscape_letterbox">适应会保留完整的横向画面，并用所选样式填充画布。裁剪会创建竖屏版本。</string>
     <string name="video_wp_confirm_fill_landscape_crop">填充会裁剪横向边缘以避免拉伸。如需更多控制，请使用裁剪。</string>
     <string name="video_wp_confirm_fit_portrait">填充使用整个屏幕；适应保持完整画面可见。</string>
     <string name="video_wp_unavailable">不可用</string>
@@ -1780,4 +1780,15 @@
     <string name="community_ai_upload_declaration_hint">当 AI 生成了上传内容或对其进行实质性改造时，请勾选此项。</string>
 
     <!-- Lumen Crash SDK 集成 -->
+    <string name="fit_canvas_fill">填满</string>
+    <string name="fit_canvas_fit">适应</string>
+    <string name="fit_canvas_amoled">AMOLED 黑色</string>
+    <string name="fit_canvas_custom">自选颜色</string>
+    <string name="fit_canvas_dominant">取自图像</string>
+    <string name="fit_canvas_blur">模糊边缘</string>
+    <string name="fit_canvas_custom_title">选择画布颜色</string>
+    <string name="fit_canvas_custom_hint">输入十六进制颜色，例如 #241A38</string>
+    <string name="fit_canvas_controls_title">构图和画布</string>
+    <string name="fit_canvas_fit_help">保留完整图像，并用所选样式填充多余画布。</string>
+    <string name="fit_canvas_hdr_fallback">HDR 媒体的模糊画布会改用图像颜色。</string>
 </resources>

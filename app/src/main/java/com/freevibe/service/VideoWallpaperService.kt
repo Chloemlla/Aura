@@ -68,6 +68,7 @@ class VideoWallpaperService : WallpaperService() {
         private val receiptStore by lazy { LiveWallpaperReceiptStore.create(this@VideoWallpaperService) }
         private var mediaPlayer: MediaPlayer? = null
         private var gifMovie: Movie? = null
+        private var gifCanvasBackground: Bitmap? = null
         private var gifStartedAtMs = 0L
         private var gifFrameRunnable: Runnable? = null
         private val gifHandler = Handler(Looper.getMainLooper())
@@ -144,6 +145,15 @@ class VideoWallpaperService : WallpaperService() {
         }
         private fun getScaleMode(): String =
             normalizeVideoWallpaperScaleMode(getPrefs().getString("scale_mode", VIDEO_WALLPAPER_SCALE_MODE_ZOOM))
+        private fun getCanvasColor(): Int = getPrefs().getInt(
+            VIDEO_WALLPAPER_CANVAS_COLOR_PREF,
+            Color.BLACK,
+        ) or 0xFF000000.toInt()
+        private fun getCanvasMode(): String = getPrefs().getString(
+            VIDEO_WALLPAPER_CANVAS_MODE_PREF,
+            com.freevibe.data.model.FitCanvasMode.AMOLED_BLACK.preferenceValue,
+        ).orEmpty()
+        private fun isCanvasBaked(): Boolean = getPrefs().getBoolean(VIDEO_WALLPAPER_CANVAS_BAKED_PREF, false)
         private fun getPlaybackSpeed(): Float =
             getRuntimePrefs().getFloat(VIDEO_PLAYBACK_SPEED_PREF, 1.0f).takeIf { it > 0 } ?: 1.0f
         private fun getRequestedFpsLimit(): Int =
@@ -195,15 +205,7 @@ class VideoWallpaperService : WallpaperService() {
                     null
                 }
             }
-            val retriever = MediaMetadataRetriever()
-            return try {
-                retriever.setDataSource(path)
-                retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-            } catch (_: Throwable) {
-                null
-            } finally {
-                try { retriever.release() } catch (_: Exception) {}
-            }
+            return decodeBoundedVideoFrame(path)
         }
 
         private fun resolveScreenSize() {
@@ -572,6 +574,7 @@ class VideoWallpaperService : WallpaperService() {
             val (sw, sh) = configureSurface(holder)
             configureFrameRate(holder)
             gifMovie = movie
+            loadGifCanvasBackground()
             gifStartedAtMs = SystemClock.uptimeMillis()
             gifSampleStartedAtMs = 0L
             gifFramesInSample = 0
@@ -654,7 +657,7 @@ class VideoWallpaperService : WallpaperService() {
             } ?: return
 
             try {
-                canvas.drawColor(Color.BLACK)
+                drawGifCanvasBackground(canvas)
                 val now = SystemClock.uptimeMillis()
                 val duration = movie.duration().takeIf { it > 0 } ?: 1000
                 val time = ((now - gifStartedAtMs) % duration).toInt()
@@ -685,6 +688,32 @@ class VideoWallpaperService : WallpaperService() {
             }
         }
 
+        private fun loadGifCanvasBackground() {
+            gifCanvasBackground?.takeUnless { it.isRecycled }?.recycle()
+            gifCanvasBackground = null
+            if (getScaleMode() != VIDEO_WALLPAPER_SCALE_MODE_FIT) return
+            val backgroundPath = getPrefs().getString(VIDEO_WALLPAPER_CANVAS_BACKGROUND_PREF, null)
+                ?.takeIf { it.isNotBlank() }
+                ?: return
+            gifCanvasBackground = runCatching { BitmapFactory.decodeFile(backgroundPath) }.getOrNull()
+        }
+
+        private fun drawGifCanvasBackground(canvas: android.graphics.Canvas) {
+            if (getScaleMode() != VIDEO_WALLPAPER_SCALE_MODE_FIT) {
+                canvas.drawColor(Color.BLACK)
+                return
+            }
+            canvas.drawColor(getCanvasColor())
+            gifCanvasBackground?.takeUnless { it.isRecycled }?.let { background ->
+                canvas.drawBitmap(
+                    background,
+                    null,
+                    android.graphics.Rect(0, 0, canvas.width, canvas.height),
+                    android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG),
+                )
+            }
+        }
+
         /**
          * Video and GIF hold a decoder, up to four posted Runnables, and a power
          * save receiver. Every one of them is engine-scoped, so all of them must
@@ -708,6 +737,8 @@ class VideoWallpaperService : WallpaperService() {
             gifValidationGeneration += 1
             pauseGifPlayback()
             gifMovie = null
+            gifCanvasBackground?.takeUnless { it.isRecycled }?.recycle()
+            gifCanvasBackground = null
             activeMediaType = "none"
             mediaPlayer?.apply {
                 try { setOnPreparedListener(null) } catch (_: Exception) {}
@@ -849,6 +880,8 @@ class VideoWallpaperService : WallpaperService() {
                 .putBoolean("charging", profile.isCharging)
                 .putBoolean("fps_overlay_enabled", isFpsOverlayEnabled())
                 .putString("scale_mode", getScaleMode())
+                .putString("canvas_mode", getCanvasMode())
+                .putBoolean("canvas_baked", isCanvasBaked())
                 .apply {
                     if (profile.batteryPercent == null) remove("battery_percent")
                     else putInt("battery_percent", profile.batteryPercent)

@@ -811,7 +811,7 @@ fun FreeVibeRoot(
                 com.freevibe.ui.screens.wallpapers.WallpaperPreviewScreen(
                     wallpaper = wallpaper,
                     onBack = { navController.popBackStack() },
-                    onApply = previewApply@{ target ->
+                    onApply = previewApply@{ target, fitCanvasStyle ->
                         if (!canApplyFromWallpaperPreview(wallpaper)) {
                             entryPoint.applyFeedbackBus().post(
                                 com.freevibe.service.ApplyFeedbackEvent(
@@ -825,7 +825,11 @@ fun FreeVibeRoot(
                         // so the bitmap download + WallpaperManager call complete even if
                         // the preview destination is removed from the back stack first.
                         scope.launch {
-                            entryPoint.wallpaperApplier().applyFromUrl(wallpaper.fullUrl, target)
+                            entryPoint.wallpaperApplier().applyFromUrl(
+                                url = wallpaper.fullUrl,
+                                target = target,
+                                fitCanvasStyle = fitCanvasStyle,
+                            )
                                 .onSuccess {
                                     entryPoint.wallpaperHistoryManager().record(wallpaper, target)
                                     val undoTarget = entryPoint.wallpaperHistoryManager().previousSnapshot()
