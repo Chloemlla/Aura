@@ -18,19 +18,28 @@ blocks, or manages creator/community data.
 
 ## Data Stored On The Device
 
-- App preferences such as theme, provider switches, scheduler settings, and
-  API keys entered by the user.
+- App preferences such as theme, provider switches, and scheduler settings.
+- API keys entered by the user. These are kept in a separate encrypted store.
 - Favorites, downloads, search history, wallpaper cache metadata, offline
   favorite files, edited sounds, generated wallpapers, and diagnostics created
   by explicit user action.
 - A local fallback community identity only when a local community identifier is
   needed.
 
-User-entered provider API keys are stored in app-private Jetpack DataStore and
-the preferences DataStore file is excluded from cloud backup and device
-transfer. These keys are not protected by Android Keystore-backed encrypted
-storage; users can clear each saved key in Settings with the key dialog's Clear
-action or by saving a blank value.
+User-entered provider API keys are encrypted with AES-GCM using a
+non-exportable Android Keystore key. The encrypted SharedPreferences file and
+the legacy preferences DataStore file are excluded from cloud backup and
+device transfer. If restored ciphertext arrives without its device-bound key,
+Aura removes the unreadable copy and asks the user to re-enter that key.
+Temporary Keystore errors keep ciphertext for retry. Users can remove each
+visible key with the Settings key dialog's Clear action or by saving a blank
+value. Android clear-app-data or uninstall removes the encrypted store and its
+app-owned key.
+
+Provider credentials are not included in library backups, collection or
+theme-pack exports, generated wallpaper reports, source diagnostics, or support
+bundles. Diagnostics can report the credential storage state but never the key
+name or value.
 
 ## Community Data
 

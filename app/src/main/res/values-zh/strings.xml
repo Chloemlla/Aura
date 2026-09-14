@@ -1318,7 +1318,10 @@
     <string name="settings_services_wallhaven_key_title">Wallhaven API 密钥</string>
     <string name="settings_services_wallhaven_key_subtitle">可选：更高的限额 + NSFW（wallhaven.cc/settings）</string>
     <string name="settings_services_provider_key_storage_warning_title">提供商密钥存储需要处理</string>
-    <string name="settings_services_provider_key_storage_warning_subtitle">Android 密钥库无法解锁已保存的提供商密钥。现有密钥保留在本地，并可能在设备解锁或应用重启后重新出现。</string>
+    <string name="settings_services_provider_key_storage_warning_subtitle">Android 密钥库暂时不可用。加密密钥仍已保存。点按即可重试。</string>
+    <string name="settings_services_provider_key_retrying">正在重试加密的提供商密钥</string>
+    <string name="settings_services_provider_key_reentry_title">需要重新输入提供商密钥</string>
+    <string name="settings_services_provider_key_reentry_subtitle">保存的提供商密钥在恢复或安全重置后无法解密，因此 Aura 已将它们删除。点按即可逐一重新输入受影响的密钥。</string>
     <string name="settings_services_wallhaven_enable_title">启用 Wallhaven 来源</string>
     <string name="settings_services_wallhaven_on_subtitle">显示 Wallhaven 精选、颜色、相似、随机和发现结果</string>
     <string name="settings_services_wallhaven_off_subtitle">隐藏 Wallhaven 浏览并跳过 Wallhaven API 调用</string>

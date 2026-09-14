@@ -92,6 +92,8 @@ internal class SettingsMediaDelegate(
     val pixabayApiKey = prefs.pixabayApiKey.stateIn(scope, sharing, "")
     val generatedWallpaperProviderKey = prefs.generatedWallpaperProviderKey.stateIn(scope, sharing, "")
     val providerCredentialStorageUnavailable = prefs.providerCredentialStorageUnavailable
+    val providerCredentialReentryRequired = prefs.providerCredentialReentryRequired
+    val providerCredentialReentryKeys = prefs.providerCredentialReentryKeys
     val generatedContentProviderEnabled = prefs.generatedContentProviderEnabled.stateIn(
         scope,
         sharing,
@@ -172,6 +174,7 @@ internal class SettingsMediaDelegate(
     fun setPixabayKey(key: String) = scope.launch { prefs.setPixabayKey(key) }
     fun setGeneratedWallpaperProviderKey(key: String) =
         scope.launch { prefs.setGeneratedWallpaperProviderKey(key) }
+    fun retryProviderCredentials() = prefs.retryProviderCredentials()
     fun setWallhavenProviderEnabled(enabled: Boolean) = scope.launch { prefs.setWallhavenProviderEnabled(enabled) }
     fun setBingProviderEnabled(enabled: Boolean) = scope.launch { prefs.setBingProviderEnabled(enabled) }
     fun setPexelsProviderEnabled(enabled: Boolean) = scope.launch { prefs.setPexelsProviderEnabled(enabled) }

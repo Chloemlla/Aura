@@ -226,9 +226,21 @@ class PreferencesManager @Inject constructor(
     private val redditRssMetadataMigrationMutex = Mutex()
     @Volatile private var redditRssMetadataMigrated = false
     private val providerCredentialRevision = MutableStateFlow(0)
+    private val providerCredentialStatusLock = Any()
+    private val temporarilyUnavailableCredentialKeys = mutableSetOf<String>()
     private val _providerCredentialStorageUnavailable = MutableStateFlow(false)
     val providerCredentialStorageUnavailable: StateFlow<Boolean> =
         _providerCredentialStorageUnavailable.asStateFlow()
+    private val _providerCredentialReentryRequired = MutableStateFlow(
+        providerCredentialStore.hasReentryRequiredCredentials(),
+    )
+    val providerCredentialReentryRequired: StateFlow<Boolean> =
+        _providerCredentialReentryRequired.asStateFlow()
+    private val _providerCredentialReentryKeys = MutableStateFlow(
+        providerCredentialStore.reentryRequiredKeys(),
+    )
+    val providerCredentialReentryKeys: StateFlow<Set<String>> =
+        _providerCredentialReentryKeys.asStateFlow()
 
     // ── API Keys (optional, for higher rate limits) ────────────────
 
@@ -292,9 +304,15 @@ class PreferencesManager @Inject constructor(
     suspend fun setFreesoundKey(key: String) =
         setProviderCredential(ProviderCredentialKey.FREESOUND, Keys.FREESOUND_KEY, key)
 
+    /** Re-runs active encrypted credential reads after a temporary Keystore failure. */
+    fun retryProviderCredentials() {
+        providerCredentialRevision.update { it + 1 }
+    }
+
     /** Removes credentials for providers that can no longer originate requests. */
     suspend fun retireLegacyProviderCredentials() {
         providerCredentialStore.clear(ProviderCredentialKey.FREESOUND)
+        recordProviderCredentialSuccess(ProviderCredentialKey.FREESOUND)
         dataStore.edit { it.remove(Keys.FREESOUND_KEY) }
         providerCredentialRevision.update { it + 1 }
     }
@@ -830,10 +848,24 @@ class PreferencesManager @Inject constructor(
     }
 
     private fun readProviderCredentialValue(credentialKey: ProviderCredentialKey): String? =
-        runCatching { providerCredentialStore.get(credentialKey) }
-            .onSuccess { clearProviderCredentialStorageUnavailable() }
-            .onFailure { markProviderCredentialStorageUnavailable() }
-            .getOrNull()
+        when (val result = providerCredentialStore.read(credentialKey)) {
+            is ProviderCredentialReadResult.Available -> {
+                recordProviderCredentialSuccess(credentialKey)
+                result.value
+            }
+            ProviderCredentialReadResult.Missing -> {
+                recordProviderCredentialSuccess(credentialKey)
+                null
+            }
+            ProviderCredentialReadResult.RetryableFailure -> {
+                recordProviderCredentialTemporaryFailure(credentialKey)
+                null
+            }
+            is ProviderCredentialReadResult.ReentryRequired -> {
+                recordProviderCredentialSuccess(credentialKey)
+                null
+            }
+        }
 
     private fun writeProviderCredentialValue(
         credentialKey: ProviderCredentialKey,
@@ -841,19 +873,30 @@ class PreferencesManager @Inject constructor(
     ): Boolean = runCatching {
         providerCredentialStore.set(credentialKey, value)
     }.onSuccess {
-        clearProviderCredentialStorageUnavailable()
+        recordProviderCredentialSuccess(credentialKey)
     }.onFailure {
-        markProviderCredentialStorageUnavailable()
+        recordProviderCredentialTemporaryFailure(credentialKey)
     }.isSuccess
 
-    private fun markProviderCredentialStorageUnavailable() {
-        _providerCredentialStorageUnavailable.value = true
+    private fun recordProviderCredentialTemporaryFailure(credentialKey: ProviderCredentialKey) {
+        synchronized(providerCredentialStatusLock) {
+            temporarilyUnavailableCredentialKeys += credentialKey.storageKey
+            publishProviderCredentialStatus()
+        }
     }
 
-    private fun clearProviderCredentialStorageUnavailable() {
-        // A transient keystore hiccup must not flag credential storage broken for the
-        // whole process lifetime once subsequent operations succeed.
-        _providerCredentialStorageUnavailable.value = false
+    private fun recordProviderCredentialSuccess(credentialKey: ProviderCredentialKey) {
+        synchronized(providerCredentialStatusLock) {
+            temporarilyUnavailableCredentialKeys -= credentialKey.storageKey
+            publishProviderCredentialStatus()
+        }
+    }
+
+    private fun publishProviderCredentialStatus() {
+        _providerCredentialStorageUnavailable.value = temporarilyUnavailableCredentialKeys.isNotEmpty()
+        val reentryKeys = providerCredentialStore.reentryRequiredKeys()
+        _providerCredentialReentryKeys.value = reentryKeys
+        _providerCredentialReentryRequired.value = reentryKeys.isNotEmpty()
     }
 
     private object Keys {

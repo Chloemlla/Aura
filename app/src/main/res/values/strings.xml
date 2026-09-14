@@ -1132,7 +1132,7 @@
     <string name="settings_video_section_title">Video Wallpapers</string>
     <string name="settings_video_section_description">Monitor live-wallpaper cost and keep motion responsive without wasting battery.</string>
     <string name="settings_services_section_title">Advanced external services</string>
-    <string name="settings_services_section_description">Provider keys and opt-in cloud features. Generated wallpapers and community actions stay off until you enable them here.</string>
+    <string name="settings_services_section_description">Provider keys and optional cloud features. Generated wallpapers and community stay off until enabled.</string>
     <string name="settings_storage_section_title">Storage</string>
     <string name="settings_storage_section_description">Keep downloads accessible while trimming temporary media and cached feeds when needed.</string>
     <string name="settings_storage_calculating">Calculating...</string>
@@ -1472,7 +1472,10 @@
     <string name="settings_services_wallhaven_key_title">Wallhaven API Key</string>
     <string name="settings_services_wallhaven_key_subtitle">Optional: higher limits + NSFW (wallhaven.cc/settings)</string>
     <string name="settings_services_provider_key_storage_warning_title">Provider key storage needs attention</string>
-    <string name="settings_services_provider_key_storage_warning_subtitle">Android Keystore could not unlock saved provider keys. Existing keys stay local and may reappear after device unlock or app restart.</string>
+    <string name="settings_services_provider_key_storage_warning_subtitle">Android Keystore is temporarily unavailable. Your encrypted keys remain saved. Tap to retry.</string>
+    <string name="settings_services_provider_key_retrying">Retrying encrypted provider keys</string>
+    <string name="settings_services_provider_key_reentry_title">Provider keys need to be entered again</string>
+    <string name="settings_services_provider_key_reentry_subtitle">Saved provider keys could not be decrypted after a restore or security reset, so Aura removed them. Tap to enter each affected key again.</string>
     <string name="settings_services_wallhaven_enable_title">Enable Wallhaven source</string>
     <string name="settings_services_wallhaven_on_subtitle">Shows Wallhaven featured, color, similar, random, and Discover results</string>
     <string name="settings_services_wallhaven_off_subtitle">Hides Wallhaven browsing and skips Wallhaven API calls</string>

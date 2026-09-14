@@ -86,6 +86,10 @@ class CrashDiagnosticsCollector @Inject constructor(
         val activeSource = mostRecentSource()
         val autoSource = readPref { prefs.autoWallpaperSource.first() }
         val schedulerSource = readPref { prefs.schedulerSource.first() }
+        val providerCredentialStorageStatus = CrashDiagnosticsText.providerCredentialStorageStatus(
+            reentryRequired = prefs.providerCredentialReentryRequired.value,
+            temporarilyUnavailable = prefs.providerCredentialStorageUnavailable.value,
+        )
         val schedulerEnabled = runCatching { prefs.schedulerEnabled.first() }.getOrDefault(false)
         val autoWallpaperEnabled = runCatching { prefs.autoWallpaperEnabled.first() }.getOrDefault(false)
         val requiresCharging = runCatching { prefs.autoWallpaperRequiresCharging.first() }.getOrDefault(false)
@@ -139,6 +143,7 @@ class CrashDiagnosticsCollector @Inject constructor(
             appendLine("- Auto-wallpaper source: $autoSource")
             appendLine("- Scheduler source: $schedulerSource")
             appendLine("- Scheduler enabled: $schedulerEnabled")
+            appendLine("- Provider credential storage: $providerCredentialStorageStatus")
             appendLine("- Video wallpaper FPS limit: ${if (videoFps > 0) videoFps else "unavailable"}")
             appendLine("- yt-dlp active version: ${ytDlpSnapshot.activeVersionName ?: ytDlpSnapshot.activeVersion ?: "bundled or unknown"}")
             appendLine(
@@ -399,6 +404,15 @@ class CrashDiagnosticsCollector @Inject constructor(
 }
 
 internal object CrashDiagnosticsText {
+    fun providerCredentialStorageStatus(
+        reentryRequired: Boolean,
+        temporarilyUnavailable: Boolean,
+    ): String = when {
+        reentryRequired -> "re-entry required; unreadable ciphertext removed"
+        temporarilyUnavailable -> "temporarily unavailable; encrypted values retained"
+        else -> "available; encrypted values excluded from backup and export"
+    }
+
     private val crashHeaderRegex = Regex("""--- Crash at (.+?) on thread .+? ---""")
     private val appPrivatePathRegex = Regex(
         """(?:/data/(?:user/\d+/|data/)com\.freevibe|/storage/emulated/\d+/Android/data/com\.freevibe)[^\s)'">]*""",

@@ -182,6 +182,8 @@ class SettingsViewModel @Inject constructor(
     val pixabayApiKey get() = media.pixabayApiKey
     val generatedWallpaperProviderKey get() = media.generatedWallpaperProviderKey
     val providerCredentialStorageUnavailable get() = media.providerCredentialStorageUnavailable
+    val providerCredentialReentryRequired get() = media.providerCredentialReentryRequired
+    val providerCredentialReentryKeys get() = media.providerCredentialReentryKeys
     val generatedContentProviderEnabled get() = media.generatedContentProviderEnabled
     val generatedContentDisclosureAccepted get() = media.generatedContentDisclosureAccepted
     val wallhavenProviderEnabled get() = media.wallhavenProviderEnabled
@@ -292,6 +294,7 @@ class SettingsViewModel @Inject constructor(
     fun setPexelsKey(key: String) = media.setPexelsKey(key)
     fun setPixabayKey(key: String) = media.setPixabayKey(key)
     fun setGeneratedWallpaperProviderKey(key: String) = media.setGeneratedWallpaperProviderKey(key)
+    fun retryProviderCredentials() = media.retryProviderCredentials()
     fun setWallhavenProviderEnabled(enabled: Boolean) = media.setWallhavenProviderEnabled(enabled)
     fun setBingProviderEnabled(enabled: Boolean) = media.setBingProviderEnabled(enabled)
     fun setPexelsProviderEnabled(enabled: Boolean) = media.setPexelsProviderEnabled(enabled)

@@ -5,9 +5,9 @@ permissions, network data surfaces, local storage surfaces, and SDK data
 surfaces.
 `tools/privacy_data_safety_check.py` compares this document's JSON contract
 with `app/src/main/AndroidManifest.xml`, `docs/security/network-endpoints.json`,
-Gradle dependency files, and source-backed local storage and SDK rows so new
-privacy-relevant surfaces cannot ship without reviewed store-disclosure
-coverage.
+Gradle dependency files, both Android backup rule formats, and source-backed
+local storage and SDK rows. Every excluded path must appear in the Android 11,
+Android 12+ cloud, and device-transfer rules and in one local storage row.
 
 ## Permission Ledger
 
@@ -84,18 +84,19 @@ transient cache.
 | Surface | Local data | User control | Backup posture |
 | --- | --- | --- | --- |
 | `preferences-datastore` | App settings, generated-content disclosure, provider switches, scheduler preferences, and legacy provider-key migration inputs. | Feature switches, generated disclosure reset, or clear app data. | Excluded from cloud backup and device transfer. |
-| `provider-credential-store` | User-entered provider API keys in Android Keystore-backed encrypted SharedPreferences. | Settings API key Clear actions, saving blank, or clear app data. | Excluded from cloud backup and device transfer. |
-| `room-database` | Favorites, downloads, search history, wallpaper cache metadata, wallpaper history, and collections. | Remove rows through app surfaces, clear caches/history, export/import replacements, or clear app data. | Included by current backup/transfer rules; Room sidecars are excluded. |
-| `community-identity-and-vote-prefs` | Local fallback identity and local vote-hide state. | Settings Community identity Clear local action for fallback identity; app data clear for vote-hide state. | Included by current backup/transfer rules. |
-| `widget-and-selection-prefs` | Widget tint colors and selected wallpaper/sound navigation snapshots. | Change selected content, remove widgets, clear history where exposed, or clear app data. | Included by current backup/transfer rules. |
-| `live-wallpaper-prefs-and-media` | Live wallpaper media, parallax images, weather coordinates/state, video settings, and video battery diagnostics. | Replace/disable live wallpaper, clear weather state, clear app data, or uninstall. | Mixed: weather/live-wallpaper prefs are excluded; managed media and runtime stats are not fully excluded today. |
+| `provider-credential-store` | User-entered provider API keys in Android Keystore-backed encrypted SharedPreferences. Unreadable restored ciphertext is cleared and replaced by a non-secret re-entry marker. | Settings API key Clear actions, saving blank, re-entry after key loss, or clear app data. | Excluded from cloud backup and device transfer. |
+| `room-database` | Favorites, downloads, search history, wallpaper cache metadata, wallpaper history, and collections. | Remove rows through app surfaces, clear caches/history, export/import replacements, or clear app data. | Database and sidecars are excluded from cloud backup and device transfer. |
+| `community-identity-and-vote-prefs` | Local fallback identity and local vote-hide state. | Settings Community identity Clear local action for fallback identity; app data clear for vote-hide state. | Excluded from cloud backup and device transfer. |
+| `widget-and-selection-prefs` | Widget tint colors and selected wallpaper/sound navigation snapshots. | Change selected content, remove widgets, clear history where exposed, or clear app data. | Excluded from cloud backup and device transfer. |
+| `live-wallpaper-prefs-and-media` | Live wallpaper media, parallax images, weather coordinates/state, video settings, and video battery diagnostics. | Replace/disable live wallpaper, clear weather state, clear app data, or uninstall. | Managed media and declared live wallpaper preferences are excluded from cloud backup and device transfer. |
 | `crash-diagnostics-log` | Local crash log tail, app/device diagnostics, and source context. | Diagnostics bundle requires explicit Copy or Share and redacts app-private paths and provider credentials. | Excluded from cloud backup and device transfer. |
+| `background-work-receipts` | Bounded scheduler status, result, timing, and failure-class fields for registered workers. | Settings can display or share sanitized receipt summaries; clear app data removes them. | Excluded from cloud backup and device transfer. |
 | `coil-and-audio-caches` | Provider image/audio previews, temporary trims, and editor cache files. | Settings cache cleanup, Android clear cache, Android clear app data, or uninstall. | Transient cache. |
-| `offline-favorite-files` | Offline favorite image/audio files plus linked favorite metadata. | Remove the favorite/offline copy, clear offline favorites, clear app data, or uninstall. | Included by current backup/transfer rules. |
-| `generated-wallpaper-files` | Generated wallpaper PNG files and local generated-output metadata. | Generated disclosure/source controls, generated favorite removal cleanup, clear app data, or uninstall. | Included by current backup/transfer rules. |
+| `offline-favorite-files` | Offline favorite image/audio files plus linked favorite metadata. | Remove the favorite/offline copy, clear offline favorites, clear app data, or uninstall. | Excluded from cloud backup and device transfer. |
+| `generated-wallpaper-files` | Generated wallpaper PNG files and local generated-output metadata. | Generated disclosure/source controls, generated favorite removal cleanup, clear app data, or uninstall. | Excluded from cloud backup and device transfer. |
 | `community-recording-temp-files` | Temporary microphone recordings before community upload. | Cancel/discard recording, upload with rights attestation, clear cache/app data, or uninstall. | Transient cache. |
 | `share-out-temp-files` | Temporary collection export JSON and share artifacts. | User chooses share recipient; clear cache/app data or uninstall removes app-side temp files. | Transient cache. |
-| `aura-originals-files` | Downloaded Aura Originals bundled audio files. | Wi-Fi worker constraints and clear app data/uninstall for local cleanup. | Included by current backup/transfer rules. |
+| `aura-originals-files` | Downloaded Aura Originals bundled audio files. | Wi-Fi worker constraints and clear app data/uninstall for local cleanup. | Excluded from cloud backup and device transfer. |
 
 ## SDK Surface Ledger
 

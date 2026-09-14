@@ -133,13 +133,15 @@ class ReleasePolishContractTest {
     }
 
     @Test
-    fun `library and settings descriptions remain readable on phone screens`() {
+    fun `library and settings descriptions remain bounded on phone screens`() {
         val shared = File("src/main/java/com/freevibe/ui/components/SharedComponents.kt").readText()
         val header = shared.substringAfter("fun AuraScreenHeader(").substringBefore("fun SourceBadge(")
         val settings = File("src/main/java/com/freevibe/ui/screens/settings/SettingsComponents.kt").readText()
 
         assertTrue(header.contains("maxLines = 2"))
-        assertTrue(settings.split("maxLines = 2").size >= 4)
+        assertTrue(settings.contains("maxLines = 2"))
+        assertTrue(settings.contains("subtitleMaxLines: Int = 2"))
+        assertTrue(settings.contains("maxLines = subtitleMaxLines"))
     }
 
     @Test

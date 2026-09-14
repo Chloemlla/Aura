@@ -115,6 +115,8 @@ internal data class SettingsScreenState(
     val pixabayApiKey: String,
     val generatedWallpaperProviderKey: String,
     val providerCredentialStorageUnavailable: Boolean,
+    val providerCredentialReentryRequired: Boolean,
+    val providerCredentialReentryKeys: Set<String>,
     val generatedContentProviderEnabled: Boolean,
     val generatedContentDisclosureAccepted: Boolean,
     val wallhavenProviderEnabled: Boolean,
@@ -231,6 +233,8 @@ internal fun rememberSettingsScreenState(
     val pixabayApiKey by viewModel.pixabayApiKey.collectAsStateWithLifecycle()
     val generatedWallpaperProviderKey by viewModel.generatedWallpaperProviderKey.collectAsStateWithLifecycle()
     val providerCredentialStorageUnavailable by viewModel.providerCredentialStorageUnavailable.collectAsStateWithLifecycle()
+    val providerCredentialReentryRequired by viewModel.providerCredentialReentryRequired.collectAsStateWithLifecycle()
+    val providerCredentialReentryKeys by viewModel.providerCredentialReentryKeys.collectAsStateWithLifecycle()
     val generatedContentProviderEnabled by viewModel.generatedContentProviderEnabled.collectAsStateWithLifecycle()
     val generatedContentDisclosureAccepted by viewModel.generatedContentDisclosureAccepted.collectAsStateWithLifecycle()
     val wallhavenProviderEnabled by viewModel.wallhavenProviderEnabled.collectAsStateWithLifecycle()
@@ -357,6 +361,8 @@ internal fun rememberSettingsScreenState(
         pixabayApiKey = pixabayApiKey,
         generatedWallpaperProviderKey = generatedWallpaperProviderKey,
         providerCredentialStorageUnavailable = providerCredentialStorageUnavailable,
+        providerCredentialReentryRequired = providerCredentialReentryRequired,
+        providerCredentialReentryKeys = providerCredentialReentryKeys,
         generatedContentProviderEnabled = generatedContentProviderEnabled,
         generatedContentDisclosureAccepted = generatedContentDisclosureAccepted,
         wallhavenProviderEnabled = wallhavenProviderEnabled,

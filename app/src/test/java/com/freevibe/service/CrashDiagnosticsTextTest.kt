@@ -8,6 +8,23 @@ import org.junit.Test
 class CrashDiagnosticsTextTest {
 
     @Test
+    fun providerCredentialStatusDisclosesRecoveryStateWithoutCredentialMaterial() {
+        val available = CrashDiagnosticsText.providerCredentialStorageStatus(
+            reentryRequired = false,
+            temporarilyUnavailable = false,
+        )
+        val restored = CrashDiagnosticsText.providerCredentialStorageStatus(
+            reentryRequired = true,
+            temporarilyUnavailable = false,
+        )
+
+        assertTrue(available.contains("excluded from backup and export"))
+        assertTrue(restored.contains("unreadable ciphertext removed"))
+        assertFalse(available.contains("api_key"))
+        assertFalse(restored.contains("ON_DEVICE_PROVIDER_KEY_SENTINEL"))
+    }
+
+    @Test
     fun parseLastCrashAtReadsNewestSyntheticCrashEntry() {
         val first = CrashDiagnosticsText.formatCrashEntry(
             timestampLabel = "2026-06-04 08:10:00",

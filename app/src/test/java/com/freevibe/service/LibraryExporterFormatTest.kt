@@ -54,4 +54,32 @@ class LibraryExporterFormatTest {
         assertEquals(1, parsed.version)
         assertEquals(listOf("wallpaper-1"), parsed.favorites.map { it.id })
     }
+
+    @Test
+    fun `library export and import never carry provider credentials`() {
+        val sentinel = "PROVIDER_CREDENTIAL_EXPORT_SENTINEL"
+        val parsed = adapter.fromJson(
+            """
+                {
+                  "version": 2,
+                  "wallhaven_api_key": "$sentinel",
+                  "stability_ai_key": "$sentinel",
+                  "favorites": []
+                }
+            """.trimIndent(),
+        )!!
+
+        val exported = adapter.toJson(parsed)
+
+        listOf(
+            sentinel,
+            "wallhaven_api_key",
+            "pexels_api_key",
+            "pixabay_api_key",
+            "freesound_api_key",
+            "stability_ai_key",
+        ).forEach { forbidden ->
+            assertFalse("Credential material reached library export: $forbidden", exported.contains(forbidden))
+        }
+    }
 }

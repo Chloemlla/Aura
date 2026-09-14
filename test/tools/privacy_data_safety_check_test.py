@@ -42,9 +42,13 @@ def minimal_permission(name: str, max_sdk: int | None = None) -> dict[str, objec
 
 def minimal_policy() -> dict[str, object]:
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "policyKind": "privacyDataSafetyMatrix",
         "manifest": "app/src/main/AndroidManifest.xml",
+        "backupRules": {
+            "android11": "app/src/main/res/xml/backup_rules.xml",
+            "android12Plus": "app/src/main/res/xml/data_extraction_rules.xml",
+        },
         "docsPath": "docs/privacy/data-safety.md",
         "privacyPolicy": "docs/privacy/privacy-policy.md",
         "networkEndpointInventory": "docs/security/network-endpoints.json",
@@ -68,13 +72,20 @@ def minimal_policy() -> dict[str, object]:
             {
                 "surfaceId": "test-store",
                 "storageLocation": "App-private test store.",
-                "sourcePaths": ["app/src/main/java/TestStore.kt"],
+                "sourcePaths": [
+                    "app/src/main/java/TestStore.kt",
+                    "app/src/main/res/xml/backup_rules.xml",
+                    "app/src/main/res/xml/data_extraction_rules.xml",
+                ],
                 "dataTypes": ["App interactions"],
                 "collectionStatus": "localOnly",
                 "sharingStatus": "notShared",
                 "userControl": "Clear app data.",
                 "retention": "Retained until cleared.",
                 "deletionPath": "Clear app data.",
+                "backupExclusions": [
+                    {"domain": "sharedpref", "path": "test-store.xml"},
+                ],
                 "backupStatus": "excludedFromBackupAndTransfer",
             }
         ],
@@ -128,6 +139,18 @@ def seed_repo(repo: Path) -> Path:
     write(repo / "gradle/libs.versions.toml", 'test-sdk = { group = "com.example", name = "test-sdk" }\n')
     write(repo / "app/src/main/java/TestStore.kt", "class TestStore\n")
     write(repo / "app/src/main/java/TestSdk.kt", "class TestSdk\n")
+    write(
+        repo / "app/src/main/res/xml/backup_rules.xml",
+        '<full-backup-content><exclude domain="sharedpref" path="test-store.xml" /></full-backup-content>\n',
+    )
+    write(
+        repo / "app/src/main/res/xml/data_extraction_rules.xml",
+        '<data-extraction-rules><cloud-backup>'
+        '<exclude domain="sharedpref" path="test-store.xml" />'
+        '</cloud-backup><device-transfer>'
+        '<exclude domain="sharedpref" path="test-store.xml" />'
+        '</device-transfer></data-extraction-rules>\n',
+    )
     return repo
 
 
@@ -252,6 +275,42 @@ class PrivacyDataSafetyCheckTest(unittest.TestCase):
             policy["localStorageSurfaces"][0]["backupStatus"] = "unknown"  # type: ignore[index]
 
             with self.assertRaises(PrivacyDataSafetyError):
+                validate_policy(repo, policy)
+
+    def test_rejects_device_transfer_backup_rule_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = seed_repo(Path(tmpdir))
+            policy = minimal_policy()
+            write(
+                repo / "app/src/main/res/xml/data_extraction_rules.xml",
+                '<data-extraction-rules><cloud-backup>'
+                '<exclude domain="sharedpref" path="test-store.xml" />'
+                '</cloud-backup><device-transfer />'
+                '</data-extraction-rules>\n',
+            )
+
+            with self.assertRaisesRegex(PrivacyDataSafetyError, "backup exclusion drift"):
+                validate_policy(repo, policy)
+
+    def test_rejects_undeclared_backup_exclusion(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = seed_repo(Path(tmpdir))
+            policy = minimal_policy()
+            extra = '<exclude domain="file" path="secret.bin" />'
+            write(
+                repo / "app/src/main/res/xml/backup_rules.xml",
+                f'<full-backup-content><exclude domain="sharedpref" path="test-store.xml" />{extra}</full-backup-content>\n',
+            )
+            write(
+                repo / "app/src/main/res/xml/data_extraction_rules.xml",
+                '<data-extraction-rules><cloud-backup>'
+                f'<exclude domain="sharedpref" path="test-store.xml" />{extra}'
+                '</cloud-backup><device-transfer>'
+                f'<exclude domain="sharedpref" path="test-store.xml" />{extra}'
+                '</device-transfer></data-extraction-rules>\n',
+            )
+
+            with self.assertRaisesRegex(PrivacyDataSafetyError, "absent from localStorageSurfaces"):
                 validate_policy(repo, policy)
 
     def test_rejects_missing_sdk_dependency_marker(self) -> None:

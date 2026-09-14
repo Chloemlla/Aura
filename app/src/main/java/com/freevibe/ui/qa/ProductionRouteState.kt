@@ -25,9 +25,11 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Wallpaper
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -55,6 +57,7 @@ import com.freevibe.ui.preview.PREVIEW_SOUNDS
 import com.freevibe.ui.preview.PREVIEW_WALLPAPERS
 import com.freevibe.ui.screens.editor.WallpaperEditorPreview
 import com.freevibe.ui.screens.settings.SettingsMetric
+import com.freevibe.ui.screens.settings.SettingsItem
 import com.freevibe.ui.screens.settings.SettingsSection
 import com.freevibe.ui.screens.settings.SettingsToggle
 import com.freevibe.ui.screens.sounds.ApplyButton
@@ -80,6 +83,7 @@ enum class ProductionRouteScenario(
     WallpapersOfflineEmpty("wallpapers_offline_empty", R.string.wallpapers_empty_default_title),
     SoundDetailReady("sound_detail_ready", R.string.nav_sounds),
     SettingsProviderDisabled("settings_provider_disabled", R.string.nav_settings),
+    SettingsCredentialRecovery("settings_credential_recovery", R.string.settings_services_provider_key_reentry_title),
     VideoWallpapersError("video_wallpapers_error", R.string.nav_videos),
     WallpaperEditorLoading("wallpaper_editor_loading", R.string.editor_wallpaper_title),
 }
@@ -98,6 +102,7 @@ fun ProductionRouteState(
             ProductionRouteScenario.WallpapersOfflineEmpty -> WallpapersOfflineState()
             ProductionRouteScenario.SoundDetailReady -> SoundDetailState()
             ProductionRouteScenario.SettingsProviderDisabled -> SettingsState()
+            ProductionRouteScenario.SettingsCredentialRecovery -> SettingsCredentialRecoveryState()
             ProductionRouteScenario.VideoWallpapersError -> VideoWallpapersState()
             ProductionRouteScenario.WallpaperEditorLoading -> WallpaperEditorState()
         }
@@ -265,6 +270,31 @@ private fun SettingsState() {
             message = stringResource(R.string.settings_wp_night_variant_on_subtitle),
             tone = MaterialTheme.colorScheme.primary,
         )
+    }
+}
+
+@Composable
+private fun SettingsCredentialRecoveryState() {
+    RouteColumn {
+        Text(stringResource(R.string.nav_settings), style = MaterialTheme.typography.headlineSmall)
+        SettingsSection(
+            title = stringResource(R.string.settings_services_section_title),
+            description = stringResource(R.string.settings_services_section_description),
+        ) {
+            SettingsItem(
+                icon = Icons.Default.Warning,
+                title = stringResource(R.string.settings_services_provider_key_reentry_title),
+                subtitle = stringResource(R.string.settings_services_provider_key_reentry_subtitle),
+                onClick = {},
+                subtitleMaxLines = 4,
+            )
+            SettingsItem(
+                icon = Icons.Default.Key,
+                title = stringResource(R.string.settings_services_wallhaven_key_title),
+                subtitle = stringResource(R.string.settings_services_wallhaven_key_subtitle),
+                onClick = {},
+            )
+        }
     }
 }
 

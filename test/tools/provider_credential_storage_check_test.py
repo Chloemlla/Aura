@@ -67,6 +67,23 @@ class ProviderCredentialStorageCheckTest(unittest.TestCase):
             with self.assertRaises(ProviderCredentialStorageError):
                 validate_policy(repo, policy)
 
+    def test_rejects_credential_excluded_from_cloud_but_not_device_transfer(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = seed_repo(Path(tmpdir))
+            policy = minimal_policy()
+            write(
+                repo / "data-extraction.xml",
+                '<data-extraction-rules><cloud-backup>'
+                '<exclude domain="file" path="datastore/freevibe_prefs.preferences_pb" />'
+                '<exclude domain="sharedpref" path="aura_provider_credentials.xml" />'
+                '</cloud-backup><device-transfer>'
+                '<exclude domain="file" path="datastore/freevibe_prefs.preferences_pb" />'
+                '</device-transfer></data-extraction-rules>\n',
+            )
+
+            with self.assertRaisesRegex(ProviderCredentialStorageError, "deviceTransfer"):
+                validate_policy(repo, policy)
+
     def test_rejects_missing_datastore_preference_key(self) -> None:
         policy = copy.deepcopy(live_policy())
         policy["credentials"][0]["preferenceKey"] = "missing_api_key"  # type: ignore[index]
@@ -81,6 +98,22 @@ class ProviderCredentialStorageCheckTest(unittest.TestCase):
             write(repo / "SettingsScreen.kt", 'Text("Pexels API Key")\n')
 
             with self.assertRaises(ProviderCredentialStorageError):
+                validate_policy(repo, policy)
+
+    def test_rejects_missing_per_credential_export_policy(self) -> None:
+        policy = copy.deepcopy(live_policy())
+        del policy["credentials"][0]["exportPolicy"]  # type: ignore[index]
+
+        with self.assertRaisesRegex(ProviderCredentialStorageError, "exportPolicy"):
+            validate_policy(REPO_ROOT, policy)
+
+    def test_rejects_library_export_reference_to_credential_field(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = seed_repo(Path(tmpdir))
+            policy = minimal_policy()
+            write(repo / "LibraryExporter.kt", "val leaked = pexels_api_key\n")
+
+            with self.assertRaisesRegex(ProviderCredentialStorageError, "library export source"):
                 validate_policy(repo, policy)
 
     def test_rejects_missing_keystore_wrapper(self) -> None:
@@ -150,7 +183,7 @@ class ProviderCredentialStorageCheckTest(unittest.TestCase):
 
 def minimal_policy() -> dict[str, object]:
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "policyKind": "providerCredentialStorage",
         "docsPath": "docs.md",
         "preferencesManager": "PreferencesManager.kt",
@@ -160,7 +193,10 @@ def minimal_policy() -> dict[str, object]:
         "backupRules": "backup.xml",
         "dataExtractionRules": "data-extraction.xml",
         "diagnosticsDoc": "diagnostics.md",
+        "diagnosticsSource": "CrashDiagnosticsCollector.kt",
         "privacyPolicy": "privacy.md",
+        "libraryExportSource": "LibraryExporter.kt",
+        "libraryExportContract": "LibraryTransferContract.kt",
             "dataStore": {
                 "name": "freevibe_prefs",
                 "filePath": "datastore/freevibe_prefs.preferences_pb",
@@ -175,7 +211,9 @@ def minimal_policy() -> dict[str, object]:
                 "atRestProtection": "androidKeystoreAesGcm",
                 "keyAlias": "aura_provider_credentials_v1",
                 "cipher": "AES/GCM/NoPadding",
-                "fallback": "Settings shows a provider-key storage warning and old DataStore values are retained until migration succeeds.",
+                "recoveryMarker": "provider_credentials_reentry_required",
+                "restoreDecision": "Aura clears unreadable ciphertext, requests re-entry, and retains ciphertext for temporary failures.",
+                "fallback": "Settings requests re-entry and retains old DataStore values until migration succeeds.",
             },
             "credentials": [
                 {
@@ -188,6 +226,11 @@ def minimal_policy() -> dict[str, object]:
                 "gradleProperty": "pexels.api.key",
                 "settingsLabel": "Pexels API Key",
                 "releaseDefault": "blank",
+                "atRestPolicy": "Android Keystore AES-GCM.",
+                "backupPolicy": "Excluded from backup and device transfer.",
+                "restorePolicy": "Clear unreadable ciphertext and request re-entry.",
+                "deletionPolicy": "Clear or Android clear-app-data.",
+                "exportPolicy": "Excluded from all exports.",
                 "userControl": "Settings API Keys dialog saves the value; saving blank clears it.",
                 "redactionTerms": ["key", "api keys", "local.properties"],
             }
@@ -196,7 +239,11 @@ def minimal_policy() -> dict[str, object]:
 
 
 def seed_repo(repo: Path) -> Path:
-    write(repo / "docs.md", "pexels-api-key\nPexels\noptionalQuotaKey\nAndroid Keystore\n")
+    write(
+        repo / "docs.md",
+        "pexels-api-key\nPexels\noptionalQuotaKey\nAndroid Keystore\n"
+        "At rest\nBackup and transfer\nRestore\nDeletion\nExport\n",
+    )
     write(
         repo / "PreferencesManager.kt",
         'val PEXELS_KEY = stringPreferencesKey("pexels_api_key")\n'
@@ -205,7 +252,10 @@ def seed_repo(repo: Path) -> Path:
         'readProviderCredential(\n'
         'setProviderCredential(\n'
         'dataStore.edit { it.remove(legacyKey) }\n'
-        'providerCredentialStorageUnavailable\n',
+        'providerCredentialStorageUnavailable\n'
+        'providerCredentialReentryRequired\n'
+        'providerCredentialReentryKeys\n'
+        'retryProviderCredentials\n',
     )
     write(repo / "Application.kt", "class Application\n")
     write(
@@ -213,12 +263,16 @@ def seed_repo(repo: Path) -> Path:
         'AndroidKeyStore\nKeyGenParameterSpec\nKeyProperties.KEY_ALGORITHM_AES\n'
         'KeyProperties.BLOCK_MODE_GCM\nsetRandomizedEncryptionRequired(true)\n'
         'GCMParameterSpec\nAES/GCM/NoPadding\naura_provider_credentials\n'
-        'aura_provider_credentials.xml\naura_provider_credentials_v1\n',
+        'aura_provider_credentials.xml\naura_provider_credentials_v1\n'
+        'provider_credentials_reentry_required\nProviderCredentialReadResult.ReentryRequired\n'
+        'ProviderCredentialKeyMissingException\nProviderCredentialKeyInvalidatedException\n'
+        'recoverUnreadableCredentials\nfun clearAll()\n',
     )
     write(
         repo / "SettingsScreen.kt",
-        'ProviderApiKeyDialog(\nText("Pexels API Key")\nText("Clear")\n'
-        'settings_services_provider_key_storage_warning_title\n',
+        'ProviderApiKeyDialog(\nText("Pexels API Key")\nText("Clear")\n>Clear<\nsettings_apikey_clear\n'
+        'settings_services_provider_key_storage_warning_title\n'
+        'settings_services_provider_key_reentry_title\n',
     )
     write(repo / "build.gradle.kts", 'buildConfigField("String", "PEXELS_API_KEY", "\\"${localProps.getProperty("pexels.api.key", "")}\\"")\n')
     write(
@@ -230,7 +284,18 @@ def seed_repo(repo: Path) -> Path:
         '<data-extraction-rules><cloud-backup><exclude domain="file" path="datastore/freevibe_prefs.preferences_pb" /><exclude domain="sharedpref" path="aura_provider_credentials.xml" /></cloud-backup><device-transfer><exclude domain="file" path="datastore/freevibe_prefs.preferences_pb" /><exclude domain="sharedpref" path="aura_provider_credentials.xml" /></device-transfer></data-extraction-rules>\n',
     )
     write(repo / "diagnostics.md", "key\napi keys\nlocal.properties\n")
-    write(repo / "privacy.md", "API keys entered by the user\n")
+    write(
+        repo / "CrashDiagnosticsCollector.kt",
+        "Provider credential storage:\nunreadable ciphertext removed\n"
+        "encrypted values excluded from backup and export\n",
+    )
+    write(
+        repo / "privacy.md",
+        "API keys entered by the user use Android Keystore storage, are excluded from cloud backup, "
+        "and ask the user to re-enter an unreadable value.\n",
+    )
+    write(repo / "LibraryExporter.kt", "class LibraryExporter\n")
+    write(repo / "LibraryTransferContract.kt", "object LibraryTransferContract\n")
     return repo
 
 
@@ -245,7 +310,10 @@ def copy_live_support_files(repo: Path) -> None:
         "backupRules",
         "dataExtractionRules",
         "diagnosticsDoc",
+        "diagnosticsSource",
         "privacyPolicy",
+        "libraryExportSource",
+        "libraryExportContract",
     ):
         source = REPO_ROOT / policy[key]  # type: ignore[index]
         write(repo / policy[key], source.read_text(encoding="utf-8"))  # type: ignore[index]

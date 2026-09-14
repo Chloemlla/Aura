@@ -4,6 +4,16 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Restored provider keys now fail safely and visibly**: Aura keeps user-entered
+  provider keys in its Android Keystore-backed AES-GCM store and excludes both
+  current and legacy credential files from cloud backup and device transfer. If
+  ciphertext arrives without its device-bound key, Aura removes the unreadable
+  copy and keeps a Settings notice visible until each affected key is handled.
+  Temporary Keystore failures retain encrypted values and now have a tap-to-retry
+  action. Library exports and diagnostics carry status only, never credential
+  names or values. The privacy and Data safety checks now parse both Android
+  backup formats and reject any mismatch between cloud and device-transfer rules.
+
 - **Provider availability now has one checked public contract**: all 22 source
   records now declare media types, lifecycle, default order, credential needs,
   build and release-channel availability, and allowed actions. Reddit stays

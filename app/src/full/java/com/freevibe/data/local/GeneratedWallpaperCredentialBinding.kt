@@ -17,3 +17,6 @@ internal fun PreferencesManager.generatedWallpaperProviderKeyForFlavor(): Flow<S
 internal suspend fun PreferencesManager.setGeneratedWallpaperProviderKeyForFlavor(key: String) {
     setProviderCredential(stabilityCredentialKey, stabilityLegacyPreferenceKey, key)
 }
+
+internal fun generatedWallpaperCredentialNeedsReentryForFlavor(keys: Set<String>): Boolean =
+    stabilityCredentialKey.storageKey in keys

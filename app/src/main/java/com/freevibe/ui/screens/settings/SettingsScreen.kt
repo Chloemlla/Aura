@@ -435,6 +435,8 @@ fun SettingsScreen(
                 pixabayApiKey = pixabayApiKey,
                 generatedWallpaperProviderKey = generatedWallpaperProviderKey,
                 providerCredentialStorageUnavailable = providerCredentialStorageUnavailable,
+                providerCredentialReentryRequired = providerCredentialReentryRequired,
+                providerCredentialReentryKeys = providerCredentialReentryKeys,
                 generatedContentProviderEnabled = generatedContentProviderEnabled,
                 generatedContentDisclosureAccepted = generatedContentDisclosureAccepted,
                 wallhavenProviderEnabled = wallhavenProviderEnabled,

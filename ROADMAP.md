@@ -4,15 +4,6 @@ Actionable work only. Historical and completed roadmap material is archived in C
 
 ## Research-Driven Additions
 
-### P1
-
-- [ ] P1 — Align privacy, credential, and backup claims with actual storage
-  Why: Aura encrypts provider credentials with Android Keystore, but some public and diagnostic text denies Keystore use or describes backup in ways that do not match the XML rules. Restoring ciphertext without the device-bound key can also create confusing failures after migration.
-  Evidence: **Verified.** `ProviderCredentialStore.kt:28-100` uses AES-GCM with Android Keystore; `docs/privacy/privacy-policy.md`, `docs/privacy/data-safety.json`, and crash-diagnostics disclosures contain conflicting credential/storage statements; `app/src/main/res/xml/backup_rules.xml` and `data_extraction_rules.xml` do not match every backup row.
-  Touches: `ProviderCredentialStore.kt`, backup/data-extraction XML, credential migration/reset behavior, `docs/privacy/**`, diagnostics disclosure, data-safety gates, instrumentation tests.
-  Acceptance: every credential class has one declared at-rest, backup, restore, deletion, and export policy; device-bound ciphertext is excluded from cloud/device transfer or detected and cleared with a visible re-entry prompt; privacy policy, Data safety, diagnostics contents, Settings copy, and XML rules agree; tests cover same-device read, missing key, invalidated key, backup-style restore, clear-all-data, and export; no secret value reaches logs or diagnostics.
-  Complexity: M
-
 ### P2
 
 - [ ] P2 — Add Fit Canvas backgrounds for static and video wallpaper

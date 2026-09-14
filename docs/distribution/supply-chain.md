@@ -23,13 +23,13 @@ checksum, and release-note validation.
 | Gradle wrapper policy | `tools/gradle_wrapper_check.py` | Pins the Gradle wrapper distribution URL, SHA-256, validation, storage roots, and timeout. |
 | Provider credential release guard | `tools/provider_credential_release_check.py` | Confirms release variants force optional provider keys blank even when a developer has local debug keys configured. |
 | Provider credential APK scan | `tools/provider_credential_apk_scan.py` | Scans packaged signed APKs for nonblank local provider values before publication. |
-| Provider credential storage policy | `tools/provider_credential_storage_check.py` | Checks DataStore storage, backup exclusions, clear controls, and privacy/support disclosures for user-entered credentials. |
+| Provider credential storage policy | `tools/provider_credential_storage_check.py` | Checks Android Keystore AES-GCM storage, restore recovery, backup exclusions, clear controls, export boundaries, and privacy/support disclosures for user-entered credentials. |
 | Cleartext release guard | `tools/cleartext_release_check.py` | Rejects cleartext manifest/network drift in public releases. |
 | Network endpoint inventory | `tools/network_endpoint_inventory_check.py` | Fails when provider network-code hosts drift from the reviewed endpoint inventory. |
 | Store metadata preflight | `tools/store_metadata_preflight.py` | Checks Fastlane text limits, current changelog, branding, and privacy-policy URL. |
 | Store asset pipeline | `tools/store_asset_pipeline_check.py` | Checks screenshot/feature-graphic planning, Fastlane image paths, alt text, and future asset-mode command. |
 | Privacy policy link gate | `tools/privacy_policy_link_check.py` | Keeps Settings, Fastlane metadata, README, and release dry-run docs aligned to the public privacy-policy URL. |
-| Privacy Data safety matrix | `tools/privacy_data_safety_check.py` | Keeps permissions, network endpoints, local storage, and SDK data surfaces mapped to Play declaration rows. |
+| Privacy Data safety matrix | `tools/privacy_data_safety_check.py` | Keeps permissions, network endpoints, local storage, SDK data surfaces, and both Android backup rule formats mapped to Play declaration rows. |
 | Rotation trigger boot permission | `tools/rotation_boot_permission_check.py` | Keeps the removed boot-completed permission decision aligned with manifest and release disclosures. |
 | Rotation foreground-service policy | `tools/rotation_fgs_policy_check.py` | Keeps foreground-service declarations, Settings, Play, and release evidence aligned. |
 | Background work scheduling ledger | `tools/background_work_scheduling_check.py` | Checks WorkManager unique work names, enqueue policies, constraints, deferral reasons, source terms, and release docs. |

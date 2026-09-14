@@ -104,6 +104,7 @@ internal fun SettingsItem(
     onClick: () -> Unit,
     enabled: Boolean = true,
     searchAliases: Set<String> = emptySet(),
+    subtitleMaxLines: Int = 2,
 ) {
     val searchRow = rememberSettingsSearchRow(title, subtitle, searchAliases)
     if (searchRow == null) return
@@ -143,7 +144,7 @@ internal fun SettingsItem(
                         subtitle,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
+                        maxLines = subtitleMaxLines,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }

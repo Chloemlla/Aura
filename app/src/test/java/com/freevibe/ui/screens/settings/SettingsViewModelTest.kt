@@ -415,6 +415,19 @@ class SettingsViewModelTest {
         coVerify(exactly = 1) { prefs.clearWallpaperStyleLearning() }
     }
 
+    @Test
+    fun `retryProviderCredentials requests a fresh encrypted store read`() = runTest(dispatcher) {
+        val prefs = mockPreferences()
+        val viewModel = createViewModel(
+            cacheDir = createTempDirectory("settings-provider-credential-retry").toFile().also(tempDirs::add),
+            prefsOverride = prefs,
+        )
+
+        viewModel.retryProviderCredentials()
+
+        verify(exactly = 1) { prefs.retryProviderCredentials() }
+    }
+
     private fun createViewModel(
         cacheDir: File,
         offlineFavoritesSize: Long = 0L,
@@ -574,6 +587,8 @@ class SettingsViewModelTest {
             every { prefs.pexelsApiKey } returns flowOf("")
             every { prefs.pixabayApiKey } returns flowOf("")
             every { prefs.providerCredentialStorageUnavailable } returns MutableStateFlow(false)
+            every { prefs.providerCredentialReentryRequired } returns MutableStateFlow(false)
+            every { prefs.providerCredentialReentryKeys } returns MutableStateFlow(emptySet())
             every { prefs.wallhavenProviderEnabled } returns flowOf(true)
             every { prefs.bingProviderEnabled } returns flowOf(true)
             every { prefs.pexelsProviderEnabled } returns flowOf(true)
@@ -627,6 +642,7 @@ class SettingsViewModelTest {
             coEvery { prefs.setWallpaperClockOverlayMode(any()) } returns Unit
             coEvery { prefs.setWallpaperClockOverlayPosition(any()) } returns Unit
             coEvery { prefs.clearWallpaperStyleLearning() } returns Unit
+            every { prefs.retryProviderCredentials() } returns Unit
         }
 
     private class FakeBackgroundWorkDiagnosticsReader(

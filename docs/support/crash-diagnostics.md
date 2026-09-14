@@ -84,8 +84,10 @@ last provider error detail for the current session.
 Provider credential storage is classified in
 [`docs/security/provider-credential-storage.md`](../security/provider-credential-storage.md).
 The checked policy keeps user-entered provider keys out of backups, device
-transfer, source diagnostics, and support bundles, but does not claim
-Keystore-backed at-rest protection for the current optional provider keys.
+transfer, source diagnostics, and support bundles. User-entered values use
+Android Keystore-backed AES-GCM protection at rest. The bundle reports only
+whether credential storage is available, temporarily unavailable, or needs
+re-entry after unreadable ciphertext was removed.
 
 ## Sources
 
