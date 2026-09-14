@@ -157,6 +157,7 @@ class AndroidBackgroundWorkDiagnosticsReader @Inject constructor(
             BackgroundWorkItem("Ringtone shuffle", RingtoneShuffleWorker.WORK_NAME),
             BackgroundWorkItem("Sound profile", SoundProfileWorker.WORK_NAME),
             BackgroundWorkItem("Wallpaper pack", WallpaperPackWorker.WORK_NAME),
+            BackgroundWorkItem("Theme wallpaper switching", SystemThemeListener.WORK_NAME),
             BackgroundWorkItem("Weather wallpaper refresh", WeatherUpdateWorker.WORK_NAME),
             BackgroundWorkItem("Aura Originals download", AuraOriginalsDownloader.WORK_NAME),
             BackgroundWorkItem("Rotation trigger one-shot", RotationTriggerService.WORK_NAME),
@@ -241,6 +242,10 @@ internal fun backgroundWorkActionHint(
             batteryGuidance,
         )
     }
+    val reason = row.lastDeferralReason.orEmpty().lowercase(Locale.ROOT)
+    if (row.lastErrorClass == "RotationItemExcluded" || reason.contains("excluded")) {
+        return "Restore the item in Settings > Wallpaper rotation > Rotation exclusions, then change theme again."
+    }
     if (row.workInfoStatus == "No WorkInfo records") {
         return withBatteryGuidance(
             "No WorkInfo records are visible yet; open Aura once after reboot, wait for the next schedule window, then refresh diagnostics.",
@@ -248,7 +253,6 @@ internal fun backgroundWorkActionHint(
         )
     }
 
-    val reason = row.lastDeferralReason.orEmpty().lowercase(Locale.ROOT)
     if (reason.contains("no eligible bing or wallhaven")) {
         return "No daily wallpaper was available from Bing or Wallhaven; check enabled providers or wait for the next run."
     }

@@ -187,8 +187,17 @@ fun LocalWallpaperEntity.rotationIdentity(): RotationIdentity = rotationIdentity
     contentHash = contentHash,
     title = displayName,
     thumbnailUrl = documentUri,
-    locator = documentUri,
+    locator = localRelinkIdentitySeed(),
 )
+
+/** Path-independent fallback for a provider that temporarily refuses a full hash read. */
+private fun LocalWallpaperEntity.localRelinkIdentitySeed(): String = listOf(
+    "LOCAL_MEDIA",
+    displayName.trim().lowercase(Locale.ROOT),
+    mimeType.trim().lowercase(Locale.ROOT),
+    sizeBytes.coerceAtLeast(0L).toString(),
+    modifiedAt.coerceAtLeast(0L).toString(),
+).joinToString("\u001f")
 
 fun DownloadEntity.rotationIdentity(): RotationIdentity {
     val nestedIdentity = extractNestedWallpaperIdentity(id)

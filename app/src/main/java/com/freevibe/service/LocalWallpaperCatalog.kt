@@ -16,6 +16,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+import java.io.InputStream
 import java.security.MessageDigest
 import java.util.Locale
 import java.util.UUID
@@ -24,7 +25,7 @@ import javax.inject.Singleton
 
 private const val MAX_SCAN_DEPTH = 8
 private const val MAX_INDEXED_FILES = 10_000
-private const val MAX_HASH_BYTES = 64L * 1024L * 1024L
+private const val HASH_BUFFER_BYTES = 64 * 1024
 private const val IMAGE_DIRECTORY_MIME = "vnd.android.document/directory"
 
 @Singleton
@@ -244,7 +245,7 @@ class LocalWallpaperCatalog @Inject constructor(
                     ) {
                         previous.contentHash
                     } else {
-                        hashDocument(childUri)
+                        hashDocument(childUri).ifBlank { previous?.contentHash.orEmpty() }
                     }
                     items += LocalWallpaperEntity(
                         documentUri = documentUri,
@@ -271,20 +272,10 @@ class LocalWallpaperCatalog @Inject constructor(
     }
 
     private fun hashDocument(uri: Uri): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        var total = 0L
         return runCatching {
             context.contentResolver.openInputStream(uri)?.use { input ->
-                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                while (true) {
-                    val read = input.read(buffer)
-                    if (read <= 0) break
-                    total += read
-                    if (total > MAX_HASH_BYTES) return ""
-                    digest.update(buffer, 0, read)
-                }
+                hashLocalWallpaperStream(input)
             } ?: return ""
-            digest.digest().joinToString("") { byte -> "%02x".format(Locale.ROOT, byte) }
         }.getOrDefault("")
     }
 
@@ -327,6 +318,19 @@ class LocalWallpaperCatalog @Inject constructor(
             DocumentsContract.Document.COLUMN_LAST_MODIFIED,
         )
     }
+}
+
+/** Full-file, constant-memory identity for SAF media. Large files must remain relinkable. */
+internal fun hashLocalWallpaperStream(input: InputStream): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    val buffer = ByteArray(HASH_BUFFER_BYTES)
+    while (true) {
+        val read = input.read(buffer)
+        if (read < 0) break
+        if (read == 0) continue
+        digest.update(buffer, 0, read)
+    }
+    return digest.digest().joinToString("") { byte -> "%02x".format(Locale.ROOT, byte) }
 }
 
 internal fun isLocalWallpaperImage(displayName: String?, mimeType: String?): Boolean {

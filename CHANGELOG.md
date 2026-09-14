@@ -11,7 +11,9 @@ All notable changes to Aura will be documented in this file.
   triggers, widgets, theme switching, night variants, and wallpaper packs all
   honor the choice, while browsing and manual apply remain available. Local
   content hashes preserve exclusions after a path relink, and portable library
-  backup restores the records without copying raw device paths.
+  backup restores the records without copying raw device paths. Full-file
+  streaming hashes cover large SAF images, while excluded theme and night
+  choices leave a persistent recovery hint in background diagnostics.
 
 - **Fit can now look intentional instead of leaving unexplained bars**: static
   wallpapers, videos, and GIFs can use AMOLED black, a chosen color, a Palette

@@ -10,9 +10,11 @@ import com.freevibe.data.model.LocalWallpaperFolderScanStatus
 import com.freevibe.data.model.WallpaperTarget
 import com.freevibe.data.model.normalizeLocalWallpaperTags
 import kotlinx.coroutines.test.runTest
+import java.io.InputStream
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -98,6 +100,17 @@ class LocalWallpaperCatalogTest {
         assertFalse(isLocalWallpaperImage("notes.txt", null))
     }
 
+    @Test
+    fun `content identity hashes beyond the former 64 MiB boundary`() {
+        val boundary = 64L * 1024L * 1024L
+
+        val atBoundary = hashLocalWallpaperStream(RepeatingInputStream(boundary))
+        val beyondBoundary = hashLocalWallpaperStream(RepeatingInputStream(boundary + 1))
+
+        assertEquals(64, beyondBoundary.length)
+        assertNotEquals(atBoundary, beyondBoundary)
+    }
+
     private fun folder(uri: String, target: WallpaperTarget) = LocalWallpaperFolderEntity(
         folderUri = uri,
         displayName = uri.substringAfterLast('/'),
@@ -115,4 +128,18 @@ class LocalWallpaperCatalogTest {
         modifiedAt = 456L,
         contentHash = hash,
     )
+
+    private class RepeatingInputStream(private val length: Long) : InputStream() {
+        private var position = 0L
+
+        override fun read(): Int = if (position++ < length) 0x5a else -1
+
+        override fun read(buffer: ByteArray, offset: Int, count: Int): Int {
+            if (position >= length) return -1
+            val read = minOf(count.toLong(), length - position).toInt()
+            buffer.fill(0x5a.toByte(), offset, offset + read)
+            position += read
+            return read
+        }
+    }
 }

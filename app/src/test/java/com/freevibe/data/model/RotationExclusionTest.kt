@@ -40,6 +40,22 @@ class RotationExclusionTest {
     }
 
     @Test
+    fun `local metadata fallback survives relink when a content hash is unavailable`() {
+        val before = localWallpaper("content://old/tree/photo", "old-id", "")
+        val after = localWallpaper("content://new/tree/photo", "new-id", "")
+        val afterHashRecovery = localWallpaper(
+            "content://new/tree/photo",
+            "new-id",
+            "ef".repeat(32),
+        )
+
+        val exclusion = before.rotationIdentity().toRotationExclusion()
+
+        assertTrue(exclusion.matches(after.rotationIdentity()))
+        assertTrue(exclusion.matches(afterHashRecovery.rotationIdentity()))
+    }
+
+    @Test
     fun `persisted exclusion fingerprints locator without retaining it`() {
         val locator = "content://private/folder/photo.jpg"
         val entity = rotationIdentityForLocator(locator, "Photo").toRotationExclusion()

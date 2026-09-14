@@ -23,13 +23,14 @@ to match those copies without depending on a file path.
 |---|---|
 | Reddit or another provider | Media type, provider, and provider item ID |
 | Favorite, collection item, cache row, history row, or download | The original provider identity when available |
-| Local catalog item | SHA-256 content hash |
+| Local catalog item | SHA-256 content hash plus a path-independent metadata fallback |
 | Wallpaper pack or legacy locator-only item | SHA-256 fingerprint of the locator |
 
 Aura stores only the locator fingerprint in the exclusion database. It does
-not store a raw local path there. Local catalog files use their content hash,
-so moving a file and relinking it does not restore an unwanted item to
-rotation.
+not store a raw local path there. Local catalog files use a full streamed
+content hash. A metadata fingerprint preserves identity if a content provider
+temporarily refuses the hash read. Moving a file and relinking it does not
+restore an unwanted item to rotation.
 
 ## Automatic Apply Paths
 
@@ -39,8 +40,9 @@ variants, local-folder rotation, favorites, collections, cached provider feeds,
 and 24-hour wallpaper packs.
 
 If every candidate in a source is excluded, Aura does not fall back to an
-excluded item. WorkManager records a recoverable result and stops retrying that
-persistent choice. The widget explains that an item can be restored in
+excluded item. Scheduled work records a recoverable result and stops retrying
+that persistent choice. Theme and night switching record the skipped item in
+background diagnostics. The widget explains that an item can be restored in
 Settings.
 
 ## Backup and Privacy

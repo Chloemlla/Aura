@@ -130,6 +130,29 @@ class BackgroundWorkDiagnosticsReaderTest {
     }
 
     @Test
+    fun backgroundWorkActionHintExplainsExcludedThemeItemWithoutWorkInfo() {
+        val hint = backgroundWorkActionHint(
+            row = BackgroundWorkStatusRow(
+                label = "Theme wallpaper switching",
+                uniqueWorkName = SystemThemeListener.WORK_NAME,
+                workInfoStatus = "No WorkInfo records",
+                lastResult = "failure",
+                lastErrorClass = "RotationItemExcluded",
+                lastDeferralReason = "The selected theme wallpaper is excluded.",
+            ),
+            network = BackgroundNetworkDiagnostics(
+                activeNetworkMetered = false,
+                restrictBackgroundStatus = "disabled",
+            ),
+        )
+
+        assertEquals(
+            "Restore the item in Settings > Wallpaper rotation > Rotation exclusions, then change theme again.",
+            hint,
+        )
+    }
+
+    @Test
     fun backgroundBatteryGuidanceSelectsSamsungRecovery() {
         val guide = backgroundBatteryGuidanceForManufacturer("Samsung")
 

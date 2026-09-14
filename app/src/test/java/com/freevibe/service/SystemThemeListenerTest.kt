@@ -32,7 +32,13 @@ class SystemThemeListenerTest {
             every { it.lastNightVariantWallpaperDarkenPercent } returns flowOf(20)
         }
         val applier = mockApplier()
-        val listener = SystemThemeListener(RuntimeEnvironment.getApplication(), prefs, applier, mockExclusions())
+        val listener = SystemThemeListener(
+            RuntimeEnvironment.getApplication(),
+            prefs,
+            applier,
+            mockExclusions(),
+            mockReceiptStore(),
+        )
 
         listener.applyForMode(isNight = true)
         listener.applyForMode(isNight = false)
@@ -64,7 +70,13 @@ class SystemThemeListenerTest {
             every { it.lightModeWallpaperId } returns flowOf("reddit|light|https://example.com/light.jpg")
         }
         val applier = mockApplier()
-        val listener = SystemThemeListener(RuntimeEnvironment.getApplication(), prefs, applier, mockExclusions())
+        val listener = SystemThemeListener(
+            RuntimeEnvironment.getApplication(),
+            prefs,
+            applier,
+            mockExclusions(),
+            mockReceiptStore(),
+        )
 
         listener.applyForMode(isNight = true)
         listener.applyForMode(isNight = false)
@@ -95,16 +107,54 @@ class SystemThemeListenerTest {
             every { it.darkModeWallpaperId } returns flowOf("reddit|dark|https://example.com/dark.jpg")
         }
         val applier = mockApplier()
+        val receiptStore = mockReceiptStore()
         val listener = SystemThemeListener(
             RuntimeEnvironment.getApplication(),
             prefs,
             applier,
             mockExclusions(excluded = true),
+            receiptStore,
         )
 
         listener.applyForMode(isNight = true)
 
         coVerify(exactly = 0) { applier.applyByLocator(any(), any(), any(), any(), any()) }
+        io.mockk.verify {
+            receiptStore.recordFailure(
+                SystemThemeListener.WORK_NAME,
+                "RotationItemExcluded",
+                match { it.contains("Rotation exclusions") },
+            )
+        }
+    }
+
+    @Test
+    fun `excluded night variant records a recoverable diagnostic`() = runTest {
+        val prefs = mockk<PreferencesManager>().also {
+            every { it.darkModeAutoSwitch } returns flowOf(false)
+            every { it.autoWallpaperNightVariantEnabled } returns flowOf(true)
+            every { it.lastNightVariantWallpaperLocator } returns flowOf("content://wallpaper/original")
+        }
+        val applier = mockApplier()
+        val receiptStore = mockReceiptStore()
+        val listener = SystemThemeListener(
+            RuntimeEnvironment.getApplication(),
+            prefs,
+            applier,
+            mockExclusions(excluded = true),
+            receiptStore,
+        )
+
+        listener.applyForMode(isNight = true)
+
+        coVerify(exactly = 0) { applier.applyByLocator(any(), any(), any(), any(), any()) }
+        io.mockk.verify {
+            receiptStore.recordFailure(
+                SystemThemeListener.WORK_NAME,
+                "RotationItemExcluded",
+                match { it.contains("night variant") && it.contains("Rotation exclusions") },
+            )
+        }
     }
 
     @Test
@@ -126,4 +176,6 @@ class SystemThemeListenerTest {
         mockk<RotationExclusionRepository>().also {
             coEvery { it.isExcluded(any()) } returns excluded
         }
+
+    private fun mockReceiptStore(): BackgroundWorkReceiptStore = mockk(relaxed = true)
 }
