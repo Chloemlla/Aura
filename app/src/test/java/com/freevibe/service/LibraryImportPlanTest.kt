@@ -64,6 +64,7 @@ class LibraryImportPlanTest {
             favoriteDao = db.favoriteDao(),
             collectionRepo = CollectionRepository(db.collectionDao()),
             searchHistoryDao = db.searchHistoryDao(),
+            rotationExclusionDao = db.rotationExclusionDao(),
             prefs = prefs,
             moshi = Moshi.Builder().build(),
         )
@@ -77,13 +78,15 @@ class LibraryImportPlanTest {
         favorites: String = "[]",
         collections: String = "[]",
         searchHistory: String = "[]",
+        rotationExclusions: String = "[]",
         extra: String = "",
     ): String = """
         {
           "version": $version,
           "favorites": $favorites,
           "collections": $collections,
-          "searchHistory": $searchHistory$extra
+          "searchHistory": $searchHistory,
+          "rotationExclusions": $rotationExclusions$extra
         }
     """.trimIndent()
 
@@ -168,6 +171,47 @@ class LibraryImportPlanTest {
 
         assertTrue(failure is LibraryTransferLimitExceededException)
         assertEquals(0, db.favoriteDao().count().first())
+    }
+
+    @Test
+    fun `local hash exclusion survives a backup restore and path relink`() = runTest {
+        val hash = "ab".repeat(32)
+        val plan = exporter.buildPlan(
+            payload(
+                rotationExclusions = """
+                    [{"mediaType":"WALLPAPER","source":"LOCAL","contentId":"old-document-id",
+                      "contentHash":"$hash","title":"Family photo","excludedAt":7}]
+                """.trimIndent(),
+            ),
+        )
+
+        exporter.applyPlan(plan)
+
+        val restored = db.rotationExclusionDao().getAll().single()
+        val relinked = com.freevibe.data.model.rotationIdentity(
+            mediaType = com.freevibe.data.model.ROTATION_MEDIA_WALLPAPER,
+            source = "LOCAL",
+            contentId = "new-document-id",
+            contentHash = hash,
+            locator = "content://new-tree/photo.jpg",
+        )
+        assertTrue(restored.matches(relinked))
+        assertEquals(7, restored.excludedAt)
+    }
+
+    @Test
+    fun `invalid rotation exclusion is reported and never written`() = runTest {
+        val plan = exporter.buildPlan(
+            payload(
+                rotationExclusions = """
+                    [{"mediaType":"AUDIO","source":"REDDIT","contentId":"post-1",
+                      "locatorDigest":"not-a-digest","title":"Bad row"}]
+                """.trimIndent(),
+            ),
+        )
+
+        assertTrue(plan.rotationExclusions.isEmpty())
+        assertEquals(listOf(LibraryImportSkipReason.INVALID), plan.skipped.map { it.reason })
     }
 
     // -- non-portable reporting --
@@ -342,6 +386,9 @@ class LibraryImportPlanTest {
                 favorites = "[$portableFavorite]",
                 collections = """[{"id":1,"name":"Night","items":[]}]""",
                 searchHistory = """[{"query":"blue","type":"WALLPAPER","searchedAt":1}]""",
+                rotationExclusions = """
+                    [{"mediaType":"WALLPAPER","source":"REDDIT","contentId":"blocked-post"}]
+                """.trimIndent(),
                 extra = ""","wallpaperPackJson":"new-pack","soundProfilesJson":"new-profiles",
                     "fitCanvasPreferences":{
                       "staticPresentation":"fill","staticCanvasMode":"amoled_black",
@@ -357,6 +404,7 @@ class LibraryImportPlanTest {
         assertEquals(0, db.favoriteDao().count().first())
         assertEquals(0, db.collectionDao().getAllCollections().first().size)
         assertEquals(0, db.searchHistoryDao().count("WALLPAPER"))
+        assertTrue(db.rotationExclusionDao().getAll().isEmpty())
         assertEquals("original-pack", packJson.value)
         assertEquals("original-profiles", profilesJson.value)
         assertEquals(originalFitCanvasPreferences, fitCanvasPreferences)
@@ -402,6 +450,9 @@ class LibraryImportPlanTest {
                     ]}]
                 """.trimIndent(),
                 searchHistory = """[{"query":"blue","type":"WALLPAPER","searchedAt":1}]""",
+                rotationExclusions = """
+                    [{"mediaType":"WALLPAPER","source":"REDDIT","contentId":"blocked-post"}]
+                """.trimIndent(),
                 extra = ""","wallpaperPackJson":"new-pack"""",
             ),
         )
@@ -417,9 +468,10 @@ class LibraryImportPlanTest {
                 .map { it.wallpaperId },
         )
         assertEquals(1, db.searchHistoryDao().count("WALLPAPER"))
+        assertEquals(1, db.rotationExclusionDao().getAll().size)
         assertEquals("new-pack", packJson.value)
-        // favorites(1) + collection(1) + item(1) + search(1) + pack(1)
-        assertEquals(5, plan.writeCount)
+        // favorites(1) + collection(1) + item(1) + search(1) + exclusion(1) + pack(1)
+        assertEquals(6, plan.writeCount)
     }
 
     @Test

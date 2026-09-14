@@ -3,6 +3,7 @@ package com.freevibe.service
 import com.freevibe.data.model.FavoriteEntity
 import com.freevibe.data.model.FitCanvasPreferences
 import com.freevibe.data.model.SearchHistoryEntity
+import com.freevibe.data.model.RotationExclusionEntity
 import com.freevibe.data.model.Wallpaper
 import java.net.URI
 import java.util.Locale
@@ -35,7 +36,7 @@ internal val LibraryImportSkipReason.isFailure: Boolean
 
 /** One row that will not be written, and why. */
 data class LibraryImportSkip(
-    /** Section the row came from: `favorite`, `collection`, `collectionItem`, `search`, `download`. */
+    /** Section the row came from, such as `favorite`, `collectionItem`, or `rotationExclusion`. */
     val section: String,
     /** Short human-readable identity of the row, for the preview report. */
     val label: String,
@@ -58,6 +59,7 @@ data class LibraryImportPlan(
     val favorites: List<FavoriteEntity> = emptyList(),
     val collections: List<PlannedCollection> = emptyList(),
     val searchHistory: List<SearchHistoryEntity> = emptyList(),
+    val rotationExclusions: List<RotationExclusionEntity> = emptyList(),
     val wallpaperPackJson: String = "",
     val soundProfilesJson: String = "",
     val fitCanvasPreferences: FitCanvasPreferences? = null,
@@ -68,6 +70,7 @@ data class LibraryImportPlan(
         get() = favorites.size + collections.count { it.existingId == null } +
             collections.sumOf { it.items.size } +
             searchHistory.size +
+            rotationExclusions.size +
             (if (wallpaperPackJson.isNotBlank()) 1 else 0) +
             (if (soundProfilesJson.isNotBlank()) 1 else 0) +
             (if (fitCanvasPreferences != null) 1 else 0)

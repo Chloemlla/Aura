@@ -2,6 +2,7 @@ package com.freevibe.service
 
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.model.WallpaperTarget
+import com.freevibe.data.repository.RotationExclusionRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifySequence
@@ -31,7 +32,7 @@ class SystemThemeListenerTest {
             every { it.lastNightVariantWallpaperDarkenPercent } returns flowOf(20)
         }
         val applier = mockApplier()
-        val listener = SystemThemeListener(RuntimeEnvironment.getApplication(), prefs, applier)
+        val listener = SystemThemeListener(RuntimeEnvironment.getApplication(), prefs, applier, mockExclusions())
 
         listener.applyForMode(isNight = true)
         listener.applyForMode(isNight = false)
@@ -63,7 +64,7 @@ class SystemThemeListenerTest {
             every { it.lightModeWallpaperId } returns flowOf("reddit|light|https://example.com/light.jpg")
         }
         val applier = mockApplier()
-        val listener = SystemThemeListener(RuntimeEnvironment.getApplication(), prefs, applier)
+        val listener = SystemThemeListener(RuntimeEnvironment.getApplication(), prefs, applier, mockExclusions())
 
         listener.applyForMode(isNight = true)
         listener.applyForMode(isNight = false)
@@ -87,6 +88,26 @@ class SystemThemeListenerTest {
     }
 
     @Test
+    fun `excluded dedicated wallpaper is never applied by a theme change`() = runTest {
+        val prefs = mockk<PreferencesManager>().also {
+            every { it.darkModeAutoSwitch } returns flowOf(true)
+            every { it.autoWallpaperNightVariantEnabled } returns flowOf(false)
+            every { it.darkModeWallpaperId } returns flowOf("reddit|dark|https://example.com/dark.jpg")
+        }
+        val applier = mockApplier()
+        val listener = SystemThemeListener(
+            RuntimeEnvironment.getApplication(),
+            prefs,
+            applier,
+            mockExclusions(excluded = true),
+        )
+
+        listener.applyForMode(isNight = true)
+
+        coVerify(exactly = 0) { applier.applyByLocator(any(), any(), any(), any(), any()) }
+    }
+
+    @Test
     fun `night transform crushes black point while preserving alpha`() {
         val matrix = nightWallpaperVariantColorMatrix()
 
@@ -100,4 +121,9 @@ class SystemThemeListenerTest {
     private fun mockApplier(): WallpaperApplier = mockk<WallpaperApplier>().also {
         coEvery { it.applyByLocator(any(), any(), any(), any(), any()) } returns Result.success(Unit)
     }
+
+    private fun mockExclusions(excluded: Boolean = false): RotationExclusionRepository =
+        mockk<RotationExclusionRepository>().also {
+            coEvery { it.isExcluded(any()) } returns excluded
+        }
 }

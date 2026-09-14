@@ -12,6 +12,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.PlaylistRemove
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,7 +33,10 @@ import com.freevibe.R
 import com.freevibe.data.model.LocalWallpaperEntity
 import com.freevibe.data.model.LocalWallpaperFolderEntity
 import com.freevibe.data.model.LocalWallpaperFolderScanStatus
+import com.freevibe.data.model.RotationExclusionEntity
+import com.freevibe.data.model.RotationExclusionIndex
 import com.freevibe.data.model.WallpaperTarget
+import com.freevibe.data.model.rotationIdentity
 import java.util.Locale
 
 @Composable
@@ -41,6 +46,8 @@ internal fun LocalWallpaperCatalogDialogHost(
     viewModel: SettingsViewModel,
     onDismiss: () -> Unit,
     onAddFolder: () -> Unit,
+    rotationExclusions: List<RotationExclusionEntity>,
+    onToggleRotationExclusion: (LocalWallpaperEntity) -> Unit,
 ) {
     if (!show) return
     LocalWallpaperCatalogDialog(
@@ -53,6 +60,8 @@ internal fun LocalWallpaperCatalogDialogHost(
         onRemoveFolder = viewModel::removeLocalWallpaperFolder,
         onSetFolderTarget = viewModel::setLocalWallpaperFolderTarget,
         onUpdateTags = viewModel::updateLocalWallpaperTags,
+        rotationExclusions = rotationExclusions,
+        onToggleRotationExclusion = onToggleRotationExclusion,
     )
 }
 
@@ -67,10 +76,13 @@ internal fun LocalWallpaperCatalogDialog(
     onRemoveFolder: (String) -> Unit,
     onSetFolderTarget: (String, WallpaperTarget) -> Unit,
     onUpdateTags: (String, String) -> Unit,
+    rotationExclusions: List<RotationExclusionEntity> = emptyList(),
+    onToggleRotationExclusion: (LocalWallpaperEntity) -> Unit = {},
 ) {
     var query by remember { mutableStateOf("") }
     var editingUri by remember { mutableStateOf<String?>(null) }
     var editingTags by remember { mutableStateOf("") }
+    val rotationExclusionIndex = remember(rotationExclusions) { RotationExclusionIndex(rotationExclusions) }
     val normalizedQuery = query.trim().lowercase(Locale.ROOT)
     val duplicateCounts = remember(items) {
         items.asSequence()
@@ -170,6 +182,8 @@ internal fun LocalWallpaperCatalogDialog(
                                     editingUri = null
                                 },
                                 onCancelEdit = { editingUri = null },
+                                excluded = rotationExclusionIndex.contains(item.rotationIdentity()),
+                                onToggleRotationExclusion = { onToggleRotationExclusion(item) },
                             )
                         }
                     }
@@ -244,6 +258,8 @@ private fun LocalWallpaperItemRow(
     onTagsChange: (String) -> Unit,
     onSaveTags: () -> Unit,
     onCancelEdit: () -> Unit,
+    excluded: Boolean,
+    onToggleRotationExclusion: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text(item.displayName, style = MaterialTheme.typography.bodyMedium)
@@ -272,14 +288,27 @@ private fun LocalWallpaperItemRow(
                 TextButton(onClick = onCancelEdit) { Text(stringResource(R.string.common_cancel)) }
             }
         } else {
-            TextButton(onClick = onBeginEdit) {
-                Text(
-                    if (item.tags.isBlank()) {
-                        stringResource(R.string.settings_local_catalog_add_tags)
-                    } else {
-                        stringResource(R.string.settings_local_catalog_tags, item.tags)
-                    },
-                )
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = onBeginEdit) {
+                    Text(
+                        if (item.tags.isBlank()) {
+                            stringResource(R.string.settings_local_catalog_add_tags)
+                        } else {
+                            stringResource(R.string.settings_local_catalog_tags, item.tags)
+                        },
+                    )
+                }
+                TextButton(onClick = onToggleRotationExclusion) {
+                    Icon(
+                        if (excluded) Icons.Default.Restore else Icons.Default.PlaylistRemove,
+                        contentDescription = null,
+                    )
+                    Text(
+                        stringResource(
+                            if (excluded) R.string.rotation_restore_action else R.string.rotation_exclude_action,
+                        ),
+                    )
+                }
             }
         }
     }

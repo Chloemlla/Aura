@@ -103,4 +103,28 @@ class LibraryExporterFormatTest {
         assertEquals(0xFF123456.toInt(), restored.staticCanvasColor)
         assertEquals(FitCanvasMode.BLURRED_EDGE, restored.toPreferences().videoStyle.mode)
     }
+
+    @Test
+    fun `rotation exclusions round trip without raw local locators`() {
+        val original = LibraryExportFile(
+            rotationExclusions = listOf(
+                RotationExclusionExportEntry(
+                    mediaType = "WALLPAPER",
+                    source = "LOCAL",
+                    contentId = "document-4",
+                    contentHash = "ab".repeat(32),
+                    title = "Family photo",
+                    locatorDigest = "cd".repeat(32),
+                ),
+            ),
+        )
+
+        val json = adapter.toJson(original)
+        val restored = adapter.fromJson(json)!!.rotationExclusions.single()
+
+        assertFalse(json.contains("content://"))
+        assertFalse(json.contains("locator\""))
+        assertEquals("ab".repeat(32), restored.contentHash)
+        assertEquals("cd".repeat(32), restored.locatorDigest)
+    }
 }

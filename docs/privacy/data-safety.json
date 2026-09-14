@@ -418,16 +418,18 @@
       "storageLocation": "databases/freevibe.db",
       "sourcePaths": [
         "app/src/main/java/com/freevibe/data/local/Database.kt",
+        "app/src/main/java/com/freevibe/data/model/RotationExclusion.kt",
+        "app/src/main/java/com/freevibe/service/LibraryExporter.kt",
         "app/src/main/java/com/freevibe/di/AppModule.kt",
         "app/src/main/res/xml/backup_rules.xml",
         "app/src/main/res/xml/data_extraction_rules.xml"
       ],
-      "dataTypes": ["Favorites", "Downloads", "Search history", "Wallpaper cache metadata", "Wallpaper history", "Collections"],
+      "dataTypes": ["Favorites", "Downloads", "Search history", "Wallpaper cache metadata", "Wallpaper history", "Collections", "Local wallpaper index metadata", "Rotation exclusions"],
       "collectionStatus": "localOnly",
       "sharingStatus": "notShared",
-      "userControl": "Favorites, downloads, collections, history, export/import, and cache cleanup surfaces.",
+      "userControl": "Favorites, downloads, collections, history, rotation exclusion restore, export/import, and cache cleanup surfaces.",
       "retention": "Retained as user app state until the user deletes rows, clears caches/history, exports/imports replacements, or clears app data.",
-      "deletionPath": "Remove favorites/downloads/collections/history where exposed, clear caches, or clear Aura app data.",
+      "deletionPath": "Remove favorites/downloads/collections/history where exposed, restore rotation exclusions in Settings, clear caches, or clear Aura app data.",
       "backupExclusions": [
         {"domain": "database", "path": "freevibe.db"},
         {"domain": "database", "path": "freevibe.db-journal"},

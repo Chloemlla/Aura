@@ -61,7 +61,7 @@ class DatabaseMigrationTest {
     }
 
     @Test
-    fun migrate14To17_preservesRepresentativeRowsAndBackfillsAvailabilityDefaults() {
+    fun migrate14To18_preservesRepresentativeRowsAndBackfillsAvailabilityDefaults() {
         createVersion14DatabaseWithRepresentativeRows()
 
         helper.runMigrationsAndValidate(
@@ -79,6 +79,7 @@ class DatabaseMigrationTest {
             assertEquals(1, countRows(db, "wallpaper_collection_items"))
             assertEquals(0, countRows(db, "local_wallpaper_folders"))
             assertEquals(0, countRows(db, "local_wallpapers"))
+            assertEquals(0, countRows(db, "rotation_exclusions"))
 
             db.query(
                 """
@@ -231,7 +232,7 @@ class DatabaseMigrationTest {
     companion object {
         private const val TEST_DB = "room-migration-test.db"
         private const val EXPORTED_SCHEMA_START_VERSION = 9
-        private const val CURRENT_SCHEMA_VERSION = 17
+        private const val CURRENT_SCHEMA_VERSION = 18
 
         private fun migrationsFrom(startVersion: Int): Array<Migration> =
             DatabaseMigrations.ALL_MIGRATIONS

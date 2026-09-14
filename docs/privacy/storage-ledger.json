@@ -1,6 +1,6 @@
 {
   "status": "checked",
-  "lastReviewed": "2026-06-14",
+  "lastReviewed": "2026-09-14",
   "stores": [
     {
       "id": "audio_preview_cache",
@@ -94,10 +94,10 @@
       "id": "room_database",
       "path": "databases/freevibe.db",
       "type": "SQLite database",
-      "budget": "Unbounded (grows with favorites/downloads/history)",
+      "budget": "Bounded rotation exclusions plus user-sized favorites, downloads, collections, and history",
       "retention": "Persistent; user data",
       "backupExcluded": true,
-      "userCleanup": "Clear individual favorites/downloads/history from app",
+      "userCleanup": "Clear individual favorites/downloads/history and restore one or all rotation exclusions from the app",
       "uninstallBehavior": "Removed with app",
       "sourceFile": "Database.kt"
     },

@@ -52,6 +52,9 @@ import com.freevibe.R
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.FitCanvasMode
 import com.freevibe.data.model.FitCanvasStyle
+import com.freevibe.data.model.ROTATION_MEDIA_VIDEO
+import com.freevibe.data.model.ROTATION_MEDIA_WALLPAPER
+import com.freevibe.data.model.RotationExclusionEntity
 import com.freevibe.data.model.WALLPAPER_PRESENTATION_FIT
 import com.freevibe.ui.components.AuraStatusAction
 import com.freevibe.ui.components.AuraStatusBanner
@@ -63,6 +66,7 @@ import com.freevibe.ui.preview.PREVIEW_SOUNDS
 import com.freevibe.ui.preview.PREVIEW_WALLPAPERS
 import com.freevibe.ui.screens.editor.WallpaperEditorPreview
 import com.freevibe.ui.screens.settings.SettingsMetric
+import com.freevibe.ui.screens.settings.RotationExclusionsManagerDialog
 import com.freevibe.ui.screens.settings.SettingsItem
 import com.freevibe.ui.screens.settings.SettingsSection
 import com.freevibe.ui.screens.settings.SettingsToggle
@@ -93,6 +97,7 @@ enum class ProductionRouteScenario(
     VideoWallpapersError("video_wallpapers_error", R.string.nav_videos),
     WallpaperEditorLoading("wallpaper_editor_loading", R.string.editor_wallpaper_title),
     FitCanvasPreview("fit_canvas_preview", R.string.fit_canvas_controls_title),
+    RotationExclusionsManager("rotation_exclusions_manager", R.string.settings_rotation_exclusions_title),
 }
 
 @Composable
@@ -113,6 +118,7 @@ fun ProductionRouteState(
             ProductionRouteScenario.VideoWallpapersError -> VideoWallpapersState()
             ProductionRouteScenario.WallpaperEditorLoading -> WallpaperEditorState()
             ProductionRouteScenario.FitCanvasPreview -> FitCanvasPreviewState()
+            ProductionRouteScenario.RotationExclusionsManager -> RotationExclusionsManagerState()
         }
     }
 }
@@ -433,6 +439,44 @@ private fun FitCanvasPreviewState() {
             style = style,
             onPresentationChange = {},
             onStyleChange = {},
+        )
+    }
+}
+
+@Composable
+private fun RotationExclusionsManagerState() {
+    Box(Modifier.fillMaxSize()) {
+        SettingsState()
+        RotationExclusionsManagerDialog(
+            exclusions = listOf(
+                RotationExclusionEntity(
+                    stableId = "WALLPAPER::REDDIT::aurora-lake",
+                    mediaType = ROTATION_MEDIA_WALLPAPER,
+                    source = "REDDIT",
+                    contentId = "aurora-lake",
+                    title = stringResource(R.string.wallpapers_header_curated),
+                    excludedAt = 1_789_070_400_000,
+                ),
+                RotationExclusionEntity(
+                    stableId = "VIDEO::YOUTUBE::forest-rain",
+                    mediaType = ROTATION_MEDIA_VIDEO,
+                    source = "YOUTUBE",
+                    contentId = "forest-rain",
+                    title = stringResource(R.string.nav_videos),
+                    excludedAt = 1_788_984_000_000,
+                ),
+                RotationExclusionEntity(
+                    stableId = "WALLPAPER::LOCAL_HASH::photo",
+                    mediaType = ROTATION_MEDIA_WALLPAPER,
+                    source = "LOCAL",
+                    contentId = "photo",
+                    title = stringResource(R.string.nav_library),
+                    excludedAt = 1_788_897_600_000,
+                ),
+            ),
+            onRestore = {},
+            onRestoreAll = {},
+            onDismiss = {},
         )
     }
 }

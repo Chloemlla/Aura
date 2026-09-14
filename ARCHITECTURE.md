@@ -32,9 +32,10 @@ Living architecture overview for contributors. Internal working notes live in `C
 │   SourceMetrics wraps active fetches with latency/success counters. │
 ├────────────────────────────────────────────────────────────────────┤
 │  Local (data/local/)                                               │
-│   Room DB v17 (favorites, downloads, search_history, wallpaper_    │
+│   Room DB v18 (favorites, downloads, search_history, wallpaper_    │
 │   cache, wallpaper_history, wallpaper_collections,                 │
-│   wallpaper_collection_items). DataStore: Settings + Onboarding +  │
+│   wallpaper_collection_items, local_wallpapers, and                │
+│   rotation_exclusions). DataStore: Settings + Onboarding +         │
 │   User Styles + Rotation triggers. PreferencesManager is the only  │
 │   reader/writer.                                                   │
 ├────────────────────────────────────────────────────────────────────┤

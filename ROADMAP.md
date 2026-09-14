@@ -6,13 +6,6 @@ Actionable work only. Historical and completed roadmap material is archived in C
 
 ### P2
 
-- [ ] P2 — Add persistent rotation exclusions with Undo
-  Why: users need to remove one bad item from automatic rotation without deleting it, hiding it from discovery, or rebuilding a collection. Feed Hide and rotation exclusion are different actions and should not share state.
-  Evidence: **Verified product gap.** Aura has hidden-feed IDs and wallpaper history but no rotation-exclusion model; `AutoWallpaperWorker.kt` can select any eligible source item; https://github.com/Anthonyy232/Paperize/issues/604 requests per-image exclusion from wallpaper rotation.
-  Touches: Room schema/DAO, stable content identity, rotation candidate selection, wallpaper/video detail actions, history feedback, exclusions manager, export/import, tests.
-  Acceptance: every local, downloaded, favorite, collection, and remote cached item can be excluded from rotation while remaining browsable and manually applicable; exclusion has immediate Undo and a persistent manager with restore; all rotation entry points honor it; an all-excluded source reports a recoverable state instead of looping; exclusions round-trip through library backup and survive path relink.
-  Complexity: M
-
 - [ ] P2 — Separate optimized apply copies from saved originals
   Why: the best file to preserve is not always the best file to apply. Users should be able to keep the source-quality image, video, or sound while Aura creates a bounded, device-compatible working copy only when application requires it.
   Evidence: **Verified architecture gap, Likely quality gain.** `WallpaperApplier.kt` can re-encode downloads; YouTube video apply can retain an incompatible codec; existing Ultra HDR and AV1 roadmap items show why preservation and compatibility must be separate; Backdrops, Abstruct, and Wallpaper Engine distinguish collection-quality assets from device playback behavior.

@@ -10,6 +10,7 @@ internal object LibraryTransferContract {
     const val MAX_COLLECTIONS = 100
     const val MAX_COLLECTION_ITEMS = 500
     const val MAX_SEARCH_HISTORY_ITEMS = 200
+    const val MAX_ROTATION_EXCLUSIONS = 10_000
 
     const val MAX_FAVORITES_DOCUMENT_CHARS = 64_000_000
     const val MAX_COLLECTION_DOCUMENT_BYTES = 4_194_304

@@ -1,11 +1,12 @@
 {
-  "lastReviewed": "2026-09-13",
+  "lastReviewed": "2026-09-14",
   "limitsContract": "app/src/main/java/com/freevibe/service/LibraryTransferContract.kt",
   "documentedLimitKeys": [
     "MAX_FAVORITES",
     "MAX_COLLECTIONS",
     "MAX_COLLECTION_ITEMS",
     "MAX_SEARCH_HISTORY_ITEMS",
+    "MAX_ROTATION_EXCLUSIONS",
     "MAX_FAVORITES_DOCUMENT_CHARS",
     "MAX_COLLECTION_DOCUMENT_BYTES",
     "MAX_LIBRARY_DOCUMENT_CHARS",
@@ -148,6 +149,7 @@
         "MAX_COLLECTIONS",
         "MAX_COLLECTION_ITEMS",
         "MAX_SEARCH_HISTORY_ITEMS",
+        "MAX_ROTATION_EXCLUSIONS",
         "MAX_LIBRARY_DOCUMENT_CHARS",
         "MAX_TEXT_CHARS",
         "MAX_URL_CHARS",
@@ -158,6 +160,9 @@
       "portablePreferenceSections": {
         "fitCanvasPreferences": "Optional static and video Fill or Fit defaults, canvas mode, and opaque custom color. Media files and generated canvas images are not included."
       },
+      "portableDataSections": {
+        "rotationExclusions": "Optional persistent wallpaper and video rotation exclusions. Provider IDs, local content hashes, and one-way locator fingerprints preserve choices without exporting device paths."
+      },
       "resultCounts": {
         "exportedOrImported": "Rows and non-empty preference sections actually written",
         "skipped": "Duplicate or migrated rows intentionally not written",
@@ -166,6 +171,7 @@
       "privacyExclusions": [
         "Library backups do not include provider API keys or user credentials",
         "Library backups do not include device-local downloaded media bytes",
+        "Library backups do not include raw paths or URLs from rotation exclusions",
         "Legacy device-local download rows are reported but not restored"
       ]
     }

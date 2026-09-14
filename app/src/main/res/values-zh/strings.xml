@@ -1791,4 +1791,18 @@
     <string name="fit_canvas_controls_title">构图和画布</string>
     <string name="fit_canvas_fit_help">保留完整图像，并用所选样式填充多余画布。</string>
     <string name="fit_canvas_hdr_fallback">HDR 媒体的模糊画布会改用图像颜色。</string>
+    <string name="rotation_exclude_action">从轮换中排除</string>
+    <string name="rotation_restore_action">恢复到轮换</string>
+    <string name="rotation_excluded_message">%1$s 不会出现在自动轮换中。</string>
+    <string name="rotation_restored_message">%1$s 可以再次出现在轮换中。</string>
+    <string name="rotation_all_excluded_short">这里的所有项目均已排除。请在设置中恢复一个。</string>
+    <string name="rotation_no_wallpapers_available">没有可用的壁纸</string>
+    <string name="settings_rotation_exclusions_title">轮换排除项</string>
+    <string name="settings_rotation_exclusions_body">这些项目仍保留在媒体库中，也可以手动应用。</string>
+    <string name="settings_rotation_exclusions_empty">目前没有从轮换中排除的项目。</string>
+    <string name="settings_rotation_exclusions_restore">恢复</string>
+    <string name="settings_rotation_exclusions_restore_all">全部恢复</string>
+    <string name="settings_rotation_exclusions_item_summary">%1$s • %2$s</string>
+    <string name="settings_rotation_exclusions_subtitle">已排除 %1$d 项。查看或恢复项目。</string>
+    <string name="settings_rotation_exclusions_manage_subtitle">无需隐藏或删除，即可阻止不需要的项目自动更换。</string>
 </resources>

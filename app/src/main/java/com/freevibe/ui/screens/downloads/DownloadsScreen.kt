@@ -30,10 +30,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.freevibe.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.freevibe.data.model.DownloadEntity
+import com.freevibe.data.model.RotationExclusionIndex
 import com.freevibe.data.model.isSourceUnavailable
+import com.freevibe.data.model.rotationIdentity
 import com.freevibe.service.DownloadProgress
 import com.freevibe.ui.components.AuraSnackbarHost
 import com.freevibe.ui.components.AuraStateCard
+import com.freevibe.ui.rotation.RotationExclusionsViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -44,9 +47,12 @@ import java.util.Locale
 fun DownloadsScreen(
     onBack: () -> Unit,
     viewModel: DownloadsViewModel = hiltViewModel(),
+    rotationExclusionsViewModel: RotationExclusionsViewModel = hiltViewModel(),
 ) {
     val allDownloads by viewModel.allDownloads.collectAsStateWithLifecycle()
     val activeDownloads by viewModel.activeDownloads.collectAsStateWithLifecycle()
+    val rotationExclusions by rotationExclusionsViewModel.exclusions.collectAsStateWithLifecycle()
+    val rotationExclusionIndex = remember(rotationExclusions) { RotationExclusionIndex(rotationExclusions) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val tabs = listOf(
         stringResource(R.string.downloads_tab_all),
@@ -131,6 +137,8 @@ fun DownloadsScreen(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     items(displayList, key = { it.id }, contentType = { "download_card" }) { download ->
+                        val rotationIdentity = download.rotationIdentity()
+                        val rotationExclusion = rotationExclusionIndex.find(rotationIdentity)
                         DownloadHistoryCard(
                             download = download,
                             broken = download.localPath.isBlank() || download.id in brokenIds,
@@ -177,6 +185,33 @@ fun DownloadsScreen(
                                     }
                                 }
                             },
+                            rotationExcluded = rotationExclusion != null,
+                            onToggleRotationExclusion = if (download.type == "WALLPAPER") ({
+                                scope.launch {
+                                    if (rotationExclusion != null) {
+                                        rotationExclusionsViewModel.restoreNow(rotationExclusion.stableId)
+                                        snackbarHostState.showSnackbar(
+                                            resources.getString(
+                                                R.string.rotation_restored_message,
+                                                download.name.ifBlank { download.id },
+                                            ),
+                                        )
+                                    } else {
+                                        val exclusion = rotationExclusionsViewModel.exclude(rotationIdentity)
+                                        val result = snackbarHostState.showSnackbar(
+                                            message = resources.getString(
+                                                R.string.rotation_excluded_message,
+                                                download.name.ifBlank { download.id },
+                                            ),
+                                            actionLabel = resources.getString(R.string.common_undo),
+                                            duration = SnackbarDuration.Short,
+                                        )
+                                        if (result == SnackbarResult.ActionPerformed) {
+                                            rotationExclusionsViewModel.restoreNow(exclusion.stableId)
+                                        }
+                                    }
+                                }
+                            }) else null,
                         )
                     }
                 }
@@ -250,6 +285,8 @@ private fun DownloadHistoryCard(
     sourceUnavailable: Boolean = false,
     onOpen: () -> Unit,
     onDelete: () -> Unit,
+    rotationExcluded: Boolean = false,
+    onToggleRotationExclusion: (() -> Unit)? = null,
 ) {
     val dateFormat = remember { SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()) }
     val dateLabel = remember(download.downloadedAt) { dateFormat.format(Date(download.downloadedAt)) }
@@ -307,6 +344,24 @@ private fun DownloadHistoryCard(
                             color = MaterialTheme.colorScheme.primary,
                         )
                     }
+                }
+            }
+            if (onToggleRotationExclusion != null) {
+                val exclusionLabel = stringResource(
+                    if (rotationExcluded) R.string.rotation_restore_action else R.string.rotation_exclude_action,
+                )
+                IconButton(
+                    onClick = onToggleRotationExclusion,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .semantics { onClick(label = exclusionLabel, action = null) },
+                ) {
+                    Icon(
+                        if (rotationExcluded) Icons.Default.Restore else Icons.Default.PlaylistRemove,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.secondary,
+                    )
                 }
             }
             IconButton(

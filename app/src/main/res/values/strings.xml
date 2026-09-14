@@ -2000,4 +2000,18 @@
     <string name="fit_canvas_controls_title">Framing and canvas</string>
     <string name="fit_canvas_fit_help">Keeps the whole image and fills the extra canvas with your choice.</string>
     <string name="fit_canvas_hdr_fallback">Blurred canvas uses the image color for HDR media.</string>
+    <string name="rotation_exclude_action">Exclude from rotation</string>
+    <string name="rotation_restore_action">Restore to rotation</string>
+    <string name="rotation_excluded_message">%1$s won’t appear in automatic rotation.</string>
+    <string name="rotation_restored_message">%1$s can appear in rotation again.</string>
+    <string name="rotation_all_excluded_short">Every item here is excluded. Restore one in Settings.</string>
+    <string name="rotation_no_wallpapers_available">No wallpapers available</string>
+    <string name="settings_rotation_exclusions_title">Rotation exclusions</string>
+    <string name="settings_rotation_exclusions_body">These items stay in your library and can still be applied manually.</string>
+    <string name="settings_rotation_exclusions_empty">Nothing is excluded from rotation.</string>
+    <string name="settings_rotation_exclusions_restore">Restore</string>
+    <string name="settings_rotation_exclusions_restore_all">Restore all</string>
+    <string name="settings_rotation_exclusions_item_summary">%1$s • %2$s</string>
+    <string name="settings_rotation_exclusions_subtitle">%1$d excluded. Review or restore items.</string>
+    <string name="settings_rotation_exclusions_manage_subtitle">Keep unwanted items out of automatic changes without hiding or deleting them.</string>
 </resources>

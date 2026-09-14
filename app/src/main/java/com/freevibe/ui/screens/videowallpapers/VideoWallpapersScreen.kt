@@ -61,11 +61,14 @@ import com.freevibe.data.model.FitCanvasMode
 import com.freevibe.data.model.FitCanvasStyle
 import com.freevibe.data.model.WALLPAPER_PRESENTATION_FILL
 import com.freevibe.data.model.WALLPAPER_PRESENTATION_FIT
+import com.freevibe.data.model.ROTATION_MEDIA_VIDEO
+import com.freevibe.data.model.RotationExclusionIndex
 import com.freevibe.data.model.VideoWallpaperAction
 import com.freevibe.data.model.canUseVideoAction
 import com.freevibe.data.model.requiresVideoActionConfirmation
 import com.freevibe.data.model.videoActionMessage
 import com.freevibe.data.model.videoWallpaperLicenseCapabilities
+import com.freevibe.data.model.rotationIdentity
 import com.freevibe.data.repository.matchesHiddenIds
 import com.freevibe.service.MAX_VIDEO_WALLPAPER_BYTES
 import com.freevibe.service.VIDEO_WALLPAPER_SCALE_MODE_FIT
@@ -89,6 +92,7 @@ import com.freevibe.ui.components.FitCanvasMedia
 import com.freevibe.ui.components.ShimmerBox
 import com.freevibe.ui.LiveWallpaperLaunchMode
 import com.freevibe.ui.launchLiveWallpaperPicker
+import com.freevibe.ui.rotation.RotationExclusionsViewModel
 import com.freevibe.ui.util.openExternalUrl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -254,6 +258,7 @@ internal suspend fun launchOrExportVideoWallpaper(
 fun VideoWallpapersScreen(
     initialQuery: String? = null,
     viewModel: VideoWallpapersViewModel = hiltViewModel(),
+    rotationExclusionsViewModel: RotationExclusionsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val gallerySelectionResult by viewModel.gallerySelectionResult.collectAsStateWithLifecycle()
@@ -262,6 +267,8 @@ fun VideoWallpapersScreen(
     val savedVideoCanvasMode by viewModel.videoFitCanvasMode.collectAsStateWithLifecycle()
     val savedVideoCanvasColor by viewModel.videoFitCanvasColor.collectAsStateWithLifecycle()
     val hiddenIds by viewModel.voteRepo.hiddenIds.collectAsStateWithLifecycle(initialValue = emptySet())
+    val rotationExclusions by rotationExclusionsViewModel.exclusions.collectAsStateWithLifecycle()
+    val rotationExclusionIndex = remember(rotationExclusions) { RotationExclusionIndex(rotationExclusions) }
     val itemIds = remember(state.items) { state.items.map { it.id } }
     val voteCounts by remember(itemIds) {
         if (itemIds.isNotEmpty()) viewModel.voteRepo.getVoteCounts(itemIds)
@@ -627,6 +634,8 @@ fun VideoWallpapersScreen(
                                 items(visibleItems, key = { it.id }) { item ->
                                     val isResolved = item.id in resolvedIds
                                     val resolvedUrl = if (isResolved) viewModel.getStreamUrl(item.id) else null
+                                    val rotationIdentity = item.rotationExclusionIdentity()
+                                    val rotationExclusion = rotationExclusionIndex.find(rotationIdentity)
                                     VideoCard(
                                         item = item,
                                         streamUrl = resolvedUrl,
@@ -650,6 +659,27 @@ fun VideoWallpapersScreen(
                                                     duration = SnackbarDuration.Short,
                                                 )
                                                 if (result == SnackbarResult.ActionPerformed) viewModel.undoDownvote(hiddenId)
+                                            }
+                                        },
+                                        rotationExcluded = rotationExclusion != null,
+                                        onToggleRotationExclusion = {
+                                            scope.launch {
+                                                if (rotationExclusion != null) {
+                                                    rotationExclusionsViewModel.restoreNow(rotationExclusion.stableId)
+                                                    snackbarHostState.showSnackbar(
+                                                        resources.getString(R.string.rotation_restored_message, item.title),
+                                                    )
+                                                } else {
+                                                    val exclusion = rotationExclusionsViewModel.exclude(rotationIdentity)
+                                                    val result = snackbarHostState.showSnackbar(
+                                                        message = resources.getString(R.string.rotation_excluded_message, item.title),
+                                                        actionLabel = resources.getString(R.string.common_undo),
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                    if (result == SnackbarResult.ActionPerformed) {
+                                                        rotationExclusionsViewModel.restoreNow(exclusion.stableId)
+                                                    }
+                                                }
                                             }
                                         },
                                     )
@@ -1252,6 +1282,8 @@ internal fun VideoCard(
     onOpen: () -> Unit,
     onUpvote: () -> Unit = {},
     onDownvote: () -> Unit = {},
+    rotationExcluded: Boolean = false,
+    onToggleRotationExclusion: () -> Unit = {},
 ) {
     val context = LocalContext.current
     // Reading a string off LocalContext is not a composition read. LocalResources is.
@@ -1448,6 +1480,25 @@ internal fun VideoCard(
                             onDownvote()
                         },
                     )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                stringResource(
+                                    if (rotationExcluded) R.string.rotation_restore_action else R.string.rotation_exclude_action,
+                                ),
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                if (rotationExcluded) Icons.Default.Restore else Icons.Default.PlaylistRemove,
+                                contentDescription = null,
+                            )
+                        },
+                        onClick = {
+                            showItemActions = false
+                            onToggleRotationExclusion()
+                        },
+                    )
                 }
             }
             Spacer(Modifier.width(4.dp))
@@ -1477,6 +1528,14 @@ internal fun VideoCard(
         }
     }
 }
+
+internal fun VideoWallpaperItem.rotationExclusionIdentity() = rotationIdentity(
+    mediaType = ROTATION_MEDIA_VIDEO,
+    source = contentSource.name,
+    contentId = videoId.ifBlank { id },
+    title = title,
+    thumbnailUrl = thumbnailUrl,
+)
 
 private fun String.isAnimatedImageStream(): Boolean =
     substringBefore('?').endsWith(".gif", ignoreCase = true)

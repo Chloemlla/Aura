@@ -7,11 +7,17 @@ import com.freevibe.data.local.FavoriteDao
 import com.freevibe.data.local.FreeVibeDatabase
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.local.SearchHistoryDao
+import com.freevibe.data.local.RotationExclusionDao
 import com.freevibe.data.model.FavoriteEntity
 import com.freevibe.data.model.FitCanvasMode
 import com.freevibe.data.model.FitCanvasPreferences
 import com.freevibe.data.model.FitCanvasStyle
 import com.freevibe.data.model.SearchHistoryEntity
+import com.freevibe.data.model.ROTATION_MEDIA_VIDEO
+import com.freevibe.data.model.ROTATION_MEDIA_WALLPAPER
+import com.freevibe.data.model.RotationExclusionEntity
+import com.freevibe.data.model.rotationIdentity
+import com.freevibe.data.model.toRotationExclusion
 import com.freevibe.data.model.favoriteIdentity
 import com.freevibe.data.repository.CollectionRepository
 import com.freevibe.util.rethrowIfCancelled
@@ -31,6 +37,7 @@ data class LibraryExportFile(
     val favorites: List<FavoriteExportEntry> = emptyList(),
     val collections: List<CollectionExportEntry> = emptyList(),
     val searchHistory: List<SearchHistoryExportEntry> = emptyList(),
+    val rotationExclusions: List<RotationExclusionExportEntry> = emptyList(),
     val wallpaperPackJson: String = "",
     val soundProfilesJson: String = "",
     val fitCanvasPreferences: FitCanvasPreferencesExport? = null,
@@ -123,6 +130,19 @@ data class SearchHistoryExportEntry(
     val searchedAt: Long = 0,
 )
 
+/** Portable rotation opt-outs. Raw device paths and source URLs are never written. */
+@JsonClass(generateAdapter = true)
+data class RotationExclusionExportEntry(
+    val mediaType: String,
+    val source: String,
+    val contentId: String,
+    val contentHash: String = "",
+    val title: String = "",
+    val thumbnailUrl: String = "",
+    val locatorDigest: String = "",
+    val excludedAt: Long = 0,
+)
+
 @Singleton
 class LibraryExporter @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -130,6 +150,7 @@ class LibraryExporter @Inject constructor(
     private val favoriteDao: FavoriteDao,
     private val collectionRepo: CollectionRepository,
     private val searchHistoryDao: SearchHistoryDao,
+    private val rotationExclusionDao: RotationExclusionDao,
     private val prefs: PreferencesManager,
     private val moshi: Moshi,
 ) {
@@ -148,6 +169,7 @@ class LibraryExporter @Inject constructor(
             val favorites = favoriteDao.getAll().first().map { it.toExportEntry() }
             val collections = exportCollections()
             val searchHistory = searchHistoryDao.getAll().map { it.toExportEntry() }
+            val rotationExclusions = rotationExclusionDao.getAll().map { it.toExportEntry() }
             val wallpaperPack = prefs.wallpaperPackJson.first()
             val soundProfiles = prefs.soundProfilesJson.first()
             val fitCanvasPreferences = prefs.fitCanvasPreferencesSnapshot()
@@ -167,6 +189,11 @@ class LibraryExporter @Inject constructor(
                 searchHistory.size,
                 LibraryTransferContract.MAX_SEARCH_HISTORY_ITEMS,
             )
+            requireWithinTransferLimit(
+                "Library rotation exclusions",
+                rotationExclusions.size,
+                LibraryTransferContract.MAX_ROTATION_EXCLUSIONS,
+            )
 
             val exportFile = LibraryExportFile(
                 version = LIBRARY_EXPORT_VERSION,
@@ -174,6 +201,7 @@ class LibraryExporter @Inject constructor(
                 favorites = favorites,
                 collections = collections,
                 searchHistory = searchHistory,
+                rotationExclusions = rotationExclusions,
                 wallpaperPackJson = wallpaperPack,
                 soundProfilesJson = soundProfiles,
                 fitCanvasPreferences = FitCanvasPreferencesExport.from(fitCanvasPreferences),
@@ -190,6 +218,7 @@ class LibraryExporter @Inject constructor(
             LibraryExportOutcome(
                 exported = favorites.size + collections.size +
                     collections.sumOf { it.items.size } + searchHistory.size +
+                    rotationExclusions.size +
                     (if (wallpaperPack.isNotBlank()) 1 else 0) +
                     (if (soundProfiles.isNotBlank()) 1 else 0) +
                     1,
@@ -291,6 +320,11 @@ class LibraryExporter @Inject constructor(
             exportFile.searchHistory.size,
             LibraryTransferContract.MAX_SEARCH_HISTORY_ITEMS,
         )
+        requireWithinTransferLimit(
+            "Library rotation exclusions",
+            exportFile.rotationExclusions.size,
+            LibraryTransferContract.MAX_ROTATION_EXCLUSIONS,
+        )
 
         val skipped = mutableListOf<LibraryImportSkip>()
 
@@ -310,12 +344,14 @@ class LibraryExporter @Inject constructor(
         val favorites = planFavorites(exportFile, skipped)
         val collections = planCollections(exportFile, skipped)
         val searchHistory = planSearchHistory(exportFile, skipped)
+        val rotationExclusions = planRotationExclusions(exportFile, skipped)
 
         return LibraryImportPlan(
             sourceVersion = version,
             favorites = favorites,
             collections = collections,
             searchHistory = searchHistory,
+            rotationExclusions = rotationExclusions,
             wallpaperPackJson = exportFile.wallpaperPackJson,
             soundProfilesJson = exportFile.soundProfilesJson,
             fitCanvasPreferences = exportFile.fitCanvasPreferences?.toPreferences(),
@@ -458,6 +494,36 @@ class LibraryExporter @Inject constructor(
         }
     }
 
+    private suspend fun planRotationExclusions(
+        exportFile: LibraryExportFile,
+        skipped: MutableList<LibraryImportSkip>,
+    ): List<RotationExclusionEntity> {
+        val seen = rotationExclusionDao.getAll().toMutableList()
+        return exportFile.rotationExclusions.mapNotNull { entry ->
+            val entity = entry.toEntity()
+            if (entity == null) {
+                skipped += LibraryImportSkip(
+                    section = "rotationExclusion",
+                    label = normalizeImportedText(entry.title).ifBlank {
+                        normalizeImportedText(entry.contentId).ifBlank { "rotation exclusion" }
+                    },
+                    reason = LibraryImportSkipReason.INVALID,
+                )
+                return@mapNotNull null
+            }
+            if (seen.any { it.sameIdentityAs(entity) }) {
+                skipped += LibraryImportSkip(
+                    section = "rotationExclusion",
+                    label = entity.title.ifBlank { entity.contentId },
+                    reason = LibraryImportSkipReason.DUPLICATE,
+                )
+                return@mapNotNull null
+            }
+            seen += entity
+            entity
+        }
+    }
+
     /**
      * Replays a plan. No validation or conflict decisions happen here — by this
      * point every write is already decided, which is what makes the transaction
@@ -494,6 +560,9 @@ class LibraryExporter @Inject constructor(
                     collection.items.forEach { collectionRepo.addWallpaper(targetId, it) }
                 }
                 plan.searchHistory.forEach { searchHistoryDao.insert(it) }
+                if (plan.rotationExclusions.isNotEmpty()) {
+                    rotationExclusionDao.upsertAll(plan.rotationExclusions)
+                }
                 failBeforeCommit?.invoke()
             }
         } catch (error: Throwable) {
@@ -558,6 +627,61 @@ private fun SearchHistoryEntity.toExportEntry() = SearchHistoryExportEntry(
     type = type,
     searchedAt = timestamp,
 )
+
+private fun RotationExclusionEntity.toExportEntry() = RotationExclusionExportEntry(
+    mediaType = mediaType,
+    source = source,
+    contentId = contentId,
+    contentHash = contentHash,
+    title = title,
+    thumbnailUrl = thumbnailUrl.takeIf { !isNonPortableLocator(it) }.orEmpty(),
+    locatorDigest = locatorDigest,
+    excludedAt = excludedAt,
+)
+
+private val ROTATION_EXCLUSION_DIGEST = Regex("^[0-9a-f]{64}$")
+private val ROTATION_EXCLUSION_SPECIAL_SOURCES = setOf("LOCATOR")
+
+private fun RotationExclusionExportEntry.toEntity(): RotationExclusionEntity? {
+    val normalizedType = mediaType.trim().uppercase(java.util.Locale.ROOT)
+    if (normalizedType !in setOf(ROTATION_MEDIA_WALLPAPER, ROTATION_MEDIA_VIDEO)) return null
+    val normalizedSource = source.trim().uppercase(java.util.Locale.ROOT)
+    if (
+        normalizeImportedContentSource(normalizedSource) == null &&
+        normalizedSource !in ROTATION_EXCLUSION_SPECIAL_SOURCES
+    ) return null
+    val normalizedContentId = normalizeImportedText(contentId, LibraryTransferContract.MAX_URL_CHARS)
+    if (normalizedContentId.isBlank()) return null
+    val normalizedHash = contentHash.trim().lowercase(java.util.Locale.ROOT)
+    if (normalizedHash.isNotBlank() && !ROTATION_EXCLUSION_DIGEST.matches(normalizedHash)) return null
+    val normalizedLocatorDigest = locatorDigest.trim().lowercase(java.util.Locale.ROOT)
+    if (normalizedLocatorDigest.isNotBlank() && !ROTATION_EXCLUSION_DIGEST.matches(normalizedLocatorDigest)) return null
+    if (normalizedSource == "LOCATOR" && !ROTATION_EXCLUSION_DIGEST.matches(normalizedContentId)) return null
+    val normalizedThumbnail = normalizeImportedHttpsUrl(thumbnailUrl, allowBlank = true) ?: return null
+    return rotationIdentity(
+        mediaType = normalizedType,
+        source = normalizedSource,
+        contentId = normalizedContentId,
+        contentHash = normalizedHash,
+        title = normalizeImportedText(title, 256),
+        thumbnailUrl = normalizedThumbnail,
+    ).toRotationExclusion(
+        excludedAt = excludedAt.takeIf { it > 0 } ?: System.currentTimeMillis(),
+    ).copy(locatorDigest = normalizedLocatorDigest)
+}
+
+private fun RotationExclusionEntity.sameIdentityAs(other: RotationExclusionEntity): Boolean =
+    stableId == other.stableId ||
+        (
+            mediaType == other.mediaType &&
+                contentHash.isNotBlank() &&
+                contentHash == other.contentHash
+        ) ||
+        (
+            mediaType == other.mediaType &&
+                locatorDigest.isNotBlank() &&
+                locatorDigest == other.locatorDigest
+        )
 
 /**
  * Validated import mapping — mirrors FavoritesExporter.toValidatedEntity: enum-checked

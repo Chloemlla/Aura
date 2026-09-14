@@ -30,6 +30,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,12 +40,14 @@ import com.freevibe.R
 import com.freevibe.data.model.COMMUNITY_REPORT_REASONS
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.GENERATED_CONTENT_REPORT_REASONS
+import com.freevibe.data.model.RotationExclusionIndex
 import com.freevibe.data.model.Wallpaper
 import com.freevibe.data.model.WallpaperAction
 import com.freevibe.data.model.WallpaperCollectionEntity
 import com.freevibe.data.model.WallpaperTarget
 import com.freevibe.data.model.isSourceUnavailable
 import com.freevibe.data.model.stableKey
+import com.freevibe.data.model.rotationIdentity
 import com.freevibe.data.model.wallpaperLicenseCapabilities
 import com.freevibe.service.ParallaxWallpaperService
 import com.freevibe.ui.LiveWallpaperLaunchMode
@@ -54,6 +57,7 @@ import com.freevibe.ui.components.GlassCard
 import com.freevibe.ui.components.HighlightPill
 import com.freevibe.ui.components.SourceBadge
 import com.freevibe.ui.policy.CommunityUploadPolicyKind
+import com.freevibe.ui.rotation.RotationExclusionsViewModel
 import com.freevibe.ui.policy.COMMUNITY_REPORT_TAKEDOWN_COPY
 import com.freevibe.ui.policy.communityBlockConfirmationCopy
 import com.freevibe.ui.policy.communityOwnerDeleteConfirmationCopy
@@ -65,6 +69,7 @@ import coil3.compose.SubcomposeAsyncImageContent
 import coil3.imageLoader
 import coil3.request.ImageRequest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -79,12 +84,15 @@ fun WallpaperDetailScreen(
     onSearchColor: (String) -> Unit = {},
     onFindSimilar: (com.freevibe.data.model.Wallpaper) -> Unit = {},
     viewModel: WallpapersViewModel = hiltViewModel(),
+    rotationExclusionsViewModel: RotationExclusionsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sharedList by viewModel.sharedWallpaperList.collectAsStateWithLifecycle()
     val sharedListAnchorKey by viewModel.sharedWallpaperListAnchorKey.collectAsStateWithLifecycle()
     val hiddenIds by viewModel.hiddenIds.collectAsStateWithLifecycle()
     val colorPalette by viewModel.colorPalette.collectAsStateWithLifecycle()
+    val rotationExclusions by rotationExclusionsViewModel.exclusions.collectAsStateWithLifecycle()
+    val rotationExclusionIndex = remember(rotationExclusions) { RotationExclusionIndex(rotationExclusions) }
     val targetSource = fallbackWallpaper?.source
     val targetFullUrl = fallbackWallpaper?.fullUrl
     val detailIdentityKey = remember(wallpaperId, targetSource, targetFullUrl) {
@@ -204,6 +212,8 @@ fun WallpaperDetailScreen(
         ?: pagerSeed.initialPage.coerceIn(0, wallpapers.lastIndex)
     val pagerState = rememberPagerState(initialPage = initialPage) { wallpapers.size }
     val context = LocalContext.current
+    val resources = LocalResources.current
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(detailIdentityKey) {
         if (wallpapers.isNotEmpty()) {
@@ -238,6 +248,10 @@ fun WallpaperDetailScreen(
 
     // Use pager's current wallpaper for UI (not the reactive wp which causes reorder)
     val wp = currentWp
+    val rotationIdentity = remember(wp) { wp.rotationIdentity() }
+    val rotationExclusion = remember(rotationIdentity, rotationExclusions) {
+        rotationExclusionIndex.find(rotationIdentity)
+    }
     val sourceUnavailable = wp.isSourceUnavailable()
     val hints = remember(wp) { wp.qualityHints() }
     val actionCapabilities = remember(wp) { wp.wallpaperLicenseCapabilities() }
@@ -732,6 +746,28 @@ fun WallpaperDetailScreen(
                     onCrop = if (canEdit) ({ showMoreMenu = false; onCrop(wp) }) else null,
                     onPreview = { showMoreMenu = false; onPreview(wp) },
                     onCollection = { showMoreMenu = false; showCollectionPicker = true },
+                    rotationExcluded = rotationExclusion != null,
+                    onRotationExclusion = {
+                        showMoreMenu = false
+                        scope.launch {
+                            if (rotationExclusion != null) {
+                                rotationExclusionsViewModel.restoreNow(rotationExclusion.stableId)
+                                snackbarHostState.showSnackbar(
+                                    resources.getString(R.string.rotation_restored_message, wallpaperDetailTitle(wp)),
+                                )
+                            } else {
+                                val exclusion = rotationExclusionsViewModel.exclude(rotationIdentity)
+                                val result = snackbarHostState.showSnackbar(
+                                    message = resources.getString(R.string.rotation_excluded_message, wallpaperDetailTitle(wp)),
+                                    actionLabel = resources.getString(R.string.common_undo),
+                                    duration = SnackbarDuration.Short,
+                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    rotationExclusionsViewModel.restoreNow(exclusion.stableId)
+                                }
+                            }
+                        }
+                    },
                     onFindSimilar = {
                         showMoreMenu = false
                         onFindSimilar(wp)
@@ -1062,6 +1098,8 @@ private fun MoreActionsSheet(
     onCrop: (() -> Unit)?,
     onPreview: () -> Unit,
     onCollection: () -> Unit,
+    rotationExcluded: Boolean,
+    onRotationExclusion: () -> Unit,
     onFindSimilar: (() -> Unit)?,
     onReport: (() -> Unit)?,
     onBlockCreator: (() -> Unit)?,
@@ -1108,6 +1146,11 @@ private fun MoreActionsSheet(
                 SheetOption(Icons.Default.Crop, stringResource(R.string.detail_crop_position), stringResource(R.string.detail_crop_position_body)) { onCrop() }
             }
             SheetOption(Icons.Default.CreateNewFolder, stringResource(R.string.detail_save_to_collection), stringResource(R.string.detail_save_to_collection_body)) { onCollection() }
+            SheetOption(
+                if (rotationExcluded) Icons.Default.Restore else Icons.Default.PlaylistRemove,
+                stringResource(if (rotationExcluded) R.string.rotation_restore_action else R.string.rotation_exclude_action),
+                stringResource(R.string.settings_rotation_exclusions_manage_subtitle),
+            ) { onRotationExclusion() }
             if (onFindSimilar != null) {
                 SheetOption(Icons.Default.ColorLens, stringResource(R.string.detail_find_similar_wallpapers), stringResource(R.string.detail_find_similar_wallpapers_body)) { onFindSimilar() }
             }

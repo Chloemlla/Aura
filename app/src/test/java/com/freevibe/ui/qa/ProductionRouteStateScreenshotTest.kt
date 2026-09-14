@@ -128,6 +128,11 @@ class ProductionRouteStateScreenshotTest {
     }
 
     @Test
+    fun rotationExclusionsManagerAmoled() {
+        captureScenario(ProductionRouteScenario.RotationExclusionsManager, darkTheme = true)
+    }
+
+    @Test
     @Config(sdk = [35], qualifiers = "en-rXA-w411dp-h891dp-xhdpi")
     fun wallpaperEditorLoadingCompactEnglishXa() {
         captureScenario(

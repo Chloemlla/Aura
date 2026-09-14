@@ -4,6 +4,15 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Rotation can skip a bad item without deleting it**: wallpapers and videos
+  now have a persistent Exclude from rotation action with immediate Undo.
+  Downloads, local media, and history expose the same control. A manager in
+  Settings restores one item or all of them. Scheduled rotation, one-shot
+  triggers, widgets, theme switching, night variants, and wallpaper packs all
+  honor the choice, while browsing and manual apply remain available. Local
+  content hashes preserve exclusions after a path relink, and portable library
+  backup restores the records without copying raw device paths.
+
 - **Fit can now look intentional instead of leaving unexplained bars**: static
   wallpapers, videos, and GIFs can use AMOLED black, a chosen color, a Palette
   color, or a blurred edge behind the complete frame. Preview and apply share

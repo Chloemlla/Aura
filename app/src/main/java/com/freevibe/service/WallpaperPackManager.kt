@@ -10,6 +10,8 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.model.WallpaperTarget
+import com.freevibe.data.model.rotationIdentityForLocator
+import com.freevibe.data.repository.RotationExclusionRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
@@ -78,6 +80,7 @@ class WallpaperPackWorker @AssistedInject constructor(
     @Assisted workerParams: WorkerParameters,
     private val prefs: PreferencesManager,
     private val wallpaperApplier: WallpaperApplier,
+    private val rotationExclusions: RotationExclusionRepository,
     private val receiptStore: BackgroundWorkReceiptStore,
 ) : CoroutineWorker(appContext, workerParams) {
 
@@ -117,6 +120,15 @@ class WallpaperPackWorker @AssistedInject constructor(
 
             val target = runCatching { WallpaperTarget.valueOf(pack.target) }
                 .getOrDefault(WallpaperTarget.BOTH)
+
+            if (rotationExclusions.isExcluded(rotationIdentityForLocator(slot.wallpaperUri, slot.label))) {
+                receiptStore.recordFailure(
+                    uniqueWorkName = WORK_NAME,
+                    errorClass = "RotationItemExcluded",
+                    deferralReason = "The ${slot.daypart.displayName.lowercase()} wallpaper is excluded. Restore it in Settings, Rotation exclusions.",
+                )
+                return Result.success()
+            }
 
             wallpaperApplier.applyByLocator(slot.wallpaperUri, target)
                 .onSuccess {

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.PhotoSizeSelectLarge
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.PlaylistRemove
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Source
@@ -89,6 +90,7 @@ internal fun WallpaperRotationSettingsSection(
     wallhavenProviderEnabled: Boolean,
     pixabayProviderEnabled: Boolean,
     wallpaperHistoryCount: Int,
+    rotationExclusionCount: Int,
     wallpaperClockOverlayEnabled: Boolean,
     wallpaperClockOverlayMode: WallpaperClockOverlayMode,
     wallpaperClockOverlayPosition: WallpaperClockOverlayPosition,
@@ -99,6 +101,7 @@ internal fun WallpaperRotationSettingsSection(
     onCategoriesClick: () -> Unit,
     onCollectionsClick: () -> Unit,
     onHistoryClick: () -> Unit,
+    onManageRotationExclusions: () -> Unit,
     onFeedback: (String) -> Unit,
 ) {
     var showIntervalPicker by remember { mutableStateOf(false) }
@@ -285,6 +288,17 @@ internal fun WallpaperRotationSettingsSection(
             subtitle = stringResource(R.string.settings_wp_avoid_repeats_subtitle),
             checked = avoidRecentRepeats,
             onCheckedChange = viewModel::setAvoidRecentRepeats,
+        )
+        SettingsItem(
+            icon = Icons.Default.PlaylistRemove,
+            title = stringResource(R.string.settings_rotation_exclusions_title),
+            subtitle = if (rotationExclusionCount > 0) {
+                stringResource(R.string.settings_rotation_exclusions_subtitle, rotationExclusionCount)
+            } else {
+                stringResource(R.string.settings_rotation_exclusions_manage_subtitle)
+            },
+            onClick = onManageRotationExclusions,
+            searchAliases = setOf("exclude", "skip", "rotation", "restore"),
         )
         val packSlotCount = remember(wallpaperPackJson) {
             com.freevibe.service.parsePack(wallpaperPackJson)?.slots?.size ?: 0

@@ -51,6 +51,7 @@ data class Wallpaper(
     val sourceAvailabilityReason: String = "",
     val communityUploaderId: String = "",
     val isAiGenerated: Boolean? = null,
+    val contentHash: String = "",
 )
 
 // -- Sound --

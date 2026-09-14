@@ -25,6 +25,8 @@ blocks, or manages creator/community data.
   by explicit user action.
 - Fit Canvas presentation choices, plus the active live-wallpaper video and its
   generated canvas or apply copy when Fit needs one.
+- Rotation exclusions for wallpapers and videos. Aura stores provider IDs,
+  content hashes, or one-way locator fingerprints instead of raw local paths.
 - A local fallback community identity only when a local community identifier is
   needed.
 
@@ -32,7 +34,8 @@ Fit Canvas media and the app preference store are excluded from Android cloud
 backup and device transfer. A portable library backup includes the non-secret
 Fill or Fit choice, canvas mode, and chosen color so the same defaults can be
 restored on another device. It does not include the active media file or a
-generated canvas copy.
+generated canvas copy. The same portable backup can include rotation
+exclusions, but it never includes a raw local path from those records.
 
 User-entered provider API keys are encrypted with AES-GCM using a
 non-exportable Android Keystore key. The encrypted SharedPreferences file and

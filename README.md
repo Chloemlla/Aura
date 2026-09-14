@@ -164,10 +164,11 @@ the same link is available in Settings > About > Privacy policy.
 | **Home Widget** | Glance-based widget for quick shuffle with error feedback |
 | **Quick Settings Action** | Add “Next wallpaper” from the system tile editor for one-tap rotation, even while automatic rotation is off |
 | **Auto Wallpaper** | Rotation schedule with one source, clock-based day/night sources, or system light/dark theme matching |
+| **Rotation Exclusions** | Keep any wallpaper or video available for browsing and manual apply while leaving it out of automatic rotation. Undo is immediate, Settings can restore any item, and [library backups preserve the choice](docs/rotation-exclusions.md) without copying device paths. |
 | **Shuffle FAB** | One-tap random wallpaper from current tab |
 | **Per-Contact Ringtones** | Assign custom ringtones with DND priority guidance and a VIP-only silent-default preset |
 | **Dual Wallpapers** | Coordinated home + lock screen wallpaper pairs |
-| **Portable Library Backup** | Staged JSON export/import for favorites, collections, searches, packs, profiles, and Fit Canvas defaults. Checked limits prevent silent item loss, and import results separate duplicates from failed rows. |
+| **Portable Library Backup** | Staged JSON export/import for favorites, collections, searches, packs, profiles, Fit Canvas defaults, and rotation exclusions. Checked limits prevent silent item loss, and import results separate duplicates from failed rows. |
 | **Theme Packs** | Local zip export/import for wallpaper, video, sound, widget tint, and launcher shortcut recipes |
 | **Community Voting** | Upvote/downvote wallpapers and sounds via Firebase |
 | **OLED Dark Theme** | Deep blacks, zero burn-in, Material 3 |
@@ -238,8 +239,8 @@ ViewModels (Hilt) + Cache Layer
             ContactRingtone, FavoritesExporter, OfflineFavorites
   Audio: Media3 platform transforms + bounded FFmpeg codec fallbacks
   YouTube: NewPipe Extractor (search) + yt-dlp (stream extraction + FFmpeg crop)
-Room DB v17 (Favorites, Downloads, Search History, Wallpaper Cache,
-            Wallpaper History, Collections)
+Room DB v18 (Favorites, Downloads, Search History, Wallpaper Cache,
+            Wallpaper History, Collections, Local Wallpapers, Rotation Exclusions)
 DataStore (Settings, Onboarding)
 Firebase RTDB (Community Voting + Uploads + Admin Moderation)
 ```

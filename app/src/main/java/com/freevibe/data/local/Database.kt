@@ -11,6 +11,7 @@ import com.freevibe.data.model.WallpaperCollectionItemEntity
 import com.freevibe.data.model.WallpaperHistoryEntity
 import com.freevibe.data.model.LocalWallpaperEntity
 import com.freevibe.data.model.LocalWallpaperFolderEntity
+import com.freevibe.data.model.RotationExclusionEntity
 import kotlinx.coroutines.flow.Flow
 
 // -- Database --
@@ -26,7 +27,7 @@ import kotlinx.coroutines.flow.Flow
  * Read by [DatabaseDowngradeGuard] to recognise a database written by a newer
  * Aura before Room tries to open it and throws.
  */
-const val FREEVIBE_DATABASE_VERSION = 17
+const val FREEVIBE_DATABASE_VERSION = 18
 
 @Database(
     entities = [
@@ -39,8 +40,9 @@ const val FREEVIBE_DATABASE_VERSION = 17
         WallpaperCollectionItemEntity::class,
         LocalWallpaperFolderEntity::class,
         LocalWallpaperEntity::class,
+        RotationExclusionEntity::class,
     ],
-    version = 17,
+    version = 18,
     exportSchema = true,
 )
 abstract class FreeVibeDatabase : RoomDatabase() {
@@ -52,6 +54,28 @@ abstract class FreeVibeDatabase : RoomDatabase() {
     abstract fun collectionDao(): CollectionDao
     abstract fun localWallpaperFolderDao(): LocalWallpaperFolderDao
     abstract fun localWallpaperDao(): LocalWallpaperDao
+    abstract fun rotationExclusionDao(): RotationExclusionDao
+}
+
+@Dao
+interface RotationExclusionDao {
+    @Query("SELECT * FROM rotation_exclusions ORDER BY excludedAt DESC")
+    fun observeAll(): Flow<List<RotationExclusionEntity>>
+
+    @Query("SELECT * FROM rotation_exclusions ORDER BY excludedAt DESC")
+    suspend fun getAll(): List<RotationExclusionEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(exclusion: RotationExclusionEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(exclusions: List<RotationExclusionEntity>)
+
+    @Query("DELETE FROM rotation_exclusions WHERE stableId = :stableId")
+    suspend fun deleteByStableId(stableId: String)
+
+    @Query("DELETE FROM rotation_exclusions")
+    suspend fun clearAll()
 }
 
 // -- Favorite DAO --

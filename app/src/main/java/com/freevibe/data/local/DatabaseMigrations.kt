@@ -260,6 +260,29 @@ object DatabaseMigrations {
         }
     }
 
+    // v17->18: Keep rotation exclusions separate from feed Hide state.
+    val MIGRATION_17_18 = object : Migration(17, 18) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `rotation_exclusions` (" +
+                    "`stableId` TEXT NOT NULL, " +
+                    "`mediaType` TEXT NOT NULL, " +
+                    "`source` TEXT NOT NULL, " +
+                    "`contentId` TEXT NOT NULL, " +
+                    "`contentHash` TEXT NOT NULL DEFAULT '', " +
+                    "`title` TEXT NOT NULL DEFAULT '', " +
+                    "`thumbnailUrl` TEXT NOT NULL DEFAULT '', " +
+                    "`locatorDigest` TEXT NOT NULL DEFAULT '', " +
+                    "`excludedAt` INTEGER NOT NULL, " +
+                    "PRIMARY KEY(`stableId`))",
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_rotation_exclusions_mediaType` ON `rotation_exclusions` (`mediaType`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_rotation_exclusions_source` ON `rotation_exclusions` (`source`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_rotation_exclusions_contentHash` ON `rotation_exclusions` (`contentHash`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_rotation_exclusions_excludedAt` ON `rotation_exclusions` (`excludedAt`)")
+        }
+    }
+
     val ALL_MIGRATIONS = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
@@ -277,5 +300,6 @@ object DatabaseMigrations {
         MIGRATION_14_15,
         MIGRATION_15_16,
         MIGRATION_16_17,
+        MIGRATION_17_18,
     )
 }

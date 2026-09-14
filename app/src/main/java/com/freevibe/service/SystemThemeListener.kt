@@ -5,6 +5,10 @@ import android.content.Context
 import android.content.res.Configuration
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.model.WallpaperTarget
+import com.freevibe.data.model.ROTATION_MEDIA_WALLPAPER
+import com.freevibe.data.model.rotationIdentity
+import com.freevibe.data.model.rotationIdentityForLocator
+import com.freevibe.data.repository.RotationExclusionRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -36,6 +40,7 @@ class SystemThemeListener @Inject constructor(
     @ApplicationContext private val context: Context,
     private val prefs: PreferencesManager,
     private val wallpaperApplier: WallpaperApplier,
+    private val rotationExclusions: RotationExclusionRepository,
 ) {
     private val scope = CoroutineScope(Dispatchers.Default)
     @Volatile private var darkLightPairEnabled = false
@@ -120,6 +125,13 @@ class SystemThemeListener @Inject constructor(
         if (parts.size < 3) return
         val url = parts[2]
         if (url.isBlank()) return
+        val identity = rotationIdentity(
+            mediaType = ROTATION_MEDIA_WALLPAPER,
+            source = parts[0],
+            contentId = parts[1],
+            locator = url,
+        )
+        if (rotationExclusions.isExcluded(identity)) return
         // applyByLocator handles http(s) URLs, file:// URIs (AI-generated / parallax-cached),
         // and content:// URIs (uploads / gallery picks). Earlier revisions called
         // applyFromUrl which only spoke HTTP and threw IllegalArgumentException for any
@@ -134,6 +146,7 @@ class SystemThemeListener @Inject constructor(
     private suspend fun applyLastNightVariantWallpaper(isNight: Boolean) {
         val locator = prefs.lastNightVariantWallpaperLocator.first()
         if (locator.isBlank()) return
+        if (rotationExclusions.isExcluded(rotationIdentityForLocator(locator))) return
         val target = runCatching {
             WallpaperTarget.valueOf(prefs.lastNightVariantWallpaperTarget.first())
         }.getOrDefault(WallpaperTarget.BOTH)

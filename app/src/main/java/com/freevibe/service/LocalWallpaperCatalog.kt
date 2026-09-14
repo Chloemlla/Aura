@@ -197,6 +197,7 @@ class LocalWallpaperCatalog @Inject constructor(
         sourcePageUrl = folderUri,
         license = "Local User Content",
         uploaderName = folderName,
+        contentHash = contentHash,
     )
 
     private fun scanTree(
