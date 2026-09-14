@@ -6,13 +6,6 @@ Actionable work only. Historical and completed roadmap material is archived in C
 
 ### P2
 
-- [ ] P2 — Relink missing local media without losing library identity
-  Why: revoked SAF grants, moved files, renamed folders, and device migration can invalidate a locator while the user's favorite, collection membership, edit choices, and history are still valuable. Clearing the path turns a recoverable move into apparent data loss.
-  Evidence: **Verified.** `PathBackedRecordReconciler.kt` clears missing paths and has no user-driven relink path; Nothing Wallpaper Changer preserves membership and edits when users repair broken media references: https://github.com/NineCSdev/nothing-wallpaper-changer.
-  Touches: stable media identity and locator schema, `PathBackedRecordReconciler.kt`, SAF picker, favorites/collections/history/rotation references, diagnostics, export/import, tests.
-  Acceptance: missing items remain visible with their metadata and a Relink action; the picker verifies media type and warns on a likely content mismatch using size/hash/dimensions/duration; successful relink updates the locator once and preserves every association, edit, exclusion, and target; folder-grant repair can relink a bounded batch; cancel or mismatch changes nothing; diagnostics distinguish missing, revoked, and corrupt.
-  Complexity: M
-
 - [ ] P2 — Add named shuffle pools for ringtone, notification, and alarm sounds
   Why: the current shuffle worker draws from all downloaded sounds and does not offer notification shuffle. Users need small intentional pools, per-target control, and predictable recovery rather than a global randomizer.
   Evidence: **Verified.** `RingtoneShuffleWorker.kt` reads the broad SOUND download set for ringtone/alarm selection; no notification pool or user-managed membership exists; Peristyle and wallpaper competitors validate named pools as a comprehensible automation model, while ringtone users currently build folder-based rotation externally.

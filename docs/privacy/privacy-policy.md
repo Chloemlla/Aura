@@ -27,6 +27,8 @@ blocks, or manages creator/community data.
   generated canvas or apply copy when Fit needs one.
 - Rotation exclusions for wallpapers and videos. Aura stores provider IDs,
   content hashes, or one-way locator fingerprints instead of raw local paths.
+- Local media health, stable library identity, and technical details used to
+  repair a moved or unavailable file without deleting its metadata.
 - A local fallback community identity only when a local community identifier is
   needed.
 
@@ -36,6 +38,10 @@ Fill or Fit choice, canvas mode, and chosen color so the same defaults can be
 restored on another device. It does not include the active media file or a
 generated canvas copy. The same portable backup can include rotation
 exclusions, but it never includes a raw local path from those records.
+Local favorites, collections, wallpaper catalog entries, and recent wallpaper
+history can also be included as locator-free metadata. The media bytes remain
+on the original device. Restored entries stay visible and ask the user to
+relink the original file, a replacement, or a matching folder.
 
 User-entered provider API keys are encrypted with AES-GCM using a
 non-exportable Android Keystore key. The encrypted SharedPreferences file and

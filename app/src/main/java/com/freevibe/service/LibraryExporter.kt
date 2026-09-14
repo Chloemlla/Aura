@@ -9,13 +9,22 @@ import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.local.SearchHistoryDao
 import com.freevibe.data.local.RotationExclusionDao
 import com.freevibe.data.model.FavoriteEntity
+import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.FitCanvasMode
 import com.freevibe.data.model.FitCanvasPreferences
 import com.freevibe.data.model.FitCanvasStyle
+import com.freevibe.data.model.LocalMediaStatus
+import com.freevibe.data.model.LocalWallpaperEntity
+import com.freevibe.data.model.LocalWallpaperFolderEntity
+import com.freevibe.data.model.LocalWallpaperFolderScanStatus
 import com.freevibe.data.model.SearchHistoryEntity
 import com.freevibe.data.model.ROTATION_MEDIA_VIDEO
 import com.freevibe.data.model.ROTATION_MEDIA_WALLPAPER
 import com.freevibe.data.model.RotationExclusionEntity
+import com.freevibe.data.model.WallpaperHistoryEntity
+import com.freevibe.data.model.WallpaperTarget
+import com.freevibe.data.model.rotationLocatorDigest
+import com.freevibe.data.model.stableLocalMediaId
 import com.freevibe.data.model.rotationIdentity
 import com.freevibe.data.model.toRotationExclusion
 import com.freevibe.data.model.favoriteIdentity
@@ -38,6 +47,8 @@ data class LibraryExportFile(
     val collections: List<CollectionExportEntry> = emptyList(),
     val searchHistory: List<SearchHistoryExportEntry> = emptyList(),
     val rotationExclusions: List<RotationExclusionExportEntry> = emptyList(),
+    val localWallpapers: List<LocalWallpaperExportEntry> = emptyList(),
+    val wallpaperHistory: List<WallpaperHistoryExportEntry> = emptyList(),
     val wallpaperPackJson: String = "",
     val soundProfilesJson: String = "",
     val fitCanvasPreferences: FitCanvasPreferencesExport? = null,
@@ -105,6 +116,18 @@ data class FavoriteExportEntry(
     val fullUrl: String = "",
     val name: String = "",
     val addedAt: Long = 0,
+    val width: Int = 0,
+    val height: Int = 0,
+    val duration: Double = 0.0,
+    val tags: String = "",
+    val category: String = "",
+    val uploaderName: String = "",
+    val sourcePageUrl: String = "",
+    val license: String = "",
+    val fileSize: Long = 0,
+    val fileType: String = "",
+    val localMedia: Boolean = false,
+    val localMediaSha256: String = "",
 )
 
 @JsonClass(generateAdapter = true)
@@ -121,6 +144,38 @@ data class CollectionItemExportEntry(
     val source: String = "",
     val thumbnailUrl: String = "",
     val fullUrl: String = "",
+    val width: Int = 0,
+    val height: Int = 0,
+    val localMedia: Boolean = false,
+)
+
+/** Locator-free metadata for a local wallpaper that can be repaired after restore. */
+@JsonClass(generateAdapter = true)
+data class LocalWallpaperExportEntry(
+    val id: String,
+    val displayName: String,
+    val mimeType: String = "",
+    val sizeBytes: Long = 0,
+    val contentHash: String = "",
+    val width: Int = 0,
+    val height: Int = 0,
+    val tags: String = "",
+    val target: String = WallpaperTarget.BOTH.name,
+    val addedAt: Long = 0,
+)
+
+/** History metadata is portable; device file locators are intentionally omitted. */
+@JsonClass(generateAdapter = true)
+data class WallpaperHistoryExportEntry(
+    val wallpaperId: String,
+    val source: String,
+    val thumbnailUrl: String = "",
+    val fullUrl: String = "",
+    val width: Int = 0,
+    val height: Int = 0,
+    val target: String = WallpaperTarget.BOTH.name,
+    val appliedAt: Long = 0,
+    val localMedia: Boolean = false,
 )
 
 @JsonClass(generateAdapter = true)
@@ -166,10 +221,24 @@ class LibraryExporter @Inject constructor(
 
     suspend fun exportLibrary(outputUri: Uri): Result<LibraryExportOutcome> = withContext(Dispatchers.IO) {
         runCatching {
-            val favorites = favoriteDao.getAll().first().map { it.toExportEntry() }
-            val collections = exportCollections()
+            val favoriteEntities = favoriteDao.getAll().first()
+            val localWallpaperEntities = database.localWallpaperDao().getAll()
+            val localFoldersByUri = database.localWallpaperFolderDao().getAll()
+                .associateBy(LocalWallpaperFolderEntity::folderUri)
+            val portableLocalIds = buildPortableLocalIdentityMap(localWallpaperEntities, favoriteEntities)
+            val favorites = favoriteEntities.map { it.toExportEntry(portableLocalIds) }
+            val collections = exportCollections(portableLocalIds)
             val searchHistory = searchHistoryDao.getAll().map { it.toExportEntry() }
-            val rotationExclusions = rotationExclusionDao.getAll().map { it.toExportEntry() }
+            val rotationExclusions = rotationExclusionDao.getAll().map { it.toExportEntry(portableLocalIds) }
+            val localWallpapers = localWallpaperEntities.map { item ->
+                item.toExportEntry(
+                    portableId = portableLocalIds.localId(ContentSource.LOCAL.name, item.stableLocalMediaId()),
+                    target = localFoldersByUri[item.folderUri]?.target ?: WallpaperTarget.BOTH.name,
+                )
+            }
+            val wallpaperHistory = database.wallpaperHistoryDao()
+                .getRecentSnapshot(LibraryTransferContract.MAX_WALLPAPER_HISTORY_ITEMS)
+                .map { it.toExportEntry(portableLocalIds) }
             val wallpaperPack = prefs.wallpaperPackJson.first()
             val soundProfiles = prefs.soundProfilesJson.first()
             val fitCanvasPreferences = prefs.fitCanvasPreferencesSnapshot()
@@ -194,6 +263,16 @@ class LibraryExporter @Inject constructor(
                 rotationExclusions.size,
                 LibraryTransferContract.MAX_ROTATION_EXCLUSIONS,
             )
+            requireWithinTransferLimit(
+                "Library local wallpapers",
+                localWallpapers.size,
+                LibraryTransferContract.MAX_LOCAL_WALLPAPERS,
+            )
+            requireWithinTransferLimit(
+                "Library wallpaper history",
+                wallpaperHistory.size,
+                LibraryTransferContract.MAX_WALLPAPER_HISTORY_ITEMS,
+            )
 
             val exportFile = LibraryExportFile(
                 version = LIBRARY_EXPORT_VERSION,
@@ -202,6 +281,8 @@ class LibraryExporter @Inject constructor(
                 collections = collections,
                 searchHistory = searchHistory,
                 rotationExclusions = rotationExclusions,
+                localWallpapers = localWallpapers,
+                wallpaperHistory = wallpaperHistory,
                 wallpaperPackJson = wallpaperPack,
                 soundProfilesJson = soundProfiles,
                 fitCanvasPreferences = FitCanvasPreferencesExport.from(fitCanvasPreferences),
@@ -219,6 +300,7 @@ class LibraryExporter @Inject constructor(
                 exported = favorites.size + collections.size +
                     collections.sumOf { it.items.size } + searchHistory.size +
                     rotationExclusions.size +
+                    localWallpapers.size + wallpaperHistory.size +
                     (if (wallpaperPack.isNotBlank()) 1 else 0) +
                     (if (soundProfiles.isNotBlank()) 1 else 0) +
                     1,
@@ -325,6 +407,16 @@ class LibraryExporter @Inject constructor(
             exportFile.rotationExclusions.size,
             LibraryTransferContract.MAX_ROTATION_EXCLUSIONS,
         )
+        requireWithinTransferLimit(
+            "Library local wallpapers",
+            exportFile.localWallpapers.size,
+            LibraryTransferContract.MAX_LOCAL_WALLPAPERS,
+        )
+        requireWithinTransferLimit(
+            "Library wallpaper history",
+            exportFile.wallpaperHistory.size,
+            LibraryTransferContract.MAX_WALLPAPER_HISTORY_ITEMS,
+        )
 
         val skipped = mutableListOf<LibraryImportSkip>()
 
@@ -345,6 +437,8 @@ class LibraryExporter @Inject constructor(
         val collections = planCollections(exportFile, skipped)
         val searchHistory = planSearchHistory(exportFile, skipped)
         val rotationExclusions = planRotationExclusions(exportFile, skipped)
+        val localWallpaperPlan = planLocalWallpapers(exportFile, skipped)
+        val wallpaperHistory = planWallpaperHistory(exportFile, skipped)
 
         return LibraryImportPlan(
             sourceVersion = version,
@@ -352,6 +446,9 @@ class LibraryExporter @Inject constructor(
             collections = collections,
             searchHistory = searchHistory,
             rotationExclusions = rotationExclusions,
+            localWallpaperFolders = localWallpaperPlan.first,
+            localWallpapers = localWallpaperPlan.second,
+            wallpaperHistory = wallpaperHistory,
             wallpaperPackJson = exportFile.wallpaperPackJson,
             soundProfilesJson = exportFile.soundProfilesJson,
             fitCanvasPreferences = exportFile.fitCanvasPreferences?.toPreferences(),
@@ -524,6 +621,77 @@ class LibraryExporter @Inject constructor(
         }
     }
 
+    private suspend fun planLocalWallpapers(
+        exportFile: LibraryExportFile,
+        skipped: MutableList<LibraryImportSkip>,
+    ): Pair<List<LocalWallpaperFolderEntity>, List<LocalWallpaperEntity>> {
+        val seen = database.localWallpaperDao().getAll()
+            .mapTo(mutableSetOf(), LocalWallpaperEntity::stableLocalMediaId)
+        val items = exportFile.localWallpapers.mapNotNull { entry ->
+            val entity = entry.toEntity()
+            if (entity == null) {
+                skipped += LibraryImportSkip(
+                    section = "localWallpaper",
+                    label = normalizeImportedText(entry.displayName).ifBlank { "local wallpaper" },
+                    reason = LibraryImportSkipReason.INVALID,
+                )
+                return@mapNotNull null
+            }
+            if (!seen.add(entity.stableLocalMediaId())) {
+                skipped += LibraryImportSkip(
+                    section = "localWallpaper",
+                    label = entity.displayName,
+                    reason = LibraryImportSkipReason.DUPLICATE,
+                )
+                return@mapNotNull null
+            }
+            entity
+        }
+        val folders = items
+            .groupBy(LocalWallpaperEntity::folderUri)
+            .map { (folderUri, folderItems) ->
+                val target = restoredLocalFolderTarget(folderUri)
+                LocalWallpaperFolderEntity(
+                    folderUri = folderUri,
+                    displayName = "Restored local media (${target.lowercase(java.util.Locale.ROOT)})",
+                    target = target,
+                    scanStatus = LocalWallpaperFolderScanStatus.PERMISSION_REVOKED,
+                    lastError = "Choose this folder again to relink matching files",
+                    itemCount = folderItems.size,
+                )
+            }
+        return folders to items
+    }
+
+    private suspend fun planWallpaperHistory(
+        exportFile: LibraryExportFile,
+        skipped: MutableList<LibraryImportSkip>,
+    ): List<WallpaperHistoryEntity> {
+        val seen = database.wallpaperHistoryDao()
+            .getRecentSnapshot(LibraryTransferContract.MAX_WALLPAPER_HISTORY_ITEMS)
+            .mapTo(mutableSetOf()) { Triple(it.source, it.wallpaperId, it.appliedAt) }
+        return exportFile.wallpaperHistory.mapNotNull { entry ->
+            val entity = entry.toEntity()
+            if (entity == null) {
+                skipped += LibraryImportSkip(
+                    section = "wallpaperHistory",
+                    label = normalizeImportedText(entry.wallpaperId).ifBlank { "wallpaper history" },
+                    reason = LibraryImportSkipReason.INVALID,
+                )
+                return@mapNotNull null
+            }
+            if (!seen.add(Triple(entity.source, entity.wallpaperId, entity.appliedAt))) {
+                skipped += LibraryImportSkip(
+                    section = "wallpaperHistory",
+                    label = entity.wallpaperId,
+                    reason = LibraryImportSkipReason.DUPLICATE,
+                )
+                return@mapNotNull null
+            }
+            entity
+        }
+    }
+
     /**
      * Replays a plan. No validation or conflict decisions happen here — by this
      * point every write is already decided, which is what makes the transaction
@@ -552,6 +720,10 @@ class LibraryExporter @Inject constructor(
                 prefs.restoreFitCanvasPreferences(it)
             }
             database.withTransaction {
+                plan.localWallpaperFolders.forEach { database.localWallpaperFolderDao().upsert(it) }
+                if (plan.localWallpapers.isNotEmpty()) {
+                    database.localWallpaperDao().upsertAll(plan.localWallpapers)
+                }
                 if (plan.favorites.isNotEmpty()) {
                     favoriteDao.insertAll(plan.favorites)
                 }
@@ -563,6 +735,8 @@ class LibraryExporter @Inject constructor(
                 if (plan.rotationExclusions.isNotEmpty()) {
                     rotationExclusionDao.upsertAll(plan.rotationExclusions)
                 }
+                plan.wallpaperHistory.forEach { database.wallpaperHistoryDao().insert(it) }
+                if (plan.wallpaperHistory.isNotEmpty()) database.wallpaperHistoryDao().pruneOld()
                 failBeforeCommit?.invoke()
             }
         } catch (error: Throwable) {
@@ -575,7 +749,9 @@ class LibraryExporter @Inject constructor(
         }
     }
 
-    private suspend fun exportCollections(): List<CollectionExportEntry> {
+    private suspend fun exportCollections(
+        portableLocalIds: Map<LocalExportIdentity, String>,
+    ): List<CollectionExportEntry> {
         val collections = collectionRepo.getAll().first()
         requireWithinTransferLimit(
             "Library collections",
@@ -594,11 +770,19 @@ class LibraryExporter @Inject constructor(
                 name = collection.name,
                 createdAt = collection.createdAt,
                 items = items.map { item ->
+                    val localMedia = item.isDeviceLocalMedia()
                     CollectionItemExportEntry(
-                        wallpaperId = item.wallpaperId,
+                        wallpaperId = if (localMedia) {
+                            portableLocalIds.localId(item.source, item.wallpaperId)
+                        } else {
+                            item.wallpaperId
+                        },
                         source = item.source,
-                        thumbnailUrl = item.thumbnailUrl,
-                        fullUrl = item.fullUrl,
+                        thumbnailUrl = item.thumbnailUrl.takeUnless { localMedia }.orEmpty(),
+                        fullUrl = item.fullUrl.takeUnless { localMedia }.orEmpty(),
+                        width = item.width,
+                        height = item.height,
+                        localMedia = localMedia,
                     )
                 },
             )
@@ -612,15 +796,127 @@ private fun FavoriteExportEntry.label(): String =
 private fun CollectionItemExportEntry.label(): String =
     normalizeImportedText(wallpaperId).ifBlank { "(unnamed)" }
 
-private fun FavoriteEntity.toExportEntry() = FavoriteExportEntry(
-    id = id,
-    source = source,
-    type = type,
-    thumbnailUrl = thumbnailUrl,
-    fullUrl = fullUrl,
-    name = name,
+private data class LocalExportIdentity(val source: String, val id: String)
+
+private fun localExportIdentity(source: String, id: String) =
+    LocalExportIdentity(source.trim().uppercase(java.util.Locale.ROOT), id.trim())
+
+private fun buildPortableLocalIdentityMap(
+    localWallpapers: List<LocalWallpaperEntity>,
+    favorites: List<FavoriteEntity>,
+): Map<LocalExportIdentity, String> = buildMap {
+    localWallpapers.forEach { item ->
+        val stableId = item.stableLocalMediaId()
+        put(
+            localExportIdentity(ContentSource.LOCAL.name, stableId),
+            portableLocalMediaId(ContentSource.LOCAL.name, stableId),
+        )
+    }
+    favorites.filter(FavoriteEntity::isDeviceLocalMedia).forEach { favorite ->
+        putIfAbsent(
+            localExportIdentity(favorite.source, favorite.id),
+            portableLocalMediaId(favorite.source, favorite.id),
+        )
+    }
+}
+
+private fun Map<LocalExportIdentity, String>.localId(source: String, id: String): String =
+    get(localExportIdentity(source, id)) ?: portableLocalMediaId(source, id)
+
+internal fun portableLocalMediaId(source: String, id: String): String {
+    val normalizedId = id.trim()
+    if (SAFE_PORTABLE_LOCAL_ID.matches(normalizedId) && !looksLikeDeviceLocator(normalizedId)) {
+        return normalizedId
+    }
+    val identityDigest = rotationLocatorDigest(
+        "${source.uppercase(java.util.Locale.ROOT)}\u001f$normalizedId",
+    )
+    return "local-$identityDigest"
+}
+
+internal fun isSafePortableLocalMediaId(value: String): Boolean =
+    SAFE_PORTABLE_LOCAL_ID.matches(value.trim()) && !looksLikeDeviceLocator(value.trim())
+
+private fun looksLikeDeviceLocator(value: String): Boolean =
+    value.startsWith('/') || value.startsWith('\\') ||
+        value.startsWith("content:", ignoreCase = true) ||
+        value.startsWith("file:", ignoreCase = true) ||
+        (value.length > 2 && value[0].isLetter() && value[1] == ':' && value[2] in charArrayOf('/', '\\'))
+
+private fun FavoriteEntity.isDeviceLocalMedia(): Boolean =
+    source.equals(ContentSource.LOCAL.name, ignoreCase = true) ||
+        localMediaStatus != LocalMediaStatus.AVAILABLE ||
+        isNonPortableLocator(fullUrl.takeIf(String::isNotBlank) ?: offlinePath)
+
+private fun com.freevibe.data.model.WallpaperCollectionItemEntity.isDeviceLocalMedia(): Boolean =
+    source.equals(ContentSource.LOCAL.name, ignoreCase = true) ||
+        (fullUrl.isBlank() && thumbnailUrl.isBlank()) ||
+        isNonPortableLocator(fullUrl.takeIf(String::isNotBlank) ?: thumbnailUrl)
+
+private fun FavoriteEntity.toExportEntry(portableLocalIds: Map<LocalExportIdentity, String>): FavoriteExportEntry {
+    val localMedia = isDeviceLocalMedia()
+    val portableHash = localMediaSha256.trim().lowercase(java.util.Locale.ROOT)
+        .takeIf(LOCAL_MEDIA_HASH::matches)
+        .orEmpty()
+    return FavoriteExportEntry(
+        id = if (localMedia) portableLocalIds.localId(source, id) else id,
+        source = source,
+        type = type,
+        thumbnailUrl = thumbnailUrl.takeUnless { localMedia }.orEmpty(),
+        fullUrl = fullUrl.takeUnless { localMedia }.orEmpty(),
+        name = name,
+        addedAt = addedAt,
+        width = width,
+        height = height,
+        duration = duration,
+        tags = tags.orEmpty(),
+        category = category.orEmpty(),
+        uploaderName = uploaderName.orEmpty(),
+        sourcePageUrl = sourcePageUrl?.takeIf { !isNonPortableLocator(it) }.orEmpty(),
+        license = license.orEmpty(),
+        fileSize = fileSize ?: 0,
+        fileType = fileType.orEmpty(),
+        localMedia = localMedia,
+        localMediaSha256 = portableHash,
+    )
+}
+
+private fun LocalWallpaperEntity.toExportEntry(
+    portableId: String,
+    target: String,
+) = LocalWallpaperExportEntry(
+    id = portableId,
+    displayName = displayName,
+    mimeType = mimeType,
+    sizeBytes = sizeBytes,
+    contentHash = contentHash.trim().lowercase(java.util.Locale.ROOT)
+        .takeIf(LOCAL_MEDIA_HASH::matches)
+        .orEmpty(),
+    width = width,
+    height = height,
+    tags = tags,
+    target = target,
     addedAt = addedAt,
 )
+
+private fun WallpaperHistoryEntity.toExportEntry(
+    portableLocalIds: Map<LocalExportIdentity, String>,
+): WallpaperHistoryExportEntry {
+    val localMedia = source.equals(ContentSource.LOCAL.name, true) ||
+        (fullUrl.isBlank() && thumbnailUrl.isBlank()) ||
+        isNonPortableLocator(fullUrl.takeIf(String::isNotBlank) ?: thumbnailUrl)
+    return WallpaperHistoryExportEntry(
+        wallpaperId = if (localMedia) portableLocalIds.localId(source, wallpaperId) else wallpaperId,
+        source = source,
+        thumbnailUrl = thumbnailUrl.takeUnless { localMedia }.orEmpty(),
+        fullUrl = fullUrl.takeUnless { localMedia }.orEmpty(),
+        width = width,
+        height = height,
+        target = target,
+        appliedAt = appliedAt,
+        localMedia = localMedia,
+    )
+}
 
 private fun SearchHistoryEntity.toExportEntry() = SearchHistoryExportEntry(
     query = query,
@@ -628,11 +924,19 @@ private fun SearchHistoryEntity.toExportEntry() = SearchHistoryExportEntry(
     searchedAt = timestamp,
 )
 
-private fun RotationExclusionEntity.toExportEntry() = RotationExclusionExportEntry(
+private fun RotationExclusionEntity.toExportEntry(
+    portableLocalIds: Map<LocalExportIdentity, String>,
+) = RotationExclusionExportEntry(
     mediaType = mediaType,
     source = source,
-    contentId = contentId,
-    contentHash = contentHash,
+    contentId = if (source.equals(ContentSource.LOCAL.name, true)) {
+        portableLocalIds.localId(source, contentId)
+    } else {
+        contentId
+    },
+    contentHash = contentHash.trim().lowercase(java.util.Locale.ROOT)
+        .takeIf(LOCAL_MEDIA_HASH::matches)
+        .orEmpty(),
     title = title,
     thumbnailUrl = thumbnailUrl.takeIf { !isNonPortableLocator(it) }.orEmpty(),
     locatorDigest = locatorDigest,
@@ -640,6 +944,8 @@ private fun RotationExclusionEntity.toExportEntry() = RotationExclusionExportEnt
 )
 
 private val ROTATION_EXCLUSION_DIGEST = Regex("^[0-9a-f]{64}$")
+private val LOCAL_MEDIA_HASH = Regex("^[0-9a-f]{64}$")
+private val SAFE_PORTABLE_LOCAL_ID = Regex("^[A-Za-z0-9._:-]{1,512}$")
 private val ROTATION_EXCLUSION_SPECIAL_SOURCES = setOf("LOCATOR")
 
 private fun RotationExclusionExportEntry.toEntity(): RotationExclusionEntity? {
@@ -693,41 +999,122 @@ private fun FavoriteExportEntry.toEntity(): FavoriteEntity? {
     val normalizedSource = normalizeImportedContentSource(source) ?: return null
     val normalizedType = type.trim().uppercase(java.util.Locale.ROOT)
     if (normalizedId.isBlank()) return null
+    if (localMedia && !isSafePortableLocalMediaId(normalizedId)) return null
     if (normalizedType !in setOf("WALLPAPER", "SOUND")) return null
     val normalizedThumbnailUrl = normalizeImportedHttpsUrl(
         thumbnailUrl,
-        allowBlank = normalizedType == "SOUND",
+        allowBlank = localMedia || normalizedType == "SOUND",
     ) ?: return null
-    val normalizedFullUrl = normalizeImportedHttpsUrl(fullUrl) ?: return null
-    if (normalizedFullUrl.isBlank()) return null
-    if (normalizedType == "WALLPAPER" && normalizedThumbnailUrl.isBlank()) return null
+    val normalizedFullUrl = normalizeImportedHttpsUrl(fullUrl, allowBlank = localMedia) ?: return null
+    if (!localMedia && normalizedFullUrl.isBlank()) return null
+    if (!localMedia && normalizedType == "WALLPAPER" && normalizedThumbnailUrl.isBlank()) return null
+    val normalizedHash = localMediaSha256.trim().lowercase(java.util.Locale.ROOT)
+    if (normalizedHash.isNotBlank() && !LOCAL_MEDIA_HASH.matches(normalizedHash)) return null
+    if (!duration.isFinite() || duration < 0.0) return null
     return FavoriteEntity(
         id = normalizedId,
         source = normalizedSource,
         type = normalizedType,
-        thumbnailUrl = normalizedThumbnailUrl,
-        fullUrl = normalizedFullUrl,
+        thumbnailUrl = normalizedThumbnailUrl.takeUnless { localMedia }.orEmpty(),
+        fullUrl = normalizedFullUrl.takeUnless { localMedia }.orEmpty(),
         name = normalizeImportedText(name),
+        width = width.coerceAtLeast(0),
+        height = height.coerceAtLeast(0),
+        duration = duration,
         addedAt = if (addedAt > 0) addedAt else System.currentTimeMillis(),
+        tags = normalizeImportedText(tags).takeIf(String::isNotBlank),
+        category = normalizeImportedText(category).takeIf(String::isNotBlank),
+        uploaderName = normalizeImportedText(uploaderName).takeIf(String::isNotBlank),
+        sourcePageUrl = normalizeImportedHttpsUrl(sourcePageUrl, allowBlank = true)
+            ?.takeIf(String::isNotBlank),
+        license = normalizeImportedText(license).takeIf(String::isNotBlank),
+        fileSize = fileSize.coerceAtLeast(0).takeIf { it > 0 },
+        fileType = normalizeImportedText(fileType, 128).takeIf(String::isNotBlank),
+        localMediaStatus = if (localMedia) LocalMediaStatus.MISSING else LocalMediaStatus.AVAILABLE,
+        localMediaReason = if (localMedia) "Choose the original file or a replacement" else null,
+        localMediaSha256 = normalizedHash,
     )
 }
 
 private fun CollectionItemExportEntry.toWallpaperOrNull(): com.freevibe.data.model.Wallpaper? {
     val normalizedId = normalizeImportedText(wallpaperId)
     if (normalizedId.isBlank()) return null
+    if (localMedia && !isSafePortableLocalMediaId(normalizedId)) return null
     val normalizedSource = normalizeImportedContentSource(source) ?: return null
-    val normalizedThumbnailUrl = normalizeImportedHttpsUrl(thumbnailUrl) ?: return null
-    val normalizedFullUrl = normalizeImportedHttpsUrl(fullUrl) ?: return null
-    if (normalizedThumbnailUrl.isBlank() || normalizedFullUrl.isBlank()) return null
+    val normalizedThumbnailUrl = normalizeImportedHttpsUrl(thumbnailUrl, allowBlank = localMedia) ?: return null
+    val normalizedFullUrl = normalizeImportedHttpsUrl(fullUrl, allowBlank = localMedia) ?: return null
+    if (!localMedia && (normalizedThumbnailUrl.isBlank() || normalizedFullUrl.isBlank())) return null
     val contentSource = runCatching {
         com.freevibe.data.model.ContentSource.valueOf(normalizedSource)
     }.getOrNull() ?: return null
     return com.freevibe.data.model.Wallpaper(
         id = normalizedId,
         source = contentSource,
-        thumbnailUrl = normalizedThumbnailUrl,
-        fullUrl = normalizedFullUrl,
-        width = 0,
-        height = 0,
+        thumbnailUrl = normalizedThumbnailUrl.takeUnless { localMedia }.orEmpty(),
+        fullUrl = normalizedFullUrl.takeUnless { localMedia }.orEmpty(),
+        width = width.coerceAtLeast(0),
+        height = height.coerceAtLeast(0),
     )
 }
+
+private fun LocalWallpaperExportEntry.toEntity(): LocalWallpaperEntity? {
+    val normalizedId = normalizeImportedText(id)
+    val normalizedName = normalizeImportedText(displayName)
+    val normalizedMimeType = normalizeImportedText(mimeType, 128).lowercase(java.util.Locale.ROOT)
+    val normalizedHash = contentHash.trim().lowercase(java.util.Locale.ROOT)
+    val normalizedTarget = target.trim().uppercase(java.util.Locale.ROOT)
+    if (!isSafePortableLocalMediaId(normalizedId) || normalizedName.isBlank()) return null
+    if (!normalizedMimeType.startsWith("image/")) return null
+    if (normalizedHash.isNotBlank() && !LOCAL_MEDIA_HASH.matches(normalizedHash)) return null
+    if (normalizedTarget !in WallpaperTarget.entries.map(WallpaperTarget::name)) return null
+    val folderUri = restoredLocalFolderUri(normalizedTarget)
+    return LocalWallpaperEntity(
+        documentUri = restoredLocalItemUri(normalizedId),
+        stableId = normalizedId,
+        folderUri = folderUri,
+        documentId = normalizedId,
+        displayName = normalizedName,
+        mimeType = normalizedMimeType,
+        sizeBytes = sizeBytes.coerceAtLeast(0),
+        modifiedAt = 0,
+        contentHash = normalizedHash,
+        width = width.coerceAtLeast(0),
+        height = height.coerceAtLeast(0),
+        localMediaStatus = LocalMediaStatus.MISSING,
+        localMediaReason = "Restore this file or repair its folder access",
+        tags = normalizeImportedText(tags),
+        addedAt = addedAt.takeIf { it > 0 } ?: System.currentTimeMillis(),
+    )
+}
+
+private fun WallpaperHistoryExportEntry.toEntity(): WallpaperHistoryEntity? {
+    val normalizedId = normalizeImportedText(wallpaperId)
+    val normalizedSource = normalizeImportedContentSource(source) ?: return null
+    val normalizedTarget = target.trim().uppercase(java.util.Locale.ROOT)
+    if (normalizedId.isBlank() || normalizedTarget !in WallpaperTarget.entries.map(WallpaperTarget::name)) return null
+    if (localMedia && !isSafePortableLocalMediaId(normalizedId)) return null
+    val normalizedThumbnail = normalizeImportedHttpsUrl(thumbnailUrl, allowBlank = localMedia) ?: return null
+    val normalizedFull = normalizeImportedHttpsUrl(fullUrl, allowBlank = localMedia) ?: return null
+    if (!localMedia && normalizedFull.isBlank()) return null
+    return WallpaperHistoryEntity(
+        wallpaperId = normalizedId,
+        source = normalizedSource,
+        thumbnailUrl = normalizedThumbnail.takeUnless { localMedia }.orEmpty(),
+        fullUrl = normalizedFull.takeUnless { localMedia }.orEmpty(),
+        width = width.coerceAtLeast(0),
+        height = height.coerceAtLeast(0),
+        target = normalizedTarget,
+        appliedAt = appliedAt.takeIf { it > 0 } ?: System.currentTimeMillis(),
+    )
+}
+
+private fun restoredLocalFolderUri(target: String): String =
+    "content://com.freevibe.relink/restored-folder/${target.lowercase(java.util.Locale.ROOT)}"
+
+private fun restoredLocalFolderTarget(folderUri: String): String =
+    folderUri.substringAfterLast('/').uppercase(java.util.Locale.ROOT)
+        .takeIf { it in WallpaperTarget.entries.map(WallpaperTarget::name) }
+        ?: WallpaperTarget.BOTH.name
+
+private fun restoredLocalItemUri(id: String): String =
+    "content://com.freevibe.relink/restored-item/${Uri.encode(id)}"

@@ -2,15 +2,18 @@ package com.freevibe.service
 
 import com.freevibe.data.model.FavoriteEntity
 import com.freevibe.data.model.FitCanvasPreferences
+import com.freevibe.data.model.LocalWallpaperEntity
+import com.freevibe.data.model.LocalWallpaperFolderEntity
 import com.freevibe.data.model.SearchHistoryEntity
 import com.freevibe.data.model.RotationExclusionEntity
 import com.freevibe.data.model.Wallpaper
+import com.freevibe.data.model.WallpaperHistoryEntity
 import java.net.URI
 import java.util.Locale
 
 /** Backup payload versions this build can restore. */
 internal const val LIBRARY_EXPORT_MIN_SUPPORTED_VERSION = 1
-internal const val LIBRARY_EXPORT_VERSION = 2
+internal const val LIBRARY_EXPORT_VERSION = 3
 
 /** Why a row in a backup will not be written. */
 enum class LibraryImportSkipReason {
@@ -60,6 +63,9 @@ data class LibraryImportPlan(
     val collections: List<PlannedCollection> = emptyList(),
     val searchHistory: List<SearchHistoryEntity> = emptyList(),
     val rotationExclusions: List<RotationExclusionEntity> = emptyList(),
+    val localWallpaperFolders: List<LocalWallpaperFolderEntity> = emptyList(),
+    val localWallpapers: List<LocalWallpaperEntity> = emptyList(),
+    val wallpaperHistory: List<WallpaperHistoryEntity> = emptyList(),
     val wallpaperPackJson: String = "",
     val soundProfilesJson: String = "",
     val fitCanvasPreferences: FitCanvasPreferences? = null,
@@ -71,6 +77,7 @@ data class LibraryImportPlan(
             collections.sumOf { it.items.size } +
             searchHistory.size +
             rotationExclusions.size +
+            localWallpaperFolders.size + localWallpapers.size + wallpaperHistory.size +
             (if (wallpaperPackJson.isNotBlank()) 1 else 0) +
             (if (soundProfilesJson.isNotBlank()) 1 else 0) +
             (if (fitCanvasPreferences != null) 1 else 0)

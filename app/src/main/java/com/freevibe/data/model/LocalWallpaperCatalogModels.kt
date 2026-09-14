@@ -30,6 +30,7 @@ data class LocalWallpaperFolderEntity(
     tableName = "local_wallpapers",
     indices = [
         Index("folderUri"),
+        Index("stableId"),
         Index("contentHash"),
         Index("displayName"),
         Index(value = ["folderUri", "lastSeenScanToken"]),
@@ -37,6 +38,8 @@ data class LocalWallpaperFolderEntity(
 )
 data class LocalWallpaperEntity(
     @androidx.room.PrimaryKey val documentUri: String,
+    /** Stable library identity. The document URI is only its replaceable locator. */
+    val stableId: String = "",
     val folderUri: String,
     val documentId: String,
     val displayName: String,
@@ -44,6 +47,11 @@ data class LocalWallpaperEntity(
     val sizeBytes: Long,
     val modifiedAt: Long,
     val contentHash: String = "",
+    val width: Int = 0,
+    val height: Int = 0,
+    val localMediaStatus: String = LocalMediaStatus.AVAILABLE,
+    val localMediaReason: String = "",
+    val isStandalone: Boolean = false,
     val tags: String = "",
     val lastSeenScanToken: String = "",
     val addedAt: Long = System.currentTimeMillis(),

@@ -99,12 +99,16 @@ fun rotationIdentity(
     title: String = "",
     thumbnailUrl: String = "",
     locator: String = "",
+    preferContentIdForLocal: Boolean = false,
 ): RotationIdentity {
     val normalizedType = normalizeRotationMediaType(mediaType)
     val normalizedSource = normalizeRotationSource(source)
     val normalizedHash = contentHash.trim().lowercase(Locale.ROOT).takeIf(SHA256_HEX::matches).orEmpty()
     val normalizedContentId = contentId.trim().ifBlank { rotationLocatorDigest(locator) }.take(2_048)
-    val stableId = if (normalizedSource == ContentSource.LOCAL.name && normalizedHash.isNotBlank()) {
+    val stableId = if (
+        normalizedSource == ContentSource.LOCAL.name && normalizedHash.isNotBlank() &&
+        !preferContentIdForLocal
+    ) {
         "$normalizedType::$ROTATION_SOURCE_LOCAL_HASH::$normalizedHash"
     } else {
         "$normalizedType::$normalizedSource::$normalizedContentId"
@@ -183,11 +187,12 @@ fun WallpaperHistoryEntity.rotationIdentity(): RotationIdentity = rotationIdenti
 fun LocalWallpaperEntity.rotationIdentity(): RotationIdentity = rotationIdentity(
     mediaType = ROTATION_MEDIA_WALLPAPER,
     source = ContentSource.LOCAL.name,
-    contentId = documentId.ifBlank { documentUri },
+    contentId = stableLocalMediaId(),
     contentHash = contentHash,
     title = displayName,
     thumbnailUrl = documentUri,
     locator = localRelinkIdentitySeed(),
+    preferContentIdForLocal = true,
 )
 
 /** Path-independent fallback for a provider that temporarily refuses a full hash read. */

@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import com.freevibe.data.local.DownloadDao
 import com.freevibe.data.model.DownloadEntity
 import com.freevibe.service.DownloadManager
+import com.freevibe.service.LocalMediaRelinkManager
 import com.freevibe.service.MediaCopyStore
 import io.mockk.coVerify
 import io.mockk.every
@@ -29,6 +30,7 @@ class DownloadsViewModelTest {
     private lateinit var downloadDao: DownloadDao
     private lateinit var downloadManager: DownloadManager
     private lateinit var mediaCopyStore: MediaCopyStore
+    private lateinit var localMediaRelinkManager: LocalMediaRelinkManager
     private lateinit var viewModel: DownloadsViewModel
 
     private val sampleDownloads = listOf(
@@ -43,13 +45,14 @@ class DownloadsViewModelTest {
         downloadDao = mockk(relaxed = true)
         downloadManager = mockk(relaxed = true)
         mediaCopyStore = mockk(relaxed = true)
+        localMediaRelinkManager = mockk(relaxed = true)
 
         every { downloadDao.getAll() } returns flowOf(sampleDownloads)
         every { downloadDao.getByType("WALLPAPER") } returns flowOf(sampleDownloads.filter { it.type == "WALLPAPER" })
         every { downloadDao.getByType("SOUND") } returns flowOf(sampleDownloads.filter { it.type == "SOUND" })
         every { downloadManager.activeDownloads } returns MutableStateFlow(emptyMap())
 
-        viewModel = DownloadsViewModel(downloadDao, downloadManager, mediaCopyStore)
+        viewModel = DownloadsViewModel(downloadDao, downloadManager, mediaCopyStore, localMediaRelinkManager)
     }
 
     @After

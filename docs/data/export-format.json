@@ -7,6 +7,8 @@
     "MAX_COLLECTION_ITEMS",
     "MAX_SEARCH_HISTORY_ITEMS",
     "MAX_ROTATION_EXCLUSIONS",
+    "MAX_LOCAL_WALLPAPERS",
+    "MAX_WALLPAPER_HISTORY_ITEMS",
     "MAX_FAVORITES_DOCUMENT_CHARS",
     "MAX_COLLECTION_DOCUMENT_BYTES",
     "MAX_LIBRARY_DOCUMENT_CHARS",
@@ -21,7 +23,7 @@
   ],
   "formats": {
     "favorites": {
-      "currentVersion": 1,
+      "currentVersion": 2,
       "sourceFile": "app/src/main/java/com/freevibe/service/FavoritesExporter.kt",
       "rootClass": "FavoritesExportFile",
       "itemClass": "FavoriteExportItem",
@@ -34,7 +36,7 @@
         "MAX_URL_CHARS"
       ],
       "fields": {
-        "version": { "type": "Int", "required": true, "since": 1, "description": "Schema version. Must equal 1 for current parser." },
+        "version": { "type": "Int", "required": true, "since": 1, "description": "Schema version. Versions 1 and 2 are accepted; version 2 is current." },
         "exportedAt": { "type": "Long", "required": true, "since": 1, "description": "Unix epoch millis when the export was created." },
         "items": { "type": "List<FavoriteExportItem>", "required": true, "since": 1, "description": "Exported favorite entries." }
       },
@@ -42,8 +44,8 @@
         "id": { "type": "String", "required": true, "since": 1, "description": "Provider item ID. Sanitized on import." },
         "source": { "type": "String", "required": true, "since": 1, "description": "ContentSource enum name. Validated against known sources on import." },
         "type": { "type": "String", "required": true, "since": 1, "description": "WALLPAPER or SOUND." },
-        "thumbnailUrl": { "type": "String", "required": true, "since": 1, "description": "HTTPS thumbnail URL. Required non-blank for WALLPAPER; may be blank for SOUND." },
-        "fullUrl": { "type": "String", "required": true, "since": 1, "description": "HTTPS full-resolution URL. Required non-blank." },
+        "thumbnailUrl": { "type": "String", "required": true, "since": 1, "description": "HTTPS thumbnail URL. May be blank for SOUND or locator-free local media." },
+        "fullUrl": { "type": "String", "required": true, "since": 1, "description": "HTTPS full-resolution URL. Blank only for locator-free local media." },
         "name": { "type": "String", "default": "", "since": 1, "description": "Display name." },
         "width": { "type": "Int", "default": 0, "since": 1, "description": "Image width in pixels." },
         "height": { "type": "Int", "default": 0, "since": 1, "description": "Image height in pixels." },
@@ -60,14 +62,17 @@
         "favoritesCount": { "type": "Long?", "since": 1, "description": "Provider favorite/like count." },
         "addedAt": { "type": "Long?", "since": 1, "description": "Unix epoch millis when the user favorited this item." },
         "sourceAvailability": { "type": "String?", "since": 1, "description": "AVAILABLE or SOURCE_UNAVAILABLE. Normalized to AVAILABLE on null/blank." },
-        "sourceAvailabilityReason": { "type": "String?", "since": 1, "description": "Human-readable reason when source is unavailable." }
+        "sourceAvailabilityReason": { "type": "String?", "since": 1, "description": "Human-readable reason when source is unavailable." },
+        "localMedia": { "type": "Boolean", "default": false, "since": 2, "description": "True when the media bytes stay on the exporting device and the restored row must offer Relink." },
+        "localMediaSha256": { "type": "String", "default": "", "since": 2, "description": "Optional SHA-256 used to verify a replacement without exposing its original path." }
       },
       "importValidation": [
         "id must be non-blank after trim",
         "source must match a known ContentSource enum value",
         "type must be WALLPAPER or SOUND",
         "thumbnailUrl must be HTTPS (may be blank for SOUND type)",
-        "fullUrl must be non-blank HTTPS",
+        "fullUrl must be non-blank HTTPS unless localMedia is true",
+        "Version 2 localMedia rows use a portable ID, blank locators, and an optional SHA-256 digest",
         "sourcePageUrl, if present, must be HTTPS",
         "sourceAvailability is normalized to AVAILABLE if null or blank",
         "An item count or document size above the shared contract limit refuses the whole import before any database write",
@@ -76,12 +81,13 @@
       "versionPolicy": {
         "bumpRule": "Increment version when adding required fields or changing field semantics. Optional nullable fields may be added without a version bump.",
         "forwardCompat": "Unknown fields are silently ignored by Moshi. Future versions with higher version numbers are rejected with user-visible copy.",
-        "backwardCompat": "Version 1 files remain importable. New optional fields default to null on older exports.",
+        "backwardCompat": "Version 1 files remain importable. Version 2 adds locator-free local media metadata.",
         "unsupportedVersionCopy": "This file was exported by a newer version of Aura. Please update the app to import it."
       },
       "privacyExclusions": [
         "Export does not include provider API keys or user credentials",
         "Export does not include download file paths or device storage locations",
+        "Local favorite locators are replaced with portable IDs and blank URLs",
         "Export does not include community identity UIDs or Firebase auth state",
         "sourcePageUrl may contain third-party provider URLs with query parameters"
       ]
@@ -139,7 +145,7 @@
       ]
     },
     "library": {
-      "currentVersion": 2,
+      "currentVersion": 3,
       "sourceFile": "app/src/main/java/com/freevibe/service/LibraryExporter.kt",
       "rootClass": "LibraryExportFile",
       "mimeType": "application/json",
@@ -150,6 +156,8 @@
         "MAX_COLLECTION_ITEMS",
         "MAX_SEARCH_HISTORY_ITEMS",
         "MAX_ROTATION_EXCLUSIONS",
+        "MAX_LOCAL_WALLPAPERS",
+        "MAX_WALLPAPER_HISTORY_ITEMS",
         "MAX_LIBRARY_DOCUMENT_CHARS",
         "MAX_TEXT_CHARS",
         "MAX_URL_CHARS",
@@ -161,7 +169,10 @@
         "fitCanvasPreferences": "Optional static and video Fill or Fit defaults, canvas mode, and opaque custom color. Media files and generated canvas images are not included."
       },
       "portableDataSections": {
-        "rotationExclusions": "Optional persistent wallpaper and video rotation exclusions. Provider IDs, local content hashes, and one-way locator fingerprints preserve choices without exporting device paths."
+        "rotationExclusions": "Optional persistent wallpaper and video rotation exclusions. Provider IDs, local content hashes, and one-way locator fingerprints preserve choices without exporting device paths.",
+        "favoritesAndCollections": "Local entries use one portable identity across favorites and collection membership. Their original locators are blank after restore until Relink succeeds.",
+        "localWallpapers": "Locator-free identity, dimensions, content hash, tags, and target for local wallpapers. Restored entries remain visible and ask the user to relink a file or folder.",
+        "wallpaperHistory": "Recent wallpaper history. Device-local entries keep portable identity and metadata while their private locators are omitted."
       },
       "resultCounts": {
         "exportedOrImported": "Rows and non-empty preference sections actually written",
@@ -171,9 +182,15 @@
       "privacyExclusions": [
         "Library backups do not include provider API keys or user credentials",
         "Library backups do not include device-local downloaded media bytes",
+        "Local media locators are replaced with portable IDs before export",
         "Library backups do not include raw paths or URLs from rotation exclusions",
         "Legacy device-local download rows are reported but not restored"
-      ]
+      ],
+      "versionPolicy": {
+        "current": "Version 3 adds locator-free local wallpaper metadata and recent wallpaper history.",
+        "backwardCompat": "Versions 1 and 2 remain importable. Version 1 download rows are reported as device-only instead of being silently discarded.",
+        "forwardCompat": "A version newer than 3 is rejected before any database or preference write."
+      }
     }
   }
 }

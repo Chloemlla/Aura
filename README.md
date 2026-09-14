@@ -35,7 +35,7 @@ Aura is built as a local-first tool rather than an ad-and-credit marketplace:
 | **Account** | Browsing, downloading, editing, applying, and backing up content do not require an Aura account; community features use an anonymous app identity. |
 | **Credits and paywalls** | No Aura credit balance, subscription, or in-app paywall. In full builds, optional Stability AI generation uses the user's own provider key and may consume Stability credits. |
 | **AI-generated content** | Generation is off by default in full builds and omitted from FOSS builds. Declared AI uploads are labeled, Aura-generated uploads are labeled automatically, and community feeds provide a Hide AI filter. |
-| **Offline library** | Downloads and offline favorites stay on the device for local use. Portable backups carry favorites, collections, searches, wallpaper packs, sound profiles, and Fit Canvas defaults without exporting device-specific download paths. |
+| **Offline library** | Downloads and offline favorites stay on the device for local use. Missing or moved files keep their library metadata and can be relinked. Portable backups carry the local media identity and technical details without exporting private paths or media bytes. |
 
 - **Sounds that work offline**: 25 Aura Originals ship with the app, then quality-ranked YouTube results add more ringtones, notifications, and alarms when connected.
 - **Reddit-first discovery**: mobile wallpaper and motion communities lead the home feeds, with real cached Atom cursor pagination instead of a fixed recent slice.
@@ -149,6 +149,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Live Wallpaper Instances** | Android 16 descriptions keep selected video, parallax, and weather settings with a legacy fallback on older releases |
 | **Download Progress** | Download notifications use the Android 16 progress style when available and retain the compatibility progress bar elsewhere |
 | **Saved Originals** | Downloads preserve source bytes and provenance. Apply creates a named device-compatible copy only when needed, then reuses it. [Storage behavior](docs/media-copy-lifecycle.md) is documented. |
+| **Local Media Relink** | Missing, moved, corrupt, or permission-revoked media remains visible with a Relink action. Aura checks type and technical details before replacing the locator, while keeping favorites, collections, history, rotation choices, tags, and wallpaper targets. [Relink behavior](docs/local-media-relink.md) is documented. |
 | **Touch-Reactive Effects** | Optional ripple and sparkle bursts on live wallpaper touches |
 | **YouTube Sounds** | YouTube-first ringtone, notification, and alarm discovery with duration-aware searches powered by NewPipe + yt-dlp |
 | **Aura Originals** | 25 small CC0 tones included for offline ringtone, notification, and alarm preview, download, and apply |
@@ -169,7 +170,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Shuffle FAB** | One-tap random wallpaper from current tab |
 | **Per-Contact Ringtones** | Assign custom ringtones with DND priority guidance and a VIP-only silent-default preset |
 | **Dual Wallpapers** | Coordinated home + lock screen wallpaper pairs |
-| **Portable Library Backup** | Staged JSON export/import for favorites, collections, searches, packs, profiles, Fit Canvas defaults, and rotation exclusions. Checked limits prevent silent item loss, and import results separate duplicates from failed rows. |
+| **Portable Library Backup** | Staged JSON export/import for favorites, collections, searches, packs, profiles, Fit Canvas defaults, rotation exclusions, local wallpaper metadata, and recent wallpaper history. Local paths and media bytes stay off the backup. Restored local records remain visible until the user relinks them. |
 | **Theme Packs** | Local zip export/import for wallpaper, video, sound, widget tint, and launcher shortcut recipes |
 | **Community Voting** | Upvote/downvote wallpapers and sounds via Firebase |
 | **OLED Dark Theme** | Deep blacks, zero burn-in, Material 3 |
@@ -240,7 +241,7 @@ ViewModels (Hilt) + Cache Layer
             ContactRingtone, FavoritesExporter, OfflineFavorites
   Audio: Media3 platform transforms + bounded FFmpeg codec fallbacks
   YouTube: NewPipe Extractor (search) + yt-dlp (stream extraction + FFmpeg crop)
-Room DB v19 (Favorites, Downloads, Search History, Wallpaper Cache,
+Room DB v20 (Favorites, Downloads, Search History, Wallpaper Cache,
             Wallpaper History, Collections, Local Wallpapers, Rotation Exclusions)
 DataStore (Settings, Onboarding)
 Firebase RTDB (Community Voting + Uploads + Admin Moderation)

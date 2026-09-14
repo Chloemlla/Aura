@@ -45,6 +45,7 @@ internal fun RotationExclusionSettingsHost(
         viewModel = settingsViewModel,
         onDismiss = onDismissLocalCatalog,
         onAddFolder = onAddLocalFolder,
+        snackbarHostState = snackbarHostState,
         rotationExclusions = exclusions,
         onToggleRotationExclusion = { item ->
             scope.launch {

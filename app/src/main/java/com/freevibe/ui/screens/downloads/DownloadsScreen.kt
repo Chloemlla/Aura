@@ -2,6 +2,8 @@ package com.freevibe.ui.screens.downloads
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,13 +33,16 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.freevibe.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.freevibe.data.model.DownloadEntity
+import com.freevibe.data.model.LocalMediaStatus
 import com.freevibe.data.model.MediaTechnicalMetadata
 import com.freevibe.data.model.RotationExclusionIndex
 import com.freevibe.data.model.isSourceUnavailable
+import com.freevibe.data.model.needsLocalMediaRelink
 import com.freevibe.data.model.optimizedTechnicalMetadata
 import com.freevibe.data.model.originalTechnicalMetadata
 import com.freevibe.data.model.rotationIdentity
 import com.freevibe.service.DownloadProgress
+import com.freevibe.service.LocalMediaRelinkOutcome
 import com.freevibe.ui.components.AuraSnackbarHost
 import com.freevibe.ui.components.AuraStateCard
 import com.freevibe.ui.rotation.RotationExclusionsViewModel
@@ -89,6 +94,32 @@ fun DownloadsScreen(
                 if (file != null && !file.exists()) item.id else null
             }
         }
+    }
+    var pendingRelink by remember { mutableStateOf<DownloadEntity?>(null) }
+    suspend fun finishRelink(download: DownloadEntity, uri: Uri, acceptMismatch: Boolean = false) {
+        when (val outcome = viewModel.relinkDownload(download.id, uri, acceptMismatch)) {
+            is LocalMediaRelinkOutcome.Relinked -> {
+                brokenIds = brokenIds - download.id
+                snackbarHostState.showSnackbar(resources.getString(R.string.media_relink_success))
+            }
+            is LocalMediaRelinkOutcome.Rejected -> snackbarHostState.showSnackbar(outcome.message)
+            is LocalMediaRelinkOutcome.ReviewRequired -> {
+                val result = snackbarHostState.showSnackbar(
+                    message = resources.getString(
+                        R.string.media_relink_mismatch,
+                        outcome.differences.joinToString(", "),
+                    ),
+                    actionLabel = resources.getString(R.string.media_relink_use_anyway),
+                    duration = SnackbarDuration.Long,
+                )
+                if (result == SnackbarResult.ActionPerformed) finishRelink(download, uri, acceptMismatch = true)
+            }
+        }
+    }
+    val relinkLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val download = pendingRelink
+        pendingRelink = null
+        if (uri != null && download != null) scope.launch { finishRelink(download, uri) }
     }
 
     Scaffold(
@@ -142,9 +173,11 @@ fun DownloadsScreen(
                     items(displayList, key = { it.id }, contentType = { "download_card" }) { download ->
                         val rotationIdentity = download.rotationIdentity()
                         val rotationExclusion = rotationExclusionIndex.find(rotationIdentity)
+                        val needsRelink = download.localPath.isBlank() || download.id in brokenIds ||
+                            download.needsLocalMediaRelink()
                         DownloadHistoryCard(
                             download = download,
-                            broken = download.localPath.isBlank() || download.id in brokenIds,
+                            broken = needsRelink,
                             sourceUnavailable = download.isSourceUnavailable(),
                             onOpen = {
                                 try {
@@ -202,6 +235,10 @@ fun DownloadsScreen(
                                         ),
                                     )
                                 }
+                            }) else null,
+                            onRelink = if (needsRelink) ({
+                                pendingRelink = download
+                                relinkLauncher.launch(arrayOf(downloadOpenMimeType(download)))
                             }) else null,
                             rotationExcluded = rotationExclusion != null,
                             onToggleRotationExclusion = if (download.type == "WALLPAPER") ({
@@ -308,6 +345,7 @@ internal fun DownloadHistoryCard(
     onOpen: () -> Unit,
     onDelete: () -> Unit,
     onDeleteOptimized: (() -> Unit)? = null,
+    onRelink: (() -> Unit)? = null,
     rotationExcluded: Boolean = false,
     onToggleRotationExclusion: (() -> Unit)? = null,
 ) {
@@ -338,6 +376,7 @@ internal fun DownloadHistoryCard(
     val openLabel = downloadOpenActionLabel(download, broken)
     val deleteLabel = stringResource(R.string.downloads_delete_file, download.name.ifEmpty { download.id })
     val deleteOptimizedLabel = stringResource(R.string.downloads_delete_optimized)
+    val relinkLabel = stringResource(R.string.media_relink_action)
 
     Surface(
         onClick = onOpen,
@@ -374,7 +413,17 @@ internal fun DownloadHistoryCard(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(dateLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         when {
-                            broken -> Text(stringResource(R.string.downloads_file_missing), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f))
+                            broken -> Text(
+                                stringResource(
+                                    when (download.localMediaStatus) {
+                                        LocalMediaStatus.PERMISSION_REVOKED -> R.string.media_status_permission_revoked
+                                        LocalMediaStatus.CORRUPT -> R.string.media_status_corrupt
+                                        else -> R.string.media_status_missing
+                                    },
+                                ),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                            )
                             sourceUnavailable -> Text(stringResource(R.string.downloads_source_unavailable), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f))
                             else -> Text(
                                 stringResource(downloadTypeLabel(download.type)),
@@ -414,6 +463,19 @@ internal fun DownloadHistoryCard(
                         modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                     )
+                }
+            }
+            if (broken && onRelink != null) {
+                Text(
+                    text = download.localMediaReason?.takeIf(String::isNotBlank)
+                        ?: stringResource(R.string.media_relink_missing_help),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                TextButton(onClick = onRelink) {
+                    Icon(Icons.Default.FindReplace, contentDescription = null)
+                    Text(relinkLabel)
                 }
             }
             HorizontalDivider(
@@ -490,6 +552,9 @@ internal fun downloadHealthLabel(
     broken: Boolean,
     sourceUnavailable: Boolean,
 ): String = when {
+    download.localMediaStatus == LocalMediaStatus.PERMISSION_REVOKED -> "Permission revoked"
+    download.localMediaStatus == LocalMediaStatus.CORRUPT -> "File corrupt"
+    download.localMediaStatus == LocalMediaStatus.MISSING -> "File missing"
     broken -> "File missing"
     sourceUnavailable -> "Source unavailable"
     download.type == "WALLPAPER" -> "Wallpaper"

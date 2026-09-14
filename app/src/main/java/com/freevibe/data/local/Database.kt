@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.Flow
  * Read by [DatabaseDowngradeGuard] to recognise a database written by a newer
  * Aura before Room tries to open it and throws.
  */
-const val FREEVIBE_DATABASE_VERSION = 19
+const val FREEVIBE_DATABASE_VERSION = 20
 
 @Database(
     entities = [
@@ -42,7 +42,7 @@ const val FREEVIBE_DATABASE_VERSION = 19
         LocalWallpaperEntity::class,
         RotationExclusionEntity::class,
     ],
-    version = 19,
+    version = 20,
     exportSchema = true,
 )
 abstract class FreeVibeDatabase : RoomDatabase() {
@@ -117,6 +117,44 @@ interface FavoriteDao {
     @Query("UPDATE favorites SET offlinePath = :path WHERE id = :id AND source = :source AND type = :type")
     suspend fun updateOfflinePath(id: String, source: String, type: String, path: String)
 
+    @Query(
+        "UPDATE favorites SET localMediaStatus = :status, localMediaReason = :reason " +
+            "WHERE id = :id AND source = :source AND type = :type",
+    )
+    suspend fun updateLocalMediaStatus(
+        id: String,
+        source: String,
+        type: String,
+        status: String,
+        reason: String?,
+    )
+
+    @Query(
+        "UPDATE favorites SET " +
+            "offlinePath = :newLocator, " +
+            "fullUrl = CASE WHEN fullUrl = :oldLocator OR fullUrl = '' THEN :newLocator ELSE fullUrl END, " +
+            "thumbnailUrl = CASE WHEN thumbnailUrl = :oldLocator OR thumbnailUrl = '' THEN :newLocator ELSE thumbnailUrl END, " +
+            "localMediaStatus = 'AVAILABLE', localMediaReason = NULL, localMediaSha256 = :sha256, " +
+            "fileSize = :sizeBytes, fileType = :mimeType, " +
+            "width = CASE WHEN :width > 0 THEN :width ELSE width END, " +
+            "height = CASE WHEN :height > 0 THEN :height ELSE height END, " +
+            "duration = CASE WHEN :durationSeconds > 0 THEN :durationSeconds ELSE duration END " +
+            "WHERE id = :id AND source = :source AND type = :type",
+    )
+    suspend fun relinkLocalMedia(
+        id: String,
+        source: String,
+        type: String,
+        oldLocator: String,
+        newLocator: String,
+        sha256: String,
+        mimeType: String,
+        sizeBytes: Long,
+        width: Int,
+        height: Int,
+        durationSeconds: Double,
+    )
+
     @Query("UPDATE favorites SET sourceAvailability = :availability, sourceAvailabilityReason = :reason WHERE id = :id AND source = :source AND type = :type")
     suspend fun updateSourceAvailability(
         id: String,
@@ -171,6 +209,17 @@ interface DownloadDao {
 
     @Query("UPDATE downloads SET localPath = :path WHERE id = :id")
     suspend fun updateLocalPath(id: String, path: String)
+
+    @Query(
+        "UPDATE downloads SET localMediaStatus = :status, localMediaReason = :reason WHERE id = :id",
+    )
+    suspend fun updateLocalMediaStatus(id: String, status: String, reason: String?)
+
+    @Query(
+        "UPDATE downloads SET localPath = :newLocator, localMediaStatus = 'AVAILABLE', " +
+            "localMediaReason = NULL WHERE localPath = :oldLocator",
+    )
+    suspend fun relinkLocatorReferences(oldLocator: String, newLocator: String)
 
     /** Reference count for a managed local asset. See `GeneratedAssetReferenceIndex`. */
     @Query("SELECT COUNT(*) FROM downloads WHERE localPath IN (:locators)")
@@ -277,6 +326,19 @@ interface WallpaperHistoryDao {
     /** Wallpaper ids recorded in history, used to resolve day/night slot ids. */
     @Query("SELECT COUNT(*) FROM wallpaper_history WHERE wallpaperId = :wallpaperId")
     suspend fun countByWallpaperId(wallpaperId: String): Int
+
+    @Query(
+        "UPDATE wallpaper_history SET " +
+            "fullUrl = CASE WHEN fullUrl = :oldLocator OR fullUrl = '' THEN :newLocator ELSE fullUrl END, " +
+            "thumbnailUrl = CASE WHEN thumbnailUrl = :oldLocator OR thumbnailUrl = '' THEN :newLocator ELSE thumbnailUrl END " +
+            "WHERE wallpaperId = :wallpaperId AND source = :source",
+    )
+    suspend fun relinkWallpaper(
+        wallpaperId: String,
+        source: String,
+        oldLocator: String,
+        newLocator: String,
+    )
 }
 
 // -- Wallpaper Collections DAO --
@@ -335,4 +397,17 @@ interface CollectionDao {
             "OR thumbnailUrl IN (:locators)"
     )
     suspend fun countReferencingLocators(locators: List<String>): Int
+
+    @Query(
+        "UPDATE wallpaper_collection_items SET " +
+            "fullUrl = CASE WHEN fullUrl = :oldLocator OR fullUrl = '' THEN :newLocator ELSE fullUrl END, " +
+            "thumbnailUrl = CASE WHEN thumbnailUrl = :oldLocator OR thumbnailUrl = '' THEN :newLocator ELSE thumbnailUrl END " +
+            "WHERE wallpaperId = :wallpaperId AND source = :source",
+    )
+    suspend fun relinkWallpaper(
+        wallpaperId: String,
+        source: String,
+        oldLocator: String,
+        newLocator: String,
+    )
 }

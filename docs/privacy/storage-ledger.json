@@ -116,10 +116,10 @@
       "id": "room_database",
       "path": "databases/freevibe.db",
       "type": "SQLite database",
-      "budget": "Bounded rotation exclusions plus user-sized favorites, downloads, collections, and history",
+      "budget": "Bounded rotation exclusions plus user-sized favorites, downloads, collections, history, and local media identity metadata",
       "retention": "Persistent; user data",
       "backupExcluded": true,
-      "userCleanup": "Clear individual favorites/downloads/history and restore one or all rotation exclusions from the app",
+      "userCleanup": "Clear individual favorites/downloads/history, relink unavailable local media, and restore one or all rotation exclusions from the app",
       "uninstallBehavior": "Removed with app",
       "sourceFile": "Database.kt"
     },
@@ -186,6 +186,7 @@
     {"path": "cacheDir/audio_apply", "purpose": "Ringtone apply staging", "sourceFile": "SoundApplier.kt"},
     {"path": "cacheDir/share_out", "purpose": "FileProvider share outbox", "sourceFile": "ShareOutbox.kt"},
     {"path": "cacheDir/upload_probe", "purpose": "Upload validation staging", "sourceFile": "UploadRepository.kt"},
+    {"path": "cacheDir/media_relink", "purpose": "Bounded candidate staging for local media type, digest, and metadata checks", "sourceFile": "LocalMediaRelinkManager.kt"},
     {"path": "cacheDir/crop_input.mp4", "purpose": "Video crop input (256 MB cap)", "sourceFile": "VideoCropScreen.kt"},
     {"path": "cacheDir/crop_output.mp4", "purpose": "Video crop FFmpeg output", "sourceFile": "VideoCropScreen.kt"}
   ],

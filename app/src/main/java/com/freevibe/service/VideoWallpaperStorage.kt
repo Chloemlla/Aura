@@ -545,8 +545,8 @@ class VideoWallpaperStorage @Inject constructor(
             if (index >= 0 && cursor.moveToFirst() && !cursor.isNull(index)) cursor.getString(index) else ""
         }.orEmpty()
 
-    private companion object {
-        const val MEDIA_ORIGINAL_DIRECTORY = "media_originals"
+    companion object {
+        internal const val MEDIA_ORIGINAL_DIRECTORY = "media_originals"
     }
 
     private data class CommittedOriginalVideo(

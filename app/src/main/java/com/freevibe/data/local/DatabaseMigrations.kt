@@ -310,6 +310,25 @@ object DatabaseMigrations {
         }
     }
 
+    // v19->20: Preserve broken local locators and make them safely relinkable.
+    val MIGRATION_19_20 = object : Migration(19, 20) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `favorites` ADD COLUMN `localMediaStatus` TEXT NOT NULL DEFAULT 'AVAILABLE'")
+            db.execSQL("ALTER TABLE `favorites` ADD COLUMN `localMediaReason` TEXT DEFAULT NULL")
+            db.execSQL("ALTER TABLE `favorites` ADD COLUMN `localMediaSha256` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `localMediaStatus` TEXT NOT NULL DEFAULT 'AVAILABLE'")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `localMediaReason` TEXT DEFAULT NULL")
+            db.execSQL("ALTER TABLE `local_wallpapers` ADD COLUMN `stableId` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("UPDATE `local_wallpapers` SET `stableId` = `documentUri` WHERE `stableId` = ''")
+            db.execSQL("ALTER TABLE `local_wallpapers` ADD COLUMN `width` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `local_wallpapers` ADD COLUMN `height` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `local_wallpapers` ADD COLUMN `localMediaStatus` TEXT NOT NULL DEFAULT 'AVAILABLE'")
+            db.execSQL("ALTER TABLE `local_wallpapers` ADD COLUMN `localMediaReason` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `local_wallpapers` ADD COLUMN `isStandalone` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_local_wallpapers_stableId` ON `local_wallpapers` (`stableId`)")
+        }
+    }
+
     val ALL_MIGRATIONS = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
@@ -329,5 +348,6 @@ object DatabaseMigrations {
         MIGRATION_16_17,
         MIGRATION_17_18,
         MIGRATION_18_19,
+        MIGRATION_19_20,
     )
 }

@@ -14,6 +14,13 @@ Optimized output is written to a pending file, checked for size and media metada
 
 Original motion files and optimized copies are device-local media. Android cloud backup and device transfer exclude their directories, just as portable library export excludes device-specific file paths. User-visible MediaStore originals remain under Android's normal media ownership rules.
 
+If a saved file moves or its permission is lost, Aura keeps the library row and
+offers Relink. Wallpaper and sound replacements keep a persisted Android
+document grant. Relinked videos are copied byte-for-byte into
+`files/media_originals/` and verified again before the new locator is committed.
+An incompatible or likely different file changes nothing until the user accepts
+the warning. See [`docs/local-media-relink.md`](local-media-relink.md).
+
 ## HDR behavior
 
 An unchanged Ultra HDR wallpaper is streamed from its encoded original, which avoids flattening its gainmap. Android 14 and newer are probed for a gainmap when metadata is recorded. A transform that cannot yet carry that gainmap writes a separate copy labeled `SDR working copy`; the HDR original is never overwritten. The gainmap preservation roadmap item can replace that derivative path without changing original ownership or history identity.

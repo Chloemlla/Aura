@@ -61,6 +61,92 @@ class DatabaseMigrationTest {
     }
 
     @Test
+    fun migrate19To20_preservesLocalLocatorsAndAddsRelinkState() {
+        createEmptyExportedSchemaDatabase(19)
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        SQLiteDatabase.openDatabase(context.getDatabasePath(TEST_DB).path, null, SQLiteDatabase.OPEN_READWRITE).use { db ->
+            db.execSQL(
+                """
+                INSERT INTO favorites (
+                    id, source, type, thumbnailUrl, fullUrl, name, width, height, duration,
+                    addedAt, offlinePath, tags, colors, category, uploaderName, sourcePageUrl,
+                    license, fileSize, fileType, views, favoritesCount, sourceAvailability,
+                    sourceAvailabilityReason
+                ) VALUES (
+                    'local-1', 'LOCAL', 'WALLPAPER', 'content://old/photo', 'content://old/photo',
+                    'Saved local photo', 1080, 1920, 0.0, 1700000010, 'content://old/photo',
+                    'saved', NULL, NULL, NULL, NULL, NULL, 1234, 'image/png', NULL, NULL,
+                    'AVAILABLE', NULL
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
+                INSERT INTO downloads (
+                    id, source, type, localPath, name, downloadedAt, sourceAvailability,
+                    sourceAvailabilityReason, provenanceUrl, originalSha256, originalMimeType,
+                    originalCodec, originalWidth, originalHeight, originalDurationMs,
+                    originalSizeBytes, originalHdr, optimizedPath, optimizedSha256,
+                    optimizedMimeType, optimizedCodec, optimizedWidth, optimizedHeight,
+                    optimizedDurationMs, optimizedSizeBytes, optimizedHdr, optimizationKey,
+                    optimizationReason, optimizedAt
+                ) VALUES (
+                    'download-local-1', 'LOCAL', 'WALLPAPER', 'content://old/photo',
+                    'Downloaded local photo', 1700000011, 'AVAILABLE', NULL, '',
+                    'abc', 'image/png', 'PNG', 1080, 1920, 0, 1234, 0,
+                    '', '', '', '', 0, 0, 0, 0, 0, '', '', 0
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
+                INSERT INTO local_wallpapers (
+                    documentUri, folderUri, documentId, displayName, mimeType, sizeBytes,
+                    modifiedAt, contentHash, tags, lastSeenScanToken, addedAt
+                ) VALUES (
+                    'content://old/photo', 'content://old', 'photo', 'photo.png', 'image/png',
+                    1234, 1700000012, 'abc', 'saved', 'scan-1', 1700000013
+                )
+                """.trimIndent(),
+            )
+        }
+
+        helper.runMigrationsAndValidate(
+            TEST_DB,
+            20,
+            true,
+            DatabaseMigrations.MIGRATION_19_20,
+        ).use { db ->
+            db.query(
+                "SELECT offlinePath, localMediaStatus, localMediaReason, localMediaSha256 FROM favorites WHERE id = 'local-1'",
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("content://old/photo", cursor.getString(0))
+                assertEquals("AVAILABLE", cursor.getString(1))
+                assertTrue(cursor.isNull(2))
+                assertEquals("", cursor.getString(3))
+            }
+            db.query(
+                "SELECT localPath, localMediaStatus, localMediaReason FROM downloads WHERE id = 'download-local-1'",
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("content://old/photo", cursor.getString(0))
+                assertEquals("AVAILABLE", cursor.getString(1))
+                assertTrue(cursor.isNull(2))
+            }
+            db.query(
+                "SELECT documentUri, stableId, localMediaStatus, isStandalone FROM local_wallpapers",
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("content://old/photo", cursor.getString(0))
+                assertEquals("content://old/photo", cursor.getString(1))
+                assertEquals("AVAILABLE", cursor.getString(2))
+                assertEquals(0, cursor.getInt(3))
+            }
+        }
+    }
+
+    @Test
     fun migrate14ToCurrent_preservesRepresentativeRowsAndBackfillsDefaults() {
         createVersion14DatabaseWithRepresentativeRows()
 
@@ -237,7 +323,7 @@ class DatabaseMigrationTest {
     companion object {
         private const val TEST_DB = "room-migration-test.db"
         private const val EXPORTED_SCHEMA_START_VERSION = 9
-        private const val CURRENT_SCHEMA_VERSION = 19
+        private const val CURRENT_SCHEMA_VERSION = 20
 
         private fun migrationsFrom(startVersion: Int): Array<Migration> =
             DatabaseMigrations.ALL_MIGRATIONS

@@ -3,8 +3,10 @@ package com.freevibe.service
 import android.content.Context
 import android.net.Uri
 import com.freevibe.data.local.FavoriteDao
+import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.FavoriteEntity
 import com.freevibe.data.model.FavoriteIdentity
+import com.freevibe.data.model.LocalMediaStatus
 import com.freevibe.data.model.favoriteIdentity
 import com.freevibe.data.model.normalizeSourceAvailability
 import com.freevibe.util.rethrowIfCancelled
@@ -20,7 +22,8 @@ import java.io.InputStreamReader
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val CURRENT_EXPORT_VERSION = 1
+private const val CURRENT_EXPORT_VERSION = 2
+private val FAVORITE_LOCAL_MEDIA_HASH = Regex("^[0-9a-f]{64}$")
 
 @Singleton
 class FavoritesExporter @Inject constructor(
@@ -199,17 +202,44 @@ data class FavoriteExportItem(
     val addedAt: Long? = null,
     val sourceAvailability: String? = null,
     val sourceAvailabilityReason: String? = null,
+    val localMedia: Boolean = false,
+    val localMediaSha256: String = "",
 )
 
-private fun FavoriteEntity.toExportItem() = FavoriteExportItem(
-    id = id, source = source, type = type, thumbnailUrl = thumbnailUrl,
-    fullUrl = fullUrl, name = name, width = width, height = height, duration = duration,
-    tags = tags, colors = colors, category = category, uploaderName = uploaderName,
-    sourcePageUrl = sourcePageUrl, license = license, fileSize = fileSize, fileType = fileType,
-    views = views, favoritesCount = favoritesCount, addedAt = addedAt,
-    sourceAvailability = sourceAvailability,
-    sourceAvailabilityReason = sourceAvailabilityReason,
-)
+private fun FavoriteEntity.toExportItem(): FavoriteExportItem {
+    val localMedia = source.equals(ContentSource.LOCAL.name, true) ||
+        localMediaStatus != LocalMediaStatus.AVAILABLE ||
+        isNonPortableLocator(fullUrl.takeIf(String::isNotBlank) ?: offlinePath)
+    val portableHash = localMediaSha256.trim().lowercase(java.util.Locale.ROOT)
+        .takeIf(FAVORITE_LOCAL_MEDIA_HASH::matches)
+        .orEmpty()
+    return FavoriteExportItem(
+        id = if (localMedia) portableLocalMediaId(source, id) else id,
+        source = source,
+        type = type,
+        thumbnailUrl = thumbnailUrl.takeUnless { localMedia }.orEmpty(),
+        fullUrl = fullUrl.takeUnless { localMedia }.orEmpty(),
+        name = name,
+        width = width,
+        height = height,
+        duration = duration,
+        tags = tags,
+        colors = colors,
+        category = category,
+        uploaderName = uploaderName,
+        sourcePageUrl = sourcePageUrl?.takeIf { !isNonPortableLocator(it) },
+        license = license,
+        fileSize = fileSize,
+        fileType = fileType,
+        views = views,
+        favoritesCount = favoritesCount,
+        addedAt = addedAt,
+        sourceAvailability = sourceAvailability,
+        sourceAvailabilityReason = sourceAvailabilityReason,
+        localMedia = localMedia,
+        localMediaSha256 = portableHash,
+    )
+}
 
 internal fun isAllowedImportedFavoriteUrl(
     url: String,
@@ -222,15 +252,16 @@ internal fun FavoriteExportItem.toValidatedEntity(): FavoriteEntity? {
     val normalizedType = type.trim().uppercase(java.util.Locale.ROOT)
 
     if (normalizedId.isBlank()) return null
+    if (localMedia && !isSafePortableLocalMediaId(normalizedId)) return null
     if (normalizedSource == null) return null
     if (normalizedType !in setOf("WALLPAPER", "SOUND")) return null
 
     val normalizedName = normalizeImportedText(name)
     val normalizedThumbnailUrl = normalizeImportedHttpsUrl(
         thumbnailUrl,
-        allowBlank = normalizedType == "SOUND",
+        allowBlank = localMedia || normalizedType == "SOUND",
     ) ?: return null
-    val normalizedFullUrl = normalizeImportedHttpsUrl(fullUrl) ?: return null
+    val normalizedFullUrl = normalizeImportedHttpsUrl(fullUrl, allowBlank = localMedia) ?: return null
     val normalizedSourcePageUrl =
         normalizeImportedHttpsUrl(sourcePageUrl, allowBlank = true)?.takeIf { it.isNotBlank() }
     val normalizedLicense = normalizeImportedOptionalText(license)
@@ -238,18 +269,20 @@ internal fun FavoriteExportItem.toValidatedEntity(): FavoriteEntity? {
     val normalizedSourceAvailabilityReason =
         normalizeImportedOptionalText(sourceAvailabilityReason)
 
-    if (normalizedType == "WALLPAPER" && (normalizedThumbnailUrl.isBlank() || normalizedFullUrl.isBlank())) {
+    if (!localMedia && normalizedType == "WALLPAPER" && (normalizedThumbnailUrl.isBlank() || normalizedFullUrl.isBlank())) {
         return null
     }
-    if (normalizedType == "SOUND" && normalizedFullUrl.isBlank()) {
+    if (!localMedia && normalizedType == "SOUND" && normalizedFullUrl.isBlank()) {
         return null
     }
+    val normalizedHash = localMediaSha256.trim().lowercase(java.util.Locale.ROOT)
+    if (normalizedHash.isNotBlank() && !FAVORITE_LOCAL_MEDIA_HASH.matches(normalizedHash)) return null
     return FavoriteEntity(
         id = normalizedId,
         source = normalizedSource,
         type = normalizedType,
-        thumbnailUrl = normalizedThumbnailUrl,
-        fullUrl = normalizedFullUrl,
+        thumbnailUrl = normalizedThumbnailUrl.takeUnless { localMedia }.orEmpty(),
+        fullUrl = normalizedFullUrl.takeUnless { localMedia }.orEmpty(),
         name = normalizedName,
         width = width.coerceAtLeast(0),
         height = height.coerceAtLeast(0),
@@ -267,5 +300,8 @@ internal fun FavoriteExportItem.toValidatedEntity(): FavoriteEntity? {
         addedAt = (addedAt ?: System.currentTimeMillis()).coerceAtLeast(0L),
         sourceAvailability = normalizedSourceAvailability,
         sourceAvailabilityReason = normalizedSourceAvailabilityReason,
+        localMediaStatus = if (localMedia) LocalMediaStatus.MISSING else LocalMediaStatus.AVAILABLE,
+        localMediaReason = if (localMedia) "Choose the original file or a replacement" else null,
+        localMediaSha256 = normalizedHash,
     )
 }

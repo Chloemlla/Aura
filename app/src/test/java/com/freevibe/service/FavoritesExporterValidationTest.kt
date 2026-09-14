@@ -3,6 +3,7 @@ package com.freevibe.service
 import com.freevibe.data.model.SOURCE_AVAILABILITY_AVAILABLE
 import com.freevibe.data.model.SOURCE_AVAILABILITY_UNAVAILABLE
 import com.freevibe.data.model.isSourceUnavailable
+import com.freevibe.data.model.LocalMediaStatus
 import com.squareup.moshi.Moshi
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -38,6 +39,39 @@ class FavoritesExporterValidationTest {
         ).toValidatedEntity()
 
         assertFalse(entity != null)
+    }
+
+    @Test
+    fun `locator free local favorite restores as relinkable metadata`() {
+        val hash = "ab".repeat(32)
+        val entity = FavoriteExportItem(
+            id = "local-$hash",
+            source = "LOCAL",
+            type = "WALLPAPER",
+            thumbnailUrl = "",
+            fullUrl = "",
+            name = "Family photo",
+            width = 1080,
+            height = 1920,
+            localMedia = true,
+            localMediaSha256 = hash,
+        ).toValidatedEntity()
+
+        assertNotNull(entity)
+        assertEquals(LocalMediaStatus.MISSING, entity?.localMediaStatus)
+        assertEquals("", entity?.fullUrl)
+        assertEquals(hash, entity?.localMediaSha256)
+    }
+
+    @Test
+    fun `portable local identity never contains the device locator`() {
+        val locator = "content://private.provider/tree/photo.png"
+
+        val id = portableLocalMediaId("LOCAL", locator)
+
+        assertTrue(isSafePortableLocalMediaId(id))
+        assertFalse(id.contains(locator))
+        assertFalse(id.contains("private.provider"))
     }
 
     @Test

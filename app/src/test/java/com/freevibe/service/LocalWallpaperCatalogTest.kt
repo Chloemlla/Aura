@@ -7,8 +7,10 @@ import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.LocalWallpaperEntity
 import com.freevibe.data.model.LocalWallpaperFolderEntity
 import com.freevibe.data.model.LocalWallpaperFolderScanStatus
+import com.freevibe.data.model.LocalMediaStatus
 import com.freevibe.data.model.WallpaperTarget
 import com.freevibe.data.model.normalizeLocalWallpaperTags
+import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import java.io.InputStream
 import org.junit.After
@@ -35,7 +37,7 @@ class LocalWallpaperCatalogTest {
         database = Room.inMemoryDatabaseBuilder(context, FreeVibeDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        catalog = LocalWallpaperCatalog(context, database)
+        catalog = LocalWallpaperCatalog(context, database, mockk(relaxed = true))
     }
 
     @After
@@ -109,6 +111,77 @@ class LocalWallpaperCatalogTest {
 
         assertEquals(64, beyondBoundary.length)
         assertNotEquals(atBoundary, beyondBoundary)
+    }
+
+    @Test
+    fun `folder repair matches exact hashes once and ignores corrupt candidates`() {
+        val oldOne = item("content://old/one", "content://old", "one.png", "same")
+        val oldTwo = item("content://old/two", "content://old", "two.png", "same")
+        val corrupt = item("content://new/corrupt", "content://new", "one.png", "same")
+            .copy(localMediaStatus = LocalMediaStatus.CORRUPT)
+        val available = item("content://new/good", "content://new", "one.png", "same")
+
+        val matches = matchLocalWallpaperFolderRepairCandidates(
+            oldItems = listOf(oldOne, oldTwo),
+            candidates = listOf(
+                item("content://new/no-hash", "content://new", "one.png", ""),
+                item("content://new/wrong", "content://new", "one.png", "different"),
+                corrupt,
+                available,
+            ),
+            maxItems = 500,
+        )
+
+        assertEquals(1, matches.size)
+        assertEquals(oldOne.documentUri, matches.single().first.documentUri)
+        assertEquals(available.documentUri, matches.single().second.documentUri)
+    }
+
+    @Test
+    fun `folder repair batch is bounded`() {
+        val oldItems = (0..500).map { index ->
+            item("content://old/$index", "content://old", "$index.png", "hash-$index")
+        }
+        val candidates = (0..500).map { index ->
+            item("content://new/$index", "content://new", "$index.png", "hash-$index")
+        }
+
+        val matches = matchLocalWallpaperFolderRepairCandidates(oldItems, candidates, maxItems = 500)
+
+        assertEquals(500, matches.size)
+        assertFalse(matches.any { it.first.documentUri == "content://old/500" })
+    }
+
+    @Test
+    fun `revoked folder status does not invalidate an individually relinked file`() = runTest {
+        val relinked = item("content://new/photo", "content://old", "photo.png", "same")
+            .copy(isStandalone = true)
+        database.localWallpaperDao().upsertAll(listOf(relinked))
+
+        database.localWallpaperDao().updateFolderMediaStatus(
+            relinked.folderUri,
+            LocalMediaStatus.PERMISSION_REVOKED,
+            "Folder permission was revoked",
+        )
+
+        assertEquals(LocalMediaStatus.AVAILABLE, database.localWallpaperDao().get(relinked.documentUri)!!.localMediaStatus)
+    }
+
+    @Test
+    fun `folder repair does not take over a locator owned by another catalog identity`() {
+        val old = item("content://old/photo", "content://old", "photo.png", "same")
+            .copy(stableId = "old-stable-id")
+        val candidate = item("content://new/photo", "content://new", "photo.png", "same")
+        val occupied = candidate.copy(stableId = "different-stable-id")
+
+        val matches = matchLocalWallpaperFolderRepairCandidates(
+            oldItems = listOf(old),
+            candidates = listOf(candidate),
+            maxItems = 500,
+            occupiedCandidates = mapOf(candidate.documentUri to occupied),
+        )
+
+        assertTrue(matches.isEmpty())
     }
 
     private fun folder(uri: String, target: WallpaperTarget) = LocalWallpaperFolderEntity(

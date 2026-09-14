@@ -4,6 +4,18 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Missing local media can be repaired**: downloads, favorites, and local
+  wallpaper catalog entries now stay visible when a file moves, disappears,
+  becomes unreadable, or loses Android permission. Relink checks the selected
+  media type and compares its digest, size, dimensions, and duration before it
+  changes anything. A warned replacement requires an explicit Use anyway
+  action. Successful repair keeps tags, collections, wallpaper history,
+  rotation exclusions, theme slots, and home or lock targets. Folder repair
+  matches up to 500 wallpapers by exact SHA-256 without taking over an existing
+  catalog identity. Portable library format 3 and favorites format 2 now carry
+  locator-free local metadata so restored items can be repaired on a new
+  device.
+
 - **Saved media keeps its source quality**: wallpaper and sound downloads now
   verify that MediaStore received the exact source bytes, while video wallpaper
   feeds and local imports retain named originals with provenance. Apply creates

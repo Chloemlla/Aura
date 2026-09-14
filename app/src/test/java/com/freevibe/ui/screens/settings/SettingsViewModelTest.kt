@@ -506,6 +506,7 @@ class SettingsViewModelTest {
             collectionRepo = collectionRepo,
             wallpaperApplier = wallpaperApplier,
             localWallpaperCatalog = localWallpaperCatalog,
+            localMediaRelinkManager = mockk(relaxed = true),
             videoWallpaperStorage = videoWallpaperStorage,
             sourceMetrics = com.freevibe.service.SourceMetrics(),
             crashDiagnosticsCollector = CrashDiagnosticsCollector(

@@ -697,6 +697,17 @@
     <string name="downloads_optimized_deleted">优化副本已删除。原始文件仍保留。</string>
     <string name="downloads_optimized_delete_failed">无法删除优化副本。原始文件未更改。</string>
     <string name="downloads_file_missing">文件缺失</string>
+    <string name="media_relink_action">重新链接</string>
+    <string name="media_relink_success">文件已重新链接。已保留保存的信息和选择。</string>
+    <string name="media_relink_mismatch">此文件的%1$s与原文件不同。</string>
+    <string name="media_relink_missing_help">重新选择文件，即可保留此项目的收藏、合集、编辑和轮换设置。</string>
+    <string name="media_relink_use_anyway">仍然使用</string>
+    <string name="media_status_available">可用</string>
+    <string name="media_status_missing">文件缺失</string>
+    <string name="media_status_permission_revoked">权限已撤销</string>
+    <string name="media_status_corrupt">文件损坏</string>
+    <string name="settings_local_catalog_repair_summary">已重新链接 %1$d 个项目。仍有 %2$d 个项目需要处理。</string>
+    <string name="settings_local_catalog_repair_failed">无法修复此文件夹。</string>
     <string name="downloads_source_unavailable">来源不可用</string>
 
     <!-- Contact picker -->

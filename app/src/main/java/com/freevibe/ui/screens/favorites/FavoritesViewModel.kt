@@ -15,6 +15,9 @@ import com.freevibe.data.repository.AiWallpaperRepository
 import com.freevibe.data.repository.FavoritesRepository
 import com.freevibe.service.BatchDownloadService
 import com.freevibe.service.FavoritesExporter
+import com.freevibe.service.LocalMediaRelinkManager
+import com.freevibe.service.LocalMediaRelinkOutcome
+import com.freevibe.service.LocalMediaRelinkTarget
 import com.freevibe.service.SelectedContentHolder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -30,6 +33,7 @@ class FavoritesViewModel @Inject constructor(
     private val selectedContent: SelectedContentHolder,
     private val batchDownloadService: BatchDownloadService,
     private val aiWallpaperRepository: AiWallpaperRepository,
+    private val localMediaRelinkManager: LocalMediaRelinkManager,
 ) : ViewModel() {
     val wallpapers = favoritesRepo.getWallpapers().stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
@@ -60,6 +64,16 @@ class FavoritesViewModel @Inject constructor(
     fun clearSourceUnavailable(entity: FavoriteEntity) = viewModelScope.launch {
         favoritesRepo.clearSourceUnavailable(entity.favoriteIdentity())
     }
+
+    suspend fun relinkFavorite(
+        entity: FavoriteEntity,
+        uri: Uri,
+        acceptMismatch: Boolean = false,
+    ): LocalMediaRelinkOutcome = localMediaRelinkManager.relink(
+        LocalMediaRelinkTarget.Favorite(entity.id, entity.source, entity.type),
+        uri,
+        acceptMismatch,
+    )
 
     /** Convert FavoriteEntity to domain Wallpaper and populate shared holder with the visible list */
     fun selectWallpaper(fav: FavoriteEntity, visibleWallpapers: List<FavoriteEntity>) {

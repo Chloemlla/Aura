@@ -53,6 +53,7 @@ import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.DownloadEntity
 import com.freevibe.data.model.FitCanvasMode
 import com.freevibe.data.model.FitCanvasStyle
+import com.freevibe.data.model.LocalMediaStatus
 import com.freevibe.data.model.ROTATION_MEDIA_VIDEO
 import com.freevibe.data.model.ROTATION_MEDIA_WALLPAPER
 import com.freevibe.data.model.RotationExclusionEntity
@@ -101,6 +102,7 @@ enum class ProductionRouteScenario(
     FitCanvasPreview("fit_canvas_preview", R.string.fit_canvas_controls_title),
     RotationExclusionsManager("rotation_exclusions_manager", R.string.settings_rotation_exclusions_title),
     DownloadsMediaCopies("downloads_media_copies", R.string.downloads_optimized_copy),
+    DownloadsMissingMedia("downloads_missing_media", R.string.media_relink_action),
 }
 
 @Composable
@@ -123,6 +125,7 @@ fun ProductionRouteState(
             ProductionRouteScenario.FitCanvasPreview -> FitCanvasPreviewState()
             ProductionRouteScenario.RotationExclusionsManager -> RotationExclusionsManagerState()
             ProductionRouteScenario.DownloadsMediaCopies -> DownloadsMediaCopiesState()
+            ProductionRouteScenario.DownloadsMissingMedia -> DownloadsMissingMediaState()
         }
     }
 }
@@ -525,6 +528,41 @@ private fun DownloadsMediaCopiesState() {
             title = stringResource(R.string.downloads_original),
             message = stringResource(R.string.downloads_optimized_deleted),
             tone = MaterialTheme.colorScheme.secondary,
+        )
+    }
+}
+
+@Composable
+private fun DownloadsMissingMediaState() {
+    RouteColumn {
+        Text(stringResource(R.string.downloads_title), style = MaterialTheme.typography.headlineSmall)
+        AuraStatusBanner(
+            icon = Icons.Default.Warning,
+            title = stringResource(R.string.media_status_missing),
+            message = stringResource(R.string.media_relink_missing_help),
+            tone = MaterialTheme.colorScheme.error,
+        )
+        DownloadHistoryCard(
+            download = DownloadEntity(
+                id = "sound:youtube:morning-birds",
+                source = "YOUTUBE",
+                type = "SOUND",
+                localPath = "content://media/external/audio/missing",
+                name = "Morning birds in the forest",
+                downloadedAt = 1_788_897_600_000,
+                localMediaStatus = LocalMediaStatus.MISSING,
+                localMediaReason = "Local file is missing",
+                provenanceUrl = "https://www.youtube.com/watch?v=example",
+                originalSha256 = "saved-original-sha256",
+                originalMimeType = "audio/mp4",
+                originalCodec = "AAC",
+                originalDurationMs = 28_000,
+                originalSizeBytes = 2L * 1_024L * 1_024L,
+            ),
+            broken = true,
+            onOpen = {},
+            onDelete = {},
+            onRelink = {},
         )
     }
 }

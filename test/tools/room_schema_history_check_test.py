@@ -16,8 +16,8 @@ class RoomSchemaHistoryCheckTest(unittest.TestCase):
         result = validate_room_schema_history(REPO_ROOT)
 
         self.assertEqual("ok", result["status"])
-        self.assertEqual(19, result["databaseVersion"])
-        self.assertEqual(list(range(9, 20)), result["schemaVersions"])
+        self.assertEqual(20, result["databaseVersion"])
+        self.assertEqual(list(range(9, 21)), result["schemaVersions"])
 
     def test_rejects_missing_latest_schema(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

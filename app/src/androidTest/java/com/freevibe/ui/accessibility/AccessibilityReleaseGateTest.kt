@@ -83,6 +83,12 @@ class AccessibilityReleaseGateTest {
         renderScenario(ProductionRouteScenario.DownloadsMediaCopies)
     }
 
+    @SdkSuppress(minSdkVersion = 34)
+    @Test
+    fun downloadsMissingMediaProductionStatePassesAccessibilityChecks() {
+        renderScenario(ProductionRouteScenario.DownloadsMissingMedia)
+    }
+
     private fun renderScenario(
         scenario: ProductionRouteScenario,
         darkTheme: Boolean = true,

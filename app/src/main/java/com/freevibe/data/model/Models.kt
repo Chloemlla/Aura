@@ -119,6 +119,10 @@ data class FavoriteEntity(
     val favoritesCount: Long? = null,
     val sourceAvailability: String = SOURCE_AVAILABILITY_AVAILABLE,
     val sourceAvailabilityReason: String? = null,
+    /** Health of [offlinePath], kept separate from the remote provider state. */
+    val localMediaStatus: String = LocalMediaStatus.AVAILABLE,
+    val localMediaReason: String? = null,
+    val localMediaSha256: String = "",
 )
 
 fun Wallpaper.favoriteIdentity() = FavoriteIdentity(
@@ -158,6 +162,9 @@ data class DownloadEntity(
     val downloadedAt: Long = System.currentTimeMillis(),
     val sourceAvailability: String = SOURCE_AVAILABILITY_AVAILABLE,
     val sourceAvailabilityReason: String? = null,
+    /** Health of [localPath], kept separate from the remote provider state. */
+    val localMediaStatus: String = LocalMediaStatus.AVAILABLE,
+    val localMediaReason: String? = null,
     /** Source page or download URL retained as provenance, never used as the local locator. */
     val provenanceUrl: String = "",
     /** Digest and technical details for the untouched bytes at [localPath]. */

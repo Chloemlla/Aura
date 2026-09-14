@@ -1,6 +1,7 @@
 package com.freevibe.service
 
 import android.content.Context
+import android.net.Uri
 import androidx.room.Room
 import com.freevibe.data.local.FreeVibeDatabase
 import com.freevibe.data.local.PreferencesManager
@@ -9,6 +10,17 @@ import com.freevibe.data.model.FitCanvasStyle
 import com.freevibe.data.model.WallpaperCollectionEntity
 import com.freevibe.data.model.WallpaperCollectionItemEntity
 import com.freevibe.data.model.FitCanvasPreferences
+import com.freevibe.data.model.ContentSource
+import com.freevibe.data.model.FavoriteEntity
+import com.freevibe.data.model.LocalMediaStatus
+import com.freevibe.data.model.LocalWallpaperEntity
+import com.freevibe.data.model.LocalWallpaperFolderEntity
+import com.freevibe.data.model.LocalWallpaperFolderScanStatus
+import com.freevibe.data.model.RotationExclusionIndex
+import com.freevibe.data.model.WallpaperHistoryEntity
+import com.freevibe.data.model.WallpaperTarget
+import com.freevibe.data.model.rotationIdentity
+import com.freevibe.data.model.toRotationExclusion
 import com.freevibe.data.repository.CollectionRepository
 import com.squareup.moshi.Moshi
 import io.mockk.coEvery
@@ -17,8 +29,10 @@ import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import java.io.File
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -150,6 +164,187 @@ class LibraryImportPlanTest {
 
         assertEquals(2, plan.sourceVersion)
         assertEquals(listOf("wp-1"), plan.favorites.map { it.id })
+    }
+
+    @Test
+    fun `v3 restores local metadata and associations as relinkable records`() = runTest {
+        val hash = "ab".repeat(32)
+        val plan = exporter.buildPlan(
+            payload(
+                version = "3",
+                favorites = """
+                    [{"id":"local-photo","source":"LOCAL","type":"WALLPAPER",
+                      "name":"Family photo","width":1080,"height":1920,"tags":"family, portrait",
+                      "fileSize":1234,"fileType":"image/png","localMedia":true,
+                      "localMediaSha256":"$hash"}]
+                """.trimIndent(),
+                collections = """
+                    [{"id":1,"name":"Family","items":[
+                      {"wallpaperId":"local-photo","source":"LOCAL","width":1080,
+                       "height":1920,"localMedia":true}
+                    ]}]
+                """.trimIndent(),
+                rotationExclusions = """
+                    [{"mediaType":"WALLPAPER","source":"LOCAL","contentId":"local-photo",
+                      "contentHash":"$hash","title":"Family photo","excludedAt":7}]
+                """.trimIndent(),
+                extra = """,
+                  "localWallpapers":[
+                    {"id":"local-photo","displayName":"family.png","mimeType":"image/png",
+                     "sizeBytes":1234,"contentHash":"$hash","width":1080,"height":1920,
+                     "tags":"family, portrait","target":"LOCK","addedAt":9}
+                  ],
+                  "wallpaperHistory":[
+                    {"wallpaperId":"local-photo","source":"LOCAL","width":1080,"height":1920,
+                     "target":"LOCK","appliedAt":11,"localMedia":true}
+                  ]""",
+            ),
+        )
+
+        assertEquals(3, plan.sourceVersion)
+        assertEquals(1, plan.localWallpapers.size)
+        assertEquals(1, plan.localWallpaperFolders.size)
+        assertEquals(1, plan.wallpaperHistory.size)
+        assertTrue(plan.skipped.isEmpty())
+
+        exporter.applyPlan(plan)
+
+        val favorite = db.favoriteDao().getByIdentity("local-photo", "LOCAL", "WALLPAPER")!!
+        assertEquals(LocalMediaStatus.MISSING, favorite.localMediaStatus)
+        assertEquals("", favorite.fullUrl)
+        assertEquals("family, portrait", favorite.tags)
+        val localItem = db.localWallpaperDao().getByStableId("local-photo")!!
+        assertEquals(LocalMediaStatus.MISSING, localItem.localMediaStatus)
+        assertEquals(WallpaperTarget.LOCK.name, db.localWallpaperFolderDao().get(localItem.folderUri)!!.target)
+        assertEquals("", db.collectionDao().getCollectionItems(1).first().single().fullUrl)
+        assertEquals(WallpaperTarget.LOCK.name, db.wallpaperHistoryDao().getRecentSnapshot(1).single().target)
+        assertTrue(
+            RotationExclusionIndex(db.rotationExclusionDao().getAll())
+                .contains(localItem.rotationIdentity()),
+        )
+    }
+
+    @Test
+    fun `export replaces private local locators with a portable relink identity`() = runTest {
+        val privateLocator = "content://private.provider/tree/family/photo.png"
+        val hash = "cd".repeat(32)
+        db.localWallpaperFolderDao().upsert(
+            LocalWallpaperFolderEntity(
+                folderUri = "content://private.provider/tree/family",
+                displayName = "Family",
+                target = WallpaperTarget.HOME.name,
+                scanStatus = LocalWallpaperFolderScanStatus.READY,
+            ),
+        )
+        val localItem = LocalWallpaperEntity(
+            documentUri = privateLocator,
+            stableId = privateLocator,
+            folderUri = "content://private.provider/tree/family",
+            documentId = "photo.png",
+            displayName = "photo.png",
+            mimeType = "image/png",
+            sizeBytes = 1234,
+            modifiedAt = 5,
+            contentHash = hash,
+            width = 1080,
+            height = 1920,
+        )
+        db.localWallpaperDao().upsertAll(listOf(localItem))
+        db.favoriteDao().insert(
+            FavoriteEntity(
+                id = privateLocator,
+                source = ContentSource.LOCAL.name,
+                type = "WALLPAPER",
+                thumbnailUrl = privateLocator,
+                fullUrl = privateLocator,
+                offlinePath = privateLocator,
+                name = "Family photo",
+                localMediaSha256 = hash,
+            ),
+        )
+        db.wallpaperHistoryDao().insert(
+            WallpaperHistoryEntity(
+                wallpaperId = privateLocator,
+                source = ContentSource.LOCAL.name,
+                thumbnailUrl = privateLocator,
+                fullUrl = privateLocator,
+                target = WallpaperTarget.HOME.name,
+            ),
+        )
+        db.rotationExclusionDao().upsert(localItem.rotationIdentity().toRotationExclusion())
+        val destination = File(context.cacheDir, "library-local-${System.nanoTime()}.json")
+
+        try {
+            val result = exporter.exportLibrary(Uri.fromFile(destination))
+
+            assertTrue(result.isSuccess)
+            val json = destination.readText()
+            val parsed = Moshi.Builder().build().adapter(LibraryExportFile::class.java).fromJson(json)!!
+            assertEquals(3, parsed.version)
+            assertTrue(parsed.favorites.single().localMedia)
+            assertTrue(parsed.localWallpapers.single().id.startsWith("local-"))
+            assertFalse(parsed.localWallpapers.single().id.endsWith(hash))
+            assertTrue(!json.contains(privateLocator))
+            assertTrue(!json.contains("private.provider"))
+        } finally {
+            destination.delete()
+        }
+    }
+
+    @Test
+    fun `identical local files retain distinct portable library identities`() = runTest {
+        val firstLocator = "content://private.provider/tree/one/photo.png"
+        val secondLocator = "content://private.provider/tree/two/photo.png"
+        val folderUri = "content://private.provider/tree"
+        val hash = "ef".repeat(32)
+        db.localWallpaperFolderDao().upsert(
+            LocalWallpaperFolderEntity(
+                folderUri = folderUri,
+                displayName = "Private",
+                scanStatus = LocalWallpaperFolderScanStatus.READY,
+            ),
+        )
+        db.localWallpaperDao().upsertAll(
+            listOf(
+                LocalWallpaperEntity(
+                    documentUri = firstLocator,
+                    stableId = firstLocator,
+                    folderUri = folderUri,
+                    documentId = "one",
+                    displayName = "one.png",
+                    mimeType = "image/png",
+                    sizeBytes = 100,
+                    modifiedAt = 1,
+                    contentHash = hash,
+                ),
+                LocalWallpaperEntity(
+                    documentUri = secondLocator,
+                    stableId = secondLocator,
+                    folderUri = folderUri,
+                    documentId = "two",
+                    displayName = "two.png",
+                    mimeType = "image/png",
+                    sizeBytes = 100,
+                    modifiedAt = 2,
+                    contentHash = hash,
+                ),
+            ),
+        )
+        val destination = File(context.cacheDir, "library-duplicate-bytes-${System.nanoTime()}.json")
+
+        try {
+            assertTrue(exporter.exportLibrary(Uri.fromFile(destination)).isSuccess)
+            val parsed = Moshi.Builder().build()
+                .adapter(LibraryExportFile::class.java)
+                .fromJson(destination.readText())!!
+
+            assertEquals(2, parsed.localWallpapers.size)
+            assertEquals(2, parsed.localWallpapers.map { it.id }.toSet().size)
+            assertFalse(destination.readText().contains(firstLocator))
+            assertFalse(destination.readText().contains(secondLocator))
+        } finally {
+            destination.delete()
+        }
     }
 
     @Test

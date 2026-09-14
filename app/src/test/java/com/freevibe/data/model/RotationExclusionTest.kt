@@ -56,6 +56,17 @@ class RotationExclusionTest {
     }
 
     @Test
+    fun `stable local identity preserves exclusion when user accepts different bytes`() {
+        val before = localWallpaper("content://old/tree/photo", "old-id", "ab".repeat(32))
+        val replacement = localWallpaper("content://new/tree/replacement", "new-id", "cd".repeat(32))
+
+        val exclusion = before.rotationIdentity().toRotationExclusion()
+
+        assertEquals(before.rotationIdentity().stableId, replacement.rotationIdentity().stableId)
+        assertTrue(exclusion.matches(replacement.rotationIdentity()))
+    }
+
+    @Test
     fun `persisted exclusion fingerprints locator without retaining it`() {
         val locator = "content://private/folder/photo.jpg"
         val entity = rotationIdentityForLocator(locator, "Photo").toRotationExclusion()
@@ -119,6 +130,7 @@ class RotationExclusionTest {
 
     private fun localWallpaper(uri: String, documentId: String, hash: String) = LocalWallpaperEntity(
         documentUri = uri,
+        stableId = "stable-photo",
         folderUri = uri.substringBeforeLast('/'),
         documentId = documentId,
         displayName = "photo.jpg",

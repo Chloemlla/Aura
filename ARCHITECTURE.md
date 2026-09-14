@@ -32,7 +32,7 @@ Living architecture overview for contributors. Internal working notes live in `C
 │   SourceMetrics wraps active fetches with latency/success counters.│
 ├────────────────────────────────────────────────────────────────────┤
 │  Local (data/local/)                                               │
-│   Room DB v19 (favorites, downloads, search_history, wallpaper_    │
+│   Room DB v20 (favorites, downloads, search_history, wallpaper_    │
 │   cache, wallpaper_history, wallpaper_collections,                 │
 │   wallpaper_collection_items, local_wallpapers, and                │
 │   rotation_exclusions). DataStore: Settings + Onboarding +         │
@@ -161,6 +161,15 @@ copy never changes the original locator. Copy mutations are serialized, and a
 database failure retains the previously referenced file. Video originals live under
 `files/media_originals/`; wallpaper and sound downloads remain in MediaStore.
 See [`docs/media-copy-lifecycle.md`](docs/media-copy-lifecycle.md).
+
+Local media identity is separate from its replaceable locator. Room records the
+health of downloaded and favorited files, while local wallpaper rows keep a
+stable ID across document URI changes. `PathBackedRecordReconciler` labels a
+locator as available, missing, permission-revoked, or corrupt without clearing
+it. `LocalMediaRelinkManager` validates a user-selected replacement, commits
+all Room associations in one transaction, and preserves rotation and theme
+references. SAF folder repair uses exact SHA-256 matches and a 500-item batch
+limit. See [`docs/local-media-relink.md`](docs/local-media-relink.md).
 
 ## Process-death + lifecycle
 

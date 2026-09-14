@@ -10,6 +10,7 @@ import com.freevibe.service.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
 data class CacheUsageState(
@@ -55,13 +56,14 @@ sealed interface ParallaxGalleryResult {
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     @ApplicationContext context: android.content.Context,
-    prefs: PreferencesManager,
+    private val prefs: PreferencesManager,
     historyManager: WallpaperHistoryManager,
     offlineFavorites: OfflineFavoritesManager,
     wallpaperCacheManager: WallpaperCacheManager,
     collectionRepo: CollectionRepository,
     wallpaperApplier: WallpaperApplier,
-    localWallpaperCatalog: LocalWallpaperCatalog,
+    private val localWallpaperCatalog: LocalWallpaperCatalog,
+    private val localMediaRelinkManager: LocalMediaRelinkManager,
     videoWallpaperStorage: VideoWallpaperStorage,
     sourceMetrics: SourceMetrics,
     crashDiagnosticsCollector: CrashDiagnosticsCollector,
@@ -229,6 +231,21 @@ class SettingsViewModel @Inject constructor(
         rotation.setLocalWallpaperFolderTarget(uri, target)
     fun updateLocalWallpaperTags(documentUri: String, tags: String) =
         rotation.updateLocalWallpaperTags(documentUri, tags)
+    suspend fun repairLocalWallpaperFolder(oldFolderUri: String, newFolderUri: String) =
+        localWallpaperCatalog.repairFolder(oldFolderUri, newFolderUri).onSuccess {
+            if (prefs.localWallpaperFolderUri.first().trim() == oldFolderUri.trim()) {
+                prefs.setLocalWallpaperFolderUri(newFolderUri.trim())
+            }
+        }
+    suspend fun relinkLocalWallpaper(
+        documentUri: String,
+        replacement: Uri,
+        acceptMismatch: Boolean = false,
+    ): LocalMediaRelinkOutcome = localMediaRelinkManager.relink(
+        LocalMediaRelinkTarget.CatalogItem(documentUri),
+        replacement,
+        acceptMismatch,
+    )
     fun setAutoWallpaperRequiresCharging(value: Boolean) = rotation.setAutoWallpaperRequiresCharging(value)
     fun setAutoWallpaperRequiresWiFiOnly(value: Boolean) = rotation.setAutoWallpaperRequiresWiFiOnly(value)
     fun setRotateOnUnlock(value: Boolean) = rotation.setRotateOnUnlock(value)
