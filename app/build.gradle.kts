@@ -317,7 +317,9 @@ androidComponents {
             .withBuildType("release")
             .withFlavor("distribution" to "full"),
     ) { variant ->
-        variant.buildConfigFields.put(
+        // AGP 9 types buildConfigFields as nullable; buildFeatures.buildConfig is on for
+        // every variant here, so the full release selection always reaches the map.
+        variant.buildConfigFields!!.put(
             "STABILITY_AI_KEY",
             BuildConfigField("String", "\"\"", "Release builds exclude local provider credentials"),
         )

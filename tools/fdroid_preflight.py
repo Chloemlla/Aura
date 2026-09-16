@@ -165,11 +165,18 @@ def scan_foss_stability_boundary() -> list[Finding]:
         for index, line in gradle_code
         if "STABILITY_AI_KEY" in line
     ]
+    # `gradle_code` holds 1-based line numbers, so the context window has to be sliced
+    # from that same code-only view: slicing raw lines with a line number would also
+    # pull in the comments `code_lines` deliberately drops.
+    code_positions = {line_no: position for position, (line_no, _) in enumerate(gradle_code)}
 
-    def is_full_only_key_line(index: int) -> bool:
-        if full_line is not None and foss_line is not None and full_line <= index < foss_line:
+    def is_full_only_key_line(line_no: int) -> bool:
+        if full_line is not None and foss_line is not None and full_line <= line_no < foss_line:
             return True
-        selector_context = "\n".join(gradle_lines[max(0, index - 14) : index + 1])
+        position = code_positions.get(line_no)
+        if position is None:
+            return False
+        selector_context = "\n".join(line for _, line in gradle_code[max(0, position - 14) : position + 1])
         return (
             '.withBuildType("release")' in selector_context
             and '.withFlavor("distribution" to "full")' in selector_context

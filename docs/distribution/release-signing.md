@@ -51,7 +51,7 @@ Before publishing a GitHub Release:
 
 1. Set `JAVA_HOME` to Android Studio's bundled JBR.
 2. Run every release preflight command listed below.
-3. Build the signed release APK and AAB with `.\gradlew.bat :app:assembleFullRelease --stacktrace --no-daemon` followed by `.\gradlew.bat -PauraReleaseChannel=play :app:bundleFullRelease --stacktrace --no-daemon`. They must be separate invocations: ABI splits turn off whenever a `bundle*` task is requested, so a combined invocation would emit one all-ABI APK instead of the per-ABI set.
+3. Build the signed GitHub APK and Play AAB with the two separate commands under Local release check below. They must stay separate invocations: ABI splits turn off whenever a Gradle `bundle*` task is requested, so a combined invocation would emit one all-ABI APK instead of the per-ABI set.
 4. Copy the APK to `release/Aura-vX.Y.Z-versionCode-N-universal-release.apk`.
 5. Copy the AAB to `release/Aura-vX.Y.Z-versionCode-N-play-release.aab`.
 6. Generate `THIRD-PARTY-NOTICES.md`, `GOOGLE-OSS-RAW-INPUTS.zip`, `NATIVE-COMPLIANCE.md`, and `NATIVE-ALIGNMENT.json`.

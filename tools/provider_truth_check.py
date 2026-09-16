@@ -115,13 +115,18 @@ RUNTIME_SURFACE_MARKERS = {
     ),
     "wallpaperActions": ("isProviderActionPermitted",),
     "wallpaperActionRuntime": ("wallpaperLicenseCapabilities().capability(action)",),
+    # This fork shows every action and routes it through one licensed-action gate that
+    # explains a denial, instead of hoisting per-action booleans and hiding the buttons.
+    # The markers pin that shape: one capability source, all four actions gated by it.
     "wallpaperActionUi": (
-        "wp.wallpaperLicenseCapabilities()",
-        "canApply = actionCapabilities.canUse(WallpaperAction.APPLY)",
+        "val licenseCapabilities = remember(wp) { wp.wallpaperLicenseCapabilities() }",
+        "val canApply = licenseCapabilities.canUse(WallpaperAction.APPLY)",
         "enabled = canApply && !state.isApplying",
-        "canDownload = actionCapabilities.canUse(WallpaperAction.DOWNLOAD)",
-        "canShare = actionCapabilities.canUse(WallpaperAction.SHARE)",
-        "canEdit = actionCapabilities.canUse(WallpaperAction.EDIT)",
+        "val canEdit = licenseCapabilities.canUse(WallpaperAction.EDIT)",
+        "allowTransforms = canEdit",
+        "when (licenseCapabilities.capability(action).decision)",
+        "requestLicensedAction(WallpaperAction.DOWNLOAD)",
+        "requestLicensedAction(WallpaperAction.SHARE)",
     ),
     "wallpaperPreviewNavigation": (
         "onApply = previewApply@{",
