@@ -254,12 +254,13 @@ fun SettingsScreen(
         )
     }
 
-    LocalWallpaperCatalogDialogHost(
-        show = showLocalWallpaperCatalog,
-        state = settingsState,
-        viewModel = viewModel,
-        onDismiss = { showLocalWallpaperCatalog = false },
-        onAddFolder = { chooseLocalWallpaperFolder("catalog") },
+    val rotationExclusionControls = RotationExclusionSettingsHost(
+        showLocalCatalog = showLocalWallpaperCatalog,
+        settingsState = settingsState,
+        settingsViewModel = viewModel,
+        onDismissLocalCatalog = { showLocalWallpaperCatalog = false },
+        onAddLocalFolder = { chooseLocalWallpaperFolder("catalog") },
+        snackbarHostState = snackbarHostState,
     )
 
     with(settingsState) {
@@ -321,6 +322,7 @@ fun SettingsScreen(
                 wallhavenProviderEnabled = wallhavenProviderEnabled,
                 pixabayProviderEnabled = pixabayProviderEnabled,
                 wallpaperHistoryCount = wallpaperHistory.size,
+                rotationExclusionCount = rotationExclusionControls.exclusionCount,
                 wallpaperClockOverlayEnabled = wallpaperClockOverlayEnabled,
                 wallpaperClockOverlayMode = wallpaperClockOverlayMode,
                 wallpaperClockOverlayPosition = wallpaperClockOverlayPosition,
@@ -335,6 +337,7 @@ fun SettingsScreen(
                 onCategoriesClick = navigation.onCategoriesClick,
                 onCollectionsClick = navigation.onCollectionsClick,
                 onHistoryClick = navigation.onHistoryClick,
+                onManageRotationExclusions = rotationExclusionControls.openManager,
                 onFeedback = ::showSettingsFeedback,
             )
             if (SettingsSectionKeys.SCHEDULER in visibleSectionKeys) SchedulerSettingsSection(
@@ -438,9 +441,10 @@ fun SettingsScreen(
                 wallhavenApiKey = wallhavenApiKey,
                 pexelsApiKey = pexelsApiKey,
                 pixabayApiKey = pixabayApiKey,
-                freesoundApiKey = freesoundApiKey,
                 generatedWallpaperProviderKey = generatedWallpaperProviderKey,
                 providerCredentialStorageUnavailable = providerCredentialStorageUnavailable,
+                providerCredentialReentryRequired = providerCredentialReentryRequired,
+                providerCredentialReentryKeys = providerCredentialReentryKeys,
                 generatedContentProviderEnabled = generatedContentProviderEnabled,
                 generatedContentDisclosureAccepted = generatedContentDisclosureAccepted,
                 wallhavenProviderEnabled = wallhavenProviderEnabled,

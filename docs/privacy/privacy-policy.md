@@ -18,19 +18,45 @@ blocks, or manages creator/community data.
 
 ## Data Stored On The Device
 
-- App preferences such as theme, provider switches, scheduler settings, and
-  API keys entered by the user.
+- App preferences such as theme, provider switches, and scheduler settings.
+- API keys entered by the user. These are kept in a separate encrypted store.
 - Favorites, downloads, search history, wallpaper cache metadata, offline
   favorite files, edited sounds, generated wallpapers, and diagnostics created
   by explicit user action.
+- Fit Canvas presentation choices, plus the active live-wallpaper video and its
+  generated canvas or apply copy when Fit needs one.
+- Rotation exclusions for wallpapers and videos. Aura stores provider IDs,
+  content hashes, or one-way locator fingerprints instead of raw local paths.
+- Local media health, stable library identity, and technical details used to
+  repair a moved or unavailable file without deleting its metadata.
 - A local fallback community identity only when a local community identifier is
   needed.
 
-User-entered provider API keys are stored in app-private Jetpack DataStore and
-the preferences DataStore file is excluded from cloud backup and device
-transfer. These keys are not protected by Android Keystore-backed encrypted
-storage; users can clear each saved key in Settings with the key dialog's Clear
-action or by saving a blank value.
+Fit Canvas media and the app preference store are excluded from Android cloud
+backup and device transfer. A portable library backup includes the non-secret
+Fill or Fit choice, canvas mode, and chosen color so the same defaults can be
+restored on another device. It does not include the active media file or a
+generated canvas copy. The same portable backup can include rotation
+exclusions, but it never includes a raw local path from those records.
+Local favorites, collections, wallpaper catalog entries, and recent wallpaper
+history can also be included as locator-free metadata. The media bytes remain
+on the original device. Restored entries stay visible and ask the user to
+relink the original file, a replacement, or a matching folder.
+
+User-entered provider API keys are encrypted with AES-GCM using a
+non-exportable Android Keystore key. The encrypted SharedPreferences file and
+the legacy preferences DataStore file are excluded from cloud backup and
+device transfer. If restored ciphertext arrives without its device-bound key,
+Aura removes the unreadable copy and asks the user to re-enter that key.
+Temporary Keystore errors keep ciphertext for retry. Users can remove each
+visible key with the Settings key dialog's Clear action or by saving a blank
+value. Android clear-app-data or uninstall removes the encrypted store and its
+app-owned key.
+
+Provider credentials are not included in library backups, collection or
+theme-pack exports, generated wallpaper reports, source diagnostics, or support
+bundles. Diagnostics can report the credential storage state but never the key
+name or value.
 
 ## Community Data
 

@@ -190,6 +190,9 @@ fun WallpapersScreen(
     var showEmbeddedWallpaperPicker by remember { mutableStateOf(false) }
     var selectedWallpaperUploadUri by remember { mutableStateOf<Uri?>(null) }
     var awaitingWallpaperUploadResult by remember { mutableStateOf(false) }
+    val hasQuickActionsMenu = showGeneratedContentEntry ||
+        wallhavenProviderEnabled ||
+        (communityProviderEnabled && state.selectedTab == WallpaperTab.COMMUNITY)
     LaunchedEffect(wallhavenProviderEnabled, redditProviderEnabled, pexelsProviderEnabled, pixabayProviderEnabled, communityProviderEnabled, state.selectedTab) {
         val disabledTab = when (state.selectedTab) {
             WallpaperTab.NEWEST -> !wallhavenProviderEnabled && !pixabayProviderEnabled
@@ -456,55 +459,57 @@ fun WallpapersScreen(
                             )
                         }
                     }
-                    Box {
-                        IconButton(onClick = { showQuickActionsMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.a11y_show_quick_actions))
-                        }
-                        DropdownMenu(
-                            expanded = showQuickActionsMenu,
-                            onDismissRequest = { showQuickActionsMenu = false },
-                        ) {
-                            if (communityProviderEnabled && state.selectedTab == WallpaperTab.COMMUNITY) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.wallpapers_fab_upload)) },
-                                    leadingIcon = { Icon(Icons.Default.Upload, contentDescription = null) },
-                                    onClick = {
-                                        showQuickActionsMenu = false
-                                        if (communityGuidelinesAccepted) launchWallpaperUploadPicker() else showCommunityGuidelines = true
-                                    },
-                                )
+                    if (hasQuickActionsMenu) {
+                        Box {
+                            IconButton(onClick = { showQuickActionsMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.a11y_show_quick_actions))
                             }
-                            if (showGeneratedContentEntry) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.feed_generate)) },
-                                    leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
-                                    onClick = { showQuickActionsMenu = false; onGenerateClick() },
-                                )
-                            }
-                            if (wallhavenProviderEnabled && state.selectedTab == WallpaperTab.DISCOVER) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.wallpapers_fab_theme_match)) },
-                                    leadingIcon = { Icon(Icons.Default.Palette, contentDescription = null) },
-                                    onClick = { showQuickActionsMenu = false; viewModel.matchMyTheme() },
-                                )
-                                if (eyeDropperAvailable) {
+                            DropdownMenu(
+                                expanded = showQuickActionsMenu,
+                                onDismissRequest = { showQuickActionsMenu = false },
+                            ) {
+                                if (communityProviderEnabled && state.selectedTab == WallpaperTab.COMMUNITY) {
                                     DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.wallpapers_fab_pick_colour)) },
-                                        leadingIcon = { Icon(Icons.Default.Colorize, contentDescription = null) },
+                                        text = { Text(stringResource(R.string.wallpapers_fab_upload)) },
+                                        leadingIcon = { Icon(Icons.Default.Upload, contentDescription = null) },
                                         onClick = {
                                             showQuickActionsMenu = false
-                                            val intent = android.content.Intent("android.intent.action.OPEN_EYE_DROPPER")
-                                            runCatching { eyeDropperLauncher.launch(intent) }
+                                            if (communityGuidelinesAccepted) launchWallpaperUploadPicker() else showCommunityGuidelines = true
                                         },
                                     )
                                 }
-                            }
-                            if (wallhavenProviderEnabled) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.wallpapers_fab_surprise_me)) },
-                                    leadingIcon = { Icon(Icons.Default.Shuffle, contentDescription = null) },
-                                    onClick = { showQuickActionsMenu = false; viewModel.loadRandom() },
-                                )
+                                if (showGeneratedContentEntry) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.feed_generate)) },
+                                        leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
+                                        onClick = { showQuickActionsMenu = false; onGenerateClick() },
+                                    )
+                                }
+                                if (wallhavenProviderEnabled && state.selectedTab == WallpaperTab.DISCOVER) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.wallpapers_fab_theme_match)) },
+                                        leadingIcon = { Icon(Icons.Default.Palette, contentDescription = null) },
+                                        onClick = { showQuickActionsMenu = false; viewModel.matchMyTheme() },
+                                    )
+                                    if (eyeDropperAvailable) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.wallpapers_fab_pick_colour)) },
+                                            leadingIcon = { Icon(Icons.Default.Colorize, contentDescription = null) },
+                                            onClick = {
+                                                showQuickActionsMenu = false
+                                                val intent = android.content.Intent("android.intent.action.OPEN_EYE_DROPPER")
+                                                runCatching { eyeDropperLauncher.launch(intent) }
+                                            },
+                                        )
+                                    }
+                                }
+                                if (wallhavenProviderEnabled) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.wallpapers_fab_surprise_me)) },
+                                        leadingIcon = { Icon(Icons.Default.Shuffle, contentDescription = null) },
+                                        onClick = { showQuickActionsMenu = false; viewModel.loadRandom() },
+                                    )
+                                }
                             }
                         }
                     }

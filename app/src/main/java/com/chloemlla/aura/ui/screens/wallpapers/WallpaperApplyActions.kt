@@ -6,11 +6,14 @@ import com.chloemlla.aura.R
 import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.Wallpaper
+import com.chloemlla.aura.data.model.WallpaperAction
+import com.chloemlla.aura.data.model.WallpaperActionDecision
 import com.chloemlla.aura.data.model.WallpaperTarget
 import com.chloemlla.aura.data.model.favoriteIdentity
 import com.chloemlla.aura.data.model.isSourceUnavailable
 import com.chloemlla.aura.data.model.sourceUnavailableReasonForFailure
 import com.chloemlla.aura.data.model.stableKey
+import com.chloemlla.aura.data.model.wallpaperLicenseCapabilities
 import com.chloemlla.aura.data.remote.toFavoriteEntity
 import com.chloemlla.aura.data.repository.AiWallpaperRepository
 import com.chloemlla.aura.data.repository.FavoritesRepository
@@ -24,6 +27,7 @@ import com.chloemlla.aura.service.WallpaperApplyPolicy
 import com.chloemlla.aura.service.WallpaperApplier
 import com.chloemlla.aura.service.WallpaperHistoryManager
 import com.chloemlla.aura.service.WallpaperStyleLearningSignal
+import com.chloemlla.aura.service.downloadHistoryId
 import com.chloemlla.aura.service.shouldUseNightWallpaperVariant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -53,6 +57,7 @@ internal class WallpaperApplyActions(
     val activeDownloads = downloadManager.activeDownloads
 
     fun applyWallpaper(wallpaper: Wallpaper, target: WallpaperTarget) {
+        if (blockDisallowedAction(wallpaper, WallpaperAction.APPLY)) return
         scope.launch {
             state.update { it.copy(isApplying = true, applySuccess = null) }
             // History, undo, night-variant, style learning, and feedback all commit
@@ -69,6 +74,9 @@ internal class WallpaperApplyActions(
                     wallpaper.fullUrl,
                     target,
                     nightVariant = shouldApplyNightVariant(),
+                    savedOriginalId = downloadHistoryId("WALLPAPER", wallpaper.stableKey()),
+                    sourceWidth = wallpaper.width,
+                    sourceHeight = wallpaper.height,
                 )
             }
                 .onSuccess {
@@ -118,6 +126,8 @@ internal class WallpaperApplyActions(
     }
 
     fun applySplitCrop(wallpaper: Wallpaper) {
+        if (blockDisallowedAction(wallpaper, WallpaperAction.APPLY)) return
+        if (blockDisallowedAction(wallpaper, WallpaperAction.EDIT)) return
         scope.launch {
             state.update { it.copy(isApplying = true, applySuccess = null) }
             // Split crop keeps its own success copy but commits through the same
@@ -143,6 +153,8 @@ internal class WallpaperApplyActions(
     }
 
     fun applyParallax(wallpaper: Wallpaper) {
+        if (blockDisallowedAction(wallpaper, WallpaperAction.APPLY)) return
+        if (blockDisallowedAction(wallpaper, WallpaperAction.EDIT)) return
         scope.launch {
             state.update { it.copy(isApplying = true, applySuccess = null) }
             val ext = guessImageExtension(wallpaper.fileType, wallpaper.fullUrl)
@@ -171,6 +183,7 @@ internal class WallpaperApplyActions(
     )
 
     fun downloadWallpaper(wallpaper: Wallpaper) {
+        if (blockDisallowedAction(wallpaper, WallpaperAction.DOWNLOAD)) return
         scope.launch {
             val ext = guessImageExtension(wallpaper.fileType, wallpaper.fullUrl)
             downloadManager.downloadWallpaper(
@@ -178,6 +191,7 @@ internal class WallpaperApplyActions(
                 url = wallpaper.fullUrl,
                 fileName = buildWallpaperDownloadFileName(wallpaper, ext),
                 source = wallpaper.source.name,
+                provenanceUrl = wallpaper.sourcePageUrl.ifBlank { wallpaper.fullUrl },
             ).onSuccess {
                 clearSourceUnavailableAfterSuccess(wallpaper)
             }.onFailure { error ->
@@ -224,6 +238,13 @@ internal class WallpaperApplyActions(
     }
 
     fun isFavorite(wallpaper: Wallpaper): Flow<Boolean> = favoritesRepo.isFavorite(wallpaper.favoriteIdentity())
+
+    private fun blockDisallowedAction(wallpaper: Wallpaper, action: WallpaperAction): Boolean {
+        val capability = wallpaper.wallpaperLicenseCapabilities().capability(action)
+        if (capability.decision != WallpaperActionDecision.DISABLED) return false
+        state.update { it.copy(error = capability.reason) }
+        return true
+    }
 
     /**
      * Persist an unavailable state only when the remote item is genuinely gone.

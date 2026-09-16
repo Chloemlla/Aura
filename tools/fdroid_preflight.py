@@ -165,8 +165,18 @@ def scan_foss_stability_boundary() -> list[Finding]:
         for index, line in gradle_code
         if "STABILITY_AI_KEY" in line
     ]
+
+    def is_full_only_key_line(index: int) -> bool:
+        if full_line is not None and foss_line is not None and full_line <= index < foss_line:
+            return True
+        selector_context = "\n".join(gradle_lines[max(0, index - 14) : index + 1])
+        return (
+            '.withBuildType("release")' in selector_context
+            and '.withFlavor("distribution" to "full")' in selector_context
+        )
+
     if key_lines and (full_line is None or foss_line is None or any(
-        not (full_line <= index < foss_line) for index, _ in key_lines
+        not is_full_only_key_line(index) for index, _ in key_lines
     )):
         line_no, _ = key_lines[0]
         findings.append(

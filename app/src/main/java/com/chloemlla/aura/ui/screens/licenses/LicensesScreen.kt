@@ -24,7 +24,9 @@ import com.chloemlla.aura.data.legal.ProviderBuild
 import com.chloemlla.aura.data.legal.ProviderChannel
 import com.chloemlla.aura.data.legal.disclosureStatus
 import com.chloemlla.aura.data.legal.providerCapability
+import com.chloemlla.aura.data.legal.providerCatalogCapabilities
 import com.chloemlla.aura.data.legal.providerDisclosures
+import com.chloemlla.aura.data.legal.providerDisclosuresBySource
 import com.chloemlla.aura.ui.components.CompactSearchField
 import com.chloemlla.aura.ui.util.openExternalUrl
 import kotlinx.coroutines.Dispatchers
@@ -89,22 +91,28 @@ internal val releaseNoticeLinks = listOf(
     ),
 )
 
-private val contentSources = providerDisclosures.map { disclosure ->
-    // The lifecycle label comes from the capability registry rather than the
-    // disclosure's own copy, so what users read here cannot drift away from what
-    // the runtime is actually allowed to fetch.
-    val capability = providerCapability(disclosure.source)
+private val contentSources = providerCatalogCapabilities.map { capability ->
+    // Ordering, lifecycle, channel availability, and supported media come from
+    // the production capability registry. The release gate checks the same facts
+    // against the public provider manifest and store copy.
+    val disclosure = providerDisclosuresBySource.getValue(capability.source)
     val availability = buildList {
         if (!capability.availableIn(ProviderBuild.FOSS)) add("full builds only")
         if (!capability.availableOn(ProviderChannel.PLAY)) add("not shipped on Play")
     }.joinToString(", ")
+    val media = capability.mediaTypes
+        .map { it.name.lowercase() }
+        .sorted()
+        .joinToString(", ")
     OssLicense(
         name = disclosure.displayName,
         url = disclosure.termsUrl,
         license = disclosure.licenseSummary,
         description = buildString {
             append(capability.lifecycle.disclosureStatus().label)
-            append(" - ")
+            append(". ")
+            append(media.replaceFirstChar(Char::uppercaseChar))
+            append(". ")
             append(disclosure.content)
             append(". ")
             append(disclosure.storeDisclosure)

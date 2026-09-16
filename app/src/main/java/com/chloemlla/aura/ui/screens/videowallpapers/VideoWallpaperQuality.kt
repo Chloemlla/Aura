@@ -1,9 +1,9 @@
 package com.chloemlla.aura.ui.screens.videowallpapers
 
-import android.content.res.Resources
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.stringResource
-import com.chloemlla.aura.R
+import com.chloemlla.aura.data.legal.ProviderMediaType
+import com.chloemlla.aura.data.legal.currentProviderPriorityBonus
+import com.chloemlla.aura.data.legal.orderedCurrentProviderCapabilities
+import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.VideoWallpaperItem
 
 enum class VideoFocusFilter { BEST, LOOP_SAFE, LOW_BATTERY, PHONE_FIT }
@@ -13,12 +13,15 @@ internal fun rankVideoWallpapers(
     filter: VideoFocusFilter,
     orientation: OrientationFilter,
 ): List<VideoWallpaperItem> {
+    val availableSources = orderedCurrentProviderCapabilities(ProviderMediaType.VIDEO)
+        .mapTo(mutableSetOf()) { it.source }
+    val availableItems = items.filter { it.providerSource() in availableSources }
     val filtered = if (filter == VideoFocusFilter.BEST) {
-        items
+        availableItems
     } else {
-        items.filter { it.matchesFilter(filter, orientation) }
+        availableItems.filter { it.matchesFilter(filter, orientation) }
     }
-    val rankedBase = filtered.ifEmpty { items }
+    val rankedBase = filtered.ifEmpty { availableItems }
     val curated = applyVideoQualityFloor(
         rankedBase
             .distinctBy { it.id }
@@ -27,14 +30,15 @@ internal fun rankVideoWallpapers(
     ).map { it.first }
     val grouped = curated
         .distinctBy { it.id }
-        .groupBy { it.source }
+        .groupBy { it.providerSource() }
         .mapValues { (_, sourceItems) ->
             sourceItems.sortedByDescending { videoQualityScore(it, filter, orientation) }.toMutableList()
         }
         .toMutableMap()
     val mixed = mutableListOf<VideoWallpaperItem>()
+    val sourceMix = videoProviderMix(grouped.keys)
     while (grouped.values.any { it.isNotEmpty() }) {
-        REDDIT_FIRST_SOURCE_MIX.forEach { key ->
+        sourceMix.forEach { key ->
             grouped[key]?.let { sourceItems ->
                 if (sourceItems.isNotEmpty()) {
                     mixed += sourceItems.removeAt(0)
@@ -42,8 +46,8 @@ internal fun rankVideoWallpapers(
             }
         }
         grouped.keys
-            .filterNot { it in REDDIT_FIRST_SOURCE_MIX_SET }
-            .sorted()
+            .filterNot { it in sourceMix }
+            .sortedBy { it.name }
             .forEach { key ->
                 grouped[key]?.let { sourceItems ->
                     if (sourceItems.isNotEmpty()) {
@@ -53,55 +57,6 @@ internal fun rankVideoWallpapers(
             }
     }
     return mixed
-}
-
-@Composable
-internal fun VideoWallpaperItem.loopBadge(): String =
-    if (isLoopFriendly()) stringResource(R.string.video_wp_badge_loop_safe) else stringResource(R.string.video_wp_badge_dynamic)
-
-@Composable
-internal fun VideoWallpaperItem.batteryBadge(): String = when (batteryTier()) {
-    BatteryTier.LOW -> stringResource(R.string.video_wp_badge_low_battery)
-    BatteryTier.MEDIUM -> stringResource(R.string.video_wp_badge_balanced)
-    BatteryTier.HIGH -> stringResource(R.string.video_wp_badge_high_motion)
-}
-
-@Composable
-internal fun VideoWallpaperItem.fitBadge(orientation: OrientationFilter): String = when {
-    !hasDimensions -> stringResource(R.string.video_wp_badge_flexible)
-    orientation == OrientationFilter.PORTRAIT && isPortrait -> stringResource(R.string.video_wp_badge_phone_fit)
-    orientation == OrientationFilter.LANDSCAPE && isLandscape -> stringResource(R.string.video_wp_badge_wide_fit)
-    orientation == OrientationFilter.ALL && isPortrait -> stringResource(R.string.video_wp_badge_phone_fit)
-    else -> stringResource(R.string.video_wp_badge_needs_crop)
-}
-
-internal fun VideoWallpaperItem.videoTechnicalSummary(resources: Resources): String {
-    val dimensions = if (hasDimensions) {
-        resources.getString(
-            R.string.video_wp_summary_dimensions,
-            videoWidth,
-            videoHeight,
-            resources.getString(
-                if (isPortrait) R.string.video_wp_badge_portrait else R.string.video_wp_badge_landscape,
-            ),
-        )
-    } else {
-        resources.getString(R.string.video_wp_summary_unknown_dimensions)
-    }
-    val aspectRatio = if (hasDimensions && videoHeight > 0) {
-        val ratio = videoWidth.toFloat() / videoHeight.toFloat()
-        String.format(java.util.Locale.ROOT, "%.2f:1", ratio)
-    } else {
-        null
-    }
-    val durationLabel = duration.takeIf { it > 0 }
-        ?.let { resources.getString(R.string.video_wp_duration_seconds, it) }
-    val rotation = videoRotationDegrees
-        .takeIf { it != 0 }
-        ?.let { resources.getString(R.string.video_wp_summary_rotated, it) }
-    val codec = videoCodec.takeIf { it.isNotBlank() }
-    val mime = videoMimeType.takeIf { it.isNotBlank() }
-    return listOfNotNull(dimensions, aspectRatio, durationLabel, rotation, codec, mime).joinToString(" · ")
 }
 
 internal fun VideoWallpaperItem.previewAspectRatio(): Float = when {
@@ -115,13 +70,7 @@ private fun videoQualityScore(
     orientation: OrientationFilter,
 ): Int {
     var score = 35
-    score += when (item.source) {
-        "Pexels" -> 16
-        "Pixabay" -> 15
-        "Reddit" -> 28
-        "YouTube" -> 12
-        else -> 8
-    }
+    score += currentProviderPriorityBonus(item.providerSource(), ProviderMediaType.VIDEO)
     score += when {
         item.duration in 6..18 -> 16
         item.duration in 4..30 -> 10
@@ -171,7 +120,20 @@ private fun applyVideoQualityFloor(
         // Reddit Atom entries often omit duration and dimensions. Those unknowns
         // must not make the primary community inventory disappear at this stage.
         index < 3 || item.source == "Reddit" || score >= qualityFloor
-    }
+    }.toMutableList()
+    scored
+        .groupBy { it.first.providerSource() }
+        .values
+        .mapNotNull { sourceItems -> sourceItems.firstOrNull() }
+        .forEach { bestForSource ->
+            if (
+                bestForSource.second >= qualityFloor - 12 &&
+                curated.none { it.first.id == bestForSource.first.id }
+            ) {
+                curated += bestForSource
+            }
+        }
+    curated.sortByDescending { it.second }
     return if (curated.size >= minOf(scored.size, 4)) curated else scored
 }
 
@@ -186,14 +148,14 @@ private fun VideoWallpaperItem.matchesFilter(filter: VideoFocusFilter, orientati
     }
 }
 
-private fun VideoWallpaperItem.isLoopFriendly(): Boolean {
+internal fun VideoWallpaperItem.isLoopFriendly(): Boolean {
     val title = title.lowercase(java.util.Locale.ROOT)
     return LOOP_TERMS.any { it in title } ||
         duration in 4..18 ||
         source == "Pixabay"
 }
 
-private fun VideoWallpaperItem.batteryTier(): BatteryTier = batteryTierOf(this)
+internal fun VideoWallpaperItem.batteryTier(): BatteryTier = batteryTierOf(this)
 
 private fun batteryTierOf(item: VideoWallpaperItem): BatteryTier {
     val pixels = item.videoWidth.toLong() * item.videoHeight.toLong()
@@ -204,16 +166,40 @@ private fun batteryTierOf(item: VideoWallpaperItem): BatteryTier {
     }
 }
 
-private enum class BatteryTier { LOW, MEDIUM, HIGH }
+internal enum class BatteryTier { LOW, MEDIUM, HIGH }
 
 private val LOOP_TERMS = setOf(
     "loop", "cinemagraph", "ambient", "waves", "rain", "particles", "abstract", "clouds", "neon",
 )
 
-// Reddit is the primary community catalog. The repeated slots are intentional:
-// each pass starts with three Reddit items and gives Reddit five of eight known-
-// source positions while every enabled provider still gets exposure.
-private val REDDIT_FIRST_SOURCE_MIX = listOf(
-    "Reddit", "Reddit", "Reddit", "Pexels", "Reddit", "Pixabay", "Reddit", "YouTube",
-)
-private val REDDIT_FIRST_SOURCE_MIX_SET = REDDIT_FIRST_SOURCE_MIX.toSet()
+/**
+ * Build the live source cycle from the provider manifest order. Reddit keeps the
+ * majority of each cycle while every eligible provider retains one slot.
+ */
+internal fun videoProviderMix(available: Set<ContentSource>): List<ContentSource> {
+    val ordered = orderedCurrentProviderCapabilities(ProviderMediaType.VIDEO)
+        .map { it.source }
+        .filter { it in available }
+        .toMutableList()
+    ordered += available.filterNot { it in ordered }.sortedBy { it.name }
+    val primary = ordered.firstOrNull() ?: return emptyList()
+    if (primary != ContentSource.REDDIT) return ordered
+    val secondary = ordered.drop(1)
+    if (secondary.isEmpty()) return listOf(primary)
+    return buildList {
+        repeat(3) { add(primary) }
+        repeat(3) { index ->
+            add(secondary[index % secondary.size])
+            if (index < 2) add(primary)
+        }
+    }
+}
+
+internal fun VideoWallpaperItem.providerSource(): ContentSource = when (source.lowercase(java.util.Locale.ROOT)) {
+    "reddit" -> ContentSource.REDDIT
+    "youtube" -> ContentSource.YOUTUBE
+    "pexels" -> ContentSource.PEXELS
+    "pixabay" -> ContentSource.PIXABAY
+    "klipy" -> ContentSource.KLIPY
+    else -> contentSource
+}

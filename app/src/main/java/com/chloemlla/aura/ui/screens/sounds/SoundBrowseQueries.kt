@@ -48,11 +48,21 @@ internal class SoundBrowseQueries(
         }
     }
 
-    fun bundledSoundsFor(tab: SoundTab): List<Sound> = when (tab) {
+    fun bundledSoundsFor(tab: SoundTab, query: String = ""): List<Sound> = when (tab) {
         SoundTab.RINGTONES -> bundledContent.getRingtones()
         SoundTab.NOTIFICATIONS -> bundledContent.getNotifications()
         SoundTab.ALARMS -> bundledContent.getAlarms()
-        else -> emptyList()
+        SoundTab.SEARCH -> {
+            val terms = query.trim().lowercase().split(Regex("\\s+")).filter(String::isNotBlank)
+            (bundledContent.getRingtones() + bundledContent.getNotifications() + bundledContent.getAlarms())
+                .filter { sound ->
+                    val searchable = (listOf(sound.name, sound.description) + sound.tags)
+                        .joinToString(" ")
+                        .lowercase()
+                    terms.isNotEmpty() && terms.all(searchable::contains)
+                }
+        }
+        SoundTab.YOUTUBE, SoundTab.COMMUNITY -> emptyList()
     }
 
     fun tabDurationRange(snapshot: SoundsUiState): Pair<Int, Int> = when (snapshot.selectedTab) {

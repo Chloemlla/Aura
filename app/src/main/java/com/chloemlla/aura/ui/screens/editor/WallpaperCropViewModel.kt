@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chloemlla.aura.R
+import com.chloemlla.aura.data.model.FitCanvasStyle
 import com.chloemlla.aura.data.model.Wallpaper
 import com.chloemlla.aura.data.model.WallpaperTarget
 import com.chloemlla.aura.data.model.stableKey
@@ -178,38 +179,51 @@ class WallpaperCropViewModel @Inject constructor(
         _state.update { it.copy(scale = 1f, offsetX = 0f, offsetY = 0f) }
     }
 
-    fun applyCropped(target: WallpaperTarget, viewportWidth: Int, viewportHeight: Int) {
+    fun applyCropped(
+        target: WallpaperTarget,
+        viewportWidth: Int,
+        viewportHeight: Int,
+        fitCanvasStyle: FitCanvasStyle? = null,
+    ) {
         val bmp = _state.value.bitmap ?: return
         if (viewportWidth <= 0 || viewportHeight <= 0) return
         val s = _state.value
 
         viewModelScope.launch {
             _state.update { it.copy(isApplying = true) }
-            var cropped: Bitmap? = null
             try {
-                cropped = withContext(Dispatchers.Default) {
-                    cropBitmap(bmp, s.scale, s.offsetX, s.offsetY, viewportWidth, viewportHeight)
+                val outputBitmap = if (fitCanvasStyle == null) {
+                    withContext(Dispatchers.Default) {
+                        cropBitmap(bmp, s.scale, s.offsetX, s.offsetY, viewportWidth, viewportHeight)
+                    }
+                } else {
+                    // WallpaperApplier treats its input as borrowed and renders
+                    // the Fit Canvas result separately. Reuse the editor bitmap
+                    // instead of holding a full-size duplicate during apply.
+                    bmp
                 }
-                // Cropped output goes through the coordinator so it lands in history
-                // and can be undone, exactly like an uncropped apply.
-                applyCoordinator.apply(
-                    wallpaper = croppedWallpaper,
-                    target = target,
-                    policy = WallpaperApplyPolicy.DERIVED,
-                ) { wallpaperApplier.applyFromBitmap(cropped, target) }
-                    .onSuccess { receipt ->
-                        recycleIfNotShown(cropped)
-                        _state.update {
-                            it.copy(isApplying = false, success = receipt.feedbackMessage ?: "Applied")
+                val ownsOutputBitmap = outputBitmap !== bmp
+                try {
+                    // Cropped output goes through the coordinator so it lands in history
+                    // and can be undone, exactly like an uncropped apply.
+                    applyCoordinator.apply(
+                        wallpaper = croppedWallpaper,
+                        target = target,
+                        policy = WallpaperApplyPolicy.DERIVED,
+                    ) { wallpaperApplier.applyFromBitmap(outputBitmap, target, fitCanvasStyle) }
+                        .onSuccess { receipt ->
+                            _state.update {
+                                it.copy(isApplying = false, success = receipt.feedbackMessage ?: "Applied")
+                            }
                         }
-                    }
-                    .onFailure { e ->
-                        recycleIfNotShown(cropped)
-                        _state.update { it.copy(isApplying = false, error = e.message) }
-                    }
+                        .onFailure { e ->
+                            _state.update { it.copy(isApplying = false, error = e.message) }
+                        }
+                } finally {
+                    if (ownsOutputBitmap) recycleIfNotShown(outputBitmap)
+                }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
-                recycleIfNotShown(cropped)
                 _state.update { it.copy(isApplying = false, error = e.message) }
             }
         }

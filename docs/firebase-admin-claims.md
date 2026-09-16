@@ -64,7 +64,7 @@ token can't continue to assert `admin: true` until expiry.
 After `setCustomUserClaims` is called, the new claim is **not** visible
 on the client until that user gets a fresh ID token. Two paths:
 
-1. **Automatic on next refresh** — Firebase Auth rotates ID tokens every
+1. **Automatic on next refresh:** Firebase Auth rotates ID tokens every
    1 hour. Worst case the claim is live within an hour.
 2. **Explicit force** — call `VoteRepository.refreshAdminFromClaims()` from
    a coroutine; it invokes `currentUser.getIdToken(true)`

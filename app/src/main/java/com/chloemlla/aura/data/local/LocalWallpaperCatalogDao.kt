@@ -59,14 +59,33 @@ interface LocalWallpaperDao {
     @Query("SELECT * FROM local_wallpapers WHERE documentUri = :documentUri LIMIT 1")
     suspend fun get(documentUri: String): LocalWallpaperEntity?
 
+    @Query("SELECT * FROM local_wallpapers WHERE stableId = :stableId ORDER BY addedAt ASC LIMIT 1")
+    suspend fun getByStableId(stableId: String): LocalWallpaperEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(items: List<LocalWallpaperEntity>)
 
     @Query(
-        "DELETE FROM local_wallpapers WHERE folderUri = :folderUri " +
-            "AND lastSeenScanToken != :scanToken",
+        "UPDATE local_wallpapers SET localMediaStatus = 'MISSING', " +
+            "localMediaReason = 'File was not found during the latest folder scan' " +
+            "WHERE folderUri = :folderUri AND lastSeenScanToken != :scanToken AND isStandalone = 0",
     )
-    suspend fun deleteNotSeenInScan(folderUri: String, scanToken: String)
+    suspend fun markNotSeenInScanMissing(folderUri: String, scanToken: String)
+
+    @Query(
+        "UPDATE local_wallpapers SET localMediaStatus = :status, localMediaReason = :reason " +
+            "WHERE folderUri = :folderUri AND isStandalone = 0",
+    )
+    suspend fun updateFolderMediaStatus(folderUri: String, status: String, reason: String)
+
+    @Query(
+        "UPDATE local_wallpapers SET localMediaStatus = :status, localMediaReason = :reason " +
+            "WHERE documentUri = :documentUri",
+    )
+    suspend fun updateMediaStatus(documentUri: String, status: String, reason: String)
+
+    @Query("DELETE FROM local_wallpapers WHERE documentUri = :documentUri")
+    suspend fun deleteByDocumentUri(documentUri: String)
 
     @Query("DELETE FROM local_wallpapers WHERE folderUri = :folderUri")
     suspend fun deleteByFolder(folderUri: String)

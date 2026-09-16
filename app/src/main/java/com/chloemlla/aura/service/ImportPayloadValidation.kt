@@ -4,8 +4,8 @@ import com.chloemlla.aura.data.model.ContentSource
 import java.net.URI
 import java.util.Locale
 
-internal const val IMPORT_MAX_TEXT_LENGTH = 512
-internal const val IMPORT_MAX_URL_LENGTH = 2048
+internal const val IMPORT_MAX_TEXT_LENGTH = LibraryTransferContract.MAX_TEXT_CHARS
+internal const val IMPORT_MAX_URL_LENGTH = LibraryTransferContract.MAX_URL_CHARS
 
 private val IMPORT_CONTENT_SOURCES: Set<String> = ContentSource.entries.map { it.name }.toSet()
 

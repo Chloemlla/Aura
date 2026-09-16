@@ -22,6 +22,8 @@ class SoundUrlResolver @Inject constructor(
             .filter(String::isNotBlank)
             .distinct()
 
+        directCandidates.firstOrNull(::isLocalMediaLocator)?.let { return@withContext it }
+
         sound.youtubeVideoId()?.let { videoId ->
             youtubeRepo.getAudioStreamUrl(videoId)?.let { return@withContext it }
             directCandidates.firstOrNull { candidate -> canFetch(candidate) }?.let { return@withContext it }

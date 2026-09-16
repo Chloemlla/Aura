@@ -235,6 +235,7 @@ def find_stale_claims(
     active_lines: list[tuple[int, str]],
     truth: dict[str, str],
     source: str,
+    ignored_dependencies: frozenset[str] = frozenset(),
 ) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
     for lineno, line in active_lines:
@@ -242,6 +243,8 @@ def find_stale_claims(
             continue
         for m in VERSION_PATTERN.finditer(line):
             name = m.group("name")
+            if name.casefold().replace(" ", "").replace("-", "") in ignored_dependencies:
+                continue
             claimed = _norm_ver(m.group("version"))
             lookup = name.lower().replace(" ", "").replace("-", "")
             actual = None
@@ -317,18 +320,21 @@ def validate_manifest_consistency(repo_root: Path = Path(".")) -> dict[str, Any]
     truth = build_truth(catalog, gradle, npm)
 
     doc_specs = [
-        (ROADMAP, CURRENT_STATE_HEADERS_ROADMAP),
-        (RESEARCH, CURRENT_STATE_HEADERS_RESEARCH),
-        (README, CURRENT_STATE_HEADERS_README),
-        (CLAUDE, CURRENT_STATE_HEADERS_CLAUDE),
-        (COMMUNITY_CALLABLE_DOC, CURRENT_STATE_HEADERS_COMMUNITY_CALLABLE),
+        (ROADMAP, CURRENT_STATE_HEADERS_ROADMAP, frozenset()),
+        # RESEARCH.md is a dated audit snapshot. Keep checking its stack claims,
+        # but do not rewrite the app version it actually assessed after a release.
+        (RESEARCH, CURRENT_STATE_HEADERS_RESEARCH, frozenset({"versionname", "versioncode"})),
+        (README, CURRENT_STATE_HEADERS_README, frozenset()),
+        (CLAUDE, CURRENT_STATE_HEADERS_CLAUDE, frozenset()),
+        (COMMUNITY_CALLABLE_DOC, CURRENT_STATE_HEADERS_COMMUNITY_CALLABLE, frozenset()),
     ]
 
     stale: list[dict[str, Any]] = []
-    for relative_path, header_re in doc_specs:
+    for relative_path, header_re, ignored_dependencies in doc_specs:
         stale.extend(find_stale_claims(
             extract_current_state_lines(repo_root / relative_path, header_re),
             truth, str(relative_path),
+            ignored_dependencies,
         ))
 
     dupes = find_duplicate_titles(repo_root / ROADMAP)

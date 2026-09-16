@@ -25,7 +25,7 @@ internal data class SoundSourceTone(
 )
 
 internal fun soundSourceTone(source: ContentSource): SoundSourceTone = when (source) {
-    ContentSource.BUNDLED -> SoundSourceTone("Aura Picks", Color(0xFF8A6100), Color(0xFFFFC94D))
+    ContentSource.BUNDLED -> SoundSourceTone("Aura Originals", Color(0xFF8A6100), Color(0xFFFFC94D))
     ContentSource.YOUTUBE -> SoundSourceTone("YouTube", Color(0xFFC62828), Color(0xFFFF6B6B))
     ContentSource.FREESOUND -> SoundSourceTone("Freesound", Color(0xFF00697F), Color(0xFF6FD3E8))
     ContentSource.JAMENDO -> SoundSourceTone("Jamendo", Color(0xFF5E35B1), Color(0xFFB39DDB))

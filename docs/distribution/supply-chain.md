@@ -10,7 +10,7 @@ checksum, and release-note validation.
 | Control | Local source | Purpose |
 | --- | --- | --- |
 | Signed release APK | `.\gradlew.bat :app:assembleFullRelease --stacktrace --no-daemon` | Builds the non-debuggable GitHub/Obtainium release variant with local signing inputs. |
-| Signed Play AAB | `.\gradlew.bat :app:bundleFullRelease --stacktrace --no-daemon` | Builds the Play-ready app bundle for the same version and upload key. |
+| Signed Play AAB | `.\gradlew.bat -PauraReleaseChannel=play :app:bundleFullRelease --stacktrace --no-daemon` | Builds the Play-ready app bundle for the same version and upload key, with GitHub-only providers disabled by the compiled channel policy. |
 | Release bundle validator | `tools/release_artifact_bundle_check.py` | Fails dry runs when the final APK/AAB/notices/native/checksum/release-note bundle is incomplete or internally inconsistent. |
 | Third-party notices | `tools/google_oss_to_markdown.py` | Generates `THIRD-PARTY-NOTICES.md` from the release OSS license task output. |
 | Raw Google OSS inputs | `tools/google_oss_raw_archive.py`, `docs/distribution/raw-oss-input-retention.md` | Archives generated license metadata and raw text inputs as `GOOGLE-OSS-RAW-INPUTS.zip`. |
@@ -20,21 +20,23 @@ checksum, and release-note validation.
 | Native compliance packet | `tools/native_compliance_inventory.py --mode check-lock` | Inventories youtubedl-android, yt-dlp/Python, FFmpeg, QuickJS, and NewPipeExtractor payload evidence and publishes `NATIVE-COMPLIANCE.md`. |
 | Native alignment packet | `tools/native_alignment_check.py` | Records Android native page-alignment evidence as `NATIVE-ALIGNMENT.json`. |
 | Gradle wrapper policy | `tools/gradle_wrapper_check.py` | Pins the Gradle wrapper distribution URL, SHA-256, validation, storage roots, and timeout. |
-| Provider credential release guard | `tools/provider_credential_release_check.py` | Fails release preflight when optional provider keys from `local.properties` would be bundled into `BuildConfig`. |
+| Provider credential release guard | `tools/provider_credential_release_check.py` | Confirms release variants force optional provider keys blank even when a developer has local debug keys configured. |
 | Provider credential APK scan | `tools/provider_credential_apk_scan.py` | Scans packaged signed APKs for nonblank local provider values before publication. |
-| Provider credential storage policy | `tools/provider_credential_storage_check.py` | Checks DataStore storage, backup exclusions, clear controls, and privacy/support disclosures for user-entered credentials. |
+| Provider credential storage policy | `tools/provider_credential_storage_check.py` | Checks Android Keystore AES-GCM storage, restore recovery, backup exclusions, clear controls, export boundaries, and privacy/support disclosures for user-entered credentials. |
 | Cleartext release guard | `tools/cleartext_release_check.py` | Rejects cleartext manifest/network drift in public releases. |
 | Network endpoint inventory | `tools/network_endpoint_inventory_check.py` | Fails when provider network-code hosts drift from the reviewed endpoint inventory. |
 | Store metadata preflight | `tools/store_metadata_preflight.py` | Checks Fastlane text limits, current changelog, branding, and privacy-policy URL. |
 | Store asset pipeline | `tools/store_asset_pipeline_check.py` | Checks screenshot/feature-graphic planning, Fastlane image paths, alt text, and future asset-mode command. |
 | Privacy policy link gate | `tools/privacy_policy_link_check.py` | Keeps Settings, Fastlane metadata, README, and release dry-run docs aligned to the public privacy-policy URL. |
-| Privacy Data safety matrix | `tools/privacy_data_safety_check.py` | Keeps permissions, network endpoints, local storage, and SDK data surfaces mapped to Play declaration rows. |
+| Privacy Data safety matrix | `tools/privacy_data_safety_check.py` | Keeps permissions, network endpoints, local storage, SDK data surfaces, and both Android backup rule formats mapped to Play declaration rows. |
 | Rotation trigger boot permission | `tools/rotation_boot_permission_check.py` | Keeps the removed boot-completed permission decision aligned with manifest and release disclosures. |
 | Rotation foreground-service policy | `tools/rotation_fgs_policy_check.py` | Keeps foreground-service declarations, Settings, Play, and release evidence aligned. |
 | Background work scheduling ledger | `tools/background_work_scheduling_check.py` | Checks WorkManager unique work names, enqueue policies, constraints, deferral reasons, source terms, and release docs. |
 | Background work network posture | `tools/background_work_network_check.py` | Checks worker network posture, Data Saver gaps, privacy surfaces, scheduler source terms, and release docs. |
 | Background work device evidence | `tools/background_work_device_evidence_check.py` | Checks the device/emulator scheduler evidence plan, adb/dumpsys commands, source URLs, and release docs. |
 | Community guidelines consent | `tools/community_guidelines_consent_check.py` | Checks UGC guidelines, consent state, Settings entry, community screens, repository gates, and Play packet evidence. |
+| Library transfer contract | `tools/export_format_check.py` | Keeps every backup limit tied to the runtime contract and rejects silent item truncation or unstaged publication. |
+| Provider truth contract | `tools/provider_truth_check.py` | Checks provider media, lifecycle, priority, credentials, builds, channels, actions, app diagnostics, README, Play copy, and distribution packets against one manifest. |
 | Play App content packet | `tools/play_app_content_packet_check.py` | Keeps Play app access, target audience, content rating, Data safety, UGC, generated content, and sensitive-permission evidence aligned. |
 | Alternative-store disclosure matrix | `tools/alt_store_metadata_check.py` | Keeps GitHub/Obtainium/Izzy/F-Droid channel status, permission disclosures, network service rows, and proprietary dependency markers aligned. |
 | Release metadata consistency | `tools/release_metadata_consistency_check.py` | Keeps package/version metadata, Fastlane text, README links, privacy URLs, release docs, and artifact lists aligned. |
@@ -63,7 +65,19 @@ For each `v*` release:
 
 ## Local release checks
 
-Run these checks before the release APK build:
+Commit the release candidate and run the exact-commit umbrella check before the
+release APK build:
+
+```bash
+python3 tools/release_clean_clone_check.py --repo-root . --revision HEAD
+```
+
+It archives only Git-tracked inputs, verifies the required evidence set, and
+runs the local release, documentation, and legal gates listed in the release
+metadata policy. It reports owner-only signing, artifact, console, publication,
+and device evidence with pass, fail, or unknown status.
+
+The umbrella command runs these source-backed checks in its isolated tree:
 
 ```bash
 python3 tools/github_actions_allowlist_check.py --policy docs/distribution/github-actions-allowlist.json --repo-root .
@@ -85,6 +99,8 @@ python3 tools/background_work_scheduling_check.py --policy docs/background-work-
 python3 tools/background_work_network_check.py --policy docs/background-work-network-posture.json --repo-root .
 python3 tools/background_work_device_evidence_check.py --policy docs/background-work-device-evidence.json --repo-root .
 python3 tools/community_guidelines_consent_check.py --repo-root .
+python3 tools/export_format_check.py --spec docs/data/export-format.json --repo-root .
+python3 tools/provider_truth_check.py --manifest docs/providers/provider-manifest.json --repo-root .
 python3 tools/play_app_content_packet_check.py --policy docs/distribution/play-app-content.json --repo-root .
 python3 tools/alt_store_metadata_check.py --policy docs/distribution/alt-store-metadata.json --repo-root .
 python3 tools/release_metadata_consistency_check.py --policy docs/distribution/release-metadata-consistency.json --repo-root .
@@ -136,10 +152,12 @@ activity because that runtime path pulls broad UI dependency upgrades on the
 current AGP 9.3.1 / Gradle 9.5 stack.
 
 Generated dependency notices do not replace Aura's content-source disclosures.
-`ProviderDisclosure.kt` remains the source of truth for provider policy rows
-such as YouTube, Reddit, Pexels, Pixabay, community uploads, bundled media, and
-AI-generated content. Settings > Open source licenses links users to the latest
-release notice artifacts while keeping provider disclosures visible in-app.
+`ProviderCapability.kt` is the production registry, and
+`docs/providers/provider-manifest.json` is its checked public mirror. The
+provider-truth gate rejects drift in media types, lifecycle, default order,
+credentials, build or channel availability, and permitted actions. Settings >
+Open source licenses uses the same registry order while keeping provider
+disclosures visible in-app.
 
 ## Raw Google OSS inputs
 

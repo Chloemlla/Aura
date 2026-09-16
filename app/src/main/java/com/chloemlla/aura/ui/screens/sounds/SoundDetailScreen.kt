@@ -157,7 +157,7 @@ fun SoundDetailScreen(
     val isPlaying = state.playingId == s.stableKey()
     val showUploader = s.uploaderName.isNotEmpty() &&
         s.uploaderName != "Unknown" &&
-        !(s.source == ContentSource.BUNDLED && s.uploaderName == "Aura Picks")
+        !(s.source == ContentSource.BUNDLED && s.uploaderName in setOf("Aura", "Aura Picks"))
     val detailBadges = remember(s, state.selectedTab) { soundBadges(s, state.selectedTab) }
     val sourceTone = soundSourceTone(s.source)
     val sourceLabel = sourceTone.label
@@ -413,7 +413,7 @@ fun SoundDetailScreen(
             // Metadata row
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(sourceLabel, style = MaterialTheme.typography.labelMedium, color = sourceColor)
-                Text(formatDuration(s.duration), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(formatSoundDetailDuration(s.duration), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (showUploader) {
                     Text(stringResource(R.string.sound_detail_by_creator, s.uploaderName), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
@@ -810,7 +810,7 @@ private fun SimilarSoundsSection(
                             }
                             Column(Modifier.weight(1f)) {
                                 Text(similar.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(formatDuration(similar.duration), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(formatSoundDetailDuration(similar.duration), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -893,9 +893,4 @@ internal fun DetailWaveform(duration: Double, isPlaying: Boolean, modifier: Modi
             drawLine(activeColor, Offset(size.width * progress, 0f), Offset(size.width * progress, size.height), strokeWidth = 2f)
         }
     }
-}
-
-private fun formatDuration(seconds: Double): String {
-    val total = seconds.toInt(); val m = total / 60; val s = total % 60
-    return if (m > 0) "${m}m ${s}s" else "${s}s"
 }

@@ -4,6 +4,15 @@
   "packageName": "com.chloemlla.aura",
   "docsPath": "docs/distribution/alt-store-metadata.md",
   "decision": "full-build-for-github-obtainium-izzy-foss-boundary-ready",
+  "providerCatalog": {
+    "manifestPath": "docs/providers/provider-manifest.json",
+    "buildFlavor": "FULL",
+    "releaseChannel": "GITHUB",
+    "wallpaper": ["REDDIT", "WALLHAVEN", "PEXELS", "PIXABAY", "BING", "WIKIMEDIA", "NASA", "LEMMY", "COMMUNITY", "LOCAL", "AI_GENERATED", "OPEN_METEO"],
+    "video": ["REDDIT", "YOUTUBE", "PEXELS", "PIXABAY", "LOCAL"],
+    "sound": ["YOUTUBE", "BUNDLED", "COMMUNITY", "LOCAL"],
+    "legacyAttributionOnly": ["PICSUM", "INTERNET_ARCHIVE", "FREESOUND", "JAMENDO", "AUDIUS", "CCMIXTER", "KLIPY", "SOUNDCLOUD"]
+  },
   "requiredEvidencePaths": [
     "app/build.gradle.kts",
     "settings.gradle.kts",
@@ -12,6 +21,7 @@
     "docs/distribution/developer-verification.md",
     "docs/privacy/data-safety.json",
     "docs/security/network-endpoints.json",
+    "docs/providers/provider-manifest.json",
     "tools/fdroid_preflight.py",
     "tools/foss_reproducibility_check.py",
     "fastlane/metadata/android/en-US/full_description.txt"
@@ -63,7 +73,7 @@
       "id": "NonFreeNet",
       "applies": true,
       "details": {
-        "en-US": "Community features use Firebase Auth, Realtime Database, Storage, Functions, and App Check. Remote providers include Wallhaven, Bing, Pexels, Pixabay, Reddit, Freesound, SoundCloud, Audius, ccMixter, Open-Meteo, Stability, and YouTube extraction paths."
+        "en-US": "Active remote paths include Reddit, Wallhaven, Bing, Pexels, Pixabay, Wikimedia Commons, NASA APOD, Lemmy, Open-Meteo, Stability, Firebase community services, and YouTube in GitHub-channel builds. Freesound, SoundCloud, Audius, Openverse, and ccMixter entries document legacy attribution only and are not active feeds."
       },
       "evidenceRefs": [
         "docs/security/network-endpoints.json",
@@ -261,23 +271,23 @@
     },
     {
       "id": "openverse-audio",
-      "disclosure": "Legacy audio provider path retained for compatibility."
+      "disclosure": "Legacy attribution only; no active Openverse audio feed is requested."
     },
     {
       "id": "freesound-v2",
-      "disclosure": "Audio provider and attribution compatibility path with optional user key."
+      "disclosure": "Legacy attribution only; no active Freesound feed is requested."
     },
     {
       "id": "soundcloud-api",
-      "disclosure": "Legacy/link-only audio provider path requiring optional user client ID."
+      "disclosure": "Legacy attribution only; no active SoundCloud feed is requested."
     },
     {
       "id": "audius-api",
-      "disclosure": "Dormant audio provider compatibility path."
+      "disclosure": "Legacy attribution only; no active Audius feed is requested."
     },
     {
       "id": "ccmixter-api",
-      "disclosure": "Dormant HTTPS-only CC music provider compatibility path."
+      "disclosure": "Legacy attribution only; no active ccMixter feed is requested."
     },
     {
       "id": "open-meteo-api",

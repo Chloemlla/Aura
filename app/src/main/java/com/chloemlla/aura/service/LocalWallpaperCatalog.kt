@@ -1,6 +1,7 @@
 package com.chloemlla.aura.service
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.room.withTransaction
@@ -9,13 +10,18 @@ import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.LocalWallpaperEntity
 import com.chloemlla.aura.data.model.LocalWallpaperFolderEntity
 import com.chloemlla.aura.data.model.LocalWallpaperFolderScanStatus
+import com.chloemlla.aura.data.model.LocalMediaStatus
 import com.chloemlla.aura.data.model.Wallpaper
 import com.chloemlla.aura.data.model.WallpaperTarget
 import com.chloemlla.aura.data.model.normalizeLocalWallpaperTags
+import com.chloemlla.aura.data.model.needsLocalMediaRelink
+import com.chloemlla.aura.data.model.stableLocalMediaId
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+import java.io.InputStream
+import java.io.IOException
 import java.security.MessageDigest
 import java.util.Locale
 import java.util.UUID
@@ -24,13 +30,22 @@ import javax.inject.Singleton
 
 private const val MAX_SCAN_DEPTH = 8
 private const val MAX_INDEXED_FILES = 10_000
-private const val MAX_HASH_BYTES = 64L * 1024L * 1024L
+private const val MAX_FOLDER_RELINK_BATCH = 500
+private const val HASH_BUFFER_BYTES = 64 * 1024
 private const val IMAGE_DIRECTORY_MIME = "vnd.android.document/directory"
+
+data class LocalWallpaperFolderRepairResult(
+    val relinkedCount: Int,
+    val discoveredCount: Int,
+    val remainingCount: Int,
+    val limited: Boolean,
+)
 
 @Singleton
 class LocalWallpaperCatalog @Inject constructor(
     @ApplicationContext private val context: Context,
     private val database: FreeVibeDatabase,
+    private val localMediaRelinkManager: LocalMediaRelinkManager,
 ) {
     private val folderDao get() = database.localWallpaperFolderDao()
     private val wallpaperDao get() = database.localWallpaperDao()
@@ -92,6 +107,140 @@ class LocalWallpaperCatalog @Inject constructor(
     suspend fun rescanFolder(uriString: String): Result<Int> =
         withContext(Dispatchers.IO) { rescanFolderInternal(uriString) }
 
+    suspend fun repairFolder(
+        oldFolderUriString: String,
+        newFolderUriString: String,
+    ): Result<LocalWallpaperFolderRepairResult> = withContext(Dispatchers.IO) {
+        val oldUri = parseFolderUri(oldFolderUriString)
+            ?: return@withContext Result.failure(IllegalArgumentException("The old folder URI is invalid"))
+        val newUri = parseFolderUri(newFolderUriString)
+            ?: return@withContext Result.failure(IllegalArgumentException("A SAF folder URI is required"))
+        if (!hasPersistedReadPermission(newUri)) {
+            return@withContext Result.failure(SecurityException("Folder permission was not retained"))
+        }
+        if (oldUri == newUri) {
+            return@withContext rescanFolderInternal(newUri.toString()).map { count ->
+                LocalWallpaperFolderRepairResult(0, count, 0, limited = false)
+            }
+        }
+        val oldFolder = folderDao.get(oldUri.toString())
+            ?: return@withContext Result.failure(IllegalArgumentException("The folder is not in the catalog"))
+        val oldItems = wallpaperDao.getByFolder(oldUri.toString())
+        val existingNewFolder = folderDao.get(newUri.toString())
+        val existingNew = wallpaperDao.getByFolder(newUri.toString())
+            .associateBy(LocalWallpaperEntity::documentUri)
+        val scanToken = UUID.randomUUID().toString()
+        return@withContext runCatching {
+            val matchableOldItems = oldItems.take(MAX_FOLDER_RELINK_BATCH)
+            val expectedSizes = matchableOldItems
+                .map(LocalWallpaperEntity::sizeBytes)
+                .filter { it > 0L }
+                .toSet()
+            val includesUnknownSize = matchableOldItems.any { it.sizeBytes <= 0L }
+            val scan = scanTree(newUri, scanToken, existingNew) { candidateSize ->
+                includesUnknownSize || candidateSize <= 0L || candidateSize in expectedSizes
+            }
+            if (scan.error.isNotBlank() && scan.items.isEmpty()) {
+                throw IOException(scan.error)
+            }
+            val matches = matchLocalWallpaperFolderRepairCandidates(
+                oldItems = oldItems,
+                candidates = scan.items,
+                maxItems = MAX_FOLDER_RELINK_BATCH,
+                occupiedCandidates = existingNew,
+            )
+            val oldByCandidateUri = matches.associate { it.second.documentUri to it.first }
+            val repairedItems = scan.items.map { candidate ->
+                oldByCandidateUri[candidate.documentUri]?.let { previous ->
+                    candidate.copy(
+                        stableId = previous.stableLocalMediaId(),
+                        tags = previous.tags,
+                        addedAt = previous.addedAt,
+                        isStandalone = false,
+                    )
+                } ?: candidate
+            }
+            val remainingCount = (oldItems.size - matches.size).coerceAtLeast(0)
+            database.withTransaction {
+                folderDao.upsert(
+                    existingNewFolder?.copy(target = oldFolder.target) ?: LocalWallpaperFolderEntity(
+                        folderUri = newUri.toString(),
+                        displayName = folderDisplayName(newUri),
+                        target = oldFolder.target,
+                        addedAt = oldFolder.addedAt,
+                    ),
+                )
+                wallpaperDao.upsertAll(repairedItems)
+                matches.forEach { (previous, candidate) ->
+                    val relinkCandidate = LocalMediaRelinkCandidate(
+                        locator = candidate.documentUri,
+                        sha256 = candidate.contentHash,
+                        metadata = com.chloemlla.aura.data.model.MediaTechnicalMetadata(
+                            mimeType = candidate.mimeType,
+                            width = candidate.width,
+                            height = candidate.height,
+                            sizeBytes = candidate.sizeBytes,
+                        ),
+                    )
+                    localMediaRelinkManager.relinkWallpaperAssociations(
+                        stableId = previous.stableLocalMediaId(),
+                        source = ContentSource.LOCAL.name,
+                        oldLocator = previous.documentUri,
+                        newLocator = candidate.documentUri,
+                        candidate = relinkCandidate,
+                    )
+                    if (previous.documentUri != candidate.documentUri) {
+                        wallpaperDao.deleteByDocumentUri(previous.documentUri)
+                    }
+                }
+                folderDao.updateScanState(
+                    folderUri = newUri.toString(),
+                    lastScannedAt = System.currentTimeMillis(),
+                    scanStatus = when {
+                        scan.error.isNotBlank() -> LocalWallpaperFolderScanStatus.READY_PARTIAL
+                        scan.limited -> LocalWallpaperFolderScanStatus.READY_LIMITED
+                        else -> LocalWallpaperFolderScanStatus.READY
+                    },
+                    lastError = scan.error,
+                    itemCount = repairedItems.size,
+                )
+                if (remainingCount == 0) {
+                    folderDao.delete(oldFolder)
+                } else {
+                    folderDao.updateScanState(
+                        folderUri = oldFolder.folderUri,
+                        lastScannedAt = System.currentTimeMillis(),
+                        scanStatus = LocalWallpaperFolderScanStatus.PERMISSION_REVOKED,
+                        lastError = "$remainingCount items still need relinking",
+                        itemCount = remainingCount,
+                    )
+                }
+            }
+            matches.forEach { (previous, candidate) ->
+                localMediaRelinkManager.relinkThemeSlots(
+                    stableId = previous.stableLocalMediaId(),
+                    source = ContentSource.LOCAL.name,
+                    oldLocator = previous.documentUri,
+                    newLocator = candidate.documentUri,
+                )
+            }
+            if (remainingCount == 0) {
+                runCatching {
+                    context.contentResolver.releasePersistableUriPermission(
+                        oldUri,
+                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                    )
+                }
+            }
+            LocalWallpaperFolderRepairResult(
+                relinkedCount = matches.size,
+                discoveredCount = repairedItems.size,
+                remainingCount = remainingCount,
+                limited = scan.limited || oldItems.size > MAX_FOLDER_RELINK_BATCH,
+            )
+        }
+    }
+
     private suspend fun rescanFolderInternal(uriString: String): Result<Int> {
         val uri = parseFolderUri(uriString)
             ?: return Result.failure(IllegalArgumentException("A SAF folder URI is required"))
@@ -108,6 +257,11 @@ class LocalWallpaperCatalog @Inject constructor(
 
         if (!hasPersistedReadPermission(uri)) {
             val error = "Folder permission was revoked"
+            wallpaperDao.updateFolderMediaStatus(
+                folderUri,
+                LocalMediaStatus.PERMISSION_REVOKED,
+                error,
+            )
             folderDao.updateScanState(
                 folderUri = folderUri,
                 lastScannedAt = System.currentTimeMillis(),
@@ -129,7 +283,7 @@ class LocalWallpaperCatalog @Inject constructor(
             }
             database.withTransaction {
                 wallpaperDao.upsertAll(scan.items)
-                if (scan.error.isBlank()) wallpaperDao.deleteNotSeenInScan(folderUri, scanToken)
+                if (scan.error.isBlank()) wallpaperDao.markNotSeenInScanMissing(folderUri, scanToken)
                 folderDao.updateScanState(
                     folderUri = folderUri,
                     lastScannedAt = System.currentTimeMillis(),
@@ -144,6 +298,11 @@ class LocalWallpaperCatalog @Inject constructor(
             }
             Result.success(scan.items.size)
         } catch (error: SecurityException) {
+            wallpaperDao.updateFolderMediaStatus(
+                folderUri,
+                LocalMediaStatus.PERMISSION_REVOKED,
+                "Folder permission was revoked",
+            )
             folderDao.updateScanState(
                 folderUri = folderUri,
                 lastScannedAt = System.currentTimeMillis(),
@@ -174,35 +333,43 @@ class LocalWallpaperCatalog @Inject constructor(
         }.filter { folder -> target == null || folder.target == WallpaperTarget.BOTH.name || folder.target == target.name }
         val allowedUris = activeFolders.mapTo(HashSet(), LocalWallpaperFolderEntity::folderUri)
         val allItems = wallpaperDao.getAll()
-            .filter { it.folderUri in allowedUris }
+            .filter { item ->
+                val folder = foldersByUri[item.folderUri]
+                val targetMatches = target == null || folder == null ||
+                    folder.target == WallpaperTarget.BOTH.name || folder.target == target.name
+                !item.needsLocalMediaRelink() && targetMatches &&
+                    (item.isStandalone || item.folderUri in allowedUris)
+            }
             .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.displayName })
         val seenHashes = HashSet<String>()
         return allItems.mapNotNull { item ->
             if (item.contentHash.isNotBlank() && !seenHashes.add(item.contentHash)) return@mapNotNull null
-            val folder = foldersByUri[item.folderUri] ?: return@mapNotNull null
-            item.toWallpaper(folder.displayName)
+            val folderName = foldersByUri[item.folderUri]?.displayName ?: "Relinked file"
+            item.toWallpaper(folderName)
         }
     }
 
     private fun LocalWallpaperEntity.toWallpaper(folderName: String): Wallpaper = Wallpaper(
-        id = documentUri,
+        id = stableLocalMediaId(),
         source = ContentSource.LOCAL,
         thumbnailUrl = documentUri,
         fullUrl = documentUri,
-        width = 0,
-        height = 0,
+        width = width,
+        height = height,
         tags = tags.split(',').map(String::trim).filter(String::isNotBlank),
         fileSize = sizeBytes,
         fileType = mimeType,
         sourcePageUrl = folderUri,
         license = "Local User Content",
         uploaderName = folderName,
+        contentHash = contentHash,
     )
 
     private fun scanTree(
         treeUri: Uri,
         scanToken: String,
         existing: Map<String, LocalWallpaperEntity>,
+        shouldHashContent: (Long) -> Boolean = { true },
     ): ScanResult {
         val rootDocumentId = DocumentsContract.getTreeDocumentId(treeUri)
         val visited = HashSet<String>()
@@ -237,16 +404,26 @@ class LocalWallpaperCatalog @Inject constructor(
                     val modifiedAt = cursor.longAt(modifiedIndex)
                     val documentUri = childUri.toString()
                     val previous = existing[documentUri]
-                    val contentHash = if (previous != null && previous.sizeBytes == sizeBytes &&
+                    val metadataUnchanged = previous != null && previous.sizeBytes == sizeBytes &&
                         previous.modifiedAt == modifiedAt && previous.mimeType == mimeType &&
                         previous.displayName == displayName
-                    ) {
-                        previous.contentHash
-                    } else {
-                        hashDocument(childUri)
+                    val previousHash = previous?.contentHash.orEmpty()
+                    val contentHash = when {
+                        metadataUnchanged && previousHash.isNotBlank() -> previousHash
+                        shouldHashContent(sizeBytes) -> hashDocument(childUri)
+                        else -> ""
                     }
+                    val dimensions = if (
+                        metadataUnchanged && previous.width > 0 && previous.height > 0
+                    ) {
+                        previous.width to previous.height
+                    } else {
+                        readImageBounds(childUri)
+                    }
+                    val corrupt = dimensions.first <= 0 || dimensions.second <= 0
                     items += LocalWallpaperEntity(
                         documentUri = documentUri,
+                        stableId = previous?.stableLocalMediaId() ?: documentUri,
                         folderUri = treeUri.toString(),
                         documentId = documentId,
                         displayName = displayName,
@@ -254,6 +431,11 @@ class LocalWallpaperCatalog @Inject constructor(
                         sizeBytes = sizeBytes,
                         modifiedAt = modifiedAt,
                         contentHash = contentHash,
+                        width = dimensions.first,
+                        height = dimensions.second,
+                        localMediaStatus = if (corrupt) LocalMediaStatus.CORRUPT else LocalMediaStatus.AVAILABLE,
+                        localMediaReason = if (corrupt) "Image dimensions could not be read" else "",
+                        isStandalone = previous?.isStandalone ?: false,
                         tags = previous?.tags.orEmpty(),
                         lastSeenScanToken = scanToken,
                         addedAt = previous?.addedAt ?: System.currentTimeMillis(),
@@ -270,22 +452,20 @@ class LocalWallpaperCatalog @Inject constructor(
     }
 
     private fun hashDocument(uri: Uri): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        var total = 0L
         return runCatching {
             context.contentResolver.openInputStream(uri)?.use { input ->
-                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                while (true) {
-                    val read = input.read(buffer)
-                    if (read <= 0) break
-                    total += read
-                    if (total > MAX_HASH_BYTES) return ""
-                    digest.update(buffer, 0, read)
-                }
+                hashLocalWallpaperStream(input)
             } ?: return ""
-            digest.digest().joinToString("") { byte -> "%02x".format(Locale.ROOT, byte) }
         }.getOrDefault("")
     }
+
+    private fun readImageBounds(uri: Uri): Pair<Int, Int> = runCatching {
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            BitmapFactory.decodeStream(input, null, options)
+        }
+        options.outWidth.coerceAtLeast(0) to options.outHeight.coerceAtLeast(0)
+    }.getOrDefault(0 to 0)
 
     private fun hasPersistedReadPermission(uri: Uri): Boolean = runCatching {
         context.contentResolver.persistedUriPermissions.any { permission ->
@@ -326,6 +506,54 @@ class LocalWallpaperCatalog @Inject constructor(
             DocumentsContract.Document.COLUMN_LAST_MODIFIED,
         )
     }
+}
+
+internal fun matchLocalWallpaperFolderRepairCandidates(
+    oldItems: List<LocalWallpaperEntity>,
+    candidates: List<LocalWallpaperEntity>,
+    maxItems: Int,
+    occupiedCandidates: Map<String, LocalWallpaperEntity> = emptyMap(),
+): List<Pair<LocalWallpaperEntity, LocalWallpaperEntity>> {
+    if (maxItems <= 0) return emptyList()
+    val availableByHash = candidates
+        .filter { it.contentHash.isNotBlank() && !it.needsLocalMediaRelink() }
+        .groupBy(LocalWallpaperEntity::contentHash)
+        .mapValues { (_, items) -> items.toMutableList() }
+        .toMutableMap()
+    return buildList {
+        oldItems.take(maxItems).forEach { previous ->
+            if (previous.contentHash.isBlank()) return@forEach
+            val choices = availableByHash[previous.contentHash] ?: return@forEach
+            if (choices.isEmpty()) return@forEach
+            val compatibleChoices = choices.filter { next ->
+                occupiedCandidates[next.documentUri]?.stableLocalMediaId()?.let { occupiedStableId ->
+                    occupiedStableId == previous.stableLocalMediaId()
+                } ?: true
+            }
+            if (compatibleChoices.isEmpty()) return@forEach
+            val candidate = compatibleChoices.firstOrNull { next ->
+                next.displayName.equals(previous.displayName, ignoreCase = true) &&
+                    next.sizeBytes == previous.sizeBytes &&
+                    (previous.width <= 0 || next.width == previous.width) &&
+                    (previous.height <= 0 || next.height == previous.height)
+            } ?: compatibleChoices.first()
+            choices.remove(candidate)
+            add(previous to candidate)
+        }
+    }
+}
+
+/** Full-file, constant-memory identity for SAF media. Large files must remain relinkable. */
+internal fun hashLocalWallpaperStream(input: InputStream): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    val buffer = ByteArray(HASH_BUFFER_BYTES)
+    while (true) {
+        val read = input.read(buffer)
+        if (read < 0) break
+        if (read == 0) continue
+        digest.update(buffer, 0, read)
+    }
+    return digest.digest().joinToString("") { byte -> "%02x".format(Locale.ROOT, byte) }
 }
 
 internal fun isLocalWallpaperImage(displayName: String?, mimeType: String?): Boolean {

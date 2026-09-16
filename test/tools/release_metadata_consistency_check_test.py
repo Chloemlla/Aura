@@ -10,6 +10,7 @@ from tools.release_manifest import read_manifest
 from tools.release_metadata_consistency_check import (
     ReleaseMetadataConsistencyError,
     parse_gradle,
+    resolve_required_evidence_paths,
     validate_policy,
 )
 
@@ -34,7 +35,7 @@ def live_policy() -> dict[str, object]:
 
 def copy_required_tree(destination: Path) -> None:
     policy = live_policy()
-    paths = set(policy["requiredEvidencePaths"])  # type: ignore[arg-type]
+    paths = set(resolve_required_evidence_paths(policy))
     paths.add(policy["docsPath"])  # type: ignore[arg-type]
     paths.add("docs/distribution/release-metadata-consistency.json")
     # Sources of truth the fact-surface checks compare prose against.
@@ -239,10 +240,13 @@ class ReleaseMetadataConsistencyCheckTest(unittest.TestCase):
         self.assertEqual(read_manifest(REPO_ROOT)["roomSchemaVersion"], result["roomSchemaVersion"])
 
     def test_rejects_a_stale_room_schema_claim(self) -> None:
-        message = self._drifted(lambda text: text.replace("Room DB v17", "Room DB v14"))
+        current = int(read_manifest(REPO_ROOT)["roomSchemaVersion"])
+        message = self._drifted(
+            lambda text: text.replace(f"Room DB v{current}", "Room DB v14")
+        )
 
         self.assertIn("Room v14", message)
-        self.assertIn("v17", message)
+        self.assertIn(f"v{current}", message)
 
     def test_rejects_a_stale_version_badge(self) -> None:
         # Derived, not hardcoded: a literal version here becomes the stale
@@ -291,13 +295,26 @@ class ReleaseMetadataConsistencyCheckTest(unittest.TestCase):
         self.assertIn("ARCHITECTURE.md claims 4 bottom nav tabs but the app builds 5", message)
 
     def test_rejects_a_stale_room_version_in_architecture(self) -> None:
+        current = int(read_manifest(REPO_ROOT)["roomSchemaVersion"])
         message = self._drifted(
-            lambda text: text.replace("Room DB v17", "Room DB v14"),
+            lambda text: text.replace(f"Room DB v{current}", "Room DB v14"),
             surface="ARCHITECTURE.md",
         )
 
         self.assertIn("ARCHITECTURE.md claims Room v14", message)
-        self.assertIn("v17", message)
+        self.assertIn(f"v{current}", message)
+
+    def test_rejects_a_stale_version_in_the_release_packet(self) -> None:
+        version_name = read_manifest(REPO_ROOT)["versionName"]
+        message = self._drifted(
+            lambda text: text.replace(
+                f"| Version name | `{version_name}` |",
+                "| Version name | `0.0.1` |",
+            ),
+            surface="docs/distribution/release-metadata-consistency.md",
+        )
+
+        self.assertIn("release-metadata-consistency.md claims version 0.0.1", message)
 
     def test_rejects_a_contributing_sdk_claim_the_build_contradicts(self) -> None:
         # Read the level the build declares instead of restating it, so the

@@ -44,6 +44,126 @@ All notable changes to Aura will be documented in this file.
   (`accessTier`: denied/basic/full) and trusts status fields only when the provider actually
   granted them. Refusals carry the provider's actionable reason (pending approval / denied by
   user / signer unverified / not a partner / no signature) instead of a silent all-false status.
+- **Missing local media can be repaired**: downloads, favorites, and local
+  wallpaper catalog entries now stay visible when a file moves, disappears,
+  becomes unreadable, or loses Android permission. Relink checks the selected
+  media type and compares its digest, size, dimensions, and duration before it
+  changes anything. A warned replacement requires an explicit Use anyway
+  action. Successful repair keeps tags, collections, wallpaper history,
+  rotation exclusions, theme slots, and home or lock targets. Folder repair
+  matches up to 500 wallpapers by exact SHA-256 without taking over an existing
+  catalog identity. Portable library format 3 and favorites format 2 now carry
+  locator-free local metadata so restored items can be repaired on a new
+  device.
+
+- **Saved media keeps its source quality**: wallpaper and sound downloads now
+  verify that MediaStore received the exact source bytes, while video wallpaper
+  feeds and local imports retain named originals with provenance. Apply creates
+  a separate copy only for transforms, oversized media, or incompatible video
+  and sound formats. Valid copies are reused. The Downloads screen now includes
+  videos and shows original and optimized metadata, with a control that removes
+  only the optimized file. Pending writes roll back on storage or encoder
+  failure, and Ultra HDR transforms are identified as SDR working copies while
+  the gainmap-bearing original remains intact. Saved video feed items reapply
+  without another network fetch after their size and digest are verified.
+
+- **Rotation can skip a bad item without deleting it**: wallpapers and videos
+  now have a persistent Exclude from rotation action with immediate Undo.
+  Downloads, local media, and history expose the same control. A manager in
+  Settings restores one item or all of them. Scheduled rotation, one-shot
+  triggers, widgets, theme switching, night variants, and wallpaper packs all
+  honor the choice, while browsing and manual apply remain available. Local
+  content hashes preserve exclusions after a path relink, and portable library
+  backup restores the records without copying raw device paths. Full-file
+  streaming hashes cover large SAF images, while excluded theme and night
+  choices leave a persistent recovery hint in background diagnostics.
+
+- **Fit can now look intentional instead of leaving unexplained bars**: static
+  wallpapers, videos, and GIFs can use AMOLED black, a chosen color, a Palette
+  color, or a blurred edge behind the complete frame. Preview and apply share
+  the same saved choice. Video builds one canvas from a bounded representative
+  frame and reuses it instead of blurring during playback. HDR and missing-frame
+  fallbacks are deterministic, all generated media stays inside existing memory
+  and file limits, and portable library backups retain the non-secret defaults.
+
+- **Restored provider keys now fail safely and visibly**: Aura keeps user-entered
+  provider keys in its Android Keystore-backed AES-GCM store and excludes both
+  current and legacy credential files from cloud backup and device transfer. If
+  ciphertext arrives without its device-bound key, Aura removes the unreadable
+  copy and keeps a Settings notice visible until each affected key is handled.
+  Temporary Keystore failures retain encrypted values and now have a tap-to-retry
+  action. Library exports and diagnostics carry status only, never credential
+  names or values. The privacy and Data safety checks now parse both Android
+  backup formats and reject any mismatch between cloud and device-transfer rules.
+
+- **Provider availability now has one checked public contract**: all 22 source
+  records now declare media types, lifecycle, default order, credential needs,
+  build and release-channel availability, and allowed actions. Reddit stays
+  first for wallpapers and video wherever it ships, while YouTube stays first
+  for sounds in GitHub and Obtainium builds and is absent from Play copy. The
+  README, in-app legal catalog, diagnostics, store listing, and distribution
+  packets now agree. Legacy sources retain attribution for old items without
+  presenting dead feeds or credential prompts.
+  The contract now controls the installed artifact too. Play bundles compile
+  with YouTube disabled, live sound and video ranking follows manifest priority,
+  and legacy items cannot apply, download, edit, share, or enter Aura Originals.
+  Upgraded installs delete retired Freesound credentials on startup. Network
+  requests also stop at a final artifact-availability gate. Saved wallpaper
+  previews, restored video-feed caches, Media3 preview traffic, and NewPipe's
+  direct transport now enforce the same rule. The drift check covers 25 runtime
+  and release surfaces, including feed ranking, Settings, action policy,
+  diagnostics, and the separate Play build command.
+
+- **Backups no longer report success after dropping library items**: favorites,
+  collections, collection membership, and search history now share one checked
+  transfer contract. Oversized exports stop before the destination is opened,
+  completed payloads are staged before publication, and failed copies clean up
+  partial files. Imports distinguish duplicates from invalid rows, and the app
+  reports exact imported, skipped, and failed counts.
+
+- **Release checks now prove the committed tree**: one command archives the
+  selected Git commit and runs every tracked-input release, documentation, and
+  legal gate inside it. Ignored maintainer files can no longer make the release
+  packet pass. Missing tracked evidence and references to deleted workflow files
+  fail clearly, while signing, generated artifacts, console access, publication,
+  and device checks report an explicit owner-only status.
+
+## v6.45.3 (2026-09-13)
+
+- **Dated research stays historically accurate**: the manifest gate no longer
+  forces a research snapshot's assessed app version to change with every
+  release. It still checks dependency and platform claims in the same sections.
+
+- **Wallpaper scrolling uses less memory**: Coil's foreground bitmap cache is
+  capped at 12.5 percent of the app memory budget instead of 25 percent. The
+  existing 256 MB disk cache still avoids repeat downloads, while Compose and
+  image decoders get more headroom on long feed sessions.
+
+- **Reddit remains the lead media source by design**: the provider registry now
+  matches the working Reddit wallpaper and video feeds instead of describing
+  them as discontinued. Fresh installs keep Reddit on and the optional wallpaper
+  catalogs off. Users can enable Wallhaven or Bing, and can add their own Pexels
+  and Pixabay keys without weakening Reddit-first ranking.
+
+- **Sounds now have a working offline catalog**: the 25 dead Freesound preview
+  links have been replaced by original CC0 Ogg tones packaged with Aura. Ten
+  ringtones, ten notification sounds, and five alarms appear immediately beside
+  network results. The same local resource path now supports preview, download,
+  search, and system-sound application with size and media-type validation.
+  Subsecond notifications now show `<1s` instead of looking like zero-length
+  files.
+
+- **The screenshot release gate works again**: pseudolocale cases no longer
+  overwrite ordinary English images, both editor locale baselines now exist,
+  and the wallpaper fixture leaves room for its grid. Twelve reviewed phone,
+  large-font, RTL, and tablet images now pass in both app flavors.
+
+- **Development API keys cannot leak into release builds**: release variants now
+  replace every shipped optional provider credential with a blank value even
+  when the developer's ignored `local.properties` contains test keys. Stability
+  is blank in the full release and remains absent from FOSS. The release guard
+  verifies that split, and packaged APK scanning remains the final check before
+  publication.
 
 - **The accessibility check now accounts for every screen, not six of them**: it
   described itself as the accessibility release gate while only ever exercising

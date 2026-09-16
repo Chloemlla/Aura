@@ -115,7 +115,8 @@ class AudioTrimmerInstrumentedTest {
         val (mimeType, durationMs) = readEncodedAudio(File(output))
 
         assertEquals("audio/mp4a-latm", mimeType)
-        assertTrue(durationMs in 975L..1_025L)
+        val aacFrameDurationMs = (1_024L * 1_000L + sampleRate - 1L) / sampleRate
+        assertTrue(isTrimDurationWithinCodecBoundaries(1_000L, durationMs, aacFrameDurationMs))
     }
 
     private fun sineFixture(sampleRate: Int, durationMs: Long): ShortArray {

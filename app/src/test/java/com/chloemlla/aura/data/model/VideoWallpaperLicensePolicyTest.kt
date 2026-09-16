@@ -1,5 +1,6 @@
 package com.chloemlla.aura.data.model
 
+import com.chloemlla.aura.data.legal.isProviderAvailableInCurrentArtifact
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -53,8 +54,13 @@ class VideoWallpaperLicensePolicyTest {
         assertEquals("https://www.youtube.com/t/terms", capabilities.providerPolicyLinks.termsUrl)
         assertEquals("https://support.google.com/youtube/answer/2802027", capabilities.providerPolicyLinks.reportUrl)
         assertEquals("https://support.google.com/youtube/answer/2807622", capabilities.providerPolicyLinks.takedownUrl)
-        assertTrue(capabilities.requiresConfirmation(VideoWallpaperAction.APPLY))
-        assertTrue(capabilities.requiresConfirmation(VideoWallpaperAction.DOWNLOAD))
+        if (isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE)) {
+            assertTrue(capabilities.requiresConfirmation(VideoWallpaperAction.APPLY))
+            assertTrue(capabilities.requiresConfirmation(VideoWallpaperAction.DOWNLOAD))
+        } else {
+            assertFalse(capabilities.canUse(VideoWallpaperAction.APPLY))
+            assertFalse(capabilities.canUse(VideoWallpaperAction.DOWNLOAD))
+        }
         assertFalse(capabilities.canUse(VideoWallpaperAction.SHARE))
     }
 
@@ -151,6 +157,19 @@ class VideoWallpaperLicensePolicyTest {
         assertFalse(capabilities.attributionRequired)
         assertFalse(capabilities.sourceLinkRequired)
         assertFalse(capabilities.uploaderRequired)
+    }
+
+    @Test
+    fun `legacy klipy record stays attribution only`() {
+        val capabilities = videoItem(
+            contentSource = ContentSource.KLIPY,
+            license = "CC0",
+            sourcePageUrl = "https://klipy.com/clip/1",
+        ).videoWallpaperLicenseCapabilities()
+
+        VideoWallpaperAction.entries.forEach { action ->
+            assertFalse(capabilities.canUse(action))
+        }
     }
 
     private fun videoItem(

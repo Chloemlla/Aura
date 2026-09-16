@@ -324,9 +324,14 @@ internal class SettingsDiagnosticsDelegate(
             _themePackTransfer.value = ThemePackTransferState(inProgress = true)
             val result = libraryExporter.exportLibrary(uri)
             _themePackTransfer.value = result.fold(
-                onSuccess = { count ->
+                onSuccess = { outcome ->
                     ThemePackTransferState(
-                        message = context.resources.getQuantityString(R.plurals.settings_library_export_done, count, count),
+                        message = context.getString(
+                            R.string.settings_library_export_summary,
+                            outcome.exported,
+                            outcome.skipped,
+                            outcome.failed,
+                        ),
                     )
                 },
                 onFailure = { error ->
@@ -349,10 +354,11 @@ internal class SettingsDiagnosticsDelegate(
             _themePackTransfer.value = result.fold(
                 onSuccess = { outcome ->
                     ThemePackTransferState(
-                        message = context.resources.getQuantityString(
-                            R.plurals.settings_library_import_done,
+                        message = context.getString(
+                            R.string.settings_library_import_summary,
                             outcome.written,
-                            outcome.written,
+                            outcome.skippedCount,
+                            outcome.failed,
                         ),
                         instructions = libraryImportReport(outcome),
                     )
@@ -412,7 +418,6 @@ internal class SettingsDiagnosticsDelegate(
                         LibraryImportSkipReason.INVALID -> R.string.settings_library_import_skipped_invalid
                         LibraryImportSkipReason.NON_PORTABLE -> R.string.settings_library_import_skipped_non_portable
                         LibraryImportSkipReason.DUPLICATE -> R.string.settings_library_import_skipped_duplicate
-                        LibraryImportSkipReason.OVER_LIMIT -> R.string.settings_library_import_skipped_over_limit
                         LibraryImportSkipReason.DROPPED_BY_MIGRATION -> R.string.settings_library_import_skipped_migration
                     },
                     rows.size,

@@ -6,13 +6,17 @@ import com.google.zxing.MultiFormatReader
 import com.google.zxing.RGBLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.qrcode.QRCodeWriter
+import com.squareup.moshi.Moshi
 import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CollectionExporterTest {
+
+    private val adapter = Moshi.Builder().build().adapter(CollectionExportFile::class.java)
     @Test
     fun `zxing QR export decodes back to the Aura collection link`() {
         val shareLink = "aura://collection/import/abc123_DEF-456"
@@ -62,7 +66,7 @@ class CollectionExporterTest {
 
     @Test
     fun `buildCollectionImportItems filters unsafe urls and dedupes normalized identities`() {
-        val items = buildCollectionImportItems(
+        val plan = buildCollectionImportPlan(
             listOf(
                 exportItem(wallpaperId = "one", source = "pexels", fullUrl = "https://example.com/one.jpg"),
                 exportItem(wallpaperId = "one", source = "PEXELS", fullUrl = "https://example.com/one-dup.jpg"),
@@ -73,8 +77,11 @@ class CollectionExporterTest {
                 exportItem(wallpaperId = "", source = "wallhaven", fullUrl = "https://example.com/blank.jpg"),
             ),
         )
+        val items = plan.items
 
         assertEquals(2, items.size)
+        assertEquals(1, plan.skippedCount)
+        assertEquals(4, plan.failedCount)
         assertEquals("one", items[0].wallpaperId)
         assertEquals("PEXELS", items[0].source)
         assertEquals(0, items[0].width)
@@ -90,19 +97,46 @@ class CollectionExporterTest {
         val database = File("src/main/java/com/chloemlla/aura/data/local/Database.kt").readText()
 
         assertTrue(exporter.contains("collectionDao.importCollection("))
-        assertTrue(exporter.contains("itemCount = importItems.size"))
-        assertTrue(exporter.contains("json.toByteArray(Charsets.UTF_8).size > MAX_IMPORT_BYTES"))
-        assertTrue(exporter.contains("file.items.size > MAX_IMPORT_ITEMS"))
-        assertTrue(exporter.contains("MAX_QR_IMAGE_BYTES"))
-        assertTrue(exporter.contains("readStreamCapped(input, MAX_QR_IMAGE_BYTES)"))
+        assertTrue(exporter.contains("itemCount = importPlan.items.size"))
+        assertTrue(exporter.contains("LibraryTransferContract.MAX_COLLECTION_DOCUMENT_BYTES"))
+        assertTrue(exporter.contains("LibraryTransferContract.MAX_COLLECTION_ITEMS"))
+        assertTrue(exporter.contains("LibraryTransferContract.MAX_QR_IMAGE_BYTES"))
+        assertTrue(
+            exporter.contains(
+                "readStreamCapped(input, LibraryTransferContract.MAX_QR_IMAGE_BYTES)"
+            )
+        )
         assertTrue(exporter.contains("inJustDecodeBounds = true"))
-        assertTrue(exporter.contains("MAX_QR_IMAGE_PIXELS"))
+        assertTrue(exporter.contains("LibraryTransferContract.MAX_QR_IMAGE_PIXELS"))
+        assertFalse(exporter.contains("items.take(LibraryTransferContract.MAX_COLLECTION_ITEMS)"))
         assertTrue(exporter.contains("normalizeImportedContentSource(item.source, blankDefault = \"REDDIT\")"))
         assertTrue(exporter.contains("normalizeImportedHttpsUrl(item.fullUrl)"))
         assertTrue(exporter.contains("normalizeImportedHttpsUrl(item.thumbnailUrl, allowBlank = true)"))
         assertTrue(database.contains("@Transaction"))
         assertTrue(database.contains("suspend fun importCollection("))
         assertTrue(database.indexOf("@Transaction") < database.indexOf("suspend fun importCollection("))
+    }
+
+    @Test
+    fun `documented maximum collection round trips without loss`() {
+        val expected = List(LibraryTransferContract.MAX_COLLECTION_ITEMS) { index ->
+            exportItem(
+                wallpaperId = "wallpaper-$index",
+                source = "REDDIT",
+                fullUrl = "https://preview.example/$index.jpg",
+            )
+        }
+        val file = CollectionExportFile(
+            version = 1,
+            exportedAt = 1,
+            collectionName = "Maximum",
+            items = expected,
+        )
+
+        val restored = adapter.fromJson(adapter.toJson(file))
+
+        assertEquals(expected, restored?.items)
+        assertEquals(expected.size, buildCollectionImportPlan(expected).items.size)
     }
 
     private fun exportItem(

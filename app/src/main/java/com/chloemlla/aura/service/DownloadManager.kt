@@ -64,6 +64,7 @@ class DownloadManager @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val downloadDao: DownloadDao,
     private val downloadTrash: DownloadTrash,
+    private val mediaCopyStore: MediaCopyStore,
 ) {
     private val _activeDownloads = MutableStateFlow<Map<String, DownloadProgress>>(emptyMap())
     val activeDownloads: StateFlow<Map<String, DownloadProgress>> = _activeDownloads.asStateFlow()
@@ -78,17 +79,19 @@ class DownloadManager @Inject constructor(
         url: String,
         fileName: String,
         source: String = "WALLPAPER",
+        provenanceUrl: String = url,
     ): Result<Uri> = withContext(Dispatchers.IO) {
         val contentType = "WALLPAPER"
         downloadFile(
             contentId = id,
-            historyId = buildHistoryId(contentType, id),
+            historyId = downloadHistoryId(contentType, id),
             url = url,
             fileName = sanitize(fileName),
             relativePath = Environment.DIRECTORY_PICTURES + "/Aura",
             collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
             contentType = contentType,
             contentSource = source,
+            provenanceUrl = provenanceUrl,
             maxBytes = MAX_IMAGE_DOWNLOAD_BYTES,
             expectedMediaFamily = MediaFamily.IMAGE,
         )
@@ -101,6 +104,7 @@ class DownloadManager @Inject constructor(
         fileName: String,
         type: ContentType,
         source: String = "SOUND",
+        provenanceUrl: String = url,
     ): Result<Uri> = withContext(Dispatchers.IO) {
         val contentType = "SOUND"
         val relativePath = when (type) {
@@ -112,13 +116,14 @@ class DownloadManager @Inject constructor(
 
         downloadFile(
             contentId = id,
-            historyId = buildHistoryId(contentType, id),
+            historyId = downloadHistoryId(contentType, id),
             url = url,
             fileName = sanitize(fileName),
             relativePath = relativePath,
             collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
             contentType = contentType,
             contentSource = source,
+            provenanceUrl = provenanceUrl,
             maxBytes = MAX_AUDIO_DOWNLOAD_BYTES,
             expectedMediaFamily = MediaFamily.AUDIO,
         )
@@ -133,15 +138,53 @@ class DownloadManager @Inject constructor(
         collection: Uri,
         contentType: String,
         contentSource: String,
+        provenanceUrl: String,
         maxBytes: Long,
         expectedMediaFamily: MediaFamily,
     ): Result<Uri> = try {
         updateProgress(historyId, DownloadProgress(historyId, fileName, 0f, 0, 0))
 
-        // Start HTTP download
-        val request = Request.Builder().url(url).build()
-        val response = okHttpClient.newCall(request).execute()
-        Result.success(response.use { resp ->
+        if (isLocalMediaLocator(url)) {
+            val tempFile = stageLocalMediaLocator(
+                context = context,
+                locator = url,
+                tempDirectoryName = "downloads",
+                prefix = "aura_download_",
+                maxBytes = maxBytes,
+            )
+            try {
+                val downloadedBytes = tempFile.length()
+                val sniffed = requireSniffedMediaFile(
+                    tempFile,
+                    expectedMediaFamily,
+                    if (expectedMediaFamily == MediaFamily.IMAGE) "Wallpaper" else "Sound",
+                )
+                val storedFileName = normalizeMediaFileName(fileName, sniffed)
+                Result.success(
+                    writeValidatedDownloadToMediaStore(
+                        tempFile = tempFile,
+                        contentId = contentId,
+                        historyId = historyId,
+                        fileName = storedFileName,
+                        mimeType = sniffed.mimeType,
+                        relativePath = relativePath,
+                        collection = collection,
+                        contentType = contentType,
+                        contentSource = contentSource,
+                        provenanceUrl = provenanceUrl,
+                        totalBytes = downloadedBytes,
+                        downloadedBytes = downloadedBytes,
+                        maxBytes = maxBytes,
+                    ),
+                )
+            } finally {
+                tempFile.delete()
+            }
+        } else {
+            // Start HTTP download
+            val request = Request.Builder().url(url).build()
+            val response = okHttpClient.newCall(request).execute()
+            Result.success(response.use { resp ->
             if (!resp.isSuccessful) {
                 throw IllegalStateException("Download failed: HTTP ${resp.code}")
             }
@@ -201,6 +244,7 @@ class DownloadManager @Inject constructor(
                     collection = collection,
                     contentType = contentType,
                     contentSource = contentSource,
+                    provenanceUrl = provenanceUrl,
                     totalBytes = totalBytes,
                     downloadedBytes = downloadedBytes,
                     maxBytes = maxBytes,
@@ -208,7 +252,8 @@ class DownloadManager @Inject constructor(
             } finally {
                 tempFile.delete()
             }
-        })
+            })
+        }
     } catch (e: Exception) {
         if (e is CancellationException) throw e
         sourceUnavailableReasonForFailure(contentSource, e)?.let { reason ->
@@ -233,6 +278,7 @@ class DownloadManager @Inject constructor(
         collection: Uri,
         contentType: String,
         contentSource: String,
+        provenanceUrl: String,
         totalBytes: Long,
         downloadedBytes: Long,
         maxBytes: Long,
@@ -261,11 +307,23 @@ class DownloadManager @Inject constructor(
                 tempFile.inputStream().use { input -> copyStreamCapped(input, output, maxBytes) }
             }
 
+            // Save Original is byte-for-byte. Verify the published MediaStore item before
+            // exposing it or replacing an older copy.
+            val originalSha256 = sha256File(tempFile)
+            val publishedSha256 = resolver.openInputStream(uri)?.use(::sha256InputStream)
+                ?: throw IllegalStateException("Failed to verify saved original")
+            if (publishedSha256 != originalSha256) {
+                throw IllegalStateException("Saved original did not match its source bytes")
+            }
+            val originalMetadata = readMediaTechnicalMetadata(tempFile, mimeType)
+
             // Mark as complete in MediaStore
             if (Build.VERSION.SDK_INT >= 29) {
                 values.clear()
                 values.put(MediaStore.MediaColumns.IS_PENDING, 0)
-                resolver.update(uri, values, null, null)
+                if (resolver.update(uri, values, null, null) <= 0) {
+                    throw IllegalStateException("Failed to publish saved original")
+                }
             }
 
             val existingEntries = downloadDao.findMatching(
@@ -274,16 +332,60 @@ class DownloadManager @Inject constructor(
                 scopedId = historyId,
             )
 
-            // Record in local database
-            downloadDao.insert(
+            val currentEntry = existingEntries.firstOrNull { it.id == historyId }
+            val replacement = if (
+                currentEntry != null &&
+                currentEntry.originalSha256.equals(originalSha256, ignoreCase = true)
+            ) {
+                currentEntry.copy(
+                    source = contentSource,
+                    type = contentType,
+                    localPath = uri.toString(),
+                    name = fileName,
+                    downloadedAt = System.currentTimeMillis(),
+                    localMediaStatus = com.chloemlla.aura.data.model.LocalMediaStatus.AVAILABLE,
+                    localMediaReason = null,
+                    provenanceUrl = provenanceUrl,
+                    originalSha256 = originalSha256,
+                    originalMimeType = originalMetadata.mimeType,
+                    originalCodec = originalMetadata.codec,
+                    originalWidth = originalMetadata.width,
+                    originalHeight = originalMetadata.height,
+                    originalDurationMs = originalMetadata.durationMs,
+                    originalSizeBytes = originalMetadata.sizeBytes,
+                    originalHdr = originalMetadata.isHdr,
+                )
+            } else {
                 DownloadEntity(
                     id = historyId,
                     source = contentSource,
                     type = contentType,
                     localPath = uri.toString(),
                     name = fileName,
+                    provenanceUrl = provenanceUrl,
+                    originalSha256 = originalSha256,
+                    originalMimeType = originalMetadata.mimeType,
+                    originalCodec = originalMetadata.codec,
+                    originalWidth = originalMetadata.width,
+                    originalHeight = originalMetadata.height,
+                    originalDurationMs = originalMetadata.durationMs,
+                    originalSizeBytes = originalMetadata.sizeBytes,
+                    originalHdr = originalMetadata.isHdr,
                 )
-            )
+            }
+
+            // Record metadata only after byte verification. A failed insert leaves the
+            // previous row and both its original and optimized copy intact.
+            downloadDao.insert(replacement)
+
+            existingEntries
+                .filter { prior ->
+                    prior.optimizedPath.isNotBlank() &&
+                        (prior.id != historyId || prior.originalSha256 != originalSha256)
+                }
+                .map { it.optimizedPath }
+                .distinct()
+                .forEach(mediaCopyStore::deleteManagedApplyCopy)
 
             existingEntries
                 .map { it.localPath }
@@ -348,6 +450,31 @@ class DownloadManager @Inject constructor(
                     name = existing.name,
                     localPath = existing.localPath,
                     downloadedAt = existing.downloadedAt,
+                    sourceAvailability = existing.sourceAvailability,
+                    sourceAvailabilityReason = existing.sourceAvailabilityReason,
+                    localMediaStatus = existing.localMediaStatus,
+                    localMediaReason = existing.localMediaReason,
+                    provenanceUrl = existing.provenanceUrl,
+                    originalSha256 = existing.originalSha256,
+                    originalMimeType = existing.originalMimeType,
+                    originalCodec = existing.originalCodec,
+                    originalWidth = existing.originalWidth,
+                    originalHeight = existing.originalHeight,
+                    originalDurationMs = existing.originalDurationMs,
+                    originalSizeBytes = existing.originalSizeBytes,
+                    originalHdr = existing.originalHdr,
+                    optimizedPath = existing.optimizedPath,
+                    optimizedSha256 = existing.optimizedSha256,
+                    optimizedMimeType = existing.optimizedMimeType,
+                    optimizedCodec = existing.optimizedCodec,
+                    optimizedWidth = existing.optimizedWidth,
+                    optimizedHeight = existing.optimizedHeight,
+                    optimizedDurationMs = existing.optimizedDurationMs,
+                    optimizedSizeBytes = existing.optimizedSizeBytes,
+                    optimizedHdr = existing.optimizedHdr,
+                    optimizationKey = existing.optimizationKey,
+                    optimizationReason = existing.optimizationReason,
+                    optimizedAt = existing.optimizedAt,
                     stagedPath = stagedPath,
                     deletedAtMs = System.currentTimeMillis(),
                 ),
@@ -401,6 +528,9 @@ class DownloadManager @Inject constructor(
             // now, which is what makes the retention window restorable.
             if (entry.stagedPath.isBlank() && entry.localPath.isNotBlank()) {
                 runCatching { deleteStoredContent(entry.localPath) }
+            }
+            if (entry.optimizedPath.isNotBlank()) {
+                mediaCopyStore.deleteManagedApplyCopy(entry.optimizedPath)
             }
         }
         return expired.size
@@ -635,9 +765,10 @@ class DownloadManager @Inject constructor(
 
     private fun sanitize(name: String) = name.replace(SANITIZE_REGEX, "_")
 
-    private fun buildHistoryId(type: String, id: String): String = "${type.lowercase(java.util.Locale.ROOT)}:$id"
-
 }
+
+internal fun downloadHistoryId(type: String, id: String): String =
+    "${type.lowercase(java.util.Locale.ROOT)}:$id"
 
 /** Hard cap on wallpaper downloads — ~64 MB covers any realistic 8K JPG/PNG/WEBP. */
 private const val MAX_IMAGE_DOWNLOAD_BYTES = 64L * 1024 * 1024

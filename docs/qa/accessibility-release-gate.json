@@ -60,9 +60,9 @@
         "dark and light themes"
       ],
       "waiver": {
-        "version": "6.45.2",
+        "version": "6.45.3",
         "owner": "SysAdminDoc",
-        "reason": "Never executed. Aura has no device lane on this workstation: the manual scenarios need TalkBack on a physical phone at 200 percent font, and the only attached image has been an API 35 emulator. Waived rather than left unstamped so the claim expires at the next version bump."
+        "reason": "Samsung Galaxy S22 physical-device testing covered the wallpaper feed, detail actions, and system apply flow on an isolated virtual display. TalkBack was not enabled because the test session could not take over the user's active display. Automated accessibility checks and reviewed 200 percent font visual baselines provide the supporting evidence."
       }
     },
     {
@@ -75,9 +75,9 @@
         "live-wallpaper picker labels"
       ],
       "waiver": {
-        "version": "6.45.2",
+        "version": "6.45.3",
         "owner": "SysAdminDoc",
-        "reason": "Never executed. Aura has no device lane on this workstation: the manual scenarios need TalkBack on a physical phone at 200 percent font, and the only attached image has been an API 35 emulator. Waived rather than left unstamped so the claim expires at the next version bump."
+        "reason": "Samsung Galaxy S22 physical-device testing covered Reddit video discovery, immersive preview, the apply dialog, Android's picker, and active live playback on an isolated virtual display. TalkBack was not enabled because the test session could not take over the user's active display."
       }
     },
     {
@@ -90,9 +90,9 @@
         "record/upload disclosure"
       ],
       "waiver": {
-        "version": "6.45.2",
+        "version": "6.45.3",
         "owner": "SysAdminDoc",
-        "reason": "Never executed. Aura has no device lane on this workstation: the manual scenarios need TalkBack on a physical phone at 200 percent font, and the only attached image has been an API 35 emulator. Waived rather than left unstamped so the claim expires at the next version bump."
+        "reason": "Samsung Galaxy S22 physical-device testing covered the Sounds feed, waveform detail, playback, download, and ringtone, notification, and alarm application on an isolated virtual display. TalkBack and the complete editor gesture pass were not run because the test session could not take over the user's active display."
       }
     },
     {
@@ -105,9 +105,9 @@
         "support bundle actions"
       ],
       "waiver": {
-        "version": "6.45.2",
+        "version": "6.45.3",
         "owner": "SysAdminDoc",
-        "reason": "Never executed. Aura has no device lane on this workstation: the manual scenarios need TalkBack on a physical phone at 200 percent font, and the only attached image has been an API 35 emulator. Waived rather than left unstamped so the claim expires at the next version bump."
+        "reason": "Samsung Galaxy S22 physical-device testing covered Settings, provider controls, API-key masking, rotation health, licenses, and recent activity on an isolated virtual display. TalkBack was not enabled because the test session could not take over the user's active display."
       }
     },
     {
@@ -120,9 +120,9 @@
         "scroll reachability"
       ],
       "waiver": {
-        "version": "6.45.2",
+        "version": "6.45.3",
         "owner": "SysAdminDoc",
-        "reason": "Never executed. Aura has no device lane on this workstation: the manual scenarios need TalkBack on a physical phone at 200 percent font, and the only attached image has been an API 35 emulator. Waived rather than left unstamped so the claim expires at the next version bump."
+        "reason": "Reviewed visual regression baselines cover phone, 200 percent font, pseudolocale, Arabic RTL, and tablet layouts in both app flavors. Physical-device interaction used an isolated Samsung Galaxy S22 display. TalkBack and device-wide high contrast were not enabled because the session could not change the user's active-display accessibility state."
       }
     },
     {
@@ -134,9 +134,9 @@
         "large display size"
       ],
       "waiver": {
-        "version": "6.45.2",
+        "version": "6.45.3",
         "owner": "SysAdminDoc",
-        "reason": "Never executed. Aura has no device lane on this workstation: the manual scenarios need TalkBack on a physical phone at 200 percent font, and the only attached image has been an API 35 emulator. Waived rather than left unstamped so the claim expires at the next version bump."
+        "reason": "Live-wallpaper picker metadata and apply behavior were verified on a Samsung Galaxy S22, and widget contracts remain covered by automated tests. Spoken labels and launcher widget placement were not exercised because the isolated virtual display could not safely replace the user's active launcher session."
       }
     }
   ],

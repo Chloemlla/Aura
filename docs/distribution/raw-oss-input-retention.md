@@ -7,8 +7,8 @@ Date: 2026-06-06
 Keep `GOOGLE-OSS-RAW-INPUTS.zip` attached to every tagged public Aura GitHub
 Release that also publishes `THIRD-PARTY-NOTICES.md`.
 
-Manual release dry runs still upload the archive as a workflow artifact, but
-workflow artifacts are a review lane, not the long-term retention surface.
+Local release dry runs keep the archive in the checked `release/` directory
+until it is attached to the matching GitHub Release.
 
 ## Rationale
 
@@ -18,21 +18,17 @@ workflow artifacts are a review lane, not the long-term retention surface.
   material, app secrets, local properties, or private user data.
 - Keeping the raw inputs beside `THIRD-PARTY-NOTICES.md` lets release owners,
   downstream packagers, and users inspect notice drift without rerunning Gradle.
-- GitHub workflow artifacts are retention-bound by workflow, repository,
-  organization, or enterprise settings. Aura currently sets release dry-run
-  artifact retention to 30 days.
 - GitHub Releases are the public distribution surface for the side-loaded APK,
   and release assets are the durable place for evidence that belongs with that
   exact APK.
 
 ## Enforced Behavior
 
-The release workflow:
+The local release procedure:
 
 - Builds `release/GOOGLE-OSS-RAW-INPUTS.zip` after generated notice checks.
 - Includes the archive in `SHA256SUMS.txt`.
 - Mentions the archive in `RELEASE_NOTES.md`.
-- Uploads the archive in manual workflow artifacts.
 - Attaches the archive to tagged GitHub Releases.
 
 `tools/release_artifact_bundle_check.py` fails release bundles when the archive
@@ -43,7 +39,7 @@ has a checksum mismatch.
 
 Changing this decision requires updating all of these in one review:
 
-- `.github/workflows/release.yml`
+- `tools/release_clean_clone_check.py`
 - `tools/release_artifact_bundle_check.py`
 - `docs/distribution/supply-chain.md`
 - `docs/distribution/release-dry-run.md`

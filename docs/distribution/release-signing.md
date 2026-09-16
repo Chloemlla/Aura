@@ -33,8 +33,8 @@ Release signing reads the ignored local files already used by Gradle:
 - `local.properties`
 
 `local.properties` must contain the signing path, keystore password, key alias,
-and key password. It must keep optional provider API keys blank for public
-release builds.
+and key password. Optional provider keys can stay configured for local debug
+work. Release variants force those BuildConfig values blank.
 
 Do not commit `aura.jks`, `local.properties`, copied APKs, release
 directories, or generated signing evidence.
@@ -51,7 +51,7 @@ Before publishing a GitHub Release:
 
 1. Set `JAVA_HOME` to Android Studio's bundled JBR.
 2. Run every release preflight command listed below.
-3. Build the signed release APK and AAB with `.\gradlew.bat :app:assembleFullRelease --stacktrace --no-daemon` followed by `.\gradlew.bat :app:bundleFullRelease --stacktrace --no-daemon`. They must be separate invocations: ABI splits turn off whenever a `bundle*` task is requested, so a combined invocation would emit one all-ABI APK instead of the per-ABI set.
+3. Build the signed release APK and AAB with `.\gradlew.bat :app:assembleFullRelease --stacktrace --no-daemon` followed by `.\gradlew.bat -PauraReleaseChannel=play :app:bundleFullRelease --stacktrace --no-daemon`. They must be separate invocations: ABI splits turn off whenever a `bundle*` task is requested, so a combined invocation would emit one all-ABI APK instead of the per-ABI set.
 4. Copy the APK to `release/Aura-vX.Y.Z-versionCode-N-universal-release.apk`.
 5. Copy the AAB to `release/Aura-vX.Y.Z-versionCode-N-play-release.aab`.
 6. Generate `THIRD-PARTY-NOTICES.md`, `GOOGLE-OSS-RAW-INPUTS.zip`, `NATIVE-COMPLIANCE.md`, and `NATIVE-ALIGNMENT.json`.
@@ -91,15 +91,15 @@ python tools\alt_store_metadata_check.py --policy docs\distribution\alt-store-me
 python tools\release_metadata_consistency_check.py --policy docs\distribution\release-metadata-consistency.json --repo-root .
 python tools\sbom_readiness_check.py --policy docs\distribution\sbom-readiness.json --repo-root .
 .\gradlew.bat :app:assembleFullRelease --stacktrace --no-daemon
-.\gradlew.bat :app:bundleFullRelease --stacktrace --no-daemon
+.\gradlew.bat -PauraReleaseChannel=play :app:bundleFullRelease --stacktrace --no-daemon
 python tools\provider_credential_apk_scan.py --local-properties local.properties --apk app\build\outputs\apk\full\release\app-full-release.apk
 ```
 
-The provider credential check fails if ignored `local.properties` contains
-nonblank Pexels, Pixabay, Freesound, SoundCloud, or Stability values. Only use
-`--allow-nonblank-local-provider-keys` for an explicitly internal build review;
-public GitHub, Obtainium, and Izzy builds must keep those defaults blank and
-rely on user-entered settings.
+The provider credential check confirms that release variants force Pexels,
+Pixabay, Freesound, and SoundCloud values blank. Full releases also force the
+Stability value blank, while FOSS builds omit that integration entirely. Local
+debug keys can remain in the ignored `local.properties`; public builds rely on
+keys entered by the user in Settings.
 
 The APK scan fails if any nonblank provider value from `local.properties`
 appears in the release APK. It reports property names and APK entries only, not

@@ -486,7 +486,7 @@
     <string name="editor_sound_discard_title">Discard edits?</string>
     <string name="editor_sound_discard_body">Your trim, fade, and speed settings will be lost. Apply them first or discard?</string>
     <string name="editor_sound_guidance_ready">Ready for ringtone</string>
-    <string name="editor_sound_guidance_ready_body">Ringtones usually work best at 8–30s. Fine-tune the handles, then preview before applying.</string>
+    <string name="editor_sound_guidance_ready_body">Ringtones usually work best at 8 to 30 seconds. Fine-tune the handles, then preview before applying.</string>
     <string name="editor_sound_guidance_short">Better for notifications</string>
     <string name="editor_sound_guidance_short_body">This clip is under 8s. It can still work well as a notification or alarm.</string>
     <string name="editor_sound_guidance_long">Shorten the selection</string>
@@ -499,6 +499,9 @@
     <string name="collections_show_qr">Show QR code</string>
     <string name="collections_delete">Delete collection</string>
     <string name="collections_import">Import collection</string>
+    <string name="collections_create">Create collection</string>
+    <string name="collections_create_title">New collection</string>
+    <string name="collections_create_action">Create</string>
     <string name="collections_empty_title">This collection is empty</string>
     <string name="collections_empty_body">Save wallpapers from detail pages to turn this into a curated set.</string>
     <string name="collections_list_empty_title">No collections yet</string>
@@ -517,10 +520,15 @@
     <string name="collections_import_qr">QR image</string>
     <string name="collections_qr_title">Collection QR code</string>
     <string name="collections_qr_cd">QR code for %1$s</string>
-    <string name="collections_qr_info">%1$s — %2$d wallpapers</string>
+    <string name="collections_qr_info">%1$s · %2$d wallpapers</string>
     <string name="collections_qr_copy">Copy link</string>
     <string name="collections_share_chooser">Share &quot;%1$s&quot;</string>
     <string name="collections_no_share_target">No app to share to</string>
+    <string name="collections_import_summary">%1$s imported: %2$d added, %3$d skipped, %4$d failed.</string>
+    <plurals name="collections_import_success">
+        <item quantity="one">Imported %1$d wallpaper into %2$s.</item>
+        <item quantity="other">Imported %1$d wallpapers into %2$s.</item>
+    </plurals>
     <string name="collections_wallpaper_count">%1$d wallpapers</string>
     <string name="collections_share_prepare_failed">Couldn\'t prepare this collection for sharing.</string>
     <string name="collections_share_link_failed">Couldn\'t create a share link for this collection.</string>
@@ -801,7 +809,7 @@
     <string name="downloads_tab_all">All</string>
     <string name="downloads_active">Active</string>
     <string name="downloads_empty_title">No downloads yet</string>
-    <string name="downloads_empty_body">Saved wallpapers, sounds, and active transfers will appear here with file health and quick-open status.</string>
+    <string name="downloads_empty_body">Saved wallpapers, videos, sounds, and active transfers will appear here with file health and quick-open status.</string>
     <string name="downloads_file_path_missing">File path is missing</string>
     <string name="downloads_file_no_longer_exists">File no longer exists</string>
     <string name="downloads_cannot_open_file">Cannot open file</string>
@@ -809,8 +817,24 @@
     <string name="downloads_active_summary">%1$s. %2$s</string>
     <string name="downloads_delete_file">Delete %1$s</string>
     <string name="downloads_type_wallpaper">Wallpaper</string>
+    <string name="downloads_type_video">Video</string>
     <string name="downloads_type_sound">Sound</string>
+    <string name="downloads_original">Original</string>
+    <string name="downloads_optimized_copy">Optimized copy</string>
+    <string name="downloads_details_unavailable">Details unavailable</string>
+    <string name="downloads_delete_optimized">Delete optimized copy</string>
+    <string name="downloads_optimized_deleted">Optimized copy deleted. The original is still saved.</string>
+    <string name="downloads_optimized_delete_failed">Couldn\'t delete the optimized copy. The original is unchanged.</string>
     <string name="downloads_file_missing">File missing</string>
+    <string name="media_relink_action">Relink</string>
+    <string name="media_relink_success">File relinked. Your saved details and choices were kept.</string>
+    <string name="media_relink_mismatch">This file differs in %1$s.</string>
+    <string name="media_relink_missing_help">Choose the file again to keep this item’s favorites, collections, edits, and rotation settings.</string>
+    <string name="media_relink_use_anyway">Use anyway</string>
+    <string name="media_status_available">Available</string>
+    <string name="media_status_missing">File missing</string>
+    <string name="media_status_permission_revoked">Permission revoked</string>
+    <string name="media_status_corrupt">File corrupt</string>
     <string name="downloads_source_unavailable">Source unavailable</string>
     <string name="downloads_status_failed">Download failed: %1$s</string>
     <string name="downloads_status_percent">%1$d percent downloaded</string>
@@ -871,7 +895,7 @@
     <string name="favorites_import">Import favorites</string>
     <string name="favorites_download_all">Download all wallpapers</string>
     <string name="favorites_sort_recent">Sort: Recent first</string>
-    <string name="favorites_sort_name">Sort: Name A–Z</string>
+    <string name="favorites_sort_name">Sort: Name A to Z</string>
     <string name="favorites_sort_oldest">Sort: Oldest first</string>
     <string name="favorites_source_unavailable">Source unavailable</string>
     <plurals name="favorites_exported">
@@ -888,6 +912,8 @@
     </plurals>
     <string name="favorites_export_failed">Favorites export failed: %1$s</string>
     <string name="favorites_import_failed">Favorites import failed: %1$s</string>
+    <string name="favorites_export_summary">Favorites export complete: %1$d exported, %2$d skipped, %3$d failed.</string>
+    <string name="favorites_import_summary">Favorites import complete: %1$d imported, %2$d skipped, %3$d failed.</string>
     <string name="favorites_select_wallpaper">Select at least one wallpaper</string>
     <string name="favorites_batch_already_running">A batch download is already running</string>
     <plurals name="favorites_batch_provider_blocked">
@@ -1104,12 +1130,14 @@
     <string name="video_wp_saved_manual">Video saved to Movies/Aura for manual setup.</string>
     <string name="video_wp_cropped_saved_manual">Cropped video saved to Movies/Aura for manual setup.</string>
     <string name="video_wp_cropped_ready_manual">Cropped video ready. Open Settings &gt; Wallpaper &gt; Live Wallpapers to finish setup.</string>
-    <string name="video_wp_badge_summary">%1$s - %2$s - %3$s</string>
+    <string name="video_wp_badge_summary">%1$s · %2$s · %3$s</string>
+    <string name="video_wp_technical_adaptive_stream">Adaptive video stream</string>
+    <string name="video_wp_technical_dimensions">%1$d × %2$d · %3$s</string>
     <string name="video_wp_youtube_disabled">YouTube features are disabled in Settings</string>
     <string name="video_wp_apply_failed">Failed: %1$s</string>
     <string name="video_wp_by_creator">by %1$s</string>
     <string name="video_wp_confirm_presentation">Presentation</string>
-    <string name="video_wp_confirm_fit_landscape_letterbox">Fit preserves the full landscape frame with letterboxing. Crop creates a portrait version.</string>
+    <string name="video_wp_confirm_fit_landscape_letterbox">Fit preserves the full landscape frame and fills the canvas with your selected style. Crop creates a portrait version.</string>
     <string name="video_wp_confirm_fill_landscape_crop">Fill crops landscape edges to avoid stretching. Use Crop for more control.</string>
     <string name="video_wp_confirm_fit_portrait">Fill uses the whole screen; Fit keeps the full frame visible.</string>
     <string name="video_wp_unavailable">Unavailable</string>
@@ -1162,8 +1190,8 @@
     <string name="settings_title">Settings</string>
     <string name="settings_apikey_save">Save</string>
     <string name="settings_apikey_clear">Clear</string>
-    <string name="settings_apikey_show">Show key</string>
-    <string name="settings_apikey_hide">Hide key</string>
+    <string name="settings_apikey_show">Show API key</string>
+    <string name="settings_apikey_hide">Hide API key</string>
     <string name="settings_apikey_stored_placeholder">•••••• (saved)</string>
     <string name="settings_apikey_stored_hint">A key is already saved. Leave the field empty to keep it, or type a new key to replace it.</string>
     <string name="settings_feedback_local_folder_saved">Local wallpaper folder saved</string>
@@ -1207,7 +1235,7 @@
     <string name="settings_video_section_title">Video Wallpapers</string>
     <string name="settings_video_section_description">Monitor live-wallpaper cost and keep motion responsive without wasting battery.</string>
     <string name="settings_services_section_title">Advanced external services</string>
-    <string name="settings_services_section_description">Provider keys and opt-in cloud features. Generated wallpapers and community actions stay off until you enable them here.</string>
+    <string name="settings_services_section_description">Provider keys and optional cloud features. Generated wallpapers and community stay off until enabled.</string>
     <string name="settings_storage_section_title">Storage</string>
     <string name="settings_storage_section_description">Keep downloads accessible while trimming temporary media and cached feeds when needed.</string>
     <string name="settings_storage_calculating">Calculating...</string>
@@ -1290,6 +1318,8 @@
     <string name="settings_local_catalog_target_lock">Lock screen</string>
     <string name="settings_local_catalog_target_both">Home and lock</string>
     <string name="settings_local_catalog_repair">Repair</string>
+    <string name="settings_local_catalog_repair_summary">Relinked %1$d items. %2$d still need attention.</string>
+    <string name="settings_local_catalog_repair_failed">The folder could not be repaired.</string>
     <string name="settings_local_catalog_item_summary">%1$s, %2$d bytes</string>
     <string name="settings_local_catalog_duplicate">Duplicate content: %1$d indexed copies</string>
     <string name="settings_local_catalog_tags_hint">Tags, separated by commas</string>
@@ -1328,12 +1358,14 @@
     <string name="settings_reddit_subreddits_summary">%1$d selected • tap to edit</string>
     <string name="settings_reddit_subreddits_hint">Enter subreddit names separated by commas or new lines. The r/ prefix is optional. Leave the field empty to restore Aura\'s defaults.</string>
     <string name="settings_reddit_subreddits_input_label">Subreddits</string>
-    <string name="settings_reddit_subreddits_error">Use 2–40 letters, numbers, or underscores per name, with no more than 12 communities.</string>
+    <string name="settings_reddit_subreddits_error">Use 2 to 40 letters, numbers, or underscores per name, with no more than 12 communities.</string>
     <string name="settings_wp_bing_title">Enable Bing Daily source</string>
     <string name="settings_wp_bing_on_subtitle">Adds Bing Image of the Day to Discover and rotations</string>
     <string name="settings_wp_bing_off_subtitle">Skips Bing daily-image calls and hides it from rotation pickers</string>
     <string name="settings_wp_categories_title">Browse categories</string>
     <string name="settings_wp_categories_subtitle">Nature, Space, Anime, Dark, Neon + 12 more</string>
+    <string name="settings_wp_categories_unavailable_subtitle">Turn on Wallhaven or Pixabay to browse searchable categories</string>
+    <string name="settings_wp_categories_unavailable_feedback">Turn on Wallhaven or Pixabay in Advanced external services first.</string>
     <string name="settings_wp_collections_title">Collections</string>
     <string name="settings_wp_collections_subtitle">Organize wallpapers into folders</string>
     <string name="settings_wp_history_title">Wallpaper history</string>
@@ -1569,7 +1601,10 @@
     <string name="settings_services_wallhaven_key_title">Wallhaven API Key</string>
     <string name="settings_services_wallhaven_key_subtitle">Optional: higher limits + NSFW (wallhaven.cc/settings)</string>
     <string name="settings_services_provider_key_storage_warning_title">Provider key storage needs attention</string>
-    <string name="settings_services_provider_key_storage_warning_subtitle">Android Keystore could not unlock saved provider keys. Existing keys stay local and may reappear after device unlock or app restart.</string>
+    <string name="settings_services_provider_key_storage_warning_subtitle">Android Keystore is temporarily unavailable. Your encrypted keys remain saved. Tap to retry.</string>
+    <string name="settings_services_provider_key_retrying">Retrying encrypted provider keys</string>
+    <string name="settings_services_provider_key_reentry_title">Provider keys need to be entered again</string>
+    <string name="settings_services_provider_key_reentry_subtitle">Saved provider keys could not be decrypted after a restore or security reset, so Aura removed them. Tap to enter each affected key again.</string>
     <string name="settings_services_wallhaven_enable_title">Enable Wallhaven source</string>
     <string name="settings_services_wallhaven_on_subtitle">Shows Wallhaven featured, color, similar, random, and Discover results</string>
     <string name="settings_services_wallhaven_off_subtitle">Hides Wallhaven browsing and skips Wallhaven API calls</string>
@@ -1598,11 +1633,6 @@
     <string name="settings_services_pixabay_dialog_title">Pixabay API Key</string>
     <string name="settings_services_pixabay_dialog_desc">Get a free key at pixabay.com/api/docs</string>
     <string name="settings_services_pixabay_dialog_placeholder">Paste API key here</string>
-    <string name="settings_services_freesound_key_title">Freesound API Key</string>
-    <string name="settings_services_freesound_key_subtitle">Optional token for Freesound sound search</string>
-    <string name="settings_services_freesound_dialog_title">Freesound API Key</string>
-    <string name="settings_services_freesound_dialog_desc">Paste a Freesound API token for sound search.</string>
-    <string name="settings_services_freesound_dialog_placeholder">Paste API token here</string>
     <string name="settings_storage_downloads_title">Downloads</string>
     <string name="settings_storage_downloads_subtitle">Review wallpapers, sounds, and videos saved by Aura</string>
     <string name="settings_storage_free_up_title">Free up storage</string>
@@ -1716,7 +1746,7 @@
     <string name="settings_perm_wallpaper">Set wallpaper</string>
     <string name="settings_perm_wallpaper_desc">Apply images as home or lock screen wallpaper. No data leaves the device.</string>
     <string name="settings_perm_internet">Internet</string>
-    <string name="settings_perm_internet_desc">Fetch wallpapers, videos, and sounds from Wallhaven, Pexels, Pixabay, YouTube (NewPipe/yt-dlp), and Freesound. Community features use Firebase.</string>
+    <string name="settings_perm_internet_desc">Fetch media from Reddit, Wallhaven, Bing, Wikimedia, NASA, Lemmy, and optional Pexels or Pixabay sources. GitHub builds also offer YouTube. Community features use Firebase.</string>
     <string name="settings_perm_notifications">Notifications</string>
     <string name="settings_perm_notifications_desc">Daily wallpaper reminders and download completion alerts. Only active when you enable daily wallpaper or download content.</string>
     <string name="settings_perm_location">Approximate location</string>
@@ -1783,19 +1813,22 @@
 
     <!-- Library screen -->
     <string name="library_title">Local Library</string>
-    <string name="library_subtitle">Saved wallpapers, sounds, downloads, collections, imports, and restore tools in one on-device hub.</string>
+    <string name="library_subtitle">Everything you have saved or downloaded, together on this device.</string>
     <string name="library_search_title">Search</string>
-    <string name="library_search_body">Search saved wallpapers, videos, sounds, collections, downloads, local files, and available providers from one place.</string>
+    <string name="library_search_body">Find saved media, downloads, local files, and provider results.</string>
     <string name="library_search_status">Local history, offline results</string>
     <string name="library_favorites_title">Favorites</string>
-    <string name="library_favorites_body">Review saved wallpapers and sounds, batch download wallpapers, or restore a local backup.</string>
+    <string name="library_favorites_body">Review saved wallpapers and sounds, download a batch, or restore a backup.</string>
     <string name="library_favorites_count">%1$d saved</string>
     <string name="library_downloads_title">Downloads</string>
     <string name="library_downloads_body">Open files Aura has downloaded for offline use and clean up stale local paths.</string>
     <string name="library_downloads_count">%1$d offline</string>
     <string name="library_collections_title">Collections</string>
     <string name="library_collections_body">Manage saved sets, QR imports, and portable collection exports.</string>
-    <string name="library_collections_count">%1$d set(s)</string>
+    <plurals name="library_collections_count">
+        <item quantity="one">%1$d collection</item>
+        <item quantity="other">%1$d collections</item>
+    </plurals>
     <string name="library_imports_title">Local imports</string>
     <string name="library_imports_body">Bring in collection links, exported bundles, or files already stored on this device.</string>
     <string name="library_imports_status">Handled by collection import and file pickers</string>
@@ -2023,12 +2056,12 @@
 
     <!-- Sound profiles -->
     <string name="settings_sounds_profiles_title">Time-of-day sound profiles</string>
-    <string name="settings_sounds_profiles_on_subtitle">%1$d profile(s) active — sounds change by schedule</string>
+    <string name="settings_sounds_profiles_on_subtitle">%1$d profile(s) active. Sounds change by schedule.</string>
     <string name="settings_sounds_profiles_off_subtitle">Assign different ringtone, notification, and alarm sounds to time slots</string>
 
     <!-- Wallpaper packs (24H) -->
     <string name="settings_wp_pack_title">24H wallpaper pack</string>
-    <string name="settings_wp_pack_on_subtitle">%1$d daypart slot(s) — wallpaper changes by time of day</string>
+    <string name="settings_wp_pack_on_subtitle">%1$d daypart slot(s) active. Wallpaper changes by time of day.</string>
     <string name="settings_wp_pack_off_subtitle">Map different wallpapers to morning, day, evening, and night</string>
 
     <!-- Sound detail: similar sounds -->
@@ -2038,23 +2071,24 @@
     <string name="settings_library_export_title">Export whole library</string>
     <string name="settings_library_export_subtitle">Favorites, collections, packs, and profiles to one JSON file for device transfer</string>
     <string name="settings_library_import_title">Import whole library</string>
-    <string name="settings_library_import_subtitle">Restore a library backup — items merge with what\'s already here</string>
+    <string name="settings_library_import_subtitle">Restore a library backup. Items merge with what\'s already here.</string>
     <string name="settings_library_default_filename">aura-library-backup.json</string>
     <plurals name="settings_library_export_done">
         <item quantity="one">Library exported: %1$d item</item>
         <item quantity="other">Library exported: %1$d items</item>
     </plurals>
     <string name="settings_library_export_failed">Library export failed: %1$s</string>
+    <string name="settings_library_export_summary">Library export complete: %1$d exported, %2$d skipped, %3$d failed.</string>
     <plurals name="settings_library_import_done">
         <item quantity="one">Library imported: %1$d item</item>
         <item quantity="other">Library imported: %1$d items</item>
     </plurals>
     <string name="settings_library_import_failed">Library import failed: %1$s</string>
+    <string name="settings_library_import_summary">Library import complete: %1$d imported, %2$d skipped, %3$d failed.</string>
     <string name="settings_library_import_more">, and more</string>
-    <string name="settings_library_import_skipped_invalid">Skipped %1$d unreadable entries (%2$s).</string>
+    <string name="settings_library_import_skipped_invalid">Failed to import %1$d unreadable entries (%2$s).</string>
     <string name="settings_library_import_skipped_non_portable">%1$d items point at files that only exist on the device that made this backup, so they were not restored (%2$s).</string>
     <string name="settings_library_import_skipped_duplicate">Skipped %1$d items already in your library (%2$s).</string>
-    <string name="settings_library_import_skipped_over_limit">Skipped %1$d items past the per-section import limit (%2$s).</string>
     <string name="settings_library_import_skipped_migration">%1$d downloads from an older backup format were not restored; downloads stay on the device that made them (%2$s).</string>
 
     <!-- Global apply/undo feedback (FreeVibeRoot snackbar) -->
@@ -2175,4 +2209,29 @@
     <string name="rotation_health_battery_exempt">Unrestricted</string>
     <string name="rotation_health_battery_restricted">Restricted, which can stop rotation</string>
     <string name="rotation_health_interval_minutes">%1$d minutes</string>
+    <string name="fit_canvas_fill">Fill</string>
+    <string name="fit_canvas_fit">Fit</string>
+    <string name="fit_canvas_amoled">AMOLED black</string>
+    <string name="fit_canvas_custom">Your color</string>
+    <string name="fit_canvas_dominant">From image</string>
+    <string name="fit_canvas_blur">Blurred edge</string>
+    <string name="fit_canvas_custom_title">Choose a canvas color</string>
+    <string name="fit_canvas_custom_hint">Enter a hex color such as #241A38</string>
+    <string name="fit_canvas_controls_title">Framing and canvas</string>
+    <string name="fit_canvas_fit_help">Keeps the whole image and fills the extra canvas with your choice.</string>
+    <string name="fit_canvas_hdr_fallback">Blurred canvas uses the image color for HDR media.</string>
+    <string name="rotation_exclude_action">Exclude from rotation</string>
+    <string name="rotation_restore_action">Restore to rotation</string>
+    <string name="rotation_excluded_message">%1$s won’t appear in automatic rotation.</string>
+    <string name="rotation_restored_message">%1$s can appear in rotation again.</string>
+    <string name="rotation_all_excluded_short">Every item here is excluded. Restore one in Settings.</string>
+    <string name="rotation_no_wallpapers_available">No wallpapers available</string>
+    <string name="settings_rotation_exclusions_title">Rotation exclusions</string>
+    <string name="settings_rotation_exclusions_body">These items stay in your library and can still be applied manually.</string>
+    <string name="settings_rotation_exclusions_empty">Nothing is excluded from rotation.</string>
+    <string name="settings_rotation_exclusions_restore">Restore</string>
+    <string name="settings_rotation_exclusions_restore_all">Restore all</string>
+    <string name="settings_rotation_exclusions_item_summary">%1$s • %2$s</string>
+    <string name="settings_rotation_exclusions_subtitle">%1$d excluded. Review or restore items.</string>
+    <string name="settings_rotation_exclusions_manage_subtitle">Keep unwanted items out of automatic changes without hiding or deleting them.</string>
 </resources>

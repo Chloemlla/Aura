@@ -115,7 +115,7 @@ def validate_room_schema_history(
     for required_term in (
         "migrate8To9_preservesCachedWallpaperAndBackfillsMetadataDefaults",
         "migrateEveryExportedSchemaVersionToCurrent",
-            "migrate14To17_preservesRepresentativeRowsAndBackfillsAvailabilityDefaults",
+        "migrate14ToCurrent_preservesRepresentativeRowsAndBackfillsDefaults",
         f"EXPORTED_SCHEMA_START_VERSION = {supported_export_start}",
         f"CURRENT_SCHEMA_VERSION = {current_version}",
     ):

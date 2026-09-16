@@ -1,5 +1,7 @@
 package com.chloemlla.aura.data.model
 
+import com.chloemlla.aura.data.legal.ProviderAction
+import com.chloemlla.aura.data.legal.isProviderActionPermitted
 import java.util.Locale
 
 enum class WallpaperAction {
@@ -80,6 +82,7 @@ fun Wallpaper.wallpaperLicenseCapabilities(): WallpaperLicenseCapabilities {
     val missingUploader = uploaderRequired && uploaderName.isBlank()
 
     val actions = mutableAllowedWallpaperActions()
+    enforceWallpaperProviderActionCeiling(source, actions)
 
     if (missingLicense && source in REMOTE_WALLPAPER_SOURCES) {
         WallpaperAction.entries.forEach { action ->
@@ -182,6 +185,28 @@ private fun mutableAllowedWallpaperActions(): MutableMap<WallpaperAction, Wallpa
     WallpaperAction.entries.associateWith {
         WallpaperActionCapability(WallpaperActionDecision.ALLOWED)
     }.toMutableMap()
+
+// Applies the provider-level action ceiling before per-item licensing. A legacy source,
+// a provider this artifact does not ship, and a provider that never permitted the action
+// all read the same way to the user: this source cannot do that here. The per-source
+// branches below (Bing, Reddit) overwrite these with their own precise reason codes.
+private fun enforceWallpaperProviderActionCeiling(
+    source: ContentSource,
+    actions: MutableMap<WallpaperAction, WallpaperActionCapability>,
+) {
+    WALLPAPER_PROVIDER_ACTIONS.forEach { (wallpaperAction, providerAction) ->
+        if (!isProviderActionPermitted(source, providerAction)) {
+            disableWallpaperAction(actions, wallpaperAction, WallpaperActionReason.SOURCE_UNAVAILABLE)
+        }
+    }
+}
+
+private val WALLPAPER_PROVIDER_ACTIONS = mapOf(
+    WallpaperAction.APPLY to ProviderAction.APPLY,
+    WallpaperAction.DOWNLOAD to ProviderAction.DOWNLOAD,
+    WallpaperAction.SHARE to ProviderAction.SHARE,
+    WallpaperAction.EDIT to ProviderAction.EDIT,
+)
 
 private fun disabledWallpaperActions(reason: WallpaperActionReason): Map<WallpaperAction, WallpaperActionCapability> =
     WallpaperAction.entries.associateWith {

@@ -31,11 +31,16 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chloemlla.aura.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.chloemlla.aura.data.model.FitCanvasMode
+import com.chloemlla.aura.data.model.FitCanvasStyle
+import com.chloemlla.aura.data.model.WALLPAPER_PRESENTATION_FIT
 import com.chloemlla.aura.data.model.Wallpaper
 import com.chloemlla.aura.data.model.WallpaperTarget
 import com.chloemlla.aura.ui.components.AuraSnackbarHost
 import com.chloemlla.aura.ui.components.AuraStateAction
 import com.chloemlla.aura.ui.components.AuraStateCard
+import com.chloemlla.aura.ui.components.FitCanvasControls
+import com.chloemlla.aura.ui.components.FitCanvasMedia
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,14 +53,20 @@ fun WallpaperCropScreen(
     viewModel: WallpaperCropViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val presentation by recoveryViewModel.staticWallpaperPresentation.collectAsStateWithLifecycle()
+    val savedCanvasMode by recoveryViewModel.staticFitCanvasMode.collectAsStateWithLifecycle()
+    val savedCanvasColor by recoveryViewModel.staticFitCanvasColor.collectAsStateWithLifecycle()
+    val canvasStyle = remember(savedCanvasMode, savedCanvasColor) {
+        FitCanvasStyle(FitCanvasMode.fromPreference(savedCanvasMode), savedCanvasColor).normalized()
+    }
     val context = LocalContext.current
     // Reading a string off LocalContext is not a composition read. LocalResources is.
     val resources = LocalResources.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var viewportSize by remember { mutableStateOf(IntSize.Zero) }
-    // pointerInput(Unit) would capture stale values; read these through State so the
-    // gesture lambda always sees the current bitmap and viewport dimensions.
+    // The pointerInput key does not change with the bitmap, so read these through
+    // State to keep the gesture lambda seeing the current bitmap and viewport dimensions.
     val currentBitmap by rememberUpdatedState(state.bitmap)
     val currentViewportSize by rememberUpdatedState(viewportSize)
     val cropIdentityKey = remember(wallpaperId, fallbackWallpaper?.source, fallbackWallpaper?.fullUrl) {
@@ -165,48 +176,61 @@ fun WallpaperCropScreen(
                     .background(Color.Black)
                     .clipToBounds()
                     .onSizeChanged { viewportSize = it }
-                    .pointerInput(Unit) {
-                        detectTransformGestures { _, pan, zoom, _ ->
-                            scale = (scale * zoom).coerceIn(0.5f, 5f)
-                            val bitmap = currentBitmap
-                            val vp = currentViewportSize
-                            if (bitmap != null && vp != IntSize.Zero) {
-                                // Clamp translation so the scaled image keeps covering the
-                                // viewport. Dragging it fully out of view would otherwise
-                                // crop down to a sub-64px sliver and apply that as wallpaper.
-                                val fit = minOf(
-                                    vp.width / bitmap.width.toFloat(),
-                                    vp.height / bitmap.height.toFloat(),
-                                )
-                                val visibleW = bitmap.width * fit * scale
-                                val visibleH = bitmap.height * fit * scale
-                                val maxOffsetX = ((visibleW - vp.width) / 2f).coerceAtLeast(0f)
-                                val maxOffsetY = ((visibleH - vp.height) / 2f).coerceAtLeast(0f)
-                                offsetX = (offsetX + pan.x).coerceIn(-maxOffsetX, maxOffsetX)
-                                offsetY = (offsetY + pan.y).coerceIn(-maxOffsetY, maxOffsetY)
-                            } else {
-                                offsetX += pan.x
-                                offsetY += pan.y
+                    .pointerInput(presentation) {
+                        if (presentation != WALLPAPER_PRESENTATION_FIT) {
+                            detectTransformGestures { _, pan, zoom, _ ->
+                                scale = (scale * zoom).coerceIn(0.5f, 5f)
+                                val bitmap = currentBitmap
+                                val vp = currentViewportSize
+                                if (bitmap != null && vp != IntSize.Zero) {
+                                    // Clamp translation so the scaled image keeps covering the
+                                    // viewport. Dragging it fully out of view would otherwise
+                                    // crop down to a sub-64px sliver and apply that as wallpaper.
+                                    val fit = minOf(
+                                        vp.width / bitmap.width.toFloat(),
+                                        vp.height / bitmap.height.toFloat(),
+                                    )
+                                    val visibleW = bitmap.width * fit * scale
+                                    val visibleH = bitmap.height * fit * scale
+                                    val maxOffsetX = ((visibleW - vp.width) / 2f).coerceAtLeast(0f)
+                                    val maxOffsetY = ((visibleH - vp.height) / 2f).coerceAtLeast(0f)
+                                    offsetX = (offsetX + pan.x).coerceIn(-maxOffsetX, maxOffsetX)
+                                    offsetY = (offsetY + pan.y).coerceIn(-maxOffsetY, maxOffsetY)
+                                } else {
+                                    offsetX += pan.x
+                                    offsetY += pan.y
+                                }
+                                viewModel.updateTransform(scale, offsetX, offsetY)
                             }
-                            viewModel.updateTransform(scale, offsetX, offsetY)
                         }
                     },
                 contentAlignment = Alignment.Center,
             ) {
                 state.bitmap?.let { bitmap ->
-                    androidx.compose.foundation.Image(
-                        bitmap = bitmap.asImageBitmap(),
-                        contentDescription = stringResource(R.string.editor_crop_image_cd),
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer(
-                                scaleX = scale,
-                                scaleY = scale,
-                                translationX = offsetX,
-                                translationY = offsetY,
-                            ),
-                    )
+                    if (presentation == WALLPAPER_PRESENTATION_FIT) {
+                        FitCanvasMedia(
+                            model = bitmap,
+                            presentation = presentation,
+                            style = canvasStyle,
+                            dominantColor = null,
+                            contentDescription = stringResource(R.string.editor_crop_image_cd),
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        androidx.compose.foundation.Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = stringResource(R.string.editor_crop_image_cd),
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer(
+                                    scaleX = scale,
+                                    scaleY = scale,
+                                    translationX = offsetX,
+                                    translationY = offsetY,
+                                ),
+                        )
+                    }
                 }
 
                 // Screen overlay guides
@@ -221,6 +245,18 @@ fun WallpaperCropScreen(
                 }
             }
 
+            FitCanvasControls(
+                presentation = presentation,
+                style = canvasStyle,
+                onPresentationChange = { selected ->
+                    recoveryViewModel.setStaticFitCanvasPreferences(selected, canvasStyle)
+                },
+                onStyleChange = { selected ->
+                    recoveryViewModel.setStaticFitCanvasPreferences(presentation, selected)
+                },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+
             // Zoom info + aspect ratio presets
             Row(
                 modifier = Modifier
@@ -230,7 +266,13 @@ fun WallpaperCropScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    stringResource(R.string.editor_crop_gesture_hint),
+                    stringResource(
+                        if (presentation == WALLPAPER_PRESENTATION_FIT) {
+                            R.string.fit_canvas_fit_help
+                        } else {
+                            R.string.editor_crop_gesture_hint
+                        },
+                    ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -242,7 +284,7 @@ fun WallpaperCropScreen(
             }
 
             // Aspect ratio quick presets + Smart Crop (NX-3)
-            Row(
+            if (presentation != WALLPAPER_PRESENTATION_FIT) Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp),
@@ -327,7 +369,12 @@ fun WallpaperCropScreen(
             ) {
                 OutlinedButton(
                     onClick = {
-                        viewModel.applyCropped(WallpaperTarget.HOME, viewportSize.width, viewportSize.height)
+                        viewModel.applyCropped(
+                            WallpaperTarget.HOME,
+                            viewportSize.width,
+                            viewportSize.height,
+                            canvasStyle.takeIf { presentation == WALLPAPER_PRESENTATION_FIT },
+                        )
                     },
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                     enabled = !state.isApplying && state.bitmap != null,
@@ -335,7 +382,12 @@ fun WallpaperCropScreen(
                 ) { Text(stringResource(R.string.common_home)) }
                 OutlinedButton(
                     onClick = {
-                        viewModel.applyCropped(WallpaperTarget.LOCK, viewportSize.width, viewportSize.height)
+                        viewModel.applyCropped(
+                            WallpaperTarget.LOCK,
+                            viewportSize.width,
+                            viewportSize.height,
+                            canvasStyle.takeIf { presentation == WALLPAPER_PRESENTATION_FIT },
+                        )
                     },
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                     enabled = !state.isApplying && state.bitmap != null,
@@ -343,7 +395,12 @@ fun WallpaperCropScreen(
                 ) { Text(stringResource(R.string.common_lock)) }
                 Button(
                     onClick = {
-                        viewModel.applyCropped(WallpaperTarget.BOTH, viewportSize.width, viewportSize.height)
+                        viewModel.applyCropped(
+                            WallpaperTarget.BOTH,
+                            viewportSize.width,
+                            viewportSize.height,
+                            canvasStyle.takeIf { presentation == WALLPAPER_PRESENTATION_FIT },
+                        )
                     },
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                     enabled = !state.isApplying && state.bitmap != null,

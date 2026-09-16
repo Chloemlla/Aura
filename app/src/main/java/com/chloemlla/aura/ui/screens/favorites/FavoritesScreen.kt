@@ -42,8 +42,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.FavoriteEntity
+import com.chloemlla.aura.data.model.LocalMediaStatus
 import com.chloemlla.aura.data.model.isSourceUnavailable
+import com.chloemlla.aura.data.model.needsLocalMediaRelink
 import com.chloemlla.aura.data.model.stableKey
+import com.chloemlla.aura.service.LocalMediaRelinkOutcome
 import com.chloemlla.aura.ui.components.AuraSnackbarHost
 import com.chloemlla.aura.ui.components.AuraStateAction
 import com.chloemlla.aura.ui.components.AuraStateCard
@@ -120,6 +123,31 @@ fun FavoritesScreen(
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let { viewModel.importFavorites(it) } }
+
+    var pendingRelink by remember { mutableStateOf<FavoriteEntity?>(null) }
+    suspend fun finishRelink(favorite: FavoriteEntity, uri: android.net.Uri, acceptMismatch: Boolean = false) {
+        when (val outcome = viewModel.relinkFavorite(favorite, uri, acceptMismatch)) {
+            is LocalMediaRelinkOutcome.Relinked ->
+                snackbarHostState.showSnackbar(resources.getString(R.string.media_relink_success))
+            is LocalMediaRelinkOutcome.Rejected -> snackbarHostState.showSnackbar(outcome.message)
+            is LocalMediaRelinkOutcome.ReviewRequired -> {
+                val result = snackbarHostState.showSnackbar(
+                    message = resources.getString(
+                        R.string.media_relink_mismatch,
+                        outcome.differences.joinToString(", "),
+                    ),
+                    actionLabel = resources.getString(R.string.media_relink_use_anyway),
+                    duration = SnackbarDuration.Long,
+                )
+                if (result == SnackbarResult.ActionPerformed) finishRelink(favorite, uri, acceptMismatch = true)
+            }
+        }
+    }
+    val relinkLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val favorite = pendingRelink
+        pendingRelink = null
+        if (uri != null && favorite != null) scope.launch { finishRelink(favorite, uri) }
+    }
 
     LaunchedEffect(message) {
         message?.let { snackbarHostState.showSnackbar(it); viewModel.clearMessage() }
@@ -403,6 +431,7 @@ fun FavoritesScreen(
                                 val key = fav.stableKey()
                                 val isSelected = key in selectedKeys
                                 val sourceUnavailable = fav.isSourceUnavailable()
+                                val needsRelink = fav.needsLocalMediaRelink()
                                 val selectedDescription = stringResource(
                                     if (isSelected) R.string.a11y_selected else R.string.a11y_not_selected,
                                 )
@@ -481,6 +510,26 @@ fun FavoritesScreen(
                                                     .padding(8.dp),
                                             )
                                         }
+                                        if (needsRelink) {
+                                            LocalMediaIssueBadge(
+                                                status = fav.localMediaStatus,
+                                                modifier = Modifier
+                                                    .align(Alignment.TopStart)
+                                                    .padding(8.dp),
+                                            )
+                                            FilledTonalButton(
+                                                onClick = {
+                                                    pendingRelink = fav
+                                                    relinkLauncher.launch(arrayOf("image/*"))
+                                                },
+                                                modifier = Modifier
+                                                    .align(Alignment.BottomEnd)
+                                                    .padding(8.dp),
+                                            ) {
+                                                Icon(Icons.Default.FindReplace, contentDescription = null)
+                                                Text(stringResource(R.string.media_relink_action))
+                                            }
+                                        }
                                         if (selectionMode) {
                                             // Dim unselected cards to emphasize the selection.
                                             if (!isSelected) {
@@ -538,6 +587,7 @@ fun FavoritesScreen(
                         ) {
                             items(sortedSounds, key = { it.stableKey() }, contentType = { "favorite_card" }) { fav ->
                                 val sourceUnavailable = fav.isSourceUnavailable()
+                                val needsRelink = fav.needsLocalMediaRelink()
                                 val soundSummary = favoriteSoundSummary(fav, sourceUnavailable, resources)
                                 val soundDisplayName = favoriteDisplayName(fav)
                                 val openLabel = stringResource(R.string.favorites_open_item, soundDisplayName)
@@ -589,7 +639,9 @@ fun FavoritesScreen(
                                         },
                                         modifier = Modifier.semantics(mergeDescendants = true) {
                                             contentDescription = soundSummary
-                                            stateDescription = if (sourceUnavailable) {
+                                            stateDescription = if (needsRelink) {
+                                                resources.getString(localMediaStatusLabelResource(fav.localMediaStatus))
+                                            } else if (sourceUnavailable) {
                                                 resources.getString(R.string.favorites_state_source_unavailable)
                                             } else {
                                                 resources.getString(R.string.favorites_state_saved_sound)
@@ -608,7 +660,7 @@ fun FavoritesScreen(
                                             Icon(Icons.Default.MusicNote, null, tint = MaterialTheme.colorScheme.primary)
                                             Column(modifier = Modifier.weight(1f)) {
                                                 Text(fav.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                if (fav.duration > 0 || sourceUnavailable) {
+                                                if (fav.duration > 0 || sourceUnavailable || needsRelink) {
                                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                         if (fav.duration > 0) {
                                                             Text(
@@ -624,10 +676,29 @@ fun FavoritesScreen(
                                                                 color = MaterialTheme.colorScheme.error,
                                                             )
                                                         }
+                                                        if (needsRelink) {
+                                                            Text(
+                                                                stringResource(localMediaStatusLabelResource(fav.localMediaStatus)),
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                color = MaterialTheme.colorScheme.error,
+                                                            )
+                                                        }
                                                     }
                                                 }
                                             }
-                                            Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            if (needsRelink) {
+                                                IconButton(onClick = {
+                                                    pendingRelink = fav
+                                                    relinkLauncher.launch(arrayOf("audio/*"))
+                                                }) {
+                                                    Icon(
+                                                        Icons.Default.FindReplace,
+                                                        contentDescription = stringResource(R.string.media_relink_action),
+                                                    )
+                                                }
+                                            } else {
+                                                Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
                                         }
                                     }
                                 }
@@ -660,6 +731,31 @@ private fun SourceUnavailableBadge(modifier: Modifier = Modifier) {
 }
 
 @Composable
+private fun LocalMediaIssueBadge(status: String, modifier: Modifier = Modifier) {
+    Surface(
+        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.94f),
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        shape = RoundedCornerShape(8.dp),
+        modifier = modifier,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(14.dp))
+            Text(stringResource(localMediaStatusLabelResource(status)), style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+internal fun localMediaStatusLabelResource(status: String): Int = when (status) {
+    LocalMediaStatus.PERMISSION_REVOKED -> R.string.media_status_permission_revoked
+    LocalMediaStatus.CORRUPT -> R.string.media_status_corrupt
+    else -> R.string.media_status_missing
+}
+
+@Composable
 private fun EmptyState(
     title: String,
     description: String,
@@ -687,6 +783,7 @@ internal fun favoriteWallpaperSummary(
     resources: Resources,
 ): String {
     val status = when {
+        favorite.needsLocalMediaRelink() -> favoriteLocalMediaHealthLabel(favorite.localMediaStatus)
         sourceUnavailable -> resources.getString(R.string.favorites_summary_source_unavailable)
         isSelected -> resources.getString(R.string.favorites_summary_selected)
         else -> resources.getString(R.string.favorites_summary_saved_wallpaper)
@@ -708,10 +805,10 @@ internal fun favoriteSoundSummary(
     sourceUnavailable: Boolean,
     resources: Resources,
 ): String {
-    val status = if (sourceUnavailable) {
-        resources.getString(R.string.favorites_summary_source_unavailable)
-    } else {
-        resources.getString(R.string.favorites_summary_saved_sound)
+    val status = when {
+        favorite.needsLocalMediaRelink() -> favoriteLocalMediaHealthLabel(favorite.localMediaStatus)
+        sourceUnavailable -> resources.getString(R.string.favorites_summary_source_unavailable)
+        else -> resources.getString(R.string.favorites_summary_saved_sound)
     }
     val duration = if (favorite.duration > 0) {
         resources.getString(R.string.favorites_summary_duration_seconds, favorite.duration.toInt())
@@ -721,6 +818,12 @@ internal fun favoriteSoundSummary(
     return listOf(favoriteDisplayName(favorite), status, duration, sourceDisplayLabel(favorite.source))
         .filter { it.isNotBlank() }
         .joinToString(". ")
+}
+
+internal fun favoriteLocalMediaHealthLabel(status: String): String = when (status) {
+    LocalMediaStatus.PERMISSION_REVOKED -> "local file permission revoked"
+    LocalMediaStatus.CORRUPT -> "local file corrupt"
+    else -> "local file missing"
 }
 
 internal fun favoritesBatchProgressSummary(
@@ -750,7 +853,7 @@ private fun sourceDisplayLabel(source: String): String =
         "YOUTUBE" -> "YouTube"
         "CCMIXTER" -> "ccMixter"
         "SOUNDCLOUD" -> "SoundCloud"
-        "BUNDLED" -> "Aura Picks"
+        "BUNDLED" -> "Aura Originals"
         else -> source.split('_', '-')
             .filter { it.isNotBlank() }
             .joinToString(" ") { part ->

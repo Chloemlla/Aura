@@ -1,47 +1,58 @@
 # Provider Credential Storage
 
-This runbook classifies Aura provider credentials and records the Android
-Keystore-backed storage decision. The machine-readable source is
-`docs/security/provider-credential-storage.json`; the guard is
+The checked policy is `docs/security/provider-credential-storage.json`. Its guard is
 `tools/provider_credential_storage_check.py`.
 
-## Decision
+## Storage decision
 
-User-entered provider credentials are stored in `aura_provider_credentials`
-SharedPreferences encrypted with an Android Keystore AES-GCM key. Legacy
-DataStore values are migrated on first read/write and removed after successful
-encrypted-store writes. Provider keys remain optional, public release defaults
-are blank, diagnostics redact them, and both the legacy DataStore file and the
-encrypted SharedPreferences file are excluded from Android cloud backup and
-device transfer.
+Aura stores user-entered provider credentials in
+`aura_provider_credentials.xml`. Each value is encrypted with AES-GCM and a
+non-exportable Android Keystore key named `aura_provider_credentials_v1`.
+Legacy values in Jetpack DataStore move to the encrypted store on first read or
+write, then the old value is removed.
 
-If Android Keystore is locked, corrupt, or unavailable, Aura keeps running,
-retains unmigrated DataStore values until migration can succeed, and shows a
-Settings warning instead of crashing or silently discarding provider keys.
+Both `aura_provider_credentials.xml` and
+`datastore/freevibe_prefs.preferences_pb` are excluded from Android 11 cloud
+backup, Android 12+ cloud backup, and device transfer.
 
-## Storage Surface
+## Recovery states
 
-- Encrypted SharedPreferences: `aura_provider_credentials.xml`.
-- Android Keystore alias: `aura_provider_credentials_v1`.
-- Cipher envelope: `AES/GCM/NoPadding` with per-write random IV.
-- Legacy DataStore name: `freevibe_prefs`.
-- Legacy DataStore file: `datastore/freevibe_prefs.preferences_pb`.
-- Android 11 Auto Backup: excluded in `backup_rules.xml`.
-- Android 12+ cloud backup and device transfer: excluded in
-  `data_extraction_rules.xml`.
-- Diagnostics: support bundles and source diagnostics redact provider query,
-  header, assignment, and `local.properties` credential shapes before sharing.
+At rest, readable values remain encrypted and never appear in diagnostics.
 
-## Credentials
+Backup and transfer rules exclude the encrypted file because its key is bound
+to the device. Aura still defends against an OEM or manual restore that copies
+ciphertext without the key.
 
-| ID | Provider | Classification | Runtime storage | Release default | User control |
-| --- | --- | --- | --- | --- | --- |
-| `wallhaven-api-key` | Wallhaven | `optionalQuotaKey` | Encrypted key `wallhaven_api_key`; migrates legacy DataStore key `wallhaven_api_key`; no bundled BuildConfig field. | Blank. | Settings > API Keys > Wallhaven API Key; Clear or save blank to remove. |
-| `pexels-api-key` | Pexels | `optionalQuotaKey` | Encrypted key `pexels_api_key`, defaulting to `BuildConfig.PEXELS_API_KEY`; migrates legacy DataStore key `pexels_api_key`. | Blank in public release workflow. | Settings > API Keys > Pexels API Key; Clear or save blank to remove. |
-| `pixabay-api-key` | Pixabay | `optionalQuotaKey` | Encrypted key `pixabay_api_key`, defaulting to `BuildConfig.PIXABAY_API_KEY`; migrates legacy DataStore key `pixabay_api_key`. | Blank in public release workflow. | Settings > API Keys > Pixabay API Key; Clear or save blank to remove. |
-| `freesound-api-key` | Freesound | `optionalQuotaKey` | Encrypted key `freesound_api_key`, defaulting to `BuildConfig.FREESOUND_API_KEY`; migrates legacy DataStore key `freesound_api_key`. | Blank in public release workflow. | Settings > API Keys > Freesound API Key; Clear or save blank to remove. |
-| `soundcloud-client-id` | SoundCloud | `publicClientId` | BuildConfig-only `SOUNDCLOUD_CLIENT_ID`; no DataStore key. | Blank in public release workflow. | No Settings field; blank public default makes the dormant source return no results. |
-| `stability-ai-key` | Stability AI | `paidSensitiveSecret` | Encrypted key `stability_ai_key`, defaulting to `BuildConfig.STABILITY_AI_KEY`; migrates legacy DataStore key `stability_ai_key`. | Blank in public release workflow. | Settings > API Keys > Stability AI API Key and generated wallpaper key field; Clear or save blank to remove. |
+Restore has two outcomes:
+
+- A temporary Keystore error leaves ciphertext untouched. Settings asks the
+  user to unlock the phone and retry.
+- A missing or invalidated key, an invalid envelope, or failed AES-GCM
+  authentication makes the value unrecoverable. Aura removes the unreadable
+  ciphertext and saves a non-secret re-entry marker. Settings keeps a visible
+  notice until each affected blank key is saved or cleared.
+
+Deletion is available through each visible key dialog's Clear action or by
+saving a blank value. Android clear-app-data and uninstall remove the encrypted
+preferences and app-owned Keystore key. The retired Freesound value is deleted
+at startup.
+
+Export never includes provider credentials. Library backups ignore credential
+fields on import and do not write them on export. Collection exports,
+theme-pack files, generated wallpaper reports, source diagnostics, and support
+bundles also exclude the values. Diagnostic text reports only whether storage
+is available, temporarily unavailable, or needs re-entry.
+
+## Credential classes
+
+| ID | Provider | Classification | At rest | Backup and transfer | Restore | Deletion | Export |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `wallhaven-api-key` | Wallhaven | `optionalQuotaKey` | Android Keystore AES-GCM. | Excluded. | Clear unreadable ciphertext and request re-entry. | Settings Clear, save blank, clear app data, or uninstall. | Excluded. |
+| `pexels-api-key` | Pexels | `optionalQuotaKey` | Android Keystore AES-GCM. Public BuildConfig default is blank. | Excluded. | Clear unreadable ciphertext and request re-entry. | Settings Clear, save blank, clear app data, or uninstall. | Excluded. |
+| `pixabay-api-key` | Pixabay | `optionalQuotaKey` | Android Keystore AES-GCM. Public BuildConfig default is blank. | Excluded. | Clear unreadable ciphertext and request re-entry. | Settings Clear, save blank, clear app data, or uninstall. | Excluded. |
+| `freesound-api-key` | Freesound | `optionalQuotaKey` and retired. | Encrypted only until startup cleanup. | Excluded. | Never restored. | Startup cleanup, clear app data, or uninstall. | Excluded. |
+| `soundcloud-client-id` | SoundCloud | `publicClientId` | BuildConfig only. Public default is blank. | Not app data. | Resolved from the installed build only. | Replace or uninstall the locally configured build. | Excluded and redacted from diagnostics. |
+| `stability-ai-key` | Stability AI | `paidSensitiveSecret` | Android Keystore AES-GCM. Public BuildConfig default is blank and the FOSS build has no field. | Excluded. | Clear unreadable ciphertext and request re-entry. | Settings Clear, save blank, clear app data, or uninstall. | Excluded, including generated wallpaper reports. |
 
 ## Guard
 
@@ -51,16 +62,9 @@ Run:
 py -3 tools\provider_credential_storage_check.py --policy docs\security\provider-credential-storage.json --repo-root .
 ```
 
-The guard fails if a credential row is missing from this runbook, if an
-encrypted credential mapping or legacy DataStore migration key is missing from
-`PreferencesManager`, if the Android Keystore AES-GCM wrapper drifts, if a
-Settings label, explicit Clear action, or Keystore warning is missing, if
-Gradle release defaults drift away from blank provider values, if backup
-exclusions disappear, or if diagnostics/privacy docs stop describing redaction
-and device storage.
-
-The guard also treats `stability-ai-key` as the paid-sensitive sentinel row. It
-fails if Stability stops being an encrypted `paidSensitiveSecret`, if the
-`STABILITY_AI_KEY` / `stability.ai.key` release default is no longer blank, if
-`stability.ai.key` is missing from redaction coverage, or if the explicit Clear
-control is no longer documented.
+The guard checks all six credential rows, blank release defaults, the encrypted
+store implementation, both backup rule formats, recovery UI, diagnostics
+status, redaction terms, legacy cleanup, and the absence of credential fields
+from the library export source. Tests cover same-device reads, missing and
+invalidated keys, invalid ciphertext, temporary failures, clear-all behavior,
+and export/import rejection.

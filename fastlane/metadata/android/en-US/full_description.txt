@@ -1,36 +1,34 @@
-Aura is a free, open-source Android app for personalizing your device with wallpapers, video wallpapers, ringtones, notification sounds, and alarm tones from multiple free content sources.
+Aura is a free, open-source Android app for wallpapers, video wallpapers, ringtones, notification sounds, and alarm tones.
 
 Features:
-- Browse millions of HD/4K wallpapers from Wallhaven, Pexels, Pixabay, and Bing Daily
-- YouTube-first ringtone, notification, and alarm discovery powered by NewPipe + yt-dlp
-- Video live wallpapers from Pexels, YouTube, Pixabay, legacy saved Reddit items, plus local clips and GIFs
-- Loop and crop editor for video wallpapers with frame thumbnails and trim handles
-- Parallax / depth wallpapers using on-device ML Kit Subject Segmentation
-- Weather effects overlay (rain, snow, fog, sunny) driven by Open-Meteo
-- Time-of-day adaptive wallpaper tinting with sunrise / sunset awareness
-- Dark / light mode automatic wallpaper switching with separate slots
-- Smart Crop centres the wallpaper on the detected subject before applying
-- Generate unique wallpapers from text prompts using Stability AI (bring-your-own-key)
-- AMOLED-friendly editor with brightness, contrast, saturation, blur, filter presets
-- Sound editor with waveform trim, fade, normalize, and format conversion
-- Crop and position wallpapers with pinch-zoom and 9:16 / 16:9 / 1:1 presets
-- Set different wallpapers for home and lock screen simultaneously
-- Assign custom ringtones to individual contacts
-- Home-screen and lock-screen widget for quick wallpaper rotation
-- Auto-change wallpaper on a schedule, on screen-off, or on every unlock
-- Tasker / MacroDroid integration via com.chloemlla.aura.action.ROTATE_NOW broadcast
-- Community uploads with voting (anonymous, no account needed)
-- Creator profiles, followed creators, top-creator leaderboard
-- Shareable wallpaper collections via Aura links, QR codes, and JSON
-- Battery dashboard for live wallpapers with FPS readout and automatic low-battery cap
-- Touch-reactive ripples and sparkle bursts on live wallpapers (opt-in)
-- All preferences stored locally with DataStore
-- No ads, no tracking, no account required, no subscription
+- Reddit-first wallpaper and video discovery from public mobile and motion communities
+- HD and 4K wallpaper browsing from Wallhaven, plus optional Pexels and Pixabay catalogs with your own key
+- Daily and community wallpaper picks from Bing, Wikimedia Commons, NASA APOD, and Lemmy
+- Twenty-five Aura Original ringtones, notifications, and alarms that work offline
+- Local wallpaper, video, GIF, ringtone, notification, and alarm imports
+- Video loop and crop editor with frame thumbnails and trim handles
+- Parallax and depth wallpapers using on-device subject segmentation
+- Weather effects for rain, snow, fog, and sun through optional Open-Meteo access
+- Time-of-day wallpaper tinting with sunrise and sunset awareness
+- Dark and light mode wallpaper switching with separate slots
+- Smart Crop subject positioning before wallpaper apply
+- Optional generated wallpapers with your own Stability API key
+- Wallpaper editing for brightness, contrast, saturation, blur, and filters
+- Sound editing with waveform trim, fades, normalization, and format conversion
+- Separate home-screen and lock-screen wallpapers
+- Per-contact ringtone assignment through Android's contact picker
+- Widgets, scheduled rotation, screen-off rotation, and unlock rotation
+- Optional community uploads, voting, creator profiles, moderation, and sharing
+- Local DataStore preferences. No ads, no tracking, and no subscription
 
-Aura uses free APIs from Wallhaven, Pexels, Pixabay, and Freesound, plus NewPipe + yt-dlp for YouTube access. Legacy saved Reddit items keep source attribution, but Reddit's public feed is off by default after unauthenticated endpoints were retired. Some sources accept optional free API keys that can be configured in Settings for higher rate limits or NSFW content. Content licenses vary by source.
+Provider availability:
+- Wallpapers: Reddit first, followed by Wallhaven, Pexels, Pixabay, Bing Image of the Day, Wikimedia Commons, NASA APOD, Lemmy, Aura Community, Local device media, AI-generated, and Open-Meteo.
+- Videos: Reddit first, followed by Pexels, Pixabay, and Local device media.
+- Sounds: Aura Originals, Aura Community, and Local device media.
+- Legacy attribution only: Lorem Picsum, Internet Archive, Freesound, Jamendo, Audius, ccMixter, Klipy, and SoundCloud. Aura keeps source details for older saved items and does not fetch new media from these providers.
 
-Built with Kotlin, Jetpack Compose, Material 3, Hilt, Room, Retrofit, Coil, ExoPlayer, and ML Kit.
+Content licenses vary by source. Aura keeps source, creator, and license details when providers supply them. Optional provider keys stay on the device and aren't bundled into public releases.
 
-Official builds are signed with certificate SHA-256 F28E44BEA32F5B2890C8268B7FBED43C44A4D671A512FB07EBF18FDD41C66E5A. Verify it before installing a build from anywhere but Aura's own releases page.
+Official builds use certificate SHA-256 F28E44BEA32F5B2890C8268B7FBED43C44A4D671A512FB07EBF18FDD41C66E5A. Check it before installing Aura from anywhere except the official releases page.
 
 Privacy policy: https://github.com/SysAdminDoc/Aura/blob/main/docs/privacy/privacy-policy.md

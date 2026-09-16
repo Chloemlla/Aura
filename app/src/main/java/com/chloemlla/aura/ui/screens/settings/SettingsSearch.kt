@@ -57,8 +57,8 @@ internal class SettingsSearchRegistry {
     val rows = mutableStateMapOf<String, SettingsSearchRow>()
     var focusedRowKey by mutableStateOf<String?>(null)
 
-    fun keyFor(sectionKey: String, title: String, subtitle: String): String =
-        "$sectionKey:${title.trim().lowercase(Locale.ROOT)}:${subtitle.trim().lowercase(Locale.ROOT)}"
+    fun keyFor(sectionKey: String, title: String): String =
+        "$sectionKey:${title.trim().lowercase(Locale.ROOT)}"
 
     fun register(row: SettingsSearchRow) {
         rows[row.key] = row
@@ -96,7 +96,7 @@ internal fun rememberSettingsSearchRow(
     val sectionKey = LocalSettingsSearchSectionKey.current
     val sectionTitle = LocalSettingsSearchSectionTitle.current
     val sectionMatches = LocalSettingsSearchSectionMatches.current
-    val rowKey = registry?.keyFor(sectionKey, title, subtitle)
+    val rowKey = registry?.keyFor(sectionKey, title)
         ?: "$sectionKey:${title.trim()}"
     val requester = remember(rowKey) { BringIntoViewRequester() }
     val row = remember(rowKey, sectionTitle, title, subtitle, aliases) {

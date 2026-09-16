@@ -1,6 +1,6 @@
 {
   "status": "checked",
-  "lastReviewed": "2026-06-14",
+  "lastReviewed": "2026-09-14",
   "stores": [
     {
       "id": "audio_preview_cache",
@@ -45,6 +45,28 @@
       "userCleanup": "Settings > Clear cache (re-downloads on next launch)",
       "uninstallBehavior": "Removed with app",
       "sourceFile": "AuraOriginalsDownloader.kt"
+    },
+    {
+      "id": "optimized_apply_copies",
+      "path": "filesDir/apply_copies",
+      "type": "Managed device-compatible media derivatives",
+      "budget": "One referenced copy per saved item and apply configuration, capped by the matching media limit",
+      "retention": "Reused while its settings, size, timestamp, and digest remain valid; replaced only after Room accepts the new reference",
+      "backupExcluded": true,
+      "userCleanup": "Downloads > Delete optimized copy, delete the complete download, or clear app data",
+      "uninstallBehavior": "Removed with app",
+      "sourceFile": "MediaCopyStore.kt"
+    },
+    {
+      "id": "saved_video_originals",
+      "path": "filesDir/media_originals",
+      "type": "Source-quality video wallpaper and animated image files",
+      "budget": "256 MB per saved original",
+      "retention": "Persistent until the download is deleted or a committed replacement supersedes the same feed identity",
+      "backupExcluded": true,
+      "userCleanup": "Delete the saved video in Downloads or clear app data",
+      "uninstallBehavior": "Removed with app",
+      "sourceFile": "VideoWallpaperStorage.kt"
     },
     {
       "id": "parallax_depth",
@@ -94,10 +116,10 @@
       "id": "room_database",
       "path": "databases/freevibe.db",
       "type": "SQLite database",
-      "budget": "Unbounded (grows with favorites/downloads/history)",
+      "budget": "Bounded rotation exclusions plus user-sized favorites, downloads, collections, history, and local media identity metadata",
       "retention": "Persistent; user data",
       "backupExcluded": true,
-      "userCleanup": "Clear individual favorites/downloads/history from app",
+      "userCleanup": "Clear individual favorites/downloads/history, relink unavailable local media, and restore one or all rotation exclusions from the app",
       "uninstallBehavior": "Removed with app",
       "sourceFile": "Database.kt"
     },
@@ -164,6 +186,7 @@
     {"path": "cacheDir/audio_apply", "purpose": "Ringtone apply staging", "sourceFile": "SoundApplier.kt"},
     {"path": "cacheDir/share_out", "purpose": "FileProvider share outbox", "sourceFile": "ShareOutbox.kt"},
     {"path": "cacheDir/upload_probe", "purpose": "Upload validation staging", "sourceFile": "UploadRepository.kt"},
+    {"path": "cacheDir/media_relink", "purpose": "Bounded candidate staging for local media type, digest, and metadata checks", "sourceFile": "LocalMediaRelinkManager.kt"},
     {"path": "cacheDir/crop_input.mp4", "purpose": "Video crop input (256 MB cap)", "sourceFile": "VideoCropScreen.kt"},
     {"path": "cacheDir/crop_output.mp4", "purpose": "Video crop FFmpeg output", "sourceFile": "VideoCropScreen.kt"}
   ],

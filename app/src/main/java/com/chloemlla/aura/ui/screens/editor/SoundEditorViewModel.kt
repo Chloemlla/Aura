@@ -12,22 +12,26 @@ import com.chloemlla.aura.data.model.ContentType
 import com.chloemlla.aura.data.model.Sound
 import com.chloemlla.aura.data.model.SoundAction
 import com.chloemlla.aura.data.model.SoundActionDecision
+import com.chloemlla.aura.data.model.mediaOptimizationKey
 import com.chloemlla.aura.data.model.soundLicenseCapabilities
 import com.chloemlla.aura.data.model.stableKey
 import com.chloemlla.aura.service.AudioExportFormat
 import com.chloemlla.aura.service.AudioFadeCurve
 import com.chloemlla.aura.service.AudioPlaybackManager
 import com.chloemlla.aura.service.AudioTrimmer
+import com.chloemlla.aura.service.MediaCopyStore
 import com.chloemlla.aura.service.MediaIngestionLimitExceeded
 import com.chloemlla.aura.service.MediaFamily
 import com.chloemlla.aura.service.SoundUrlResolver
 import com.chloemlla.aura.service.SoundApplier
 import com.chloemlla.aura.service.copyStreamCapped
+import com.chloemlla.aura.service.downloadHistoryId
 import com.chloemlla.aura.service.isLosslessCutAllowed
 import com.chloemlla.aura.service.losslessCutExportFormat
 import com.chloemlla.aura.service.normalizeMediaFileName
 import com.chloemlla.aura.service.requireSniffedMediaFile
 import com.chloemlla.aura.service.ShareOutbox
+import com.chloemlla.aura.service.sha256File
 import com.chloemlla.aura.service.speedAdjustedDurationMs
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -150,6 +154,7 @@ class SoundEditorViewModel @Inject constructor(
     private val audioTrimmer: AudioTrimmer,
     private val soundUrlResolver: SoundUrlResolver,
     private val audioPlaybackManager: AudioPlaybackManager,
+    private val mediaCopyStore: MediaCopyStore,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SoundEditorState())
@@ -169,6 +174,8 @@ class SoundEditorViewModel @Inject constructor(
             .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
             .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
             .build()
+    private var loadedDownloadCandidateId: String? = null
+    private var loadedOriginalLocator: String = ""
 
     private data class UndoSnapshot(
         val trimStartMs: Long,
@@ -190,6 +197,8 @@ class SoundEditorViewModel @Inject constructor(
             return false
         }
         loadedSoundKey = soundKey
+        loadedDownloadCandidateId = downloadHistoryId("SOUND", soundKey)
+        loadedOriginalLocator = sound.downloadUrl.ifBlank { sound.previewUrl }
         if (sound.downloadUrl.isBlank() && sound.previewUrl.isBlank() && sound.sourcePageUrl.isBlank()) return false
         loadRemoteSound(sound.name) {
             val resolvedUrl = soundUrlResolver.resolve(sound)
@@ -201,6 +210,8 @@ class SoundEditorViewModel @Inject constructor(
 
     fun loadFromUrl(url: String, name: String) {
         loadedSoundKey = buildRemoteAudioCacheIdentity(url, name)
+        loadedDownloadCandidateId = null
+        loadedOriginalLocator = url
         loadRemoteSound(name) { downloadToCache(url, name, buildRemoteAudioCacheIdentity(url, name)) }
     }
 
@@ -265,6 +276,8 @@ class SoundEditorViewModel @Inject constructor(
             return
         }
         loadedSoundKey = localKey
+        loadedDownloadCandidateId = null
+        loadedOriginalLocator = uri.toString()
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
             stopPlayback()
@@ -509,21 +522,13 @@ class SoundEditorViewModel @Inject constructor(
             }
             _state.update { it.copy(isApplying = true) }
             try {
-                val trimmedPath = audioTrimmer.trim(
-                    inputPath = path,
-                    startMs = s.trimStartMs,
-                    endMs = s.trimEndMs,
-                    outputFileName = s.fileName,
-                    fadeInMs = s.fadeInMs,
-                    fadeOutMs = s.fadeOutMs,
-                    fadeCurve = s.fadeCurve,
-                    playbackSpeed = s.playbackSpeed,
-                    exportFormat = s.exportFormat,
-                    bitrateKbps = s.exportBitrateKbps,
-                    losslessCut = s.losslessCut,
-                ).getOrThrow()
-
-                soundApplier.applyFromLocalFile(trimmedPath, s.fileName, type)
+                val prepared = prepareEditedSoundCopy(s, path)
+                val applyResult = try {
+                    soundApplier.applyFromLocalFile(prepared.path, s.fileName, type)
+                } finally {
+                    prepared.deleteAfterUse()
+                }
+                applyResult
                     .onSuccess {
                         val labelRes = when (type) {
                             ContentType.RINGTONE -> R.string.editor_sound_apply_ringtone
@@ -557,21 +562,13 @@ class SoundEditorViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(isApplying = true, success = null, error = null) }
             try {
-                val outputPath = audioTrimmer.trim(
-                    inputPath = path,
-                    startMs = state.trimStartMs,
-                    endMs = state.trimEndMs,
-                    outputFileName = state.fileName,
-                    fadeInMs = state.fadeInMs,
-                    fadeOutMs = state.fadeOutMs,
-                    fadeCurve = state.fadeCurve,
-                    playbackSpeed = state.playbackSpeed,
-                    exportFormat = state.exportFormat,
-                    bitrateKbps = state.exportBitrateKbps,
-                    losslessCut = state.losslessCut,
-                ).getOrThrow()
-                soundApplier.exportFromLocalFile(outputPath, state.fileName)
-                    .getOrThrow()
+                val prepared = prepareEditedSoundCopy(state, path)
+                try {
+                    soundApplier.exportFromLocalFile(prepared.path, state.fileName)
+                        .getOrThrow()
+                } finally {
+                    prepared.deleteAfterUse()
+                }
                 _state.update {
                     it.copy(
                         isApplying = false,
@@ -601,6 +598,86 @@ class SoundEditorViewModel @Inject constructor(
     /** Pauses the preview when the app leaves the foreground. */
     fun stopPreview() {
         if (_state.value.isPlaying) stopPlayback()
+    }
+
+    private suspend fun prepareEditedSoundCopy(
+        state: SoundEditorState,
+        inputPath: String,
+    ): PreparedEditedSoundCopy {
+        val (candidateOriginal, _) = mediaCopyStore.findOriginal(
+            loadedDownloadCandidateId,
+            loadedOriginalLocator,
+        )
+        val inputFile = File(inputPath)
+        val inputHash = sha256File(inputFile)
+        val savedOriginal = candidateOriginal?.takeIf { original ->
+            original.originalSha256.isNotBlank() &&
+                original.originalSha256.equals(inputHash, ignoreCase = true)
+        }
+        val sourceHash = savedOriginal?.originalSha256 ?: inputHash
+        val key = mediaOptimizationKey(
+            "edited-sound",
+            sourceHash,
+            state.trimStartMs,
+            state.trimEndMs,
+            state.fadeInMs,
+            state.fadeOutMs,
+            state.fadeCurve.name,
+            state.playbackSpeed,
+            state.effectiveExportFormat.name,
+            state.exportBitrateKbps,
+            state.losslessCut,
+        )
+        mediaCopyStore.reusableCopy(savedOriginal?.id, key)?.let {
+            return PreparedEditedSoundCopy(it.file.absolutePath, temporary = false)
+        }
+
+        val renderedPath = audioTrimmer.trim(
+            inputPath = inputPath,
+            startMs = state.trimStartMs,
+            endMs = state.trimEndMs,
+            outputFileName = state.fileName,
+            fadeInMs = state.fadeInMs,
+            fadeOutMs = state.fadeOutMs,
+            fadeCurve = state.fadeCurve,
+            playbackSpeed = state.playbackSpeed,
+            exportFormat = state.exportFormat,
+            bitrateKbps = state.exportBitrateKbps,
+            losslessCut = state.losslessCut,
+        ).getOrThrow()
+        val rendered = File(renderedPath)
+        if (savedOriginal == null) return PreparedEditedSoundCopy(renderedPath, temporary = true)
+        return try {
+            PreparedEditedSoundCopy(
+                path = mediaCopyStore.prepareCopy(
+                    downloadId = savedOriginal.id,
+                    sourceIdentity = sourceHash,
+                    optimizationKey = key,
+                    reason = "Edited sound",
+                    extension = state.effectiveExportFormat.extension,
+                    expectedBytes = rendered.length(),
+                    maxBytes = MAX_AUDIO_EDITOR_COPY_BYTES,
+                ) { pending ->
+                    rendered.inputStream().use { input ->
+                        pending.outputStream().use { output ->
+                            copyStreamCapped(input, output, MAX_AUDIO_EDITOR_COPY_BYTES)
+                        }
+                    }
+                }.file.absolutePath,
+                temporary = false,
+            )
+        } finally {
+            rendered.delete()
+        }
+    }
+
+    private data class PreparedEditedSoundCopy(
+        val path: String,
+        val temporary: Boolean,
+    ) {
+        fun deleteAfterUse() {
+            if (temporary) File(path).delete()
+        }
     }
 
     private fun startPlayback() {
@@ -977,6 +1054,8 @@ class SoundEditorViewModel @Inject constructor(
         }
     }
 }
+
+private const val MAX_AUDIO_EDITOR_COPY_BYTES = 64L * 1024L * 1024L
 
 internal fun buildRemoteAudioCacheIdentity(url: String, name: String): String = "$name::$url"
 

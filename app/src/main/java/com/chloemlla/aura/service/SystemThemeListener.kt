@@ -4,8 +4,14 @@ import android.content.ComponentCallbacks
 import android.content.Context
 import android.content.res.Configuration
 import com.chloemlla.aura.data.local.PreferencesManager
+import com.chloemlla.aura.data.model.ROTATION_MEDIA_WALLPAPER
 import com.chloemlla.aura.data.model.WallpaperTarget
+import com.chloemlla.aura.data.model.rotationIdentity
+import com.chloemlla.aura.data.model.rotationIdentityForLocator
+import com.chloemlla.aura.data.repository.RotationExclusionRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -15,8 +21,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Monitors system dark mode changes and auto-applies the corresponding wallpaper when
@@ -37,6 +41,8 @@ class SystemThemeListener @Inject constructor(
     @ApplicationContext private val context: Context,
     private val prefs: PreferencesManager,
     private val wallpaperApplier: WallpaperApplier,
+    private val rotationExclusions: RotationExclusionRepository,
+    private val receiptStore: BackgroundWorkReceiptStore,
 ) {
     // SupervisorJob so a single failed child (e.g. a transient wallpaper-apply error
     // inside the collect block) cannot cancel the scope. This listener is a @Singleton
@@ -120,9 +126,14 @@ class SystemThemeListener @Inject constructor(
             }
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Exception) {
+        } catch (error: Exception) {
             // Auto-apply must not crash the host app. The Settings UI surfaces the
             // current selection so the user can re-pick if a stored URL is no longer valid.
+            receiptStore.recordFailure(
+                uniqueWorkName = WORK_NAME,
+                errorClass = error.javaClass.simpleName,
+                deferralReason = "Theme wallpaper switching failed. Open its source and try a manual apply.",
+            )
         }
     }
 
@@ -133,33 +144,77 @@ class SystemThemeListener @Inject constructor(
         if (parts.size < 3) return
         val url = parts[2]
         if (url.isBlank()) return
+        val identity = rotationIdentity(
+            mediaType = ROTATION_MEDIA_WALLPAPER,
+            source = parts[0],
+            contentId = parts[1],
+            locator = url,
+        )
+        if (rotationExclusions.isExcluded(identity)) {
+            recordExcluded("The selected theme wallpaper")
+            return
+        }
         // applyByLocator handles http(s) URLs, file:// URIs (AI-generated / parallax-cached),
         // and content:// URIs (uploads / gallery picks). Earlier revisions called
         // applyFromUrl which only spoke HTTP and threw IllegalArgumentException for any
         // other scheme — silently breaking auto-switch for AI-generated wallpapers.
-        wallpaperApplier.applyByLocator(
-            url,
-            WallpaperTarget.BOTH,
-            nightVariant = nightVariant,
+        recordApplyResult(
+            wallpaperApplier.applyByLocator(
+                url,
+                WallpaperTarget.BOTH,
+                nightVariant = nightVariant,
+            ),
         )
     }
 
     private suspend fun applyLastNightVariantWallpaper(isNight: Boolean) {
         val locator = prefs.lastNightVariantWallpaperLocator.first()
         if (locator.isBlank()) return
+        if (rotationExclusions.isExcluded(rotationIdentityForLocator(locator))) {
+            recordExcluded("The night variant source")
+            return
+        }
         val target = runCatching {
             WallpaperTarget.valueOf(prefs.lastNightVariantWallpaperTarget.first())
         }.getOrDefault(WallpaperTarget.BOTH)
-        wallpaperApplier.applyByLocator(
-            locator = locator,
-            target = target,
-            darkenPercent = prefs.lastNightVariantWallpaperDarkenPercent.first(),
-            nightVariant = isNight,
+        recordApplyResult(
+            wallpaperApplier.applyByLocator(
+                locator = locator,
+                target = target,
+                darkenPercent = prefs.lastNightVariantWallpaperDarkenPercent.first(),
+                nightVariant = isNight,
+            ),
+        )
+    }
+
+    private fun recordExcluded(label: String) {
+        receiptStore.recordFailure(
+            uniqueWorkName = WORK_NAME,
+            errorClass = "RotationItemExcluded",
+            deferralReason = "$label is excluded. Restore it in Settings, Wallpaper rotation, Rotation exclusions.",
+        )
+    }
+
+    private fun recordApplyResult(result: Result<Unit>) {
+        result.fold(
+            onSuccess = { receiptStore.recordSuccess(WORK_NAME) },
+            onFailure = { error ->
+                if (error is CancellationException) throw error
+                receiptStore.recordFailure(
+                    uniqueWorkName = WORK_NAME,
+                    errorClass = error.javaClass.simpleName,
+                    deferralReason = "Theme wallpaper switching failed. Open its source and try a manual apply.",
+                )
+            },
         )
     }
 
     private fun isNightMode(): Boolean {
         val mode = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         return mode == Configuration.UI_MODE_NIGHT_YES
+    }
+
+    companion object {
+        const val WORK_NAME = "system_theme_wallpaper"
     }
 }

@@ -5,11 +5,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.res.Resources
+import androidx.annotation.StringRes
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -44,6 +44,7 @@ import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.COMMUNITY_REPORT_REASONS
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.GENERATED_CONTENT_REPORT_REASONS
+import com.chloemlla.aura.data.model.RotationExclusionIndex
 import com.chloemlla.aura.data.model.Wallpaper
 import com.chloemlla.aura.data.model.WallpaperAction
 import com.chloemlla.aura.data.model.WallpaperActionDecision
@@ -51,6 +52,7 @@ import com.chloemlla.aura.data.model.WallpaperActionReason
 import com.chloemlla.aura.data.model.WallpaperCollectionEntity
 import com.chloemlla.aura.data.model.WallpaperTarget
 import com.chloemlla.aura.data.model.isSourceUnavailable
+import com.chloemlla.aura.data.model.rotationIdentity
 import com.chloemlla.aura.data.model.stableKey
 import com.chloemlla.aura.data.model.wallpaperLicenseCapabilities
 import com.chloemlla.aura.service.ParallaxWallpaperService
@@ -64,6 +66,7 @@ import com.chloemlla.aura.ui.policy.CommunityUploadPolicyKind
 import com.chloemlla.aura.ui.policy.communityBlockConfirmationCopy
 import com.chloemlla.aura.ui.policy.communityOwnerDeleteConfirmationCopy
 import com.chloemlla.aura.ui.launchLiveWallpaperPicker
+import com.chloemlla.aura.ui.rotation.RotationExclusionsViewModel
 import com.chloemlla.aura.ui.util.openExternalUrl
 import coil3.compose.AsyncImagePainter
 import coil3.compose.SubcomposeAsyncImage
@@ -71,6 +74,7 @@ import coil3.compose.SubcomposeAsyncImageContent
 import coil3.imageLoader
 import coil3.request.ImageRequest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -85,12 +89,15 @@ fun WallpaperDetailScreen(
     onSearchColor: (String) -> Unit = {},
     onFindSimilar: (com.chloemlla.aura.data.model.Wallpaper) -> Unit = {},
     viewModel: WallpapersViewModel = hiltViewModel(),
+    rotationExclusionsViewModel: RotationExclusionsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sharedList by viewModel.sharedWallpaperList.collectAsStateWithLifecycle()
     val sharedListAnchorKey by viewModel.sharedWallpaperListAnchorKey.collectAsStateWithLifecycle()
     val hiddenIds by viewModel.hiddenIds.collectAsStateWithLifecycle()
     val colorPalette by viewModel.colorPalette.collectAsStateWithLifecycle()
+    val rotationExclusions by rotationExclusionsViewModel.exclusions.collectAsStateWithLifecycle()
+    val rotationExclusionIndex = remember(rotationExclusions) { RotationExclusionIndex(rotationExclusions) }
     val targetSource = fallbackWallpaper?.source
     val targetFullUrl = fallbackWallpaper?.fullUrl
     val detailIdentityKey = remember(wallpaperId, targetSource, targetFullUrl) {
@@ -225,6 +232,7 @@ fun WallpaperDetailScreen(
             metrics.widthPixels to metrics.heightPixels
         }
     }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(detailIdentityKey) {
         if (wallpapers.isNotEmpty()) {
@@ -259,9 +267,15 @@ fun WallpaperDetailScreen(
 
     // Use pager's current wallpaper for UI (not the reactive wp which causes reorder)
     val wp = currentWp
+    val rotationIdentity = remember(wp) { wp.rotationIdentity() }
+    val rotationExclusion = remember(rotationIdentity, rotationExclusions) {
+        rotationExclusionIndex.find(rotationIdentity)
+    }
     val sourceUnavailable = wp.isSourceUnavailable()
     val hints = remember(wp, resources) { wp.qualityHints(resources) }
     val licenseCapabilities = remember(wp) { wp.wallpaperLicenseCapabilities() }
+    val canApply = licenseCapabilities.canUse(WallpaperAction.APPLY)
+    val canEdit = licenseCapabilities.canUse(WallpaperAction.EDIT)
 
     val isFavorite by viewModel.isFavorite(wp).collectAsStateWithLifecycle(initialValue = false)
     val collections by viewModel.collections.collectAsStateWithLifecycle()
@@ -280,6 +294,7 @@ fun WallpaperDetailScreen(
     var showDetailsPanel by remember { mutableStateOf(false) }
     var pendingLicenseAction by remember(wp.stableKey()) { mutableStateOf<WallpaperAction?>(null) }
     var blockedLicenseAction by remember(wp.stableKey()) { mutableStateOf<WallpaperAction?>(null) }
+    val detailsScrollState = rememberScrollState()
     val isGeneratedWallpaper = wp.source == ContentSource.AI_GENERATED
     val canReportWallpaper = wp.source != ContentSource.LOCAL
     var canDeleteUpload by remember(wp.stableKey(), communityProviderEnabled) { mutableStateOf(false) }
@@ -289,6 +304,9 @@ fun WallpaperDetailScreen(
     val canBlockCreator = viewModel.canBlockCommunityWallpaper(wp) && !canDeleteUpload
     LaunchedEffect(wp.stableKey()) {
         showDetailsPanel = false
+    }
+    LaunchedEffect(showDetailsPanel) {
+        if (showDetailsPanel) detailsScrollState.scrollTo(0)
     }
 
     val parallaxDirectMessage = stringResource(R.string.settings_feedback_parallax_direct)
@@ -434,11 +452,13 @@ fun WallpaperDetailScreen(
                     }
                 }
 
-                Spacer(Modifier.weight(1f))
+                if (!showDetailsPanel) Spacer(Modifier.weight(1f))
 
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .then(if (showDetailsPanel) Modifier.weight(1f) else Modifier)
+                        .then(if (showDetailsPanel) Modifier.verticalScroll(detailsScrollState) else Modifier)
                         .padding(horizontal = 14.dp)
                         .padding(
                             top = 14.dp,
@@ -523,7 +543,7 @@ fun WallpaperDetailScreen(
                                 modifier = Modifier
                                     .weight(1f)
                                     .heightIn(min = 48.dp),
-                                enabled = !state.isApplying,
+                                enabled = canApply && !state.isApplying,
                                 shape = RoundedCornerShape(8.dp),
                             ) {
                                 if (state.isApplying) {
@@ -587,12 +607,11 @@ fun WallpaperDetailScreen(
                             Spacer(Modifier.height(16.dp))
                             DetailSectionTitle(stringResource(R.string.detail_theme_colors_title))
                             Spacer(Modifier.height(8.dp))
-                            val scrollState = rememberScrollState()
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalScroll(scrollState),
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                maxItemsInEachRow = 4,
                             ) {
                                 listOf(
                                     stringResource(R.string.detail_color_dominant) to palette.dominantColor,
@@ -739,6 +758,7 @@ fun WallpaperDetailScreen(
                         CompactWallpaperOverlayCard(
                             isFavorite = isFavorite,
                             isApplying = state.isApplying,
+                            canApply = canApply,
                             onApplyClick = { requestLicensedAction(WallpaperAction.APPLY) },
                             onShowDetails = { showDetailsPanel = true },
                             onToggleFavorite = { viewModel.toggleFavorite(wp) },
@@ -763,6 +783,7 @@ fun WallpaperDetailScreen(
                         showApplyOptions = false
                         viewModel.applyParallax(wp)
                     },
+                    allowTransforms = canEdit,
                 )
             }
 
@@ -774,6 +795,28 @@ fun WallpaperDetailScreen(
                     onCrop = { showMoreMenu = false; onCrop(wp) },
                     onPreview = { showMoreMenu = false; onPreview(wp) },
                     onCollection = { showMoreMenu = false; showCollectionPicker = true },
+                    rotationExcluded = rotationExclusion != null,
+                    onRotationExclusion = {
+                        showMoreMenu = false
+                        scope.launch {
+                            if (rotationExclusion != null) {
+                                rotationExclusionsViewModel.restoreNow(rotationExclusion.stableId)
+                                snackbarHostState.showSnackbar(
+                                    resources.getString(R.string.rotation_restored_message, wallpaperDetailTitle(wp)),
+                                )
+                            } else {
+                                val exclusion = rotationExclusionsViewModel.exclude(rotationIdentity)
+                                val result = snackbarHostState.showSnackbar(
+                                    message = resources.getString(R.string.rotation_excluded_message, wallpaperDetailTitle(wp)),
+                                    actionLabel = resources.getString(R.string.common_undo),
+                                    duration = SnackbarDuration.Short,
+                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    rotationExclusionsViewModel.restoreNow(exclusion.stableId)
+                                }
+                            }
+                        }
+                    },
                     onFindSimilar = {
                         showMoreMenu = false
                         onFindSimilar(wp)
@@ -931,38 +974,41 @@ private fun WallpaperLicenseGateDialog(
     )
 }
 
+@StringRes
+internal fun wallpaperLicenseReasonRes(reason: WallpaperActionReason?): Int = when (reason) {
+    WallpaperActionReason.SOURCE_UNAVAILABLE ->
+        R.string.wallpaper_license_reason_source_unavailable
+    WallpaperActionReason.SHARE_MISSING_SOURCE_LINK ->
+        R.string.wallpaper_license_reason_share_missing_source_link
+    WallpaperActionReason.SHARE_MISSING_UPLOADER ->
+        R.string.wallpaper_license_reason_share_missing_uploader
+    WallpaperActionReason.SHARE_MISSING_SOURCE_LINK_AND_UPLOADER ->
+        R.string.wallpaper_license_reason_share_missing_source_link_and_uploader
+    WallpaperActionReason.BING_SHARE_FORBIDDEN ->
+        R.string.wallpaper_license_reason_bing_share_forbidden
+    WallpaperActionReason.REDDIT_EDIT_FORBIDDEN ->
+        R.string.wallpaper_license_reason_reddit_edit_forbidden
+    WallpaperActionReason.AI_GENERATOR_TERMS ->
+        R.string.wallpaper_license_reason_ai_generator_terms
+    WallpaperActionReason.BING_TERMS ->
+        R.string.wallpaper_license_reason_bing_terms
+    WallpaperActionReason.REDDIT_TERMS ->
+        R.string.wallpaper_license_reason_reddit_terms
+    WallpaperActionReason.COMMUNITY_UPLOAD_RIGHTS ->
+        R.string.wallpaper_license_reason_community_upload_rights
+    WallpaperActionReason.NO_DERIVATIVES ->
+        R.string.wallpaper_license_reason_no_derivatives
+    WallpaperActionReason.NON_COMMERCIAL ->
+        R.string.wallpaper_license_reason_non_commercial
+    WallpaperActionReason.UNVERIFIED_LICENSE, null ->
+        R.string.wallpaper_license_reason_unverified_license
+}
+
 @Composable
 private fun wallpaperLicenseReasonText(
     reason: WallpaperActionReason?,
     normalizedLicense: String,
-): String = when (reason) {
-    WallpaperActionReason.SOURCE_UNAVAILABLE ->
-        stringResource(R.string.wallpaper_license_reason_source_unavailable)
-    WallpaperActionReason.SHARE_MISSING_SOURCE_LINK ->
-        stringResource(R.string.wallpaper_license_reason_share_missing_source_link)
-    WallpaperActionReason.SHARE_MISSING_UPLOADER ->
-        stringResource(R.string.wallpaper_license_reason_share_missing_uploader)
-    WallpaperActionReason.SHARE_MISSING_SOURCE_LINK_AND_UPLOADER ->
-        stringResource(R.string.wallpaper_license_reason_share_missing_source_link_and_uploader)
-    WallpaperActionReason.BING_SHARE_FORBIDDEN ->
-        stringResource(R.string.wallpaper_license_reason_bing_share_forbidden)
-    WallpaperActionReason.REDDIT_EDIT_FORBIDDEN ->
-        stringResource(R.string.wallpaper_license_reason_reddit_edit_forbidden)
-    WallpaperActionReason.AI_GENERATOR_TERMS ->
-        stringResource(R.string.wallpaper_license_reason_ai_generator_terms)
-    WallpaperActionReason.BING_TERMS ->
-        stringResource(R.string.wallpaper_license_reason_bing_terms, normalizedLicense)
-    WallpaperActionReason.REDDIT_TERMS ->
-        stringResource(R.string.wallpaper_license_reason_reddit_terms, normalizedLicense)
-    WallpaperActionReason.COMMUNITY_UPLOAD_RIGHTS ->
-        stringResource(R.string.wallpaper_license_reason_community_upload_rights, normalizedLicense)
-    WallpaperActionReason.NO_DERIVATIVES ->
-        stringResource(R.string.wallpaper_license_reason_no_derivatives, normalizedLicense)
-    WallpaperActionReason.NON_COMMERCIAL ->
-        stringResource(R.string.wallpaper_license_reason_non_commercial, normalizedLicense)
-    WallpaperActionReason.UNVERIFIED_LICENSE, null ->
-        stringResource(R.string.wallpaper_license_reason_unverified_license, normalizedLicense)
-}
+): String = stringResource(wallpaperLicenseReasonRes(reason), normalizedLicense)
 
 @Composable
 private fun WallpaperImage(url: String, modifier: Modifier = Modifier) {
@@ -995,6 +1041,7 @@ private fun WallpaperImage(url: String, modifier: Modifier = Modifier) {
 private fun CompactWallpaperOverlayCard(
     isFavorite: Boolean,
     isApplying: Boolean,
+    canApply: Boolean,
     onApplyClick: () -> Unit,
     onShowDetails: () -> Unit,
     onToggleFavorite: () -> Unit,
@@ -1024,7 +1071,7 @@ private fun CompactWallpaperOverlayCard(
             modifier = Modifier
                 .widthIn(min = 104.dp)
                 .height(48.dp),
-            enabled = !isApplying,
+            enabled = canApply && !isApplying,
             shape = RoundedCornerShape(10.dp),
         ) {
             if (isApplying) {
@@ -1146,6 +1193,7 @@ private fun ApplyOptionsSheet(
     onApply: (WallpaperTarget) -> Unit,
     onSplitCrop: () -> Unit,
     onParallax: () -> Unit = {},
+    allowTransforms: Boolean,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -1170,9 +1218,11 @@ private fun ApplyOptionsSheet(
             SheetOption(Icons.Default.Home, stringResource(R.string.detail_home_screen), stringResource(R.string.detail_home_screen_body)) { onApply(WallpaperTarget.HOME) }
             SheetOption(Icons.Default.Lock, stringResource(R.string.detail_lock_screen), stringResource(R.string.detail_lock_screen_body)) { onApply(WallpaperTarget.LOCK) }
             SheetOption(Icons.Default.Smartphone, stringResource(R.string.detail_home_lock), stringResource(R.string.detail_home_lock_body)) { onApply(WallpaperTarget.BOTH) }
-            HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-            SheetOption(Icons.Default.Splitscreen, stringResource(R.string.detail_split_crop), stringResource(R.string.detail_split_crop_body)) { onSplitCrop() }
-            SheetOption(Icons.Default.Layers, stringResource(R.string.detail_parallax_depth), stringResource(R.string.detail_parallax_depth_body)) { onParallax() }
+            if (allowTransforms) {
+                HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                SheetOption(Icons.Default.Splitscreen, stringResource(R.string.detail_split_crop), stringResource(R.string.detail_split_crop_body)) { onSplitCrop() }
+                SheetOption(Icons.Default.Layers, stringResource(R.string.detail_parallax_depth), stringResource(R.string.detail_parallax_depth_body)) { onParallax() }
+            }
         }
     }
 }
@@ -1181,10 +1231,12 @@ private fun ApplyOptionsSheet(
 @Composable
 private fun MoreActionsSheet(
     onDismiss: () -> Unit,
-    onEdit: () -> Unit,
-    onCrop: () -> Unit,
+    onEdit: (() -> Unit)?,
+    onCrop: (() -> Unit)?,
     onPreview: () -> Unit,
     onCollection: () -> Unit,
+    rotationExcluded: Boolean,
+    onRotationExclusion: () -> Unit,
     onFindSimilar: (() -> Unit)?,
     onReport: (() -> Unit)?,
     onBlockCreator: (() -> Unit)?,
@@ -1224,9 +1276,18 @@ private fun MoreActionsSheet(
             }
             Spacer(Modifier.height(4.dp))
             SheetOption(Icons.Default.Visibility, stringResource(R.string.detail_preview_mock_title), stringResource(R.string.detail_preview_mock_body)) { onPreview() }
-            SheetOption(Icons.Default.Edit, stringResource(R.string.detail_edit), stringResource(R.string.detail_edit_body)) { onEdit() }
-            SheetOption(Icons.Default.Crop, stringResource(R.string.detail_crop_position), stringResource(R.string.detail_crop_position_body)) { onCrop() }
+            if (onEdit != null) {
+                SheetOption(Icons.Default.Edit, stringResource(R.string.detail_edit), stringResource(R.string.detail_edit_body)) { onEdit() }
+            }
+            if (onCrop != null) {
+                SheetOption(Icons.Default.Crop, stringResource(R.string.detail_crop_position), stringResource(R.string.detail_crop_position_body)) { onCrop() }
+            }
             SheetOption(Icons.Default.CreateNewFolder, stringResource(R.string.detail_save_to_collection), stringResource(R.string.detail_save_to_collection_body)) { onCollection() }
+            SheetOption(
+                if (rotationExcluded) Icons.Default.Restore else Icons.Default.PlaylistRemove,
+                stringResource(if (rotationExcluded) R.string.rotation_restore_action else R.string.rotation_exclude_action),
+                stringResource(R.string.settings_rotation_exclusions_manage_subtitle),
+            ) { onRotationExclusion() }
             if (onFindSimilar != null) {
                 SheetOption(Icons.Default.ColorLens, stringResource(R.string.detail_find_similar_wallpapers), stringResource(R.string.detail_find_similar_wallpapers_body)) { onFindSimilar() }
             }
@@ -1414,7 +1475,7 @@ internal fun sourceDisplayName(source: ContentSource): String = when (source) {
     ContentSource.KLIPY -> "Klipy"
     ContentSource.SOUNDCLOUD -> "SoundCloud"
     ContentSource.COMMUNITY -> "Community"
-    ContentSource.BUNDLED -> "Aura Picks"
+    ContentSource.BUNDLED -> "Aura Originals"
     ContentSource.AI_GENERATED -> "AI Generated"
     ContentSource.OPEN_METEO -> "Open-Meteo"
     ContentSource.LEMMY -> "Lemmy"

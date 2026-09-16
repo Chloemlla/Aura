@@ -1,7 +1,11 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "policyKind": "privacyDataSafetyMatrix",
   "manifest": "app/src/main/AndroidManifest.xml",
+  "backupRules": {
+    "android11": "app/src/main/res/xml/backup_rules.xml",
+    "android12Plus": "app/src/main/res/xml/data_extraction_rules.xml"
+  },
   "docsPath": "docs/privacy/data-safety.md",
   "privacyPolicy": "docs/privacy/privacy-policy.md",
   "networkEndpointInventory": "docs/security/network-endpoints.json",
@@ -382,15 +386,20 @@
       "storageLocation": "datastore/freevibe_prefs.preferences_pb",
       "sourcePaths": [
         "app/src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt",
+        "app/src/main/java/com/chloemlla/aura/data/model/FitCanvas.kt",
+        "app/src/main/java/com/chloemlla/aura/service/LibraryExporter.kt",
         "app/src/main/res/xml/backup_rules.xml",
         "app/src/main/res/xml/data_extraction_rules.xml"
       ],
-      "dataTypes": ["App settings", "Generated content disclosure", "Provider source switches", "Scheduler preferences", "Legacy provider-key migration inputs"],
+      "dataTypes": ["App settings", "Wallpaper presentation choices", "Generated content disclosure", "Provider source switches", "Scheduler preferences", "Legacy provider-key migration inputs"],
       "collectionStatus": "localOnly",
       "sharingStatus": "notShared",
-      "userControl": "Settings feature switches, generated-content disclosure reset, or Android clear-app-data.",
+      "userControl": "Settings feature switches, wallpaper preview controls, explicit library export/import, generated-content disclosure reset, or Android clear-app-data.",
       "retention": "Retained until the user changes the setting, clears the key/disclosure where available, or clears app data.",
       "deletionPath": "Use Settings controls for keys and toggles, or clear Aura app data.",
+      "backupExclusions": [
+        {"domain": "file", "path": "datastore/freevibe_prefs.preferences_pb"}
+      ],
       "backupStatus": "excludedFromBackupAndTransfer"
     },
     {
@@ -405,9 +414,12 @@
       "dataTypes": ["Provider API keys"],
       "collectionStatus": "localOnly",
       "sharingStatus": "notShared",
-      "userControl": "Settings provider-key Clear actions, saving blank, or Android clear-app-data.",
-      "retention": "Retained in Android Keystore-backed encrypted SharedPreferences until cleared by the user or app data is cleared.",
+      "userControl": "Settings provider-key Clear actions, saving blank, re-entry after key loss, or Android clear-app-data.",
+      "retention": "Readable values remain in Android Keystore-backed encrypted SharedPreferences until cleared. Unreadable ciphertext is removed and replaced by a non-secret re-entry marker.",
       "deletionPath": "Use Settings > API Keys > Clear or save blank, or clear Aura app data.",
+      "backupExclusions": [
+        {"domain": "sharedpref", "path": "aura_provider_credentials.xml"}
+      ],
       "backupStatus": "excludedFromBackupAndTransfer"
     },
     {
@@ -415,16 +427,25 @@
       "storageLocation": "databases/freevibe.db",
       "sourcePaths": [
         "app/src/main/java/com/chloemlla/aura/data/local/Database.kt",
+        "app/src/main/java/com/chloemlla/aura/data/model/RotationExclusion.kt",
+        "app/src/main/java/com/chloemlla/aura/service/LibraryExporter.kt",
+        "app/src/main/java/com/chloemlla/aura/service/LocalMediaRelinkManager.kt",
         "app/src/main/java/com/chloemlla/aura/di/AppModule.kt",
         "app/src/main/res/xml/backup_rules.xml",
         "app/src/main/res/xml/data_extraction_rules.xml"
       ],
-      "dataTypes": ["Favorites", "Downloads", "Search history", "Wallpaper cache metadata", "Wallpaper history", "Collections"],
+      "dataTypes": ["Favorites", "Downloads", "Search history", "Wallpaper cache metadata", "Wallpaper history", "Collections", "Local wallpaper identity and health metadata", "Rotation exclusions"],
       "collectionStatus": "localOnly",
       "sharingStatus": "notShared",
-      "userControl": "Favorites, downloads, collections, history, export/import, and cache cleanup surfaces.",
+      "userControl": "Favorites, downloads, collections, history, local media relink, rotation exclusion restore, export/import, and cache cleanup surfaces.",
       "retention": "Retained as user app state until the user deletes rows, clears caches/history, exports/imports replacements, or clears app data.",
-      "deletionPath": "Remove favorites/downloads/collections/history where exposed, clear caches, or clear Aura app data.",
+      "deletionPath": "Remove favorites/downloads/collections/history where exposed, restore rotation exclusions in Settings, clear caches, or clear Aura app data.",
+      "backupExclusions": [
+        {"domain": "database", "path": "freevibe.db"},
+        {"domain": "database", "path": "freevibe.db-journal"},
+        {"domain": "database", "path": "freevibe.db-shm"},
+        {"domain": "database", "path": "freevibe.db-wal"}
+      ],
       "backupStatus": "excludedFromBackupAndTransfer"
     },
     {
@@ -442,6 +463,10 @@
       "userControl": "Settings community identity surface can clear the local fallback identity; local hide state clears with app data.",
       "retention": "Retained locally until the user clears the fallback identity, removes app data, or uninstalls.",
       "deletionPath": "Use Settings > Community identity > Clear local for fallback identity, or clear Aura app data.",
+      "backupExclusions": [
+        {"domain": "sharedpref", "path": "aura_community_identity.xml"},
+        {"domain": "sharedpref", "path": "aura_votes.xml"}
+      ],
       "backupStatus": "excludedFromBackupAndTransfer"
     },
     {
@@ -451,7 +476,9 @@
         "app/src/main/java/com/chloemlla/aura/widget/AuraWidget.kt",
         "app/src/main/java/com/chloemlla/aura/service/WallpaperHistoryManager.kt",
         "app/src/main/java/com/chloemlla/aura/service/SelectedContentHolder.kt",
-        "app/src/main/java/com/chloemlla/aura/ui/FreeVibeRoot.kt"
+        "app/src/main/java/com/chloemlla/aura/ui/FreeVibeRoot.kt",
+        "app/src/main/res/xml/backup_rules.xml",
+        "app/src/main/res/xml/data_extraction_rules.xml"
       ],
       "dataTypes": ["Wallpaper metadata", "Sound metadata", "Widget tint colors", "Recent selection state"],
       "collectionStatus": "localOnly",
@@ -459,11 +486,15 @@
       "userControl": "Change or clear selected content, remove widgets, clear wallpaper history, or clear app data.",
       "retention": "Retained locally to restore navigation and widget state until replaced or app data is cleared.",
       "deletionPath": "Change selections/widgets, clear history where exposed, or clear Aura app data.",
-      "backupStatus": "includedInBackupOrTransfer"
+      "backupExclusions": [
+        {"domain": "sharedpref", "path": "freevibe_widget.xml"},
+        {"domain": "sharedpref", "path": "freevibe_selected_content.xml"}
+      ],
+      "backupStatus": "excludedFromBackupAndTransfer"
     },
     {
       "surfaceId": "live-wallpaper-prefs-and-media",
-      "storageLocation": "shared_prefs/freevibe_live_wp.xml, shared_prefs/freevibe_weather_wp.xml, shared_prefs/freevibe_parallax.xml, files/live_wallpaper.*, and files/parallax/",
+      "storageLocation": "shared_prefs/freevibe_live_wp.xml, shared_prefs/freevibe_weather_wp.xml, shared_prefs/freevibe_parallax.xml, files/live_wallpaper.*, files/fit_canvas_background.png, and files/parallax/",
       "sourcePaths": [
         "app/src/main/java/com/chloemlla/aura/data/local/PreferencesManager.kt",
         "app/src/main/java/com/chloemlla/aura/service/VideoWallpaperStorage.kt",
@@ -477,8 +508,24 @@
       "collectionStatus": "localOnly",
       "sharingStatus": "notShared",
       "userControl": "Live wallpaper/video/weather/parallax settings, media replacement actions, and Android clear-app-data.",
-      "retention": "Latest managed live wallpaper media and state persist until replaced, disabled, or app data is cleared; weather/live-wallpaper prefs are excluded from backup.",
+      "retention": "Latest managed live wallpaper media, generated Fit Canvas background or apply copy, and state persist until replaced, disabled, or app data is cleared; weather/live-wallpaper prefs are excluded from backup.",
       "deletionPath": "Replace or disable the live wallpaper feature, clear weather state, delete managed media by clearing app data, or uninstall.",
+      "backupExclusions": [
+        {"domain": "file", "path": "fit_canvas_background.png"},
+        {"domain": "file", "path": "live_wallpaper.gif"},
+        {"domain": "file", "path": "live_wallpaper.fit.mp4"},
+        {"domain": "file", "path": "live_wallpaper.mkv"},
+        {"domain": "file", "path": "live_wallpaper.mov"},
+        {"domain": "file", "path": "live_wallpaper.mp4"},
+        {"domain": "file", "path": "live_wallpaper.webm"},
+        {"domain": "file", "path": "parallax/"},
+        {"domain": "sharedpref", "path": "freevibe_dark_mode.xml"},
+        {"domain": "sharedpref", "path": "freevibe_live_wp.xml"},
+        {"domain": "sharedpref", "path": "freevibe_parallax.xml"},
+        {"domain": "sharedpref", "path": "freevibe_pixabay_video_cache.xml"},
+        {"domain": "sharedpref", "path": "freevibe_video_stats.xml"},
+        {"domain": "sharedpref", "path": "freevibe_weather_wp.xml"}
+      ],
       "backupStatus": "excludedFromBackupAndTransfer"
     },
     {
@@ -496,6 +543,29 @@
       "userControl": "Settings diagnostics bundle requires explicit Copy or Share action and redacts app-private paths and provider credentials.",
       "retention": "Crash log tail is capped locally and retained until app data is cleared or overwritten by newer crashes.",
       "deletionPath": "Clear Aura app data, or avoid sharing the diagnostics bundle.",
+      "backupExclusions": [
+        {"domain": "file", "path": "crash.log"}
+      ],
+      "backupStatus": "excludedFromBackupAndTransfer"
+    },
+    {
+      "surfaceId": "background-work-receipts",
+      "storageLocation": "shared_prefs/background_work_receipts.xml",
+      "sourcePaths": [
+        "app/src/main/java/com/chloemlla/aura/service/BackgroundWorkReceiptStore.kt",
+        "app/src/main/java/com/chloemlla/aura/service/BackgroundWorkDiagnosticsReader.kt",
+        "app/src/main/res/xml/backup_rules.xml",
+        "app/src/main/res/xml/data_extraction_rules.xml"
+      ],
+      "dataTypes": ["Scheduler state", "Worker result diagnostics"],
+      "collectionStatus": "localOnly",
+      "sharingStatus": "userDirectedShare",
+      "userControl": "Settings diagnostics can display or share sanitized receipt summaries; Android clear-app-data removes receipts.",
+      "retention": "The most recent bounded result and timing fields remain local for each registered background worker.",
+      "deletionPath": "Clear Aura app data or uninstall.",
+      "backupExclusions": [
+        {"domain": "sharedpref", "path": "background_work_receipts.xml"}
+      ],
       "backupStatus": "excludedFromBackupAndTransfer"
     },
     {
@@ -514,6 +584,7 @@
       "userControl": "Settings cache cleanup and Android clear-cache/app-data controls.",
       "retention": "Transient cache files are bounded by cache policies and can be deleted by the app or Android cache cleanup.",
       "deletionPath": "Use Settings cache cleanup, Android clear cache/app data, or uninstall.",
+      "backupExclusions": [],
       "backupStatus": "transientCache"
     },
     {
@@ -531,6 +602,9 @@
       "userControl": "Offline favorite cache actions, favorite removal, export/share surfaces, and Android clear-app-data.",
       "retention": "Offline files persist under a 512 MB total cache budget until removed, orphan-pruned, or app data is cleared.",
       "deletionPath": "Remove the favorite/offline copy, clear offline favorites, clear app data, or uninstall.",
+      "backupExclusions": [
+        {"domain": "file", "path": "offline_favorites/"}
+      ],
       "backupStatus": "excludedFromBackupAndTransfer"
     },
     {
@@ -548,6 +622,52 @@
       "userControl": "Generated wallpaper disclosure, generated source switch, favorite removal cleanup, and Android clear-app-data.",
       "retention": "Generated PNG files are capped to the most recent 50 outputs and saved generated favorites delete their app-private PNG after removal.",
       "deletionPath": "Remove generated favorites, clear app data, or uninstall.",
+      "backupExclusions": [
+        {"domain": "file", "path": "ai_wallpapers/"}
+      ],
+      "backupStatus": "excludedFromBackupAndTransfer"
+    },
+    {
+      "surfaceId": "optimized-apply-copy-files",
+      "storageLocation": "files/apply_copies/",
+      "sourcePaths": [
+        "app/src/main/java/com/chloemlla/aura/service/MediaCopyStore.kt",
+        "app/src/main/java/com/chloemlla/aura/ui/screens/downloads/DownloadsScreen.kt",
+        "app/src/main/res/xml/backup_rules.xml",
+        "app/src/main/res/xml/data_extraction_rules.xml",
+        "docs/media-copy-lifecycle.md"
+      ],
+      "dataTypes": ["Photos or images", "Video files", "Audio files", "Media technical metadata"],
+      "collectionStatus": "localOnly",
+      "sharingStatus": "userDirectedShare",
+      "userControl": "Downloads labels each optimized copy and provides a derivative-only delete action. Clearing app data or uninstalling also removes all copies.",
+      "retention": "One validated working copy is referenced per saved media item and apply configuration. Replacing it removes the earlier copy after the database accepts the new reference.",
+      "deletionPath": "Use Delete optimized copy in Downloads, delete the complete download, clear app data, or uninstall.",
+      "backupExclusions": [
+        {"domain": "file", "path": "apply_copies/"}
+      ],
+      "backupStatus": "excludedFromBackupAndTransfer"
+    },
+    {
+      "surfaceId": "saved-video-original-files",
+      "storageLocation": "files/media_originals/",
+      "sourcePaths": [
+        "app/src/main/java/com/chloemlla/aura/service/VideoWallpaperStorage.kt",
+        "app/src/main/java/com/chloemlla/aura/ui/screens/downloads/DownloadsScreen.kt",
+        "app/src/main/res/xml/backup_rules.xml",
+        "app/src/main/res/xml/data_extraction_rules.xml",
+        "app/src/main/res/xml/file_paths.xml",
+        "docs/media-copy-lifecycle.md"
+      ],
+      "dataTypes": ["Video files", "Animated images", "Provider source provenance", "Media technical metadata"],
+      "collectionStatus": "localOnly",
+      "sharingStatus": "userDirectedShare",
+      "userControl": "Downloads exposes saved video originals for opening and deletion. Reapply can use the verified local file without contacting its provider.",
+      "retention": "A named source-quality video remains until the user deletes its download, a replacement is committed, app data is cleared, or Aura is uninstalled.",
+      "deletionPath": "Delete the video from Downloads, clear app data, or uninstall.",
+      "backupExclusions": [
+        {"domain": "file", "path": "media_originals/"}
+      ],
       "backupStatus": "excludedFromBackupAndTransfer"
     },
     {
@@ -563,6 +683,7 @@
       "userControl": "Stop/cancel recording, discard before upload, upload with rights attestation, or clear cache/app data.",
       "retention": "Temporary recordings are deleted on cancel or failed short recording and otherwise remain cache-backed until uploaded or cache/app data is cleared.",
       "deletionPath": "Cancel/discard the recording, clear cache/app data, or uninstall.",
+      "backupExclusions": [],
       "backupStatus": "transientCache"
     },
     {
@@ -578,6 +699,7 @@
       "userControl": "User chooses export/share recipients and can clear cache/app data.",
       "retention": "Share artifacts are cache-backed temporary files retained until cache cleanup or app data is cleared.",
       "deletionPath": "Clear cache/app data or uninstall.",
+      "backupExclusions": [],
       "backupStatus": "transientCache"
     },
     {
@@ -595,6 +717,9 @@
       "userControl": "Wi-Fi-only worker constraints, bundled sound browsing controls, local file cleanup by clearing app data.",
       "retention": "Verified Aura Originals files remain local after download so bundled sounds work offline.",
       "deletionPath": "Clear Aura app data or uninstall.",
+      "backupExclusions": [
+        {"domain": "file", "path": "aura_originals/"}
+      ],
       "backupStatus": "excludedFromBackupAndTransfer"
     }
   ],

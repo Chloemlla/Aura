@@ -10,7 +10,6 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
-
 REQUIRED_CREDENTIAL_FIELDS = {
     "id",
     "provider",
@@ -21,6 +20,11 @@ REQUIRED_CREDENTIAL_FIELDS = {
     "gradleProperty",
     "settingsLabel",
     "releaseDefault",
+    "atRestPolicy",
+    "backupPolicy",
+    "restorePolicy",
+    "deletionPolicy",
+    "exportPolicy",
     "userControl",
     "redactionTerms",
 }
@@ -111,7 +115,7 @@ def read_settings_surface_text(repo_root: Path, relative_path: str) -> str:
         )
         if strings_path.is_file()
     )
-    return "\n".join([text, section_text, strings_text])
+    return f"{text}\n{section_text}\n{strings_text}"
 
 
 def read_preferences_surface_text(repo_root: Path, relative_path: str) -> str:
@@ -122,17 +126,21 @@ def read_preferences_surface_text(repo_root: Path, relative_path: str) -> str:
     return "\n".join(sources)
 
 
-BACKUP_SECTIONS = ("cloud-backup", "device-transfer")
-
-
-def parse_backup_scopes(xml_text: str, label: str) -> list[tuple[str, ET.Element | None]]:
+def parse_backup_scopes(xml_text: str, label: str) -> dict[str, ET.Element]:
+    """Return the rule element backing each backup section of a rules file."""
     try:
         root = ET.fromstring(xml_text)
     except ET.ParseError as exc:
         raise ProviderCredentialStorageError(f"{label} is not well-formed XML: {exc}") from exc
+    if root.tag == "full-backup-content":
+        return {"legacy": root}
     if root.tag == "data-extraction-rules":
-        return [(section, root.find(section)) for section in BACKUP_SECTIONS]
-    return [(root.tag, root)]
+        cloud = root.find("cloud-backup")
+        transfer = root.find("device-transfer")
+        if cloud is None or transfer is None:
+            raise ProviderCredentialStorageError(f"{label} must cover cloud backup and device transfer")
+        return {"cloud": cloud, "deviceTransfer": transfer}
+    raise ProviderCredentialStorageError(f"{label} has unsupported root element {root.tag}")
 
 
 def scope_rules(scope: ET.Element, tag: str) -> list[tuple[str, str]]:
@@ -153,9 +161,10 @@ def rule_covers_path(rule_path: str, target_path: str) -> bool:
     return target_path.startswith(rule_path.rstrip("/") + "/")
 
 
-def scope_excludes_path(scope: ET.Element | None, domain: str, path: str) -> bool:
-    if scope is None:
-        return False
+def scope_excludes_path(scope: ET.Element, domain: str, path: str) -> bool:
+    """A path is excluded by an <exclude> that covers it, or by a scope that lists
+    <include> rules for other paths only: any <include> turns the section into an
+    allowlist, so everything it does not name stays off the backup."""
     if any(
         rule_domain == domain and rule_covers_path(rule_path, path)
         for rule_domain, rule_path in scope_rules(scope, "exclude")
@@ -171,12 +180,12 @@ def scope_excludes_path(scope: ET.Element | None, domain: str, path: str) -> boo
 
 
 def validate_backup_exclusion(xml_text: str, domain: str, path: str, label: str) -> None:
-    if all(scope_excludes_path(scope, domain, path) for _, scope in parse_backup_scopes(xml_text, label)):
-        return
-    raise ProviderCredentialStorageError(
-        f"{label} must not back up {domain}:{path}: "
-        f'exclude it, or use <include> elements that do not cover it'
-    )
+    for section, scope in parse_backup_scopes(xml_text, label).items():
+        if not scope_excludes_path(scope, domain, path):
+            raise ProviderCredentialStorageError(
+                f"{label} {section} must not back up {domain}:{path}: "
+                f"exclude it, or use <include> elements that do not cover it"
+            )
 
 
 def validate_gradle_default(app_gradle_text: str, credential: dict[str, Any]) -> None:
@@ -192,19 +201,23 @@ def validate_gradle_default(app_gradle_text: str, credential: dict[str, Any]) ->
 
 
 def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
-    if policy.get("schemaVersion") != 1:
-        raise ProviderCredentialStorageError("provider credential storage schemaVersion must be 1")
+    if policy.get("schemaVersion") != 2:
+        raise ProviderCredentialStorageError("provider credential storage schemaVersion must be 2")
     if policy.get("policyKind") != "providerCredentialStorage":
         raise ProviderCredentialStorageError("provider credential storage policyKind is invalid")
 
     docs_path = require_string(policy.get("docsPath"), "docsPath")
     preferences_manager_path = require_string(policy.get("preferencesManager"), "preferencesManager")
+    application_path = require_string(policy.get("application"), "application")
     settings_screen_path = require_string(policy.get("settingsScreen"), "settingsScreen")
     app_gradle_path = require_string(policy.get("appGradle"), "appGradle")
     backup_rules_path = require_string(policy.get("backupRules"), "backupRules")
     data_extraction_rules_path = require_string(policy.get("dataExtractionRules"), "dataExtractionRules")
     diagnostics_doc_path = require_string(policy.get("diagnosticsDoc"), "diagnosticsDoc")
+    diagnostics_source_path = require_string(policy.get("diagnosticsSource"), "diagnosticsSource")
     privacy_policy_path = require_string(policy.get("privacyPolicy"), "privacyPolicy")
+    library_export_source_path = require_string(policy.get("libraryExportSource"), "libraryExportSource")
+    library_export_contract_path = require_string(policy.get("libraryExportContract"), "libraryExportContract")
     data_store = require_object(policy.get("dataStore"), "dataStore")
     data_store_file = require_string(data_store.get("filePath"), "dataStore.filePath")
     at_rest = require_string(data_store.get("atRestProtection"), "dataStore.atRestProtection")
@@ -219,35 +232,52 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
     key_alias = require_string(encrypted_store.get("keyAlias"), "encryptedStore.keyAlias")
     cipher = require_string(encrypted_store.get("cipher"), "encryptedStore.cipher")
     encrypted_protection = require_string(encrypted_store.get("atRestProtection"), "encryptedStore.atRestProtection")
+    recovery_marker = require_string(encrypted_store.get("recoveryMarker"), "encryptedStore.recoveryMarker")
+    restore_decision = require_string(encrypted_store.get("restoreDecision"), "encryptedStore.restoreDecision")
+    fallback = require_string(encrypted_store.get("fallback"), "encryptedStore.fallback")
     if encrypted_protection != "androidKeystoreAesGcm":
         raise ProviderCredentialStorageError("encryptedStore.atRestProtection must be androidKeystoreAesGcm")
     if cipher != "AES/GCM/NoPadding":
         raise ProviderCredentialStorageError("encryptedStore.cipher must be AES/GCM/NoPadding")
+    if not all(term in restore_decision.lower() for term in ("clear", "re-entry", "temporary")):
+        raise ProviderCredentialStorageError("encryptedStore.restoreDecision must cover clearing, re-entry, and temporary failure")
+    if "re-entry" not in fallback.lower() or "migration" not in fallback.lower():
+        raise ProviderCredentialStorageError("encryptedStore.fallback must cover re-entry and legacy migration")
 
     docs_text = read_text(repo_root, docs_path)
     preferences_manager_text = read_preferences_surface_text(repo_root, preferences_manager_path)
+    application_text = read_text(repo_root, application_path)
     settings_screen_text = read_settings_surface_text(repo_root, settings_screen_path)
     app_gradle_text = read_text(repo_root, app_gradle_path)
     backup_rules_text = read_text(repo_root, backup_rules_path)
     data_extraction_rules_text = read_text(repo_root, data_extraction_rules_path)
     diagnostics_doc_text = read_text(repo_root, diagnostics_doc_path).lower()
+    diagnostics_source_text = read_text(repo_root, diagnostics_source_path)
     privacy_policy_text = read_text(repo_root, privacy_policy_path).lower()
+    library_export_text = "\n".join(
+        (
+            read_text(repo_root, library_export_source_path),
+            read_text(repo_root, library_export_contract_path),
+        )
+    )
 
     validate_backup_exclusion(backup_rules_text, "file", data_store_file, backup_rules_path)
     validate_backup_exclusion(data_extraction_rules_text, "file", data_store_file, data_extraction_rules_path)
     validate_backup_exclusion(backup_rules_text, "sharedpref", encrypted_store_file, backup_rules_path)
     validate_backup_exclusion(data_extraction_rules_text, "sharedpref", encrypted_store_file, data_extraction_rules_path)
-    if "<cloud-backup>" not in data_extraction_rules_text or "<device-transfer>" not in data_extraction_rules_text:
-        raise ProviderCredentialStorageError(f"{data_extraction_rules_path} must cover cloud backup and device transfer")
     if "api keys entered by the user" not in privacy_policy_text:
         raise ProviderCredentialStorageError("privacy policy must disclose user-entered API key storage")
+    for term in ("android keystore", "excluded from cloud backup", "re-enter"):
+        if term not in privacy_policy_text:
+            raise ProviderCredentialStorageError(f"privacy policy is missing credential recovery term: {term}")
     if (
             "ProviderApiKeyDialog(" not in settings_screen_text
             or "settings_apikey_clear" not in settings_screen_text
             or ">Clear<" not in settings_screen_text
             or "settings_services_provider_key_storage_warning_title" not in settings_screen_text
+            or "settings_services_provider_key_reentry_title" not in settings_screen_text
     ):
-        raise ProviderCredentialStorageError("Settings screen must expose Clear and provider-key storage warning UI")
+        raise ProviderCredentialStorageError("Settings screen must expose Clear, temporary failure, and re-entry UI")
     validate_encrypted_store_source(
         preferences_manager_text=preferences_manager_text,
         repo_root=repo_root,
@@ -256,6 +286,7 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
         encrypted_store_file=encrypted_store_file,
         key_alias=key_alias,
         cipher=cipher,
+        recovery_marker=recovery_marker,
     )
 
     credentials_raw = policy.get("credentials")
@@ -288,12 +319,26 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
         credential["gradleProperty"] = require_nullable_string(credential["gradleProperty"], f"{credential_id}.gradleProperty")
         settings_label = require_nullable_string(credential["settingsLabel"], f"{credential_id}.settingsLabel")
         release_default = require_string(credential["releaseDefault"], f"{credential_id}.releaseDefault")
-        require_string(credential["userControl"], f"{credential_id}.userControl")
+        at_rest_policy = require_string(credential["atRestPolicy"], f"{credential_id}.atRestPolicy")
+        backup_policy = require_string(credential["backupPolicy"], f"{credential_id}.backupPolicy")
+        restore_policy = require_string(credential["restorePolicy"], f"{credential_id}.restorePolicy")
+        deletion_policy = require_string(credential["deletionPolicy"], f"{credential_id}.deletionPolicy")
+        export_policy = require_string(credential["exportPolicy"], f"{credential_id}.exportPolicy")
+        user_control = require_string(credential["userControl"], f"{credential_id}.userControl")
         redaction_terms = require_string_list(credential["redactionTerms"], f"{credential_id}.redactionTerms")
+        settings_exposure = credential.get("settingsExposure")
+        if settings_exposure is not None and settings_exposure != "legacyHidden":
+            raise ProviderCredentialStorageError(
+                f"{credential_id}.settingsExposure must be legacyHidden when present"
+            )
 
         for term in (credential_id, provider, classification):
             if term not in docs_text:
                 raise ProviderCredentialStorageError(f"{docs_path} is missing {term}")
+        if "exclud" not in backup_policy.lower() and "not part" not in backup_policy.lower():
+            raise ProviderCredentialStorageError(f"{credential_id}.backupPolicy must explicitly exclude the credential")
+        if "exclud" not in export_policy.lower():
+            raise ProviderCredentialStorageError(f"{credential_id}.exportPolicy must explicitly exclude the credential")
 
         if storage == "encryptedSharedPreferences":
             encrypted_count += 1
@@ -303,8 +348,22 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
                 raise ProviderCredentialStorageError(f"PreferencesManager missing legacy key {preference_key}")
             if provider_credential_source_marker(preference_key) not in preferences_manager_text:
                 raise ProviderCredentialStorageError(f"PreferencesManager missing encrypted mapping for {preference_key}")
-            if not settings_label or settings_label not in settings_screen_text:
+            if settings_label and settings_label not in settings_screen_text:
                 raise ProviderCredentialStorageError(f"Settings screen missing label for {credential_id}")
+            if not settings_label and settings_exposure != "legacyHidden":
+                raise ProviderCredentialStorageError(
+                    f"{credential_id} encrypted rows require a Settings label unless marked legacyHidden"
+                )
+            if settings_exposure == "legacyHidden" and "no settings field" not in user_control.lower():
+                raise ProviderCredentialStorageError(
+                    f"{credential_id} legacyHidden rows must document that no Settings field is exposed"
+                )
+            if settings_exposure == "legacyHidden":
+                validate_legacy_hidden_retirement(
+                    credential_id=credential_id,
+                    preferences_manager_text=preferences_manager_text,
+                    application_text=application_text,
+                )
         elif preference_key:
             raise ProviderCredentialStorageError(f"{credential_id} buildConfigOnly rows must not set preferenceKey")
 
@@ -326,8 +385,23 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
         for term in redaction_terms:
             if term.lower() not in diagnostics_doc_text:
                 raise ProviderCredentialStorageError(f"{diagnostics_doc_path} is missing redaction term {term}")
+        for forbidden in filter(None, (preference_key, credential["buildConfigField"])):
+            if forbidden in library_export_text:
+                raise ProviderCredentialStorageError(
+                    f"library export source must not reference provider credential field {forbidden}"
+                )
 
     validate_stability_credential(stability_credential)
+    for marker in ("At rest", "Backup and transfer", "Restore", "Deletion", "Export"):
+        if marker not in docs_text:
+            raise ProviderCredentialStorageError(f"{docs_path} is missing policy heading {marker}")
+    for marker in (
+        "Provider credential storage:",
+        "unreadable ciphertext removed",
+        "encrypted values excluded from backup and export",
+    ):
+        if marker not in diagnostics_source_text:
+            raise ProviderCredentialStorageError(f"{diagnostics_source_path} is missing {marker}")
 
     return {
         "policyKind": policy["policyKind"],
@@ -356,6 +430,28 @@ def provider_credential_source_marker(preference_key: str) -> str:
     return mapping[preference_key]
 
 
+def validate_legacy_hidden_retirement(
+    *,
+    credential_id: str,
+    preferences_manager_text: str,
+    application_text: str,
+) -> None:
+    required_preferences_markers = (
+        "suspend fun retireLegacyProviderCredentials()",
+        "providerCredentialStore.clear(ProviderCredentialKey.FREESOUND)",
+        "dataStore.edit { it.remove(Keys.FREESOUND_KEY) }",
+    )
+    for marker in required_preferences_markers:
+        if marker not in preferences_manager_text:
+            raise ProviderCredentialStorageError(
+                f"{credential_id} legacyHidden credential is missing retirement cleanup: {marker}"
+            )
+    if ".retireLegacyProviderCredentials()" not in application_text:
+        raise ProviderCredentialStorageError(
+            f"{credential_id} legacyHidden credential cleanup must run at app start"
+        )
+
+
 def validate_encrypted_store_source(
     *,
     preferences_manager_text: str,
@@ -365,6 +461,7 @@ def validate_encrypted_store_source(
     encrypted_store_file: str,
     key_alias: str,
     cipher: str,
+    recovery_marker: str,
 ) -> None:
     store_text = read_text(repo_root, "app/src/main/java/com/chloemlla/aura/data/local/ProviderCredentialStore.kt")
     for required in (
@@ -378,6 +475,12 @@ def validate_encrypted_store_source(
         encrypted_prefs_name,
         encrypted_store_file,
         key_alias,
+        recovery_marker,
+        "ProviderCredentialReadResult.ReentryRequired",
+        "ProviderCredentialKeyMissingException",
+        "ProviderCredentialKeyInvalidatedException",
+        "recoverUnreadableCredentials",
+        "fun clearAll()",
     ):
         if required not in store_text:
             raise ProviderCredentialStorageError(f"ProviderCredentialStore.kt missing {required}")
@@ -387,6 +490,9 @@ def validate_encrypted_store_source(
         "setProviderCredential(",
         "dataStore.edit { it.remove(legacyKey) }",
         "providerCredentialStorageUnavailable",
+        "providerCredentialReentryRequired",
+        "providerCredentialReentryKeys",
+        "retryProviderCredentials",
     ):
         if required not in preferences_manager_text:
             raise ProviderCredentialStorageError(f"{preferences_manager_path} missing {required}")
@@ -416,7 +522,7 @@ def main() -> int:
     try:
         policy = require_object(read_json(repo_root / args.policy), "provider credential storage policy")
         result = validate_policy(repo_root, policy)
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, ET.ParseError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     print(json.dumps(result, indent=2, sort_keys=True))

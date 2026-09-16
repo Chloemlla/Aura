@@ -1,5 +1,9 @@
 package com.chloemlla.aura.ui.screens.settings
 
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,28 +15,45 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.FindReplace
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.PlaylistRemove
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.chloemlla.aura.R
+import com.chloemlla.aura.data.model.LocalMediaStatus
 import com.chloemlla.aura.data.model.LocalWallpaperEntity
 import com.chloemlla.aura.data.model.LocalWallpaperFolderEntity
 import com.chloemlla.aura.data.model.LocalWallpaperFolderScanStatus
+import com.chloemlla.aura.data.model.RotationExclusionEntity
+import com.chloemlla.aura.data.model.RotationExclusionIndex
 import com.chloemlla.aura.data.model.WallpaperTarget
+import com.chloemlla.aura.data.model.needsLocalMediaRelink
+import com.chloemlla.aura.data.model.rotationIdentity
+import com.chloemlla.aura.data.model.stableLocalMediaId
+import com.chloemlla.aura.service.LocalMediaRelinkOutcome
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
@@ -42,8 +63,68 @@ internal fun LocalWallpaperCatalogDialogHost(
     viewModel: SettingsViewModel,
     onDismiss: () -> Unit,
     onAddFolder: () -> Unit,
+    snackbarHostState: SnackbarHostState,
+    rotationExclusions: List<RotationExclusionEntity>,
+    onToggleRotationExclusion: (LocalWallpaperEntity) -> Unit,
 ) {
     if (!show) return
+    val context = LocalContext.current
+    val resources = LocalResources.current
+    val scope = rememberCoroutineScope()
+    var pendingItem by remember { mutableStateOf<LocalWallpaperEntity?>(null) }
+    var pendingFolder by remember { mutableStateOf<LocalWallpaperFolderEntity?>(null) }
+
+    suspend fun finishItemRelink(item: LocalWallpaperEntity, uri: Uri, acceptMismatch: Boolean = false) {
+        when (val outcome = viewModel.relinkLocalWallpaper(item.documentUri, uri, acceptMismatch)) {
+            is LocalMediaRelinkOutcome.Relinked ->
+                snackbarHostState.showSnackbar(resources.getString(R.string.media_relink_success))
+            is LocalMediaRelinkOutcome.Rejected -> snackbarHostState.showSnackbar(outcome.message)
+            is LocalMediaRelinkOutcome.ReviewRequired -> {
+                val result = snackbarHostState.showSnackbar(
+                    message = resources.getString(
+                        R.string.media_relink_mismatch,
+                        outcome.differences.joinToString(", "),
+                    ),
+                    actionLabel = resources.getString(R.string.media_relink_use_anyway),
+                    duration = SnackbarDuration.Long,
+                )
+                if (result == SnackbarResult.ActionPerformed) finishItemRelink(item, uri, acceptMismatch = true)
+            }
+        }
+    }
+    val itemRelinkLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val item = pendingItem
+        pendingItem = null
+        if (uri != null && item != null) scope.launch { finishItemRelink(item, uri) }
+    }
+    val folderRepairLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        val folder = pendingFolder
+        pendingFolder = null
+        if (uri == null || folder == null) return@rememberLauncherForActivityResult
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        scope.launch {
+            viewModel.repairLocalWallpaperFolder(folder.folderUri, uri.toString()).fold(
+                onSuccess = { result ->
+                    snackbarHostState.showSnackbar(
+                        resources.getString(
+                            R.string.settings_local_catalog_repair_summary,
+                            result.relinkedCount,
+                            result.remainingCount,
+                        ),
+                    )
+                },
+                onFailure = { error ->
+                    snackbarHostState.showSnackbar(
+                        error.message.orEmpty().ifBlank {
+                            resources.getString(R.string.settings_local_catalog_repair_failed)
+                        },
+                    )
+                },
+            )
+        }
+    }
     LocalWallpaperCatalogDialog(
         folders = state.localWallpaperFolders,
         items = state.localWallpaperItems,
@@ -52,8 +133,18 @@ internal fun LocalWallpaperCatalogDialogHost(
         onRescanAll = viewModel::rescanAllLocalWallpaperFolders,
         onRescanFolder = viewModel::rescanLocalWallpaperFolder,
         onRemoveFolder = viewModel::removeLocalWallpaperFolder,
+        onRepairFolder = { folder ->
+            pendingFolder = folder
+            folderRepairLauncher.launch(null)
+        },
         onSetFolderTarget = viewModel::setLocalWallpaperFolderTarget,
         onUpdateTags = viewModel::updateLocalWallpaperTags,
+        onRelinkItem = { item ->
+            pendingItem = item
+            itemRelinkLauncher.launch(arrayOf("image/*"))
+        },
+        rotationExclusions = rotationExclusions,
+        onToggleRotationExclusion = onToggleRotationExclusion,
     )
 }
 
@@ -66,13 +157,18 @@ internal fun LocalWallpaperCatalogDialog(
     onRescanAll: () -> Unit,
     onRescanFolder: (String) -> Unit,
     onRemoveFolder: (String) -> Unit,
+    onRepairFolder: (LocalWallpaperFolderEntity) -> Unit,
     onSetFolderTarget: (String, WallpaperTarget) -> Unit,
     onUpdateTags: (String, String) -> Unit,
+    onRelinkItem: (LocalWallpaperEntity) -> Unit,
+    rotationExclusions: List<RotationExclusionEntity> = emptyList(),
+    onToggleRotationExclusion: (LocalWallpaperEntity) -> Unit = {},
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var editingUri by rememberSaveable { mutableStateOf<String?>(null) }
     var editingTags by rememberSaveable { mutableStateOf("") }
     var folderPendingRemovalUri by rememberSaveable { mutableStateOf<String?>(null) }
+    val rotationExclusionIndex = remember(rotationExclusions) { RotationExclusionIndex(rotationExclusions) }
     val normalizedQuery = query.trim().lowercase(Locale.ROOT)
     val duplicateCounts = remember(items) {
         items.asSequence()
@@ -138,7 +234,7 @@ internal fun LocalWallpaperCatalogDialog(
                                 folder = folder,
                                 onRescan = { onRescanFolder(folder.folderUri) },
                                 onRemove = { folderPendingRemovalUri = folder.folderUri },
-                                onRepair = onAddFolder,
+                                onRepair = { onRepairFolder(folder) },
                                 onSetTarget = { onSetFolderTarget(folder.folderUri, it) },
                             )
                         }
@@ -156,7 +252,7 @@ internal fun LocalWallpaperCatalogDialog(
                     if (visibleItems.isEmpty()) {
                         item { Text(stringResource(R.string.settings_local_catalog_no_items)) }
                     } else {
-                        items(visibleItems, key = LocalWallpaperEntity::documentUri) { item ->
+                        items(visibleItems, key = LocalWallpaperEntity::stableLocalMediaId) { item ->
                             LocalWallpaperItemRow(
                                 item = item,
                                 duplicateCount = duplicateCounts[item.contentHash] ?: 0,
@@ -172,6 +268,9 @@ internal fun LocalWallpaperCatalogDialog(
                                     editingUri = null
                                 },
                                 onCancelEdit = { editingUri = null },
+                                onRelink = { onRelinkItem(item) },
+                                excluded = rotationExclusionIndex.contains(item.rotationIdentity()),
+                                onToggleRotationExclusion = { onToggleRotationExclusion(item) },
                             )
                         }
                     }
@@ -279,6 +378,9 @@ private fun LocalWallpaperItemRow(
     onTagsChange: (String) -> Unit,
     onSaveTags: () -> Unit,
     onCancelEdit: () -> Unit,
+    onRelink: () -> Unit,
+    excluded: Boolean,
+    onToggleRotationExclusion: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text(item.displayName, style = MaterialTheme.typography.bodyMedium)
@@ -287,6 +389,20 @@ private fun LocalWallpaperItemRow(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (item.needsLocalMediaRelink()) {
+            Text(
+                text = localMediaStatusLabel(item.localMediaStatus),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+            if (item.localMediaReason.isNotBlank()) {
+                Text(
+                    text = item.localMediaReason,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         if (duplicateCount > 1) {
             Text(
                 stringResource(R.string.settings_local_catalog_duplicate, duplicateCount),
@@ -307,14 +423,33 @@ private fun LocalWallpaperItemRow(
                 TextButton(onClick = onCancelEdit) { Text(stringResource(R.string.common_cancel)) }
             }
         } else {
-            TextButton(onClick = onBeginEdit) {
-                Text(
-                    if (item.tags.isBlank()) {
-                        stringResource(R.string.settings_local_catalog_add_tags)
-                    } else {
-                        stringResource(R.string.settings_local_catalog_tags, item.tags)
-                    },
-                )
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = onBeginEdit) {
+                    Text(
+                        if (item.tags.isBlank()) {
+                            stringResource(R.string.settings_local_catalog_add_tags)
+                        } else {
+                            stringResource(R.string.settings_local_catalog_tags, item.tags)
+                        },
+                    )
+                }
+                TextButton(onClick = onToggleRotationExclusion) {
+                    Icon(
+                        if (excluded) Icons.Default.Restore else Icons.Default.PlaylistRemove,
+                        contentDescription = null,
+                    )
+                    Text(
+                        stringResource(
+                            if (excluded) R.string.rotation_restore_action else R.string.rotation_exclude_action,
+                        ),
+                    )
+                }
+                if (item.needsLocalMediaRelink()) {
+                    TextButton(onClick = onRelink) {
+                        Icon(Icons.Default.FindReplace, contentDescription = null)
+                        Text(stringResource(R.string.media_relink_action))
+                    }
+                }
             }
         }
     }
@@ -355,5 +490,15 @@ private fun scanErrorLabel(status: String): String = stringResource(
         R.string.settings_local_catalog_permission_error
     } else {
         R.string.settings_local_catalog_scan_error
+    },
+)
+
+@Composable
+private fun localMediaStatusLabel(status: String): String = stringResource(
+    when (status) {
+        LocalMediaStatus.MISSING -> R.string.media_status_missing
+        LocalMediaStatus.PERMISSION_REVOKED -> R.string.media_status_permission_revoked
+        LocalMediaStatus.CORRUPT -> R.string.media_status_corrupt
+        else -> R.string.media_status_available
     },
 )

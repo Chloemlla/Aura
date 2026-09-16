@@ -20,7 +20,7 @@ The dry run must:
 - Archive raw Google OSS inputs as `GOOGLE-OSS-RAW-INPUTS.zip`.
 - Generate `NATIVE-COMPLIANCE.md`.
 - Generate `NATIVE-ALIGNMENT.json`.
-- Check that optional provider credentials are blank before the signed release build.
+- Check that the release build type forces optional provider credentials blank.
 - Scan the packaged signed APK for nonblank provider credential values from local `local.properties`.
 - Check Fastlane text metadata, current versionCode changelog, and public privacy-policy URL before the signed release build.
 - Check the store asset capture plan, planned screenshots, feature-graphic requirements, alt text, and future asset-mode command before the signed release build.
@@ -39,6 +39,7 @@ versionCode, and Room schema version, and every other version-shaped artifact
 (README badge, release-metadata policy, Fastlane changelog) is derived from it.
 
 ```bash
+python3 tools/release_clean_clone_check.py --repo-root . --revision HEAD
 python3 tools/release_manifest.py --mode check --repo-root .
 python3 tools/provider_credential_release_check.py --app-gradle app/build.gradle.kts --local-properties local.properties
 python3 tools/provider_credential_storage_check.py --policy docs/security/provider-credential-storage.json --repo-root .
@@ -63,7 +64,10 @@ python3 tools/sbom_readiness_check.py --policy docs/distribution/sbom-readiness.
 The text-mode checks fail when title or description limits drift, the current
 versionCode changelog is missing or stale, stale branding returns, privacy URLs
 drift, background-work evidence packets drift, or the local release artifact
-list no longer matches the docs.
+list no longer matches the docs. The clean-clone check is the umbrella gate. It
+uses only files stored in the selected commit and reports signing, generated
+artifact, console, publication, and device evidence separately when those
+owner-only inputs are unavailable.
 
 After real assets are committed, the future asset-mode command is:
 
@@ -79,8 +83,12 @@ instead of the per-ABI set this fork publishes.
 ```powershell
 $env:JAVA_HOME = "C:/Program Files/Android/Android Studio/jbr"
 .\gradlew.bat :app:assembleFullRelease --stacktrace --no-daemon
-.\gradlew.bat :app:bundleFullRelease --stacktrace --no-daemon
+.\gradlew.bat -PauraReleaseChannel=play :app:bundleFullRelease --stacktrace --no-daemon
 ```
+
+These are separate invocations on purpose. The APK keeps the GitHub/Obtainium
+provider catalog. The Play AAB compiles the Play catalog and removes YouTube
+controls and downloader initialization.
 
 Copy and name the release artifacts:
 

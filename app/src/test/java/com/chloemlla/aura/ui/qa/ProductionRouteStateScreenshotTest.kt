@@ -79,11 +79,20 @@ class ProductionRouteStateScreenshotTest {
     }
 
     @Test
+    fun settingsCredentialRecoveryAmoled() {
+        captureScenario(
+            scenario = ProductionRouteScenario.SettingsCredentialRecovery,
+            darkTheme = true,
+        )
+    }
+
+    @Test
     @Config(sdk = [35], qualifiers = "en-rXA-w411dp-h891dp-xhdpi")
     fun wallpapersGridCompactEnglishXa() {
         captureScenario(
             scenario = ProductionRouteScenario.WallpapersGridSuccess,
             darkTheme = true,
+            localeSuffix = "_en_XA",
         )
     }
 
@@ -95,6 +104,7 @@ class ProductionRouteStateScreenshotTest {
             darkTheme = false,
             fontScale = 1.3f,
             layoutDirection = LayoutDirection.Rtl,
+            localeSuffix = "_ar_XB",
         )
     }
 
@@ -110,6 +120,26 @@ class ProductionRouteStateScreenshotTest {
     @Test
     fun wallpaperEditorLoadingLight() {
         captureScenario(ProductionRouteScenario.WallpaperEditorLoading, darkTheme = false)
+    }
+
+    @Test
+    fun fitCanvasPreviewAmoled() {
+        captureScenario(ProductionRouteScenario.FitCanvasPreview, darkTheme = true)
+    }
+
+    @Test
+    fun rotationExclusionsManagerAmoled() {
+        captureScenario(ProductionRouteScenario.RotationExclusionsManager, darkTheme = true)
+    }
+
+    @Test
+    fun downloadsMediaCopiesAmoled() {
+        captureScenario(ProductionRouteScenario.DownloadsMediaCopies, darkTheme = true)
+    }
+
+    @Test
+    fun downloadsMissingMediaAmoled() {
+        captureScenario(ProductionRouteScenario.DownloadsMissingMedia, darkTheme = true)
     }
 
     @Test

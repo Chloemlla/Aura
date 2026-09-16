@@ -2,6 +2,7 @@ package com.chloemlla.aura.ui.screens.favorites
 
 import android.content.res.Resources
 import com.chloemlla.aura.data.model.FavoriteEntity
+import com.chloemlla.aura.data.model.LocalMediaStatus
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -66,6 +67,31 @@ class FavoritesScreenPolishTest {
             "Soft chime. saved sound. 12 seconds. YouTube",
             favoriteSoundSummary(favorite, sourceUnavailable = false, resources = resources),
         )
+    }
+
+    @Test
+    fun `favorite summaries distinguish missing revoked and corrupt local media`() {
+        val favorite = FavoriteEntity(
+            id = "local-1",
+            source = "LOCAL",
+            type = "WALLPAPER",
+            thumbnailUrl = "content://old/photo",
+            fullUrl = "content://old/photo",
+            offlinePath = "content://old/photo",
+            localMediaStatus = LocalMediaStatus.PERMISSION_REVOKED,
+        )
+
+        assertEquals(
+            "local-1. local file permission revoked. Local",
+            favoriteWallpaperSummary(
+                favorite,
+                isSelected = false,
+                sourceUnavailable = false,
+                resources = resources,
+            ),
+        )
+        assertEquals("local file corrupt", favoriteLocalMediaHealthLabel(LocalMediaStatus.CORRUPT))
+        assertEquals("local file missing", favoriteLocalMediaHealthLabel(LocalMediaStatus.MISSING))
     }
 
     @Test

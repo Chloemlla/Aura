@@ -3,7 +3,6 @@ package com.chloemlla.aura.service
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Serializes and coalesces wallpaper decode work for one live-wallpaper engine.
@@ -15,38 +14,72 @@ import java.util.concurrent.atomic.AtomicInteger
  * process never restarts to clean up after them. The cross-engine soak caught it
  * as concurrent loader threads rising with the cycle count.
  *
- * One thread runs at a time, and at most one further request waits behind it:
- * a third request would only decode the state the waiting one is about to
- * produce, so it is dropped rather than queued.
+ * One thread runs at a time, and at most one further request waits behind it.
+ * A newer request replaces the waiting request, so rapid surface churn always
+ * finishes by decoding the latest state.
  */
 internal class LiveWallpaperMediaLoader(threadName: String) {
 
-    private val outstandingCount = AtomicInteger(0)
+    private val lock = Any()
+    @Volatile private var outstandingCount = 0
+    private var running = false
+    private var stopped = false
+    private var pendingWork: (() -> Unit)? = null
 
     private val executor: ExecutorService = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, threadName).apply { isDaemon = true }
     }
 
     /** Decodes running or waiting to run. */
-    val outstanding: Int get() = outstandingCount.get()
+    val outstanding: Int get() = outstandingCount
 
     /** Runs [work] on the loader thread unless a newer load already covers it. */
     fun request(work: () -> Unit) {
-        if (outstandingCount.get() >= MAX_OUTSTANDING) return
-        outstandingCount.incrementAndGet()
-        try {
-            executor.execute {
-                try {
-                    work()
-                } catch (_: Throwable) {
-                    // A failed decode must not kill the loader thread; the engine
-                    // keeps whatever it was already drawing.
-                } finally {
-                    outstandingCount.decrementAndGet()
-                }
+        synchronized(lock) {
+            if (stopped) return
+            if (running) {
+                pendingWork = work
+                outstandingCount = MAX_OUTSTANDING
+                return
             }
-        } catch (_: RejectedExecutionException) {
-            outstandingCount.decrementAndGet()
+            running = true
+            outstandingCount = 1
+            try {
+                executor.execute { runWorkLoop(work) }
+            } catch (_: RejectedExecutionException) {
+                running = false
+                outstandingCount = 0
+            }
+        }
+    }
+
+    private fun runWorkLoop(initialWork: () -> Unit) {
+        var work = initialWork
+        while (true) {
+            try {
+                work()
+            } catch (_: Throwable) {
+                // A failed decode must not kill the loader thread; the engine
+                // keeps whatever it was already drawing.
+            }
+            val next = synchronized(lock) {
+                if (stopped) {
+                    running = false
+                    outstandingCount = 0
+                    null
+                } else {
+                    pendingWork.also {
+                        pendingWork = null
+                        if (it == null) {
+                            running = false
+                            outstandingCount = 0
+                        } else {
+                            outstandingCount = 1
+                        }
+                    }
+                }
+            } ?: return
+            work = next
         }
     }
 
@@ -56,8 +89,12 @@ internal class LiveWallpaperMediaLoader(threadName: String) {
      * view nothing is outstanding once this returns.
      */
     fun shutdown() {
+        synchronized(lock) {
+            stopped = true
+            pendingWork = null
+            outstandingCount = 0
+        }
         executor.shutdownNow()
-        outstandingCount.set(0)
     }
 
     private companion object {

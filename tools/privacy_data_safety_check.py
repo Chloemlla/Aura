@@ -44,6 +44,7 @@ REQUIRED_LOCAL_STORAGE_FIELDS = {
     "userControl",
     "retention",
     "deletionPath",
+    "backupExclusions",
     "backupStatus",
 }
 REQUIRED_SDK_SURFACE_FIELDS = {
@@ -124,6 +125,109 @@ def require_string_list(value: Any, label: str) -> list[str]:
     if len(values) != len(set(values)):
         raise PrivacyDataSafetyError(f"{label} contains duplicate values")
     return values
+
+
+def require_backup_exclusions(value: Any, label: str) -> set[tuple[str, str]]:
+    if not isinstance(value, list):
+        raise PrivacyDataSafetyError(f"{label} must be a list")
+    exclusions: set[tuple[str, str]] = set()
+    for index, raw_exclusion in enumerate(value):
+        exclusion = require_object(raw_exclusion, f"{label}[{index}]")
+        if set(exclusion) != {"domain", "path"}:
+            raise PrivacyDataSafetyError(f"{label}[{index}] must contain only domain and path")
+        entry = (
+            require_string(exclusion.get("domain"), f"{label}[{index}].domain"),
+            require_string(exclusion.get("path"), f"{label}[{index}].path"),
+        )
+        if entry in exclusions:
+            raise PrivacyDataSafetyError(f"{label} contains duplicate exclusion {entry[0]}:{entry[1]}")
+        exclusions.add(entry)
+    return exclusions
+
+
+def backup_section_rules(parent: ET.Element, tag: str) -> set[tuple[str, str]]:
+    return {
+        (element.attrib.get("domain", "").strip(), element.attrib.get("path", "").strip())
+        for element in parent.findall(tag)
+    }
+
+
+def rule_covers_path(rule_path: str, target_path: str) -> bool:
+    if rule_path == "." or rule_path == target_path:
+        return True
+    return target_path.startswith(rule_path.rstrip("/") + "/")
+
+
+def section_excludes_path(section: dict[str, set[tuple[str, str]]], domain: str, path: str) -> bool:
+    """A store stays out of the backup when an <exclude> covers it, or when the section is an
+    allowlist built from <include> elements that do not cover it: any <include> replaces the
+    platform default of backing up every standard directory."""
+    if any(
+        rule_domain == domain and rule_covers_path(rule_path, path)
+        for rule_domain, rule_path in section["excludes"]
+    ):
+        return True
+    includes = section["includes"]
+    if not includes:
+        return False
+    return not any(
+        rule_domain == domain and rule_covers_path(rule_path, path)
+        for rule_domain, rule_path in includes
+    )
+
+
+def parse_backup_sections(path: Path, expected_root: str) -> dict[str, dict[str, set[tuple[str, str]]]]:
+    if not path.is_file():
+        raise PrivacyDataSafetyError(f"backup rules are missing: {path}")
+    root = ET.fromstring(path.read_text(encoding="utf-8"))
+
+    def section(parent: ET.Element) -> dict[str, set[tuple[str, str]]]:
+        return {
+            "excludes": backup_section_rules(parent, "exclude"),
+            "includes": backup_section_rules(parent, "include"),
+        }
+
+    if root.tag != expected_root:
+        raise PrivacyDataSafetyError(f"{path} must use {expected_root} as its root")
+    if expected_root == "full-backup-content":
+        return {"android11": section(root)}
+    cloud = root.find("cloud-backup")
+    transfer = root.find("device-transfer")
+    if cloud is None or transfer is None:
+        raise PrivacyDataSafetyError(f"{path} must contain cloud-backup and device-transfer")
+    return {
+        "android12PlusCloud": section(cloud),
+        "android12PlusTransfer": section(transfer),
+    }
+
+
+def validate_backup_rules(
+    repo_root: Path, policy: dict[str, Any]
+) -> tuple[dict[str, dict[str, set[tuple[str, str]]]], set[str]]:
+    rules = require_object(policy.get("backupRules"), "backupRules")
+    if set(rules) != {"android11", "android12Plus"}:
+        raise PrivacyDataSafetyError("backupRules must contain android11 and android12Plus")
+    android11_path = require_string(rules.get("android11"), "backupRules.android11")
+    android12_path = require_string(rules.get("android12Plus"), "backupRules.android12Plus")
+    parsed = {}
+    parsed.update(parse_backup_sections(repo_root / android11_path, "full-backup-content"))
+    parsed.update(parse_backup_sections(repo_root / android12_path, "data-extraction-rules"))
+    baseline = parsed["android11"]
+    for section_name, entries in parsed.items():
+        if entries == baseline:
+            continue
+        details = []
+        for kind in ("excludes", "includes"):
+            if entries[kind] == baseline[kind]:
+                continue
+            details.append(
+                f"{kind} missing={sorted(baseline[kind] - entries[kind])}, "
+                f"extra={sorted(entries[kind] - baseline[kind])}"
+            )
+        raise PrivacyDataSafetyError(
+            f"backup exclusion drift in {section_name}: " + "; ".join(details)
+        )
+    return parsed, {android11_path, android12_path}
 
 
 def parse_manifest_permissions(path: Path) -> dict[str, int | None]:
@@ -243,7 +347,13 @@ def validate_network_surfaces(repo_root: Path, policy: dict[str, Any], docs_text
     return surfaces
 
 
-def validate_local_storage_surfaces(repo_root: Path, policy: dict[str, Any], docs_text: str) -> list[dict[str, Any]]:
+def validate_local_storage_surfaces(
+    repo_root: Path,
+    policy: dict[str, Any],
+    docs_text: str,
+    backup_rules: dict[str, dict[str, set[tuple[str, str]]]],
+    backup_rule_paths: set[str],
+) -> list[dict[str, Any]]:
     surfaces_raw = policy.get("localStorageSurfaces")
     if not isinstance(surfaces_raw, list) or not surfaces_raw:
         raise PrivacyDataSafetyError("localStorageSurfaces must be a non-empty list")
@@ -266,6 +376,7 @@ def validate_local_storage_surfaces(repo_root: Path, policy: dict[str, Any], doc
             "dataTypes",
             "collectionStatus",
             "sharingStatus",
+            "backupExclusions",
             "backupStatus",
         }:
             require_string(surface.get(field), f"{surface_id}.{field}")
@@ -285,9 +396,44 @@ def validate_local_storage_surfaces(repo_root: Path, policy: dict[str, Any], doc
         backup_status = require_string(surface.get("backupStatus"), f"{surface_id}.backupStatus")
         if backup_status not in SUPPORTED_BACKUP_STATUSES:
             raise PrivacyDataSafetyError(f"{surface_id}.backupStatus is unsupported")
+        backup_exclusions = require_backup_exclusions(
+            surface.get("backupExclusions"),
+            f"{surface_id}.backupExclusions",
+        )
+        if backup_status == "excludedFromBackupAndTransfer":
+            if not backup_exclusions:
+                raise PrivacyDataSafetyError(f"{surface_id} must declare at least one backup exclusion")
+            missing_rule_sources = backup_rule_paths - set(source_paths)
+            if missing_rule_sources:
+                raise PrivacyDataSafetyError(
+                    f"{surface_id}.sourcePaths must cite backup rules: {sorted(missing_rule_sources)}"
+                )
+        elif backup_status in {"includedInBackupOrTransfer", "transientCache", "userExportOrSystemManaged"}:
+            if backup_exclusions:
+                raise PrivacyDataSafetyError(
+                    f"{surface_id} cannot declare exclusions with backupStatus {backup_status}"
+                )
+        for exclusion in backup_exclusions:
+            for section_name, entries in backup_rules.items():
+                if not section_excludes_path(entries, exclusion[0], exclusion[1]):
+                    raise PrivacyDataSafetyError(
+                        f"{surface_id} exclusion {exclusion[0]}:{exclusion[1]} is missing from "
+                        f"{section_name}: exclude it, or use <include> elements that do not cover it"
+                    )
         if surface_id not in docs_text:
             raise PrivacyDataSafetyError(f"data-safety docs are missing local storage row for {surface_id}")
         surfaces.append(surface)
+    declared_exclusions = {
+        exclusion
+        for surface in surfaces
+        for exclusion in require_backup_exclusions(
+            surface.get("backupExclusions"),
+            f"{surface['surfaceId']}.backupExclusions",
+        )
+    }
+    undeclared = backup_rules["android11"]["excludes"] - declared_exclusions
+    if undeclared:
+        raise PrivacyDataSafetyError(f"backup rules contain exclusions absent from localStorageSurfaces: {sorted(undeclared)}")
     return surfaces
 
 
@@ -349,8 +495,8 @@ def validate_sdk_surfaces(repo_root: Path, policy: dict[str, Any], docs_text: st
 
 
 def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
-    if policy.get("schemaVersion") != 1:
-        raise PrivacyDataSafetyError("privacy data-safety schemaVersion must be 1")
+    if policy.get("schemaVersion") != 2:
+        raise PrivacyDataSafetyError("privacy data-safety schemaVersion must be 2")
     if policy.get("policyKind") != "privacyDataSafetyMatrix":
         raise PrivacyDataSafetyError("privacy data-safety policyKind is invalid")
 
@@ -359,6 +505,7 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
     privacy_policy_path = require_string(policy.get("privacyPolicy"), "privacyPolicy")
     manifest_permissions = parse_manifest_permissions(repo_root / manifest_path)
     rows = validate_permission_rows(manifest_permissions, policy.get("permissions"))
+    backup_rules, backup_rule_paths = validate_backup_rules(repo_root, policy)
 
     docs_text = read_text(repo_root, docs_path, "data-safety docs")
     privacy_text = read_text(repo_root, privacy_policy_path, "privacy policy").lower()
@@ -367,7 +514,13 @@ def validate_policy(repo_root: Path, policy: dict[str, Any]) -> dict[str, Any]:
         if name not in docs_text:
             raise PrivacyDataSafetyError(f"{docs_path} is missing permission row for {name}")
     network_surfaces = validate_network_surfaces(repo_root, policy, docs_text)
-    local_storage_surfaces = validate_local_storage_surfaces(repo_root, policy, docs_text)
+    local_storage_surfaces = validate_local_storage_surfaces(
+        repo_root,
+        policy,
+        docs_text,
+        backup_rules,
+        backup_rule_paths,
+    )
     sdk_surfaces = validate_sdk_surfaces(repo_root, policy, docs_text)
     for required_term in ("no ads", "cross-app tracking", "anonymous firebase identity", "generated wallpaper prompts"):
         if required_term not in " ".join(privacy_text.split()):

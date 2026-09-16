@@ -3,7 +3,6 @@ package com.chloemlla.aura.service
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
-import com.chloemlla.aura.util.rethrowIfCancelled
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
@@ -12,16 +11,20 @@ import android.provider.MediaStore
 import android.provider.Settings
 import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.model.ContentType
+import com.chloemlla.aura.data.model.decideSoundOptimization
+import com.chloemlla.aura.data.model.mediaOptimizationKey
+import com.chloemlla.aura.data.model.originalTechnicalMetadata
+import com.chloemlla.aura.util.rethrowIfCancelled
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.io.File
 import java.io.FileInputStream
 import java.io.OutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 
 private val SANITIZE_REGEX = Regex("[^a-zA-Z0-9._-]")
 
@@ -30,6 +33,8 @@ class SoundApplier @Inject constructor(
     @ApplicationContext private val context: Context,
     private val okHttpClient: OkHttpClient,
     private val prefs: PreferencesManager,
+    private val mediaCopyStore: MediaCopyStore,
+    private val audioTrimmer: AudioTrimmer,
 ) {
     /** Check if app has WRITE_SETTINGS permission */
     fun canWriteSettings(): Boolean = Settings.System.canWrite(context)
@@ -50,15 +55,54 @@ class SoundApplier @Inject constructor(
         url: String,
         fileName: String,
         type: ContentType,
+        savedOriginalId: String? = null,
     ): Result<Uri> = withContext(Dispatchers.IO) {
         runCatching {
             if (!canWriteSettings()) {
                 throw SecurityException("WRITE_SETTINGS permission not granted")
             }
 
-            // Save to MediaStore
-            val uri = saveUrlToMediaStore(fileName.replace(SANITIZE_REGEX, "_"), type, url)
-                ?: throw IllegalStateException("Failed to save audio to MediaStore")
+            val (savedOriginal, effectiveLocator) = mediaCopyStore.findOriginal(savedOriginalId, url)
+            val savedUri = savedOriginal?.localPath
+                ?.let(Uri::parse)
+                ?.takeIf { it.scheme.equals("content", ignoreCase = true) }
+            val savedMetadata = savedOriginal?.originalTechnicalMetadata()
+            val savedDecision = savedMetadata
+                ?.takeIf { it.mimeType.isNotBlank() }
+                ?.let { decideSoundOptimization(it, edited = false) }
+
+            val uri = if (savedUri != null && savedDecision?.required == false) {
+                // A compatible saved original is already a MediaStore item. Point Android
+                // at those exact bytes instead of creating a redundant apply copy.
+                savedUri
+            } else {
+                val staged = stageSoundLocator(effectiveLocator)
+                var temporaryApplyFile: File? = null
+                try {
+                    val metadata = readMediaTechnicalMetadata(staged)
+                    val decision = decideSoundOptimization(metadata, edited = false)
+                    val applyFile = if (decision.required) {
+                        prepareCompatibleSoundCopy(
+                            source = staged,
+                            sourceRecordId = savedOriginal?.id,
+                            sourceHash = savedOriginal?.originalSha256.orEmpty().ifBlank { sha256File(staged) },
+                            durationMs = metadata.durationMs,
+                            reason = decision.reason,
+                        )
+                    } else {
+                        staged
+                    }
+                    if (decision.required && savedOriginal == null) temporaryApplyFile = applyFile
+                    saveLocalFileToMediaStore(
+                        fileName.replace(SANITIZE_REGEX, "_"),
+                        type,
+                        applyFile,
+                    ) ?: throw IllegalStateException("Failed to save audio to MediaStore")
+                } finally {
+                    temporaryApplyFile?.delete()
+                    staged.delete()
+                }
+            }
 
             // Set as system sound
             val ringtoneType = when (type) {
@@ -198,7 +242,13 @@ class SoundApplier @Inject constructor(
         if (Build.VERSION.SDK_INT >= 29) {
             contentValues.clear()
             contentValues.put(MediaStore.Audio.Media.IS_PENDING, 0)
-            resolver.update(uri, contentValues, null, null)
+            val published = runCatching {
+                resolver.update(uri, contentValues, null, null) > 0
+            }.getOrDefault(false)
+            if (!published) {
+                resolver.delete(uri, null, null)
+                return null
+            }
         }
 
         return uri
@@ -209,6 +259,20 @@ class SoundApplier @Inject constructor(
         type: ContentType,
         url: String,
     ): Uri? {
+        if (isLocalMediaLocator(url)) {
+            val tempFile = stageLocalMediaLocator(
+                context = context,
+                locator = url,
+                tempDirectoryName = "audio_apply",
+                prefix = "aura_sound_",
+                maxBytes = MAX_APPLY_BYTES,
+            )
+            return try {
+                saveLocalFileToMediaStore(fileName, type, tempFile)
+            } finally {
+                tempFile.delete()
+            }
+        }
         val request = Request.Builder().url(url).build()
         return okHttpClient.newCall(request).execute().use { resp ->
             if (!resp.isSuccessful) {
@@ -234,6 +298,86 @@ class SoundApplier @Inject constructor(
             } finally {
                 tempFile.delete()
             }
+        }
+    }
+
+    private fun stageSoundLocator(locator: String): File {
+        if (isLocalMediaLocator(locator)) {
+            return stageLocalMediaLocator(
+                context = context,
+                locator = locator,
+                tempDirectoryName = "audio_apply",
+                prefix = "aura_sound_original_",
+                maxBytes = MAX_APPLY_BYTES,
+            )
+        }
+        val request = Request.Builder().url(locator).build()
+        return okHttpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw IllegalStateException("Download failed: HTTP ${response.code}")
+            }
+            val body = response.body ?: throw IllegalStateException("Empty response body")
+            if (advertisedLengthExceeds(body.contentLength(), MAX_APPLY_BYTES)) {
+                throw IllegalStateException("Sound file too large")
+            }
+            val directory = File(context.cacheDir, "audio_apply").apply { mkdirs() }
+            File.createTempFile("aura_sound_original_", ".tmp", directory).also { staged ->
+                try {
+                    body.byteStream().use { input ->
+                        staged.outputStream().use { output ->
+                            copyStreamCapped(input, output, MAX_APPLY_BYTES)
+                        }
+                    }
+                    if (staged.length() <= 0L) throw IllegalStateException("Empty response body")
+                } catch (error: Exception) {
+                    staged.delete()
+                    throw error
+                }
+            }
+        }
+    }
+
+    private suspend fun prepareCompatibleSoundCopy(
+        source: File,
+        sourceRecordId: String?,
+        sourceHash: String,
+        durationMs: Long,
+        reason: String,
+    ): File {
+        if (durationMs <= 0L) throw IllegalStateException("Sound duration could not be read")
+        val key = mediaOptimizationKey("sound", sourceHash, "m4a", durationMs)
+        mediaCopyStore.reusableCopy(sourceRecordId, key)?.let { return it.file }
+        val rendered = audioTrimmer.trim(
+            inputPath = source.absolutePath,
+            startMs = 0L,
+            endMs = durationMs,
+            outputFileName = "Aura_compatible_sound",
+            exportFormat = AudioExportFormat.M4A,
+            bitrateKbps = AudioExportFormat.M4A.defaultBitrateKbps,
+        ).getOrThrow()
+        val renderedFile = File(rendered)
+        return try {
+            if (sourceRecordId == null) {
+                renderedFile
+            } else {
+                mediaCopyStore.prepareCopy(
+                    downloadId = sourceRecordId,
+                    sourceIdentity = sourceHash,
+                    optimizationKey = key,
+                    reason = reason,
+                    extension = "m4a",
+                    expectedBytes = renderedFile.length(),
+                    maxBytes = MAX_APPLY_BYTES,
+                ) { pending ->
+                    renderedFile.inputStream().use { input ->
+                        pending.outputStream().use { output ->
+                            copyStreamCapped(input, output, MAX_APPLY_BYTES)
+                        }
+                    }
+                }.file
+            }
+        } finally {
+            if (sourceRecordId != null) renderedFile.delete()
         }
     }
 

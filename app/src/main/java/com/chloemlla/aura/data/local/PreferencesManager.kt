@@ -6,7 +6,14 @@ import android.content.SharedPreferences
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.chloemlla.aura.data.legal.isProviderAvailableInCurrentArtifact
 import com.chloemlla.aura.data.model.COMMUNITY_GUIDELINES_VERSION
+import com.chloemlla.aura.data.model.ContentSource
+import com.chloemlla.aura.data.model.FitCanvasMode
+import com.chloemlla.aura.data.model.FitCanvasPreferences
+import com.chloemlla.aura.data.model.FitCanvasStyle
+import com.chloemlla.aura.data.model.WALLPAPER_PRESENTATION_FILL
+import com.chloemlla.aura.data.model.normalizeWallpaperPresentation
 import com.chloemlla.aura.data.model.hasAcceptedCommunityGuidelinesVersion
 import com.chloemlla.aura.service.ADAPTIVE_TINT_ENABLED_PREF
 import com.chloemlla.aura.service.ADAPTIVE_TINT_INTENSITY_PREF
@@ -18,6 +25,9 @@ import com.chloemlla.aura.service.LIVE_WALLPAPER_DIM_ENABLED_PREF
 import com.chloemlla.aura.service.LIVE_WALLPAPER_SHADER_PRESET_PREF
 import com.chloemlla.aura.service.PARALLAX_WALLPAPER_PREFS_NAME
 import com.chloemlla.aura.service.VIDEO_WALLPAPER_PREFS_NAME
+import com.chloemlla.aura.service.VIDEO_WALLPAPER_DEFAULT_CANVAS_COLOR_PREF
+import com.chloemlla.aura.service.VIDEO_WALLPAPER_DEFAULT_CANVAS_MODE_PREF
+import com.chloemlla.aura.service.VIDEO_WALLPAPER_DEFAULT_SCALE_MODE_PREF
 import com.chloemlla.aura.service.REDUCE_ANIMATIONS_PREF
 import com.chloemlla.aura.service.TOUCH_EFFECT_STRENGTH_PREF
 import com.chloemlla.aura.service.WEATHER_WALLPAPER_PREFS_NAME
@@ -45,6 +55,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
@@ -227,12 +238,12 @@ class PreferencesManager @Inject constructor(
          * disclosure copy both say it is off (AURA-G4-04).
          */
         val PROVIDER_DEFAULT_ENABLED: Map<String, Boolean> = mapOf(
-            "wallhaven_provider_enabled" to true,
-            "bing_provider_enabled" to true,
-            "pexels_provider_enabled" to true,
-            "pixabay_provider_enabled" to true,
+            "wallhaven_provider_enabled" to false,
+            "bing_provider_enabled" to false,
+            "pexels_provider_enabled" to false,
+            "pixabay_provider_enabled" to false,
             "youtube_provider_enabled" to true,
-            "reddit_provider_enabled" to false,
+            "reddit_provider_enabled" to true,
             "community_provider_enabled" to DEFAULT_COMMUNITY_PROVIDER_ENABLED,
             "generated_content_provider_enabled" to DEFAULT_GENERATED_CONTENT_PROVIDER_ENABLED,
             "weather_effects_enabled" to false,
@@ -246,9 +257,21 @@ class PreferencesManager @Inject constructor(
     private val redditRssMetadataMigrationMutex = Mutex()
     @Volatile private var redditRssMetadataMigrated = false
     private val providerCredentialRevision = MutableStateFlow(0)
+    private val providerCredentialStatusLock = Any()
+    private val temporarilyUnavailableCredentialKeys = mutableSetOf<String>()
     private val _providerCredentialStorageUnavailable = MutableStateFlow(false)
     val providerCredentialStorageUnavailable: StateFlow<Boolean> =
         _providerCredentialStorageUnavailable.asStateFlow()
+    private val _providerCredentialReentryRequired = MutableStateFlow(
+        providerCredentialStore.hasReentryRequiredCredentials(),
+    )
+    val providerCredentialReentryRequired: StateFlow<Boolean> =
+        _providerCredentialReentryRequired.asStateFlow()
+    private val _providerCredentialReentryKeys = MutableStateFlow(
+        providerCredentialStore.reentryRequiredKeys(),
+    )
+    val providerCredentialReentryKeys: StateFlow<Set<String>> =
+        _providerCredentialReentryKeys.asStateFlow()
 
     // ── API Keys (optional, for higher rate limits) ────────────────
 
@@ -264,6 +287,8 @@ class PreferencesManager @Inject constructor(
     val generatedContentProviderEnabled: Flow<Boolean> =
         providerToggle(Keys.GENERATED_CONTENT_PROVIDER_ENABLED)
     val generatedContentDisclosureAccepted: Flow<Boolean> = get(Keys.GENERATED_CONTENT_DISCLOSURE_ACCEPTED, false)
+    // Reddit leads fresh-install wallpaper and motion feeds. Wallhaven, Bing, Pexels, and Pixabay
+    // remain user choices in Settings; public release builds do not embed Pexels or Pixabay keys.
     val wallhavenProviderEnabled: Flow<Boolean> = providerToggle(Keys.WALLHAVEN_PROVIDER_ENABLED)
     val bingProviderEnabled: Flow<Boolean> = providerToggle(Keys.BING_PROVIDER_ENABLED)
     val pexelsProviderEnabled: Flow<Boolean> = providerToggle(Keys.PEXELS_PROVIDER_ENABLED)
@@ -292,6 +317,19 @@ class PreferencesManager @Inject constructor(
         setProviderCredential(ProviderCredentialKey.PIXABAY, Keys.PIXABAY_KEY, key)
     suspend fun setFreesoundKey(key: String) =
         setProviderCredential(ProviderCredentialKey.FREESOUND, Keys.FREESOUND_KEY, key)
+
+    /** Re-runs active encrypted credential reads after a temporary Keystore failure. */
+    fun retryProviderCredentials() {
+        providerCredentialRevision.update { it + 1 }
+    }
+
+    /** Removes credentials for providers that can no longer originate requests. */
+    suspend fun retireLegacyProviderCredentials() {
+        providerCredentialStore.clear(ProviderCredentialKey.FREESOUND)
+        recordProviderCredentialSuccess(ProviderCredentialKey.FREESOUND)
+        dataStore.edit { it.remove(Keys.FREESOUND_KEY) }
+        providerCredentialRevision.update { it + 1 }
+    }
     suspend fun setGeneratedWallpaperProviderKey(key: String) =
         setGeneratedWallpaperProviderKeyForFlavor(key)
     suspend fun setGeneratedContentProviderEnabled(enabled: Boolean) {
@@ -592,14 +630,20 @@ class PreferencesManager @Inject constructor(
     val ytSoundQueryNotifications: Flow<String> = get(Keys.YT_SOUND_NOTIFICATIONS, defaultNotificationQuery())
     val ytSoundQueryAlarms: Flow<String> = get(Keys.YT_SOUND_ALARMS, defaultAlarmQuery())
     val ytSoundBlockedWords: Flow<String> = get(Keys.YT_SOUND_BLOCKED, "compilation,mix,playlist,ranked,tier list,reaction,review,tutorial,how to,podcast,interview,live stream,part,episode")
-    val youtubeProviderEnabled: Flow<Boolean> = providerToggle(Keys.YOUTUBE_PROVIDER_ENABLED)
+    val youtubeProviderAvailable: Boolean = isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE)
+    val youtubeProviderEnabled: Flow<Boolean> = if (youtubeProviderAvailable) {
+        providerToggle(Keys.YOUTUBE_PROVIDER_ENABLED)
+    } else {
+        flowOf(false)
+    }
     val youtubePoTokenProviderUrl: Flow<String> = get(Keys.YOUTUBE_PO_TOKEN_PROVIDER_URL, "")
 
     suspend fun setYtSoundQueryRingtones(q: String) = set(Keys.YT_SOUND_RINGTONES, q)
     suspend fun setYtSoundQueryNotifications(q: String) = set(Keys.YT_SOUND_NOTIFICATIONS, q)
     suspend fun setYtSoundQueryAlarms(q: String) = set(Keys.YT_SOUND_ALARMS, q)
     suspend fun setYtSoundBlockedWords(words: String) = set(Keys.YT_SOUND_BLOCKED, words)
-    suspend fun setYoutubeProviderEnabled(enabled: Boolean) = set(Keys.YOUTUBE_PROVIDER_ENABLED, enabled)
+    suspend fun setYoutubeProviderEnabled(enabled: Boolean) =
+        set(Keys.YOUTUBE_PROVIDER_ENABLED, enabled && youtubeProviderAvailable)
     suspend fun setYoutubePoTokenProviderUrl(url: String) = set(Keys.YOUTUBE_PO_TOKEN_PROVIDER_URL, url)
 
     // ── Wallpaper scheduler ─────────────────────────────────────
@@ -672,6 +716,75 @@ class PreferencesManager @Inject constructor(
             Intent(VIDEO_AUTO_BATTERY_SAVER_CHANGED_ACTION).setPackage(context.packageName),
         )
         set(Keys.VIDEO_AUTO_BATTERY_SAVER, enabled)
+    }
+
+    val staticWallpaperPresentation: Flow<String> = get(
+        Keys.STATIC_WALLPAPER_PRESENTATION,
+        WALLPAPER_PRESENTATION_FILL,
+    ).map(::normalizeWallpaperPresentation)
+    val staticFitCanvasMode: Flow<String> = get(
+        Keys.STATIC_FIT_CANVAS_MODE,
+        FitCanvasMode.AMOLED_BLACK.preferenceValue,
+    ).map { FitCanvasMode.fromPreference(it).preferenceValue }
+    val staticFitCanvasColor: Flow<Int> = get(
+        Keys.STATIC_FIT_CANVAS_COLOR,
+        com.chloemlla.aura.data.model.DEFAULT_FIT_CANVAS_COLOR,
+    ).map { it or 0xFF000000.toInt() }
+    val videoWallpaperPresentation: Flow<String> = get(
+        Keys.VIDEO_WALLPAPER_PRESENTATION,
+        WALLPAPER_PRESENTATION_FILL,
+    ).map(::normalizeWallpaperPresentation)
+    val videoFitCanvasMode: Flow<String> = get(
+        Keys.VIDEO_FIT_CANVAS_MODE,
+        FitCanvasMode.AMOLED_BLACK.preferenceValue,
+    ).map { FitCanvasMode.fromPreference(it).preferenceValue }
+    val videoFitCanvasColor: Flow<Int> = get(
+        Keys.VIDEO_FIT_CANVAS_COLOR,
+        com.chloemlla.aura.data.model.DEFAULT_FIT_CANVAS_COLOR,
+    ).map { it or 0xFF000000.toInt() }
+
+    suspend fun setStaticFitCanvasPreferences(presentation: String, style: FitCanvasStyle) {
+        val normalizedStyle = style.normalized()
+        dataStore.edit { values ->
+            values[Keys.STATIC_WALLPAPER_PRESENTATION] = normalizeWallpaperPresentation(presentation)
+            values[Keys.STATIC_FIT_CANVAS_MODE] = normalizedStyle.mode.preferenceValue
+            values[Keys.STATIC_FIT_CANVAS_COLOR] = normalizedStyle.customColor
+        }
+    }
+
+    suspend fun setVideoFitCanvasPreferences(presentation: String, style: FitCanvasStyle) {
+        val normalizedPresentation = normalizeWallpaperPresentation(presentation)
+        val normalizedStyle = style.normalized()
+        context.getSharedPreferences(VIDEO_WALLPAPER_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(VIDEO_WALLPAPER_DEFAULT_SCALE_MODE_PREF, normalizedPresentation)
+            .putString(VIDEO_WALLPAPER_DEFAULT_CANVAS_MODE_PREF, normalizedStyle.mode.preferenceValue)
+            .putInt(VIDEO_WALLPAPER_DEFAULT_CANVAS_COLOR_PREF, normalizedStyle.customColor)
+            .apply()
+        dataStore.edit { values ->
+            values[Keys.VIDEO_WALLPAPER_PRESENTATION] = normalizedPresentation
+            values[Keys.VIDEO_FIT_CANVAS_MODE] = normalizedStyle.mode.preferenceValue
+            values[Keys.VIDEO_FIT_CANVAS_COLOR] = normalizedStyle.customColor
+        }
+    }
+
+    suspend fun fitCanvasPreferencesSnapshot(): FitCanvasPreferences = FitCanvasPreferences(
+        staticPresentation = staticWallpaperPresentation.first(),
+        staticStyle = FitCanvasStyle(
+            mode = FitCanvasMode.fromPreference(staticFitCanvasMode.first()),
+            customColor = staticFitCanvasColor.first(),
+        ),
+        videoPresentation = videoWallpaperPresentation.first(),
+        videoStyle = FitCanvasStyle(
+            mode = FitCanvasMode.fromPreference(videoFitCanvasMode.first()),
+            customColor = videoFitCanvasColor.first(),
+        ),
+    ).normalized()
+
+    suspend fun restoreFitCanvasPreferences(preferences: FitCanvasPreferences) {
+        val normalized = preferences.normalized()
+        setStaticFitCanvasPreferences(normalized.staticPresentation, normalized.staticStyle)
+        setVideoFitCanvasPreferences(normalized.videoPresentation, normalized.videoStyle)
     }
 
     // ── Effects / adaptive settings ─────────────────────────────
@@ -836,10 +949,24 @@ class PreferencesManager @Inject constructor(
     }
 
     private fun readProviderCredentialValue(credentialKey: ProviderCredentialKey): String? =
-        runCatching { providerCredentialStore.get(credentialKey) }
-            .onSuccess { clearProviderCredentialStorageUnavailable() }
-            .onFailure { markProviderCredentialStorageUnavailable() }
-            .getOrNull()
+        when (val result = providerCredentialStore.read(credentialKey)) {
+            is ProviderCredentialReadResult.Available -> {
+                recordProviderCredentialSuccess(credentialKey)
+                result.value
+            }
+            ProviderCredentialReadResult.Missing -> {
+                recordProviderCredentialSuccess(credentialKey)
+                null
+            }
+            ProviderCredentialReadResult.RetryableFailure -> {
+                recordProviderCredentialTemporaryFailure(credentialKey)
+                null
+            }
+            is ProviderCredentialReadResult.ReentryRequired -> {
+                recordProviderCredentialSuccess(credentialKey)
+                null
+            }
+        }
 
     private fun writeProviderCredentialValue(
         credentialKey: ProviderCredentialKey,
@@ -847,19 +974,30 @@ class PreferencesManager @Inject constructor(
     ): Boolean = runCatching {
         providerCredentialStore.set(credentialKey, value)
     }.onSuccess {
-        clearProviderCredentialStorageUnavailable()
+        recordProviderCredentialSuccess(credentialKey)
     }.onFailure {
-        markProviderCredentialStorageUnavailable()
+        recordProviderCredentialTemporaryFailure(credentialKey)
     }.isSuccess
 
-    private fun markProviderCredentialStorageUnavailable() {
-        _providerCredentialStorageUnavailable.value = true
+    private fun recordProviderCredentialTemporaryFailure(credentialKey: ProviderCredentialKey) {
+        synchronized(providerCredentialStatusLock) {
+            temporarilyUnavailableCredentialKeys += credentialKey.storageKey
+            publishProviderCredentialStatus()
+        }
     }
 
-    private fun clearProviderCredentialStorageUnavailable() {
-        // A transient keystore hiccup must not flag credential storage broken for the
-        // whole process lifetime once subsequent operations succeed.
-        _providerCredentialStorageUnavailable.value = false
+    private fun recordProviderCredentialSuccess(credentialKey: ProviderCredentialKey) {
+        synchronized(providerCredentialStatusLock) {
+            temporarilyUnavailableCredentialKeys -= credentialKey.storageKey
+            publishProviderCredentialStatus()
+        }
+    }
+
+    private fun publishProviderCredentialStatus() {
+        _providerCredentialStorageUnavailable.value = temporarilyUnavailableCredentialKeys.isNotEmpty()
+        val reentryKeys = providerCredentialStore.reentryRequiredKeys()
+        _providerCredentialReentryKeys.value = reentryKeys
+        _providerCredentialReentryRequired.value = reentryKeys.isNotEmpty()
     }
 
     private object Keys {
@@ -932,6 +1070,12 @@ class PreferencesManager @Inject constructor(
         val VIDEO_PLAYBACK_SPEED = floatPreferencesKey("video_playback_speed")
         val VIDEO_FPS_OVERLAY = booleanPreferencesKey("video_fps_overlay_enabled")
         val VIDEO_AUTO_BATTERY_SAVER = booleanPreferencesKey("video_auto_battery_saver")
+        val STATIC_WALLPAPER_PRESENTATION = stringPreferencesKey("static_wallpaper_presentation")
+        val STATIC_FIT_CANVAS_MODE = stringPreferencesKey("static_fit_canvas_mode")
+        val STATIC_FIT_CANVAS_COLOR = intPreferencesKey("static_fit_canvas_color")
+        val VIDEO_WALLPAPER_PRESENTATION = stringPreferencesKey("video_wallpaper_presentation")
+        val VIDEO_FIT_CANVAS_MODE = stringPreferencesKey("video_fit_canvas_mode")
+        val VIDEO_FIT_CANVAS_COLOR = intPreferencesKey("video_fit_canvas_color")
         // Effects / adaptive
         val ADAPTIVE_TINT = booleanPreferencesKey("adaptive_tint_enabled")
         val ADAPTIVE_TINT_INTENSITY = floatPreferencesKey("adaptive_tint_intensity")

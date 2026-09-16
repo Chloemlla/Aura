@@ -17,15 +17,22 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.chloemlla.aura.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.chloemlla.aura.data.model.RotationExclusionIndex
 import com.chloemlla.aura.data.model.WallpaperHistoryEntity
+import com.chloemlla.aura.data.model.rotationIdentity
+import com.chloemlla.aura.ui.components.AuraSnackbarHost
 import com.chloemlla.aura.ui.components.AuraStateCard
+import com.chloemlla.aura.ui.rotation.RotationExclusionsViewModel
 import java.text.DateFormat
+import java.text.SimpleDateFormat
+import kotlinx.coroutines.launch
 import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,11 +41,18 @@ fun WallpaperHistoryScreen(
     onBack: () -> Unit,
     onWallpaperClick: (WallpaperHistoryEntity) -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
+    rotationExclusionsViewModel: RotationExclusionsViewModel = hiltViewModel(),
 ) {
     val history by viewModel.wallpaperHistory.collectAsStateWithLifecycle()
+    val rotationExclusions by rotationExclusionsViewModel.exclusions.collectAsStateWithLifecycle()
+    val rotationExclusionIndex = remember(rotationExclusions) { RotationExclusionIndex(rotationExclusions) }
+    val resources = LocalResources.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
     var showClearConfirm by remember { mutableStateOf(false) }
 
     Scaffold(
+        snackbarHost = { AuraSnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.history_title)) },
@@ -79,9 +93,32 @@ fun WallpaperHistoryScreen(
                 modifier = Modifier.fillMaxSize().padding(padding),
             ) {
                 items(history, key = { it.historyId }) { entry ->
+                    val identity = entry.rotationIdentity()
+                    val exclusion = rotationExclusionIndex.find(identity)
                     HistoryCard(
                         entry = entry,
                         onClick = { onWallpaperClick(entry) },
+                        rotationExcluded = exclusion != null,
+                        onToggleRotationExclusion = {
+                            scope.launch {
+                                if (exclusion != null) {
+                                    rotationExclusionsViewModel.restoreNow(exclusion.stableId)
+                                    snackbarHostState.showSnackbar(
+                                        resources.getString(R.string.rotation_restored_message, entry.wallpaperId),
+                                    )
+                                } else {
+                                    val added = rotationExclusionsViewModel.exclude(identity)
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = resources.getString(R.string.rotation_excluded_message, entry.wallpaperId),
+                                        actionLabel = resources.getString(R.string.common_undo),
+                                        duration = SnackbarDuration.Short,
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        rotationExclusionsViewModel.restoreNow(added.stableId)
+                                    }
+                                }
+                            }
+                        },
                     )
                 }
             }
@@ -110,6 +147,8 @@ fun WallpaperHistoryScreen(
 private fun HistoryCard(
     entry: WallpaperHistoryEntity,
     onClick: () -> Unit,
+    rotationExcluded: Boolean,
+    onToggleRotationExclusion: () -> Unit,
 ) {
     val dateStr = remember(entry.appliedAt) {
         DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(entry.appliedAt))
@@ -143,6 +182,22 @@ private fun HistoryCard(
                         else 0.67f
                     ),
             )
+
+            IconButton(
+                onClick = onToggleRotationExclusion,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+                    .background(Color.Black.copy(alpha = 0.58f), RoundedCornerShape(8.dp)),
+            ) {
+                Icon(
+                    if (rotationExcluded) Icons.Default.Restore else Icons.Default.PlaylistRemove,
+                    contentDescription = stringResource(
+                        if (rotationExcluded) R.string.rotation_restore_action else R.string.rotation_exclude_action,
+                    ),
+                    tint = Color.White,
+                )
+            }
 
             // Bottom overlay
             Column(

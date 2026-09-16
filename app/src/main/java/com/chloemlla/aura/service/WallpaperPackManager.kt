@@ -12,6 +12,8 @@ import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.Wallpaper
 import com.chloemlla.aura.data.model.WallpaperTarget
+import com.chloemlla.aura.data.model.rotationIdentityForLocator
+import com.chloemlla.aura.data.repository.RotationExclusionRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
@@ -100,6 +102,7 @@ class WallpaperPackWorker @AssistedInject constructor(
     private val prefs: PreferencesManager,
     private val wallpaperApplier: WallpaperApplier,
     private val applyCoordinator: WallpaperApplyCoordinator,
+    private val rotationExclusions: RotationExclusionRepository,
     private val receiptStore: BackgroundWorkReceiptStore,
 ) : CoroutineWorker(appContext, workerParams) {
 
@@ -138,6 +141,15 @@ class WallpaperPackWorker @AssistedInject constructor(
 
             val target = runCatching { WallpaperTarget.valueOf(pack.target) }
                 .getOrDefault(WallpaperTarget.BOTH)
+
+            if (rotationExclusions.isExcluded(rotationIdentityForLocator(slot.wallpaperUri, slot.label))) {
+                receiptStore.recordFailure(
+                    uniqueWorkName = WORK_NAME,
+                    errorClass = "RotationItemExcluded",
+                    deferralReason = "The ${slot.daypart.displayName.lowercase()} wallpaper is excluded. Restore it in Settings, Rotation exclusions.",
+                )
+                return Result.success()
+            }
 
             applyCoordinator.apply(
                 wallpaper = wallpaperPackSlotWallpaper(slot.wallpaperUri),

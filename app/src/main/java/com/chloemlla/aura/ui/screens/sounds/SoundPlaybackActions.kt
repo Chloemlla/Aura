@@ -4,6 +4,10 @@ import android.content.Context
 import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.Sound
+import com.chloemlla.aura.data.model.SoundAction
+import com.chloemlla.aura.data.model.SoundActionDecision
+import com.chloemlla.aura.data.model.canUseSoundAction
+import com.chloemlla.aura.data.model.soundLicenseCapabilities
 import com.chloemlla.aura.data.model.stableKey
 import com.chloemlla.aura.service.AudioPlaybackManager
 import com.chloemlla.aura.service.AudioPreviewCache
@@ -44,6 +48,11 @@ internal class SoundPlaybackActions(
 
     fun togglePlayback(sound: Sound) {
         val soundKey = sound.stableKey()
+        val previewCapability = sound.soundLicenseCapabilities().capability(SoundAction.PREVIEW)
+        if (previewCapability.decision == SoundActionDecision.DISABLED) {
+            state.update { it.copy(error = previewCapability.reason) }
+            return
+        }
         if (sound.source == ContentSource.YOUTUBE && !youtubeProviderEnabled.value) {
             state.update { it.copy(error = youtubeDisabledMessage()) }
             return
@@ -103,6 +112,7 @@ internal class SoundPlaybackActions(
         sounds
             .asSequence()
             .filter { it.previewUrl.isNotBlank() }
+            .filter { it.canUseSoundAction(SoundAction.PREVIEW) }
             .filter { it.source != ContentSource.YOUTUBE || youtubeProviderEnabled.value }
             .take(FIRST_VISIBLE_PREVIEW_COUNT)
             .forEach { sound ->

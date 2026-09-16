@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="cache_share_out" path="share_out/" />
+    <files-path name="saved_media_originals" path="media_originals/" />
 </paths>

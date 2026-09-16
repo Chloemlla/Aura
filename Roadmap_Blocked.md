@@ -8,6 +8,48 @@
 
 ---
 
+## Blocker: External Authorization and Legal Review
+
+- **P1 — Move Reddit's core feeds to registered OAuth and deletion reconciliation**
+  - Current state: Reddit is intentionally Aura's default wallpaper and video
+    source, but both feeds use anonymous `.rss` endpoints. The app and its local
+    configuration contain no Reddit OAuth client ID or approved API registration.
+  - Blocker: Reddit must approve and issue the installed-app client identity.
+    Shipping an invented or maintainer-personal identity would not satisfy the
+    API terms or provide a durable release transport.
+  - Resume when the release owner supplies the approved client ID and registered
+    user-agent identity. Implement anonymous installed-client tokens, safe
+    refresh, 401 retry, 429 backoff, paging, deletion reconciliation, diagnostics,
+    and fixtures while keeping Reddit first in wallpaper and video discovery.
+
+- **P0 — Gate YouTube extraction and offline actions by authorization and release channel**
+  - Current state: YouTube-first discovery is intentional. NewPipe and yt-dlp
+    currently resolve, download, convert, and apply streams in GitHub-channel
+    builds, while Play builds exclude YouTube.
+  - Blocker: YouTube's terms require service permission or authorization from
+    YouTube and the applicable rights holder for download behavior. The
+    repository has no written authorization record that an automated change can
+    truthfully substitute for.
+  - Resume when the release owner provides a reviewed authorization record that
+    names permitted channels and actions. Then enforce it in provider capability,
+    repository, download, conversion, wallpaper, and tone paths while retaining
+    official playback and attribution for unapproved actions.
+
+- **P0 — Resolve GPL obligations for the combined APK**
+  - Current state: the MIT repository packages NewPipeExtractor under
+    GPL-3.0-or-later and an FFmpeg payload configured with `--enable-gpl` and
+    `--enable-version3`. Runtime and legal locks also disagree on the pinned
+    NewPipe version.
+  - Blocker: selecting compatible distribution terms or removing the GPL
+    components is a legal decision. Automated edits cannot decide whether the
+    APK is a combined work or what corresponding-source and installation
+    obligations apply.
+  - Resume after counsel or a documented owner legal review selects the path.
+    Apply that decision consistently to the app license, source archive, build
+    scripts, notices, dependency locks, native packet, and release artifacts.
+
+---
+
 ## Blocker: N-1 Toolchain Upgrade (AGP 9 / Gradle 9 / Kotlin 2.3)
 
 N-1 itself is the largest single gate. Until it lands, these items cannot proceed:
@@ -60,6 +102,21 @@ N-1 itself is the largest single gate. Until it lands, these items cannot procee
 ## Blocker: Firebase Console / Owner Actions
 
 These items have code shipped but require Firebase Console access, production RTDB access, or owner-only actions to complete:
+
+- **P3 (residual) — Register the reproducible FOSS lane with rbtlog**
+  - Shipped in the signing-transparency work: the release certificate SHA-256 is
+    published in `README.md`, the Fastlane `full_description.txt`, and
+    `docs/distribution/release-signing.md`, recorded machine-readably in
+    `docs/distribution/signing-certificate.json`, and held there by
+    `tools/signing_certificate_check.py`, which also compares it against the real
+    keystore on a machine that holds one and reports unknown rather than failing
+    on one that does not.
+  - Remaining: submit the reproducible FOSS recipe to
+    codeberg.org/IzzyOnDroid/rbtlog so the reproducible-build badge can be
+    awarded. `tools/foss_reproducibility_check.py` is the recipe.
+  - Blocker: this follows the IzzyOnDroid submission decision, which is itself
+    gated on the ~30 MB per-APK ceiling that the FFmpeg and Python payload still
+    exceeds, and registration is an owner action against an external tracker.
 
 - **P1 — Register Aura for Android developer verification**
   - Install guidance and the register-vs-abstain decision record are complete in
@@ -134,6 +191,32 @@ These items have code shipped but require Firebase Console access, production RT
   - License chips, rights confirmation, source URL, detail display shipped.
   - Remaining: legacy/backfill coverage and callable upload finalization.
 
+- **P1 — Verify and rotate repository-exposed provider credentials**
+  - Category: security
+  - Where: current `app/google-services.json:18`; historical commits
+    `2f2b53a4`, `b275e969`, `d96439fd`, `b17eb50f`,
+    `ed077643`, `de3fb151`, `e958e75b`, and `2c616f12` for
+    Pexels/Pixabay defaults.
+  - Problem: provider keys remain recoverable from public history, and the
+    current Firebase client key is necessarily shipped but its API/package/SHA
+    restrictions cannot be verified from the repository.
+  - Evidence: current-run redacted gitleaks history scan covered 1,105 commits
+    and reported 12 hits: two Firebase client-config revisions plus ten
+    Pexels/Pixabay default-key revisions. No secret value was recorded in this
+    roadmap.
+  - Fix: In the provider consoles, revoke/rotate every historical Pexels/Pixabay
+    key and verify no usage continues. In Google Cloud/Firebase, restrict the
+    Android client key to the package/signing certificate and only required
+    APIs. Add redacted restriction/rotation evidence and a reviewed gitleaks
+    allowlist only for the expected Firebase client config.
+  - Acceptance: Old provider keys receive unauthorized responses; new keys are
+    absent from Git/history and supplied only through the existing local or
+    owner-controlled path; Firebase rejects another package/signing identity;
+    a redacted current/history scan has no unreviewed finding.
+  - Confidence: Needs-repro
+  - Effort: S
+  - Blocker: requires Pexels, Pixabay, Google Cloud, and Firebase owner access.
+
 ---
 
 ## Blocker: Physical Device / Emulator
@@ -183,35 +266,60 @@ These items require adb-connected device or Android 17 emulator testing:
   - Source audit, complete worker ledger, WorkInfo stop-reason diagnostics, and the Android 16 capture packet are implemented.
   - Remaining: capture TOP-started and foreground-service-concurrent quota behavior on a connected Android 16+ device, including compat overrides, jobscheduler/services output, copied support bundle, and override reset evidence.
 
-- **P0 — yt-dlp stable-channel live extraction validation**
-  - The official 2026.07.04 payload, SHA-256 policy gate, packaged-APK proof, minimum-version guard, and rollback/validation unit tests shipped in v6.36.0.
-  - Remaining: exercise the stable update plus a real YouTube extraction on an installable device build and confirm Settings reports the validated active version.
-  - Blocker: the connected phone has Aura signed by a different key, so installing this build would require uninstalling the user's app/data; foreground device automation is not permitted during this session.
+- **P2 — Exercise yt-dlp update promotion and rollback on a disposable device**
+  - Current evidence: real YouTube sound search, extraction, playback, and ringtone
+    apply succeeded on the API 29 Full debug emulator; search, extraction, and
+    playback also succeeded in the installed v6.45.3 build on the S22. This
+    disproves the former P0 missing-runtime/live-extraction claim.
+  - Remaining: stage one accepted and one rejected updater payload, verify
+    Settings reports the validated active version, then prove rollback leaves
+    the prior extractor usable.
+  - Blocker: needs a disposable device profile plus controlled updater payloads;
+    do not replace the differently signed personal-phone installation.
 
 - **P1 — YouTube PO-token live-provider validation**
   - The reviewed bgutil 1.3.1 plugin, SHA-256 install guard, credential-free HTTPS provider setting, yt-dlp request options, explicit extractor failover, and degraded Sounds state shipped in v6.36.0.
   - Remaining: configure a reachable self-hosted HTTPS bgutil endpoint and prove search/playback on a video that fails without a PO token.
   - Blocker: no external provider endpoint is configured, and the connected phone has Aura signed by a different key; replacing it would require uninstalling the user's app/data.
 
-- **P1 — Video SurfaceView BufferQueue device validation**
+- **P2 — Complete the Video SurfaceView BufferQueue soak**
   - Saved Android 16 logs identified PlayerView zoom resizing a decoded 1280x720 stream to a 4117x2316 SurfaceView, followed by Qualcomm output-port configuration failures and two concurrent BufferQueue timeout streams. v6.36.0 now keeps both surfaces at fixed view bounds, moves crop scaling into the codec, and stops the feed player before immersive playback begins.
-  - Remaining: capture two minutes of Videos feed and immersive playback logcat on an installable device build and confirm there is no sustained `dequeueBuffer` timeout or codec-config failure stream.
-  - Blocker: the connected phone has Aura signed by a different key, so installing this build would require uninstalling the user's app/data; foreground device automation is not permitted during this session.
-
-- **P1 — Media3 1.8.0 playback device validation**
-  - ExoPlayer, HLS, sessions, and UI dependencies resolve and build against compileSdk 35, with the full JVM, lint, APK, and Roborazzi matrix green.
-  - Remaining: smoke sound playback, video preview, immersive paging, HLS playback, and video wallpaper apply on an installable device build.
-  - Blocker: the connected phone has Aura signed by a different key, so installing this build would require uninstalling the user's app/data; foreground device automation is not permitted during this session.
+  - Current evidence: Reddit feed and immersive playback worked in the installed
+    S22 production build and API 29 Full debug build with no Aura process error;
+    two animated screenshots and the live-wallpaper service state were captured.
+  - Remaining: capture the original two-minute feed-to-immersive logcat soak on a
+    current debuggable Android 16 image and assert no sustained
+    `dequeueBuffer` or codec-configuration failure.
+  - Blocker: the S22 installation is signed differently and must not be replaced;
+    use a disposable Android 16 image or a matching signed build.
 
 - **P1 — Baseline Profile + Macrobenchmark** (Cycle 1)
-  - Harness shipped 2026-06-04. Remaining: physical-device profile generation + metrics comparison.
-  - Blocker: `adb devices` returns no attached devices.
+  - Harness shipped 2026-06-04. The audit found its obsolete Favorites selector
+    can silently measure the wrong screen; that actionable repair is now in
+    ROADMAP.md.
+  - Remaining after the selector fails closed: physical-device profile
+    generation and before/after metrics comparison.
+  - Blocker: the attached S22 has a differently signed production installation.
+    Use another physical test profile or a matching signed build without
+    replacing personal app data.
 
 - **P1 — Android 17 Contact Picker** (Cycles 4/10)
   - Permission minimization shipped. Remaining: API 37 picker smoke + clear-ringtone validation after Android 17 toolchain.
 
-- **P1 — 200% font, display-size, and contrast audit** (Cycle 5)
-  - Needs manual screenshots at 200% font, Accessibility Scanner contrast/touch-target results.
+- **P2 — Complete the 200% font, display-size, and contrast audit** (Cycle 5)
+  - Verified code/layout defects: helper text is capped and truncates in
+    `SettingsComponents.kt:82-88,141-148,212-219`,
+    `SharedComponents.kt:503-509`, and
+    `LibraryScreen.kt:239,290-305`; the feed history dropdown can overlap
+    search controls at 200 percent in `SharedComponents.kt:401-417`,
+    `WallpapersScreen.kt:519-561`, and `SoundsScreen.kt:495-554`.
+    `UniversalSearchScreen.kt:346-385` already has the measured layout pattern
+    to reuse.
+  - The accessibility gate itself is tracked in ROADMAP.md because it currently
+    passes with the primary scenarios waived. Remaining blocker after that fix:
+    capture every required route and nested dialog in AMOLED/dark/light at 200
+    percent, then run Accessibility Scanner contrast and touch-target checks on
+    a disposable device profile.
 
 - **P2 — Widget and live-wallpaper accessibility/localization coverage** (Cycle 5)
   - Needs widget actions TalkBack pass, keyguard placement, launcher picker inspection.
@@ -247,14 +355,6 @@ These items require adb-connected device or Android 17 emulator testing:
 - **N-5 (remaining)** — Aura Originals bundled CC0 sound pack
   - Infrastructure + manifest schema shipped. Remaining: moderator review pass to curate 200-500 CC0 sound entries into `assets/aura_originals_manifest.json`.
 
-- **P3 — Fate of the four orphaned legacy sound repositories** (Freesound/Audius/CcMixter/SoundCloud)
-  - Blocker: these repository classes are confirmed orphaned (no references outside their own
-    packages), but CLAUDE.md records a deliberate owner decision to keep them "for old saved
-    metadata and future compatibility." Deleting them overrides that documented decision;
-    re-wiring one as an opt-in source is a product/scope call. Both directions need owner
-    judgment, not an autonomous edit. Resolve by either confirming deletion or picking a source
-    to re-wire, then move back to ROADMAP.md.
-
 - **P3 — Microsoft Spotlight daily-image source**
   - Blocker: Microsoft documents Spotlight content endpoints as Windows product endpoints, not
     as a supported public image API with redistribution and attribution terms. Community clients
@@ -266,6 +366,17 @@ These items require adb-connected device or Android 17 emulator testing:
 ---
 
 ## Blocker: Dependent on Other Blocked Items
+
+- **P1 — Make Reddit galleries first-class wallpaper and video items**
+  - Current state: the anonymous Atom feed drops preview-only galleries and does
+    not provide a durable mixed-media child model.
+  - Blocker: the accepted implementation depends on the registered Reddit OAuth
+    response models from the blocked core-feed migration above. Building another
+    parser around the unsupported anonymous feed would create a second transport
+    that must immediately be removed.
+  - Resume after the OAuth transport lands. Preserve post and child identities,
+    attribution, order, dimensions, captions, mixed-media routing, selection,
+    favorites, collections, export, and visible deleted-child states.
 
 - **P2 — Source deletion and takedown reconciliation** (Cycle 3)
   - Room metadata, UI badges, gone classifier shipped.

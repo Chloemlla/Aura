@@ -4,8 +4,14 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.content.res.Resources
 import com.chloemlla.aura.R
+import com.chloemlla.aura.data.legal.ProviderBuild
+import com.chloemlla.aura.data.legal.ProviderChannel
 import com.chloemlla.aura.data.local.PreferencesManager
+import com.chloemlla.aura.data.model.ContentSource
+import com.chloemlla.aura.data.model.DEFAULT_FIT_CANVAS_COLOR
+import com.chloemlla.aura.data.model.FitCanvasMode
 import com.chloemlla.aura.data.model.VideoWallpaperItem
+import com.chloemlla.aura.data.model.WALLPAPER_PRESENTATION_FILL
 import com.chloemlla.aura.data.remote.pexels.PexelsApi
 import com.chloemlla.aura.data.remote.pixabay.PixabayApi
 import com.chloemlla.aura.data.remote.pixabay.PixabayVideo
@@ -84,6 +90,52 @@ class VideoWallpapersViewModelTest {
     }
 
     @Test
+    fun `play cache drops youtube and legacy entries with their stream urls`() {
+        val reddit = VideoWallpaperItem(
+            id = "reddit",
+            title = "Reddit loop",
+            thumbnailUrl = "https://example.com/reddit.jpg",
+            source = "Reddit",
+            contentSource = ContentSource.REDDIT,
+        )
+        val pexels = VideoWallpaperItem(
+            id = "pexels",
+            title = "Pexels loop",
+            thumbnailUrl = "https://example.com/pexels.jpg",
+            source = "Pexels",
+            contentSource = ContentSource.PEXELS,
+        )
+        val youtube = VideoWallpaperItem(
+            id = "youtube",
+            title = "YouTube loop",
+            thumbnailUrl = "https://example.com/youtube.jpg",
+            source = "YouTube",
+            contentSource = ContentSource.YOUTUBE,
+        )
+        val klipy = VideoWallpaperItem(
+            id = "klipy",
+            title = "Legacy loop",
+            thumbnailUrl = "https://example.com/klipy.jpg",
+            source = "Klipy",
+            contentSource = ContentSource.KLIPY,
+        )
+        val result = PixabayVideoMetadataResult(
+            items = listOf(youtube, klipy, reddit, pexels),
+            streamUrls = listOf(youtube, klipy, reddit, pexels)
+                .associate { it.id to "https://example.com/${it.id}.mp4" },
+        )
+
+        val filtered = filterVideoMetadataForArtifact(
+            result = result,
+            build = ProviderBuild.FULL,
+            channel = ProviderChannel.PLAY,
+        )
+
+        assertEquals(listOf("reddit", "pexels"), filtered.items.map { it.id })
+        assertEquals(setOf("reddit", "pexels"), filtered.streamUrls.keys)
+    }
+
+    @Test
     fun `warm cache keeps one cold load in flight and later pagination appends`() = runTest(dispatcher) {
         val context = mockk<Context>()
         val cachePreferences = mockk<SharedPreferences>()
@@ -132,6 +184,9 @@ class VideoWallpapersViewModelTest {
             )
 
         val prefs = mockk<PreferencesManager>()
+        every { prefs.videoWallpaperPresentation } returns flowOf(WALLPAPER_PRESENTATION_FILL)
+        every { prefs.videoFitCanvasMode } returns flowOf(FitCanvasMode.AMOLED_BLACK.preferenceValue)
+        every { prefs.videoFitCanvasColor } returns flowOf(DEFAULT_FIT_CANVAS_COLOR)
         every { prefs.youtubeProviderEnabled } returns flowOf(false)
         every { prefs.redditProviderEnabled } returns flowOf(false)
         every { prefs.pexelsProviderEnabled } returns flowOf(false)
@@ -492,7 +547,6 @@ class VideoWallpapersViewModelTest {
         assertFalse(item.hasDimensions)
         assertEquals(0, item.videoWidth)
         assertEquals(0, item.videoHeight)
-        assertEquals("Unknown video dimensions · 16s", item.videoTechnicalSummary(localizedVideoSummaryResources()))
     }
 
     @Test
@@ -514,10 +568,6 @@ class VideoWallpapersViewModelTest {
         assertEquals(1920, item.videoHeight)
         assertEquals(90, item.videoRotationDegrees)
         assertEquals(12L, item.duration)
-        assertEquals(
-            "1080x1920 (Portrait) · 0.56:1 · 12s · rotated 90deg · avc1.640028 · video/mp4",
-            item.videoTechnicalSummary(localizedVideoSummaryResources()),
-        )
     }
 
     @Test

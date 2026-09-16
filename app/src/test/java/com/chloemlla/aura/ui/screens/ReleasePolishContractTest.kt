@@ -1,6 +1,7 @@
 package com.chloemlla.aura.ui.screens
 
 import java.io.File
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -101,6 +102,60 @@ class ReleasePolishContractTest {
         assertTrue(uploadDialog.contains("imePadding()"))
         assertTrue(uploadDialog.contains("FlowRow("))
         assertTrue(uploadDialog.contains("verticalArrangement = Arrangement.spacedBy(8.dp)"))
+    }
+
+    @Test
+    fun `expanded wallpaper details stay bounded and scroll to every action`() {
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperDetailScreen.kt").readText()
+        val overlay = source
+            .substringAfter("Column(modifier = Modifier.fillMaxSize())")
+            .substringBefore("if (showApplyOptions)")
+
+        assertTrue(source.contains("val detailsScrollState = rememberScrollState()"))
+        assertTrue(overlay.contains("if (!showDetailsPanel) Spacer(Modifier.weight(1f))"))
+        assertTrue(overlay.contains("if (showDetailsPanel) Modifier.weight(1f) else Modifier"))
+        assertTrue(overlay.contains("if (showDetailsPanel) Modifier.verticalScroll(detailsScrollState) else Modifier"))
+        assertTrue(overlay.contains("FlowRow("))
+        assertTrue(overlay.contains("maxItemsInEachRow = 4"))
+        assertTrue(!overlay.contains(".horizontalScroll(scrollState)"))
+    }
+
+    @Test
+    fun `library and settings descriptions remain bounded on phone screens`() {
+        val shared = File("src/main/java/com/chloemlla/aura/ui/components/SharedComponents.kt").readText()
+        val header = shared.substringAfter("fun AuraScreenHeader(").substringBefore("fun SourceBadge(")
+        val settings = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsComponents.kt").readText()
+
+        assertTrue(header.contains("maxLines = 2"))
+        assertTrue(settings.contains("maxLines = 2"))
+        assertTrue(settings.contains("subtitleMaxLines: Int = 2"))
+        assertTrue(settings.contains("maxLines = subtitleMaxLines"))
+    }
+
+    @Test
+    fun `content heavy onboarding pages stay compact and let style copy grow`() {
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/onboarding/OnboardingScreen.kt").readText()
+        val stylePicker = source.substringAfter("private fun StylePickerPage(").substringBefore("private fun ReadyPage(")
+        val pageLayout = source.substringAfter("private fun PageLayout(")
+
+        assertTrue(source.contains(".verticalScroll(rememberScrollState())"))
+        assertTrue(stylePicker.contains(".heightIn(min = 148.dp)"))
+        assertTrue(!stylePicker.contains(".height(132.dp)"))
+        assertTrue(!stylePicker.contains("maxLines = 3"))
+        assertTrue(pageLayout.contains("val hasSupportingContent = content != null"))
+        assertTrue(pageLayout.contains(".size(if (hasSupportingContent) 68.dp else 96.dp)"))
+    }
+
+    @Test
+    fun `video apply guidance uses localized user facing summaries`() {
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpapersScreen.kt").readText()
+        val quality = File("src/main/java/com/chloemlla/aura/ui/screens/videowallpapers/VideoWallpaperQuality.kt").readText()
+
+        assertTrue(source.contains("localizedVideoSummary(item)"))
+        assertTrue(source.contains("video_wp_technical_adaptive_stream"))
+        assertTrue(source.contains("video_wp_badge_loop_safe"))
+        assertTrue(!quality.contains("Unknown video dimensions"))
+        assertTrue(!quality.contains("Loop-safe"))
     }
 
     @Test
@@ -330,6 +385,9 @@ class ReleasePolishContractTest {
         assertTrue(apiDialog.contains(".imePadding()"))
         assertTrue(apiDialog.contains("keyboardType = KeyboardType.Password"))
         assertTrue(apiDialog.contains("imeAction = ImeAction.Done"))
+        assertTrue(apiDialog.contains("PasswordVisualTransformation()"))
+        assertTrue(apiDialog.contains("settings_apikey_show"))
+        assertTrue(apiDialog.contains("settings_apikey_hide"))
         assertTrue(ytQueriesDialog.contains(".verticalScroll(rememberScrollState())"))
         assertTrue(ytQueriesDialog.contains(".imePadding()"))
         assertTrue(ytQueriesDialog.contains("ImeAction.Next"))
@@ -411,12 +469,47 @@ class ReleasePolishContractTest {
     }
 
     @Test
+    fun `empty collections expose creation as a first class action`() {
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/collections/CollectionsScreen.kt").readText()
+        val emptyList = source.substringAfter("// Collection list").substringBefore("LazyColumn(")
+
+        assertTrue(source.contains("fun createCollection(name: String)"))
+        assertTrue(source.contains("private fun CreateCollectionDialog("))
+        assertTrue(source.contains("Icon(Icons.Default.CreateNewFolder, stringResource(R.string.collections_create))"))
+        assertTrue(emptyList.contains("primaryAction = AuraStateAction("))
+        assertTrue(emptyList.contains("showCreateDialog = true"))
+        assertTrue(source.contains("R.string.collections_import_summary"))
+        assertTrue(source.contains("result.skippedCount"))
+        assertTrue(source.contains("result.failedCount"))
+        assertFalse(source.contains("Couldn't import this collection."))
+    }
+
+    @Test
     fun `wallpaper detail horizontal action chips keep labels when clipped`() {
         val source = File("src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpaperDetailScreen.kt").readText()
         val actionPill = source.substringAfter("private fun DetailActionPill(").substringBefore("@OptIn(ExperimentalMaterial3Api::class)")
 
         assertTrue(actionPill.contains("semantics(mergeDescendants = true)"))
         assertTrue(actionPill.contains("contentDescription = label"))
+    }
+
+    @Test
+    fun `wallpaper toolbar hides the overflow menu when it has no actions`() {
+        val source = File("src/main/java/com/chloemlla/aura/ui/screens/wallpapers/WallpapersScreen.kt").readText()
+
+        assertTrue(source.contains("val hasQuickActionsMenu = showGeneratedContentEntry ||"))
+        assertTrue(source.contains("if (hasQuickActionsMenu) {"))
+    }
+
+    @Test
+    fun `categories are localized and require a searchable provider`() {
+        val categories = File("src/main/java/com/chloemlla/aura/ui/screens/categories/CategoriesScreen.kt").readText()
+        val settings = File("src/main/java/com/chloemlla/aura/ui/screens/settings/SettingsWallpaperSection.kt").readText()
+
+        assertTrue(categories.contains("val nameRes: Int"))
+        assertTrue(categories.contains("stringResource(category.nameRes)"))
+        assertTrue(settings.contains("val categoriesAvailable = wallhavenProviderEnabled || pixabayProviderEnabled"))
+        assertTrue(settings.contains("settings_wp_categories_unavailable_feedback"))
     }
 
     @Test

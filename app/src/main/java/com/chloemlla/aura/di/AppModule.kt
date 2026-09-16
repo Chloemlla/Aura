@@ -12,10 +12,12 @@ import com.chloemlla.aura.data.local.FavoriteDao
 import com.chloemlla.aura.data.local.FreeVibeDatabase
 import com.chloemlla.aura.data.local.LocalWallpaperDao
 import com.chloemlla.aura.data.local.LocalWallpaperFolderDao
+import com.chloemlla.aura.data.local.RotationExclusionDao
 import com.chloemlla.aura.data.local.SearchHistoryDao
 import com.chloemlla.aura.data.local.WallpaperCacheDao
 import com.chloemlla.aura.data.local.WallpaperHistoryDao
 import com.chloemlla.aura.data.model.providerRetryAfterHostSuffixes
+import com.chloemlla.aura.data.remote.ProviderAvailabilityInterceptor
 import com.chloemlla.aura.data.remote.RateLimitInterceptor
 import com.chloemlla.aura.data.remote.audius.AudiusApi
 import com.chloemlla.aura.data.remote.bing.BingDailyApi
@@ -117,6 +119,7 @@ object AppModule {
                 })
             }
         }
+        .addInterceptor(ProviderAvailabilityInterceptor())
         .addInterceptor { chain ->
             val original = chain.request()
             val request = if (original.header("User-Agent") == null) {
@@ -329,4 +332,7 @@ object AppModule {
 
     @Provides
     fun provideLocalWallpaperDao(db: FreeVibeDatabase): LocalWallpaperDao = db.localWallpaperDao()
+
+    @Provides
+    fun provideRotationExclusionDao(db: FreeVibeDatabase): RotationExclusionDao = db.rotationExclusionDao()
 }

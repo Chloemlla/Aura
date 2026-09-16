@@ -25,9 +25,11 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Wallpaper
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -38,6 +40,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
@@ -49,13 +52,26 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.chloemlla.aura.BuildConfig
 import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.ContentSource
+import com.chloemlla.aura.data.model.DownloadEntity
+import com.chloemlla.aura.data.model.FitCanvasMode
+import com.chloemlla.aura.data.model.FitCanvasStyle
+import com.chloemlla.aura.data.model.LocalMediaStatus
+import com.chloemlla.aura.data.model.ROTATION_MEDIA_VIDEO
+import com.chloemlla.aura.data.model.ROTATION_MEDIA_WALLPAPER
+import com.chloemlla.aura.data.model.RotationExclusionEntity
+import com.chloemlla.aura.data.model.WALLPAPER_PRESENTATION_FIT
 import com.chloemlla.aura.ui.components.AuraStatusAction
 import com.chloemlla.aura.ui.components.AuraStatusBanner
 import com.chloemlla.aura.ui.components.CompactSearchField
+import com.chloemlla.aura.ui.components.FitCanvasControls
+import com.chloemlla.aura.ui.components.FitCanvasMedia
 import com.chloemlla.aura.ui.components.ShimmerWallpaperGrid
 import com.chloemlla.aura.ui.preview.PREVIEW_SOUNDS
 import com.chloemlla.aura.ui.preview.PREVIEW_WALLPAPERS
+import com.chloemlla.aura.ui.screens.downloads.DownloadHistoryCard
 import com.chloemlla.aura.ui.screens.editor.WallpaperEditorPreview
+import com.chloemlla.aura.ui.screens.settings.RotationExclusionsManagerDialog
+import com.chloemlla.aura.ui.screens.settings.SettingsItem
 import com.chloemlla.aura.ui.screens.settings.SettingsMetric
 import com.chloemlla.aura.ui.screens.settings.SettingsSection
 import com.chloemlla.aura.ui.screens.settings.SettingsToggle
@@ -82,8 +98,13 @@ enum class ProductionRouteScenario(
     WallpapersOfflineEmpty("wallpapers_offline_empty", R.string.wallpapers_empty_default_title),
     SoundDetailReady("sound_detail_ready", R.string.nav_sounds),
     SettingsProviderDisabled("settings_provider_disabled", R.string.nav_settings),
+    SettingsCredentialRecovery("settings_credential_recovery", R.string.settings_services_provider_key_reentry_title),
     VideoWallpapersError("video_wallpapers_error", R.string.nav_videos),
     WallpaperEditorLoading("wallpaper_editor_loading", R.string.editor_wallpaper_title),
+    FitCanvasPreview("fit_canvas_preview", R.string.fit_canvas_controls_title),
+    RotationExclusionsManager("rotation_exclusions_manager", R.string.settings_rotation_exclusions_title),
+    DownloadsMediaCopies("downloads_media_copies", R.string.downloads_optimized_copy),
+    DownloadsMissingMedia("downloads_missing_media", R.string.media_relink_action),
 }
 
 @Composable
@@ -100,17 +121,24 @@ fun ProductionRouteState(
             ProductionRouteScenario.WallpapersOfflineEmpty -> WallpapersOfflineState()
             ProductionRouteScenario.SoundDetailReady -> SoundDetailState()
             ProductionRouteScenario.SettingsProviderDisabled -> SettingsState()
+            ProductionRouteScenario.SettingsCredentialRecovery -> SettingsCredentialRecoveryState()
             ProductionRouteScenario.VideoWallpapersError -> VideoWallpapersState()
             ProductionRouteScenario.WallpaperEditorLoading -> WallpaperEditorState()
+            ProductionRouteScenario.FitCanvasPreview -> FitCanvasPreviewState()
+            ProductionRouteScenario.RotationExclusionsManager -> RotationExclusionsManagerState()
+            ProductionRouteScenario.DownloadsMediaCopies -> DownloadsMediaCopiesState()
+            ProductionRouteScenario.DownloadsMissingMedia -> DownloadsMissingMediaState()
         }
     }
 }
 
 @Composable
-private fun RouteColumn(content: @Composable ColumnScope.() -> Unit) {
+private fun RouteColumn(
+    modifier: Modifier = Modifier.fillMaxSize(),
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
+        modifier = modifier
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -121,7 +149,7 @@ private fun RouteColumn(content: @Composable ColumnScope.() -> Unit) {
 @Composable
 private fun WallpapersGridState() {
     Column(modifier = Modifier.fillMaxSize()) {
-        RouteColumn {
+        RouteColumn(modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.nav_wallpapers), style = MaterialTheme.typography.headlineSmall)
             CompactSearchField(
                 value = "",
@@ -136,7 +164,7 @@ private fun WallpapersGridState() {
                 tone = MaterialTheme.colorScheme.secondary,
             )
         }
-        Box(modifier = Modifier.fillMaxSize().weight(1f)) {
+        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
             WallpaperGrid(
                 wallpapers = PREVIEW_WALLPAPERS,
                 isLoadingMore = false,
@@ -152,7 +180,7 @@ private fun WallpapersGridState() {
 @Composable
 private fun WallpapersOfflineState() {
     Column(modifier = Modifier.fillMaxSize()) {
-        RouteColumn {
+        RouteColumn(modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.nav_wallpapers), style = MaterialTheme.typography.headlineSmall)
             AuraStatusBanner(
                 icon = Icons.Default.CloudOff,
@@ -171,7 +199,7 @@ private fun WallpapersOfflineState() {
                 ),
             )
         }
-        Box(modifier = Modifier.fillMaxSize().weight(1f)) {
+        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
             ShimmerWallpaperGrid(Modifier.fillMaxWidth())
         }
     }
@@ -265,6 +293,31 @@ private fun SettingsState() {
             message = stringResource(R.string.settings_wp_night_variant_on_subtitle),
             tone = MaterialTheme.colorScheme.primary,
         )
+    }
+}
+
+@Composable
+private fun SettingsCredentialRecoveryState() {
+    RouteColumn {
+        Text(stringResource(R.string.nav_settings), style = MaterialTheme.typography.headlineSmall)
+        SettingsSection(
+            title = stringResource(R.string.settings_services_section_title),
+            description = stringResource(R.string.settings_services_section_description),
+        ) {
+            SettingsItem(
+                icon = Icons.Default.Warning,
+                title = stringResource(R.string.settings_services_provider_key_reentry_title),
+                subtitle = stringResource(R.string.settings_services_provider_key_reentry_subtitle),
+                onClick = {},
+                subtitleMaxLines = 4,
+            )
+            SettingsItem(
+                icon = Icons.Default.Key,
+                title = stringResource(R.string.settings_services_wallhaven_key_title),
+                subtitle = stringResource(R.string.settings_services_wallhaven_key_subtitle),
+                onClick = {},
+            )
+        }
     }
 }
 
@@ -370,6 +423,165 @@ private fun WallpaperEditorState() {
             stringResource(R.string.editor_wallpaper_quality_warning_title),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+@Composable
+private fun FitCanvasPreviewState() {
+    val previewBitmap = remember {
+        Bitmap.createBitmap(900, 420, Bitmap.Config.ARGB_8888).apply {
+            val canvas = android.graphics.Canvas(this)
+            canvas.drawColor(android.graphics.Color.rgb(24, 32, 58))
+            val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.rgb(105, 214, 186)
+            }
+            canvas.drawCircle(210f, 210f, 150f, paint)
+            paint.color = android.graphics.Color.rgb(164, 110, 255)
+            canvas.drawCircle(690f, 210f, 180f, paint)
+        }
+    }
+    val style = FitCanvasStyle(FitCanvasMode.BLURRED_EDGE)
+    RouteColumn {
+        Text(stringResource(R.string.fit_canvas_controls_title), style = MaterialTheme.typography.headlineSmall)
+        FitCanvasMedia(
+            model = previewBitmap,
+            presentation = WALLPAPER_PRESENTATION_FIT,
+            style = style,
+            dominantColor = android.graphics.Color.rgb(24, 32, 58),
+            contentDescription = stringResource(R.string.preview_wallpaper_cd),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(610.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color.Black, RoundedCornerShape(8.dp)),
+        )
+        Text(
+            stringResource(R.string.fit_canvas_fit_help),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        FitCanvasControls(
+            presentation = WALLPAPER_PRESENTATION_FIT,
+            style = style,
+            onPresentationChange = {},
+            onStyleChange = {},
+        )
+    }
+}
+
+@Composable
+private fun RotationExclusionsManagerState() {
+    Box(Modifier.fillMaxSize()) {
+        SettingsState()
+        RotationExclusionsManagerDialog(
+            exclusions = listOf(
+                RotationExclusionEntity(
+                    stableId = "WALLPAPER::REDDIT::aurora-lake",
+                    mediaType = ROTATION_MEDIA_WALLPAPER,
+                    source = "REDDIT",
+                    contentId = "aurora-lake",
+                    title = stringResource(R.string.wallpapers_header_curated),
+                    excludedAt = 1_789_070_400_000,
+                ),
+                RotationExclusionEntity(
+                    stableId = "VIDEO::YOUTUBE::forest-rain",
+                    mediaType = ROTATION_MEDIA_VIDEO,
+                    source = "YOUTUBE",
+                    contentId = "forest-rain",
+                    title = stringResource(R.string.nav_videos),
+                    excludedAt = 1_788_984_000_000,
+                ),
+                RotationExclusionEntity(
+                    stableId = "WALLPAPER::LOCAL_HASH::photo",
+                    mediaType = ROTATION_MEDIA_WALLPAPER,
+                    source = "LOCAL",
+                    contentId = "photo",
+                    title = stringResource(R.string.nav_library),
+                    excludedAt = 1_788_897_600_000,
+                ),
+            ),
+            onRestore = {},
+            onRestoreAll = {},
+            onDismiss = {},
+        )
+    }
+}
+
+@Composable
+private fun DownloadsMediaCopiesState() {
+    RouteColumn {
+        Text(stringResource(R.string.downloads_title), style = MaterialTheme.typography.headlineSmall)
+        DownloadHistoryCard(
+            download = DownloadEntity(
+                id = "video:reddit:aurora-loop",
+                source = "REDDIT",
+                type = "VIDEO",
+                localPath = "/media_originals/aurora-loop.webm",
+                name = "Aurora over the mountains",
+                downloadedAt = 1_788_897_600_000,
+                provenanceUrl = "https://www.reddit.com/r/EarthPorn/",
+                originalSha256 = "original-sha256",
+                originalMimeType = "video/webm",
+                originalCodec = "AV1",
+                originalWidth = 3_840,
+                originalHeight = 2_160,
+                originalDurationMs = 18_000,
+                originalSizeBytes = 42L * 1_024L * 1_024L,
+                originalHdr = true,
+                optimizedPath = "/apply_copies/aurora-loop.mp4",
+                optimizedSha256 = "optimized-sha256",
+                optimizedMimeType = "video/mp4",
+                optimizedCodec = "H264",
+                optimizedWidth = 1_920,
+                optimizedHeight = 1_080,
+                optimizedDurationMs = 18_000,
+                optimizedSizeBytes = 9L * 1_024L * 1_024L,
+                optimizationReason = "Compatible H.264 MP4",
+            ),
+            onOpen = {},
+            onDelete = {},
+            onDeleteOptimized = {},
+        )
+        AuraStatusBanner(
+            icon = Icons.Default.Info,
+            title = stringResource(R.string.downloads_original),
+            message = stringResource(R.string.downloads_optimized_deleted),
+            tone = MaterialTheme.colorScheme.secondary,
+        )
+    }
+}
+
+@Composable
+private fun DownloadsMissingMediaState() {
+    RouteColumn {
+        Text(stringResource(R.string.downloads_title), style = MaterialTheme.typography.headlineSmall)
+        AuraStatusBanner(
+            icon = Icons.Default.Warning,
+            title = stringResource(R.string.media_status_missing),
+            message = stringResource(R.string.media_relink_missing_help),
+            tone = MaterialTheme.colorScheme.error,
+        )
+        DownloadHistoryCard(
+            download = DownloadEntity(
+                id = "sound:youtube:morning-birds",
+                source = "YOUTUBE",
+                type = "SOUND",
+                localPath = "content://media/external/audio/missing",
+                name = "Morning birds in the forest",
+                downloadedAt = 1_788_897_600_000,
+                localMediaStatus = LocalMediaStatus.MISSING,
+                localMediaReason = "Local file is missing",
+                provenanceUrl = "https://www.youtube.com/watch?v=example",
+                originalSha256 = "saved-original-sha256",
+                originalMimeType = "audio/mp4",
+                originalCodec = "AAC",
+                originalDurationMs = 28_000,
+                originalSizeBytes = 2L * 1_024L * 1_024L,
+            ),
+            broken = true,
+            onOpen = {},
+            onDelete = {},
+            onRelink = {},
         )
     }
 }

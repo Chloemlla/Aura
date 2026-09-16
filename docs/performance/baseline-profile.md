@@ -38,11 +38,13 @@ Expected artifacts:
 
 The profiles checked in at `app/src/main/generated/baselineProfiles/` predate this fork's package rename, so the 3415 lines naming `com/freevibe` classes address a package the app no longer ships and are inert at runtime; `baseline-prof.txt` and `startup-prof.txt` are also byte-for-byte identical to each other, as they have been since upstream committed them. The remaining ~31000 entries — AndroidX, `java/`, Kotlin, and Google library descriptors — are still valid and still carry the measured startup benefit. Regenerate rather than hand-edit: deleting the files discards those library entries, and rewriting the app-class lines by hand would fabricate coverage nobody measured.
 
-## CI
+## Local evidence
 
-`.github/workflows/performance.yml` is manual and targets a Linux self-hosted runner labeled `self-hosted`, `linux`, `android`, and `physical-device`. GitHub-hosted runners are intentionally not used because they do not provide representative physical-device startup or frame timing.
+Run performance capture locally on a representative physical Android device.
+Emulators and hosted virtual devices do not provide representative startup or
+frame timing.
 
-Attach the uploaded `aura-performance-*` artifact to release notes when it contains both:
+Attach the resulting `aura-performance-*` evidence to release notes when it contains both:
 
 - `StartupBenchmark` results for `CompilationMode.None()` and `CompilationMode.Partial(BaselineProfileMode.Require)`.
-- `GridScrollBenchmark` frame metrics for Wallpapers, Videos, Sounds, and Favorites.
+- `GridScrollBenchmark` frame metrics for Wallpapers, Videos, Sounds, and Library.

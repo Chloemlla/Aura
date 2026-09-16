@@ -260,6 +260,75 @@ object DatabaseMigrations {
         }
     }
 
+    // v17->18: Keep rotation exclusions separate from feed Hide state.
+    val MIGRATION_17_18 = object : Migration(17, 18) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `rotation_exclusions` (" +
+                    "`stableId` TEXT NOT NULL, " +
+                    "`mediaType` TEXT NOT NULL, " +
+                    "`source` TEXT NOT NULL, " +
+                    "`contentId` TEXT NOT NULL, " +
+                    "`contentHash` TEXT NOT NULL DEFAULT '', " +
+                    "`title` TEXT NOT NULL DEFAULT '', " +
+                    "`thumbnailUrl` TEXT NOT NULL DEFAULT '', " +
+                    "`locatorDigest` TEXT NOT NULL DEFAULT '', " +
+                    "`excludedAt` INTEGER NOT NULL, " +
+                    "PRIMARY KEY(`stableId`))",
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_rotation_exclusions_mediaType` ON `rotation_exclusions` (`mediaType`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_rotation_exclusions_source` ON `rotation_exclusions` (`source`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_rotation_exclusions_contentHash` ON `rotation_exclusions` (`contentHash`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_rotation_exclusions_excludedAt` ON `rotation_exclusions` (`excludedAt`)")
+        }
+    }
+
+    // v18->19: Keep untouched saved media separate from device-optimized apply copies.
+    val MIGRATION_18_19 = object : Migration(18, 19) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `provenanceUrl` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `originalSha256` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `originalMimeType` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `originalCodec` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `originalWidth` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `originalHeight` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `originalDurationMs` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `originalSizeBytes` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `originalHdr` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedPath` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedSha256` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedMimeType` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedCodec` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedWidth` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedHeight` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedDurationMs` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedSizeBytes` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedHdr` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizationKey` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizationReason` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `optimizedAt` INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
+    // v19->20: Preserve broken local locators and make them safely relinkable.
+    val MIGRATION_19_20 = object : Migration(19, 20) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `favorites` ADD COLUMN `localMediaStatus` TEXT NOT NULL DEFAULT 'AVAILABLE'")
+            db.execSQL("ALTER TABLE `favorites` ADD COLUMN `localMediaReason` TEXT DEFAULT NULL")
+            db.execSQL("ALTER TABLE `favorites` ADD COLUMN `localMediaSha256` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `localMediaStatus` TEXT NOT NULL DEFAULT 'AVAILABLE'")
+            db.execSQL("ALTER TABLE `downloads` ADD COLUMN `localMediaReason` TEXT DEFAULT NULL")
+            db.execSQL("ALTER TABLE `local_wallpapers` ADD COLUMN `stableId` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("UPDATE `local_wallpapers` SET `stableId` = `documentUri` WHERE `stableId` = ''")
+            db.execSQL("ALTER TABLE `local_wallpapers` ADD COLUMN `width` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `local_wallpapers` ADD COLUMN `height` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE `local_wallpapers` ADD COLUMN `localMediaStatus` TEXT NOT NULL DEFAULT 'AVAILABLE'")
+            db.execSQL("ALTER TABLE `local_wallpapers` ADD COLUMN `localMediaReason` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `local_wallpapers` ADD COLUMN `isStandalone` INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_local_wallpapers_stableId` ON `local_wallpapers` (`stableId`)")
+        }
+    }
+
     val ALL_MIGRATIONS = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
@@ -277,5 +346,8 @@ object DatabaseMigrations {
         MIGRATION_14_15,
         MIGRATION_15_16,
         MIGRATION_16_17,
+        MIGRATION_17_18,
+        MIGRATION_18_19,
+        MIGRATION_19_20,
     )
 }

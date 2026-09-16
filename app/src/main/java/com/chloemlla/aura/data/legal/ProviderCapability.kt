@@ -1,6 +1,8 @@
 package com.chloemlla.aura.data.legal
 
+import com.chloemlla.aura.BuildConfig
 import com.chloemlla.aura.data.model.ContentSource
+import java.util.Locale
 
 /**
  * Where a source sits in its life: this is what decides whether Aura is allowed
@@ -56,6 +58,33 @@ enum class ProviderHealth {
     OFFLINE,
 }
 
+/** Media catalogs or personalization surfaces a provider can contribute to. */
+enum class ProviderMediaType { WALLPAPER, VIDEO, SOUND }
+
+/**
+ * User actions a provider may expose. Item-level licensing and runtime state can
+ * still narrow this upper bound for an individual result.
+ */
+enum class ProviderAction {
+    BROWSE,
+    SEARCH,
+    PREVIEW,
+    FAVORITE,
+    DOWNLOAD,
+    APPLY,
+    EDIT,
+    SHARE,
+    IMPORT,
+    GENERATE,
+    UPLOAD,
+    VOTE,
+    REPORT,
+    OPEN_SOURCE,
+    VIEW_SAVED,
+    REMOVE_SAVED,
+    BUNDLE,
+}
+
 /**
  * The single source of truth for what a [ContentSource] is and is allowed to do.
  *
@@ -68,6 +97,12 @@ enum class ProviderHealth {
  */
 data class ProviderCapability(
     val source: ContentSource,
+    /** Media types this provider can supply or modify. */
+    val mediaTypes: Set<ProviderMediaType>,
+    /** Lower values appear earlier in each media feed. */
+    val defaultPriority: Map<ProviderMediaType, Int>,
+    /** Provider-level action ceiling before per-item policy is applied. */
+    val permittedActions: Set<ProviderAction>,
     val lifecycle: ProviderLifecycle,
     /** Builds this source can operate in. FOSS drops the Firebase-backed ones. */
     val builds: Set<ProviderBuild>,
@@ -88,6 +123,17 @@ data class ProviderCapability(
     /** Ids in `docs/security/network-endpoints.json` this source owns. */
     val endpointIds: Set<String>,
 ) {
+    init {
+        require(mediaTypes.isNotEmpty()) { "${source.name} must declare at least one media type" }
+        require(defaultPriority.keys == mediaTypes) {
+            "${source.name} priorities must cover exactly its declared media types"
+        }
+        require(defaultPriority.values.all { it >= 0 }) {
+            "${source.name} priorities must be non-negative"
+        }
+        require(permittedActions.isNotEmpty()) { "${source.name} must permit at least one action" }
+    }
+
     /** True when the source may originate a new network request. */
     val canFetch: Boolean
         get() = lifecycle != ProviderLifecycle.LEGACY && health == ProviderHealth.NETWORKED
@@ -95,6 +141,12 @@ data class ProviderCapability(
     fun availableIn(build: ProviderBuild): Boolean = build in builds
 
     fun availableOn(channel: ProviderChannel): Boolean = channel in channels
+
+    fun availableIn(build: ProviderBuild, channel: ProviderChannel): Boolean =
+        availableIn(build) && availableOn(channel) && lifecycle != ProviderLifecycle.LEGACY
+
+    fun priorityFor(mediaType: ProviderMediaType): Int =
+        defaultPriority[mediaType] ?: Int.MAX_VALUE
 }
 
 private val ALL_BUILDS = setOf(ProviderBuild.FULL, ProviderBuild.FOSS)
@@ -106,8 +158,22 @@ private val GITHUB_ONLY = setOf(ProviderChannel.GITHUB)
  * Shorthand for the many sources that are dormant: no feed, no endpoints, no
  * switch, present only so saved records keep their provenance.
  */
-private fun legacy(source: ContentSource) = ProviderCapability(
+private const val LEGACY_PRIORITY = 1_000
+
+private val LEGACY_ACTIONS = setOf(
+    ProviderAction.VIEW_SAVED,
+    ProviderAction.REMOVE_SAVED,
+    ProviderAction.OPEN_SOURCE,
+)
+
+private fun legacy(
+    source: ContentSource,
+    vararg mediaTypes: ProviderMediaType,
+) = ProviderCapability(
     source = source,
+    mediaTypes = mediaTypes.toSet(),
+    defaultPriority = mediaTypes.associateWith { LEGACY_PRIORITY },
+    permittedActions = LEGACY_ACTIONS,
     lifecycle = ProviderLifecycle.LEGACY,
     builds = ALL_BUILDS,
     channels = ALL_CHANNELS,
@@ -123,6 +189,18 @@ private fun legacy(source: ContentSource) = ProviderCapability(
 val providerCapabilities: List<ProviderCapability> = listOf(
     ProviderCapability(
         source = ContentSource.WALLHAVEN,
+        mediaTypes = setOf(ProviderMediaType.WALLPAPER),
+        defaultPriority = mapOf(ProviderMediaType.WALLPAPER to 10),
+        permittedActions = setOf(
+            ProviderAction.BROWSE,
+            ProviderAction.SEARCH,
+            ProviderAction.FAVORITE,
+            ProviderAction.DOWNLOAD,
+            ProviderAction.APPLY,
+            ProviderAction.EDIT,
+            ProviderAction.SHARE,
+            ProviderAction.OPEN_SOURCE,
+        ),
         lifecycle = ProviderLifecycle.ACTIVE,
         builds = ALL_BUILDS,
         channels = ALL_CHANNELS,
@@ -130,13 +208,23 @@ val providerCapabilities: List<ProviderCapability> = listOf(
         permission = ProviderPermission.NONE,
         health = ProviderHealth.NETWORKED,
         requiresAttribution = true,
-        enabledByDefault = true,
+        enabledByDefault = false,
         killSwitchKey = "wallhaven_provider_enabled",
         endpointIds = setOf("wallhaven-api"),
     ),
-    legacy(ContentSource.PICSUM),
+    legacy(ContentSource.PICSUM, ProviderMediaType.WALLPAPER),
     ProviderCapability(
         source = ContentSource.BING,
+        mediaTypes = setOf(ProviderMediaType.WALLPAPER),
+        defaultPriority = mapOf(ProviderMediaType.WALLPAPER to 40),
+        permittedActions = setOf(
+            ProviderAction.BROWSE,
+            ProviderAction.FAVORITE,
+            ProviderAction.DOWNLOAD,
+            ProviderAction.APPLY,
+            ProviderAction.EDIT,
+            ProviderAction.OPEN_SOURCE,
+        ),
         lifecycle = ProviderLifecycle.ACTIVE,
         builds = ALL_BUILDS,
         channels = ALL_CHANNELS,
@@ -144,12 +232,23 @@ val providerCapabilities: List<ProviderCapability> = listOf(
         permission = ProviderPermission.NONE,
         health = ProviderHealth.NETWORKED,
         requiresAttribution = true,
-        enabledByDefault = true,
+        enabledByDefault = false,
         killSwitchKey = "bing_provider_enabled",
         endpointIds = setOf("bing-daily"),
     ),
     ProviderCapability(
         source = ContentSource.WIKIMEDIA,
+        mediaTypes = setOf(ProviderMediaType.WALLPAPER),
+        defaultPriority = mapOf(ProviderMediaType.WALLPAPER to 50),
+        permittedActions = setOf(
+            ProviderAction.BROWSE,
+            ProviderAction.FAVORITE,
+            ProviderAction.DOWNLOAD,
+            ProviderAction.APPLY,
+            ProviderAction.EDIT,
+            ProviderAction.SHARE,
+            ProviderAction.OPEN_SOURCE,
+        ),
         lifecycle = ProviderLifecycle.ACTIVE,
         builds = ALL_BUILDS,
         channels = ALL_CHANNELS,
@@ -161,22 +260,47 @@ val providerCapabilities: List<ProviderCapability> = listOf(
         killSwitchKey = null,
         endpointIds = setOf("wikimedia-potd"),
     ),
-    legacy(ContentSource.INTERNET_ARCHIVE),
+    legacy(ContentSource.INTERNET_ARCHIVE, ProviderMediaType.SOUND),
     ProviderCapability(
         source = ContentSource.REDDIT,
-        lifecycle = ProviderLifecycle.LEGACY,
+        mediaTypes = setOf(ProviderMediaType.WALLPAPER, ProviderMediaType.VIDEO),
+        defaultPriority = mapOf(
+            ProviderMediaType.WALLPAPER to 0,
+            ProviderMediaType.VIDEO to 0,
+        ),
+        permittedActions = setOf(
+            ProviderAction.BROWSE,
+            ProviderAction.PREVIEW,
+            ProviderAction.FAVORITE,
+            ProviderAction.DOWNLOAD,
+            ProviderAction.APPLY,
+            ProviderAction.SHARE,
+            ProviderAction.OPEN_SOURCE,
+        ),
+        lifecycle = ProviderLifecycle.ACTIVE,
         builds = ALL_BUILDS,
         channels = ALL_CHANNELS,
         configuration = ProviderConfiguration.NONE,
         permission = ProviderPermission.NONE,
-        health = ProviderHealth.OFFLINE,
+        health = ProviderHealth.NETWORKED,
         requiresAttribution = true,
-        enabledByDefault = false,
+        enabledByDefault = true,
         killSwitchKey = "reddit_provider_enabled",
         endpointIds = setOf("reddit-rss"),
     ),
     ProviderCapability(
         source = ContentSource.NASA,
+        mediaTypes = setOf(ProviderMediaType.WALLPAPER),
+        defaultPriority = mapOf(ProviderMediaType.WALLPAPER to 60),
+        permittedActions = setOf(
+            ProviderAction.BROWSE,
+            ProviderAction.FAVORITE,
+            ProviderAction.DOWNLOAD,
+            ProviderAction.APPLY,
+            ProviderAction.EDIT,
+            ProviderAction.SHARE,
+            ProviderAction.OPEN_SOURCE,
+        ),
         lifecycle = ProviderLifecycle.ACTIVE,
         builds = ALL_BUILDS,
         channels = ALL_CHANNELS,
@@ -190,10 +314,13 @@ val providerCapabilities: List<ProviderCapability> = listOf(
     ),
     ProviderCapability(
         source = ContentSource.FREESOUND,
+        mediaTypes = setOf(ProviderMediaType.SOUND),
+        defaultPriority = mapOf(ProviderMediaType.SOUND to LEGACY_PRIORITY),
+        permittedActions = LEGACY_ACTIONS,
         lifecycle = ProviderLifecycle.LEGACY,
         builds = ALL_BUILDS,
         channels = ALL_CHANNELS,
-        configuration = ProviderConfiguration.OPTIONAL_KEY,
+        configuration = ProviderConfiguration.NONE,
         permission = ProviderPermission.NONE,
         health = ProviderHealth.OFFLINE,
         requiresAttribution = true,
@@ -201,9 +328,12 @@ val providerCapabilities: List<ProviderCapability> = listOf(
         killSwitchKey = null,
         endpointIds = setOf("freesound-v2", "openverse-audio"),
     ),
-    legacy(ContentSource.JAMENDO),
+    legacy(ContentSource.JAMENDO, ProviderMediaType.SOUND),
     ProviderCapability(
         source = ContentSource.AUDIUS,
+        mediaTypes = setOf(ProviderMediaType.SOUND),
+        defaultPriority = mapOf(ProviderMediaType.SOUND to LEGACY_PRIORITY),
+        permittedActions = LEGACY_ACTIONS,
         lifecycle = ProviderLifecycle.LEGACY,
         builds = ALL_BUILDS,
         channels = ALL_CHANNELS,
@@ -217,6 +347,9 @@ val providerCapabilities: List<ProviderCapability> = listOf(
     ),
     ProviderCapability(
         source = ContentSource.CCMIXTER,
+        mediaTypes = setOf(ProviderMediaType.SOUND),
+        defaultPriority = mapOf(ProviderMediaType.SOUND to LEGACY_PRIORITY),
+        permittedActions = LEGACY_ACTIONS,
         lifecycle = ProviderLifecycle.LEGACY,
         builds = ALL_BUILDS,
         channels = ALL_CHANNELS,
@@ -230,6 +363,26 @@ val providerCapabilities: List<ProviderCapability> = listOf(
     ),
     ProviderCapability(
         source = ContentSource.LOCAL,
+        mediaTypes = setOf(
+            ProviderMediaType.WALLPAPER,
+            ProviderMediaType.VIDEO,
+            ProviderMediaType.SOUND,
+        ),
+        defaultPriority = mapOf(
+            ProviderMediaType.WALLPAPER to 90,
+            ProviderMediaType.VIDEO to 90,
+            ProviderMediaType.SOUND to 90,
+        ),
+        permittedActions = setOf(
+            ProviderAction.IMPORT,
+            ProviderAction.PREVIEW,
+            ProviderAction.FAVORITE,
+            ProviderAction.APPLY,
+            ProviderAction.EDIT,
+            ProviderAction.SHARE,
+            ProviderAction.REMOVE_SAVED,
+            ProviderAction.DOWNLOAD,
+        ),
         lifecycle = ProviderLifecycle.LOCAL,
         builds = ALL_BUILDS,
         channels = ALL_CHANNELS,
@@ -243,6 +396,22 @@ val providerCapabilities: List<ProviderCapability> = listOf(
     ),
     ProviderCapability(
         source = ContentSource.YOUTUBE,
+        mediaTypes = setOf(ProviderMediaType.SOUND, ProviderMediaType.VIDEO),
+        defaultPriority = mapOf(
+            ProviderMediaType.SOUND to 0,
+            ProviderMediaType.VIDEO to 10,
+        ),
+        permittedActions = setOf(
+            ProviderAction.BROWSE,
+            ProviderAction.SEARCH,
+            ProviderAction.PREVIEW,
+            ProviderAction.IMPORT,
+            ProviderAction.FAVORITE,
+            ProviderAction.DOWNLOAD,
+            ProviderAction.APPLY,
+            ProviderAction.SHARE,
+            ProviderAction.OPEN_SOURCE,
+        ),
         lifecycle = ProviderLifecycle.ACTIVE,
         builds = ALL_BUILDS,
         // Aura's own YouTube risk profile keeps extraction off Play until the
@@ -258,37 +427,72 @@ val providerCapabilities: List<ProviderCapability> = listOf(
     ),
     ProviderCapability(
         source = ContentSource.PEXELS,
+        mediaTypes = setOf(ProviderMediaType.WALLPAPER, ProviderMediaType.VIDEO),
+        defaultPriority = mapOf(
+            ProviderMediaType.WALLPAPER to 20,
+            ProviderMediaType.VIDEO to 20,
+        ),
+        permittedActions = setOf(
+            ProviderAction.BROWSE,
+            ProviderAction.SEARCH,
+            ProviderAction.PREVIEW,
+            ProviderAction.FAVORITE,
+            ProviderAction.DOWNLOAD,
+            ProviderAction.APPLY,
+            ProviderAction.EDIT,
+            ProviderAction.SHARE,
+            ProviderAction.OPEN_SOURCE,
+        ),
         lifecycle = ProviderLifecycle.ACTIVE,
         builds = ALL_BUILDS,
         channels = ALL_CHANNELS,
-        configuration = ProviderConfiguration.OPTIONAL_KEY,
+        configuration = ProviderConfiguration.REQUIRED_KEY,
         permission = ProviderPermission.NONE,
         health = ProviderHealth.NETWORKED,
         requiresAttribution = true,
-        enabledByDefault = true,
+        enabledByDefault = false,
         killSwitchKey = "pexels_provider_enabled",
         endpointIds = setOf("pexels-api"),
     ),
     ProviderCapability(
         source = ContentSource.PIXABAY,
+        mediaTypes = setOf(ProviderMediaType.WALLPAPER, ProviderMediaType.VIDEO),
+        defaultPriority = mapOf(
+            ProviderMediaType.WALLPAPER to 30,
+            ProviderMediaType.VIDEO to 30,
+        ),
+        permittedActions = setOf(
+            ProviderAction.BROWSE,
+            ProviderAction.SEARCH,
+            ProviderAction.PREVIEW,
+            ProviderAction.FAVORITE,
+            ProviderAction.DOWNLOAD,
+            ProviderAction.APPLY,
+            ProviderAction.EDIT,
+            ProviderAction.SHARE,
+            ProviderAction.OPEN_SOURCE,
+        ),
         lifecycle = ProviderLifecycle.ACTIVE,
         builds = ALL_BUILDS,
         channels = ALL_CHANNELS,
-        configuration = ProviderConfiguration.OPTIONAL_KEY,
+        configuration = ProviderConfiguration.REQUIRED_KEY,
         permission = ProviderPermission.NONE,
         health = ProviderHealth.NETWORKED,
         requiresAttribution = true,
-        enabledByDefault = true,
+        enabledByDefault = false,
         killSwitchKey = "pixabay_provider_enabled",
         endpointIds = setOf("pixabay-api"),
     ),
-    legacy(ContentSource.KLIPY),
+    legacy(ContentSource.KLIPY, ProviderMediaType.VIDEO),
     ProviderCapability(
         source = ContentSource.SOUNDCLOUD,
+        mediaTypes = setOf(ProviderMediaType.SOUND),
+        defaultPriority = mapOf(ProviderMediaType.SOUND to LEGACY_PRIORITY),
+        permittedActions = LEGACY_ACTIONS,
         lifecycle = ProviderLifecycle.LEGACY,
         builds = ALL_BUILDS,
         channels = ALL_CHANNELS,
-        configuration = ProviderConfiguration.REQUIRED_KEY,
+        configuration = ProviderConfiguration.NONE,
         permission = ProviderPermission.NONE,
         health = ProviderHealth.OFFLINE,
         requiresAttribution = true,
@@ -298,6 +502,24 @@ val providerCapabilities: List<ProviderCapability> = listOf(
     ),
     ProviderCapability(
         source = ContentSource.COMMUNITY,
+        mediaTypes = setOf(ProviderMediaType.WALLPAPER, ProviderMediaType.SOUND),
+        defaultPriority = mapOf(
+            ProviderMediaType.WALLPAPER to 80,
+            ProviderMediaType.SOUND to 20,
+        ),
+        permittedActions = setOf(
+            ProviderAction.BROWSE,
+            ProviderAction.PREVIEW,
+            ProviderAction.FAVORITE,
+            ProviderAction.DOWNLOAD,
+            ProviderAction.APPLY,
+            ProviderAction.EDIT,
+            ProviderAction.SHARE,
+            ProviderAction.UPLOAD,
+            ProviderAction.VOTE,
+            ProviderAction.REPORT,
+            ProviderAction.OPEN_SOURCE,
+        ),
         lifecycle = ProviderLifecycle.COMMUNITY,
         // Firebase is compiled out of the FOSS flavor.
         builds = FULL_ONLY,
@@ -314,6 +536,18 @@ val providerCapabilities: List<ProviderCapability> = listOf(
     ),
     ProviderCapability(
         source = ContentSource.BUNDLED,
+        mediaTypes = setOf(ProviderMediaType.SOUND),
+        defaultPriority = mapOf(ProviderMediaType.SOUND to 10),
+        permittedActions = setOf(
+            ProviderAction.BROWSE,
+            ProviderAction.PREVIEW,
+            ProviderAction.FAVORITE,
+            ProviderAction.DOWNLOAD,
+            ProviderAction.APPLY,
+            ProviderAction.EDIT,
+            ProviderAction.SHARE,
+            ProviderAction.BUNDLE,
+        ),
         lifecycle = ProviderLifecycle.ACTIVE,
         builds = ALL_BUILDS,
         channels = ALL_CHANNELS,
@@ -327,6 +561,16 @@ val providerCapabilities: List<ProviderCapability> = listOf(
     ),
     ProviderCapability(
         source = ContentSource.AI_GENERATED,
+        mediaTypes = setOf(ProviderMediaType.WALLPAPER),
+        defaultPriority = mapOf(ProviderMediaType.WALLPAPER to 100),
+        permittedActions = setOf(
+            ProviderAction.GENERATE,
+            ProviderAction.FAVORITE,
+            ProviderAction.DOWNLOAD,
+            ProviderAction.APPLY,
+            ProviderAction.EDIT,
+            ProviderAction.SHARE,
+        ),
         lifecycle = ProviderLifecycle.GENERATED,
         builds = FULL_ONLY,
         channels = ALL_CHANNELS,
@@ -340,6 +584,9 @@ val providerCapabilities: List<ProviderCapability> = listOf(
     ),
     ProviderCapability(
         source = ContentSource.OPEN_METEO,
+        mediaTypes = setOf(ProviderMediaType.WALLPAPER),
+        defaultPriority = mapOf(ProviderMediaType.WALLPAPER to 110),
+        permittedActions = setOf(ProviderAction.APPLY),
         lifecycle = ProviderLifecycle.ACTIVE,
         builds = ALL_BUILDS,
         channels = ALL_CHANNELS,
@@ -353,6 +600,16 @@ val providerCapabilities: List<ProviderCapability> = listOf(
     ),
     ProviderCapability(
         source = ContentSource.LEMMY,
+        mediaTypes = setOf(ProviderMediaType.WALLPAPER),
+        defaultPriority = mapOf(ProviderMediaType.WALLPAPER to 70),
+        permittedActions = setOf(
+            ProviderAction.BROWSE,
+            ProviderAction.FAVORITE,
+            ProviderAction.DOWNLOAD,
+            ProviderAction.APPLY,
+            ProviderAction.SHARE,
+            ProviderAction.OPEN_SOURCE,
+        ),
         lifecycle = ProviderLifecycle.ACTIVE,
         builds = ALL_BUILDS,
         channels = ALL_CHANNELS,
@@ -372,6 +629,85 @@ val providerCapabilitiesBySource: Map<ContentSource, ProviderCapability> =
 /** The registry entry for [source]; every enum value has exactly one. */
 fun providerCapability(source: ContentSource): ProviderCapability =
     providerCapabilitiesBySource.getValue(source)
+
+/** Build and channel carried by the installed artifact, not a mutable user preference. */
+val currentProviderBuild: ProviderBuild
+    get() = if (BuildConfig.FOSS_BUILD) ProviderBuild.FOSS else ProviderBuild.FULL
+
+val currentProviderChannel: ProviderChannel
+    get() = providerChannel(BuildConfig.AURA_RELEASE_CHANNEL)
+
+internal fun providerChannel(raw: String): ProviderChannel = when (raw.lowercase(Locale.ROOT)) {
+    "github" -> ProviderChannel.GITHUB
+    "play" -> ProviderChannel.PLAY
+    else -> error("Unsupported provider release channel: $raw")
+}
+
+fun isProviderAvailableInCurrentArtifact(source: ContentSource): Boolean =
+    providerCapability(source).availableIn(currentProviderBuild, currentProviderChannel)
+
+fun isProviderActionPermitted(source: ContentSource, action: ProviderAction): Boolean =
+    isProviderActionPermittedIn(
+        source = source,
+        action = action,
+        build = currentProviderBuild,
+        channel = currentProviderChannel,
+    )
+
+internal fun isProviderActionPermittedIn(
+    source: ContentSource,
+    action: ProviderAction,
+    build: ProviderBuild,
+    channel: ProviderChannel,
+): Boolean {
+    val capability = providerCapability(source)
+    if (action !in capability.permittedActions) return false
+    return capability.lifecycle == ProviderLifecycle.LEGACY || capability.availableIn(build, channel)
+}
+
+/** Providers offered for [mediaType], ordered exactly as their default feed policy. */
+fun orderedProviderCapabilities(
+    mediaType: ProviderMediaType,
+    build: ProviderBuild,
+    channel: ProviderChannel,
+    includeLegacy: Boolean = false,
+): List<ProviderCapability> = providerCapabilities
+    .asSequence()
+    .filter { mediaType in it.mediaTypes }
+    .filter { it.availableIn(build) && it.availableOn(channel) }
+    .filter { includeLegacy || it.lifecycle != ProviderLifecycle.LEGACY }
+    .sortedWith(compareBy({ it.priorityFor(mediaType) }, { it.source.name }))
+    .toList()
+
+/** Provider order used by live feed ranking for the installed artifact. */
+fun orderedCurrentProviderCapabilities(
+    mediaType: ProviderMediaType,
+    includeLegacy: Boolean = false,
+): List<ProviderCapability> = orderedProviderCapabilities(
+    mediaType = mediaType,
+    build = currentProviderBuild,
+    channel = currentProviderChannel,
+    includeLegacy = includeLegacy,
+)
+
+/** Small quality-score bias derived from the manifest priority rather than a second source table. */
+fun currentProviderPriorityBonus(source: ContentSource, mediaType: ProviderMediaType): Int {
+    val capability = providerCapability(source)
+    if (!capability.availableIn(currentProviderBuild, currentProviderChannel) || mediaType !in capability.mediaTypes) {
+        return 0
+    }
+    return (30 - capability.priorityFor(mediaType)).coerceAtLeast(0)
+}
+
+/** Stable provider order for user-facing catalog and legal menus. */
+val providerCatalogCapabilities: List<ProviderCapability> = providerCapabilities.sortedWith(
+    compareBy<ProviderCapability>(
+        { if (it.source == ContentSource.REDDIT) 0 else 1 },
+        { if (it.lifecycle == ProviderLifecycle.LEGACY) 1 else 0 },
+        { it.defaultPriority.values.minOrNull() ?: Int.MAX_VALUE },
+        { it.source.name },
+    ),
+)
 
 /**
  * Disclosure status implied by a lifecycle. Keeps `ProviderDisclosure.status`

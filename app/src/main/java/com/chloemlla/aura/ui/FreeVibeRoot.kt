@@ -30,6 +30,8 @@ import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.Sound
 import com.chloemlla.aura.data.model.Wallpaper
+import com.chloemlla.aura.data.model.WallpaperAction
+import com.chloemlla.aura.data.model.wallpaperLicenseCapabilities
 import com.chloemlla.aura.data.remote.toSound
 import com.chloemlla.aura.data.remote.toWallpaper
 import com.chloemlla.aura.ui.navigation.LocalAuraNavigationLayout
@@ -65,6 +67,8 @@ import com.chloemlla.aura.ui.screens.wallpapers.WallpaperDetailScreen
 import com.chloemlla.aura.ui.screens.wallpapers.WallpapersScreen
 import com.chloemlla.aura.ui.components.AuraSnackbarHost
 import com.chloemlla.aura.ui.components.CountBadge
+import com.chloemlla.aura.ui.screens.wallpapers.canApplyFromWallpaperPreview
+import com.chloemlla.aura.ui.screens.wallpapers.wallpaperLicenseReasonRes
 
 @EntryPoint
 @InstallIn(SingletonComponent::class)
@@ -805,12 +809,29 @@ fun FreeVibeRoot(
                 com.chloemlla.aura.ui.screens.wallpapers.WallpaperPreviewScreen(
                     wallpaper = wallpaper,
                     onBack = { navController.popBackStack() },
-                    onApply = { target ->
+                    onApply = previewApply@{ target, fitCanvasStyle ->
+                        if (!canApplyFromWallpaperPreview(wallpaper)) {
+                            val capabilities = wallpaper.wallpaperLicenseCapabilities()
+                            entryPoint.applyFeedbackBus().post(
+                                com.chloemlla.aura.service.ApplyFeedbackEvent(
+                                    message = resources.getString(
+                                        wallpaperLicenseReasonRes(capabilities.capability(WallpaperAction.APPLY).reason),
+                                        capabilities.normalizedLicense,
+                                    ),
+                                    undoTarget = null,
+                                ),
+                            )
+                            return@previewApply
+                        }
                         // Kick off the apply in the root composition scope (survives pop)
                         // so the bitmap download + WallpaperManager call complete even if
                         // the preview destination is removed from the back stack first.
                         scope.launch {
-                            entryPoint.wallpaperApplier().applyFromUrl(wallpaper.fullUrl, target)
+                            entryPoint.wallpaperApplier().applyFromUrl(
+                                url = wallpaper.fullUrl,
+                                target = target,
+                                fitCanvasStyle = fitCanvasStyle,
+                            )
                                 .onSuccess {
                                     entryPoint.wallpaperHistoryManager().record(wallpaper, target)
                                     val undoTarget = entryPoint.wallpaperHistoryManager().previousSnapshot()

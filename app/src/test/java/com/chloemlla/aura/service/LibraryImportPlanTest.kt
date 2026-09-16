@@ -1,11 +1,26 @@
 package com.chloemlla.aura.service
 
 import android.content.Context
+import android.net.Uri
 import androidx.room.Room
 import com.chloemlla.aura.data.local.FreeVibeDatabase
 import com.chloemlla.aura.data.local.PreferencesManager
+import com.chloemlla.aura.data.model.FitCanvasMode
+import com.chloemlla.aura.data.model.FitCanvasStyle
 import com.chloemlla.aura.data.model.WallpaperCollectionEntity
 import com.chloemlla.aura.data.model.WallpaperCollectionItemEntity
+import com.chloemlla.aura.data.model.FitCanvasPreferences
+import com.chloemlla.aura.data.model.ContentSource
+import com.chloemlla.aura.data.model.FavoriteEntity
+import com.chloemlla.aura.data.model.LocalMediaStatus
+import com.chloemlla.aura.data.model.LocalWallpaperEntity
+import com.chloemlla.aura.data.model.LocalWallpaperFolderEntity
+import com.chloemlla.aura.data.model.LocalWallpaperFolderScanStatus
+import com.chloemlla.aura.data.model.RotationExclusionIndex
+import com.chloemlla.aura.data.model.WallpaperHistoryEntity
+import com.chloemlla.aura.data.model.WallpaperTarget
+import com.chloemlla.aura.data.model.rotationIdentity
+import com.chloemlla.aura.data.model.toRotationExclusion
 import com.chloemlla.aura.data.repository.CollectionRepository
 import com.squareup.moshi.Moshi
 import io.mockk.coEvery
@@ -14,8 +29,10 @@ import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import java.io.File
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -37,26 +54,31 @@ class LibraryImportPlanTest {
 
     private lateinit var db: FreeVibeDatabase
     private lateinit var exporter: LibraryExporter
+    private lateinit var prefs: PreferencesManager
 
     private val packJson = MutableStateFlow("")
     private val profilesJson = MutableStateFlow("")
+    private var fitCanvasPreferences = FitCanvasPreferences()
 
     @Before
     fun setUp() {
         db = Room.inMemoryDatabaseBuilder(context, FreeVibeDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        val prefs = mockk<PreferencesManager>()
+        prefs = mockk()
         every { prefs.wallpaperPackJson } returns packJson
         every { prefs.soundProfilesJson } returns profilesJson
         coEvery { prefs.setWallpaperPackJson(any()) } answers { packJson.value = firstArg() }
         coEvery { prefs.setSoundProfilesJson(any()) } answers { profilesJson.value = firstArg() }
+        coEvery { prefs.fitCanvasPreferencesSnapshot() } answers { fitCanvasPreferences }
+        coEvery { prefs.restoreFitCanvasPreferences(any()) } answers { fitCanvasPreferences = firstArg() }
         exporter = LibraryExporter(
             context = context,
             database = db,
             favoriteDao = db.favoriteDao(),
             collectionRepo = CollectionRepository(db.collectionDao()),
             searchHistoryDao = db.searchHistoryDao(),
+            rotationExclusionDao = db.rotationExclusionDao(),
             prefs = prefs,
             moshi = Moshi.Builder().build(),
         )
@@ -70,13 +92,15 @@ class LibraryImportPlanTest {
         favorites: String = "[]",
         collections: String = "[]",
         searchHistory: String = "[]",
+        rotationExclusions: String = "[]",
         extra: String = "",
     ): String = """
         {
           "version": $version,
           "favorites": $favorites,
           "collections": $collections,
-          "searchHistory": $searchHistory$extra
+          "searchHistory": $searchHistory,
+          "rotationExclusions": $rotationExclusions$extra
         }
     """.trimIndent()
 
@@ -140,6 +164,249 @@ class LibraryImportPlanTest {
 
         assertEquals(2, plan.sourceVersion)
         assertEquals(listOf("wp-1"), plan.favorites.map { it.id })
+    }
+
+    @Test
+    fun `v3 restores local metadata and associations as relinkable records`() = runTest {
+        val hash = "ab".repeat(32)
+        val plan = exporter.buildPlan(
+            payload(
+                version = "3",
+                favorites = """
+                    [{"id":"local-photo","source":"LOCAL","type":"WALLPAPER",
+                      "name":"Family photo","width":1080,"height":1920,"tags":"family, portrait",
+                      "fileSize":1234,"fileType":"image/png","localMedia":true,
+                      "localMediaSha256":"$hash"}]
+                """.trimIndent(),
+                collections = """
+                    [{"id":1,"name":"Family","items":[
+                      {"wallpaperId":"local-photo","source":"LOCAL","width":1080,
+                       "height":1920,"localMedia":true}
+                    ]}]
+                """.trimIndent(),
+                rotationExclusions = """
+                    [{"mediaType":"WALLPAPER","source":"LOCAL","contentId":"local-photo",
+                      "contentHash":"$hash","title":"Family photo","excludedAt":7}]
+                """.trimIndent(),
+                extra = """,
+                  "localWallpapers":[
+                    {"id":"local-photo","displayName":"family.png","mimeType":"image/png",
+                     "sizeBytes":1234,"contentHash":"$hash","width":1080,"height":1920,
+                     "tags":"family, portrait","target":"LOCK","addedAt":9}
+                  ],
+                  "wallpaperHistory":[
+                    {"wallpaperId":"local-photo","source":"LOCAL","width":1080,"height":1920,
+                     "target":"LOCK","appliedAt":11,"localMedia":true}
+                  ]""",
+            ),
+        )
+
+        assertEquals(3, plan.sourceVersion)
+        assertEquals(1, plan.localWallpapers.size)
+        assertEquals(1, plan.localWallpaperFolders.size)
+        assertEquals(1, plan.wallpaperHistory.size)
+        assertTrue(plan.skipped.isEmpty())
+
+        exporter.applyPlan(plan)
+
+        val favorite = db.favoriteDao().getByIdentity("local-photo", "LOCAL", "WALLPAPER")!!
+        assertEquals(LocalMediaStatus.MISSING, favorite.localMediaStatus)
+        assertEquals("", favorite.fullUrl)
+        assertEquals("family, portrait", favorite.tags)
+        val localItem = db.localWallpaperDao().getByStableId("local-photo")!!
+        assertEquals(LocalMediaStatus.MISSING, localItem.localMediaStatus)
+        assertEquals(WallpaperTarget.LOCK.name, db.localWallpaperFolderDao().get(localItem.folderUri)!!.target)
+        assertEquals("", db.collectionDao().getCollectionItems(1).first().single().fullUrl)
+        assertEquals(WallpaperTarget.LOCK.name, db.wallpaperHistoryDao().getRecentSnapshot(1).single().target)
+        assertTrue(
+            RotationExclusionIndex(db.rotationExclusionDao().getAll())
+                .contains(localItem.rotationIdentity()),
+        )
+    }
+
+    @Test
+    fun `export replaces private local locators with a portable relink identity`() = runTest {
+        val privateLocator = "content://private.provider/tree/family/photo.png"
+        val hash = "cd".repeat(32)
+        db.localWallpaperFolderDao().upsert(
+            LocalWallpaperFolderEntity(
+                folderUri = "content://private.provider/tree/family",
+                displayName = "Family",
+                target = WallpaperTarget.HOME.name,
+                scanStatus = LocalWallpaperFolderScanStatus.READY,
+            ),
+        )
+        val localItem = LocalWallpaperEntity(
+            documentUri = privateLocator,
+            stableId = privateLocator,
+            folderUri = "content://private.provider/tree/family",
+            documentId = "photo.png",
+            displayName = "photo.png",
+            mimeType = "image/png",
+            sizeBytes = 1234,
+            modifiedAt = 5,
+            contentHash = hash,
+            width = 1080,
+            height = 1920,
+        )
+        db.localWallpaperDao().upsertAll(listOf(localItem))
+        db.favoriteDao().insert(
+            FavoriteEntity(
+                id = privateLocator,
+                source = ContentSource.LOCAL.name,
+                type = "WALLPAPER",
+                thumbnailUrl = privateLocator,
+                fullUrl = privateLocator,
+                offlinePath = privateLocator,
+                name = "Family photo",
+                localMediaSha256 = hash,
+            ),
+        )
+        db.wallpaperHistoryDao().insert(
+            WallpaperHistoryEntity(
+                wallpaperId = privateLocator,
+                source = ContentSource.LOCAL.name,
+                thumbnailUrl = privateLocator,
+                fullUrl = privateLocator,
+                target = WallpaperTarget.HOME.name,
+            ),
+        )
+        db.rotationExclusionDao().upsert(localItem.rotationIdentity().toRotationExclusion())
+        val destination = File(context.cacheDir, "library-local-${System.nanoTime()}.json")
+
+        try {
+            val result = exporter.exportLibrary(Uri.fromFile(destination))
+
+            assertTrue(result.isSuccess)
+            val json = destination.readText()
+            val parsed = Moshi.Builder().build().adapter(LibraryExportFile::class.java).fromJson(json)!!
+            assertEquals(3, parsed.version)
+            assertTrue(parsed.favorites.single().localMedia)
+            assertTrue(parsed.localWallpapers.single().id.startsWith("local-"))
+            assertFalse(parsed.localWallpapers.single().id.endsWith(hash))
+            assertTrue(!json.contains(privateLocator))
+            assertTrue(!json.contains("private.provider"))
+        } finally {
+            destination.delete()
+        }
+    }
+
+    @Test
+    fun `identical local files retain distinct portable library identities`() = runTest {
+        val firstLocator = "content://private.provider/tree/one/photo.png"
+        val secondLocator = "content://private.provider/tree/two/photo.png"
+        val folderUri = "content://private.provider/tree"
+        val hash = "ef".repeat(32)
+        db.localWallpaperFolderDao().upsert(
+            LocalWallpaperFolderEntity(
+                folderUri = folderUri,
+                displayName = "Private",
+                scanStatus = LocalWallpaperFolderScanStatus.READY,
+            ),
+        )
+        db.localWallpaperDao().upsertAll(
+            listOf(
+                LocalWallpaperEntity(
+                    documentUri = firstLocator,
+                    stableId = firstLocator,
+                    folderUri = folderUri,
+                    documentId = "one",
+                    displayName = "one.png",
+                    mimeType = "image/png",
+                    sizeBytes = 100,
+                    modifiedAt = 1,
+                    contentHash = hash,
+                ),
+                LocalWallpaperEntity(
+                    documentUri = secondLocator,
+                    stableId = secondLocator,
+                    folderUri = folderUri,
+                    documentId = "two",
+                    displayName = "two.png",
+                    mimeType = "image/png",
+                    sizeBytes = 100,
+                    modifiedAt = 2,
+                    contentHash = hash,
+                ),
+            ),
+        )
+        val destination = File(context.cacheDir, "library-duplicate-bytes-${System.nanoTime()}.json")
+
+        try {
+            assertTrue(exporter.exportLibrary(Uri.fromFile(destination)).isSuccess)
+            val parsed = Moshi.Builder().build()
+                .adapter(LibraryExportFile::class.java)
+                .fromJson(destination.readText())!!
+
+            assertEquals(2, parsed.localWallpapers.size)
+            assertEquals(2, parsed.localWallpapers.map { it.id }.toSet().size)
+            assertFalse(destination.readText().contains(firstLocator))
+            assertFalse(destination.readText().contains(secondLocator))
+        } finally {
+            destination.delete()
+        }
+    }
+
+    @Test
+    fun `an over-limit favorites section refuses the whole backup`() = runTest {
+        val entries = List(LibraryTransferContract.MAX_FAVORITES + 1) { index ->
+            FavoriteExportEntry(
+                id = "favorite-$index",
+                source = "REDDIT",
+                type = "WALLPAPER",
+                thumbnailUrl = "https://i.example/$index.jpg",
+                fullUrl = "https://preview.example/$index.jpg",
+            )
+        }
+        val json = Moshi.Builder().build()
+            .adapter(LibraryExportFile::class.java)
+            .toJson(LibraryExportFile(favorites = entries))
+
+        val failure = runCatching { exporter.buildPlan(json) }.exceptionOrNull()
+
+        assertTrue(failure is LibraryTransferLimitExceededException)
+        assertEquals(0, db.favoriteDao().count().first())
+    }
+
+    @Test
+    fun `local hash exclusion survives a backup restore and path relink`() = runTest {
+        val hash = "ab".repeat(32)
+        val plan = exporter.buildPlan(
+            payload(
+                rotationExclusions = """
+                    [{"mediaType":"WALLPAPER","source":"LOCAL","contentId":"old-document-id",
+                      "contentHash":"$hash","title":"Family photo","excludedAt":7}]
+                """.trimIndent(),
+            ),
+        )
+
+        exporter.applyPlan(plan)
+
+        val restored = db.rotationExclusionDao().getAll().single()
+        val relinked = com.chloemlla.aura.data.model.rotationIdentity(
+            mediaType = com.chloemlla.aura.data.model.ROTATION_MEDIA_WALLPAPER,
+            source = "LOCAL",
+            contentId = "new-document-id",
+            contentHash = hash,
+            locator = "content://new-tree/photo.jpg",
+        )
+        assertTrue(restored.matches(relinked))
+        assertEquals(7, restored.excludedAt)
+    }
+
+    @Test
+    fun `invalid rotation exclusion is reported and never written`() = runTest {
+        val plan = exporter.buildPlan(
+            payload(
+                rotationExclusions = """
+                    [{"mediaType":"AUDIO","source":"REDDIT","contentId":"post-1",
+                      "locatorDigest":"not-a-digest","title":"Bad row"}]
+                """.trimIndent(),
+            ),
+        )
+
+        assertTrue(plan.rotationExclusions.isEmpty())
+        assertEquals(listOf(LibraryImportSkipReason.INVALID), plan.skipped.map { it.reason })
     }
 
     // -- non-portable reporting --
@@ -215,9 +482,72 @@ class LibraryImportPlanTest {
         assertEquals(collectionId, plan.collections.single().existingId)
         assertTrue(plan.collections.single().items.isEmpty())
         assertEquals(
+            listOf(
+                LibraryImportSkipReason.DUPLICATE,
+                LibraryImportSkipReason.DUPLICATE,
+            ),
+            plan.skipped.map { it.reason },
+        )
+        assertEquals(0, plan.writeCount)
+    }
+
+    @Test
+    fun `collection identity includes source when IDs match`() = runTest {
+        val collectionId = db.collectionDao().createCollection(WallpaperCollectionEntity(name = "Night"))
+        db.collectionDao().addItem(
+            WallpaperCollectionItemEntity(
+                collectionId = collectionId,
+                wallpaperId = "shared-id",
+                thumbnailUrl = "https://w.example/t.jpg",
+                fullUrl = "https://w.example/f.jpg",
+                source = "WALLHAVEN",
+            ),
+        )
+
+        val plan = exporter.buildPlan(
+            payload(
+                collections = """
+                    [{"id":1,"name":"Night","items":[
+                      {"wallpaperId":"shared-id","source":"REDDIT",
+                       "thumbnailUrl":"https://r.example/t.jpg","fullUrl":"https://r.example/f.jpg"}
+                    ]}]
+                """.trimIndent(),
+            ),
+        )
+
+        assertEquals(listOf("REDDIT"), plan.collections.single().items.map { it.source.name })
+        assertEquals(1, plan.writeCount)
+    }
+
+    @Test
+    fun `duplicate favorite identities are reported and imported once`() = runTest {
+        val duplicate = portableFavorite.replace("\"name\":\"Blue\"", "\"name\":\"Duplicate\"")
+
+        val plan = exporter.buildPlan(payload(favorites = "[$portableFavorite,$duplicate]"))
+
+        assertEquals(listOf("wp-1"), plan.favorites.map { it.id })
+        assertEquals(
             listOf(LibraryImportSkipReason.DUPLICATE),
             plan.skipped.map { it.reason },
         )
+    }
+
+    @Test
+    fun `result counts separate duplicates from failed rows`() = runTest {
+        val duplicate = portableFavorite.replace("\"name\":\"Blue\"", "\"name\":\"Duplicate\"")
+
+        val plan = exporter.buildPlan(
+            payload(favorites = "[$portableFavorite,$duplicate,$localFavorite]"),
+        )
+        val outcome = LibraryImportOutcome(
+            sourceVersion = plan.sourceVersion,
+            written = plan.writeCount,
+            skipped = plan.skipped,
+        )
+
+        assertEquals(1, outcome.written)
+        assertEquals(1, outcome.skippedCount)
+        assertEquals(1, outcome.failed)
     }
 
     @Test
@@ -239,6 +569,11 @@ class LibraryImportPlanTest {
     fun `an injected mid-write failure leaves the pre-import state intact`() = runTest {
         packJson.value = "original-pack"
         profilesJson.value = "original-profiles"
+        val originalFitCanvasPreferences = FitCanvasPreferences(
+            staticPresentation = "fit",
+            staticStyle = FitCanvasStyle(FitCanvasMode.CUSTOM_COLOR, 0xFF123456.toInt()),
+        )
+        fitCanvasPreferences = originalFitCanvasPreferences
         exporter.failBeforeCommit = { throw IllegalStateException("disk full") }
 
         val plan = exporter.buildPlan(
@@ -246,7 +581,15 @@ class LibraryImportPlanTest {
                 favorites = "[$portableFavorite]",
                 collections = """[{"id":1,"name":"Night","items":[]}]""",
                 searchHistory = """[{"query":"blue","type":"WALLPAPER","searchedAt":1}]""",
-                extra = ""","wallpaperPackJson":"new-pack","soundProfilesJson":"new-profiles"""",
+                rotationExclusions = """
+                    [{"mediaType":"WALLPAPER","source":"REDDIT","contentId":"blocked-post"}]
+                """.trimIndent(),
+                extra = ""","wallpaperPackJson":"new-pack","soundProfilesJson":"new-profiles",
+                    "fitCanvasPreferences":{
+                      "staticPresentation":"fill","staticCanvasMode":"amoled_black",
+                      "staticCanvasColor":-16777216,"videoPresentation":"fit",
+                      "videoCanvasMode":"blurred_edge","videoCanvasColor":-15584170
+                    }""".trimIndent(),
             ),
         )
 
@@ -256,8 +599,38 @@ class LibraryImportPlanTest {
         assertEquals(0, db.favoriteDao().count().first())
         assertEquals(0, db.collectionDao().getAllCollections().first().size)
         assertEquals(0, db.searchHistoryDao().count("WALLPAPER"))
+        assertTrue(db.rotationExclusionDao().getAll().isEmpty())
         assertEquals("original-pack", packJson.value)
         assertEquals("original-profiles", profilesJson.value)
+        assertEquals(originalFitCanvasPreferences, fitCanvasPreferences)
+    }
+
+    @Test
+    fun `a partial Fit Canvas preference failure is rolled back`() = runTest {
+        val original = FitCanvasPreferences(
+            staticPresentation = "fit",
+            staticStyle = FitCanvasStyle(FitCanvasMode.CUSTOM_COLOR, 0xFF123456.toInt()),
+        )
+        val replacement = FitCanvasPreferences(
+            videoPresentation = "fit",
+            videoStyle = FitCanvasStyle(FitCanvasMode.BLURRED_EDGE),
+        )
+        fitCanvasPreferences = original
+        var restoreCalls = 0
+        coEvery { prefs.restoreFitCanvasPreferences(any()) } answers {
+            fitCanvasPreferences = firstArg()
+            if (restoreCalls++ == 0) throw IllegalStateException("preference write failed")
+        }
+
+        val failure = runCatching {
+            exporter.applyPlan(
+                LibraryImportPlan(sourceVersion = 2, fitCanvasPreferences = replacement),
+            )
+        }.exceptionOrNull()
+
+        assertTrue(failure is IllegalStateException)
+        assertEquals(2, restoreCalls)
+        assertEquals(original, fitCanvasPreferences)
     }
 
     @Test
@@ -273,6 +646,9 @@ class LibraryImportPlanTest {
                 """.trimIndent(),
                 searchHistory = """[{"query":"blue","type":"WALLPAPER","searchedAt":1}]""",
                 extra = ",\"wallpaperPackJson\":\"{\\\"id\\\":\\\"new-pack\\\",\\\"name\\\":\\\"New Pack\\\"}\"",
+                rotationExclusions = """
+                    [{"mediaType":"WALLPAPER","source":"REDDIT","contentId":"blocked-post"}]
+                """.trimIndent(),
             ),
         )
 
@@ -288,8 +664,9 @@ class LibraryImportPlanTest {
         )
         assertEquals(1, db.searchHistoryDao().count("WALLPAPER"))
         assertEquals("""{"id":"new-pack","name":"New Pack"}""", packJson.value)
-        // favorites(1) + collection(1) + item(1) + search(1) + pack(1)
-        assertEquals(5, plan.writeCount)
+        assertEquals(1, db.rotationExclusionDao().getAll().size)
+        // favorites(1) + collection(1) + item(1) + search(1) + exclusion(1) + pack(1)
+        assertEquals(6, plan.writeCount)
     }
 
     @Test

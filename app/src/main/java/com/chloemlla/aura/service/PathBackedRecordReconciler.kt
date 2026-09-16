@@ -4,6 +4,9 @@ import android.content.Context
 import android.net.Uri
 import com.chloemlla.aura.data.local.DownloadDao
 import com.chloemlla.aura.data.local.FavoriteDao
+import com.chloemlla.aura.data.model.LocalMediaStatus
+import com.chloemlla.aura.data.model.ContentSource
+import com.chloemlla.aura.data.model.normalizeLocalMediaStatus
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.FileNotFoundException
@@ -16,8 +19,13 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 data class PathBackedRecordReconciliationResult(
-    val favoritesCleared: Int,
-    val downloadsCleared: Int,
+    val favoritesUpdated: Int,
+    val downloadsUpdated: Int,
+)
+
+data class PathBackedRecordProbe(
+    val status: String,
+    val reason: String? = null,
 )
 
 @Singleton
@@ -27,69 +35,128 @@ class PathBackedRecordReconciler @Inject constructor(
     private val downloadDao: DownloadDao,
 ) {
     suspend fun reconcile(): PathBackedRecordReconciliationResult = withContext(Dispatchers.IO) {
-        var favoritesCleared = 0
+        var favoritesUpdated = 0
         favoriteDao.getAll().first()
-            .filter { shouldClearPathBackedRecord(it.offlinePath, ::pathBackedRecordExists) }
             .forEach { favorite ->
-                favoriteDao.updateOfflinePath(favorite.id, favorite.source, favorite.type, "")
-                favoritesCleared += 1
+                val locator = favorite.offlinePath.ifBlank {
+                    favorite.fullUrl.takeIf {
+                        favorite.source.equals(ContentSource.LOCAL.name, ignoreCase = true)
+                    }.orEmpty()
+                }
+                if (locator.isBlank()) return@forEach
+                val probe = probePathBackedRecord(locator)
+                if (
+                    normalizeLocalMediaStatus(favorite.localMediaStatus) != probe.status ||
+                    favorite.localMediaReason != probe.reason
+                ) {
+                    favoriteDao.updateLocalMediaStatus(
+                        favorite.id,
+                        favorite.source,
+                        favorite.type,
+                        probe.status,
+                        probe.reason,
+                    )
+                    favoritesUpdated += 1
+                }
             }
 
-        var downloadsCleared = 0
+        var downloadsUpdated = 0
         downloadDao.getAll().first()
-            .filter { shouldClearPathBackedRecord(it.localPath, ::pathBackedRecordExists) }
             .forEach { download ->
-                downloadDao.updateLocalPath(download.id, "")
-                downloadsCleared += 1
+                if (download.localPath.isBlank()) return@forEach
+                val probe = probePathBackedRecord(download.localPath)
+                if (
+                    normalizeLocalMediaStatus(download.localMediaStatus) != probe.status ||
+                    download.localMediaReason != probe.reason
+                ) {
+                    downloadDao.updateLocalMediaStatus(download.id, probe.status, probe.reason)
+                    downloadsUpdated += 1
+                }
             }
 
         PathBackedRecordReconciliationResult(
-            favoritesCleared = favoritesCleared,
-            downloadsCleared = downloadsCleared,
+            favoritesUpdated = favoritesUpdated,
+            downloadsUpdated = downloadsUpdated,
         )
     }
 
-    private fun pathBackedRecordExists(rawPath: String): Boolean =
-        pathBackedRecordExists(
+    private fun probePathBackedRecord(rawPath: String): PathBackedRecordProbe =
+        probePathBackedRecord(
             rawPath = rawPath,
-            fileExists = { File(it).exists() },
-            contentUriExists = ::contentUriExists,
+            fileProbe = { path ->
+                val file = File(path)
+                when {
+                    !file.exists() -> missingProbe()
+                    !file.isFile || file.length() <= 0L -> corruptProbe()
+                    else -> availableProbe()
+                }
+            },
+            contentUriProbe = ::contentUriProbe,
         )
 
-    private fun contentUriExists(rawUri: String): Boolean =
-        try {
-            context.contentResolver.openFileDescriptor(Uri.parse(rawUri), "r")?.use { true } ?: false
-        } catch (_: FileNotFoundException) {
-            false
-        } catch (_: Exception) {
-            true // Permission loss (e.g. revoked SAF grant) must not read as "file missing".
-        }
+    private fun contentUriProbe(rawUri: String): PathBackedRecordProbe = try {
+        context.contentResolver.openFileDescriptor(Uri.parse(rawUri), "r")?.use { descriptor ->
+            if (descriptor.statSize == 0L) corruptProbe() else availableProbe()
+        } ?: missingProbe()
+    } catch (_: SecurityException) {
+        revokedProbe()
+    } catch (_: FileNotFoundException) {
+        missingProbe()
+    } catch (_: Exception) {
+        corruptProbe()
+    }
 }
 
-internal fun shouldClearPathBackedRecord(
+internal fun availableProbe() = PathBackedRecordProbe(LocalMediaStatus.AVAILABLE)
+internal fun missingProbe() = PathBackedRecordProbe(LocalMediaStatus.MISSING, "Local file is missing")
+internal fun revokedProbe() = PathBackedRecordProbe(
+    LocalMediaStatus.PERMISSION_REVOKED,
+    "Android no longer grants access to this file",
+)
+internal fun corruptProbe() = PathBackedRecordProbe(
+    LocalMediaStatus.CORRUPT,
+    "Local file is empty, corrupt, or unreadable",
+)
+
+internal fun probePathBackedRecord(
     rawPath: String,
-    exists: (String) -> Boolean,
-): Boolean = rawPath.isNotBlank() && !exists(rawPath)
+    fileProbe: (String) -> PathBackedRecordProbe,
+    contentUriProbe: (String) -> PathBackedRecordProbe,
+): PathBackedRecordProbe {
+    val path = rawPath.trim()
+    if (path.isBlank()) return availableProbe()
+
+    return when (extractUriScheme(path)?.lowercase(Locale.ROOT)) {
+        null -> fileProbe(path)
+        "file" -> fileProbe(fileUriPath(path) ?: path)
+        "content" -> contentUriProbe(path)
+        "http", "https", "android.resource", "rawresource" -> availableProbe()
+        else -> corruptProbe()
+    }
+}
 
 internal fun pathBackedRecordExists(
     rawPath: String,
     fileExists: (String) -> Boolean,
     contentUriExists: (String) -> Boolean,
 ): Boolean {
-    val path = rawPath.trim()
-    if (path.isBlank()) return false
-
-    return when (extractUriScheme(path)?.lowercase(Locale.ROOT)) {
-        null -> fileExists(path)
-        "file" -> fileExists(fileUriPath(path) ?: path)
-        "content" -> contentUriExists(path)
-        else -> fileExists(path)
-    }
+    val probe = probePathBackedRecord(
+        rawPath = rawPath,
+        fileProbe = { if (fileExists(it)) availableProbe() else missingProbe() },
+        contentUriProbe = { if (contentUriExists(it)) availableProbe() else missingProbe() },
+    )
+    return probe.status == LocalMediaStatus.AVAILABLE
 }
 
 private fun extractUriScheme(value: String): String? {
     val colonIndex = value.indexOf(':')
     if (colonIndex <= 0) return null
+    if (
+        colonIndex == 1 && value.first().isLetter() && value.length > 2 &&
+        (value[2] == '/' || value[2] == '\\')
+    ) {
+        return null
+    }
     val firstSeparator = value.indexOfAny(charArrayOf('/', '\\', '?', '#')).let { index ->
         if (index == -1) value.length else index
     }

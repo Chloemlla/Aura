@@ -59,11 +59,18 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.SubcomposeAsyncImageContent
 import com.chloemlla.aura.R
+import com.chloemlla.aura.data.model.FitCanvasMode
+import com.chloemlla.aura.data.model.FitCanvasStyle
+import com.chloemlla.aura.data.model.ROTATION_MEDIA_VIDEO
+import com.chloemlla.aura.data.model.RotationExclusionIndex
 import com.chloemlla.aura.data.model.VideoProviderPolicyLinks
 import com.chloemlla.aura.data.model.VideoWallpaperAction
 import com.chloemlla.aura.data.model.VideoWallpaperItem
+import com.chloemlla.aura.data.model.WALLPAPER_PRESENTATION_FILL
+import com.chloemlla.aura.data.model.WALLPAPER_PRESENTATION_FIT
 import com.chloemlla.aura.data.model.canUseVideoAction
 import com.chloemlla.aura.data.model.requiresVideoActionConfirmation
+import com.chloemlla.aura.data.model.rotationIdentity
 import com.chloemlla.aura.data.model.videoActionMessage
 import com.chloemlla.aura.data.model.videoWallpaperLicenseCapabilities
 import com.chloemlla.aura.data.repository.matchesHiddenIds
@@ -77,6 +84,8 @@ import com.chloemlla.aura.service.normalizeVideoWallpaperScaleMode
 import com.chloemlla.aura.service.persistVideoWallpaperSelection
 import com.chloemlla.aura.service.videoWallpaperMimeTypes
 import com.chloemlla.aura.ui.components.AuraStateAction
+import com.chloemlla.aura.ui.components.FitCanvasControls
+import com.chloemlla.aura.ui.components.FitCanvasMedia
 import com.chloemlla.aura.ui.components.LoadMoreIndicator
 import com.chloemlla.aura.ui.components.AuraStateCard
 import com.chloemlla.aura.ui.components.AuraSnackbarHost
@@ -87,6 +96,7 @@ import com.chloemlla.aura.ui.components.CountBadge
 import com.chloemlla.aura.ui.components.ShimmerBox
 import com.chloemlla.aura.ui.LiveWallpaperLaunchMode
 import com.chloemlla.aura.ui.launchLiveWallpaperPicker
+import com.chloemlla.aura.ui.rotation.RotationExclusionsViewModel
 import com.chloemlla.aura.ui.util.openExternalUrl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -123,8 +133,16 @@ internal fun persistSelectedVideoWallpaper(
     context: Context,
     file: File,
     scaleMode: String = VIDEO_WALLPAPER_SCALE_MODE_ZOOM,
+    canvasStyle: FitCanvasStyle = FitCanvasStyle(),
 ) {
-    persistVideoWallpaperSelection(context, file, scaleMode)
+    persistVideoWallpaperSelection(
+        context = context,
+        file = file,
+        scaleMode = scaleMode,
+        canvasStyle = canvasStyle,
+        canvasBackgroundFile = File(context.filesDir, com.chloemlla.aura.service.VIDEO_WALLPAPER_CANVAS_BACKGROUND_FILE),
+        canvasBaked = file.name == "live_wallpaper.fit.mp4",
+    )
 }
 
 internal suspend fun exportVideoToGallery(context: Context, file: File): Uri? = withContext(Dispatchers.IO) {
@@ -170,8 +188,12 @@ internal suspend fun launchOrExportVideoWallpaper(
     file: File,
     isCropped: Boolean = false,
     scaleMode: String = VIDEO_WALLPAPER_SCALE_MODE_ZOOM,
+    canvasStyle: FitCanvasStyle = FitCanvasStyle(),
+    selectionAlreadyPersisted: Boolean = false,
 ) {
-    persistSelectedVideoWallpaper(context, file, scaleMode)
+    if (!selectionAlreadyPersisted) {
+        persistSelectedVideoWallpaper(context, file, scaleMode, canvasStyle)
+    }
     when (
         withContext(Dispatchers.Main) {
             launchLiveWallpaperPicker(
@@ -216,11 +238,17 @@ internal suspend fun launchOrExportVideoWallpaper(
 fun VideoWallpapersScreen(
     initialQuery: String? = null,
     viewModel: VideoWallpapersViewModel = hiltViewModel(),
+    rotationExclusionsViewModel: RotationExclusionsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val gallerySelectionResult by viewModel.gallerySelectionResult.collectAsStateWithLifecycle()
     val resolvedIds by viewModel.resolvedIds.collectAsStateWithLifecycle()
     val hiddenIds by viewModel.hiddenIds.collectAsStateWithLifecycle(initialValue = emptySet())
+    val savedVideoPresentation by viewModel.videoWallpaperPresentation.collectAsStateWithLifecycle()
+    val savedVideoCanvasMode by viewModel.videoFitCanvasMode.collectAsStateWithLifecycle()
+    val savedVideoCanvasColor by viewModel.videoFitCanvasColor.collectAsStateWithLifecycle()
+    val rotationExclusions by rotationExclusionsViewModel.exclusions.collectAsStateWithLifecycle()
+    val rotationExclusionIndex = remember(rotationExclusions) { RotationExclusionIndex(rotationExclusions) }
     val itemIds = remember(state.items) { state.items.map { it.id } }
     val voteCounts by remember(itemIds) {
         if (itemIds.isNotEmpty()) viewModel.voteCounts(itemIds)
@@ -589,6 +617,8 @@ fun VideoWallpapersScreen(
                                     }
                                     val isResolved = item.id in resolvedIds
                                     val resolvedUrl = if (isResolved) viewModel.getStreamUrl(item.id) else null
+                                    val rotationIdentity = item.rotationExclusionIdentity()
+                                    val rotationExclusion = rotationExclusionIndex.find(rotationIdentity)
                                     VideoCard(
                                         item = item,
                                         streamUrl = resolvedUrl,
@@ -612,6 +642,27 @@ fun VideoWallpapersScreen(
                                                     duration = SnackbarDuration.Short,
                                                 )
                                                 if (result == SnackbarResult.ActionPerformed) viewModel.undoDownvote(hiddenId)
+                                            }
+                                        },
+                                        rotationExcluded = rotationExclusion != null,
+                                        onToggleRotationExclusion = {
+                                            scope.launch {
+                                                if (rotationExclusion != null) {
+                                                    rotationExclusionsViewModel.restoreNow(rotationExclusion.stableId)
+                                                    snackbarHostState.showSnackbar(
+                                                        resources.getString(R.string.rotation_restored_message, item.title),
+                                                    )
+                                                } else {
+                                                    val exclusion = rotationExclusionsViewModel.exclude(rotationIdentity)
+                                                    val result = snackbarHostState.showSnackbar(
+                                                        message = resources.getString(R.string.rotation_excluded_message, item.title),
+                                                        actionLabel = resources.getString(R.string.common_undo),
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                    if (result == SnackbarResult.ActionPerformed) {
+                                                        rotationExclusionsViewModel.restoreNow(exclusion.stableId)
+                                                    }
+                                                }
                                             }
                                         },
                                     )
@@ -688,7 +739,23 @@ fun VideoWallpapersScreen(
         val canApplyVideo = remember(item) { item.canUseVideoAction(VideoWallpaperAction.APPLY) }
         val unavailableLabel = stringResource(R.string.video_wp_unavailable)
         val applyBlockedMessage = remember(item, unavailableLabel) { item.videoActionMessage(VideoWallpaperAction.APPLY).ifBlank { unavailableLabel } }
-        var selectedScaleMode by remember(item.id) { mutableStateOf(VIDEO_WALLPAPER_SCALE_MODE_ZOOM) }
+        var selectedScaleMode by remember(item.id, savedVideoPresentation) {
+            mutableStateOf(
+                if (savedVideoPresentation == WALLPAPER_PRESENTATION_FIT) {
+                    VIDEO_WALLPAPER_SCALE_MODE_FIT
+                } else {
+                    VIDEO_WALLPAPER_SCALE_MODE_ZOOM
+                },
+            )
+        }
+        var selectedCanvasStyle by remember(item.id, savedVideoCanvasMode, savedVideoCanvasColor) {
+            mutableStateOf(
+                FitCanvasStyle(
+                    FitCanvasMode.fromPreference(savedVideoCanvasMode),
+                    savedVideoCanvasColor,
+                ).normalized(),
+            )
+        }
         AlertDialog(
             onDismissRequest = { confirmItem = null },
             title = { Text(stringResource(R.string.video_wallpaper_title)) },
@@ -696,17 +763,37 @@ fun VideoWallpapersScreen(
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     Text(item.title, style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(2.dp))
-                    Text(item.videoTechnicalSummary(resources), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        localizedVideoSummary(item),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         stringResource(
                             R.string.video_wp_badge_summary,
-                            item.loopBadge(),
-                            item.batteryBadge(),
-                            item.fitBadge(state.orientation),
+                            localizedLoopBadge(item),
+                            localizedBatteryBadge(item),
+                            localizedFitBadge(item, state.orientation),
                         ),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    FitCanvasMedia(
+                        model = item.thumbnailUrl,
+                        presentation = if (selectedScaleMode == VIDEO_WALLPAPER_SCALE_MODE_FIT) {
+                            WALLPAPER_PRESENTATION_FIT
+                        } else {
+                            WALLPAPER_PRESENTATION_FILL
+                        },
+                        style = selectedCanvasStyle,
+                        dominantColor = null,
+                        contentDescription = stringResource(R.string.a11y_video_preview_ready),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .clip(RoundedCornerShape(8.dp)),
                     )
                     Spacer(Modifier.height(12.dp))
                     VideoProvenanceBlock(
@@ -738,9 +825,32 @@ fun VideoWallpapersScreen(
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Spacer(Modifier.height(6.dp))
-                    VideoPresentationSelector(
-                        selectedScaleMode = selectedScaleMode,
-                        onSelectScaleMode = { selectedScaleMode = it },
+                    FitCanvasControls(
+                        presentation = if (selectedScaleMode == VIDEO_WALLPAPER_SCALE_MODE_FIT) {
+                            WALLPAPER_PRESENTATION_FIT
+                        } else {
+                            WALLPAPER_PRESENTATION_FILL
+                        },
+                        style = selectedCanvasStyle,
+                        onPresentationChange = { presentation ->
+                            selectedScaleMode = if (presentation == WALLPAPER_PRESENTATION_FIT) {
+                                VIDEO_WALLPAPER_SCALE_MODE_FIT
+                            } else {
+                                VIDEO_WALLPAPER_SCALE_MODE_ZOOM
+                            }
+                            viewModel.setVideoFitCanvasPreferences(presentation, selectedCanvasStyle)
+                        },
+                        onStyleChange = { style ->
+                            selectedCanvasStyle = style
+                            viewModel.setVideoFitCanvasPreferences(
+                                if (selectedScaleMode == VIDEO_WALLPAPER_SCALE_MODE_FIT) {
+                                    WALLPAPER_PRESENTATION_FIT
+                                } else {
+                                    WALLPAPER_PRESENTATION_FILL
+                                },
+                                style,
+                            )
+                        },
                     )
                     Spacer(Modifier.height(8.dp))
                     if (needsCrop) {
@@ -770,7 +880,7 @@ fun VideoWallpapersScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (streamUrl != null && canApplyVideo) {
                         if (needsCrop) {
-                            OutlinedButton(onClick = { viewModel.applyVideoWallpaper(item, selectedScaleMode); confirmItem = null }) { Text(stringResource(R.string.video_apply)) }
+                            OutlinedButton(onClick = { viewModel.applyVideoWallpaper(item, selectedScaleMode, selectedCanvasStyle); confirmItem = null }) { Text(stringResource(R.string.video_apply)) }
                             Button(onClick = {
                                 confirmItem = null
                                 cropItem = item to streamUrl
@@ -788,10 +898,10 @@ fun VideoWallpapersScreen(
                                 Spacer(Modifier.width(4.dp))
                                 Text(stringResource(R.string.video_crop))
                             }
-                            Button(onClick = { viewModel.applyVideoWallpaper(item, selectedScaleMode); confirmItem = null }) { Text(stringResource(R.string.video_apply)) }
+                            Button(onClick = { viewModel.applyVideoWallpaper(item, selectedScaleMode, selectedCanvasStyle); confirmItem = null }) { Text(stringResource(R.string.video_apply)) }
                         }
                     } else if (canApplyVideo) {
-                        Button(onClick = { viewModel.applyVideoWallpaper(item, selectedScaleMode); confirmItem = null }) { Text(stringResource(R.string.video_apply)) }
+                        Button(onClick = { viewModel.applyVideoWallpaper(item, selectedScaleMode, selectedCanvasStyle); confirmItem = null }) { Text(stringResource(R.string.video_apply)) }
                     }
                 }
             },
@@ -822,6 +932,50 @@ fun VideoWallpapersScreen(
         }
     }
 }
+
+@Composable
+private fun localizedVideoSummary(item: VideoWallpaperItem): String {
+    val format = if (item.hasDimensions) {
+        stringResource(
+            R.string.video_wp_technical_dimensions,
+            item.videoWidth,
+            item.videoHeight,
+            stringResource(
+                if (item.isPortrait) R.string.video_wp_badge_portrait else R.string.video_wp_badge_landscape,
+            ),
+        )
+    } else {
+        stringResource(R.string.video_wp_technical_adaptive_stream)
+    }
+    val duration = item.duration.takeIf { it > 0 }
+        ?.let { stringResource(R.string.video_wp_duration_seconds, it) }
+    return listOfNotNull(format, duration).joinToString(" · ")
+}
+
+@Composable
+private fun localizedLoopBadge(item: VideoWallpaperItem): String = stringResource(
+    if (item.isLoopFriendly()) R.string.video_wp_badge_loop_safe else R.string.video_wp_badge_dynamic,
+)
+
+@Composable
+private fun localizedBatteryBadge(item: VideoWallpaperItem): String = stringResource(
+    when (item.batteryTier()) {
+        BatteryTier.LOW -> R.string.video_wp_badge_low_battery
+        BatteryTier.MEDIUM -> R.string.video_wp_badge_balanced
+        BatteryTier.HIGH -> R.string.video_wp_badge_high_motion
+    },
+)
+
+@Composable
+private fun localizedFitBadge(item: VideoWallpaperItem, orientation: OrientationFilter): String = stringResource(
+    when {
+        !item.hasDimensions -> R.string.video_wp_badge_flexible
+        orientation == OrientationFilter.PORTRAIT && item.isPortrait -> R.string.video_wp_badge_phone_fit
+        orientation == OrientationFilter.LANDSCAPE && item.isLandscape -> R.string.video_wp_badge_wide_fit
+        orientation == OrientationFilter.ALL && item.isPortrait -> R.string.video_wp_badge_phone_fit
+        else -> R.string.video_wp_badge_needs_crop
+    },
+)
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
@@ -1136,6 +1290,8 @@ internal fun VideoCard(
     onOpen: () -> Unit,
     onUpvote: () -> Unit = {},
     onDownvote: () -> Unit = {},
+    rotationExcluded: Boolean = false,
+    onToggleRotationExclusion: () -> Unit = {},
 ) {
     val context = LocalContext.current
     // Reading a string off LocalContext is not a composition read. LocalResources is.
@@ -1344,6 +1500,25 @@ internal fun VideoCard(
                             onDownvote()
                         },
                     )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                stringResource(
+                                    if (rotationExcluded) R.string.rotation_restore_action else R.string.rotation_exclude_action,
+                                ),
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                if (rotationExcluded) Icons.Default.Restore else Icons.Default.PlaylistRemove,
+                                contentDescription = null,
+                            )
+                        },
+                        onClick = {
+                            showItemActions = false
+                            onToggleRotationExclusion()
+                        },
+                    )
                 }
             }
             Spacer(Modifier.width(4.dp))
@@ -1373,6 +1548,14 @@ internal fun VideoCard(
         }
     }
 }
+
+internal fun VideoWallpaperItem.rotationExclusionIdentity() = rotationIdentity(
+    mediaType = ROTATION_MEDIA_VIDEO,
+    source = contentSource.name,
+    contentId = videoId.ifBlank { id },
+    title = title,
+    thumbnailUrl = thumbnailUrl,
+)
 
 private fun String.isAnimatedImageStream(): Boolean =
     substringBefore('?').endsWith(".gif", ignoreCase = true)
@@ -1478,75 +1661,6 @@ private fun videoFocusLabel(filter: VideoFocusFilter): String = when (filter) {
     VideoFocusFilter.LOOP_SAFE -> stringResource(R.string.video_wp_badge_loop_safe)
     VideoFocusFilter.LOW_BATTERY -> stringResource(R.string.video_wp_badge_low_battery)
     VideoFocusFilter.PHONE_FIT -> stringResource(R.string.video_wp_badge_phone_fit)
-}
-
-@Composable
-private fun VideoPresentationSelector(
-    selectedScaleMode: String,
-    onSelectScaleMode: (String) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        PresentationModeButton(
-            selected = selectedScaleMode == VIDEO_WALLPAPER_SCALE_MODE_ZOOM,
-            onClick = { onSelectScaleMode(VIDEO_WALLPAPER_SCALE_MODE_ZOOM) },
-            icon = Icons.Default.CropFree,
-            label = stringResource(R.string.video_wp_presentation_fill),
-            modifier = Modifier.weight(1f),
-        )
-        PresentationModeButton(
-            selected = selectedScaleMode == VIDEO_WALLPAPER_SCALE_MODE_FIT,
-            onClick = { onSelectScaleMode(VIDEO_WALLPAPER_SCALE_MODE_FIT) },
-            icon = Icons.Default.FitScreen,
-            label = stringResource(R.string.video_wp_presentation_fit),
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
-
-@Composable
-private fun PresentationModeButton(
-    selected: Boolean,
-    onClick: () -> Unit,
-    icon: ImageVector,
-    label: String,
-    modifier: Modifier = Modifier,
-) {
-    val selectedDescription = if (selected) {
-        stringResource(R.string.a11y_selected)
-    } else {
-        stringResource(R.string.a11y_not_selected)
-    }
-    val useModeLabel = stringResource(R.string.a11y_use_mode, label)
-    OutlinedButton(
-        onClick = onClick,
-        modifier = modifier
-            .heightIn(min = 48.dp)
-            .semantics {
-                stateDescription = selectedDescription
-                onClick(label = useModeLabel, action = null)
-            },
-        shape = RoundedCornerShape(8.dp),
-        colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = if (selected) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                Color.Transparent
-            },
-            contentColor = if (selected) {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
-        ),
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
-    ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
-        Spacer(Modifier.width(6.dp))
-        Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
 }
 
 @Composable

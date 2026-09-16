@@ -4,6 +4,8 @@ import app.cash.turbine.test
 import com.chloemlla.aura.data.local.DownloadDao
 import com.chloemlla.aura.data.model.DownloadEntity
 import com.chloemlla.aura.service.DownloadManager
+import com.chloemlla.aura.service.LocalMediaRelinkManager
+import com.chloemlla.aura.service.MediaCopyStore
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -27,6 +29,8 @@ class DownloadsViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private lateinit var downloadDao: DownloadDao
     private lateinit var downloadManager: DownloadManager
+    private lateinit var mediaCopyStore: MediaCopyStore
+    private lateinit var localMediaRelinkManager: LocalMediaRelinkManager
     private lateinit var viewModel: DownloadsViewModel
 
     private val sampleDownloads = listOf(
@@ -40,13 +44,15 @@ class DownloadsViewModelTest {
         Dispatchers.setMain(testDispatcher)
         downloadDao = mockk(relaxed = true)
         downloadManager = mockk(relaxed = true)
+        mediaCopyStore = mockk(relaxed = true)
+        localMediaRelinkManager = mockk(relaxed = true)
 
         every { downloadDao.getAll() } returns flowOf(sampleDownloads)
         every { downloadDao.getByType("WALLPAPER") } returns flowOf(sampleDownloads.filter { it.type == "WALLPAPER" })
         every { downloadDao.getByType("SOUND") } returns flowOf(sampleDownloads.filter { it.type == "SOUND" })
         every { downloadManager.activeDownloads } returns MutableStateFlow(emptyMap())
 
-        viewModel = DownloadsViewModel(downloadDao, downloadManager)
+        viewModel = DownloadsViewModel(downloadDao, downloadManager, mediaCopyStore, localMediaRelinkManager)
     }
 
     @After
@@ -93,5 +99,12 @@ class DownloadsViewModelTest {
     fun `dismissActive calls downloadManager clearCompleted`() {
         viewModel.dismissActive("dl-1")
         verify { downloadManager.clearCompleted("dl-1") }
+    }
+
+    @Test
+    fun `deleteOptimizedCopy removes only the working copy`() = runTest {
+        viewModel.deleteOptimizedCopy("1")
+        coVerify { mediaCopyStore.deleteOptimizedCopy("1") }
+        coVerify(exactly = 0) { downloadManager.deleteDownload(any()) }
     }
 }

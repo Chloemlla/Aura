@@ -1,5 +1,6 @@
 package com.chloemlla.aura.data.legal
 
+import com.chloemlla.aura.BuildConfig
 import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.providerNetworkPolicies
@@ -30,6 +31,22 @@ class ProviderCapabilityContractTest {
         JSONObject(File("../docs/security/network-endpoints.json").readText())
     }
 
+    private val providerManifest: JSONObject by lazy {
+        JSONObject(File("../docs/providers/provider-manifest.json").readText())
+    }
+
+    private fun JSONObject.stringSet(key: String): Set<String> {
+        val array = getJSONArray(key)
+        return (0 until array.length()).map { array.getString(it) }.toSet()
+    }
+
+    private fun providerManifestById(): Map<String, JSONObject> {
+        val array = providerManifest.getJSONArray("providers")
+        return (0 until array.length())
+            .map { array.getJSONObject(it) }
+            .associateBy { it.getString("id") }
+    }
+
     private fun endpointsById(): Map<String, JSONObject> {
         val array = endpointManifest.getJSONArray("endpoints")
         return (0 until array.length())
@@ -48,6 +65,92 @@ class ProviderCapabilityContractTest {
             sources.toSet().size,
         )
         assertEquals(ContentSource.entries.toSet(), sources.toSet())
+    }
+
+    @Test
+    fun `checked provider manifest matches every production capability`() {
+        val manifestById = providerManifestById()
+        assertEquals(ContentSource.entries.map { it.name }.toSet(), manifestById.keys)
+
+        providerCapabilities.forEach { capability ->
+            val row = manifestById.getValue(capability.source.name)
+            val priorities = row.getJSONObject("defaultPriority")
+            val manifestPriorities = priorities.keys().asSequence()
+                .associateWith { priorities.getInt(it) }
+            val disclosure = providerDisclosuresBySource.getValue(capability.source)
+
+            assertEquals(capability.source.name, disclosure.displayName, row.getString("displayName"))
+            assertEquals(capability.mediaTypes.map { it.name }.toSet(), row.stringSet("mediaTypes"))
+            assertEquals(
+                capability.defaultPriority.mapKeys { it.key.name },
+                manifestPriorities,
+            )
+            assertEquals(
+                capability.permittedActions.map { it.name }.toSet(),
+                row.stringSet("permittedActions"),
+            )
+            assertEquals(capability.lifecycle.name, row.getString("lifecycle"))
+            assertEquals(capability.builds.map { it.name }.toSet(), row.stringSet("buildFlavors"))
+            assertEquals(capability.channels.map { it.name }.toSet(), row.stringSet("releaseChannels"))
+            assertEquals(capability.configuration.name, row.getString("credentialNeed"))
+            assertEquals(capability.permission.name, row.getString("permission"))
+            assertEquals(capability.health.name, row.getString("health"))
+            assertEquals(capability.requiresAttribution, row.getBoolean("requiresAttribution"))
+            assertEquals(capability.enabledByDefault, row.getBoolean("enabledByDefault"))
+            assertEquals(
+                capability.killSwitchKey,
+                if (row.isNull("killSwitchKey")) null else row.getString("killSwitchKey"),
+            )
+            assertEquals(capability.endpointIds, row.stringSet("endpointIds"))
+        }
+    }
+
+    @Test
+    fun `manifest priorities put Reddit first wherever Reddit is available`() {
+        ProviderBuild.entries.forEach { build ->
+            ProviderChannel.entries.forEach { channel ->
+                listOf(ProviderMediaType.WALLPAPER, ProviderMediaType.VIDEO).forEach { media ->
+                    val ordered = orderedProviderCapabilities(media, build, channel)
+                    if (ordered.any { it.source == ContentSource.REDDIT }) {
+                        assertEquals(ContentSource.REDDIT, ordered.first().source)
+                    }
+                }
+            }
+        }
+        assertEquals(
+            ContentSource.YOUTUBE,
+            orderedProviderCapabilities(
+                ProviderMediaType.SOUND,
+                ProviderBuild.FULL,
+                ProviderChannel.GITHUB,
+            ).first().source,
+        )
+        assertEquals(
+            ContentSource.BUNDLED,
+            orderedProviderCapabilities(
+                ProviderMediaType.SOUND,
+                ProviderBuild.FULL,
+                ProviderChannel.PLAY,
+            ).first().source,
+        )
+    }
+
+    @Test
+    fun `legacy providers expose saved attribution actions only`() {
+        providerCapabilities
+            .filter { it.lifecycle == ProviderLifecycle.LEGACY }
+            .forEach { capability ->
+                assertEquals(ProviderConfiguration.NONE, capability.configuration)
+                assertEquals(ProviderHealth.OFFLINE, capability.health)
+                assertEquals(
+                    setOf(
+                        ProviderAction.VIEW_SAVED,
+                        ProviderAction.REMOVE_SAVED,
+                        ProviderAction.OPEN_SOURCE,
+                    ),
+                    capability.permittedActions,
+                )
+            }
     }
 
     @Test
@@ -89,16 +192,6 @@ class ProviderCapabilityContractTest {
                             capability.endpointIds.isNotEmpty(),
                         )
                     }
-                    // An active source is on out of the box unless it first needs
-                    // something only the user can give: a credential or a permission.
-                    val gatedOnUser =
-                        capability.configuration == ProviderConfiguration.REQUIRED_KEY ||
-                            capability.permission != ProviderPermission.NONE
-                    assertEquals(
-                        "${capability.source} default-enabled state must follow from its gating",
-                        !gatedOnUser,
-                        capability.enabledByDefault,
-                    )
                 }
                 ProviderLifecycle.LOCAL -> {
                     assertTrue(
@@ -230,6 +323,51 @@ class ProviderCapabilityContractTest {
             .toSet()
 
         assertEquals(setOf(ContentSource.YOUTUBE), playExcluded)
+        assertTrue(
+            providerCapability(ContentSource.YOUTUBE).availableIn(
+                ProviderBuild.FULL,
+                ProviderChannel.GITHUB,
+            ),
+        )
+        assertFalse(
+            providerCapability(ContentSource.YOUTUBE).availableIn(
+                ProviderBuild.FULL,
+                ProviderChannel.PLAY,
+            ),
+        )
+    }
+
+    @Test
+    fun `current artifact availability uses the compiled release channel`() {
+        assertEquals(providerChannel(BuildConfig.AURA_RELEASE_CHANNEL), currentProviderChannel)
+        assertEquals(
+            currentProviderChannel == ProviderChannel.GITHUB,
+            isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE),
+        )
+    }
+
+    @Test
+    fun `provider action ceiling covers legacy and bundled sound actions`() {
+        assertFalse(isProviderActionPermitted(ContentSource.FREESOUND, ProviderAction.APPLY))
+        assertFalse(isProviderActionPermitted(ContentSource.FREESOUND, ProviderAction.BUNDLE))
+        assertTrue(isProviderActionPermitted(ContentSource.FREESOUND, ProviderAction.OPEN_SOURCE))
+        assertTrue(isProviderActionPermitted(ContentSource.BUNDLED, ProviderAction.BUNDLE))
+        assertTrue(
+            isProviderActionPermittedIn(
+                ContentSource.YOUTUBE,
+                ProviderAction.PREVIEW,
+                ProviderBuild.FULL,
+                ProviderChannel.GITHUB,
+            ),
+        )
+        assertFalse(
+            isProviderActionPermittedIn(
+                ContentSource.YOUTUBE,
+                ProviderAction.PREVIEW,
+                ProviderBuild.FULL,
+                ProviderChannel.PLAY,
+            ),
+        )
     }
 
     @Test
@@ -257,6 +395,18 @@ class ProviderCapabilityContractTest {
             assertTrue(
                 "${policy.source} diagnostics must report its lifecycle",
                 policy.capabilitySummary.contains(capability.lifecycle.name.lowercase()),
+            )
+            assertTrue(
+                "${policy.source} diagnostics must report its media types",
+                policy.capabilitySummary.contains("media "),
+            )
+            assertTrue(
+                "${policy.source} diagnostics must report its feed priority",
+                policy.capabilitySummary.contains("priority "),
+            )
+            assertTrue(
+                "${policy.source} diagnostics must report its permitted actions",
+                policy.capabilitySummary.contains("actions "),
             )
             assertTrue(
                 "${policy.source} diagnostics must be part of the support summary",

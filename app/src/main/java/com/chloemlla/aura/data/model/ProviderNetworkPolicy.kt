@@ -1,6 +1,7 @@
 package com.chloemlla.aura.data.model
 
 import com.chloemlla.aura.data.legal.ProviderCapability
+import com.chloemlla.aura.data.legal.ProviderLifecycle
 import com.chloemlla.aura.data.legal.providerCapability
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -42,6 +43,26 @@ data class ProviderNetworkPolicy(
         require(backoffPolicy.isNotBlank()) { "${source.name} backoffPolicy must not be blank" }
         require(cacheFallbackPolicy.isNotBlank()) { "${source.name} cacheFallbackPolicy must not be blank" }
         require(disabledBehavior.isNotBlank()) { "${source.name} disabledBehavior must not be blank" }
+        if (providerCapability(source).lifecycle == ProviderLifecycle.LEGACY) {
+            require(requestCacheTtlMs == null) { "${source.name} legacy source cannot cache new requests" }
+            require(mediaUrlTtlMs == null) { "${source.name} legacy source cannot cache new media URLs" }
+            require(retryAfterHandling == RetryAfterHandling.NONE) {
+                "${source.name} legacy source cannot advertise retry handling"
+            }
+            require(maxAutomaticPrefetch == 0) { "${source.name} legacy source cannot prefetch" }
+            require(maxBatchDownloadPerUserAction == 0) { "${source.name} legacy source cannot download batches" }
+            require(timeoutPolicy == "inactive source") { "${source.name} legacy source must use the inactive timeout policy" }
+            require(backoffPolicy == "none") { "${source.name} legacy source cannot advertise backoff" }
+            require(cacheFallbackPolicy == "saved legacy records only") {
+                "${source.name} legacy source can expose saved records only"
+            }
+            require(disabledBehavior == "hidden from active source lists") {
+                "${source.name} legacy source must stay hidden from active source lists"
+            }
+            require(quotaSummary.startsWith("Legacy attribution only.")) {
+                "${source.name} legacy diagnostics must state attribution-only behavior"
+            }
+        }
     }
 
     fun allowsAutomaticPrefetch(count: Int): Boolean =
@@ -67,6 +88,9 @@ data class ProviderNetworkPolicy(
                 "channels ${entry.channels.map { it.name.lowercase(Locale.ROOT) }.sorted().joinToString("+")}",
                 "config ${entry.configuration.name.lowercase(Locale.ROOT)}",
                 "permission ${entry.permission.name.lowercase(Locale.ROOT)}",
+                "media ${entry.mediaTypes.map { it.name.lowercase(Locale.ROOT) }.sorted().joinToString("+")}",
+                "priority ${entry.defaultPriority.entries.sortedBy { it.key.name }.joinToString("+") { "${it.key.name.lowercase(Locale.ROOT)}:${it.value}" }}",
+                "actions ${entry.permittedActions.map { it.name.lowercase(Locale.ROOT) }.sorted().joinToString("+")}",
                 "default ${if (entry.enabledByDefault) "on" else "off"}",
                 "kill switch ${entry.killSwitchKey ?: "none"}",
             ).joinToString(" / ")
@@ -100,15 +124,9 @@ val providerNetworkPolicies = listOf(
         disabledBehavior = "provider toggle blocks new requests",
         quotaSummary = "Aura default metadata cache; no Retry-After contract is encoded.",
     ),
-    ProviderNetworkPolicy(
+    legacyProviderNetworkPolicy(
         source = ContentSource.PICSUM,
-        requestCacheTtlMs = PROVIDER_CACHE_TTL_24H_MS,
-        maxBatchDownloadPerUserAction = 30,
-        timeoutPolicy = "inactive source",
-        backoffPolicy = "none",
-        cacheFallbackPolicy = "saved legacy records only",
-        disabledBehavior = "hidden from active source lists",
-        quotaSummary = "Legacy placeholder source; no active automatic fetching.",
+        quotaDetail = "Placeholder records keep their original source label.",
     ),
     ProviderNetworkPolicy(
         source = ContentSource.BING,
@@ -134,16 +152,11 @@ val providerNetworkPolicies = listOf(
         disabledBehavior = "Discover omits the daily featured image; saved items remain",
         quotaSummary = "One featured-image request per Discover refresh under the shared secondary-source budget.",
     ),
-    ProviderNetworkPolicy(
+    legacyProviderNetworkPolicy(
         source = ContentSource.INTERNET_ARCHIVE,
         sourceAliases = setOf("archive"),
         hostSuffixes = setOf("archive.org"),
-        maxBatchDownloadPerUserAction = 10,
-        timeoutPolicy = "inactive source",
-        backoffPolicy = "none",
-        cacheFallbackPolicy = "saved legacy records only",
-        disabledBehavior = "hidden from active source lists",
-        quotaSummary = "Removed legacy audio source; retained records are user-saved only.",
+        quotaDetail = "Retained Internet Archive records are user-saved only.",
     ),
     ProviderNetworkPolicy(
         source = ContentSource.REDDIT,
@@ -164,52 +177,30 @@ val providerNetworkPolicies = listOf(
         maxBatchDownloadPerUserAction = 30,
         timeoutPolicy = "OkHttp connect/read/write timeouts",
         backoffPolicy = "degraded-source cooldown after repeated failures",
-        cacheFallbackPolicy = "daily enhancement skipped; saved items remain",
-        disabledBehavior = "hidden from active source lists",
-        quotaSummary = "Daily APOD image fetched on Discover refresh under the shared secondary-source budget.",
+        cacheFallbackPolicy = "six-hour APOD cache with saved-item fallback",
+        disabledBehavior = "temporary failures skip the APOD enhancement; saved items remain",
+        quotaSummary = "One APOD request per Discover refresh; random history requests stay inside the secondary-source budget.",
     ),
-    ProviderNetworkPolicy(
+    legacyProviderNetworkPolicy(
         source = ContentSource.FREESOUND,
         sourceAliases = setOf("openverse"),
-        retryAfterHandling = RetryAfterHandling.DELTA_SECONDS,
         hostSuffixes = setOf("freesound.org", "openverse.org"),
-        maxAutomaticPrefetch = 10,
-        maxBatchDownloadPerUserAction = 10,
-        timeoutPolicy = "OkHttp connect/read/write timeouts",
-        backoffPolicy = "Retry-After delta seconds with bounded retries",
-        cacheFallbackPolicy = "bundled and saved sounds remain available",
-        disabledBehavior = "source can be omitted without hiding local sounds",
-        quotaSummary = "Freesound/Openverse sound requests honor delta-second Retry-After.",
+        quotaDetail = "Retained Freesound and Openverse records are user-saved only.",
     ),
-    ProviderNetworkPolicy(
+    legacyProviderNetworkPolicy(
         source = ContentSource.JAMENDO,
         hostSuffixes = setOf("jamendo.com"),
-        maxBatchDownloadPerUserAction = 10,
-        timeoutPolicy = "inactive source",
-        backoffPolicy = "none",
-        cacheFallbackPolicy = "saved legacy records only",
-        disabledBehavior = "hidden from active source lists",
-        quotaSummary = "Legacy sound source; no active automatic fetching.",
+        quotaDetail = "Retained Jamendo records are user-saved only.",
     ),
-    ProviderNetworkPolicy(
+    legacyProviderNetworkPolicy(
         source = ContentSource.AUDIUS,
         hostSuffixes = setOf("audius.co", "audius.org"),
-        maxBatchDownloadPerUserAction = 10,
-        timeoutPolicy = "OkHttp connect/read/write timeouts",
-        backoffPolicy = "degraded-source cooldown after repeated failures",
-        cacheFallbackPolicy = "saved sounds remain available",
-        disabledBehavior = "source can be omitted without hiding local sounds",
-        quotaSummary = "Legacy sound source; no active automatic fetching.",
+        quotaDetail = "Retained Audius records are user-saved only.",
     ),
-    ProviderNetworkPolicy(
+    legacyProviderNetworkPolicy(
         source = ContentSource.CCMIXTER,
         hostSuffixes = setOf("ccmixter.org"),
-        maxBatchDownloadPerUserAction = 10,
-        timeoutPolicy = "OkHttp connect/read/write timeouts",
-        backoffPolicy = "degraded-source cooldown after repeated failures",
-        cacheFallbackPolicy = "saved sounds remain available",
-        disabledBehavior = "source can be omitted without hiding local sounds",
-        quotaSummary = "Legacy sound source; no active automatic fetching.",
+        quotaDetail = "Retained ccMixter records are user-saved only.",
     ),
     ProviderNetworkPolicy(
         source = ContentSource.LOCAL,
@@ -257,25 +248,15 @@ val providerNetworkPolicies = listOf(
         disabledBehavior = "provider toggle blocks new requests",
         quotaSummary = "Pixabay metadata and media URLs are held behind a 24-hour cache and Retry-After backoff.",
     ),
-    ProviderNetworkPolicy(
+    legacyProviderNetworkPolicy(
         source = ContentSource.KLIPY,
         hostSuffixes = setOf("klipy.com"),
-        maxBatchDownloadPerUserAction = 10,
-        timeoutPolicy = "inactive source",
-        backoffPolicy = "none",
-        cacheFallbackPolicy = "saved legacy records only",
-        disabledBehavior = "hidden from active source lists",
-        quotaSummary = "Legacy animated-media source; no active automatic fetching.",
+        quotaDetail = "Retained KLIPY records are user-saved only.",
     ),
-    ProviderNetworkPolicy(
+    legacyProviderNetworkPolicy(
         source = ContentSource.SOUNDCLOUD,
         hostSuffixes = setOf("soundcloud.com"),
-        maxBatchDownloadPerUserAction = 1,
-        timeoutPolicy = "OkHttp connect/read/write timeouts",
-        backoffPolicy = "degraded-source cooldown after repeated failures",
-        cacheFallbackPolicy = "saved sounds remain available",
-        disabledBehavior = "blank provider credentials return empty results",
-        quotaSummary = "Dormant source; batch downloading remains disabled.",
+        quotaDetail = "Retained SoundCloud records are user-saved only.",
     ),
     ProviderNetworkPolicy(
         source = ContentSource.COMMUNITY,
@@ -334,6 +315,23 @@ val providerNetworkPolicies = listOf(
         disabledBehavior = "hidden from active source lists",
         quotaSummary = "Public API with rate limiting at ~1 req/s. Fetches community wallpaper posts with vote counts.",
     ),
+)
+
+private fun legacyProviderNetworkPolicy(
+    source: ContentSource,
+    sourceAliases: Set<String> = emptySet(),
+    hostSuffixes: Set<String> = emptySet(),
+    quotaDetail: String,
+): ProviderNetworkPolicy = ProviderNetworkPolicy(
+    source = source,
+    sourceAliases = sourceAliases,
+    hostSuffixes = hostSuffixes,
+    maxBatchDownloadPerUserAction = 0,
+    timeoutPolicy = "inactive source",
+    backoffPolicy = "none",
+    cacheFallbackPolicy = "saved legacy records only",
+    disabledBehavior = "hidden from active source lists",
+    quotaSummary = "Legacy attribution only. $quotaDetail",
 )
 
 val providerNetworkPoliciesBySource: Map<ContentSource, ProviderNetworkPolicy> =

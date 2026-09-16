@@ -28,6 +28,31 @@ data class TrashedDownload(
     /** Original locator; a `content://` URI is deleted only at purge time. */
     val localPath: String,
     val downloadedAt: Long,
+    val sourceAvailability: String = com.chloemlla.aura.data.model.SOURCE_AVAILABILITY_AVAILABLE,
+    val sourceAvailabilityReason: String? = null,
+    val localMediaStatus: String = com.chloemlla.aura.data.model.LocalMediaStatus.AVAILABLE,
+    val localMediaReason: String? = null,
+    val provenanceUrl: String = "",
+    val originalSha256: String = "",
+    val originalMimeType: String = "",
+    val originalCodec: String = "",
+    val originalWidth: Int = 0,
+    val originalHeight: Int = 0,
+    val originalDurationMs: Long = 0,
+    val originalSizeBytes: Long = 0,
+    val originalHdr: Boolean = false,
+    val optimizedPath: String = "",
+    val optimizedSha256: String = "",
+    val optimizedMimeType: String = "",
+    val optimizedCodec: String = "",
+    val optimizedWidth: Int = 0,
+    val optimizedHeight: Int = 0,
+    val optimizedDurationMs: Long = 0,
+    val optimizedSizeBytes: Long = 0,
+    val optimizedHdr: Boolean = false,
+    val optimizationKey: String = "",
+    val optimizationReason: String = "",
+    val optimizedAt: Long = 0L,
     /** Where the managed local file now lives, or blank for non-file locators. */
     val stagedPath: String = "",
     val deletedAtMs: Long = 0L,
@@ -39,6 +64,31 @@ data class TrashedDownload(
         localPath = localPath,
         name = name,
         downloadedAt = downloadedAt,
+        sourceAvailability = sourceAvailability,
+        sourceAvailabilityReason = sourceAvailabilityReason,
+        localMediaStatus = localMediaStatus,
+        localMediaReason = localMediaReason,
+        provenanceUrl = provenanceUrl,
+        originalSha256 = originalSha256,
+        originalMimeType = originalMimeType,
+        originalCodec = originalCodec,
+        originalWidth = originalWidth,
+        originalHeight = originalHeight,
+        originalDurationMs = originalDurationMs,
+        originalSizeBytes = originalSizeBytes,
+        originalHdr = originalHdr,
+        optimizedPath = optimizedPath,
+        optimizedSha256 = optimizedSha256,
+        optimizedMimeType = optimizedMimeType,
+        optimizedCodec = optimizedCodec,
+        optimizedWidth = optimizedWidth,
+        optimizedHeight = optimizedHeight,
+        optimizedDurationMs = optimizedDurationMs,
+        optimizedSizeBytes = optimizedSizeBytes,
+        optimizedHdr = optimizedHdr,
+        optimizationKey = optimizationKey,
+        optimizationReason = optimizationReason,
+        optimizedAt = optimizedAt,
     )
 }
 
@@ -130,6 +180,7 @@ class DownloadTrash @Inject constructor(
     }
 
     private fun destroyStagedFile(entry: TrashedDownload) {
+        destroyOptimizedCopy(entry.optimizedPath)
         val staged = entry.stagedPath.takeIf { it.isNotBlank() } ?: return
         val file = File(staged)
         // Never step outside the staging directory, whatever the stored path says.
@@ -137,6 +188,16 @@ class DownloadTrash @Inject constructor(
         val candidate = runCatching { file.canonicalPath }.getOrNull() ?: return
         if (!candidate.startsWith(root + File.separator)) return
         runCatching { file.delete() }
+    }
+
+    private fun destroyOptimizedCopy(path: String) {
+        if (path.isBlank()) return
+        val root = runCatching {
+            File(context.filesDir, MediaCopyStore.APPLY_COPY_DIRECTORY).canonicalFile
+        }.getOrNull() ?: return
+        val candidate = runCatching { File(path).canonicalFile }.getOrNull() ?: return
+        if (!candidate.path.startsWith(root.path + File.separator)) return
+        runCatching { candidate.delete() }
     }
 
     private fun write(entries: List<TrashedDownload>) {

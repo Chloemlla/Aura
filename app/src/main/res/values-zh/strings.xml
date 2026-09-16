@@ -429,7 +429,7 @@
     <string name="editor_sound_discard_title">放弃编辑？</string>
     <string name="editor_sound_discard_body">您的裁剪、淡入淡出和标准化设置将丢失。先应用它们还是放弃？</string>
     <string name="editor_sound_guidance_ready">适合用作铃声</string>
-    <string name="editor_sound_guidance_ready_body">铃声通常在 8–30 秒效果最佳。微调手柄，然后在应用前预览。</string>
+    <string name="editor_sound_guidance_ready_body">铃声通常在 8 至 30 秒效果最佳。微调手柄，然后在应用前预览。</string>
     <string name="editor_sound_guidance_short">更适合通知</string>
     <string name="editor_sound_guidance_short_body">此片段不足 8 秒。它仍然可以很好地用作通知或闹钟。</string>
     <string name="editor_sound_guidance_long">缩短选区</string>
@@ -442,6 +442,9 @@
     <string name="collections_show_qr">显示二维码</string>
     <string name="collections_delete">删除收藏集</string>
     <string name="collections_import">导入收藏集</string>
+    <string name="collections_create">创建收藏集</string>
+    <string name="collections_create_title">新建收藏集</string>
+    <string name="collections_create_action">创建</string>
     <string name="collections_empty_title">此收藏集为空</string>
     <string name="collections_empty_body">从详情页保存壁纸，将其变成一个精选集合。</string>
     <string name="collections_list_empty_title">还没有收藏集</string>
@@ -460,10 +463,14 @@
     <string name="collections_import_qr">二维码图片</string>
     <string name="collections_qr_title">收藏集二维码</string>
     <string name="collections_qr_cd">%1$s 的二维码</string>
-    <string name="collections_qr_info">%1$s — %2$d 张壁纸</string>
+    <string name="collections_qr_info">%1$s · %2$d 张壁纸</string>
     <string name="collections_qr_copy">复制链接</string>
     <string name="collections_share_chooser">分享 &quot;%1$s&quot;</string>
     <string name="collections_no_share_target">没有可分享的应用</string>
+    <string name="collections_import_summary">%1$s 导入完成：已添加 %2$d 个，已跳过 %3$d 个，失败 %4$d 个。</string>
+    <plurals name="collections_import_success">
+        <item quantity="other">已将 %1$d 张壁纸导入 %2$s。</item>
+    </plurals>
     <string name="collections_wallpaper_count">%1$d 张壁纸</string>
 
     <!-- Community reports (admin) -->
@@ -606,6 +613,22 @@
 
     <!-- Categories -->
     <string name="categories_title">分类</string>
+    <string name="category_nature">自然</string>
+    <string name="category_space">太空</string>
+    <string name="category_abstract">抽象</string>
+    <string name="category_minimal">极简</string>
+    <string name="category_anime">动漫</string>
+    <string name="category_cars">汽车</string>
+    <string name="category_city">城市</string>
+    <string name="category_dark">暗色</string>
+    <string name="category_ocean">海洋</string>
+    <string name="category_mountains">山脉</string>
+    <string name="category_sunset">日落</string>
+    <string name="category_flowers">花卉</string>
+    <string name="category_technology">科技</string>
+    <string name="category_animals">动物</string>
+    <string name="category_retro">复古</string>
+    <string name="category_neon">霓虹</string>
 
     <!-- Video wallpapers -->
     <string name="video_downloading">正在下载 &amp; 应用…</string>
@@ -694,7 +717,7 @@
     <string name="downloads_tab_all">全部</string>
     <string name="downloads_active">进行中</string>
     <string name="downloads_empty_title">还没有下载内容</string>
-    <string name="downloads_empty_body">已保存的壁纸、声音和进行中的传输将显示在这里，并带有文件健康状态和快速打开状态。</string>
+    <string name="downloads_empty_body">已保存的壁纸、视频、声音和进行中的传输将显示在这里，并带有文件健康状态和快速打开状态。</string>
     <string name="downloads_file_path_missing">文件路径缺失</string>
     <string name="downloads_file_no_longer_exists">文件不再存在</string>
     <string name="downloads_cannot_open_file">无法打开文件</string>
@@ -702,8 +725,26 @@
     <string name="downloads_active_summary">%1$s. %2$s</string>
     <string name="downloads_delete_file">删除 %1$s</string>
     <string name="downloads_type_wallpaper">壁纸</string>
+    <string name="downloads_type_video">视频</string>
     <string name="downloads_type_sound">声音</string>
+    <string name="downloads_original">原始文件</string>
+    <string name="downloads_optimized_copy">优化副本</string>
+    <string name="downloads_details_unavailable">详细信息不可用</string>
+    <string name="downloads_delete_optimized">删除优化副本</string>
+    <string name="downloads_optimized_deleted">优化副本已删除。原始文件仍保留。</string>
+    <string name="downloads_optimized_delete_failed">无法删除优化副本。原始文件未更改。</string>
     <string name="downloads_file_missing">文件缺失</string>
+    <string name="media_relink_action">重新链接</string>
+    <string name="media_relink_success">文件已重新链接。已保留保存的信息和选择。</string>
+    <string name="media_relink_mismatch">此文件的%1$s与原文件不同。</string>
+    <string name="media_relink_missing_help">重新选择文件，即可保留此项目的收藏、合集、编辑和轮换设置。</string>
+    <string name="media_relink_use_anyway">仍然使用</string>
+    <string name="media_status_available">可用</string>
+    <string name="media_status_missing">文件缺失</string>
+    <string name="media_status_permission_revoked">权限已撤销</string>
+    <string name="media_status_corrupt">文件损坏</string>
+    <string name="settings_local_catalog_repair_summary">已重新链接 %1$d 个项目。仍有 %2$d 个项目需要处理。</string>
+    <string name="settings_local_catalog_repair_failed">无法修复此文件夹。</string>
     <string name="downloads_source_unavailable">来源不可用</string>
 
     <!-- Contact picker -->
@@ -738,9 +779,11 @@
     <string name="favorites_title">收藏</string>
     <string name="favorites_export">导出收藏</string>
     <string name="favorites_import">导入收藏</string>
+    <string name="favorites_export_summary">收藏导出完成：已导出 %1$d 个，已跳过 %2$d 个，失败 %3$d 个。</string>
+    <string name="favorites_import_summary">收藏导入完成：已导入 %1$d 个，已跳过 %2$d 个，失败 %3$d 个。</string>
     <string name="favorites_download_all">下载所有壁纸</string>
     <string name="favorites_sort_recent">排序：最新在前</string>
-    <string name="favorites_sort_name">排序：名称 A–Z</string>
+    <string name="favorites_sort_name">排序：名称 A 至 Z</string>
     <string name="favorites_sort_oldest">排序：最早在前</string>
     <string name="favorites_source_unavailable">来源不可用</string>
 
@@ -945,12 +988,14 @@
     <string name="video_wp_saved_manual">视频已保存到 Movies/Aura 以便手动设置。</string>
     <string name="video_wp_cropped_saved_manual">裁剪后的视频已保存到 Movies/Aura 以便手动设置。</string>
     <string name="video_wp_cropped_ready_manual">裁剪后的视频已就绪。打开设置 &gt; 壁纸 &gt; 动态壁纸以完成设置。</string>
-    <string name="video_wp_badge_summary">%1$s - %2$s - %3$s</string>
+    <string name="video_wp_badge_summary">%1$s · %2$s · %3$s</string>
+    <string name="video_wp_technical_adaptive_stream">自适应视频流</string>
+    <string name="video_wp_technical_dimensions">%1$d × %2$d · %3$s</string>
     <string name="video_wp_youtube_disabled">YouTube 功能已在设置中禁用</string>
     <string name="video_wp_apply_failed">失败：%1$s</string>
     <string name="video_wp_by_creator">由 %1$s 提供</string>
     <string name="video_wp_confirm_presentation">呈现方式</string>
-    <string name="video_wp_confirm_fit_landscape_letterbox">适应会保留完整的横向画面并采用信箱式黑边。裁剪会创建竖屏版本。</string>
+    <string name="video_wp_confirm_fit_landscape_letterbox">适应会保留完整的横向画面，并用所选样式填充画布。裁剪会创建竖屏版本。</string>
     <string name="video_wp_confirm_fill_landscape_crop">填充会裁剪横向边缘以避免拉伸。如需更多控制，请使用裁剪。</string>
     <string name="video_wp_confirm_fit_portrait">填充使用整个屏幕；适应保持完整画面可见。</string>
     <string name="video_wp_unavailable">不可用</string>
@@ -1003,8 +1048,8 @@
     <string name="settings_title">设置</string>
     <string name="settings_apikey_save">保存</string>
     <string name="settings_apikey_clear">清除</string>
-    <string name="settings_apikey_show">显示密钥</string>
-    <string name="settings_apikey_hide">隐藏密钥</string>
+    <string name="settings_apikey_show">显示 API 密钥</string>
+    <string name="settings_apikey_hide">隐藏 API 密钥</string>
     <string name="settings_apikey_stored_placeholder">••••••（已存储）</string>
     <string name="settings_apikey_stored_hint">已保存密钥。留空可保留现有密钥，输入新值可替换。</string>
     <string name="settings_feedback_local_folder_saved">本地壁纸文件夹已保存</string>
@@ -1116,12 +1161,14 @@
     <string name="settings_reddit_subreddits_summary">已选择 %1$d 个 • 点击编辑</string>
     <string name="settings_reddit_subreddits_hint">输入以逗号或换行分隔的 subreddit 名称。r/ 前缀可选。留空可恢复 Aura 的默认设置。</string>
     <string name="settings_reddit_subreddits_input_label">子版块</string>
-    <string name="settings_reddit_subreddits_error">每个名称使用 2–40 个字母、数字或下划线，且社区数量不超过 12 个。</string>
+    <string name="settings_reddit_subreddits_error">每个名称使用 2 至 40 个字母、数字或下划线，且社区数量不超过 12 个。</string>
     <string name="settings_wp_bing_title">启用 Bing 每日来源</string>
     <string name="settings_wp_bing_on_subtitle">将 Bing 每日图片添加到发现和轮换中</string>
     <string name="settings_wp_bing_off_subtitle">跳过 Bing 每日图片请求，并将其从轮换选择器中隐藏</string>
     <string name="settings_wp_categories_title">浏览类别</string>
     <string name="settings_wp_categories_subtitle">自然、太空、动漫、深色、霓虹及另外 12 个</string>
+    <string name="settings_wp_categories_unavailable_subtitle">启用 Wallhaven 或 Pixabay 以浏览可搜索类别</string>
+    <string name="settings_wp_categories_unavailable_feedback">请先在高级外部服务中启用 Wallhaven 或 Pixabay。</string>
     <string name="settings_wp_collections_title">收藏集</string>
     <string name="settings_wp_collections_subtitle">将壁纸整理到文件夹中</string>
     <string name="settings_wp_history_title">壁纸历史</string>
@@ -1341,7 +1388,10 @@
     <string name="settings_services_wallhaven_key_title">Wallhaven API 密钥</string>
     <string name="settings_services_wallhaven_key_subtitle">可选：更高的限额 + NSFW（wallhaven.cc/settings）</string>
     <string name="settings_services_provider_key_storage_warning_title">提供商密钥存储需要处理</string>
-    <string name="settings_services_provider_key_storage_warning_subtitle">Android 密钥库无法解锁已保存的提供商密钥。现有密钥保留在本地，并可能在设备解锁或应用重启后重新出现。</string>
+    <string name="settings_services_provider_key_storage_warning_subtitle">Android 密钥库暂时不可用。加密密钥仍已保存。点按即可重试。</string>
+    <string name="settings_services_provider_key_retrying">正在重试加密的提供商密钥</string>
+    <string name="settings_services_provider_key_reentry_title">需要重新输入提供商密钥</string>
+    <string name="settings_services_provider_key_reentry_subtitle">保存的提供商密钥在恢复或安全重置后无法解密，因此 Aura 已将它们删除。点按即可逐一重新输入受影响的密钥。</string>
     <string name="settings_services_wallhaven_enable_title">启用 Wallhaven 来源</string>
     <string name="settings_services_wallhaven_on_subtitle">显示 Wallhaven 精选、颜色、相似、随机和发现结果</string>
     <string name="settings_services_wallhaven_off_subtitle">隐藏 Wallhaven 浏览并跳过 Wallhaven API 调用</string>
@@ -1370,11 +1420,6 @@
     <string name="settings_services_pixabay_dialog_title">Pixabay API 密钥</string>
     <string name="settings_services_pixabay_dialog_desc">在 pixabay.com/api/docs 获取免费密钥</string>
     <string name="settings_services_pixabay_dialog_placeholder">在此粘贴 API 密钥</string>
-    <string name="settings_services_freesound_key_title">Freesound API 密钥</string>
-    <string name="settings_services_freesound_key_subtitle">用于 Freesound 声音搜索的可选令牌</string>
-    <string name="settings_services_freesound_dialog_title">Freesound API 密钥</string>
-    <string name="settings_services_freesound_dialog_desc">粘贴用于声音搜索的 Freesound API 令牌。</string>
-    <string name="settings_services_freesound_dialog_placeholder">在此粘贴 API 令牌</string>
     <string name="settings_storage_downloads_title">下载</string>
     <string name="settings_storage_downloads_subtitle">查看 Aura 保存的壁纸、声音和视频</string>
     <string name="settings_storage_free_up_title">释放存储空间</string>
@@ -1480,7 +1525,7 @@
     <string name="settings_perm_wallpaper">设置壁纸</string>
     <string name="settings_perm_wallpaper_desc">将图片应用为主屏幕或锁屏壁纸。不会有任何数据离开设备。</string>
     <string name="settings_perm_internet">互联网</string>
-    <string name="settings_perm_internet_desc">从 Wallhaven、Pexels、Pixabay、YouTube（NewPipe/yt-dlp）和 Freesound 获取壁纸、视频和声音。社区功能使用 Firebase。</string>
+    <string name="settings_perm_internet_desc">从 Reddit、Wallhaven、Bing、Wikimedia、NASA、Lemmy 以及可选的 Pexels 或 Pixabay 来源获取媒体。GitHub 版本还提供 YouTube。社区功能使用 Firebase。</string>
     <string name="settings_perm_notifications">通知</string>
     <string name="settings_perm_notifications_desc">每日壁纸提醒和下载完成通知。仅在你启用每日壁纸或下载内容时生效。</string>
     <string name="settings_perm_location">大致位置</string>
@@ -1545,19 +1590,21 @@
 
     <!-- Library screen -->
     <string name="library_title">本地图库</string>
-    <string name="library_subtitle">在一个设备端中心里汇集保存的壁纸、声音、下载、收藏、导入和恢复工具。</string>
+    <string name="library_subtitle">集中查看此设备上保存或下载的所有内容。</string>
     <string name="library_search_title">搜索</string>
-    <string name="library_search_body">在同一个地方搜索已保存的壁纸、视频、声音、收藏、下载、本地文件和可用的提供商。</string>
+    <string name="library_search_body">查找已保存的媒体、下载、本地文件和提供商结果。</string>
     <string name="library_search_status">本地历史记录、离线结果</string>
     <string name="library_favorites_title">收藏</string>
-    <string name="library_favorites_body">查看已保存的壁纸和声音、批量下载壁纸，或恢复本地备份。</string>
+    <string name="library_favorites_body">查看保存的壁纸和声音、批量下载或恢复备份。</string>
     <string name="library_favorites_count">已保存 %1$d 项</string>
     <string name="library_downloads_title">下载</string>
     <string name="library_downloads_body">打开 Aura 已下载以供离线使用的文件，并清理过期的本地路径。</string>
     <string name="library_downloads_count">%1$d 项离线</string>
     <string name="library_collections_title">收藏集</string>
     <string name="library_collections_body">管理已保存的集合、QR 码导入和可移植的收藏集导出。</string>
-    <string name="library_collections_count">%1$d 个收藏集</string>
+    <plurals name="library_collections_count">
+        <item quantity="other">%1$d 个收藏集</item>
+    </plurals>
     <string name="library_imports_title">本地导入</string>
     <string name="library_imports_body">导入收藏集链接、导出的信息包或已存储在此设备上的文件。</string>
     <string name="library_imports_status">由收藏集导入和文件选择器处理</string>
@@ -1765,12 +1812,12 @@
 
     <!-- Sound profiles -->
     <string name="settings_sounds_profiles_title">按时段的声音配置文件</string>
-    <string name="settings_sounds_profiles_on_subtitle">%1$d 个配置文件生效中 — 声音按计划变化</string>
+    <string name="settings_sounds_profiles_on_subtitle">%1$d 个配置文件生效中。声音按计划变化。</string>
     <string name="settings_sounds_profiles_off_subtitle">为不同时间段分配不同的铃声、通知音和闹钟音</string>
 
     <!-- Wallpaper packs (24H) -->
     <string name="settings_wp_pack_title">24 小时壁纸包</string>
-    <string name="settings_wp_pack_on_subtitle">%1$d 个时段槽位 — 壁纸按一天中的时间变化</string>
+    <string name="settings_wp_pack_on_subtitle">%1$d 个时段槽位生效中。壁纸按一天中的时间变化。</string>
     <string name="settings_wp_pack_off_subtitle">将不同的壁纸映射到早晨、白天、傍晚和夜间</string>
 
     <!-- Sound detail: similar sounds -->
@@ -1780,23 +1827,24 @@
     <string name="settings_library_export_title">导出整个图库</string>
     <string name="settings_library_export_subtitle">将收藏、收藏集、壁纸包和配置文件导出为一个 JSON 文件，用于设备迁移</string>
     <string name="settings_library_import_title">导入整个图库</string>
-    <string name="settings_library_import_subtitle">恢复图库备份 — 项目将与现有内容合并</string>
+    <string name="settings_library_import_subtitle">恢复图库备份。项目将与现有内容合并。</string>
     <string name="settings_library_default_filename">aura-library-backup.json</string>
     <plurals name="settings_library_export_done">
         <item quantity="one">图库已导出：%1$d 个项目</item>
         <item quantity="other">图库已导出：%1$d 个项目</item>
     </plurals>
     <string name="settings_library_export_failed">图库导出失败：%1$s</string>
+    <string name="settings_library_export_summary">图库导出完成：已导出 %1$d 个，已跳过 %2$d 个，失败 %3$d 个。</string>
     <plurals name="settings_library_import_done">
         <item quantity="one">图库已导入：%1$d 个项目</item>
         <item quantity="other">图库已导入：%1$d 个项目</item>
     </plurals>
     <string name="settings_library_import_failed">图库导入失败：%1$s</string>
+    <string name="settings_library_import_summary">图库导入完成：已导入 %1$d 个，已跳过 %2$d 个，失败 %3$d 个。</string>
     <string name="settings_library_import_more">，以及更多</string>
-    <string name="settings_library_import_skipped_invalid">跳过了 %1$d 个无法读取的条目（%2$s）。</string>
+    <string name="settings_library_import_skipped_invalid">%1$d 个无法读取的条目导入失败（%2$s）。</string>
     <string name="settings_library_import_skipped_non_portable">%1$d 个项目指向仅存在于创建此备份的设备上的文件，因此未恢复（%2$s）。</string>
     <string name="settings_library_import_skipped_duplicate">跳过了 %1$d 个已在图库中的项目（%2$s）。</string>
-    <string name="settings_library_import_skipped_over_limit">跳过了 %1$d 个超出每部分导入限制的项目（%2$s）。</string>
     <string name="settings_library_import_skipped_migration">来自旧版备份格式的 %1$d 个下载未恢复；下载内容保留在创建它们的设备上（%2$s）。</string>
 
     <!-- Global apply/undo feedback (FreeVibeRoot snackbar) -->
@@ -2177,4 +2225,30 @@
     <string name="widget_toast_no_wallpapers">暂无可用壁纸</string>
     <string name="widget_toast_shuffle_failed">随机切换失败：%1$s</string>
     <string name="widget_toast_shuffling">正在随机切换…</string>
+
+    <string name="fit_canvas_fill">填满</string>
+    <string name="fit_canvas_fit">适应</string>
+    <string name="fit_canvas_amoled">AMOLED 黑色</string>
+    <string name="fit_canvas_custom">自选颜色</string>
+    <string name="fit_canvas_dominant">取自图像</string>
+    <string name="fit_canvas_blur">模糊边缘</string>
+    <string name="fit_canvas_custom_title">选择画布颜色</string>
+    <string name="fit_canvas_custom_hint">输入十六进制颜色，例如 #241A38</string>
+    <string name="fit_canvas_controls_title">构图和画布</string>
+    <string name="fit_canvas_fit_help">保留完整图像，并用所选样式填充多余画布。</string>
+    <string name="fit_canvas_hdr_fallback">HDR 媒体的模糊画布会改用图像颜色。</string>
+    <string name="rotation_exclude_action">从轮换中排除</string>
+    <string name="rotation_restore_action">恢复到轮换</string>
+    <string name="rotation_excluded_message">%1$s 不会出现在自动轮换中。</string>
+    <string name="rotation_restored_message">%1$s 可以再次出现在轮换中。</string>
+    <string name="rotation_all_excluded_short">这里的所有项目均已排除。请在设置中恢复一个。</string>
+    <string name="rotation_no_wallpapers_available">没有可用的壁纸</string>
+    <string name="settings_rotation_exclusions_title">轮换排除项</string>
+    <string name="settings_rotation_exclusions_body">这些项目仍保留在媒体库中，也可以手动应用。</string>
+    <string name="settings_rotation_exclusions_empty">目前没有从轮换中排除的项目。</string>
+    <string name="settings_rotation_exclusions_restore">恢复</string>
+    <string name="settings_rotation_exclusions_restore_all">全部恢复</string>
+    <string name="settings_rotation_exclusions_item_summary">%1$s • %2$s</string>
+    <string name="settings_rotation_exclusions_subtitle">已排除 %1$d 项。查看或恢复项目。</string>
+    <string name="settings_rotation_exclusions_manage_subtitle">无需隐藏或删除，即可阻止不需要的项目自动更换。</string>
 </resources>

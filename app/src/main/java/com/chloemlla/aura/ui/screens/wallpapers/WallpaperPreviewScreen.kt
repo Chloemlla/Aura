@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.stringArrayResource
@@ -24,8 +23,15 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.chloemlla.aura.data.model.FitCanvasMode
+import com.chloemlla.aura.data.model.FitCanvasStyle
+import com.chloemlla.aura.data.model.WALLPAPER_PRESENTATION_FIT
 import com.chloemlla.aura.data.model.Wallpaper
+import com.chloemlla.aura.data.model.WallpaperAction
 import com.chloemlla.aura.data.model.WallpaperTarget
+import com.chloemlla.aura.data.model.wallpaperLicenseCapabilities
+import com.chloemlla.aura.ui.components.FitCanvasControls
+import com.chloemlla.aura.ui.components.FitCanvasMedia
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -52,10 +58,17 @@ import java.util.Locale
 fun WallpaperPreviewScreen(
     wallpaper: Wallpaper,
     onBack: () -> Unit,
-    onApply: (WallpaperTarget) -> Unit,
+    onApply: (WallpaperTarget, FitCanvasStyle?) -> Unit,
     viewModel: WallpapersViewModel = hiltViewModel(),
 ) {
     val palette by viewModel.colorPalette.collectAsStateWithLifecycle()
+    val presentation by viewModel.staticWallpaperPresentation.collectAsStateWithLifecycle()
+    val canvasMode by viewModel.staticFitCanvasMode.collectAsStateWithLifecycle()
+    val canvasColor by viewModel.staticFitCanvasColor.collectAsStateWithLifecycle()
+    val canvasStyle = remember(canvasMode, canvasColor) {
+        FitCanvasStyle(FitCanvasMode.fromPreference(canvasMode), canvasColor).normalized()
+    }
+    val canApply = remember(wallpaper) { canApplyFromWallpaperPreview(wallpaper) }
     LaunchedEffect(wallpaper.fullUrl) {
         viewModel.extractColors(wallpaper.fullUrl)
     }
@@ -107,10 +120,19 @@ fun WallpaperPreviewScreen(
         bottomBar = {
             PreviewApplyBar(
                 isApplying = isApplyingPreview,
-                onApply = { target ->
+                canApply = canApply,
+                presentation = presentation,
+                canvasStyle = canvasStyle,
+                onPresentationChange = { selected ->
+                    viewModel.setStaticFitCanvasPreferences(selected, canvasStyle)
+                },
+                onCanvasStyleChange = { selected ->
+                    viewModel.setStaticFitCanvasPreferences(presentation, selected)
+                },
+                onApply = { target, style ->
                     if (!isApplyingPreview) {
                         isApplyingPreview = true
-                        onApply(target)
+                        onApply(target, style)
                     }
                 },
             )
@@ -119,10 +141,15 @@ fun WallpaperPreviewScreen(
         Box(Modifier.fillMaxSize()) {
             // Wallpaper fills the full screen, ignoring the scaffold padding, so we see it
             // behind the translucent top/bottom bars.
-            AsyncImage(
+            FitCanvasMedia(
                 model = wallpaper.fullUrl,
                 contentDescription = wallpaperPreviewContentDescription,
-                contentScale = ContentScale.Crop,
+                presentation = presentation,
+                style = canvasStyle,
+                // Fit Canvas derives its preview swatch with the same sampler
+                // used by apply. The separate Material You palette still powers
+                // the mock system UI below.
+                dominantColor = null,
                 modifier = Modifier.fillMaxSize(),
             )
             // Light vignette so the mock text stays readable.
@@ -342,44 +369,76 @@ private fun mockLabel(row: Int, col: Int): String {
 @Composable
 private fun PreviewApplyBar(
     isApplying: Boolean,
-    onApply: (WallpaperTarget) -> Unit,
+    canApply: Boolean,
+    presentation: String,
+    canvasStyle: FitCanvasStyle,
+    onPresentationChange: (String) -> Unit,
+    onCanvasStyleChange: (FitCanvasStyle) -> Unit,
+    onApply: (WallpaperTarget, FitCanvasStyle?) -> Unit,
 ) {
     Surface(
         color = Color.Black.copy(alpha = 0.55f),
         contentColor = Color.White,
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(horizontal = 12.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            ApplyActionButton(
-                label = stringResource(R.string.common_lock),
-                onClick = { onApply(WallpaperTarget.LOCK) },
-                enabled = !isApplying,
-                tonal = true,
-                modifier = Modifier.weight(1f),
+            Text(
+                stringResource(R.string.fit_canvas_controls_title),
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White.copy(alpha = 0.78f),
             )
-            ApplyActionButton(
-                label = stringResource(R.string.common_home),
-                onClick = { onApply(WallpaperTarget.HOME) },
-                enabled = !isApplying,
-                tonal = true,
-                modifier = Modifier.weight(1f),
+            FitCanvasControls(
+                presentation = presentation,
+                style = canvasStyle,
+                onPresentationChange = onPresentationChange,
+                onStyleChange = onCanvasStyleChange,
             )
-            ApplyActionButton(
-                label = stringResource(R.string.common_both),
-                onClick = { onApply(WallpaperTarget.BOTH) },
-                enabled = !isApplying,
-                tonal = false,
-                modifier = Modifier.weight(1.2f),
-            )
+            if (presentation == WALLPAPER_PRESENTATION_FIT) {
+                Text(
+                    stringResource(R.string.fit_canvas_fit_help),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.66f),
+                )
+                Spacer(Modifier.height(6.dp))
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val appliedStyle = canvasStyle.takeIf { presentation == WALLPAPER_PRESENTATION_FIT }
+                ApplyActionButton(
+                    label = stringResource(R.string.common_lock),
+                    onClick = { onApply(WallpaperTarget.LOCK, appliedStyle) },
+                    enabled = canApply && !isApplying,
+                    tonal = true,
+                    modifier = Modifier.weight(1f),
+                )
+                ApplyActionButton(
+                    label = stringResource(R.string.common_home),
+                    onClick = { onApply(WallpaperTarget.HOME, appliedStyle) },
+                    enabled = canApply && !isApplying,
+                    tonal = true,
+                    modifier = Modifier.weight(1f),
+                )
+                ApplyActionButton(
+                    label = stringResource(R.string.common_both),
+                    onClick = { onApply(WallpaperTarget.BOTH, appliedStyle) },
+                    enabled = canApply && !isApplying,
+                    tonal = false,
+                    modifier = Modifier.weight(1.2f),
+                )
+            }
         }
     }
 }
+
+internal fun canApplyFromWallpaperPreview(wallpaper: Wallpaper): Boolean =
+    wallpaper.wallpaperLicenseCapabilities().canUse(WallpaperAction.APPLY)
 
 @Composable
 private fun ApplyActionButton(

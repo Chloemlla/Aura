@@ -1,94 +1,54 @@
-# Aura Originals — Curation Guide
+# Aura Originals: Curation Guide
 
-Roadmap N-5. Goal: 200–500 high-quality CC0/public-domain sounds bundled
-with Aura's first-run experience so users never see an empty Sounds tab.
+Aura includes 25 original tones so the main Sounds tabs are useful without a
+network connection. The first pack contains 10 ringtones, 10 notifications,
+and 5 alarms. It adds about 431 KiB to the source resources before APK
+compression.
 
-The bundle is **not** in the APK. It is downloaded on first launch over
-Wi-Fi by `AuraOriginalsDownloader` from the URLs listed in
-[`app/src/main/assets/aura_originals_manifest.json`](../app/src/main/assets/aura_originals_manifest.json).
-Each file is sha256-verified before it is moved to its final location,
-so a CDN that changes a file under us is detected and the entry is
-re-tried on the next worker run.
+Every tone is synthesized by
+[`tools/generate_aura_originals.py`](../tools/generate_aura_originals.py). The
+script is deterministic and uses standard waveform synthesis, so it does not
+sample recordings or copy a third-party melody. FFmpeg encodes the generated
+PCM audio as mono Ogg Vorbis.
 
-## Target distribution
+## Regenerate the pack
 
-| Category     | Count   | Duration window | Notes                                     |
-|--------------|---------|-----------------|-------------------------------------------|
-| Ringtone     | 100+    | 8–30 s          | Melodic, minimal, electronic, marimba…    |
-| Notification | 100+    | 1–5 s           | Chimes, pings, dings, clicks, pops        |
-| Alarm        | 100+    | 10–40 s         | Gentle wake, buzzer, nature, musical      |
-| SFX bonus    | 50+     | varies          | UI clicks, transition effects             |
+Run this from the repository root with Python and FFmpeg on `PATH`:
 
-## Manifest schema
-
-```jsonc
-{
-  "version": 1,
-  "manifestRevision": "YYYY-MM-DD-revN",
-  "totalBytes": <sum-of-all-file-sizes>,
-  "sounds": [
-    {
-      "id": "ring_crystal_bloom_01",
-      "category": "ringtone",      // ringtone | notification | alarm
-      "name": "Crystal Bloom",
-      "durationSec": 14.2,
-      "url": "https://freesound.org/data/previews/411/411089-hq.mp3",
-      "sha256": "<lowercase-hex-of-the-actual-file-bytes>",
-      "license": "CC0 1.0",
-      "sourceUrl": "https://freesound.org/s/411089/",
-      "tags": ["ringtone", "chime", "crystal"]
-    }
-  ]
-}
+```powershell
+python tools\generate_aura_originals.py
 ```
 
-## Curation workflow
+The script replaces only `aura_*.ogg` files in `app/src/main/res/raw`. Review
+the generated files, then run the bundled-content and local-media tests:
 
-1. **Source check.** Search Freesound for `license:"Creative Commons 0"`
-   sorted by `rating_desc` and `downloads_desc`. Stick to CC0; do not mix
-   in CC-BY without an attribution UI.
-2. **Listen test.** Skip anything with loudness clipping, audible cuts,
-   or background noise.
-3. **Duration window.** Trim externally if needed; aim for the windows
-   in the table above. Keep the original in your working folder for
-   provenance.
-4. **Normalize.** Run loudnorm so the pack feels even — Aura's preview
-   ExoPlayer doesn't apply gain compensation.
-5. **Hash.** `shasum -a 256 <file>` and paste the lowercase hex into the
-   manifest entry.
-6. **Stage.** Upload the normalized file to a stable CDN. Freesound's
-   own `data/previews/` URLs are stable but re-encoded; if absolute
-   fidelity matters, host the normalized originals yourself.
-7. **Bump `manifestRevision`** to the date + a monotonic counter.
-8. **Commit + PR.** CI should verify each entry's URL is reachable (a
-   HEAD probe) and that the manifest's `totalBytes` matches the sum
-   of declared `durationSec * 16 kBps` approximations within ±25 %.
+```powershell
+.\gradlew.bat :app:testFullDebugUnitTest --tests "com.chloemlla.aura.service.BundledContentProviderTest" --tests "com.chloemlla.aura.service.LocalMediaLocatorTest"
+```
 
-## License compliance
+## Acceptance checks
 
-CC0 is permissive but the dedication does not protect against later DMCA
-re-uploads. Two safety measures live in this codebase:
+- Each item must start with a clean attack and end without an audible cut.
+- Ringtones should remain recognizable on a small phone speaker.
+- Notifications must stay short enough for repeated chat alerts.
+- Alarms should become noticeable without using clipped or harsh output.
+- Resource locators must preview, download, and apply without an HTTP request.
+- Names and tags must describe what the tone sounds like.
 
-- Each entry carries its `sourceUrl` so we can verify the original
-  uploader's CC0 dedication on Freesound's moderation log.
-- The sha256 manifest gives us retroactive removal: if a file is later
-  found to be miscategorized, drop its entry from the manifest and the
-  downloader's `verifyHash` mismatch will quietly fail (Aura keeps the
-  prior copy but no longer ships it to new installs).
+`BundledContentProviderTest` checks the 10, 10, and 5 category counts, unique
+IDs, CC0 metadata, resource existence, and Ogg headers. Device release testing
+still includes listening at a safe volume and applying one tone from each tab.
 
-## Storage layout
+## Licensing
 
-Downloaded files land in `filesDir/aura_originals/<id>.<ext>`. Aura's
-`BundledContentProvider` consults this directory at runtime; entries
-present on disk are returned as `ContentSource.BUNDLED` `Sound`s with a
-local `file://` URI. Entries missing on disk fall back to the
-URL-backed `BundledContentProvider` defaults so the Sounds tab is never
-empty even before the worker completes.
+The generated audio files are dedicated under CC0 1.0. See
+[`aura-originals-license.md`](aura-originals-license.md). The generator source
+remains covered by the repository's MIT license.
 
-## Empty manifest = scaffolding-only
+## Future additions
 
-`aura_originals_manifest.json` ships with `"sounds": []` until the
-curation pass completes. The downloader honors empty manifests with a
-zero-work success. Aura's existing URL-backed `BundledContentProvider`
-catalog (10 ringtones, 10 notifications, 5 alarms) remains the
-fallback during this window.
+Additions should widen the sound palette without turning the APK into a large
+media archive. A downloadable expansion can use
+`app/src/main/assets/aura_originals_manifest.json` once it has reviewed URLs,
+hashes, sizes, and provenance. The manifest stays empty until such a pack has
+real files and device evidence.

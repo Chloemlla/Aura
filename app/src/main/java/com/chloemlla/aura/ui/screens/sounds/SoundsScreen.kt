@@ -1067,7 +1067,7 @@ private fun SoundCard(
 ) {
     val showUploader = sound.uploaderName.isNotEmpty() &&
         sound.uploaderName != "Unknown" &&
-        !(sound.source == ContentSource.BUNDLED && sound.uploaderName == "Aura Picks")
+        !(sound.source == ContentSource.BUNDLED && sound.uploaderName in setOf("Aura", "Aura Picks"))
     val sourceTone = soundSourceTone(sound.source)
     val sourceLabel = sourceTone.label
     val sourceColor = sourceTone.colorForSurface()
@@ -1176,7 +1176,7 @@ private fun SoundCard(
                             )
                         }
                         Text(
-                            formatDuration(sound.duration),
+                            formatSoundFeedDuration(sound.duration),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -1315,13 +1315,6 @@ private fun MiniWaveform(duration: Double, isPlaying: Boolean, progress: Float, 
     }
 }
 
-private fun formatDuration(seconds: Double): String {
-    val total = seconds.toInt()
-    val m = total / 60
-    val s = total % 60
-    return if (m > 0) "${m}:${s.toString().padStart(2, '0')}" else "0:${s.toString().padStart(2, '0')}"
-}
-
 private fun soundFilterLabel(filter: SoundQualityFilter): String = when (filter) {
     SoundQualityFilter.BEST -> "Best"
     SoundQualityFilter.CLEAN -> "Clean"
@@ -1453,9 +1446,9 @@ private fun QuickApplySheet(
             Text(sound.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
                 if (sound.uploaderName.isNotEmpty() && sound.uploaderName != "Unknown") {
-                    stringResource(R.string.sounds_duration_by_uploader, formatDuration(sound.duration), sound.uploaderName)
+                    stringResource(R.string.sounds_duration_by_uploader, formatSoundFeedDuration(sound.duration), sound.uploaderName)
                 } else {
-                    formatDuration(sound.duration)
+                    formatSoundFeedDuration(sound.duration)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

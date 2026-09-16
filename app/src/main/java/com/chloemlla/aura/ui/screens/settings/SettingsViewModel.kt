@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import javax.inject.Inject
 
@@ -64,13 +65,14 @@ class SettingsViewModel @Inject constructor(
     // Held as a property, not just a constructor argument, because setAppLocale
     // needs it after construction.
     @ApplicationContext private val context: android.content.Context,
-    prefs: PreferencesManager,
+    private val prefs: PreferencesManager,
     historyManager: WallpaperHistoryManager,
     offlineFavorites: OfflineFavoritesManager,
     wallpaperCacheManager: WallpaperCacheManager,
     collectionRepo: CollectionRepository,
     wallpaperApplier: WallpaperApplier,
-    localWallpaperCatalog: LocalWallpaperCatalog,
+    private val localWallpaperCatalog: LocalWallpaperCatalog,
+    private val localMediaRelinkManager: LocalMediaRelinkManager,
     videoWallpaperStorage: VideoWallpaperStorage,
     sourceMetrics: SourceMetrics,
     crashDiagnosticsCollector: CrashDiagnosticsCollector,
@@ -208,9 +210,10 @@ class SettingsViewModel @Inject constructor(
     val wallhavenApiKey get() = media.wallhavenApiKey
     val pexelsApiKey get() = media.pexelsApiKey
     val pixabayApiKey get() = media.pixabayApiKey
-    val freesoundApiKey get() = media.freesoundApiKey
     val generatedWallpaperProviderKey get() = media.generatedWallpaperProviderKey
     val providerCredentialStorageUnavailable get() = media.providerCredentialStorageUnavailable
+    val providerCredentialReentryRequired get() = media.providerCredentialReentryRequired
+    val providerCredentialReentryKeys get() = media.providerCredentialReentryKeys
     val generatedContentProviderEnabled get() = media.generatedContentProviderEnabled
     val generatedContentDisclosureAccepted get() = media.generatedContentDisclosureAccepted
     val wallhavenProviderEnabled get() = media.wallhavenProviderEnabled
@@ -257,6 +260,21 @@ class SettingsViewModel @Inject constructor(
         rotation.setLocalWallpaperFolderTarget(uri, target)
     fun updateLocalWallpaperTags(documentUri: String, tags: String) =
         rotation.updateLocalWallpaperTags(documentUri, tags)
+    suspend fun repairLocalWallpaperFolder(oldFolderUri: String, newFolderUri: String) =
+        localWallpaperCatalog.repairFolder(oldFolderUri, newFolderUri).onSuccess {
+            if (prefs.localWallpaperFolderUri.first().trim() == oldFolderUri.trim()) {
+                prefs.setLocalWallpaperFolderUri(newFolderUri.trim())
+            }
+        }
+    suspend fun relinkLocalWallpaper(
+        documentUri: String,
+        replacement: Uri,
+        acceptMismatch: Boolean = false,
+    ): LocalMediaRelinkOutcome = localMediaRelinkManager.relink(
+        LocalMediaRelinkTarget.CatalogItem(documentUri),
+        replacement,
+        acceptMismatch,
+    )
     fun setAutoWallpaperRequiresCharging(value: Boolean) = rotation.setAutoWallpaperRequiresCharging(value)
     fun setAutoWallpaperRequiresWiFiOnly(value: Boolean) = rotation.setAutoWallpaperRequiresWiFiOnly(value)
     fun setRotateOnUnlock(value: Boolean) = rotation.setRotateOnUnlock(value)
@@ -321,8 +339,8 @@ class SettingsViewModel @Inject constructor(
     fun setWallhavenKey(key: String) = media.setWallhavenKey(key)
     fun setPexelsKey(key: String) = media.setPexelsKey(key)
     fun setPixabayKey(key: String) = media.setPixabayKey(key)
-    fun setFreesoundKey(key: String) = media.setFreesoundKey(key)
     fun setGeneratedWallpaperProviderKey(key: String) = media.setGeneratedWallpaperProviderKey(key)
+    fun retryProviderCredentials() = media.retryProviderCredentials()
     fun setWallhavenProviderEnabled(enabled: Boolean) = media.setWallhavenProviderEnabled(enabled)
     fun setBingProviderEnabled(enabled: Boolean) = media.setBingProviderEnabled(enabled)
     fun setPexelsProviderEnabled(enabled: Boolean) = media.setPexelsProviderEnabled(enabled)

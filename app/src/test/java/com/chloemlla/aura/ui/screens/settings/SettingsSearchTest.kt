@@ -66,4 +66,32 @@ class SettingsSearchTest {
         assertTrue(settingsSearchRowMatchesQuery("youtube", rows[3]))
         assertTrue(settingsSearchRowMatchesQuery("battery saver", rows[4]))
     }
+
+    @Test
+    fun `changing a row subtitle replaces its search entry instead of duplicating it`() {
+        val registry = SettingsSearchRegistry()
+        val key = registry.keyFor(SettingsSectionKeys.WALLPAPERS, "Enable Bing Daily source")
+
+        registry.register(
+            SettingsSearchRow(
+                key,
+                SettingsSectionKeys.WALLPAPERS,
+                "Wallpapers",
+                "Enable Bing Daily source",
+                "On",
+            )
+        )
+        registry.register(
+            SettingsSearchRow(
+                key,
+                SettingsSectionKeys.WALLPAPERS,
+                "Wallpapers",
+                "Enable Bing Daily source",
+                "Off",
+            )
+        )
+
+        assertEquals(1, registry.rows.size)
+        assertEquals("Off", registry.rows.getValue(key).subtitle)
+    }
 }

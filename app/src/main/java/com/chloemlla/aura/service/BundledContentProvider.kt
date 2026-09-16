@@ -1,258 +1,82 @@
 package com.chloemlla.aura.service
 
+import com.chloemlla.aura.R
+import com.chloemlla.aura.data.legal.providerDisclosuresBySource
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.Sound
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Provides curated sounds for first-run experience.
- * No API calls needed -- hardcoded metadata with stable Freesound preview URLs.
- * These are CC0/CC-BY sounds from Freesound with known-good preview CDN links.
- */
+/** Provides the offline Aura Originals tone pack included with every build. */
 @Singleton
 class BundledContentProvider @Inject constructor() {
 
-    /** Curated ringtones - melodic, phone-appropriate, 10-25s */
-    fun getRingtones(): List<Sound> = listOf(
-        bundledSound(
-            id = "bundled_ringtone_01",
-            name = "Crystal Chime Melody",
-            duration = 15.0,
-            previewId = 411089,
-            previewFile = "411089__inspectorj__wind-chime-gamelan-gong-a",
-            tags = listOf("ringtone", "chime", "melody", "crystal"),
-        ),
-        bundledSound(
-            id = "bundled_ringtone_02",
-            name = "Bright Piano Ring",
-            duration = 12.0,
-            previewId = 456058,
-            previewFile = "456058__bminor__piano-notification",
-            tags = listOf("ringtone", "piano", "bright", "melodic"),
-        ),
-        bundledSound(
-            id = "bundled_ringtone_03",
-            name = "Soft Marimba Call",
-            duration = 18.0,
-            previewId = 370195,
-            previewFile = "370195__inspectorj__marimba-hit-f2",
-            tags = listOf("ringtone", "marimba", "soft", "warm"),
-        ),
-        bundledSound(
-            id = "bundled_ringtone_04",
-            name = "Digital Pulse Tone",
-            duration = 14.0,
-            previewId = 341695,
-            previewFile = "341695__inspectorj__ui-confirmation-alert-d2",
-            tags = listOf("ringtone", "digital", "pulse", "modern"),
-        ),
-        bundledSound(
-            id = "bundled_ringtone_05",
-            name = "Acoustic Guitar Riff",
-            duration = 20.0,
-            previewId = 383761,
-            previewFile = "383761__deleted-user-7146007__guitar-riff",
-            tags = listOf("ringtone", "guitar", "acoustic", "riff"),
-        ),
-        bundledSound(
-            id = "bundled_ringtone_06",
-            name = "Ethereal Glass Bells",
-            duration = 16.0,
-            previewId = 411459,
-            previewFile = "411459__inspectorj__bell-candle-damper-a",
-            tags = listOf("ringtone", "bells", "ethereal", "glass"),
-        ),
-        bundledSound(
-            id = "bundled_ringtone_07",
-            name = "Warm Synth Arpeggio",
-            duration = 22.0,
-            previewId = 518308,
-            previewFile = "518308__mrauralization__synth-arp-loop",
-            tags = listOf("ringtone", "synth", "arpeggio", "warm"),
-        ),
-        bundledSound(
-            id = "bundled_ringtone_08",
-            name = "Clean Music Box",
-            duration = 13.0,
-            previewId = 411090,
-            previewFile = "411090__inspectorj__music-box-lullaby",
-            tags = listOf("ringtone", "music box", "clean", "lullaby"),
-        ),
-        bundledSound(
-            id = "bundled_ringtone_09",
-            name = "Mellow Flute Call",
-            duration = 17.0,
-            previewId = 370196,
-            previewFile = "370196__inspectorj__bamboo-flute-c4",
-            tags = listOf("ringtone", "flute", "mellow", "bamboo"),
-        ),
-        bundledSound(
-            id = "bundled_ringtone_10",
-            name = "Xylophone Cascade",
-            duration = 11.0,
-            previewId = 456059,
-            previewFile = "456059__bminor__xylophone-cascade",
-            tags = listOf("ringtone", "xylophone", "cascade", "playful"),
-        ),
-    )
+    fun getRingtones(): List<Sound> = RINGTONES.map(::toSound)
 
-    /** Curated notification sounds - short, crisp, 1-5s */
-    fun getNotifications(): List<Sound> = listOf(
-        bundledSound(
-            id = "bundled_notif_01",
-            name = "Soft Pop",
-            duration = 1.2,
-            previewId = 536420,
-            previewFile = "536420__egomassive__pop",
-            tags = listOf("notification", "pop", "soft", "ui"),
-        ),
-        bundledSound(
-            id = "bundled_notif_02",
-            name = "Gentle Ding",
-            duration = 1.5,
-            previewId = 341695,
-            previewFile = "341695__inspectorj__ui-confirmation-alert-d2",
-            tags = listOf("notification", "ding", "gentle", "alert"),
-        ),
-        bundledSound(
-            id = "bundled_notif_03",
-            name = "Water Drop",
-            duration = 0.8,
-            previewId = 398708,
-            previewFile = "398708__inspectorj__water-drop-a",
-            tags = listOf("notification", "water", "drop", "minimal"),
-        ),
-        bundledSound(
-            id = "bundled_notif_04",
-            name = "Click Bubble",
-            duration = 1.0,
-            previewId = 256116,
-            previewFile = "256116__breviceps__click-bubble",
-            tags = listOf("notification", "click", "bubble", "soft"),
-        ),
-        bundledSound(
-            id = "bundled_notif_05",
-            name = "Bright Ping",
-            duration = 1.8,
-            previewId = 516793,
-            previewFile = "516793__michael-grinnell__ping-bright",
-            tags = listOf("notification", "ping", "bright", "clean"),
-        ),
-        bundledSound(
-            id = "bundled_notif_06",
-            name = "Wooden Knock",
-            duration = 0.9,
-            previewId = 411089,
-            previewFile = "411089__inspectorj__wood-knock-a",
-            tags = listOf("notification", "wood", "knock", "natural"),
-        ),
-        bundledSound(
-            id = "bundled_notif_07",
-            name = "Chime Alert",
-            duration = 2.0,
-            previewId = 456058,
-            previewFile = "456058__bminor__chime-notification",
-            tags = listOf("notification", "chime", "alert", "melodic"),
-        ),
-        bundledSound(
-            id = "bundled_notif_08",
-            name = "Subtle Beep",
-            duration = 0.7,
-            previewId = 341696,
-            previewFile = "341696__inspectorj__ui-confirmation-alert-e3",
-            tags = listOf("notification", "beep", "subtle", "ui"),
-        ),
-        bundledSound(
-            id = "bundled_notif_09",
-            name = "Glass Tap",
-            duration = 1.1,
-            previewId = 370197,
-            previewFile = "370197__inspectorj__glass-tap-c3",
-            tags = listOf("notification", "glass", "tap", "crisp"),
-        ),
-        bundledSound(
-            id = "bundled_notif_10",
-            name = "Echo Blip",
-            duration = 1.4,
-            previewId = 518309,
-            previewFile = "518309__mrauralization__echo-blip",
-            tags = listOf("notification", "echo", "blip", "digital"),
-        ),
-    )
+    fun getNotifications(): List<Sound> = NOTIFICATIONS.map(::toSound)
 
-    /** Curated alarm sounds - attention-getting, 15-40s */
-    fun getAlarms(): List<Sound> = listOf(
-        bundledSound(
-            id = "bundled_alarm_01",
-            name = "Sunrise Bells",
-            duration = 25.0,
-            previewId = 411459,
-            previewFile = "411459__inspectorj__bell-candle-damper-a",
-            tags = listOf("alarm", "bells", "sunrise", "gentle"),
-        ),
-        bundledSound(
-            id = "bundled_alarm_02",
-            name = "Rooster Morning Call",
-            duration = 18.0,
-            previewId = 316839,
-            previewFile = "316839__rudmer-ansen__rooster-crowing",
-            tags = listOf("alarm", "rooster", "morning", "nature"),
-        ),
-        bundledSound(
-            id = "bundled_alarm_03",
-            name = "Radar Pulse",
-            duration = 30.0,
-            previewId = 383762,
-            previewFile = "383762__deleted-user-7146007__radar-pulse",
-            tags = listOf("alarm", "radar", "pulse", "urgent"),
-        ),
-        bundledSound(
-            id = "bundled_alarm_04",
-            name = "Ascending Chimes",
-            duration = 22.0,
-            previewId = 536421,
-            previewFile = "536421__egomassive__ascending-chimes",
-            tags = listOf("alarm", "chimes", "ascending", "wake"),
-        ),
-        bundledSound(
-            id = "bundled_alarm_05",
-            name = "Classic Bell Ring",
-            duration = 20.0,
-            previewId = 411090,
-            previewFile = "411090__inspectorj__bell-ring-classic",
-            tags = listOf("alarm", "bell", "classic", "ring"),
-        ),
-    )
+    fun getAlarms(): List<Sound> = ALARMS.map(::toSound)
 
-    private fun bundledSound(
-        id: String,
-        name: String,
-        duration: Double,
-        previewId: Int,
-        previewFile: String,
-        tags: List<String>,
-    ): Sound {
-        val idPrefix = previewId / 1000
-        val previewUrl = "https://freesound.org/data/previews/$idPrefix/$previewFile-hq.mp3"
-        val creator = extractFreesoundCreator(previewFile)
+    private fun toSound(spec: BundledSoundSpec): Sound {
+        val locator = "rawresource:///${spec.resourceId}"
         return Sound(
-            id = id,
+            id = spec.id,
             source = ContentSource.BUNDLED,
-            name = name,
-            description = if (creator != null) "Aura Picks · by $creator on Freesound" else "Aura Picks",
-            previewUrl = previewUrl,
-            downloadUrl = previewUrl,
-            duration = duration,
-            tags = tags,
+            name = spec.name,
+            description = "Aura Originals · Available offline",
+            previewUrl = locator,
+            downloadUrl = locator,
+            duration = spec.duration,
+            sampleRate = 22_050,
+            fileType = "audio/ogg",
+            tags = spec.tags,
             license = "CC0 1.0",
-            uploaderName = creator ?: "Aura Picks",
-            sourcePageUrl = "https://freesound.org/s/$previewId/",
+            uploaderName = "Aura",
+            sourcePageUrl = checkNotNull(providerDisclosuresBySource[ContentSource.BUNDLED]).termsUrl,
         )
     }
 
-    private fun extractFreesoundCreator(previewFile: String): String? {
-        val parts = previewFile.split("__")
-        return if (parts.size >= 2) parts[1].replace("-", " ") else null
+    private data class BundledSoundSpec(
+        val id: String,
+        val name: String,
+        val resourceId: Int,
+        val duration: Double,
+        val tags: List<String>,
+    )
+
+    private companion object {
+        val RINGTONES = listOf(
+            BundledSoundSpec("bundled_ringtone_01", "Crystal Chime", R.raw.aura_ringtone_crystal_chime, 11.73, listOf("ringtone", "chime", "crystal", "calm")),
+            BundledSoundSpec("bundled_ringtone_02", "Bright Orbit", R.raw.aura_ringtone_bright_orbit, 11.04, listOf("ringtone", "bright", "melody", "clean")),
+            BundledSoundSpec("bundled_ringtone_03", "Soft Marimba", R.raw.aura_ringtone_soft_marimba, 12.42, listOf("ringtone", "marimba", "soft", "warm")),
+            BundledSoundSpec("bundled_ringtone_04", "Digital Pulse", R.raw.aura_ringtone_digital_pulse, 10.20, listOf("ringtone", "digital", "pulse", "modern")),
+            BundledSoundSpec("bundled_ringtone_05", "Garden Echo", R.raw.aura_ringtone_garden_echo, 12.07, listOf("ringtone", "gentle", "echo", "calm")),
+            BundledSoundSpec("bundled_ringtone_06", "Glass Bells", R.raw.aura_ringtone_glass_bells, 11.73, listOf("ringtone", "bells", "glass", "bright")),
+            BundledSoundSpec("bundled_ringtone_07", "Warm Arpeggio", R.raw.aura_ringtone_warm_arpeggio, 9.86, listOf("ringtone", "synth", "arpeggio", "warm")),
+            BundledSoundSpec("bundled_ringtone_08", "Music Box", R.raw.aura_ringtone_music_box, 11.38, listOf("ringtone", "music box", "gentle", "melody")),
+            BundledSoundSpec("bundled_ringtone_09", "Mellow Air", R.raw.aura_ringtone_mellow_air, 14.25, listOf("ringtone", "mellow", "airy", "calm")),
+            BundledSoundSpec("bundled_ringtone_10", "Xylophone Cascade", R.raw.aura_ringtone_xylophone_cascade, 9.52, listOf("ringtone", "xylophone", "cascade", "playful")),
+        )
+
+        val NOTIFICATIONS = listOf(
+            BundledSoundSpec("bundled_notif_01", "Soft Pop", R.raw.aura_notification_soft_pop, 0.66, listOf("notification", "pop", "soft", "short")),
+            BundledSoundSpec("bundled_notif_02", "Gentle Ding", R.raw.aura_notification_gentle_ding, 1.25, listOf("notification", "ding", "gentle", "clean")),
+            BundledSoundSpec("bundled_notif_03", "Water Drop", R.raw.aura_notification_water_drop, 0.68, listOf("notification", "water", "drop", "minimal")),
+            BundledSoundSpec("bundled_notif_04", "Bubble Click", R.raw.aura_notification_bubble_click, 0.62, listOf("notification", "click", "bubble", "short")),
+            BundledSoundSpec("bundled_notif_05", "Bright Ping", R.raw.aura_notification_bright_ping, 1.35, listOf("notification", "ping", "bright", "clean")),
+            BundledSoundSpec("bundled_notif_06", "Wooden Knock", R.raw.aura_notification_wooden_knock, 0.63, listOf("notification", "wood", "knock", "natural")),
+            BundledSoundSpec("bundled_notif_07", "Chime Alert", R.raw.aura_notification_chime_alert, 1.54, listOf("notification", "chime", "alert", "melodic")),
+            BundledSoundSpec("bundled_notif_08", "Subtle Beep", R.raw.aura_notification_subtle_beep, 0.58, listOf("notification", "beep", "subtle", "short")),
+            BundledSoundSpec("bundled_notif_09", "Glass Tap", R.raw.aura_notification_glass_tap, 0.62, listOf("notification", "glass", "tap", "crisp")),
+            BundledSoundSpec("bundled_notif_10", "Echo Blip", R.raw.aura_notification_echo_blip, 0.78, listOf("notification", "echo", "blip", "digital")),
+        )
+
+        val ALARMS = listOf(
+            BundledSoundSpec("bundled_alarm_01", "Sunrise Bells", R.raw.aura_alarm_sunrise_bells, 15.96, listOf("alarm", "bells", "sunrise", "gentle")),
+            BundledSoundSpec("bundled_alarm_02", "Morning Chorus", R.raw.aura_alarm_morning_chorus, 12.24, listOf("alarm", "morning", "melody", "bright")),
+            BundledSoundSpec("bundled_alarm_03", "Radar Pulse", R.raw.aura_alarm_radar_pulse, 14.40, listOf("alarm", "radar", "pulse", "urgent")),
+            BundledSoundSpec("bundled_alarm_04", "Ascending Chimes", R.raw.aura_alarm_ascending_chimes, 13.50, listOf("alarm", "chimes", "ascending", "wake")),
+            BundledSoundSpec("bundled_alarm_05", "Classic Bells", R.raw.aura_alarm_classic_bells, 21.60, listOf("alarm", "bell", "classic", "ring")),
+        )
     }
 }

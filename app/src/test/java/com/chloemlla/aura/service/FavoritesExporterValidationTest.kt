@@ -3,6 +3,8 @@ package com.chloemlla.aura.service
 import com.chloemlla.aura.data.model.SOURCE_AVAILABILITY_AVAILABLE
 import com.chloemlla.aura.data.model.SOURCE_AVAILABILITY_UNAVAILABLE
 import com.chloemlla.aura.data.model.isSourceUnavailable
+import com.chloemlla.aura.data.model.LocalMediaStatus
+import com.squareup.moshi.Moshi
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -10,6 +12,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FavoritesExporterValidationTest {
+
+    private val adapter = Moshi.Builder().build().adapter(FavoritesExportFile::class.java)
 
     @Test
     fun `imported favorites only allow https urls`() {
@@ -35,6 +39,39 @@ class FavoritesExporterValidationTest {
         ).toValidatedEntity()
 
         assertFalse(entity != null)
+    }
+
+    @Test
+    fun `locator free local favorite restores as relinkable metadata`() {
+        val hash = "ab".repeat(32)
+        val entity = FavoriteExportItem(
+            id = "local-$hash",
+            source = "LOCAL",
+            type = "WALLPAPER",
+            thumbnailUrl = "",
+            fullUrl = "",
+            name = "Family photo",
+            width = 1080,
+            height = 1920,
+            localMedia = true,
+            localMediaSha256 = hash,
+        ).toValidatedEntity()
+
+        assertNotNull(entity)
+        assertEquals(LocalMediaStatus.MISSING, entity?.localMediaStatus)
+        assertEquals("", entity?.fullUrl)
+        assertEquals(hash, entity?.localMediaSha256)
+    }
+
+    @Test
+    fun `portable local identity never contains the device locator`() {
+        val locator = "content://private.provider/tree/photo.png"
+
+        val id = portableLocalMediaId("LOCAL", locator)
+
+        assertTrue(isSafePortableLocalMediaId(id))
+        assertFalse(id.contains(locator))
+        assertFalse(id.contains("private.provider"))
     }
 
     @Test
@@ -98,5 +135,23 @@ class FavoritesExporterValidationTest {
 
         assertNotNull(entity)
         assertEquals("CC BY-NC", entity?.license)
+    }
+
+    @Test
+    fun `documented maximum favorites round trips without loss`() {
+        val expected = List(LibraryTransferContract.MAX_FAVORITES) { index ->
+            FavoriteExportItem(
+                id = "favorite-$index",
+                source = "REDDIT",
+                type = "WALLPAPER",
+                thumbnailUrl = "https://i.example/$index.jpg",
+                fullUrl = "https://preview.example/$index.jpg",
+            )
+        }
+        val file = FavoritesExportFile(version = 1, exportedAt = 1, items = expected)
+
+        val restored = adapter.fromJson(adapter.toJson(file))
+
+        assertEquals(expected, restored?.items)
     }
 }

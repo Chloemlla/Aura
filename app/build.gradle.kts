@@ -1,3 +1,4 @@
+import com.android.build.api.variant.BuildConfigField
 import java.net.URL
 import java.security.MessageDigest
 import java.util.Properties
@@ -94,6 +95,13 @@ val localProps = Properties().apply {
 val instrumentationBuildType = providers.gradleProperty("auraInstrumentationBuildType")
     .orElse("debug")
     .get()
+val auraReleaseChannel = providers.gradleProperty("auraReleaseChannel")
+    .orElse("github")
+    .get()
+    .lowercase()
+require(auraReleaseChannel in setOf("github", "play")) {
+    "auraReleaseChannel must be github or play"
+}
 
 android {
     namespace = "com.chloemlla.aura"
@@ -116,13 +124,13 @@ android {
         applicationId = "com.chloemlla.aura"
         minSdk = 26
         targetSdk = 37
-        // Version follows upstream: this merge brings in the 6.45.1-6.45.2
-        // changelog entries, the fastlane changelogs through 148, and the store
-        // metadata that names 6.45.2, so the build has to agree with them.
+        // Version follows upstream: this merge brings in the 6.45.3 changelog
+        // entry, the fastlane changelogs through 149, and the store metadata that
+        // names 6.45.3, so the build has to agree with them.
         // targetSdk stays at 37 (the fork's Android 17 upgrade, be02a30e), which
         // supersedes upstream's 35.
-        versionCode = 148
-        versionName = "6.45.2"
+        versionCode = 149
+        versionName = "6.45.3"
         // CI supplies AURA_ANDROID_VERSION_CODE/NAME (see aura-android.yml) so the
         // APK metadata agrees with the release tag; local builds keep the declared
         // literals above, which are also the baseline the governance tools assert.
@@ -130,6 +138,7 @@ android {
         System.getenv("AURA_ANDROID_VERSION_NAME")?.let { versionName = it }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "AURA_RELEASE_CHANNEL", "\"$auraReleaseChannel\"")
 
         // Only ship English and Chinese localized resources from libraries (Firebase,
         // Play Services, AndroidX, etc.) — these ship 80+ translations by default.
@@ -165,6 +174,12 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            // Release artifacts never inherit developer credentials from local.properties.
+            // Users can still add their own provider keys securely in Settings.
+            buildConfigField("String", "PEXELS_API_KEY", "\"\"")
+            buildConfigField("String", "PIXABAY_API_KEY", "\"\"")
+            buildConfigField("String", "FREESOUND_API_KEY", "\"\"")
+            buildConfigField("String", "SOUNDCLOUD_CLIENT_ID", "\"\"")
             testProguardFiles("android-test-proguard-rules.pro")
             // Verification builders compare an unsigned FOSS artifact with the
             // owner-signed release modulo its signature. Keeping this opt-in avoids
@@ -293,6 +308,19 @@ tasks.withType<Test>().configureEach {
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
         showCauses = true
         showStackTraces = true
+    }
+}
+
+androidComponents {
+    onVariants(
+        selector()
+            .withBuildType("release")
+            .withFlavor("distribution" to "full"),
+    ) { variant ->
+        variant.buildConfigFields.put(
+            "STABILITY_AI_KEY",
+            BuildConfigField("String", "\"\"", "Release builds exclude local provider credentials"),
+        )
     }
 }
 

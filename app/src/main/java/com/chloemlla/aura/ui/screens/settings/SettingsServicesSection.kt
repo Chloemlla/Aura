@@ -15,7 +15,6 @@ import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.ImageSearch
 import androidx.compose.material.icons.filled.Key
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Report
@@ -44,6 +43,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.chloemlla.aura.R
+import com.chloemlla.aura.data.local.ProviderCredentialKey
+import com.chloemlla.aura.data.local.generatedWallpaperCredentialNeedsReentryForFlavor
 import com.chloemlla.aura.data.repository.CommunityBlockedUser
 import com.chloemlla.aura.service.CommunityIdentitySummary
 import com.chloemlla.aura.ui.components.CommunityGuidelinesDialog
@@ -62,9 +63,10 @@ internal fun ServicesCommunitySettingsSection(
     wallhavenApiKey: String,
     pexelsApiKey: String,
     pixabayApiKey: String,
-    freesoundApiKey: String,
     generatedWallpaperProviderKey: String,
     providerCredentialStorageUnavailable: Boolean,
+    providerCredentialReentryRequired: Boolean,
+    providerCredentialReentryKeys: Set<String>,
     generatedContentProviderEnabled: Boolean,
     generatedContentDisclosureAccepted: Boolean,
     wallhavenProviderEnabled: Boolean,
@@ -83,7 +85,21 @@ internal fun ServicesCommunitySettingsSection(
     var showWallhavenKey by rememberSaveable { mutableStateOf(false) }
     var showPexelsKey by rememberSaveable { mutableStateOf(false) }
     var showPixabayKey by rememberSaveable { mutableStateOf(false) }
-    var showFreesoundKey by rememberSaveable { mutableStateOf(false) }
+    val retryProviderKeysMessage = stringResource(R.string.settings_services_provider_key_retrying)
+    val openFirstBlankProviderKey = {
+        when {
+            ProviderCredentialKey.WALLHAVEN.storageKey in providerCredentialReentryKeys -> showWallhavenKey = true
+            ProviderCredentialKey.PEXELS.storageKey in providerCredentialReentryKeys -> showPexelsKey = true
+            ProviderCredentialKey.PIXABAY.storageKey in providerCredentialReentryKeys -> showPixabayKey = true
+            generatedWallpaperCredentialNeedsReentryForFlavor(providerCredentialReentryKeys) -> {
+                onGeneratedWallpapersClick()
+            }
+            wallhavenApiKey.isBlank() -> showWallhavenKey = true
+            pexelsApiKey.isBlank() -> showPexelsKey = true
+            pixabayApiKey.isBlank() -> showPixabayKey = true
+            else -> onGeneratedWallpapersClick()
+        }
+    }
 
     LaunchedEffect(communityBlockAction.message, communityBlockAction.error) {
         communityBlockAction.message?.let {
@@ -169,20 +185,32 @@ internal fun ServicesCommunitySettingsSection(
                 )
             }
         }
+        if (providerCredentialReentryRequired) {
+            SettingsItem(
+                icon = Icons.Default.Warning,
+                title = stringResource(R.string.settings_services_provider_key_reentry_title),
+                subtitle = stringResource(R.string.settings_services_provider_key_reentry_subtitle),
+                onClick = openFirstBlankProviderKey,
+                subtitleMaxLines = 4,
+            )
+        } else if (providerCredentialStorageUnavailable) {
+            SettingsItem(
+                icon = Icons.Default.Warning,
+                title = stringResource(R.string.settings_services_provider_key_storage_warning_title),
+                subtitle = stringResource(R.string.settings_services_provider_key_storage_warning_subtitle),
+                onClick = {
+                    viewModel.retryProviderCredentials()
+                    onFeedback(retryProviderKeysMessage)
+                },
+                subtitleMaxLines = 4,
+            )
+        }
         SettingsItem(
             icon = Icons.Default.Key,
             title = stringResource(R.string.settings_services_wallhaven_key_title),
             subtitle = stringResource(R.string.settings_services_wallhaven_key_subtitle),
             onClick = { showWallhavenKey = true },
         )
-        if (providerCredentialStorageUnavailable) {
-            SettingsItem(
-                icon = Icons.Default.Warning,
-                title = stringResource(R.string.settings_services_provider_key_storage_warning_title),
-                subtitle = stringResource(R.string.settings_services_provider_key_storage_warning_subtitle),
-                onClick = { },
-            )
-        }
         SettingsToggle(
             icon = Icons.Default.ImageSearch,
             title = stringResource(R.string.settings_services_wallhaven_enable_title),
@@ -249,12 +277,6 @@ internal fun ServicesCommunitySettingsSection(
             title = stringResource(R.string.settings_services_pixabay_key_title),
             subtitle = stringResource(R.string.settings_services_pixabay_key_subtitle),
             onClick = { showPixabayKey = true },
-        )
-        SettingsItem(
-            icon = Icons.Default.MusicNote,
-            title = stringResource(R.string.settings_services_freesound_key_title),
-            subtitle = stringResource(R.string.settings_services_freesound_key_subtitle),
-            onClick = { showFreesoundKey = true },
         )
         GeneratedWallpaperProviderSettings(
             viewModel = viewModel,
@@ -333,16 +355,6 @@ internal fun ServicesCommunitySettingsSection(
             placeholder = stringResource(R.string.settings_services_pixabay_dialog_placeholder),
             onSave = viewModel::setPixabayKey,
             onDismiss = { showPixabayKey = false },
-        )
-    }
-    if (showFreesoundKey) {
-        ProviderApiKeyDialog(
-            title = stringResource(R.string.settings_services_freesound_dialog_title),
-            description = stringResource(R.string.settings_services_freesound_dialog_desc),
-            value = freesoundApiKey,
-            placeholder = stringResource(R.string.settings_services_freesound_dialog_placeholder),
-            onSave = viewModel::setFreesoundKey,
-            onDismiss = { showFreesoundKey = false },
         )
     }
 }

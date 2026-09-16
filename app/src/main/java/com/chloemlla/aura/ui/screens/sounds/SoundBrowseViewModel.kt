@@ -303,6 +303,8 @@ internal class SoundBrowseViewModel(
                 }
             }
 
+            queries.bundledSoundsFor(loadTab, snapshot.query).forEach(::addUnique)
+
             suspend fun flushToUi() {
                 currentCoroutineContext().ensureActive()
                 state.update { current ->
@@ -332,6 +334,8 @@ internal class SoundBrowseViewModel(
 
                 val querySet = queries.buildQueries(snapshot)
                 val (cappedMin, cappedMax) = queries.tabDurationRange(snapshot)
+
+                if (allResults.isNotEmpty()) flushToUi()
 
                 supervisorScope {
                     if (querySet.ytQueries.isNotEmpty()) {
@@ -433,7 +437,7 @@ internal class SoundBrowseViewModel(
             return
         }
         val fallbackSounds = rankSounds(
-            sounds = queries.bundledSoundsFor(loadTab),
+            sounds = queries.bundledSoundsFor(loadTab, state.value.query),
             tab = loadTab,
             filter = state.value.qualityFilter,
         )

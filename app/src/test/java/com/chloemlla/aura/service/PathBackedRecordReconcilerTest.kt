@@ -5,6 +5,7 @@ import com.chloemlla.aura.data.local.DownloadDao
 import com.chloemlla.aura.data.local.FavoriteDao
 import com.chloemlla.aura.data.model.DownloadEntity
 import com.chloemlla.aura.data.model.FavoriteEntity
+import com.chloemlla.aura.data.model.LocalMediaStatus
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -12,22 +13,31 @@ import java.io.File
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PathBackedRecordReconcilerTest {
 
     @Test
-    fun `blank paths are not cleared again`() {
-        assertFalse(shouldClearPathBackedRecord("") { false })
-        assertFalse(shouldClearPathBackedRecord("   ") { false })
+    fun `blank paths stay available`() {
+        val blank = probePathBackedRecord("", { missingProbe() }, { missingProbe() })
+        val spaces = probePathBackedRecord("   ", { missingProbe() }, { missingProbe() })
+
+        assertEquals(LocalMediaStatus.AVAILABLE, blank.status)
+        assertEquals(LocalMediaStatus.AVAILABLE, spaces.status)
     }
 
     @Test
-    fun `filesystem paths are cleared only when missing`() {
-        assertFalse(shouldClearPathBackedRecord("/tmp/existing.jpg") { it == "/tmp/existing.jpg" })
-        assertTrue(shouldClearPathBackedRecord("/tmp/missing.jpg") { false })
+    fun `filesystem probe distinguishes available missing and corrupt`() {
+        val available = probePathBackedRecord("/tmp/existing.jpg", { availableProbe() }, { missingProbe() })
+        val missing = probePathBackedRecord("/tmp/missing.jpg", { missingProbe() }, { missingProbe() })
+        val corrupt = probePathBackedRecord("/tmp/corrupt.jpg", { corruptProbe() }, { missingProbe() })
+
+        assertEquals(LocalMediaStatus.AVAILABLE, available.status)
+        assertEquals(LocalMediaStatus.MISSING, missing.status)
+        assertEquals(LocalMediaStatus.CORRUPT, corrupt.status)
+        assertTrue(missing.reason!!.contains("missing", ignoreCase = true))
+        assertTrue(corrupt.reason!!.contains("corrupt", ignoreCase = true))
     }
 
     @Test
@@ -63,8 +73,31 @@ class PathBackedRecordReconcilerTest {
     }
 
     @Test
-    fun `reconcile clears missing favorite and download paths`() = runTest {
-        val existing = File.createTempFile("aura-existing", ".dat")
+    fun `content probe preserves permission revoked diagnosis`() {
+        val probe = probePathBackedRecord(
+            rawPath = "content://documents/tree/old",
+            fileProbe = { availableProbe() },
+            contentUriProbe = { revokedProbe() },
+        )
+
+        assertEquals(LocalMediaStatus.PERMISSION_REVOKED, probe.status)
+        assertTrue(probe.reason!!.contains("access", ignoreCase = true))
+    }
+
+    @Test
+    fun `unsupported locator is diagnosed as corrupt`() {
+        val probe = probePathBackedRecord(
+            rawPath = "ftp://example.test/media.jpg",
+            fileProbe = { availableProbe() },
+            contentUriProbe = { availableProbe() },
+        )
+
+        assertEquals(LocalMediaStatus.CORRUPT, probe.status)
+    }
+
+    @Test
+    fun `reconcile marks missing records without clearing their locators`() = runTest {
+        val existing = File.createTempFile("aura-existing", ".dat").apply { writeText("ok") }
         val missing = File(existing.parentFile, "aura-missing-${System.nanoTime()}.dat")
         val favoriteDao = mockk<FavoriteDao>(relaxed = true)
         val downloadDao = mockk<DownloadDao>(relaxed = true)
@@ -90,13 +123,25 @@ class PathBackedRecordReconcilerTest {
             downloadDao = downloadDao,
         ).reconcile()
 
-        assertEquals(PathBackedRecordReconciliationResult(favoritesCleared = 1, downloadsCleared = 1), result)
-        coVerify(exactly = 1) { favoriteDao.updateOfflinePath("fav-missing", "WALLHAVEN", "WALLPAPER", "") }
-        coVerify(exactly = 1) { downloadDao.updateLocalPath("download-missing", "") }
-        coVerify(exactly = 0) { favoriteDao.updateOfflinePath("fav-existing", "WALLHAVEN", "WALLPAPER", "") }
-        coVerify(exactly = 0) { favoriteDao.updateOfflinePath("fav-blank", "WALLHAVEN", "WALLPAPER", "") }
-        coVerify(exactly = 0) { downloadDao.updateLocalPath("download-existing", "") }
-        coVerify(exactly = 0) { downloadDao.updateLocalPath("download-blank", "") }
+        assertEquals(PathBackedRecordReconciliationResult(favoritesUpdated = 1, downloadsUpdated = 1), result)
+        coVerify(exactly = 1) {
+            favoriteDao.updateLocalMediaStatus(
+                "fav-missing",
+                "WALLHAVEN",
+                "WALLPAPER",
+                LocalMediaStatus.MISSING,
+                "Local file is missing",
+            )
+        }
+        coVerify(exactly = 1) {
+            downloadDao.updateLocalMediaStatus(
+                "download-missing",
+                LocalMediaStatus.MISSING,
+                "Local file is missing",
+            )
+        }
+        coVerify(exactly = 0) { favoriteDao.updateOfflinePath(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { downloadDao.updateLocalPath(any(), any()) }
 
         existing.delete()
     }
@@ -109,8 +154,9 @@ class PathBackedRecordReconcilerTest {
 
         assertTrue(app.contains("lateinit var pathBackedRecordReconciler"))
         assertTrue(app.contains("pathBackedRecordReconciler.reconcile()"))
-        assertTrue(database.contains("suspend fun updateLocalPath(id: String, path: String)"))
-        assertTrue(downloads.contains("download.localPath.isBlank() || download.id in brokenIds"))
+        assertTrue(database.contains("suspend fun updateLocalMediaStatus"))
+        assertTrue(downloads.contains("needsLocalMediaRelink()"))
+        assertTrue(downloads.contains("media_relink_action"))
     }
 
     private fun favorite(id: String, offlinePath: String): FavoriteEntity = FavoriteEntity(

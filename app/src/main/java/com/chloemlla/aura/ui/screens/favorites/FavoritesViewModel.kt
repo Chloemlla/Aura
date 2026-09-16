@@ -15,6 +15,9 @@ import com.chloemlla.aura.data.repository.AiWallpaperRepository
 import com.chloemlla.aura.data.repository.FavoritesRepository
 import com.chloemlla.aura.service.BatchDownloadService
 import com.chloemlla.aura.service.FavoritesExporter
+import com.chloemlla.aura.service.LocalMediaRelinkManager
+import com.chloemlla.aura.service.LocalMediaRelinkOutcome
+import com.chloemlla.aura.service.LocalMediaRelinkTarget
 import com.chloemlla.aura.service.SelectedContentHolder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -30,6 +33,7 @@ class FavoritesViewModel @Inject constructor(
     private val selectedContent: SelectedContentHolder,
     private val batchDownloadService: BatchDownloadService,
     private val aiWallpaperRepository: AiWallpaperRepository,
+    private val localMediaRelinkManager: LocalMediaRelinkManager,
 ) : ViewModel() {
     val wallpapers = favoritesRepo.getWallpapers().stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
@@ -61,6 +65,16 @@ class FavoritesViewModel @Inject constructor(
         favoritesRepo.clearSourceUnavailable(entity.favoriteIdentity())
     }
 
+    suspend fun relinkFavorite(
+        entity: FavoriteEntity,
+        uri: Uri,
+        acceptMismatch: Boolean = false,
+    ): LocalMediaRelinkOutcome = localMediaRelinkManager.relink(
+        LocalMediaRelinkTarget.Favorite(entity.id, entity.source, entity.type),
+        uri,
+        acceptMismatch,
+    )
+
     /** Convert FavoriteEntity to domain Wallpaper and populate shared holder with the visible list */
     fun selectWallpaper(fav: FavoriteEntity, visibleWallpapers: List<FavoriteEntity>) {
         selectedContent.selectWallpaper(
@@ -78,7 +92,12 @@ class FavoritesViewModel @Inject constructor(
         exporter.export(uri)
             .onSuccess { count ->
                 _message.update {
-                    context.resources.getQuantityString(R.plurals.favorites_exported, count, count)
+                    context.getString(
+                        R.string.favorites_export_summary,
+                        count,
+                        0,
+                        0,
+                    )
                 }
             }
             .onFailure { e ->
@@ -93,9 +112,14 @@ class FavoritesViewModel @Inject constructor(
 
     fun importFavorites(uri: Uri) = viewModelScope.launch {
         exporter.import(uri)
-            .onSuccess { count ->
+            .onSuccess { outcome ->
                 _message.update {
-                    context.resources.getQuantityString(R.plurals.favorites_imported, count, count)
+                    context.getString(
+                        R.string.favorites_import_summary,
+                        outcome.imported,
+                        outcome.skipped,
+                        outcome.failed,
+                    )
                 }
             }
             .onFailure { e ->

@@ -28,6 +28,7 @@ import coil3.toBitmap
 import kotlinx.coroutines.flow.first
 import com.chloemlla.aura.R
 import com.chloemlla.aura.data.model.WallpaperTarget
+import com.chloemlla.aura.data.repository.RotationExclusionRepository
 import com.chloemlla.aura.data.repository.WallpaperRepository
 import com.chloemlla.aura.service.WallpaperApplier
 import com.chloemlla.aura.service.WallpaperHistoryManager
@@ -337,6 +338,7 @@ interface WidgetEntryPoint {
     fun wallpaperRepository(): WallpaperRepository
     fun wallpaperApplier(): WallpaperApplier
     fun wallpaperHistoryManager(): WallpaperHistoryManager
+    fun rotationExclusionRepository(): RotationExclusionRepository
 }
 
 private fun getEntryPoint(context: Context): WidgetEntryPoint =
@@ -478,9 +480,15 @@ private suspend fun applyFromSource(context: Context, source: String, target: Wa
                 "bing" -> ep.wallpaperRepository().getBingDaily(page = 1).items
                 else -> ep.wallpaperRepository().getDiscover(page = 1).items
             }
-            val wp = items.randomOrNull()
+            val available = ep.rotationExclusionRepository().filter(items)
+            val wp = available.candidates.randomOrNull()
             if (wp == null) {
-                withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.widget_toast_no_wallpapers), Toast.LENGTH_SHORT).show() }
+                val message = if (available.allExcluded) {
+                    context.getString(R.string.rotation_all_excluded_short)
+                } else {
+                    context.getString(R.string.rotation_no_wallpapers_available)
+                }
+                withContext(Dispatchers.Main) { Toast.makeText(context, message, Toast.LENGTH_SHORT).show() }
                 return@withContext false
             }
             ep.wallpaperApplier().applyFromUrl(wp.fullUrl, target).fold(
@@ -508,10 +516,18 @@ private suspend fun applyRandom(context: Context, target: WallpaperTarget): Bool
     return withContext(Dispatchers.IO) {
         try {
             val ep = getEntryPoint(context)
-            val wp = ep.wallpaperRepository().getWallhaven(page = (1..5).random()).items.randomOrNull()
+            val available = ep.rotationExclusionRepository().filter(
+                ep.wallpaperRepository().getWallhaven(page = (1..5).random()).items,
+            )
+            val wp = available.candidates.randomOrNull()
             if (wp == null) {
+                val message = if (available.allExcluded) {
+                    context.getString(R.string.rotation_all_excluded_short)
+                } else {
+                    context.getString(R.string.rotation_no_wallpapers_available)
+                }
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, context.getString(R.string.widget_toast_no_wallpapers), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                 }
                 return@withContext false
             }

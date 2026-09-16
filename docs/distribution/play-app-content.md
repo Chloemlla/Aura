@@ -84,8 +84,8 @@ Rationale:
 
 - Aura displays remote provider media, public community uploads, and online
   content whose maturity can vary by source.
-- Aura includes generated wallpaper prompts, optional YouTube tooling, optional
-  provider keys, and user-generated community uploads.
+- Aura includes generated wallpaper prompts, optional provider keys, and
+  user-generated community uploads. YouTube is excluded from the Play channel.
 - The store listing and UI should avoid child-directed marketing elements.
 
 Evidence:

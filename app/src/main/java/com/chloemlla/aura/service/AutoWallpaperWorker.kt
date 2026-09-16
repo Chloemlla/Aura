@@ -18,6 +18,7 @@ import com.chloemlla.aura.data.model.stableKey
 import com.chloemlla.aura.data.remote.toWallpaper
 import com.chloemlla.aura.data.repository.CollectionRepository
 import com.chloemlla.aura.data.repository.FavoritesRepository
+import com.chloemlla.aura.data.repository.RotationExclusionRepository
 import com.chloemlla.aura.data.repository.WallpaperRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -33,6 +34,7 @@ class AutoWallpaperWorker @AssistedInject constructor(
     private val wallpaperRepo: WallpaperRepository,
     private val favoritesRepo: FavoritesRepository,
     private val collectionRepo: CollectionRepository,
+    private val rotationExclusions: RotationExclusionRepository,
     private val wallpaperApplier: WallpaperApplier,
     private val applyCoordinator: WallpaperApplyCoordinator,
     private val historyManager: WallpaperHistoryManager,
@@ -81,6 +83,15 @@ class AutoWallpaperWorker @AssistedInject constructor(
                 )
                 result
             }
+        } catch (excluded: AllRotationCandidatesExcludedException) {
+            receiptStore.recordFailure(
+                uniqueWorkName = receiptWorkName,
+                errorClass = "AllRotationCandidatesExcluded",
+                deferralReason = "Every item in ${excluded.sourceLabel} is excluded from rotation. Restore one in Settings, Rotation exclusions.",
+            )
+            // A persistent user choice is not transient work failure. Returning
+            // success prevents WorkManager from retrying the same empty pool.
+            Result.success()
         } catch (_: java.io.IOException) {
             if (attempt >= MAX_FAILED_ATTEMPTS) {
                 receiptStore.recordFailure(
@@ -148,19 +159,27 @@ class AutoWallpaperWorker @AssistedInject constructor(
             val lockPick = pickLocalScheduledWallpaper(
                 WallpaperTarget.LOCK,
                 shuffle,
-                exclude = setOfNotNull(homePick?.stableKey()),
+                exclude = setOfNotNull(homePick.wallpaper?.stableKey()),
             )
-            if (homePick == null && lockPick == null) return Result.retry()
+            if (homePick.wallpaper == null && lockPick.wallpaper == null) {
+                if (homePick.allExcluded || lockPick.allExcluded) {
+                    throw AllRotationCandidatesExcludedException("the selected local folders")
+                }
+                return Result.retry()
+            }
             val results = buildList {
-                homePick?.let { add(applyAndRecord(it, WallpaperTarget.HOME)) }
-                lockPick?.let { add(applyAndRecord(it, WallpaperTarget.LOCK)) }
+                homePick.wallpaper?.let { add(applyAndRecord(it, WallpaperTarget.HOME)) }
+                lockPick.wallpaper?.let { add(applyAndRecord(it, WallpaperTarget.LOCK)) }
+            }
+            if (homePick.allExcluded || lockPick.allExcluded) {
+                throw AllRotationCandidatesExcludedException("one selected local-folder target")
             }
             return if (results.any { it == Result.retry() }) Result.retry() else Result.success()
         }
         val rawWallpapers = fetchWallpapers(source, target)
         if (rawWallpapers.isEmpty()) return Result.retry()
 
-        val wallpapers = filterRecentRepeats(rawWallpapers)
+        val wallpapers = filterRecentRepeats(filterPersistentExclusions(rawWallpapers, source))
         val pick = pickScheduledWallpaper(
             wallpapers = wallpapers,
             shuffle = shuffle,
@@ -190,7 +209,8 @@ class AutoWallpaperWorker @AssistedInject constructor(
         if (source == "pixabay" && !prefs.pixabayProviderEnabled.first()) return Result.success()
         if (source == "bing" && !prefs.bingProviderEnabled.first()) return Result.success()
 
-        val wallpapers = filterRecentRepeats(fetchWallpapers(source, target))
+        val fetched = fetchWallpapers(source, target)
+        val wallpapers = filterRecentRepeats(filterPersistentExclusions(fetched, source))
         val wallpaper = pickScheduledWallpaper(
             wallpapers = wallpapers,
             shuffle = true,
@@ -225,19 +245,33 @@ class AutoWallpaperWorker @AssistedInject constructor(
         target: WallpaperTarget,
         shuffle: Boolean,
         exclude: Set<String> = emptySet(),
-    ): Wallpaper? {
+    ): LocalRotationPick {
         val rawWallpapers = fetchWallpapers(WALLPAPER_SOURCE_LOCAL_FOLDER, target)
-        if (rawWallpapers.isEmpty()) return null
-        val wallpapers = filterRecentRepeats(rawWallpapers)
+        if (rawWallpapers.isEmpty()) return LocalRotationPick(null, allExcluded = false)
+        val persistent = rotationExclusions.filter(rawWallpapers)
+        if (persistent.allExcluded) return LocalRotationPick(null, allExcluded = true)
+        val wallpapers = filterRecentRepeats(persistent.candidates)
         val candidates = wallpapers.filterNot { it.stableKey() in exclude }
         // A single-image folder leaves the exclusion empty — fall back to the full
         // set so both screens share the one image instead of reporting a retry.
         val effective = candidates.ifEmpty { wallpapers }
-        return pickScheduledWallpaper(
-            wallpapers = effective,
-            shuffle = shuffle,
-            recentKeys = recentShuffleKeys(effective.size),
+        return LocalRotationPick(
+            wallpaper = pickScheduledWallpaper(
+                wallpapers = effective,
+                shuffle = shuffle,
+                recentKeys = recentShuffleKeys(effective.size),
+            ),
+            allExcluded = false,
         )
+    }
+
+    private suspend fun filterPersistentExclusions(
+        wallpapers: List<Wallpaper>,
+        sourceLabel: String,
+    ): List<Wallpaper> {
+        val result = rotationExclusions.filter(wallpapers)
+        if (result.allExcluded) throw AllRotationCandidatesExcludedException(sourceLabel)
+        return result.candidates
     }
 
     private suspend fun fetchWallpapers(source: String, target: WallpaperTarget? = null): List<Wallpaper> {
@@ -434,6 +468,15 @@ class AutoWallpaperWorker @AssistedInject constructor(
         }
     }
 }
+
+private data class LocalRotationPick(
+    val wallpaper: Wallpaper?,
+    val allExcluded: Boolean,
+)
+
+private class AllRotationCandidatesExcludedException(
+    val sourceLabel: String,
+) : IllegalStateException("All rotation candidates are excluded")
 
 internal fun shouldRunLegacyRotation(
     schedulerEnabled: Boolean,

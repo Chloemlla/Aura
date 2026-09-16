@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -139,7 +140,11 @@ fun LibraryScreen(
         LibraryHubItem(
             title = stringResource(R.string.library_collections_title),
             body = stringResource(R.string.library_collections_body),
-            status = stringResource(R.string.library_collections_count, state.collectionCount),
+            status = pluralStringResource(
+                R.plurals.library_collections_count,
+                state.collectionCount,
+                state.collectionCount,
+            ),
             icon = Icons.Default.Folder,
             onClick = onCollectionsClick,
         ),

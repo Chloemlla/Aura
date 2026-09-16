@@ -1,5 +1,6 @@
 package com.chloemlla.aura.data.model
 
+import com.chloemlla.aura.data.legal.isProviderAvailableInCurrentArtifact
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -77,9 +78,15 @@ class WallpaperLicensePolicyTest {
         ).wallpaperLicenseCapabilities()
 
         assertEquals("User Upload", capabilities.normalizedLicense)
-        assertTrue(capabilities.requiresConfirmation(WallpaperAction.APPLY))
-        assertTrue(capabilities.requiresConfirmation(WallpaperAction.DOWNLOAD))
-        assertTrue(capabilities.requiresConfirmation(WallpaperAction.EDIT))
+        if (isProviderAvailableInCurrentArtifact(ContentSource.COMMUNITY)) {
+            assertTrue(capabilities.requiresConfirmation(WallpaperAction.APPLY))
+            assertTrue(capabilities.requiresConfirmation(WallpaperAction.DOWNLOAD))
+            assertTrue(capabilities.requiresConfirmation(WallpaperAction.EDIT))
+        } else {
+            assertFalse(capabilities.canUse(WallpaperAction.APPLY))
+            assertFalse(capabilities.canUse(WallpaperAction.DOWNLOAD))
+            assertFalse(capabilities.canUse(WallpaperAction.EDIT))
+        }
     }
 
     @Test
@@ -90,10 +97,11 @@ class WallpaperLicensePolicyTest {
         ).wallpaperLicenseCapabilities()
 
         assertEquals("CC0", capabilities.normalizedLicense)
-        assertTrue(capabilities.canUse(WallpaperAction.APPLY))
-        assertTrue(capabilities.canUse(WallpaperAction.DOWNLOAD))
-        assertTrue(capabilities.canUse(WallpaperAction.SHARE))
-        assertTrue(capabilities.canUse(WallpaperAction.EDIT))
+        val available = isProviderAvailableInCurrentArtifact(ContentSource.COMMUNITY)
+        assertEquals(available, capabilities.canUse(WallpaperAction.APPLY))
+        assertEquals(available, capabilities.canUse(WallpaperAction.DOWNLOAD))
+        assertEquals(available, capabilities.canUse(WallpaperAction.SHARE))
+        assertEquals(available, capabilities.canUse(WallpaperAction.EDIT))
     }
 
     @Test
@@ -118,10 +126,17 @@ class WallpaperLicensePolicyTest {
         ).wallpaperLicenseCapabilities()
 
         assertEquals("AI Generated", capabilities.normalizedLicense)
-        assertTrue(capabilities.canUse(WallpaperAction.APPLY))
-        assertTrue(capabilities.canUse(WallpaperAction.DOWNLOAD))
-        assertTrue(capabilities.requiresConfirmation(WallpaperAction.SHARE))
-        assertTrue(capabilities.canUse(WallpaperAction.EDIT))
+        if (isProviderAvailableInCurrentArtifact(ContentSource.AI_GENERATED)) {
+            assertTrue(capabilities.canUse(WallpaperAction.APPLY))
+            assertTrue(capabilities.canUse(WallpaperAction.DOWNLOAD))
+            assertTrue(capabilities.requiresConfirmation(WallpaperAction.SHARE))
+            assertTrue(capabilities.canUse(WallpaperAction.EDIT))
+        } else {
+            assertFalse(capabilities.canUse(WallpaperAction.APPLY))
+            assertFalse(capabilities.canUse(WallpaperAction.DOWNLOAD))
+            assertFalse(capabilities.canUse(WallpaperAction.SHARE))
+            assertFalse(capabilities.canUse(WallpaperAction.EDIT))
+        }
     }
 
     @Test
@@ -326,6 +341,19 @@ class WallpaperLicensePolicyTest {
             assertTrue("WallpaperDetailScreen.kt does not resolve $key", detailScreen.contains("R.string.$key"))
             assertTrue("values/strings.xml is missing $key", english.contains("name=\"$key\">"))
             assertTrue("values-zh/strings.xml is missing $key", chinese.contains("name=\"$key\">"))
+        }
+    }
+
+    @Test
+    fun `legacy picsum record stays attribution only`() {
+        val capabilities = wallpaper(
+            source = ContentSource.PICSUM,
+            license = "CC0",
+            sourcePageUrl = "https://picsum.photos/id/1",
+        ).wallpaperLicenseCapabilities()
+
+        WallpaperAction.entries.forEach { action ->
+            assertFalse(capabilities.canUse(action))
         }
     }
 

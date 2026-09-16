@@ -17,6 +17,7 @@ import com.chloemlla.aura.data.repository.YouTubeRepository
 import com.chloemlla.aura.service.DownloadManager
 import com.chloemlla.aura.service.SoundApplier
 import com.chloemlla.aura.service.SoundUrlResolver
+import com.chloemlla.aura.service.downloadHistoryId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,7 +65,12 @@ internal class SoundApplyActions(
                     }
                     return@launch
                 }
-            soundApplier.downloadAndApply(url, sound.name, type)
+            soundApplier.downloadAndApply(
+                url = url,
+                fileName = sound.name,
+                type = type,
+                savedOriginalId = downloadHistoryId("SOUND", sound.stableKey()),
+            )
                 .onSuccess {
                     val labelRes = when (type) {
                         ContentType.RINGTONE -> R.string.editor_sound_apply_ringtone
@@ -106,6 +112,7 @@ internal class SoundApplyActions(
                 fileName = buildSoundDownloadFileName(sound, ext),
                 type = currentDownloadType(),
                 source = sound.source.name,
+                provenanceUrl = sound.sourcePageUrl.ifBlank { dlUrl },
             ).fold(
                 onSuccess = {
                     clearSoundSourceUnavailableAfterSuccess(sound)

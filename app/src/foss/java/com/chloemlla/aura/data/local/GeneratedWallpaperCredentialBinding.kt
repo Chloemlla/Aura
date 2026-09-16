@@ -7,3 +7,6 @@ internal fun PreferencesManager.generatedWallpaperProviderKeyForFlavor(): Flow<S
 
 @Suppress("UNUSED_PARAMETER")
 internal suspend fun PreferencesManager.setGeneratedWallpaperProviderKeyForFlavor(key: String) = Unit
+
+@Suppress("UNUSED_PARAMETER")
+internal fun generatedWallpaperCredentialNeedsReentryForFlavor(keys: Set<String>): Boolean = false

@@ -1,11 +1,19 @@
 package com.chloemlla.aura.data.repository
 
+import com.chloemlla.aura.data.legal.ProviderBuild
+import com.chloemlla.aura.data.legal.ProviderChannel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class YouTubeRepositoryTest {
+
+    @Test
+    fun `youtube extractor runtime is excluded from Play artifacts`() {
+        assertTrue(isYouTubeRuntimeAvailable(ProviderBuild.FULL, ProviderChannel.GITHUB))
+        org.junit.Assert.assertFalse(isYouTubeRuntimeAvailable(ProviderBuild.FULL, ProviderChannel.PLAY))
+    }
 
     @Test
     fun `legacy compatible NewPipe search handler uses the Android 1 encoder path`() {

@@ -1,5 +1,7 @@
 package com.chloemlla.aura.ui.screens.videowallpapers
 
+import com.chloemlla.aura.data.legal.isProviderAvailableInCurrentArtifact
+import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.VideoWallpaperItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -64,7 +66,8 @@ class VideoWallpaperQualityTest {
             orientation = OrientationFilter.PORTRAIT,
         )
 
-        assertEquals(4, ranked.size)
+        val expectedSize = if (isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE)) 4 else 3
+        assertEquals(expectedSize, ranked.size)
         assertTrue(ranked.none { it.id == "yt_weak" })
     }
 
@@ -114,7 +117,9 @@ class VideoWallpaperQualityTest {
         }
         val alternatives = listOf(
             video("px_1", "Pexels", "Abstract loop", 12, 40_000, 1080, 1920),
+            video("px_2", "Pexels", "Neon loop", 11, 35_000, 1080, 1920),
             video("pb_1", "Pixabay", "Ambient loop", 12, 40_000, 1080, 1920),
+            video("pb_2", "Pixabay", "Rain loop", 10, 35_000, 1080, 1920),
             video("yt_1", "YouTube", "Galaxy loop", 12, 40_000, 1080, 1920),
         )
 
@@ -125,12 +130,32 @@ class VideoWallpaperQualityTest {
         )
 
         assertEquals(listOf("rd_6", "rd_5", "rd_4"), ranked.take(3).map { it.id })
+        val expectedSources = if (isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE)) {
+            listOf("Reddit", "Reddit", "Reddit", "YouTube", "Reddit", "Pexels", "Reddit", "Pixabay")
+        } else {
+            listOf("Reddit", "Reddit", "Reddit", "Pexels", "Reddit", "Pixabay", "Reddit", "Pexels")
+        }
+        assertEquals(expectedSources, ranked.take(8).map { it.source })
         assertEquals(5, ranked.take(8).count { it.source == "Reddit" })
         assertTrue(
             ranked.filter { it.source == "Reddit" }
                 .zipWithNext()
                 .all { (first, second) -> first.popularity >= second.popularity },
         )
+    }
+
+    @Test
+    fun `live video ranking omits legacy providers`() {
+        val ranked = rankVideoWallpapers(
+            items = listOf(
+                video("legacy", "Klipy", "Old loop", 12, 50_000, 1080, 1920),
+                video("current", "Reddit", "Current loop", 12, 5_000, 1080, 1920),
+            ),
+            filter = VideoFocusFilter.BEST,
+            orientation = OrientationFilter.PORTRAIT,
+        )
+
+        assertEquals(listOf("current"), ranked.map { it.id })
     }
 
     private fun video(

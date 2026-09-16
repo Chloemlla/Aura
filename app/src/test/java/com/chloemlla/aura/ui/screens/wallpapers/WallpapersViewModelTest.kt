@@ -7,9 +7,12 @@ import com.chloemlla.aura.data.local.WallpaperCacheManager
 import com.chloemlla.aura.data.model.CommunityBlockReason
 import com.chloemlla.aura.data.model.CommunityReportReason
 import com.chloemlla.aura.data.model.ContentSource
+import com.chloemlla.aura.data.model.DEFAULT_FIT_CANVAS_COLOR
 import com.chloemlla.aura.data.model.FavoriteIdentity
+import com.chloemlla.aura.data.model.FitCanvasMode
 import com.chloemlla.aura.data.model.SearchResult
 import com.chloemlla.aura.data.model.SearchHistoryEntity
+import com.chloemlla.aura.data.model.WALLPAPER_PRESENTATION_FILL
 import com.chloemlla.aura.data.model.Wallpaper
 import com.chloemlla.aura.data.model.WallpaperCollectionEntity
 import com.chloemlla.aura.data.model.favoriteIdentity
@@ -698,7 +701,7 @@ class WallpapersViewModelTest {
         )
         coEvery { favoritesRepo.markSourceUnavailable(any(), any()) } returns Unit
         coEvery {
-            downloadManager.downloadWallpaper(any(), any(), any(), any())
+            downloadManager.downloadWallpaper(any(), any(), any(), any(), any())
         } returns Result.failure(IllegalStateException("Download failed: HTTP 404"))
 
         val viewModel = createViewModel(
@@ -926,6 +929,9 @@ class WallpapersViewModelTest {
 
         val prefs = mockk<PreferencesManager>()
         every { prefs.wallpaperGridColumns } returns flowOf(2)
+        every { prefs.staticWallpaperPresentation } returns flowOf(WALLPAPER_PRESENTATION_FILL)
+        every { prefs.staticFitCanvasMode } returns flowOf(FitCanvasMode.AMOLED_BLACK.preferenceValue)
+        every { prefs.staticFitCanvasColor } returns flowOf(DEFAULT_FIT_CANVAS_COLOR)
         every { prefs.wallhavenProviderEnabled } returns flowOf(wallhavenProviderEnabled)
         every { prefs.bingProviderEnabled } returns flowOf(bingProviderEnabled)
         every { prefs.redditProviderEnabled } returns flowOf(redditProviderEnabled)

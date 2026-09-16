@@ -1,4 +1,4 @@
-# Aura — Architecture
+# Aura: Architecture
 
 Living architecture overview for contributors. Internal working notes live in `CLAUDE.md` (gitignored). This file describes the layered model + extension points.
 
@@ -16,36 +16,38 @@ Living architecture overview for contributors. Internal working notes live in `C
 │   repositories + services. Lifecycle-scoped coroutines via         │
 │   viewModelScope. SelectedContentHolder singleton bridges          │
 │   selection across NavBackStackEntries (persists to disk for       │
-│   process-death survival — NX-4).                                  │
+│   process-death survival: NX-4).                                   │
 ├────────────────────────────────────────────────────────────────────┤
 │  Repositories (data/repository/)                                   │
-│   One per source: Wallhaven / Pexels / Pixabay / Bing / Reddit /   │
-│   YouTube / Freesound v2 (legacy) / SoundCloud (legacy) / Audius   │
-│   (legacy) / ccMixter (legacy) / AI / Collection / Vote / Upload / │
-│   CreatorProfile / Favorites / SearchHistory / WallpaperUpload.    │
+│   One per active source: Wallhaven / Pexels / Pixabay / Bing /     │
+│   Reddit / YouTube / AI / Collection / Vote / Upload / Favorites / │
+│   CreatorProfile / SearchHistory / WallpaperUpload. Dormant source │
+│   repositories remain only for legacy record attribution.          │
 │   Aggregator: WallpaperRepository.getDiscover() mixes feeds with   │
 │   per-source timeouts.                                             │
 ├────────────────────────────────────────────────────────────────────┤
 │  Network (data/remote/)                                            │
-│   Retrofit interfaces + Moshi + OkHttp. RateLimitInterceptor on    │
-│   Freesound/Openverse + Pixabay. SourceMetrics singleton wraps      │
-│   every fetch with p50/p95 latency + success-ratio rolling         │
-│   counters (Settings → Diagnostics).                               │
+│   Retrofit interfaces + Moshi + OkHttp. ProviderCapability sets        │
+│   lifecycle, build, channel, media, priority, and allowed actions.     │
+│   RateLimitInterceptor applies 429 backoff to opted-in hosts.          │
+│   SourceMetrics singleton wraps every fetch with p50/p95 latency +     │
+│   success-ratio rolling counters (Settings -> Diagnostics).            │
 ├────────────────────────────────────────────────────────────────────┤
 │  Local (data/local/)                                               │
-│   Room DB v17 (favorites, downloads, search_history, wallpaper_    │
+│   Room DB v20 (favorites, downloads, search_history, wallpaper_    │
 │   cache, wallpaper_history, wallpaper_collections,                 │
-│   wallpaper_collection_items, local_wallpaper_folders,             │
-│   local_wallpapers). DataStore: Settings + User Styles + Rotation  │
-│   triggers. PreferencesManager owns the DataStore; live-wallpaper  │
-│   engines and receipt stores keep their own SharedPreferences —    │
-│   settings writes must land in both.                               │
+│   wallpaper_collection_items, local_wallpaper_folders,                 │
+│   local_wallpapers, and rotation_exclusions). DataStore: Settings      │
+│   + Onboarding + User Styles + Rotation triggers.                      │
+│   PreferencesManager owns the DataStore; live-wallpaper engines        │
+│   and receipt stores keep their own SharedPreferences —              │
+│   settings writes must land in both.                                   │
 ├────────────────────────────────────────────────────────────────────┤
 │  Services (service/)                                               │
 │   WallpaperService implementations:                                │
 │     VideoWallpaperService (MediaPlayer + Canvas GIF renderer)      │
 │     ParallaxWallpaperService (ML Kit subject segmentation +        │
-│       accelerometer parallax — see N-3 / NX-3)                     │
+│       accelerometer parallax: see N-3 / NX-3)                      │
 │     WeatherWallpaperService (Open-Meteo + Canvas particle overlay) │
 │     DualWallpaperService (separate home/lock slots)                │
 │   Foreground services:                                             │
@@ -61,6 +63,7 @@ Living architecture overview for contributors. Internal working notes live in `C
 │     WallpaperApplier (applyByLocator: http/file/content/path)      │
 │     SoundApplier (RingtoneManager + MediaStore)                    │
 │     DownloadManager (StateFlow-driven download queue)              │
+│     MediaCopyStore (original provenance + optimized apply copies)  │
 │     AudioTrimmer (Media3 transforms + final-codec fallback)        │
 │     ContactRingtoneService (per-contact ringtone assignment)       │
 │     SmartCropDetector (NX-3: ML Kit subject bbox)                  │
@@ -126,9 +129,9 @@ Use this for any new "apply a wallpaper" path. `applyFromUrl` is a thin alias th
 ### `SelectedContentHolder`
 
 Singleton bridging detail screens with the list ViewModel they came from. Holds:
-- `selectedWallpaper: StateFlow<Wallpaper?>` — persisted to SharedPreferences JSON (NX-4)
-- `wallpaperList: StateFlow<List<Wallpaper>>` — in-memory only; detail-screen pager source
-- `selectedSound: StateFlow<Sound?>` — persisted
+- `selectedWallpaper: StateFlow<Wallpaper?>`: persisted to SharedPreferences JSON (NX-4)
+- `wallpaperList: StateFlow<List<Wallpaper>>`: in-memory only; detail-screen pager source
+- `selectedSound: StateFlow<Sound?>`: persisted
 
 Full removal is queued behind Navigation 2.9 type-safe routes (NX-4 full sweep, N-1-gated).
 
@@ -139,9 +142,9 @@ Single rotation worker handling both the legacy and enhanced scheduler paths. Re
 - `prefs.autoWallpaperEnabled` → `doLegacyWork()`
 
 Enqueued in three ways:
-- `WorkManager.enqueueUniquePeriodicWork` — periodic 15-min+ rotation (`AutoWallpaperWorker.schedule`)
-- `RotationTriggerService.enqueueRotation()` — one-shot expedited on USER_PRESENT / SCREEN_OFF (NX-6)
-- `TaskerActionReceiver` → `enqueueRotation()` — broadcast-driven (L-2)
+- `WorkManager.enqueueUniquePeriodicWork`: periodic 15-min+ rotation (`AutoWallpaperWorker.schedule`)
+- `RotationTriggerService.enqueueRotation()`: one-shot expedited on USER_PRESENT / SCREEN_OFF (NX-6)
+- `TaskerActionReceiver` → `enqueueRotation()`: broadcast-driven (L-2)
 
 ### `SmartCropDetector` + `SmartCropCalculator`
 
@@ -155,6 +158,26 @@ Records every applied wallpaper with extracted Palette colours. Drives:
 
 Material You accent is queued, not shipped: `FreeVibeTheme`'s `dynamicColor` parameter has no caller that passes it, so the dynamic scheme branch never runs.
 
+### `MediaCopyStore`
+
+Download history owns the untouched locator, source provenance, SHA-256 digest,
+and technical metadata. `MediaCopyStore` owns optional files under
+`files/apply_copies/`. Their names include source and settings digests, so a
+repeat apply can validate and reuse its prior output. Replacing or deleting a
+copy never changes the original locator. Copy mutations are serialized, and a
+database failure retains the previously referenced file. Video originals live under
+`files/media_originals/`; wallpaper and sound downloads remain in MediaStore.
+See [`docs/media-copy-lifecycle.md`](docs/media-copy-lifecycle.md).
+
+Local media identity is separate from its replaceable locator. Room records the
+health of downloaded and favorited files, while local wallpaper rows keep a
+stable ID across document URI changes. `PathBackedRecordReconciler` labels a
+locator as available, missing, permission-revoked, or corrupt without clearing
+it. `LocalMediaRelinkManager` validates a user-selected replacement, commits
+all Room associations in one transaction, and preserves rotation and theme
+references. SAF folder repair uses exact SHA-256 matches and a 500-item batch
+limit. See [`docs/local-media-relink.md`](docs/local-media-relink.md).
+
 ## Process-death + lifecycle
 
 - ViewModels: scoped to `NavBackStackEntry`. Survive config changes; recreated after process death.
@@ -167,11 +190,11 @@ Every live wallpaper must:
 
 1. Stop rendering when `onVisibilityChanged(false)`.
 2. Cap FPS to 30 by default; cap to 15 when battery < 15 % AND not charging.
-3. Use SurfaceView (not TextureView) — 30 % less battery per the existing benchmark.
+3. Use SurfaceView (not TextureView). It used 30% less battery in the existing benchmark.
 4. Synchronize bitmap access (parallax engine writes from segmenter callback, reads from draw loop).
 5. Recycle bitmap layers in `onDestroy` and on engine teardown.
 
-`VideoWallpaperService` and `ParallaxWallpaperService` are the reference implementations. New engines should follow the same lifecycle protocol — see ROADMAP NX-1 (GL/AGSL engine migration) for the planned consolidation.
+`VideoWallpaperService` and `ParallaxWallpaperService` are the reference implementations. New engines should follow the same lifecycle protocol. See ROADMAP NX-1 (GL/AGSL engine migration) for the planned consolidation.
 
 ## Build and Release
 
@@ -182,7 +205,7 @@ Every live wallpaper must:
 ## Design system
 
 - AMOLED-first dark theme; neutral surfaces; brass / mist / coral accents.
-- Rectangular 4-12dp radii. **No pill / oval / fully-rounded backdrops** — see CLAUDE.md and the v6.16.0 changelog for the rule.
+- Rectangular 4-12dp radii. **No pill / oval / fully-rounded backdrops.** See CLAUDE.md and the v6.16.0 changelog for the rule.
 - Zero letter-spacing; calmer elevation; status differentiated by colour / border / font weight, not shape.
 - Shared components: `GlassCard`, `HighlightPill`, `CountBadge`, `AuraStateCard`, `CompactSearchField`.
 
@@ -192,8 +215,9 @@ Every live wallpaper must:
 
 ## Related docs
 
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — how to open a PR, code style, charter.
-- [`ROADMAP.md`](ROADMAP.md) — tiered backlog with scoring + sources.
-- [`CHANGELOG.md`](CHANGELOG.md) — release notes.
-- [`docs/firebase-admin-claims.md`](docs/firebase-admin-claims.md) — Firebase Custom Claims runbook (N-2).
-- [`docs/aura-originals-curation.md`](docs/aura-originals-curation.md) — Aura Originals CC0 curation workflow (N-5).
+- [`CONTRIBUTING.md`](CONTRIBUTING.md): how to open a PR, code style, charter.
+- [`ROADMAP.md`](ROADMAP.md): tiered backlog with scoring and sources.
+- [`CHANGELOG.md`](CHANGELOG.md): release notes.
+- [`docs/firebase-admin-claims.md`](docs/firebase-admin-claims.md): Firebase Custom Claims runbook (N-2).
+- [`docs/aura-originals-curation.md`](docs/aura-originals-curation.md): Aura Originals CC0 curation workflow (N-5).
+- [`docs/media-copy-lifecycle.md`](docs/media-copy-lifecycle.md) explains source preservation, optimized apply copies, rollback, and HDR handling.

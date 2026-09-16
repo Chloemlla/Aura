@@ -1,9 +1,11 @@
 package com.chloemlla.aura.ui.screens.settings
 
 import android.content.Context
+import com.chloemlla.aura.data.legal.isProviderAvailableInCurrentArtifact
 import com.chloemlla.aura.data.local.DEFAULT_REDDIT_VIDEO_SUBREDDITS
 import com.chloemlla.aura.data.local.DEFAULT_REDDIT_WALLPAPER_SUBREDDITS
 import com.chloemlla.aura.data.local.PreferencesManager
+import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.service.AutoWallpaperWorker
 import com.chloemlla.aura.service.RingtoneShuffleWorker
 import com.chloemlla.aura.service.SoundProfileWorker
@@ -77,7 +79,11 @@ internal class SettingsMediaDelegate(
         sharing,
         "compilation,mix,playlist,ranked,tier list,reaction,review,tutorial,how to,podcast,interview,live stream,part,episode",
     )
-    val youtubeProviderEnabled = prefs.youtubeProviderEnabled.stateIn(scope, sharing, true)
+    val youtubeProviderEnabled = prefs.youtubeProviderEnabled.stateIn(
+        scope,
+        sharing,
+        isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE),
+    )
     val youtubePoTokenProviderUrl = prefs.youtubePoTokenProviderUrl.stateIn(scope, sharing, "")
     val videoFpsLimit = prefs.videoFpsLimit.stateIn(scope, sharing, 30)
     val videoFpsOverlayEnabled = prefs.videoFpsOverlayEnabled.stateIn(scope, sharing, false)
@@ -85,9 +91,10 @@ internal class SettingsMediaDelegate(
     val wallhavenApiKey = prefs.wallhavenApiKey.stateIn(scope, sharing, "")
     val pexelsApiKey = prefs.pexelsApiKey.stateIn(scope, sharing, "")
     val pixabayApiKey = prefs.pixabayApiKey.stateIn(scope, sharing, "")
-    val freesoundApiKey = prefs.freesoundApiKey.stateIn(scope, sharing, "")
     val generatedWallpaperProviderKey = prefs.generatedWallpaperProviderKey.stateIn(scope, sharing, "")
     val providerCredentialStorageUnavailable = prefs.providerCredentialStorageUnavailable
+    val providerCredentialReentryRequired = prefs.providerCredentialReentryRequired
+    val providerCredentialReentryKeys = prefs.providerCredentialReentryKeys
     val generatedContentProviderEnabled = prefs.generatedContentProviderEnabled.stateIn(
         scope,
         sharing,
@@ -179,9 +186,9 @@ internal class SettingsMediaDelegate(
     fun setWallhavenKey(key: String) = scope.launch { prefs.setWallhavenKey(key) }
     fun setPexelsKey(key: String) = scope.launch { prefs.setPexelsKey(key) }
     fun setPixabayKey(key: String) = scope.launch { prefs.setPixabayKey(key) }
-    fun setFreesoundKey(key: String) = scope.launch { prefs.setFreesoundKey(key) }
     fun setGeneratedWallpaperProviderKey(key: String) =
         scope.launch { prefs.setGeneratedWallpaperProviderKey(key) }
+    fun retryProviderCredentials() = prefs.retryProviderCredentials()
     fun setWallhavenProviderEnabled(enabled: Boolean) = scope.launch { prefs.setWallhavenProviderEnabled(enabled) }
     fun setBingProviderEnabled(enabled: Boolean) = scope.launch { prefs.setBingProviderEnabled(enabled) }
     fun setPexelsProviderEnabled(enabled: Boolean) = scope.launch { prefs.setPexelsProviderEnabled(enabled) }
