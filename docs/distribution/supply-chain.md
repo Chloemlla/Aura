@@ -196,10 +196,10 @@ and keep the unresolved-owner-action section accurate.
 Gradle checksum metadata is committed at `gradle/verification-metadata.xml`.
 Regenerate it only during a dependency-resolution maintenance pass.
 
-Use Android Studio's bundled JBR:
+Use Adoptium JDK 21:
 
 ```powershell
-$env:JAVA_HOME = "C:/Program Files/Android/Android Studio/jbr"
+$env:JAVA_HOME = "C:/Program Files/Eclipse Adoptium/jdk-21.0.12.101-hotspot"
 .\gradlew.bat --write-verification-metadata sha256 :app:dependencies --stacktrace --no-daemon
 ```
 

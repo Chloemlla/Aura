@@ -79,6 +79,12 @@ require(auraReleaseChannel in setOf("github", "play")) {
     "auraReleaseChannel must be github or play"
 }
 
+val jdkMajor = JavaVersion.current().majorVersion.toIntOrNull() ?: -1
+require(jdkMajor == 21) {
+    "Aura requires JDK 21 (got $jdkMajor). " +
+        "Set JAVA_HOME to Adoptium JDK 21, not Android Studio's bundled JBR."
+}
+
 android {
     namespace = "com.freevibe"
     // Compile against 36, keep targetSdk at 35. Compiling against a newer platform

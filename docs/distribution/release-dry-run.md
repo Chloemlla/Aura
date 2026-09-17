@@ -78,7 +78,7 @@ python3 tools/store_metadata_preflight.py --repo-root . --require-assets --min-p
 Build the signed release artifacts with the flavor-specific release tasks:
 
 ```powershell
-$env:JAVA_HOME = "C:/Program Files/Android/Android Studio/jbr"
+$env:JAVA_HOME = "C:/Program Files/Eclipse Adoptium/jdk-21.0.12.101-hotspot"
 .\gradlew.bat :app:assembleFullRelease --stacktrace --no-daemon
 .\gradlew.bat -PauraReleaseChannel=play :app:bundleFullRelease --stacktrace --no-daemon
 ```
