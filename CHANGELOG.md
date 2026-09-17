@@ -32,6 +32,19 @@ All notable changes to Aura will be documented in this file.
 - **Collection rename**: the existing DAO rename function is now reachable from
   the overflow menu.
 
+- **Ringtone restoration verification**: post-boot restoration now reads back
+  each URI after setting it and reports whether the restore succeeded, the
+  source was missing, or the write was refused. Individual failures return
+  retry instead of false success.
+
+- **AV1 codec gate**: YouTube video wallpaper downloads now check hardware AV1
+  decode capability. Devices without AV1 hardware get AVC-only format selection,
+  and a post-download codec check rejects AV1 before the system picker.
+
+- **Dependency-notice tools**: all three notice tools and the documented Gradle
+  task now target the correct fullRelease variant instead of a nonexistent bare
+  "release".
+
 - **Sound rotation now uses named pools**: each pool can mix downloaded sounds,
   local files, and Aura Originals, then target the ringtone, notification,
   alarm, or any combination on its own schedule. The worker avoids immediate
