@@ -79,7 +79,6 @@ test('profile callable handler writes profile, quota, and dedupe rows in the dat
   const dedupe = await readValue(`community_write_dedupe/${PROFILE_UID}/profile_edits`);
   const dedupeKeys = Object.keys(dedupe);
   assert.equal(dedupeKeys.length, 1);
-  assert.match(dedupeKeys[0], /^profile_[a-f0-9]{64}$/);
   assert.equal(dedupe[dedupeKeys[0]].targetPath, `/creator_profiles/${PROFILE_UID}`);
 });
 

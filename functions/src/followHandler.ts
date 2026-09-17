@@ -96,7 +96,7 @@ export async function setCreatorFollowHandler(
   }
 
   const dayKey = utcQuotaDayKey(nowMillis);
-  const dedupeKey = followDedupeKey(payload);
+  const dedupeKey = envelope.operationId;
   const dedupe = await backend.readDedupeMarker(uid, FOLLOW_SURFACE.surfaceKey, dedupeKey);
   const decision = await backend.reserveQuota(
     uid,

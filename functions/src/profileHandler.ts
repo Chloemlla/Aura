@@ -103,7 +103,7 @@ export async function updateCreatorProfileHandler(
   }
 
   const dayKey = utcQuotaDayKey(nowMillis);
-  const dedupeKey = profileDedupeKey(uid, payload);
+  const dedupeKey = envelope.operationId;
   const dedupe = await backend.readDedupeMarker(uid, PROFILE_SURFACE.surfaceKey, dedupeKey);
   const decision = await backend.reserveQuota(
     uid,
