@@ -4,6 +4,43 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **targetSdk 36**: meets Play and Accrescent requirements. All Android 16
+  behavior changes (predictive back, edge-to-edge, orientation freedom) were
+  already in place.
+
+- **Build hardening**: JDK 21 preflight rejects unsupported runtimes with an
+  actionable message; dependency-info blob stripped from release artifacts for
+  IzzyOnDroid compatibility and reproducibility.
+
+- **Editor back guards**: toolbar back arrows in wallpaper, sound, and video crop
+  editors now go through the same unsaved-changes dialog as system back. Video
+  crop gained dirty-state tracking for pan, zoom, and trim.
+
+- **Upload and dialog fixes**: community upload dialogs use typed flags instead
+  of localized string comparisons for dismissal; profile edit dialog stays open
+  during saves; WebM audio accepted in community sound uploads; downloaded tones
+  populate MediaStore TITLE for system picker display.
+
+- **Feed reliability**: stale-content warnings clear after a successful refresh;
+  YouTube empty state shows a terminal message instead of perpetual "Loading";
+  download progress emissions coalesced to 250ms intervals.
+
+- **Theme-pack ZIP guard**: directory and unrecognized entry bodies now pass
+  through byte and compression-ratio accounting, closing an unbounded
+  decompression path.
+
+- **Collection rename**: the existing DAO rename function is now reachable from
+  the overflow menu.
+
+- **Sound rotation now uses named pools**: each pool can mix downloaded sounds,
+  local files, and Aura Originals, then target the ringtone, notification,
+  alarm, or any combination on its own schedule. The worker avoids immediate
+  repeats, filters duration per target, records skipped or missing media, and
+  restores enabled schedules after reboot. Users can relink missing members,
+  inspect apply history, and safely undo while the system sound still matches
+  Aura's last change. Portable library format 4 restores locator-free pool
+  assignments without copying audio, private paths, system URIs, or history.
+
 - **Missing local media can be repaired**: downloads, favorites, and local
   wallpaper catalog entries now stay visible when a file moves, disappears,
   becomes unreadable, or loses Android permission. Relink checks the selected
