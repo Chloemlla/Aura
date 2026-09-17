@@ -36,8 +36,17 @@ internal class WallpaperStyleActions(
             state.update { s ->
                 s.copy(
                     wallpapers = s.wallpapers.filterNot { it.stableKey() == wallpaper.stableKey() },
-                    applySuccess = context.getString(R.string.wallpaper_feedback_hidden),
                 )
+            }
+        }
+    }
+
+    fun undoSkipWallpaper(wallpaper: Wallpaper) {
+        scope.launch {
+            recordSignal(wallpaper, WallpaperStyleLearningSignal.UNSKIPPED)
+            state.update { s ->
+                if (s.wallpapers.any { it.stableKey() == wallpaper.stableKey() }) s
+                else s.copy(wallpapers = s.wallpapers + wallpaper)
             }
         }
     }

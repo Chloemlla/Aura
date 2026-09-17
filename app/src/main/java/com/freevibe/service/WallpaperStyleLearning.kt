@@ -13,6 +13,7 @@ enum class WallpaperStyleLearningSignal(internal val weight: Int) {
     FAVORITED(5),
     UNFAVORITED(-2),
     SKIPPED(-5),
+    UNSKIPPED(5),
 }
 
 @Serializable
