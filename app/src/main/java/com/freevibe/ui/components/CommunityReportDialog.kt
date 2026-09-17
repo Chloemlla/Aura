@@ -35,6 +35,7 @@ fun CommunityReportDialog(
     onDismiss: () -> Unit,
     onSubmit: (CommunityReportReason, String) -> Unit,
     modifier: Modifier = Modifier,
+    isSubmitting: Boolean = false,
     reasons: List<CommunityReportReason> = COMMUNITY_REPORT_REASONS,
     body: String = COMMUNITY_REPORT_TAKEDOWN_COPY,
 ) {
@@ -44,7 +45,7 @@ fun CommunityReportDialog(
 
     AlertDialog(
         modifier = modifier,
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!isSubmitting) onDismiss() },
         title = { Text(title) },
         text = {
             Column(
@@ -93,16 +94,17 @@ fun CommunityReportDialog(
         },
         confirmButton = {
             TextButton(
+                enabled = !isSubmitting,
                 onClick = {
                     onSubmit(selectedReason, note)
-                    onDismiss()
+                    if (!isSubmitting) onDismiss()
                 },
             ) {
                 Text(stringResource(R.string.community_report_submit))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(enabled = !isSubmitting, onClick = onDismiss) {
                 Text(stringResource(R.string.common_cancel))
             }
         },
