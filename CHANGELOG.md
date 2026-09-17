@@ -48,6 +48,27 @@ All notable changes to Aura will be documented in this file.
 - **Accessibility semantics**: preview mode chips, onboarding style cards, and
   sound tab bars now expose `selected` state to screen readers.
 
+- **Publication gate enhanced**: release checker now validates that all expected
+  APKs and SHA256SUMS.txt are present as GitHub release assets. A --strict flag
+  rejects unknown remote state.
+
+- **FFmpeg input bounded**: every FFmpeg invocation is preceded by a container
+  sniff that rejects AVI, MKV, MOV, and other formats outside the allowlist,
+  mitigating CVE-2026-8461. A policy JSON records the bundled version and its
+  known advisories.
+
+- **Crash report template**: collects app version, Android version, device model,
+  install channel, repro steps, and restart behavior. Diagnostics bundle is no
+  longer required for no-launch crashes; an adb logcat fallback is documented.
+
+- **Silent failure surfacing**: Firebase vote errors, share intent failures, and
+  video wallpaper display-metrics/retriever exceptions now log or show user
+  feedback instead of being swallowed silently.
+
+- **OEM ringtone handling**: Samsung and other OEM `IllegalArgumentException`
+  on ringtone writes is caught with device-specific guidance pointing to the
+  system sound picker.
+
 - **Sound rotation now uses named pools**: each pool can mix downloaded sounds,
   local files, and Aura Originals, then target the ringtone, notification,
   alarm, or any combination on its own schedule. The worker avoids immediate
