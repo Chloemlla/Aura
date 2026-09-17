@@ -776,23 +776,31 @@ internal fun extractThemePackArchive(zip: ZipInputStream, importDir: File): Impo
             // cannot burn the entry budget on entries the branches below skip.
             guard.beginEntry(name)
             when {
-                entry.isDirectory -> Unit
+                entry.isDirectory -> {
+                    drainZipEntryCapped(zip, guard.remainingEntryBudget()) {
+                        guard.failEntryTooLarge()
+                    }.let { bytes ->
+                        if (bytes > 0) guard.commitEntry(expandedBytes = bytes, compressedBytes = entry.compressedSize)
+                    }
+                }
                 name == THEME_PACK_MANIFEST_ENTRY -> {
                     manifest = zip.reader(Charsets.UTF_8).readTextCapped(THEME_PACK_MAX_MANIFEST_CHARS)
                 }
                 name.startsWith("assets/") -> {
-                    // Hash-prefix the flattened name: assets/a/x.png and assets/b/x.png
-                    // must map to distinct files, not silently overwrite each other.
                     val safeName = "${themePackShortHash(name)}_${name.substringAfterLast('/').take(60)}"
                     val target = File(importDir, safeName)
                     val bytes = copyZipEntryCapped(zip, target, guard.remainingEntryBudget()) {
                         target.delete()
                         guard.failEntryTooLarge()
                     }
-                    // ZipInputStream backfills the compressed size once the entry
-                    // body (and any data descriptor) has been consumed.
                     guard.commitEntry(expandedBytes = bytes, compressedBytes = entry.compressedSize)
                     assetsByKey[name] = target.absolutePath
+                }
+                else -> {
+                    val bytes = drainZipEntryCapped(zip, guard.remainingEntryBudget()) {
+                        guard.failEntryTooLarge()
+                    }
+                    if (bytes > 0) guard.commitEntry(expandedBytes = bytes, compressedBytes = entry.compressedSize)
                 }
             }
             zip.closeEntry()
@@ -807,6 +815,22 @@ internal fun extractThemePackArchive(zip: ZipInputStream, importDir: File): Impo
         runCatching { importDir.deleteRecursively() }
         throw e
     }
+}
+
+private inline fun drainZipEntryCapped(
+    zip: ZipInputStream,
+    maxBytes: Long,
+    onOverflow: () -> Nothing,
+): Long {
+    var drained = 0L
+    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+    while (true) {
+        val read = zip.read(buffer)
+        if (read == -1) break
+        drained += read
+        if (drained > maxBytes) onOverflow()
+    }
+    return drained
 }
 
 private inline fun copyZipEntryCapped(

@@ -169,4 +169,46 @@ class ThemePackArchiveExtractionTest {
             imported.assetsByKey.values.map { File(it).name }.toSet().size,
         )
     }
+
+    @Test
+    fun `nonempty directory entries are counted toward total budget`() {
+        val archive = zipOf {
+            putNextEntry(ZipEntry("subdir/"))
+            write(ByteArray(2 * 1024 * 1024))
+            closeEntry()
+            entry("theme-pack.json", manifest.toByteArray())
+        }
+        val importDir = newImportDir("dir-body")
+
+        val failure = assertThrows(ArchiveExtractionException::class.java) {
+            extract(archive, importDir)
+        }
+
+        assertTrue(
+            failure.reason == ArchiveRejectionReason.COMPRESSION_RATIO ||
+                failure.reason == ArchiveRejectionReason.ENTRY_TOO_LARGE ||
+                failure.reason == ArchiveRejectionReason.ARCHIVE_TOO_LARGE,
+        )
+        assertFalse(importDir.exists())
+    }
+
+    @Test
+    fun `unrecognized entry bodies are counted toward total budget`() {
+        val archive = zipOf {
+            entry("junk.dat", ByteArray(2 * 1024 * 1024))
+            entry("theme-pack.json", manifest.toByteArray())
+        }
+        val importDir = newImportDir("junk")
+
+        val failure = assertThrows(ArchiveExtractionException::class.java) {
+            extract(archive, importDir)
+        }
+
+        assertTrue(
+            failure.reason == ArchiveRejectionReason.COMPRESSION_RATIO ||
+                failure.reason == ArchiveRejectionReason.ENTRY_TOO_LARGE ||
+                failure.reason == ArchiveRejectionReason.ARCHIVE_TOO_LARGE,
+        )
+        assertFalse(importDir.exists())
+    }
 }
