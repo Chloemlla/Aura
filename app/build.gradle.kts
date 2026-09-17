@@ -87,11 +87,6 @@ require(jdkMajor == 21) {
 
 android {
     namespace = "com.freevibe"
-    // Compile against 36, keep targetSdk at 35. Compiling against a newer platform
-    // only widens the API surface available behind version guards; it triggers none
-    // of the Android 16 behavior changes, which are keyed to targetSdk. Splitting
-    // the two is what lets Media3 1.10+, Coil 3.5+, and okhttp-android 5.4 resolve
-    // without also taking the predictive-back / edge-to-edge / orientation trio.
     compileSdk = 36
 
     signingConfigs {
@@ -106,7 +101,7 @@ android {
     defaultConfig {
         applicationId = "com.freevibe"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 149
         versionName = "6.45.3"
 

@@ -153,6 +153,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Touch-Reactive Effects** | Optional ripple and sparkle bursts on live wallpaper touches |
 | **YouTube Sounds** | YouTube-first ringtone, notification, and alarm discovery with duration-aware searches powered by NewPipe + yt-dlp |
 | **Aura Originals** | 25 small CC0 tones included for offline ringtone, notification, and alarm preview, download, and apply |
+| **Sound Shuffle Pools** | Build named mixes from downloads, local files, and Aura Originals. Each pool can rotate the ringtone, notification, alarm, or any combination on its own schedule, with missing-file recovery, history, and safe Undo. [How pools work](docs/sound-shuffle-pools.md). |
 | **Community Sound Uploads** | Pick or record sounds, tag them, vote on community picks, and share via Firebase Storage |
 | **Sound Source Badges** | Color-coded source indicators on every sound card |
 | **Sound Quality Filters** | Best, Clean, Short, Calm, and Punchy filters with intent-aware badges |
@@ -170,7 +171,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Shuffle FAB** | One-tap random wallpaper from current tab |
 | **Per-Contact Ringtones** | Assign custom ringtones with DND priority guidance and a VIP-only silent-default preset |
 | **Dual Wallpapers** | Coordinated home + lock screen wallpaper pairs |
-| **Portable Library Backup** | Staged JSON export/import for favorites, collections, searches, packs, profiles, Fit Canvas defaults, rotation exclusions, local wallpaper metadata, and recent wallpaper history. Local paths and media bytes stay off the backup. Restored local records remain visible until the user relinks them. |
+| **Portable Library Backup** | Staged JSON export/import for favorites, collections, searches, packs, profiles, sound shuffle pools, Fit Canvas defaults, rotation exclusions, local wallpaper metadata, and recent wallpaper history. Local paths and media bytes stay off the backup. Restored local records remain visible until the user relinks them. |
 | **Theme Packs** | Local zip export/import for wallpaper, video, sound, widget tint, and launcher shortcut recipes |
 | **Community Voting** | Upvote/downvote wallpapers and sounds via Firebase |
 | **OLED Dark Theme** | Deep blacks, zero burn-in, Material 3 |
@@ -265,7 +266,7 @@ Firebase RTDB (Community Voting + Uploads + Admin Moderation)
 | Widget | Glance 1.2.0-rc01 |
 | Performance | Baseline Profile + Macrobenchmark 1.4.1 |
 | Min SDK | 26 (Android 8.0) |
-| Target SDK | 35 (Android 15) |
+| Target SDK | 36 (Android 16) |
 | Kotlin | 2.1.0 |
 
 ## Building
