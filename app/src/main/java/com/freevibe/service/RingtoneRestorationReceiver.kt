@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.media.RingtoneManager
 import android.net.Uri
+import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
@@ -56,42 +57,68 @@ class RingtoneRestorationWorker @AssistedInject constructor(
     @Assisted workerParams: WorkerParameters,
     private val prefs: PreferencesManager,
     private val livenessMonitor: LiveWallpaperLivenessMonitor,
+    private val soundShufflePoolManager: SoundShufflePoolManager,
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
         return try {
-            restoreIfNeeded(RingtoneManager.TYPE_RINGTONE, prefs.lastAppliedRingtoneUri.first())
-            restoreIfNeeded(RingtoneManager.TYPE_NOTIFICATION, prefs.lastAppliedNotificationUri.first())
-            restoreIfNeeded(RingtoneManager.TYPE_ALARM, prefs.lastAppliedAlarmUri.first())
-            // A reboot and a package replace are the two moments the platform is
-            // known to drop a live wallpaper, and this worker already runs on
-            // exactly those. Reading it here keeps the binder call off the boot
-            // broadcast deadline and out of any render thread.
+            var anyFailed = false
+            runCatching { prefs.lastAppliedRingtoneUri.first() }
+                .onSuccess { if (!restoreIfNeeded(RingtoneManager.TYPE_RINGTONE, it)) anyFailed = true }
+            runCatching { prefs.lastAppliedNotificationUri.first() }
+                .onSuccess { if (!restoreIfNeeded(RingtoneManager.TYPE_NOTIFICATION, it)) anyFailed = true }
+            runCatching { prefs.lastAppliedAlarmUri.first() }
+                .onSuccess { if (!restoreIfNeeded(RingtoneManager.TYPE_ALARM, it)) anyFailed = true }
+            soundShufflePoolManager.migrateLegacyIfNeeded()
+            soundShufflePoolManager.restoreSchedules()
             runCatching { livenessMonitor.refresh() }
-            Result.success()
+            if (anyFailed) Result.retry() else Result.success()
         } catch (e: Exception) {
             if (e is CancellationException) throw e
-            // Restoration is best-effort; a missing provider right after boot is not
-            // worth a retry storm.
-            Result.success()
+            Log.e(TAG, "Ringtone restoration failed", e)
+            Result.retry()
         }
     }
 
-    private fun restoreIfNeeded(type: Int, lastAppliedUri: String) {
-        if (lastAppliedUri.isBlank()) return
+    private fun restoreIfNeeded(type: Int, lastAppliedUri: String): Boolean {
+        val typeName = when (type) {
+            RingtoneManager.TYPE_RINGTONE -> "ringtone"
+            RingtoneManager.TYPE_NOTIFICATION -> "notification"
+            RingtoneManager.TYPE_ALARM -> "alarm"
+            else -> "type-$type"
+        }
+        if (lastAppliedUri.isBlank()) return true
         val expected = Uri.parse(lastAppliedUri)
         val current = RingtoneManager.getActualDefaultRingtoneUri(applicationContext, type)
-        if (current != expected) {
-            try {
-                applicationContext.contentResolver.openInputStream(expected)?.close()
-                    ?: return
-                RingtoneManager.setActualDefaultRingtoneUri(applicationContext, type, expected)
-            } catch (_: Exception) {
-            }
+        if (current == expected) {
+            Log.d(TAG, "Boot restore: $typeName already correct")
+            return true
         }
+        try {
+            applicationContext.contentResolver.openInputStream(expected)?.close()
+                ?: run {
+                    Log.w(TAG, "Boot restore: $typeName source missing ($expected)")
+                    return false
+                }
+            RingtoneManager.setActualDefaultRingtoneUri(applicationContext, type, expected)
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Boot restore: $typeName write refused", e)
+            return false
+        } catch (e: Exception) {
+            Log.w(TAG, "Boot restore: $typeName failed", e)
+            return false
+        }
+        val actual = RingtoneManager.getActualDefaultRingtoneUri(applicationContext, type)
+        if (actual != expected) {
+            Log.w(TAG, "Boot restore: $typeName set call succeeded but read-back differs ($actual != $expected)")
+            return false
+        }
+        Log.d(TAG, "Boot restore: $typeName restored to $expected")
+        return true
     }
 
     companion object {
+        private const val TAG = "RingtoneRestoration"
         const val WORK_NAME = "ringtone_restoration"
     }
 }
