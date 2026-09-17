@@ -69,6 +69,19 @@ All notable changes to Aura will be documented in this file.
   on ringtone writes is caught with device-specific guidance pointing to the
   system sound picker.
 
+- **Wallpaper long-press fixed**: long-pressing a wallpaper card now toggles the
+  favorite instead of destructively hiding it. Hide has an immediate Undo
+  snackbar that reverses both the style-learning signal and the hidden ID.
+
+- **Semantic dedupe replaced**: follow, block, and profile Cloud Functions now
+  deduplicate by client operation ID instead of desired state. A follow, unfollow,
+  re-follow sequence completes correctly instead of treating the re-follow as a
+  duplicate.
+
+- **Upload verification**: wallpaper and sound upload finalizers read the actual
+  Storage object metadata before publishing. Missing objects, size mismatches,
+  and content-type mismatches are rejected with actionable error codes.
+
 - **Sound rotation now uses named pools**: each pool can mix downloaded sounds,
   local files, and Aura Originals, then target the ringtone, notification,
   alarm, or any combination on its own schedule. The worker avoids immediate
