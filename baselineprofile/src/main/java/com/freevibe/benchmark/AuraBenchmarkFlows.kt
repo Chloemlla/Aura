@@ -33,7 +33,7 @@ internal fun MacrobenchmarkScope.exerciseAuraCriticalJourneys() {
 
     device.navigateAndScroll("Videos", swipes = 2)
     device.navigateAndScroll("Sounds", swipes = 2)
-    device.navigateAndScroll("Favorites", swipes = 1)
+    device.navigateAndScroll("Library", swipes = 1)
 }
 
 internal fun UiDevice.navigateAndScroll(tabLabel: String, swipes: Int) {
@@ -56,7 +56,8 @@ internal fun UiDevice.openWallpaperDetailIfAvailable() {
 internal fun UiDevice.tapBottomNav(label: String) {
     val target = waitForObjectByDescription(label, CONTENT_WAIT_MS)
         ?: waitForObjectByText(label, CONTENT_WAIT_MS)
-    target?.click()
+        ?: error("Bottom navigation destination '$label' not found within ${CONTENT_WAIT_MS}ms")
+    target.click()
     waitForIdle()
     SystemClock.sleep(UI_SETTLE_MS)
 }
@@ -67,7 +68,9 @@ internal fun UiDevice.dismissOnboardingIfVisible() {
 }
 
 internal fun UiDevice.waitForAuraShell() {
-    wait(Until.hasObject(By.desc("Wallpapers")), CONTENT_WAIT_MS)
+    check(wait(Until.hasObject(By.desc("Wallpapers")), CONTENT_WAIT_MS)) {
+        "Aura shell did not appear within ${CONTENT_WAIT_MS}ms"
+    }
     waitForIdle()
 }
 

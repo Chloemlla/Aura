@@ -18,7 +18,7 @@ The profile generator exercises the public app UI:
 - Wallpaper Detail open/back.
 - Videos grid scroll.
 - Sounds list scroll.
-- Favorites list scroll.
+- Library list scroll.
 
 ## Local Runbook
 
