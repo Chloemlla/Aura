@@ -729,6 +729,12 @@ private suspend fun cropVideoConstrained(
             f
         }
 
+        try {
+            com.freevibe.service.requireFfmpegSafeContainer(inputFile)
+        } catch (_: java.io.IOException) {
+            return@withContext null
+        }
+
         val outputFile = File(context.filesDir, "live_wallpaper.mp4")
 
         // Map viewport back to video source coordinates

@@ -230,6 +230,7 @@ class VideoFitCanvasComposer @Inject constructor(
                 longEdgeHeight,
                 FitCanvasRenderer.MAX_OUTPUT_PIXELS,
             )
+            requireFfmpegSafeContainer(source)
             val (ffmpeg, libraryPath) = initializeFfmpegRuntime()
             val command = videoCompatibilityFfmpegArgs(
                 ffmpegPath = ffmpeg.absolutePath,
@@ -304,6 +305,7 @@ class VideoFitCanvasComposer @Inject constructor(
                 )
             }
 
+            requireFfmpegSafeContainer(file)
             val (ffmpeg, libraryPath) = initializeFfmpegRuntime()
             val output = File(context.filesDir, "live_wallpaper.fit.mp4")
             val tempOutput = File.createTempFile("aura-fit-canvas-", ".mp4", context.cacheDir)
