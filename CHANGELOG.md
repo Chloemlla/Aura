@@ -45,6 +45,9 @@ All notable changes to Aura will be documented in this file.
   task now target the correct fullRelease variant instead of a nonexistent bare
   "release".
 
+- **Accessibility semantics**: preview mode chips, onboarding style cards, and
+  sound tab bars now expose `selected` state to screen readers.
+
 - **Sound rotation now uses named pools**: each pool can mix downloaded sounds,
   local files, and Aura Originals, then target the ringtone, notification,
   alarm, or any combination on its own schedule. The worker avoids immediate
