@@ -196,6 +196,7 @@ fun SoundDetailScreen(
     val saveSoundTitle = stringResource(R.string.sounds_quick_apply_save_title)
     val shareSoundTitle = stringResource(R.string.sound_detail_share_sound_title)
     val shareSoundChooserTitle = stringResource(R.string.sound_detail_share_sound_chooser)
+    val shareFailedMessage = stringResource(R.string.common_share_failed)
     var showReportDialog by remember(s.stableKey()) { mutableStateOf(false) }
     var showBlockCreatorDialog by remember(s.stableKey()) { mutableStateOf(false) }
     var showDeleteUploadDialog by remember(s.stableKey()) { mutableStateOf(false) }
@@ -561,7 +562,7 @@ fun SoundDetailScreen(
                     SecondarySoundAction(stringResource(R.string.common_share), Icons.Default.Share, Modifier.weight(1f).widthIn(min = 136.dp), enabled = canShareSound) {
                         runSoundAction(SoundAction.SHARE, shareSoundTitle) {
                             val intent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, shareBody); putExtra(Intent.EXTRA_SUBJECT, s.name) }
-                            try { context.startActivity(Intent.createChooser(intent, shareSoundChooserTitle)) } catch (_: Exception) {}
+                            try { context.startActivity(Intent.createChooser(intent, shareSoundChooserTitle)) } catch (_: Exception) { scope.launch { snackbarHostState.showSnackbar(shareFailedMessage) } }
                         }
                     }
                 }
@@ -579,7 +580,7 @@ fun SoundDetailScreen(
                     SecondarySoundAction(stringResource(R.string.common_share), Icons.Default.Share, Modifier.weight(1f), enabled = canShareSound) {
                         runSoundAction(SoundAction.SHARE, shareSoundTitle) {
                             val intent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, shareBody); putExtra(Intent.EXTRA_SUBJECT, s.name) }
-                            try { context.startActivity(Intent.createChooser(intent, shareSoundChooserTitle)) } catch (_: Exception) {}
+                            try { context.startActivity(Intent.createChooser(intent, shareSoundChooserTitle)) } catch (_: Exception) { scope.launch { snackbarHostState.showSnackbar(shareFailedMessage) } }
                         }
                     }
                 }

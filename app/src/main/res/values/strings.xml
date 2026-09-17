@@ -255,6 +255,7 @@
     <string name="common_delete">Delete</string>
     <string name="common_block">Block</string>
     <string name="common_share">Share</string>
+    <string name="common_share_failed">No app available to share this content.</string>
     <string name="common_error_format">Error: %1$s</string>
     <string name="common_off">Off</string>
     <string name="aura_status_banner_cd">%1$s. %2$s</string>

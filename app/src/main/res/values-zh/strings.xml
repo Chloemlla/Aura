@@ -246,6 +246,7 @@
     <string name="common_delete">删除</string>
     <string name="common_block">屏蔽</string>
     <string name="common_share">分享</string>
+    <string name="common_share_failed">没有可用的应用来分享此内容。</string>
     <string name="common_error_format">错误：%1$s</string>
     <string name="common_off">关</string>
     <string name="aura_status_banner_cd">%1$s。%2$s</string>

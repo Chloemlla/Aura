@@ -216,9 +216,7 @@ class VoteRepository @Inject constructor(
                     }
 
                     override fun onCancelled(error: DatabaseError) {
-                        if (com.freevibe.BuildConfig.DEBUG) {
-                            Log.w("VoteRepo", "Moderation listener cancelled: ${error.message}")
-                        }
+                        Log.w("VoteRepo", "Moderation listener cancelled: ${error.message}")
                     }
                 }
                 val ref = moderationRef ?: return
@@ -404,7 +402,9 @@ class VoteRepository @Inject constructor(
                     counts[id] = snapshot.getValue(Int::class.java) ?: 0
                     trySend(counts.toMap())
                 }
-                override fun onCancelled(error: DatabaseError) {}
+                override fun onCancelled(error: DatabaseError) {
+                    Log.w("VoteRepository", "Vote listener cancelled: ${error.message}")
+                }
             }
             ref.addValueEventListener(listener)
             listeners.add(safeId to listener)

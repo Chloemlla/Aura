@@ -294,6 +294,7 @@ fun WallpaperDetailScreen(
     val parallaxChooserMessage = stringResource(R.string.settings_feedback_parallax_chooser)
     val parallaxManualMessage = stringResource(R.string.settings_feedback_parallax_manual)
     val shareWallpaperTitle = stringResource(R.string.detail_share_wallpaper_title)
+    val shareFailedMessage = stringResource(R.string.common_share_failed)
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(state.pendingLiveWallpaperLaunch) {
         if (state.pendingLiveWallpaperLaunch) {
@@ -655,7 +656,9 @@ fun WallpaperDetailScreen(
                                         }
                                         try {
                                             context.startActivity(Intent.createChooser(intent, shareWallpaperTitle))
-                                        } catch (_: Exception) {}
+                                        } catch (_: Exception) {
+                                            scope.launch { snackbarHostState.showSnackbar(shareFailedMessage) }
+                                        }
                                     },
                                 )
                             }

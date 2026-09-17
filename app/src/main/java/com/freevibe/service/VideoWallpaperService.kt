@@ -223,7 +223,9 @@ class VideoWallpaperService : WallpaperService() {
                     screenWidth = metrics.widthPixels
                     screenHeight = metrics.heightPixels
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                android.util.Log.w("VideoWallpaper", "Failed to resolve screen size", e)
+            }
         }
 
         override fun onSurfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
@@ -351,7 +353,9 @@ class VideoWallpaperService : WallpaperService() {
                     } finally {
                         retriever.release()
                     }
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    android.util.Log.w("VideoWallpaper", "Failed to read video metadata: $path", e)
+                }
 
                 // Set surface to screen size — this is the canvas the user sees
                 val (sw, sh) = configureSurface(holder)
