@@ -205,6 +205,7 @@ class DownloadManager @Inject constructor(
                     body.byteStream().use { input ->
                         val buffer = ByteArray(8192)
                         var bytesRead: Int
+                        var lastEmitNanos = System.nanoTime()
                         while (input.read(buffer).also { bytesRead = it } != -1) {
                             if (downloadedBytes + bytesRead > maxBytes) {
                                 throw IllegalStateException(
@@ -213,14 +214,22 @@ class DownloadManager @Inject constructor(
                             }
                             output.write(buffer, 0, bytesRead)
                             downloadedBytes += bytesRead
-                            val progress = if (totalBytes > 0) downloadedBytes.toFloat() / totalBytes else 0f
-                            updateProgress(
-                                historyId,
-                                DownloadProgress(historyId, fileName, progress, totalBytes, downloadedBytes),
-                            )
+                            val now = System.nanoTime()
+                            if (now - lastEmitNanos >= 250_000_000L) {
+                                val progress = if (totalBytes > 0) downloadedBytes.toFloat() / totalBytes else 0f
+                                updateProgress(
+                                    historyId,
+                                    DownloadProgress(historyId, fileName, progress, totalBytes, downloadedBytes),
+                                )
+                                lastEmitNanos = now
+                            }
                         }
                     }
                 }
+                updateProgress(
+                    historyId,
+                    DownloadProgress(historyId, fileName, 1f, totalBytes, downloadedBytes),
+                )
                 if (downloadedBytes <= 0L) {
                     throw IllegalStateException("Empty response body")
                 }
