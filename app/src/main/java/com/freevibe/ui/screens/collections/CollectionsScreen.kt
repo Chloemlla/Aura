@@ -256,6 +256,7 @@ fun CollectionsScreen(
     val scope = rememberCoroutineScope()
     var showImportSheet by remember { mutableStateOf(false) }
     var showCreateDialog by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
 
     // Observe prepared share/import events and keep system intents out of recomposition.
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -347,6 +348,16 @@ fun CollectionsScreen(
             },
         )
     }
+    if (showRenameDialog && selectedCollection != null) {
+        RenameCollectionDialog(
+            currentName = selectedCollection.name,
+            onDismiss = { showRenameDialog = false },
+            onRename = { newName ->
+                showRenameDialog = false
+                viewModel.renameCollection(selectedCollection.collectionId, newName)
+            },
+        )
+    }
     if (showEmbeddedQrPicker) {
         EmbeddedImagePickerSheet(
             title = stringResource(R.string.photo_picker_qr_title),
@@ -413,6 +424,14 @@ fun CollectionsScreen(
                                         viewModel.showQr(selectedCollection)
                                     },
                                     leadingIcon = { Icon(Icons.Default.QrCode2, null) },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.collections_rename)) },
+                                    onClick = {
+                                        showMenu = false
+                                        showRenameDialog = true
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Edit, null) },
                                 )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.collections_delete)) },
@@ -580,6 +599,45 @@ private fun CreateCollectionDialog(
                 enabled = normalizedName.isNotEmpty(),
             ) {
                 Text(stringResource(R.string.collections_create_action))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        },
+        shape = RoundedCornerShape(8.dp),
+    )
+}
+
+@Composable
+private fun RenameCollectionDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onRename: (String) -> Unit,
+) {
+    var name by remember { mutableStateOf(currentName) }
+    val normalizedName = name.trim()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.Edit, contentDescription = null) },
+        title = { Text(stringResource(R.string.collections_rename_title)) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.detail_collection_name_placeholder)) },
+                singleLine = true,
+                shape = RoundedCornerShape(8.dp),
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onRename(normalizedName) },
+                enabled = normalizedName.isNotEmpty() && normalizedName != currentName.trim(),
+            ) {
+                Text(stringResource(R.string.collections_rename_action))
             }
         },
         dismissButton = {

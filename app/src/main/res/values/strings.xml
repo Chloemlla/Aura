@@ -481,6 +481,9 @@
     <string name="collections_create">Create collection</string>
     <string name="collections_create_title">New collection</string>
     <string name="collections_create_action">Create</string>
+    <string name="collections_rename">Rename</string>
+    <string name="collections_rename_title">Rename collection</string>
+    <string name="collections_rename_action">Rename</string>
     <string name="collections_empty_title">This collection is empty</string>
     <string name="collections_empty_body">Save wallpapers from detail pages to turn this into a curated set.</string>
     <string name="collections_list_empty_title">No collections yet</string>

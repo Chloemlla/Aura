@@ -433,6 +433,9 @@
     <string name="collections_create">创建收藏集</string>
     <string name="collections_create_title">新建收藏集</string>
     <string name="collections_create_action">创建</string>
+    <string name="collections_rename">重命名</string>
+    <string name="collections_rename_title">重命名合集</string>
+    <string name="collections_rename_action">重命名</string>
     <string name="collections_empty_title">此收藏集为空</string>
     <string name="collections_empty_body">从详情页保存壁纸，将其变成一个精选集合。</string>
     <string name="collections_list_empty_title">还没有收藏集</string>
