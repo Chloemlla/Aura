@@ -390,6 +390,11 @@ fun SoundsScreen(
             }
         }
     }
+    LaunchedEffect(state.isRefreshing, state.error) {
+        if (!state.isRefreshing && state.error == null && nonBlockingWarning != null) {
+            nonBlockingWarning = null
+        }
+    }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),

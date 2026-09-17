@@ -310,6 +310,12 @@ fun WallpapersScreen(
             }
         }
     }
+    LaunchedEffect(state.isRefreshing, state.error) {
+        if (!state.isRefreshing && state.error == null && nonBlockingWarning != null) {
+            nonBlockingWarning = null
+            nonBlockingWarningSource = null
+        }
+    }
     if (communityProviderEnabled && communityGuidelinesAccepted && showWallpaperUploadDialog && selectedWallpaperUploadUri != null) {
         WallpaperUploadDialog(
             isUploading = state.isUploadingWallpaper,
