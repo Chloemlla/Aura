@@ -947,6 +947,13 @@
     <string name="sounds_loading_title">Tuning the sound feed</string>
     <string name="sounds_loading_description">Aura is checking YouTube clip length and preview availability before showing ringtone-ready results.</string>
     <string name="sounds_empty_fallback">Try another source or adjust the quality filter.</string>
+    <string name="sounds_empty_youtube_title">No YouTube sounds found</string>
+    <string name="sounds_empty_youtube_body">Try another search or paste a video URL.</string>
+    <string name="sounds_empty_community_title">No community sounds yet</string>
+    <string name="sounds_empty_community_body">Uploads will appear here once the community feed has content.</string>
+    <string name="sounds_empty_search_title">No sounds found for \"%1$s\"</string>
+    <string name="sounds_empty_search_body">Try fewer words or a more direct YouTube sound search.</string>
+    <string name="sounds_empty_title">No sounds found</string>
     <string name="sounds_empty_upload">Upload sound</string>
     <string name="sounds_empty_record">Record</string>
     <string name="sounds_collection_minimal_rings_title">Minimal Rings</string>

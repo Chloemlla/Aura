@@ -854,6 +854,13 @@
     <string name="sounds_loading_title">正在调整声音信息流</string>
     <string name="sounds_loading_description">Aura 正在检查 YouTube 片段长度和预览可用性，然后再显示可制作铃声的结果。</string>
     <string name="sounds_empty_fallback">尝试其他来源或调整质量筛选。</string>
+    <string name="sounds_empty_youtube_title">未找到 YouTube 声音</string>
+    <string name="sounds_empty_youtube_body">尝试其他搜索或粘贴视频链接。</string>
+    <string name="sounds_empty_community_title">暂无社区声音</string>
+    <string name="sounds_empty_community_body">社区内容上传后将显示在此处。</string>
+    <string name="sounds_empty_search_title">未找到"%1$s"的声音</string>
+    <string name="sounds_empty_search_body">尝试更少的关键词或更直接的 YouTube 声音搜索。</string>
+    <string name="sounds_empty_title">未找到声音</string>
     <string name="sounds_empty_upload">上传声音</string>
     <string name="sounds_empty_record">录制</string>
     <string name="sounds_collection_minimal_rings_title">极简铃声</string>

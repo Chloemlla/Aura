@@ -1015,34 +1015,30 @@ private fun SoundsList(
     }
 }
 
+@Composable
 private fun soundsEmptyState(
     selectedTab: SoundTab,
     query: String,
 ): Triple<androidx.compose.ui.graphics.vector.ImageVector, String, String?> = when {
-    selectedTab == SoundTab.YOUTUBE && query.isBlank() -> Triple(
-        Icons.Default.SmartDisplay,
-        "Loading YouTube sounds",
-        "Aura will load a default YouTube search here. You can also paste a video URL.",
-    )
     selectedTab == SoundTab.YOUTUBE -> Triple(
         Icons.Default.SmartDisplay,
-        "No YouTube audio found",
-        "Try another search or paste a specific video URL.",
+        stringResource(R.string.sounds_empty_youtube_title),
+        stringResource(R.string.sounds_empty_youtube_body),
     )
     selectedTab == SoundTab.COMMUNITY -> Triple(
         Icons.Default.UploadFile,
-        "No community sounds yet",
-        "Uploads will appear here once the community feed has content.",
+        stringResource(R.string.sounds_empty_community_title),
+        stringResource(R.string.sounds_empty_community_body),
     )
     selectedTab == SoundTab.SEARCH && query.isNotBlank() -> Triple(
         Icons.Default.MusicOff,
-        "No sounds found for \"$query\"",
-        "Try fewer words or a more direct YouTube sound search.",
+        stringResource(R.string.sounds_empty_search_title, query),
+        stringResource(R.string.sounds_empty_search_body),
     )
     else -> Triple(
         Icons.Default.MusicOff,
-        "No sounds found",
-        "Try another sound type or switch to a different quality filter.",
+        stringResource(R.string.sounds_empty_title),
+        stringResource(R.string.sounds_empty_fallback),
     )
 }
 
