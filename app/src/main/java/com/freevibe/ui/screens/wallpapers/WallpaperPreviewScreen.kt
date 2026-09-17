@@ -189,9 +189,21 @@ private fun PreviewModeChip(label: String, active: Boolean, onClick: () -> Unit)
 
 @Composable
 private fun LockMock(overlayTint: Color) {
-    val now = remember { Date() }
+    var now by remember { mutableStateOf(Date()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val cal = Calendar.getInstance()
+            val msUntilNextMinute = (60 - cal.get(Calendar.SECOND)) * 1000L - cal.get(Calendar.MILLISECOND)
+            kotlinx.coroutines.delay(msUntilNextMinute.coerceAtLeast(1000L))
+            now = Date()
+        }
+    }
+    val context = androidx.compose.ui.platform.LocalContext.current
     val statusText = stringResource(R.string.preview_mock_status_100)
-    val timeFormat = remember { SimpleDateFormat("H:mm", Locale.getDefault()) }
+    val use24Hour = android.text.format.DateFormat.is24HourFormat(context)
+    val timeFormat = remember(use24Hour) {
+        SimpleDateFormat(if (use24Hour) "H:mm" else "h:mm", Locale.getDefault())
+    }
     val dateFormat = remember {
         SimpleDateFormat("EEEE, MMM d", Locale.getDefault())
     }
@@ -237,6 +249,17 @@ private fun LockMock(overlayTint: Color) {
 
 @Composable
 private fun HomeMock(overlayTint: Color) {
+    var now by remember { mutableStateOf(Date()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val cal = Calendar.getInstance()
+            val msUntilNextMinute = (60 - cal.get(Calendar.SECOND)) * 1000L - cal.get(Calendar.MILLISECOND)
+            kotlinx.coroutines.delay(msUntilNextMinute.coerceAtLeast(1000L))
+            now = Date()
+        }
+    }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val use24Hour = android.text.format.DateFormat.is24HourFormat(context)
     val statusText = stringResource(R.string.preview_mock_status_100)
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -248,8 +271,9 @@ private fun HomeMock(overlayTint: Color) {
                 .padding(horizontal = 20.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            val now = remember { Date() }
-            val timeFormat = remember { SimpleDateFormat("H:mm", Locale.getDefault()) }
+            val timeFormat = remember(use24Hour) {
+                SimpleDateFormat(if (use24Hour) "H:mm" else "h:mm", Locale.getDefault())
+            }
             Text(
                 text = timeFormat.format(now),
                 style = MaterialTheme.typography.labelSmall,
