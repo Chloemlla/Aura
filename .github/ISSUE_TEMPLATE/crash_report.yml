@@ -1,21 +1,53 @@
 name: Crash or ANR report
-description: Report a crash, freeze, or ANR with Aura's local diagnostics bundle.
+description: Report a crash, freeze, or ANR. Diagnostics bundle is helpful but not required if Aura won't open.
 title: "[Crash/ANR]: "
 labels: ["bug"]
 body:
-  - type: markdown
+  - type: input
+    id: aura-version
     attributes:
-      value: |
-        Open Aura > Settings > Diagnostics > Crash diagnostics bundle, then use Copy and paste the sanitized bundle below. Aura does not upload this automatically.
+      label: Aura version
+      description: "Settings > About, or the APK filename (e.g. 6.45.3)."
+      placeholder: "6.45.3"
+    validations:
+      required: true
+  - type: input
+    id: android-version
+    attributes:
+      label: Android version
+      description: "Settings > About phone > Android version (e.g. Android 15 / API 35)."
+      placeholder: "Android 15"
+    validations:
+      required: true
+  - type: input
+    id: device-model
+    attributes:
+      label: Device and model
+      description: "Manufacturer and model name (e.g. Samsung Galaxy S22, Pixel 8 Pro)."
+      placeholder: "Samsung Galaxy S22"
+    validations:
+      required: true
+  - type: dropdown
+    id: install-channel
+    attributes:
+      label: Install channel
+      options:
+        - GitHub Release (APK)
+        - Obtainium
+        - Built from source
+        - Other
+    validations:
+      required: true
   - type: textarea
-    id: diagnostics-bundle
+    id: repro-steps
     attributes:
-      label: Sanitized diagnostics bundle
-      description: Paste the full bundle generated in Settings. It redacts provider query/header keys, local provider-property assignments, app-private paths, and file URIs.
+      label: Steps to reproduce
+      description: What were you doing when the crash happened? Describe each step.
       placeholder: |
-        # Aura diagnostics bundle
-        Generated: ...
-        Automatic upload: disabled...
+        1. Open Aura
+        2. Go to Sounds > Ringtones
+        3. Tap on a YouTube result
+        4. App freezes and closes
     validations:
       required: true
   - type: textarea
@@ -24,11 +56,61 @@ body:
       label: Expected behavior
       description: What should Aura have done instead?
     validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead? Include any error message or toast you saw.
+    validations:
+      required: true
+  - type: dropdown
+    id: survives-restart
+    attributes:
+      label: Does the issue survive a restart?
+      description: Close Aura completely (swipe away from recents), then reopen.
+      options:
+        - "Yes, crashes every time"
+        - "No, works after restart"
+        - "Aura won't open at all"
+        - "Not sure"
+    validations:
+      required: true
+  - type: textarea
+    id: feature-source
+    attributes:
+      label: Feature or source involved
+      description: "Which tab, provider, or media type? (e.g. Sounds > YouTube, Wallpapers > Reddit, Video crop)"
+    validations:
+      required: false
+  - type: textarea
+    id: diagnostics-bundle
+    attributes:
+      label: Diagnostics bundle (if Aura opens)
+      description: |
+        If Aura opens: Settings > Diagnostics > Crash diagnostics bundle > Copy, then paste below. This is not required when Aura won't launch.
+      placeholder: |
+        # Aura diagnostics bundle
+        Generated: ...
+        Automatic upload: disabled...
+    validations:
+      required: false
+  - type: textarea
+    id: logcat-fallback
+    attributes:
+      label: Logcat output (if Aura won't open)
+      description: |
+        If Aura crashes on launch, connect via USB and run:
+        ```
+        adb logcat -d --pid=$(adb shell pidof -s com.freevibe) 2>/dev/null || adb logcat -d | grep -i freevibe
+        ```
+        Paste the output below. Remove any personal file paths or account names before posting.
+    validations:
       required: false
   - type: textarea
     id: notes
     attributes:
       label: Additional notes
-      description: Include screenshots, videos, or links only if they help explain the crash or freeze.
+      description: Screenshots, videos, or links that help explain the crash.
     validations:
       required: false
