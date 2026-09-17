@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -866,6 +867,12 @@ internal fun DetailWaveform(duration: Double, isPlaying: Boolean, modifier: Modi
                 contentDescription = waveformDescription
                 stateDescription = waveformState
                 progressBarRangeInfo = ProgressBarRangeInfo(progress.coerceIn(0f, 1f), 0f..1f)
+                if (onSeek != null) {
+                    setProgress(label = waveformDescription) { target ->
+                        onSeek(target.coerceIn(0f, 1f))
+                        true
+                    }
+                }
             }
             .then(
                 if (onSeek != null) Modifier.pointerInput(Unit) { detectTapGestures { offset -> onSeek((offset.x / size.width).coerceIn(0f, 1f)) } } else Modifier,
