@@ -30,6 +30,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
@@ -496,11 +500,33 @@ fun CollectionsScreen(
                 ) {
                     items(selectedItems.size, key = { selectedItems[it].stableKey() }) { index ->
                         val item = selectedItems[index]
+                        val itemLabel = "${item.source} ${stringResource(R.string.collections_item_fallback_label)}"
+                        val removeLabel = stringResource(R.string.collections_item_remove)
                         @OptIn(ExperimentalFoundationApi::class)
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
+                                .semantics(mergeDescendants = true) {
+                                    contentDescription = itemLabel
+                                    customActions = listOf(
+                                        CustomAccessibilityAction(removeLabel) {
+                                            val cid = selectedCollectionId ?: return@CustomAccessibilityAction false
+                                            viewModel.removeItem(cid, item)
+                                            scope.launch {
+                                                val result = snackbarHostState.showSnackbar(
+                                                    message = resources.getString(R.string.collections_removed),
+                                                    actionLabel = resources.getString(R.string.common_undo),
+                                                    duration = SnackbarDuration.Short,
+                                                )
+                                                if (result == SnackbarResult.ActionPerformed) {
+                                                    viewModel.addItem(cid, item)
+                                                }
+                                            }
+                                            true
+                                        },
+                                    )
+                                }
                                 .combinedClickable(
                                     onClick = {
                                         val wallpaper = item.toWallpaper()
@@ -526,7 +552,7 @@ fun CollectionsScreen(
                         ) {
                             AsyncImage(
                                 model = item.thumbnailUrl,
-                                contentDescription = null,
+                                contentDescription = itemLabel,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxWidth().aspectRatio(0.67f),
                             )

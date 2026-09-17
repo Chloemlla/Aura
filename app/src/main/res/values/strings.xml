@@ -492,6 +492,8 @@
     <string name="collections_list_empty_title">No collections yet</string>
     <string name="collections_list_empty_body">Use collections to group wallpapers by mood, room, season, or setup.</string>
     <string name="collections_removed">Removed from collection</string>
+    <string name="collections_item_fallback_label">Collection item</string>
+    <string name="collections_item_remove">Remove from collection</string>
     <string name="collections_deleted">Deleted \"%1$s\"</string>
     <string name="downloads_deleted">Deleted \"%1$s\"</string>
     <string name="collections_link_copied">Collection link copied</string>

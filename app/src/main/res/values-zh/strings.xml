@@ -444,6 +444,8 @@
     <string name="collections_list_empty_title">还没有收藏集</string>
     <string name="collections_list_empty_body">使用收藏集按心情、房间、季节或设置对壁纸进行分组。</string>
     <string name="collections_removed">已从收藏集移除</string>
+    <string name="collections_item_fallback_label">收藏项</string>
+    <string name="collections_item_remove">从收藏集移除</string>
     <string name="collections_deleted">已删除\"%1$s\"</string>
     <string name="downloads_deleted">已删除\"%1$s\"</string>
     <string name="collections_link_copied">收藏集链接已复制</string>
