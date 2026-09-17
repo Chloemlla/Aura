@@ -16,6 +16,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selectableGroup
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.freevibe.R
 import androidx.compose.ui.unit.sp
@@ -98,7 +102,8 @@ fun WallpaperPreviewScreen(
                             .padding(end = 8.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(2.dp),
+                            .padding(2.dp)
+                            .semantics { selectableGroup() },
                     ) {
                         PreviewModeChip(label = stringResource(R.string.common_lock), active = mode == PreviewMode.LOCK) { mode = PreviewMode.LOCK }
                         PreviewModeChip(label = stringResource(R.string.common_home), active = mode == PreviewMode.HOME) { mode = PreviewMode.HOME }
@@ -177,6 +182,7 @@ private fun PreviewModeChip(label: String, active: Boolean, onClick: () -> Unit)
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
         color = if (active) MaterialTheme.colorScheme.primary else Color.Transparent,
+        modifier = Modifier.semantics { selected = active; role = androidx.compose.ui.semantics.Role.Tab },
     ) {
         Text(
             text = label,

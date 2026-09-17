@@ -44,6 +44,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -819,6 +821,7 @@ private fun SoundModeBar(
                 onClick = { onSelectTab(tab) },
                 color = Color.Transparent,
                 shape = RoundedCornerShape(0.dp),
+                modifier = Modifier.semantics { this.selected = selected; role = androidx.compose.ui.semantics.Role.Tab },
             ) {
                 Box(
                     modifier = Modifier
