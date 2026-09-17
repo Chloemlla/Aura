@@ -42,8 +42,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--variant",
-        default="release",
-        help="Android variant name used by releaseOssLicensesTask. Defaults to release.",
+        default="fullRelease",
+        help="Android variant name for the OSS licenses task. Defaults to fullRelease.",
     )
     parser.add_argument(
         "--lockfile",
@@ -276,7 +276,7 @@ def check_lock(lockfile: Path, current: dict[str, object]) -> int:
     if len(lines) == 1:
         lines.append("Input hashes, counts, or metadata ordering changed.")
     lines.append(
-        f"Regenerate intentionally with: python tools/dependency_notice_lock.py --mode write --lockfile {lockfile.as_posix()}"
+        f"Regenerate intentionally with: python tools/dependency_notice_lock.py --mode write --variant fullRelease --lockfile {lockfile.as_posix()}"
     )
     print("\n".join(lines), file=sys.stderr)
     return 1
@@ -322,7 +322,7 @@ def check_metadata(lockfile: Path, current: dict[str, object]) -> int:
     if len(lines) == 3:
         lines.append("Notice section offsets, lengths, names, or text hashes changed.")
     lines.append(
-        f"Regenerate intentionally with: python tools/dependency_notice_lock.py --mode write --lockfile {lockfile.as_posix()}"
+        f"Regenerate intentionally with: python tools/dependency_notice_lock.py --mode write --variant fullRelease --lockfile {lockfile.as_posix()}"
     )
     print("\n".join(lines), file=sys.stderr)
     return 1

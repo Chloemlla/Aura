@@ -28,8 +28,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--variant",
-        default="release",
-        help="Android variant name used by releaseOssLicensesTask. Defaults to release.",
+        default="fullRelease",
+        help="Android variant name for the OSS licenses task. Defaults to fullRelease.",
     )
     parser.add_argument(
         "--output",
