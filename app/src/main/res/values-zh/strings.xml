@@ -411,6 +411,8 @@
     <string name="editor_sound_export_to_music">将裁剪后的音频导出到 Music/Aura</string>
     <string name="editor_sound_export_success">已将 %1$s 导出到 Music/Aura</string>
     <string name="editor_sound_export_failed">导出失败：%1$s</string>
+    <string name="sound_apply_oem_failure">您的设备阻止了此铃声更改。请尝试通过系统声音选择器进行设置。</string>
+    <string name="sound_apply_write_settings_required">Aura 需要"修改系统设置"权限才能更改铃声。</string>
     <string name="editor_sound_apply_as">将裁剪后的音频设置为</string>
     <string name="editor_sound_apply_ringtone">铃声</string>
     <string name="editor_sound_apply_notification">通知</string>

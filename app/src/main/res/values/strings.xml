@@ -459,6 +459,8 @@
     <string name="editor_sound_export_to_music">Export trimmed audio to Music/Aura</string>
     <string name="editor_sound_export_success">Exported %1$s to Music/Aura</string>
     <string name="editor_sound_export_failed">Export failed: %1$s</string>
+    <string name="sound_apply_oem_failure">Your device blocked this ringtone change. Try setting it through the system sound picker instead.</string>
+    <string name="sound_apply_write_settings_required">Aura needs the Modify system settings permission to change your ringtone.</string>
     <string name="editor_sound_apply_as">Set trimmed audio as</string>
     <string name="editor_sound_apply_ringtone">Ringtone</string>
     <string name="editor_sound_apply_notification">Notification</string>

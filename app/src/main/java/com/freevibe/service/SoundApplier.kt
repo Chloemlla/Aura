@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.provider.Settings
+import com.freevibe.R
 import com.freevibe.data.local.PreferencesManager
 import com.freevibe.data.model.ContentType
 import com.freevibe.data.model.decideSoundOptimization
@@ -111,7 +112,17 @@ class SoundApplier @Inject constructor(
                 ContentType.ALARM -> RingtoneManager.TYPE_ALARM
                 else -> throw IllegalArgumentException("Invalid sound type: $type")
             }
-            RingtoneManager.setActualDefaultRingtoneUri(context, ringtoneType, uri)
+            try {
+                RingtoneManager.setActualDefaultRingtoneUri(context, ringtoneType, uri)
+            } catch (e: IllegalArgumentException) {
+                throw IllegalStateException(
+                    context.getString(R.string.sound_apply_oem_failure), e
+                )
+            } catch (e: SecurityException) {
+                throw SecurityException(
+                    context.getString(R.string.sound_apply_write_settings_required), e
+                )
+            }
             persistAppliedUri(type, uri)
 
             uri
@@ -162,7 +173,17 @@ class SoundApplier @Inject constructor(
                 ContentType.ALARM -> RingtoneManager.TYPE_ALARM
                 else -> throw IllegalArgumentException("Invalid sound type: $type")
             }
-            RingtoneManager.setActualDefaultRingtoneUri(context, ringtoneType, uri)
+            try {
+                RingtoneManager.setActualDefaultRingtoneUri(context, ringtoneType, uri)
+            } catch (e: IllegalArgumentException) {
+                throw IllegalStateException(
+                    context.getString(R.string.sound_apply_oem_failure), e
+                )
+            } catch (e: SecurityException) {
+                throw SecurityException(
+                    context.getString(R.string.sound_apply_write_settings_required), e
+                )
+            }
             persistAppliedUri(type, uri)
             uri
         }.onFailure { it.rethrowIfCancelled() }
