@@ -189,7 +189,9 @@ fun WallpaperEditorScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.editor_wallpaper_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.common_back)) }
+                    IconButton(onClick = {
+                        if (hasUnsavedChanges && !state.isApplying) showDiscardConfirm = true else onBack()
+                    }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.common_back)) }
                 },
                 actions = {
                     TextButton(onClick = { viewModel.resetAll() }) {

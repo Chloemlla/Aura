@@ -173,13 +173,37 @@ fun VideoCropScreen(
     val smartCropAppliedMessage = stringResource(R.string.video_crop_smart_applied)
     val cropFailedMessage = stringResource(R.string.video_crop_failed)
 
-    // NX-13: while an FFmpeg crop is in flight, intercept back so the user
-    // doesn't accidentally lose the trim selection mid-export. We don't try
-    // to kill the running ffmpeg subprocess (it dies on its own when the
-    // outer process exits or the file write completes); we just toast and
-    // hold the screen so the result has somewhere to land.
-    androidx.activity.compose.BackHandler(enabled = isCropping) {
-        Toast.makeText(context, croppingInProgressMessage, Toast.LENGTH_SHORT).show()
+    val hasCropEdits = scale != 1f || offsetX != 0f || offsetY != 0f ||
+        trimStartFraction != 0f || trimEndFraction != 1f
+    var showCropDiscardConfirm by remember { mutableStateOf(false) }
+
+    fun requestExit() {
+        when {
+            isCropping -> Toast.makeText(context, croppingInProgressMessage, Toast.LENGTH_SHORT).show()
+            hasCropEdits -> showCropDiscardConfirm = true
+            else -> onBack()
+        }
+    }
+
+    androidx.activity.compose.BackHandler(enabled = isCropping || hasCropEdits) {
+        requestExit()
+    }
+    if (showCropDiscardConfirm) {
+        AlertDialog(
+            onDismissRequest = { showCropDiscardConfirm = false },
+            title = { Text(stringResource(R.string.video_crop_title)) },
+            text = { Text(stringResource(R.string.video_crop_discard_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showCropDiscardConfirm = false
+                    onBack()
+                }) { Text(stringResource(R.string.common_discard)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCropDiscardConfirm = false }) { Text(stringResource(R.string.common_keep_editing)) }
+            },
+            shape = RoundedCornerShape(8.dp),
+        )
     }
 
     // Detect actual video dimensions via ExoPlayer format or MediaMetadataRetriever fallback
@@ -301,7 +325,7 @@ fun VideoCropScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.video_crop_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { requestExit() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.common_back))
                     }
                 },

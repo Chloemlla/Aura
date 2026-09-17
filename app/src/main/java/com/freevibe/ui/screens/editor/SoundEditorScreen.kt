@@ -196,7 +196,9 @@ fun SoundEditorScreen(
             TopAppBar(
                 title = { Text(stringResource(if (soundId == null) R.string.editor_sound_create_title else R.string.editor_sound_edit_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.common_back)) }
+                    IconButton(onClick = {
+                        if (hasUnsavedChanges && !state.isApplying) showSoundDiscardConfirm = true else onBack()
+                    }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.common_back)) }
                 },
                 actions = {
                     if (viewModel.canUndo) {
