@@ -45,6 +45,7 @@ const VALID_AUDIO_MIMES = new Set([
   "audio/mp4",
   "audio/x-m4a",
   "audio/m4a",
+  "audio/webm",
 ]);
 const SERVER_DERIVED_FIELDS = new Set([
   "uid",
