@@ -82,6 +82,10 @@ All notable changes to Aura will be documented in this file.
   Storage object metadata before publishing. Missing objects, size mismatches,
   and content-type mismatches are rejected with actionable error codes.
 
+- **Benchmark harness fixed**: taps Library instead of stale Favorites, fails
+  immediately when a bottom nav destination is missing, and waits for the
+  shell to appear before measuring.
+
 - **Sound rotation now uses named pools**: each pool can mix downloaded sounds,
   local files, and Aura Originals, then target the ringtone, notification,
   alarm, or any combination on its own schedule. The worker avoids immediate
