@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { getDatabase } from "firebase-admin/database";
+import { getStorage } from "firebase-admin/storage";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 
 import { requireCallableIdentity } from "./callableScaffold";
@@ -96,6 +97,12 @@ interface CommitWallpaperUploadInput {
   readonly dedupeMarker: DedupeMarker;
 }
 
+export interface StorageObjectMetadata {
+  readonly exists: boolean;
+  readonly contentType?: string;
+  readonly size?: number;
+}
+
 export interface WallpaperUploadBackend {
   nowMillis(): number;
   createUploadId(): Promise<string>;
@@ -107,6 +114,7 @@ export interface WallpaperUploadBackend {
     nowMillis: number,
     dedupe: DedupeMarker | null,
   ): Promise<QuotaDecision>;
+  verifyStorageObject(storagePath: string): Promise<StorageObjectMetadata>;
   commitWallpaperUpload(input: CommitWallpaperUploadInput): Promise<void>;
 }
 
@@ -156,6 +164,28 @@ export async function finalizeCommunityWallpaperUploadHandler(
         surfaceKey: WALLPAPER_UPLOAD_SURFACE.surfaceKey,
       },
     );
+  }
+
+  const storageObject = await backend.verifyStorageObject(payload.storagePath);
+  if (!storageObject.exists) {
+    throw new HttpsError("failed-precondition", "Storage object does not exist at the declared path.", {
+      operationId: envelope.operationId,
+      storagePath: payload.storagePath,
+    });
+  }
+  if (storageObject.size !== undefined && storageObject.size !== payload.fileSize) {
+    throw new HttpsError("failed-precondition", "Declared file size does not match the stored object.", {
+      operationId: envelope.operationId,
+      declared: payload.fileSize,
+      actual: storageObject.size,
+    });
+  }
+  if (storageObject.contentType && !payload.fileType.startsWith(storageObject.contentType.split("/")[0])) {
+    throw new HttpsError("failed-precondition", "Declared file type does not match the stored object.", {
+      operationId: envelope.operationId,
+      declared: payload.fileType,
+      actual: storageObject.contentType,
+    });
   }
 
   const uploadId = sanitizeUploadId(await backend.createUploadId());
@@ -478,6 +508,23 @@ class FirebaseWallpaperUploadBackend implements WallpaperUploadBackend {
 
   nowMillis(): number {
     return Date.now();
+  }
+
+  async verifyStorageObject(storagePath: string): Promise<StorageObjectMetadata> {
+    try {
+      const bucket = getStorage().bucket();
+      const file = bucket.file(storagePath);
+      const [metadata] = await file.getMetadata();
+      return {
+        exists: true,
+        contentType: metadata.contentType ?? undefined,
+        size: metadata.size !== undefined ? Number(metadata.size) : undefined,
+      };
+    } catch (e: unknown) {
+      const code = (e as { code?: number })?.code;
+      if (code === 404) return { exists: false };
+      throw e;
+    }
   }
 
   async createUploadId(): Promise<string> {
