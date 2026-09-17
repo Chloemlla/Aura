@@ -126,6 +126,25 @@ def assert_release_published(repo_root: Path, tag: str, label: str) -> None:
         )
 
 
+def release_assets(repo_root: Path, tag: str) -> list[dict[str, str]] | None:
+    """Return the asset list for a tag, or None when GitHub cannot be reached."""
+    if shutil.which("gh") is None:
+        return None
+    result = subprocess.run(
+        ["gh", "release", "view", tag, "--json", "assets"],
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    try:
+        return json.loads(result.stdout).get("assets", [])
+    except json.JSONDecodeError:
+        return None
+
+
 def url_resolves(url: str, timeout: float = HTTP_TIMEOUT_SECONDS) -> bool | None:
     """True/False when the host answers, None when the question cannot be asked.
 

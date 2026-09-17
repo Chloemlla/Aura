@@ -36,12 +36,17 @@ from tools.published_state import (
     PublishedStateError,
     assert_release_published,
     assert_tag_exists,
+    release_assets,
     release_published,
 )
 
 
 APP_GRADLE = "app/build.gradle.kts"
 VERSION_NAME_RE = re.compile(r'versionName\s*=\s*"([^"]+)"')
+VERSION_CODE_RE = re.compile(r'versionCode\s*=\s*(\d+)')
+
+REQUIRED_ABIS = ("arm64-v8a", "armeabi-v7a", "universal", "x86", "x86_64")
+CHECKSUM_ASSET = "SHA256SUMS.txt"
 
 
 class ReleasePublicationError(ValueError):
@@ -53,7 +58,61 @@ def parse_args() -> argparse.Namespace:
         description="Validate the declared version is tagged and released.",
     )
     parser.add_argument("--repo-root", default=".")
+    parser.add_argument(
+        "--strict", action="store_true",
+        help="Fail when remote state cannot be determined instead of reporting unknown.",
+    )
     return parser.parse_args()
+
+
+def declared_version_code(repo_root: Path) -> int:
+    path = repo_root / APP_GRADLE
+    if not path.is_file():
+        raise ReleasePublicationError(f"missing file: {APP_GRADLE}")
+    match = VERSION_CODE_RE.search(path.read_text(encoding="utf-8"))
+    if not match:
+        raise ReleasePublicationError(f"{APP_GRADLE} declares no versionCode")
+    return int(match.group(1))
+
+
+def expected_apk_names(version: str, version_code: int) -> list[str]:
+    return [
+        f"Aura-v{version}-versionCode-{version_code}-{abi}-release.apk"
+        for abi in REQUIRED_ABIS
+    ]
+
+
+def validate_release_assets(
+    repo_root: Path, tag: str, version: str, version_code: int, *, strict: bool = False,
+) -> dict[str, object]:
+    assets = release_assets(repo_root, tag)
+    if assets is None:
+        if strict:
+            raise ReleasePublicationError(
+                f"strict mode: cannot verify assets for {tag} (GitHub unreachable)"
+            )
+        return {"assetsValid": "unknown"}
+
+    asset_names = {a["name"] for a in assets}
+    required = set(expected_apk_names(version, version_code))
+    required.add(CHECKSUM_ASSET)
+
+    missing = required - asset_names
+    if missing:
+        raise ReleasePublicationError(
+            f"release {tag} is missing required assets: {', '.join(sorted(missing))}"
+        )
+
+    unexpected_apks = {
+        n for n in asset_names
+        if n.endswith(".apk") and n not in required
+    }
+    if unexpected_apks:
+        raise ReleasePublicationError(
+            f"release {tag} has unexpected APK assets: {', '.join(sorted(unexpected_apks))}"
+        )
+
+    return {"assetsValid": True, "assetCount": len(asset_names)}
 
 
 def declared_version(repo_root: Path) -> str:
@@ -66,8 +125,11 @@ def declared_version(repo_root: Path) -> str:
     return match.group(1)
 
 
-def validate_release_publication(repo_root: Path) -> dict[str, object]:
+def validate_release_publication(
+    repo_root: Path, *, strict: bool = False,
+) -> dict[str, object]:
     version = declared_version(repo_root)
+    version_code = declared_version_code(repo_root)
     tag = f"v{version}"
     label = f"declared version {version}"
 
@@ -78,13 +140,19 @@ def validate_release_publication(repo_root: Path) -> dict[str, object]:
         raise ReleasePublicationError(str(exc)) from exc
 
     state = release_published(repo_root, tag)
+    asset_result = validate_release_assets(
+        repo_root, tag, version, version_code, strict=strict,
+    )
+
     return {
         "status": "ok",
         "policyKind": "releasePublication",
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "versionName": version,
+        "versionCode": version_code,
         "tag": tag,
         "releasePublished": "unknown" if state is None else bool(state),
+        **asset_result,
     }
 
 
@@ -92,7 +160,7 @@ def main() -> int:
     args = parse_args()
     repo_root = Path(args.repo_root).resolve()
     try:
-        result = validate_release_publication(repo_root)
+        result = validate_release_publication(repo_root, strict=args.strict)
     except ReleasePublicationError as exc:
         print(json.dumps({"status": "fail", "error": str(exc)}, indent=2, sort_keys=True))
         return 1
