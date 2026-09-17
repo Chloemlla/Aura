@@ -1999,6 +1999,7 @@
     <string name="wallpaper_feedback_favorite_added">Added to favorites</string>
     <string name="wallpaper_feedback_favorite_removed">Removed from favorites</string>
     <string name="wallpaper_feedback_hidden">Hidden from this feed</string>
+    <string name="wallpaper_feedback_upload_complete">Wallpaper upload complete</string>
     <string name="feedback_report_submitted">Report submitted</string>
     <string name="feedback_report_failed">Report failed: %1$s</string>
     <string name="feedback_creator_blocked">Creator blocked</string>

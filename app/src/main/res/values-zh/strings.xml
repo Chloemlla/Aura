@@ -1827,6 +1827,7 @@
     <string name="wallpaper_feedback_favorite_added">已添加到收藏</string>
     <string name="wallpaper_feedback_favorite_removed">已从收藏中移除</string>
     <string name="wallpaper_feedback_hidden">已从此信息流中隐藏</string>
+    <string name="wallpaper_feedback_upload_complete">壁纸上传完成</string>
     <string name="feedback_report_submitted">举报已提交</string>
     <string name="feedback_report_failed">举报失败：%1$s</string>
     <string name="feedback_creator_blocked">已屏蔽创建者</string>

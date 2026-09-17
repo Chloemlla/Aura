@@ -335,11 +335,11 @@ fun WallpapersScreen(
                 }
             },
         )
-        LaunchedEffect(state.isUploadingWallpaper, state.applySuccess, state.error) {
+        LaunchedEffect(state.isUploadingWallpaper, state.wallpaperUploadComplete, state.error) {
             if (awaitingWallpaperUploadResult && !state.isUploadingWallpaper) {
                 awaitingWallpaperUploadResult = false
             }
-            if (!state.isUploadingWallpaper && state.applySuccess == "Wallpaper upload complete") {
+            if (state.wallpaperUploadComplete) {
                 showWallpaperUploadDialog = false
                 selectedWallpaperUploadUri = null
             }

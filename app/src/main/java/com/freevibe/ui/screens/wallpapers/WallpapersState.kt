@@ -22,6 +22,7 @@ data class WallpapersUiState(
     val discoverFilter: WallpaperDiscoverFilter = WallpaperDiscoverFilter.FOR_YOU,
     val browseTab: WallpaperTab = WallpaperTab.DISCOVER,
     val isUploadingWallpaper: Boolean = false,
+    val wallpaperUploadComplete: Boolean = false,
     val wallpaperUploadProgress: Float = 0f,
     val degradedSources: Set<String> = emptySet(),
     // True when a searchable non-Reddit source (Wallhaven or Pixabay) is enabled. The Newest and

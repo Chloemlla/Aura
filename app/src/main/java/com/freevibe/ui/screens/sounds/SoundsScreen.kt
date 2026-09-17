@@ -326,12 +326,11 @@ fun SoundsScreen(
                 }
             },
         )
-        // Auto-dismiss when upload completes
-        LaunchedEffect(state.isUploading, state.applySuccess, state.error) {
+        LaunchedEffect(state.isUploading, state.uploadComplete, state.error) {
             if (awaitingUploadResult && !state.isUploading) {
                 awaitingUploadResult = false
             }
-            if (!state.isUploading && showUploadDialog && state.applySuccess == "Upload complete") {
+            if (showUploadDialog && state.uploadComplete) {
                 showUploadDialog = false
                 selectedAudioUri = null
             }
