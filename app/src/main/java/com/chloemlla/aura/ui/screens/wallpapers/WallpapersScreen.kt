@@ -27,6 +27,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -177,6 +178,7 @@ fun WallpapersScreen(
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val haptic = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var nonBlockingWarning by remember { mutableStateOf<String?>(null) }
     var nonBlockingWarningSource by remember { mutableStateOf<String?>(null) }
@@ -306,6 +308,12 @@ fun WallpapersScreen(
             }
         }
     }
+    LaunchedEffect(state.isRefreshing, state.error) {
+        if (!state.isRefreshing && state.error == null && nonBlockingWarning != null) {
+            nonBlockingWarning = null
+            nonBlockingWarningSource = null
+        }
+    }
     if (communityProviderEnabled && communityGuidelinesAccepted && showWallpaperUploadDialog && selectedWallpaperUploadUri != null) {
         WallpaperUploadDialog(
             isUploading = state.isUploadingWallpaper,
@@ -331,16 +339,13 @@ fun WallpapersScreen(
                 }
             },
         )
-        // awaitingWallpaperUploadResult is the real "this dialog launched an upload"
-        // flag. Comparing state.applySuccess against a stringResource would never match
-        // under a per-app language override, leaving the dialog stuck open.
-        LaunchedEffect(state.isUploadingWallpaper) {
+        LaunchedEffect(state.isUploadingWallpaper, state.wallpaperUploadComplete, state.error) {
             if (awaitingWallpaperUploadResult && !state.isUploadingWallpaper) {
                 awaitingWallpaperUploadResult = false
-                if (state.error == null) {
-                    showWallpaperUploadDialog = false
-                    selectedWallpaperUploadUri = null
-                }
+            }
+            if (state.wallpaperUploadComplete) {
+                showWallpaperUploadDialog = false
+                selectedWallpaperUploadUri = null
             }
         }
     }
@@ -838,12 +843,24 @@ fun WallpapersScreen(
                                     if (communityGuidelinesAccepted) viewModel.upvote(id) else showCommunityGuidelines = true
                                 }) else null,
                                 onDownvote = { wallpaper ->
+                                    val hiddenKey = wallpaper.stableKey()
                                     viewModel.skipWallpaper(wallpaper)
                                     if (communityProviderEnabled) {
                                         if (communityGuidelinesAccepted) {
-                                            viewModel.downvote(wallpaper.stableKey())
+                                            viewModel.downvote(hiddenKey)
                                         } else {
                                             showCommunityGuidelines = true
+                                        }
+                                    }
+                                    scope.launch {
+                                        val result = snackbarHostState.showSnackbar(
+                                            message = context.getString(R.string.community_item_hidden),
+                                            actionLabel = context.getString(R.string.common_undo),
+                                            duration = SnackbarDuration.Short,
+                                        )
+                                        if (result == SnackbarResult.ActionPerformed) {
+                                            viewModel.undoSkipWallpaper(wallpaper)
+                                            viewModel.undoDownvote(hiddenKey)
                                         }
                                     }
                                 },
@@ -1161,7 +1178,7 @@ internal fun WallpaperGrid(
                 voteCount = voteCounts[wallpaper.stableKey()] ?: 0,
                 onClick = { onWallpaperClick(wallpaper) },
                 onFavoriteClick = onLongPress?.let { { it(wallpaper) } },
-                onLongPress = onDownvote?.let { { it(wallpaper) } },
+                onLongPress = onLongPress?.let { { it(wallpaper) } },
                 onUpvote = onUpvote?.let { { it(wallpaper.stableKey()) } },
                 onDownvote = onDownvote?.let { { it(wallpaper) } },
             )
@@ -1197,9 +1214,6 @@ private fun WallpaperCard(
     val favoriteWallpaperLabel = if (isFavorite) stringResource(R.string.wallpapers_card_remove_favorite) else stringResource(R.string.wallpapers_card_add_favorite)
     val cardActions = buildList {
         add(CustomAccessibilityAction(openWallpaperLabel) { onClick(); true })
-        onLongPress?.let { showActions ->
-            add(CustomAccessibilityAction(applyWallpaperLabel) { showActions(); true })
-        }
         onFavoriteClick?.let { toggleFavorite ->
             add(CustomAccessibilityAction(favoriteWallpaperLabel) { toggleFavorite(); true })
         }
@@ -1219,7 +1233,7 @@ private fun WallpaperCard(
                 onClick = onClick,
                 onClickLabel = openWallpaperLabel,
                 onLongClick = onLongPress,
-                onLongClickLabel = if (onLongPress != null) applyWallpaperLabel else null,
+                onLongClickLabel = if (onLongPress != null) favoriteWallpaperLabel else null,
             )
             .semantics(mergeDescendants = true) {
                 contentDescription = wallpaper.cardAccessibilitySummary(

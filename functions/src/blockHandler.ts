@@ -97,7 +97,7 @@ export async function setCommunityUserBlockHandler(
   }
 
   const dayKey = utcQuotaDayKey(nowMillis);
-  const dedupeKey = userBlockDedupeKey(payload);
+  const dedupeKey = envelope.operationId;
   const dedupe = await backend.readDedupeMarker(uid, USER_BLOCK_SURFACE.surfaceKey, dedupeKey);
   const decision = await backend.reserveQuota(
     uid,

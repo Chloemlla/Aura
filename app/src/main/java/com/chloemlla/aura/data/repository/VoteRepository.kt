@@ -450,7 +450,12 @@ class VoteRepository @Inject constructor(
                     snapshot.child(sanitizeKey(id)).child("upvotes").getValue(Int::class.java) ?: 0
                 })
             }
-            override fun onCancelled(error: DatabaseError) { trySend(emptyMap()) }
+            override fun onCancelled(error: DatabaseError) {
+                if (com.chloemlla.aura.BuildConfig.DEBUG) {
+                    Log.w("VoteRepo", "Vote listener cancelled: ${error.message}")
+                }
+                trySend(emptyMap())
+            }
         }
         votesRefInstance.addValueEventListener(listener)
         awaitClose { votesRefInstance.removeEventListener(listener) }

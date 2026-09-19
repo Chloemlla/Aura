@@ -197,6 +197,7 @@ internal class WallpaperCommunityActions(
             state.update {
                 it.copy(
                     isUploadingWallpaper = true,
+                    wallpaperUploadComplete = false,
                     wallpaperUploadProgress = 0f,
                     error = null,
                     errorSource = null,
@@ -218,6 +219,7 @@ internal class WallpaperCommunityActions(
                     val shouldInsert = it.selectedTab == WallpaperTab.COMMUNITY
                     it.copy(
                         isUploadingWallpaper = false,
+                        wallpaperUploadComplete = true,
                         wallpaperUploadProgress = 0f,
                         applySuccess = context.getString(R.string.wallpaper_feedback_upload_complete),
                         wallpapers = if (shouldInsert) {

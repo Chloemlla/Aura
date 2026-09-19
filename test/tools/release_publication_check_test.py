@@ -7,12 +7,18 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from unittest.mock import patch
+
 from tools.published_state import PublishedStateError, release_published
 from tools.release_publication_check import (
     APP_GRADLE,
+    CHECKSUM_ASSET,
+    REQUIRED_ABIS,
     ReleasePublicationError,
     declared_version,
+    expected_apk_names,
     publication_tag,
+    validate_release_assets,
     validate_release_publication,
 )
 
@@ -187,6 +193,47 @@ class ReleasePublicationCheckTest(unittest.TestCase):
         if state is None:
             self.skipTest("gh unavailable; published-release state not checkable here")
         self.assertTrue(state)
+
+    def test_assets_unknown_when_github_unreachable(self) -> None:
+        root = self._scratch_repo(tag=True)
+        result = validate_release_assets(root, "v9.9.9", "9.9.9", 1)
+        self.assertEqual("unknown", result["assetsValid"])
+
+    def test_strict_fails_when_github_unreachable(self) -> None:
+        root = self._scratch_repo(tag=True)
+        with self.assertRaises(ReleasePublicationError):
+            validate_release_assets(root, "v9.9.9", "9.9.9", 1, strict=True)
+
+    def test_rejects_missing_assets(self) -> None:
+        root = self._scratch_repo(tag=True)
+        partial_assets = [{"name": "SHA256SUMS.txt"}]
+        with patch("tools.release_publication_check.release_assets", return_value=partial_assets):
+            with self.assertRaises(ReleasePublicationError) as ctx:
+                validate_release_assets(root, "v9.9.9", "9.9.9", 1)
+            self.assertIn("missing required assets", str(ctx.exception))
+
+    def test_rejects_unexpected_apk(self) -> None:
+        root = self._scratch_repo(tag=True)
+        full = [{"name": n} for n in expected_apk_names("9.9.9", 1)]
+        full.append({"name": CHECKSUM_ASSET})
+        full.append({"name": "Aura-v9.9.9-versionCode-1-rogue-release.apk"})
+        with patch("tools.release_publication_check.release_assets", return_value=full):
+            with self.assertRaises(ReleasePublicationError) as ctx:
+                validate_release_assets(root, "v9.9.9", "9.9.9", 1)
+            self.assertIn("unexpected APK", str(ctx.exception))
+
+    def test_accepts_complete_asset_set(self) -> None:
+        root = self._scratch_repo(tag=True)
+        full = [{"name": n} for n in expected_apk_names("9.9.9", 1)]
+        full.append({"name": CHECKSUM_ASSET})
+        with patch("tools.release_publication_check.release_assets", return_value=full):
+            result = validate_release_assets(root, "v9.9.9", "9.9.9", 1)
+            self.assertTrue(result["assetsValid"])
+            self.assertEqual(6, result["assetCount"])
+
+    def test_schema_version_is_two(self) -> None:
+        result = validate_release_publication(REPO_ROOT)
+        self.assertEqual(2, result["schemaVersion"])
 
 
 if __name__ == "__main__":

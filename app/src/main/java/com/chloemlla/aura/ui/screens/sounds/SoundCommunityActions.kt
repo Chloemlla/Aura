@@ -188,7 +188,7 @@ internal class SoundCommunityActions(
         if (state.value.isUploading) return
         if (communityActionBlocked()) return
         scope.launch {
-            state.update { it.copy(isUploading = true, uploadProgress = 0f) }
+            state.update { it.copy(isUploading = true, uploadComplete = false, uploadProgress = 0f) }
             uploadRepo.uploadSound(
                 localUri = localUri,
                 name = name,
@@ -203,6 +203,7 @@ internal class SoundCommunityActions(
                 state.update {
                     it.copy(
                         isUploading = false,
+                        uploadComplete = true,
                         uploadProgress = 0f,
                         applySuccess = context.getString(R.string.sound_feedback_upload_complete),
                     )

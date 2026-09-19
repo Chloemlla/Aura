@@ -483,6 +483,7 @@ class VideoWallpapersViewModel @Inject constructor(
     private val ytDlpUpdateManager: YtDlpUpdateManager,
     private val ytDlpRequestFactory: YouTubeYtDlpRequestFactory,
     private val videoPreviewCache: VideoPreviewCache,
+    private val av1CodecSupport: com.chloemlla.aura.service.Av1CodecSupport,
     private val voteRepo: VoteRepository,
 ) : ViewModel() {
 
@@ -855,7 +856,12 @@ class VideoWallpapersViewModel @Inject constructor(
                         try {
                             val ytUrl = "https://www.youtube.com/watch?v=${item.videoId}"
                             val request = ytDlpRequestFactory.create(ytUrl)
-                            request.addOption("-f", "bestvideo[ext=mp4][height<=1080]/best[ext=mp4]/best")
+                            val formatSelector = if (av1CodecSupport.hasHardwareAv1Decode) {
+                                "bestvideo[ext=mp4][height<=1080]/best[ext=mp4]/best"
+                            } else {
+                                "bestvideo[ext=mp4][height<=1080][vcodec!~='av0?1']/best[ext=mp4][vcodec!~='av0?1']/best"
+                            }
+                            request.addOption("-f", formatSelector)
                             request.addOption("-o", cacheFile.absolutePath)
                             request.addOption("--force-overwrites")
                             applyYtDlpDownloadBounds(request)
@@ -898,6 +904,14 @@ class VideoWallpapersViewModel @Inject constructor(
                     if (com.chloemlla.aura.BuildConfig.DEBUG) Log.d("VideoWP", "Downloaded: ${cacheFile.length() / 1024}KB")
                 }.getOrElse { throw it }
 
+                if (!av1CodecSupport.hasHardwareAv1Decode) {
+                    val metadata = com.chloemlla.aura.service.readMediaTechnicalMetadata(file)
+                    if (metadata.codec?.contains("av01", ignoreCase = true) == true ||
+                        metadata.codec?.contains("av1", ignoreCase = true) == true
+                    ) {
+                        throw IllegalStateException("This device cannot play AV1 video. Try a different clip.")
+                    }
+                }
                 val preparedFile = videoWallpaperStorage.preparePresentation(
                     file = file,
                     scaleMode = scaleMode,

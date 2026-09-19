@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -394,6 +395,13 @@ private fun CreatorSummaryCard(
 ) {
     val creator = dashboard.currentCreator
     var showEditProfile by remember { mutableStateOf(false) }
+    var editProfileSubmitted by remember { mutableStateOf(false) }
+    LaunchedEffect(isSaving) {
+        if (!isSaving && editProfileSubmitted) {
+            editProfileSubmitted = false
+            showEditProfile = false
+        }
+    }
     if (showEditProfile) {
         CreatorProfileEditDialog(
             profile = dashboard.currentProfile,
@@ -401,8 +409,8 @@ private fun CreatorSummaryCard(
             isSaving = isSaving,
             onDismiss = { if (!isSaving) showEditProfile = false },
             onSave = { displayName, bio, websiteUrl, avatarUrl ->
+                editProfileSubmitted = true
                 onUpdateProfile(displayName, bio, websiteUrl, avatarUrl)
-                showEditProfile = false
             },
         )
     }

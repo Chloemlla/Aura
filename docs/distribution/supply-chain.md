@@ -112,14 +112,14 @@ python3 -m unittest discover -s test/tools -p '*_test.py'
 Run these checks while assembling the release evidence:
 
 ```powershell
-.\gradlew.bat :app:releaseOssLicensesTask --stacktrace --no-daemon
-python tools\dependency_notice_lock.py --mode check --lockfile docs\legal\dependency-notices.lock.json
-python tools\dependency_notice_lock.py --mode check-metadata --lockfile docs\legal\dependency-notices.lock.json
+.\gradlew.bat :app:fullReleaseOssLicensesTask --stacktrace --no-daemon
+python tools\dependency_notice_lock.py --mode check --variant fullRelease --lockfile docs\legal\dependency-notices.lock.json
+python tools\dependency_notice_lock.py --mode check-metadata --variant fullRelease --lockfile docs\legal\dependency-notices.lock.json
 python tools\native_compliance_inventory.py --mode check-lock --lockfile docs\legal\native-compliance.lock.json
 python tools\dependency_overlay_check.py --overlay docs\legal\dependency-notice-overrides.json
 python tools\dependency_license_policy.py --policy docs\legal\dependency-license-policy.json --overlay docs\legal\dependency-notice-overrides.json
-python tools\google_oss_to_markdown.py --variant release --output build\reports\THIRD-PARTY-NOTICES.md
-python tools\google_oss_raw_archive.py --variant release --output build\reports\GOOGLE-OSS-RAW-INPUTS.zip
+python tools\google_oss_to_markdown.py --variant fullRelease --output build\reports\THIRD-PARTY-NOTICES.md
+python tools\google_oss_raw_archive.py --variant fullRelease --output build\reports\GOOGLE-OSS-RAW-INPUTS.zip
 python tools\native_compliance_inventory.py --output docs\legal\native-compliance.md
 python tools\provider_credential_apk_scan.py --local-properties local.properties --apk release\Aura-vX.Y.Z-versionCode-N-universal-release.apk
 python tools\release_artifact_bundle_check.py --release-dir release --apk-name Aura-vX.Y.Z-versionCode-N-universal-release.apk --aab-name Aura-vX.Y.Z-versionCode-N-play-release.aab --version-name X.Y.Z --version-code N
@@ -200,10 +200,10 @@ toolchain upgrade, alongside [SBOM generation](#sbom-scope).
 The procedure below is the documented step for when it lands. It is not run as
 part of the current release checks.
 
-Use Android Studio's bundled JBR:
+Use Adoptium JDK 21:
 
 ```powershell
-$env:JAVA_HOME = "C:/Program Files/Android/Android Studio/jbr"
+$env:JAVA_HOME = "C:/Program Files/Eclipse Adoptium/jdk-21.0.12.101-hotspot"
 .\gradlew.bat --write-verification-metadata sha256 :app:dependencies --stacktrace --no-daemon
 ```
 

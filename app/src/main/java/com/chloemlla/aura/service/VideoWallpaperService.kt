@@ -233,7 +233,9 @@ class VideoWallpaperService : WallpaperService() {
                     screenWidth = metrics.widthPixels
                     screenHeight = metrics.heightPixels
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                android.util.Log.w("VideoWallpaper", "Failed to resolve screen size", e)
+            }
         }
 
         override fun onSurfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {

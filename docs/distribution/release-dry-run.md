@@ -81,7 +81,7 @@ APK and bundle tasks as separate invocations: ABI splits turn off whenever a
 instead of the per-ABI set this fork publishes.
 
 ```powershell
-$env:JAVA_HOME = "C:/Program Files/Android/Android Studio/jbr"
+$env:JAVA_HOME = "C:/Program Files/Eclipse Adoptium/jdk-21.0.12.101-hotspot"
 .\gradlew.bat :app:assembleFullRelease --stacktrace --no-daemon
 .\gradlew.bat -PauraReleaseChannel=play :app:bundleFullRelease --stacktrace --no-daemon
 ```

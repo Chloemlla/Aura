@@ -324,9 +324,8 @@ class WallpapersViewModel @Inject constructor(
     fun toggleFavorite(wallpaper: Wallpaper) = applyActions.toggleFavorite(wallpaper)
     fun isFavorite(wallpaper: Wallpaper): Flow<Boolean> = applyActions.isFavorite(wallpaper)
     fun skipWallpaper(wallpaper: Wallpaper) = styleActions.skipWallpaper(wallpaper)
-
+    fun undoSkipWallpaper(wallpaper: Wallpaper) = styleActions.undoSkipWallpaper(wallpaper)
     fun resetWallpaperStyleLearning() = styleActions.resetStyleLearning()
-
     fun clearError() = _state.update { it.copy(error = null, errorSource = null) }
     fun clearSuccess() = _state.update { it.copy(applySuccess = null) }
 
@@ -352,6 +351,7 @@ class WallpapersViewModel @Inject constructor(
     fun getVoteCount(contentId: String) = community.getVoteCount(contentId)
     fun upvote(contentId: String) = community.upvote(contentId)
     fun downvote(contentId: String) = community.downvote(contentId)
+    fun undoDownvote(contentId: String) = viewModelScope.launch { voteRepo.undoDownvote(contentId) }
     fun reportWallpaper(wallpaper: Wallpaper, reason: CommunityReportReason, note: String = "") = community.reportWallpaper(wallpaper, reason, note)
     fun canBlockCommunityWallpaper(wallpaper: Wallpaper) = community.canBlockCommunityWallpaper(wallpaper)
     fun blockCommunityWallpaper(wallpaper: Wallpaper, onBlocked: () -> Unit = {}) = community.blockCommunityWallpaper(wallpaper, onBlocked)

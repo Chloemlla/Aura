@@ -44,6 +44,98 @@ All notable changes to Aura will be documented in this file.
   (`accessTier`: denied/basic/full) and trusts status fields only when the provider actually
   granted them. Refusals carry the provider's actionable reason (pending approval / denied by
   user / signer unverified / not a partner / no signature) instead of a silent all-false status.
+
+- **targetSdk 36**: meets Play and Accrescent requirements. All Android 16
+  behavior changes (predictive back, edge-to-edge, orientation freedom) were
+  already in place.
+
+- **Build hardening**: JDK 21 preflight rejects unsupported runtimes with an
+  actionable message; dependency-info blob stripped from release artifacts for
+  IzzyOnDroid compatibility and reproducibility.
+
+- **Editor back guards**: toolbar back arrows in wallpaper, sound, and video crop
+  editors now go through the same unsaved-changes dialog as system back. Video
+  crop gained dirty-state tracking for pan, zoom, and trim.
+
+- **Upload and dialog fixes**: community upload dialogs use typed flags instead
+  of localized string comparisons for dismissal; profile edit dialog stays open
+  during saves; WebM audio accepted in community sound uploads; downloaded tones
+  populate MediaStore TITLE for system picker display.
+
+- **Feed reliability**: stale-content warnings clear after a successful refresh;
+  YouTube empty state shows a terminal message instead of perpetual "Loading";
+  download progress emissions coalesced to 250ms intervals.
+
+- **Theme-pack ZIP guard**: directory and unrecognized entry bodies now pass
+  through byte and compression-ratio accounting, closing an unbounded
+  decompression path.
+
+- **Collection rename**: the existing DAO rename function is now reachable from
+  the overflow menu.
+
+- **Ringtone restoration verification**: post-boot restoration now reads back
+  each URI after setting it and reports whether the restore succeeded, the
+  source was missing, or the write was refused. Individual failures return
+  retry instead of false success.
+
+- **AV1 codec gate**: YouTube video wallpaper downloads now check hardware AV1
+  decode capability. Devices without AV1 hardware get AVC-only format selection,
+  and a post-download codec check rejects AV1 before the system picker.
+
+- **Dependency-notice tools**: all three notice tools and the documented Gradle
+  task now target the correct fullRelease variant instead of a nonexistent bare
+  "release".
+
+- **Accessibility semantics**: preview mode chips, onboarding style cards, and
+  sound tab bars now expose `selected` state to screen readers.
+
+- **Publication gate enhanced**: release checker now validates that all expected
+  APKs and SHA256SUMS.txt are present as GitHub release assets. A --strict flag
+  rejects unknown remote state.
+
+- **FFmpeg input bounded**: every FFmpeg invocation is preceded by a container
+  sniff that rejects AVI, MKV, MOV, and other formats outside the allowlist,
+  mitigating CVE-2026-8461. A policy JSON records the bundled version and its
+  known advisories.
+
+- **Crash report template**: collects app version, Android version, device model,
+  install channel, repro steps, and restart behavior. Diagnostics bundle is no
+  longer required for no-launch crashes; an adb logcat fallback is documented.
+
+- **Silent failure surfacing**: Firebase vote errors, share intent failures, and
+  video wallpaper display-metrics/retriever exceptions now log or show user
+  feedback instead of being swallowed silently.
+
+- **OEM ringtone handling**: Samsung and other OEM `IllegalArgumentException`
+  on ringtone writes is caught with device-specific guidance pointing to the
+  system sound picker.
+
+- **Wallpaper long-press fixed**: long-pressing a wallpaper card now toggles the
+  favorite instead of destructively hiding it. Hide has an immediate Undo
+  snackbar that reverses both the style-learning signal and the hidden ID.
+
+- **Semantic dedupe replaced**: follow, block, and profile Cloud Functions now
+  deduplicate by client operation ID instead of desired state. A follow, unfollow,
+  re-follow sequence completes correctly instead of treating the re-follow as a
+  duplicate.
+
+- **Upload verification**: wallpaper and sound upload finalizers read the actual
+  Storage object metadata before publishing. Missing objects, size mismatches,
+  and content-type mismatches are rejected with actionable error codes.
+
+- **Benchmark harness fixed**: taps Library instead of stale Favorites, fails
+  immediately when a bottom nav destination is missing, and waits for the
+  shell to appear before measuring.
+
+- **Sound rotation now uses named pools**: each pool can mix downloaded sounds,
+  local files, and Aura Originals, then target the ringtone, notification,
+  alarm, or any combination on its own schedule. The worker avoids immediate
+  repeats, filters duration per target, records skipped or missing media, and
+  restores enabled schedules after reboot. Users can relink missing members,
+  inspect apply history, and safely undo while the system sound still matches
+  Aura's last change. Portable library format 4 restores locator-free pool
+  assignments without copying audio, private paths, system URIs, or history.
+
 - **Missing local media can be repaired**: downloads, favorites, and local
   wallpaper catalog entries now stay visible when a file moves, disappears,
   becomes unreadable, or loses Android permission. Relink checks the selected

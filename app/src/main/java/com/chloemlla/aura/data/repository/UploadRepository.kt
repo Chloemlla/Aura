@@ -56,6 +56,7 @@ private val ALLOWED_UPLOAD_AUDIO_MIMES = setOf(
     "audio/mp4",
     "audio/x-m4a",
     "audio/m4a",
+    "audio/webm",
 )
 private val ALLOWED_UPLOAD_CATEGORIES = setOf("ringtone", "notification", "alarm")
 private const val MAX_AUDIO_UPLOAD_BYTES = 20L * 1024L * 1024L

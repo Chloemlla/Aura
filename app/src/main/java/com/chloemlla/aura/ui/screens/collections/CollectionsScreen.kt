@@ -31,6 +31,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
@@ -301,6 +305,7 @@ fun CollectionsScreen(
     val scope = rememberCoroutineScope()
     var showImportSheet by remember { mutableStateOf(false) }
     var showCreateDialog by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
 
     // Observe prepared share/import events and keep system intents out of recomposition.
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -396,6 +401,16 @@ fun CollectionsScreen(
             },
         )
     }
+    if (showRenameDialog && selectedCollection != null) {
+        RenameCollectionDialog(
+            currentName = selectedCollection.name,
+            onDismiss = { showRenameDialog = false },
+            onRename = { newName ->
+                showRenameDialog = false
+                viewModel.renameCollection(selectedCollection.collectionId, newName)
+            },
+        )
+    }
     if (showEmbeddedQrPicker) {
         EmbeddedImagePickerSheet(
             title = stringResource(R.string.photo_picker_qr_title),
@@ -479,6 +494,14 @@ fun CollectionsScreen(
                                     leadingIcon = { Icon(Icons.Default.QrCode2, null) },
                                 )
                                 DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.collections_rename)) },
+                                    onClick = {
+                                        showMenu = false
+                                        showRenameDialog = true
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Edit, null) },
+                                )
+                                DropdownMenuItem(
                                     text = { Text(stringResource(R.string.collections_delete)) },
                                     onClick = {
                                         showMenu = false
@@ -541,11 +564,33 @@ fun CollectionsScreen(
                 ) {
                     items(selectedItems.size, key = { selectedItems[it].stableKey() }) { index ->
                         val item = selectedItems[index]
+                        val itemLabel = "${item.source} ${stringResource(R.string.collections_item_fallback_label)}"
+                        val removeLabel = stringResource(R.string.collections_item_remove)
                         @OptIn(ExperimentalFoundationApi::class)
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
+                                .semantics(mergeDescendants = true) {
+                                    contentDescription = itemLabel
+                                    customActions = listOf(
+                                        CustomAccessibilityAction(removeLabel) {
+                                            val cid = selectedCollectionId ?: return@CustomAccessibilityAction false
+                                            viewModel.removeItem(cid, item)
+                                            scope.launch {
+                                                val result = snackbarHostState.showSnackbar(
+                                                    message = resources.getString(R.string.collections_removed),
+                                                    actionLabel = resources.getString(R.string.common_undo),
+                                                    duration = SnackbarDuration.Short,
+                                                )
+                                                if (result == SnackbarResult.ActionPerformed) {
+                                                    viewModel.addItem(cid, item)
+                                                }
+                                            }
+                                            true
+                                        },
+                                    )
+                                }
                                 .combinedClickable(
                                     onClick = {
                                         val wallpaper = item.toWallpaper()
@@ -571,7 +616,7 @@ fun CollectionsScreen(
                         ) {
                             AsyncImage(
                                 model = item.thumbnailUrl,
-                                contentDescription = null,
+                                contentDescription = itemLabel,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxWidth().aspectRatio(0.67f),
                             )
@@ -643,6 +688,45 @@ private fun CreateCollectionDialog(
                 enabled = normalizedName.isNotEmpty(),
             ) {
                 Text(stringResource(R.string.collections_create_action))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        },
+        shape = RoundedCornerShape(8.dp),
+    )
+}
+
+@Composable
+private fun RenameCollectionDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onRename: (String) -> Unit,
+) {
+    var name by remember { mutableStateOf(currentName) }
+    val normalizedName = name.trim()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.Edit, contentDescription = null) },
+        title = { Text(stringResource(R.string.collections_rename_title)) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.detail_collection_name_placeholder)) },
+                singleLine = true,
+                shape = RoundedCornerShape(8.dp),
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onRename(normalizedName) },
+                enabled = normalizedName.isNotEmpty() && normalizedName != currentName.trim(),
+            ) {
+                Text(stringResource(R.string.collections_rename_action))
             }
         },
         dismissButton = {

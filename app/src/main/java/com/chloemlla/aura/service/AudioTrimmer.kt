@@ -568,6 +568,7 @@ class AudioTrimmer @Inject constructor(
                         addAndroidLoopMetadata = effectiveFormat == AudioExportFormat.OGG,
                     )
                 } else {
+                    requireFfmpegSafeContainer(File(inputPath))
                     runFfmpeg(outputDir, outputFile, "Lossless audio cut") { ffmpegPath ->
                         buildFfmpegStreamCopyTrimCommand(
                             ffmpegPath = ffmpegPath,

@@ -406,6 +406,9 @@ internal fun sniffMediaType(header: ByteArray): SniffedMediaType? {
     if (header.asciiAt(0, "RIFF") && header.asciiAt(8, "WEBP")) {
         return SniffedMediaType(MediaFamily.IMAGE, "image/webp", "webp")
     }
+    if (header.asciiAt(0, "RIFF") && header.asciiAt(8, "AVI ")) {
+        return SniffedMediaType(MediaFamily.CONTAINER, "video/avi", "avi")
+    }
     if (header.hasAacAdtsSync()) {
         return SniffedMediaType(MediaFamily.AUDIO, "audio/aac", "aac")
     }
@@ -485,6 +488,20 @@ private fun resolveContainerFor(
         // No still-image format sniffs as a container, so this is a genuine mismatch.
         throw IOException("$label content type mismatch: expected ${expectedFamily.name.lowercase(Locale.ROOT)}")
     MediaFamily.CONTAINER -> sniffed
+}
+
+private val FFMPEG_SAFE_EXTENSIONS = setOf("mp4", "m4a", "mp3", "ogg", "wav", "flac", "webm", "aac")
+
+internal fun requireFfmpegSafeContainer(file: File): SniffedMediaType {
+    val sniffed = sniffMediaFile(file)
+        ?: throw IOException("Cannot identify container for FFmpeg: unknown file format")
+    if (sniffed.extension !in FFMPEG_SAFE_EXTENSIONS) {
+        throw IOException(
+            "Container ${sniffed.extension} (${sniffed.mimeType}) is not in the FFmpeg allowlist. " +
+                "This file type may trigger a known decoder vulnerability."
+        )
+    }
+    return sniffed
 }
 
 internal fun normalizeMediaFileName(

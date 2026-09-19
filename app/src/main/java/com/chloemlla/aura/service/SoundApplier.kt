@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.provider.Settings
+import com.chloemlla.aura.R
 import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.model.ContentType
 import com.chloemlla.aura.data.model.decideSoundOptimization
@@ -111,7 +112,17 @@ class SoundApplier @Inject constructor(
                 ContentType.ALARM -> RingtoneManager.TYPE_ALARM
                 else -> throw IllegalArgumentException("Invalid sound type: $type")
             }
-            RingtoneManager.setActualDefaultRingtoneUri(context, ringtoneType, uri)
+            try {
+                RingtoneManager.setActualDefaultRingtoneUri(context, ringtoneType, uri)
+            } catch (e: IllegalArgumentException) {
+                throw IllegalStateException(
+                    context.getString(R.string.sound_apply_oem_failure), e
+                )
+            } catch (e: SecurityException) {
+                throw SecurityException(
+                    context.getString(R.string.sound_apply_write_settings_required), e
+                )
+            }
             persistAppliedUri(type, uri)
 
             uri
@@ -142,6 +153,39 @@ class SoundApplier @Inject constructor(
                 null,
             )
             prefs.setLastAppliedRingtoneUri("")
+        }.onFailure { it.rethrowIfCancelled() }
+    }
+
+    /** Reuse a MediaStore item Aura published during an earlier shuffle. */
+    suspend fun applyExistingUri(uri: Uri?, type: ContentType): Result<Uri?> = withContext(Dispatchers.IO) {
+        runCatching {
+            if (!canWriteSettings()) {
+                throw SecurityException("WRITE_SETTINGS permission not granted")
+            }
+            if (uri != null) {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    if (input.read() < 0) throw IllegalStateException("Saved sound is empty")
+                } ?: throw IllegalStateException("Saved sound is no longer available")
+            }
+            val ringtoneType = when (type) {
+                ContentType.RINGTONE -> RingtoneManager.TYPE_RINGTONE
+                ContentType.NOTIFICATION -> RingtoneManager.TYPE_NOTIFICATION
+                ContentType.ALARM -> RingtoneManager.TYPE_ALARM
+                else -> throw IllegalArgumentException("Invalid sound type: $type")
+            }
+            try {
+                RingtoneManager.setActualDefaultRingtoneUri(context, ringtoneType, uri)
+            } catch (e: IllegalArgumentException) {
+                throw IllegalStateException(
+                    context.getString(R.string.sound_apply_oem_failure), e
+                )
+            } catch (e: SecurityException) {
+                throw SecurityException(
+                    context.getString(R.string.sound_apply_write_settings_required), e
+                )
+            }
+            persistAppliedUri(type, uri)
+            uri
         }.onFailure { it.rethrowIfCancelled() }
     }
 
@@ -186,11 +230,11 @@ class SoundApplier @Inject constructor(
         }.onFailure { it.rethrowIfCancelled() }
     }
 
-    private suspend fun persistAppliedUri(type: ContentType, uri: Uri) {
+    private suspend fun persistAppliedUri(type: ContentType, uri: Uri?) {
         when (type) {
-            ContentType.RINGTONE -> prefs.setLastAppliedRingtoneUri(uri.toString())
-            ContentType.NOTIFICATION -> prefs.setLastAppliedNotificationUri(uri.toString())
-            ContentType.ALARM -> prefs.setLastAppliedAlarmUri(uri.toString())
+            ContentType.RINGTONE -> prefs.setLastAppliedRingtoneUri(uri?.toString().orEmpty())
+            ContentType.NOTIFICATION -> prefs.setLastAppliedNotificationUri(uri?.toString().orEmpty())
+            ContentType.ALARM -> prefs.setLastAppliedAlarmUri(uri?.toString().orEmpty())
             else -> {}
         }
     }
@@ -208,8 +252,11 @@ class SoundApplier @Inject constructor(
             else -> Environment.DIRECTORY_MUSIC + "/Aura"
         }
 
+        val title = fileName.substringBeforeLast('.')
+
         val contentValues = ContentValues().apply {
             put(MediaStore.Audio.Media.DISPLAY_NAME, fileName)
+            put(MediaStore.Audio.Media.TITLE, title)
             put(MediaStore.Audio.Media.MIME_TYPE, mimeType)
             put(MediaStore.Audio.Media.RELATIVE_PATH, relativePath)
             put(MediaStore.Audio.Media.IS_RINGTONE, type == ContentType.RINGTONE)

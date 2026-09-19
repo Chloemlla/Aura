@@ -49,7 +49,7 @@ publish those unsigned verification APKs in place of the owner-signed release.
 
 Before publishing a GitHub Release:
 
-1. Set `JAVA_HOME` to Android Studio's bundled JBR.
+1. Set `JAVA_HOME` to Adoptium JDK 21 (Gradle 8.12.1 rejects newer JDKs).
 2. Run every release preflight command listed below.
 3. Build the signed GitHub APK and Play AAB with the two separate commands under Local release check below. They must stay separate invocations: ABI splits turn off whenever a Gradle `bundle*` task is requested, so a combined invocation would emit one all-ABI APK instead of the per-ABI set.
 4. Copy the APK to `release/Aura-vX.Y.Z-versionCode-N-universal-release.apk`.
@@ -68,10 +68,10 @@ raw input archive retention is documented in
 
 ## Local release check
 
-Use Android Studio's bundled JBR on Windows:
+Use Adoptium JDK 21 on Windows:
 
 ```powershell
-$env:JAVA_HOME = "C:/Program Files/Android/Android Studio/jbr"
+$env:JAVA_HOME = "C:/Program Files/Eclipse Adoptium/jdk-21.0.12.101-hotspot"
 python tools\provider_credential_release_check.py --app-gradle app\build.gradle.kts --local-properties local.properties
 python tools\provider_credential_storage_check.py --policy docs\security\provider-credential-storage.json --repo-root .
 python tools\cleartext_release_check.py --repo-root .

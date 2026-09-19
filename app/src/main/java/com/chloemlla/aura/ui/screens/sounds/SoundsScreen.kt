@@ -44,6 +44,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -325,16 +327,13 @@ fun SoundsScreen(
                 }
             },
         )
-        // Auto-dismiss when the upload finishes. awaitingUploadResult is the real
-        // "this dialog launched an upload" flag; comparing the localized success
-        // text would never match on non-English locales, leaving the dialog up.
-        LaunchedEffect(state.isUploading) {
+        LaunchedEffect(state.isUploading, state.uploadComplete, state.error) {
             if (awaitingUploadResult && !state.isUploading) {
                 awaitingUploadResult = false
-                if (state.error == null) {
-                    showUploadDialog = false
-                    selectedAudioUri = null
-                }
+            }
+            if (showUploadDialog && state.uploadComplete) {
+                showUploadDialog = false
+                selectedAudioUri = null
             }
         }
     }
@@ -390,6 +389,11 @@ fun SoundsScreen(
                 snackbarHostState.showSnackbar(it)
                 viewModel.clearError()
             }
+        }
+    }
+    LaunchedEffect(state.isRefreshing, state.error) {
+        if (!state.isRefreshing && state.error == null && nonBlockingWarning != null) {
+            nonBlockingWarning = null
         }
     }
 
@@ -816,6 +820,7 @@ private fun SoundModeBar(
                 onClick = { onSelectTab(tab) },
                 color = Color.Transparent,
                 shape = RoundedCornerShape(0.dp),
+                modifier = Modifier.semantics { this.selected = selected; role = androidx.compose.ui.semantics.Role.Tab },
             ) {
                 Box(
                     modifier = Modifier
@@ -1017,34 +1022,30 @@ private fun SoundsList(
     }
 }
 
+@Composable
 private fun soundsEmptyState(
     selectedTab: SoundTab,
     query: String,
 ): Triple<androidx.compose.ui.graphics.vector.ImageVector, String, String?> = when {
-    selectedTab == SoundTab.YOUTUBE && query.isBlank() -> Triple(
-        Icons.Default.SmartDisplay,
-        "Loading YouTube sounds",
-        "Aura will load a default YouTube search here. You can also paste a video URL.",
-    )
     selectedTab == SoundTab.YOUTUBE -> Triple(
         Icons.Default.SmartDisplay,
-        "No YouTube audio found",
-        "Try another search or paste a specific video URL.",
+        stringResource(R.string.sounds_empty_youtube_title),
+        stringResource(R.string.sounds_empty_youtube_body),
     )
     selectedTab == SoundTab.COMMUNITY -> Triple(
         Icons.Default.UploadFile,
-        "No community sounds yet",
-        "Uploads will appear here once the community feed has content.",
+        stringResource(R.string.sounds_empty_community_title),
+        stringResource(R.string.sounds_empty_community_body),
     )
     selectedTab == SoundTab.SEARCH && query.isNotBlank() -> Triple(
         Icons.Default.MusicOff,
-        "No sounds found for \"$query\"",
-        "Try fewer words or a more direct YouTube sound search.",
+        stringResource(R.string.sounds_empty_search_title, query),
+        stringResource(R.string.sounds_empty_search_body),
     )
     else -> Triple(
         Icons.Default.MusicOff,
-        "No sounds found",
-        "Try another sound type or switch to a different quality filter.",
+        stringResource(R.string.sounds_empty_title),
+        stringResource(R.string.sounds_empty_fallback),
     )
 }
 

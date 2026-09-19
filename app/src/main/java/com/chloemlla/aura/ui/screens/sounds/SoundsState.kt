@@ -21,6 +21,7 @@ data class SoundsUiState(
     val applySuccess: String? = null,
     val filterKey: Int = 0,
     val isUploading: Boolean = false,
+    val uploadComplete: Boolean = false,
     val uploadProgress: Float = 0f,
     val searchReturnTab: SoundTab = SoundTab.RINGTONES,
     val qualityFilter: SoundQualityFilter = SoundQualityFilter.BEST,

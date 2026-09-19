@@ -103,6 +103,12 @@ require(auraReleaseChannel in setOf("github", "play")) {
     "auraReleaseChannel must be github or play"
 }
 
+val jdkMajor = JavaVersion.current().majorVersion.toIntOrNull() ?: -1
+require(jdkMajor == 21) {
+    "Aura requires JDK 21 (got $jdkMajor). " +
+        "Set JAVA_HOME to Adoptium JDK 21, not Android Studio's bundled JBR."
+}
+
 android {
     namespace = "com.chloemlla.aura"
     // The fork already took the Android 17 (API 37) upgrade in be02a30e, which
@@ -219,6 +225,11 @@ android {
             include("armeabi-v7a", "arm64-v8a", "x86_64")
             isUniversalApk = false
         }
+    }
+
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
 
     compileOptions {
