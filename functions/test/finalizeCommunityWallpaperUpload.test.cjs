@@ -77,6 +77,10 @@ class FakeWallpaperUploadBackend {
     return decision;
   }
 
+  async verifyStorageObject() {
+    return { exists: true };
+  }
+
   async commitWallpaperUpload(input) {
     const metadataPath = `/community_wallpapers/${input.uploadId}`;
     const publicRow = {
