@@ -25,6 +25,18 @@ exactly, so a tag cut for 6.45.1 or 6.45.20.1 does not stand in for 6.45.2.
 The release half is skipped, not failed, when GitHub cannot be reached (see
 `published_state.release_published`), so an offline checkout stays usable.
 
+The release half also asks what the Release carries, because a Release that
+serves no APK is as unreachable as no Release at all. The names it requires are
+the ones the fork's release job writes — `Aura_android_<flavor>_<version>.apk`
+per flavor, `Aura_android_<flavor>_<version>_<abi>.apk` per shipped ABI, and
+`checksums.txt` — with `<version>` taken from the tag itself. The ABI list is
+read out of the `splits { abi { include(...) } }` block in app/build.gradle.kts
+rather than restated, so the gate and the build cannot disagree about what a
+release contains. This module first encoded upstream's naming instead
+(`Aura-v<versionName>-versionCode-<code>-<abi>-release.apk`, `SHA256SUMS.txt`,
+a universal APK, an x86 APK), which the fork's workflow has never produced: the
+asset half could not pass on any fork release, published or not.
+
 Exit 0 if clean, 1 if violations found.
 """
 from __future__ import annotations
@@ -52,8 +64,16 @@ APP_GRADLE = "app/build.gradle.kts"
 VERSION_NAME_RE = re.compile(r'versionName\s*=\s*"([^"]+)"')
 VERSION_CODE_RE = re.compile(r'versionCode\s*=\s*(\d+)')
 
-REQUIRED_ABIS = ("arm64-v8a", "armeabi-v7a", "universal", "x86", "x86_64")
-CHECKSUM_ASSET = "SHA256SUMS.txt"
+# The splits block nests no braces, so the first closing brace ends each level.
+SPLITS_BLOCK_RE = re.compile(r"splits\s*\{(.*?)\}", re.DOTALL)
+ABI_BLOCK_RE = re.compile(r"abi\s*\{(.*?)\}", re.DOTALL)
+ABI_INCLUDE_RE = re.compile(r"include\(([^)]*)\)")
+ABI_LITERAL_RE = re.compile(r'"([^"]+)"')
+
+# The flavors the release job's `for flavor in full foss` loop builds, and the
+# checksum file its `sha256sum *.apk > checksums.txt` writes beside them.
+RELEASE_FLAVORS = ("full", "foss")
+CHECKSUM_ASSET = "checksums.txt"
 
 
 class ReleasePublicationError(ValueError):
@@ -82,15 +102,55 @@ def declared_version_code(repo_root: Path) -> int:
     return int(match.group(1))
 
 
-def expected_apk_names(version: str, version_code: int) -> list[str]:
-    return [
-        f"Aura-v{version}-versionCode-{version_code}-{abi}-release.apk"
-        for abi in REQUIRED_ABIS
-    ]
+def shipped_abis(repo_root: Path) -> tuple[str, ...]:
+    """The ABIs `splits { abi { include(...) } }` ships, in declaration order.
+
+    Read rather than restated: this gate and the build have to agree on what a
+    release contains, and a second copy of the list is what would let them
+    drift apart. A file whose splits cannot be read fails closed, because
+    assuming a list is how this gate came to demand assets that no build emits.
+    """
+    path = repo_root / APP_GRADLE
+    if not path.is_file():
+        raise ReleasePublicationError(f"missing file: {APP_GRADLE}")
+    splits = SPLITS_BLOCK_RE.search(path.read_text(encoding="utf-8"))
+    abi = ABI_BLOCK_RE.search(splits.group(1)) if splits else None
+    include = ABI_INCLUDE_RE.search(abi.group(1)) if abi else None
+    abis = tuple(ABI_LITERAL_RE.findall(include.group(1))) if include else ()
+    if not abis:
+        raise ReleasePublicationError(
+            f"{APP_GRADLE} declares no ABI splits include(...), so the ABIs a "
+            "release ships cannot be determined"
+        )
+    return abis
+
+
+def expected_apk_names(repo_root: Path, version: str) -> list[str]:
+    """Every APK a release of [version] has to carry.
+
+    [version] is the resolved tag without its leading `v`. The release job names
+    its assets after the tag it is about to cut, so a name built from the tree's
+    versionName would describe a release nobody can download — the run number
+    and short sha are only in the tag. One aggregated APK per flavor (ABI splits
+    leave no universal APK, so the job promotes arm64-v8a's) plus one per shipped
+    ABI.
+    """
+    names = [f"Aura_android_{flavor}_{version}.apk" for flavor in RELEASE_FLAVORS]
+    names.extend(
+        f"Aura_android_{flavor}_{version}_{abi}.apk"
+        for flavor in RELEASE_FLAVORS
+        for abi in shipped_abis(repo_root)
+    )
+    return names
+
+
+def release_version(tag: str) -> str:
+    """The version part of a tag: the release job's asset names drop the `v`."""
+    return tag[1:] if tag.startswith("v") else tag
 
 
 def validate_release_assets(
-    repo_root: Path, tag: str, version: str, version_code: int, *, strict: bool = False,
+    repo_root: Path, tag: str, *, strict: bool = False,
 ) -> dict[str, object]:
     assets = release_assets(repo_root, tag)
     if assets is None:
@@ -101,7 +161,7 @@ def validate_release_assets(
         return {"assetsValid": "unknown"}
 
     asset_names = {a["name"] for a in assets}
-    required = set(expected_apk_names(version, version_code))
+    required = set(expected_apk_names(repo_root, release_version(tag)))
     required.add(CHECKSUM_ASSET)
 
     missing = required - asset_names
@@ -190,9 +250,7 @@ def validate_release_publication(
         raise ReleasePublicationError(str(exc)) from exc
 
     state = release_published(repo_root, tag)
-    asset_result = validate_release_assets(
-        repo_root, tag, version, version_code, strict=strict,
-    )
+    asset_result = validate_release_assets(repo_root, tag, strict=strict)
 
     return {
         "status": "ok",

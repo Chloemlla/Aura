@@ -43,6 +43,8 @@ class FakeSoundUploadBackend {
     this.quotas = new Map();
     this.sounds = new Map();
     this.ownerUploads = new Map();
+    this.storageObject = { exists: true };
+    this.verifiedStoragePaths = [];
   }
 
   nowMillis() {
@@ -69,6 +71,11 @@ class FakeSoundUploadBackend {
       this.quotas.set(key, decision.quota);
     }
     return decision;
+  }
+
+  async verifyStorageObject(storagePath) {
+    this.verifiedStoragePaths.push(storagePath);
+    return this.storageObject;
   }
 
   async commitSoundUpload(input) {
@@ -152,6 +159,64 @@ test("accepted sound upload writes public metadata, owner index, quota, and dedu
     backend.dedupe.get(`soundOwner1/sound_uploads/${soundUploadDedupeKey(payload)}`).targetPath,
     "/community_sounds/soundA",
   );
+});
+
+test("a declared file size that disagrees with the stored object is rejected", async () => {
+  const backend = new FakeSoundUploadBackend();
+  backend.storageObject = { exists: true, size: 1_234 };
+
+  await assert.rejects(
+    () => finalizeCommunitySoundUploadHandler(validRequest({ fileSize: 4_321 }), backend),
+    (error) => {
+      assert.equal(error.code, "failed-precondition");
+      assert.equal(error.message, "Declared file size does not match the stored object.");
+      assert.equal(error.details.declared, 4_321);
+      assert.equal(error.details.actual, 1_234);
+      return true;
+    },
+  );
+  assert.deepEqual(backend.verifiedStoragePaths, ["sounds/soundOwner1/1700000000000_soft_bell.mp3"]);
+  assert.equal(backend.sounds.size, 0);
+  assert.equal(backend.ownerUploads.size, 0);
+});
+
+test("a declared file size that matches the stored object is accepted", async () => {
+  const backend = new FakeSoundUploadBackend();
+  backend.storageObject = { exists: true, size: 1_234 };
+
+  const result = await finalizeCommunitySoundUploadHandler(validRequest({ fileSize: 1_234 }), backend);
+
+  assert.equal(result.status, "accepted");
+  assert.equal(result.uploadId, "soundA");
+  assert.equal(backend.sounds.size, 1);
+});
+
+test("a missing storage object is rejected", async () => {
+  const backend = new FakeSoundUploadBackend();
+  backend.storageObject = { exists: false };
+
+  await assert.rejects(
+    () => finalizeCommunitySoundUploadHandler(validRequest(), backend),
+    (error) => {
+      assert.equal(error.code, "failed-precondition");
+      assert.equal(error.message, "Storage object does not exist at the declared path.");
+      assert.equal(error.details.storagePath, "sounds/soundOwner1/1700000000000_soft_bell.mp3");
+      return true;
+    },
+  );
+  assert.equal(backend.sounds.size, 0);
+  assert.equal(backend.ownerUploads.size, 0);
+});
+
+test("an upload that declares no file size is accepted when the stored object reports one", async () => {
+  const backend = new FakeSoundUploadBackend();
+  backend.storageObject = { exists: true, size: 1_234 };
+
+  const result = await finalizeCommunitySoundUploadHandler(validRequest(), backend);
+
+  assert.equal(result.status, "accepted");
+  assert.equal(result.uploadId, "soundA");
+  assert.equal(backend.sounds.size, 1);
 });
 
 test("active storage-path dedupe returns duplicate without creating another upload", async () => {

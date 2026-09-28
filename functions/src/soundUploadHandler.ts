@@ -80,6 +80,7 @@ export interface CommunitySoundUploadPayload {
   readonly tags: readonly string[];
   readonly downloadUrl: string;
   readonly storagePath: string;
+  readonly fileSize?: number;
   readonly fileType: string;
   readonly uploaderLabel: string;
   readonly license: string;
@@ -175,7 +176,12 @@ export async function finalizeCommunitySoundUploadHandler(
       storagePath: payload.storagePath,
     });
   }
-  if (storageObject.size !== undefined && storageObject.size !== payload.fileSize) {
+  // Clients are not required to declare a size, so only enforce the comparison when they did.
+  if (
+    payload.fileSize !== undefined &&
+    storageObject.size !== undefined &&
+    storageObject.size !== payload.fileSize
+  ) {
     throw new HttpsError("failed-precondition", "Declared file size does not match the stored object.", {
       operationId: envelope.operationId,
       declared: payload.fileSize,
@@ -242,6 +248,7 @@ export function normalizeSoundUploadPayload(
   }
   const sourceUrl = normalizeOptionalHttpsUrl(optionalString(payload, "sourceUrl"), "sourceUrl");
   const isAiGenerated = optionalBoolean(payload, "isAiGenerated");
+  const fileSize = optionalNumber(payload, "fileSize");
 
   return {
     name,
@@ -249,6 +256,7 @@ export function normalizeSoundUploadPayload(
     tags,
     downloadUrl,
     storagePath,
+    fileSize,
     fileType,
     uploaderLabel,
     license,
@@ -425,6 +433,15 @@ function requiredNumber(value: Record<string, unknown>, field: string): number {
   const raw = value[field];
   if (typeof raw !== "number" || !Number.isFinite(raw)) {
     throwInvalid(field, `${field} must be a finite number.`);
+  }
+  return raw;
+}
+
+function optionalNumber(value: Record<string, unknown>, field: string): number | undefined {
+  const raw = value[field];
+  if (raw === undefined || raw === null) return undefined;
+  if (typeof raw !== "number" || !Number.isFinite(raw)) {
+    throwInvalid(field, `${field} must be a finite number when provided.`);
   }
   return raw;
 }

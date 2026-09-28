@@ -153,7 +153,6 @@ the same link is available in Settings > About > Privacy policy.
 | **Touch-Reactive Effects** | Optional ripple and sparkle bursts on live wallpaper touches |
 | **YouTube Sounds** | YouTube-first ringtone, notification, and alarm discovery with duration-aware searches powered by NewPipe + yt-dlp |
 | **Aura Originals** | 25 small CC0 tones included for offline ringtone, notification, and alarm preview, download, and apply |
-| **Sound Shuffle Pools** | Build named mixes from downloads, local files, and Aura Originals. Each pool can rotate the ringtone, notification, alarm, or any combination on its own schedule, with missing-file recovery, history, and safe Undo. [How pools work](docs/sound-shuffle-pools.md). |
 | **Community Sound Uploads** | Pick or record sounds, tag them, vote on community picks, and share via Firebase Storage |
 | **Sound Source Badges** | Color-coded source indicators on every sound card |
 | **Sound Quality Filters** | Best, Clean, Short, Calm, and Punchy filters with intent-aware badges |

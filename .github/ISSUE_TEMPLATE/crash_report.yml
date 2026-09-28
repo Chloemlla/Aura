@@ -102,7 +102,7 @@ body:
       description: |
         If Aura crashes on launch, connect via USB and run:
         ```
-        adb logcat -d --pid=$(adb shell pidof -s com.freevibe) 2>/dev/null || adb logcat -d | grep -i freevibe
+        adb logcat -d --pid=$(adb shell pidof -s com.chloemlla.aura) 2>/dev/null || adb logcat -d | grep -i aura
         ```
         Paste the output below. Remove any personal file paths or account names before posting.
     validations:

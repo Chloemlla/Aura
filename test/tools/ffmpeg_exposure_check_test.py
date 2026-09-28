@@ -8,10 +8,24 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 POLICY = REPO_ROOT / "docs" / "security" / "ffmpeg-exposure.json"
-MEDIA_INGESTION = REPO_ROOT / "app" / "src" / "main" / "java" / "com" / "freevibe" / "service" / "MediaIngestion.kt"
 NATIVE_COMPLIANCE = REPO_ROOT / "docs" / "legal" / "native-compliance.lock.json"
 
 ALLOWLIST_RE = re.compile(r'FFMPEG_SAFE_EXTENSIONS\s*=\s*setOf\(([^)]+)\)')
+
+
+def media_ingestion_path() -> Path:
+    """The enforcement file the policy names, resolved through the policy.
+
+    The path used to be spelled out here, so renaming the package left this test
+    reading a file that no longer existed while the policy still pointed at it.
+    """
+    policy = json.loads(POLICY.read_text(encoding="utf-8"))
+    for path in policy["containerAllowlistEnforcement"]:
+        if path.endswith("MediaIngestion.kt"):
+            return REPO_ROOT / path
+    raise AssertionError(
+        "the policy must name MediaIngestion.kt among its enforcement files"
+    )
 
 
 class FfmpegExposureCheckTest(unittest.TestCase):
@@ -30,7 +44,7 @@ class FfmpegExposureCheckTest(unittest.TestCase):
         policy = json.loads(POLICY.read_text(encoding="utf-8"))
         expected = set(policy["containerAllowlist"])
 
-        code = MEDIA_INGESTION.read_text(encoding="utf-8")
+        code = media_ingestion_path().read_text(encoding="utf-8")
         match = ALLOWLIST_RE.search(code)
         self.assertIsNotNone(match, "FFMPEG_SAFE_EXTENSIONS must exist in MediaIngestion.kt")
         code_exts = {s.strip().strip('"') for s in match.group(1).split(",")}

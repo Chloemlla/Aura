@@ -774,7 +774,7 @@ private suspend fun cropVideoConstrained(
         }
 
         try {
-            com.freevibe.service.requireFfmpegSafeContainer(inputFile)
+            com.chloemlla.aura.service.requireFfmpegSafeContainer(inputFile)
         } catch (_: java.io.IOException) {
             return@withContext null
         }
