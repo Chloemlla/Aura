@@ -495,6 +495,7 @@ dependencies {
 
     // yt-dlp for Android (YouTube stream URL extraction)
     implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
+    implementation("io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1")
 
     // ML Kit Subject Segmentation — API 24+, multi-subject, unbundled (the model
     // is downloaded on first use via Google Play services). Roadmap N-3.

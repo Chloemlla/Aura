@@ -10,12 +10,12 @@ const {
 
 const NOW = Date.UTC(2026, 5, 7, 12, 0, 0);
 
-function validRequest(overrides = {}) {
+function validRequest(overrides = {}, operationId = "profile-op-1") {
   return {
     auth: { uid: "profileOwner1" },
     app: { appId: "aura-test-app" },
     data: {
-      operationId: "profile-op-1",
+      operationId,
       clientSentAt: NOW - 1_000,
       payload: {
         displayName: " Aura   Creator ",
@@ -89,9 +89,8 @@ test("accepted profile update writes public row, quota, and dedupe marker", asyn
   });
   assert.equal(backend.quotas.get("profileOwner1/20260607/profile_edits").count, 1);
 
-  const payload = normalizeProfilePayload(validRequest().data.payload);
   assert.equal(
-    backend.dedupe.get(`profileOwner1/profile_edits/${profileDedupeKey("profileOwner1", payload)}`).targetPath,
+    backend.dedupe.get("profileOwner1/profile_edits/profile-op-1").targetPath,
     "/creator_profiles/profileOwner1",
   );
 });
@@ -117,9 +116,8 @@ test("identical public profile returns duplicate before quota reservation", asyn
 
 test("active normalized-profile dedupe returns duplicate without writing profile", async () => {
   const backend = new FakeProfileBackend();
-  const payload = normalizeProfilePayload(validRequest().data.payload);
   backend.dedupe.set(
-    `profileOwner1/profile_edits/${profileDedupeKey("profileOwner1", payload)}`,
+    "profileOwner1/profile_edits/profile-op-1",
     buildDedupeMarker({
       nowMillis: NOW - 1_000,
       targetPath: "/creator_profiles/profileOwner1",

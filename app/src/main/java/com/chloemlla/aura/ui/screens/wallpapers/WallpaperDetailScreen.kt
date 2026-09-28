@@ -805,12 +805,12 @@ fun WallpaperDetailScreen(
                             if (rotationExclusion != null) {
                                 rotationExclusionsViewModel.restoreNow(rotationExclusion.stableId)
                                 snackbarHostState.showSnackbar(
-                                    resources.getString(R.string.rotation_restored_message, wallpaperDetailTitle(wp)),
+                                    resources.getString(R.string.rotation_restored_message, wallpaperDetailTitle(resources, wp)),
                                 )
                             } else {
                                 val exclusion = rotationExclusionsViewModel.exclude(rotationIdentity)
                                 val result = snackbarHostState.showSnackbar(
-                                    message = resources.getString(R.string.rotation_excluded_message, wallpaperDetailTitle(wp)),
+                                    message = resources.getString(R.string.rotation_excluded_message, wallpaperDetailTitle(resources, wp)),
                                     actionLabel = resources.getString(R.string.common_undo),
                                     duration = SnackbarDuration.Short,
                                 )

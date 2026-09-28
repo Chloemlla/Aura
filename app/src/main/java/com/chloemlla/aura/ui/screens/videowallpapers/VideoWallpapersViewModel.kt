@@ -1447,6 +1447,7 @@ class VideoWallpapersViewModel @Inject constructor(
                 cached.copy(result = filtered)
             }
         }
+    }
 
     private suspend fun writePixabayVideoCache(
         cacheKey: String,

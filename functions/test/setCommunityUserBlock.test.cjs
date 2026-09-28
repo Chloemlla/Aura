@@ -10,12 +10,12 @@ const {
 
 const NOW = Date.UTC(2026, 5, 7, 12, 0, 0);
 
-function validRequest(overrides = {}) {
+function validRequest(overrides = {}, operationId = "block-op-1") {
   return {
     auth: { uid: "blocker1" },
     app: { appId: "aura-test-app" },
     data: {
-      operationId: "block-op-1",
+      operationId,
       clientSentAt: NOW - 1_000,
       payload: {
         blockedUid: "blocked.one",
@@ -103,12 +103,12 @@ test("accepted block writes private and reverse index rows", async () => {
   assert.deepEqual(backend.reverseBlocks.get("blocked_one/blocker1"), row);
   assert.equal(backend.quotas.get("blocker1/20260607/user_blocks").count, 1);
   assert.equal(
-    backend.dedupe.get("blocker1/user_blocks/blocked_one_block").targetPath,
+    backend.dedupe.get("blocker1/user_blocks/block-op-1").targetPath,
     "/community_user_blocks/blocker1/blocked_one",
   );
 });
 
-test("accepted unblock removes private and reverse index rows with a separate dedupe key", async () => {
+test("accepted unblock under a distinct operation id removes private and reverse index rows", async () => {
   const backend = new FakeUserBlockBackend();
   const row = {
     blockerUid: "blocker1",
@@ -118,22 +118,28 @@ test("accepted unblock removes private and reverse index rows with a separate de
   };
   backend.privateBlocks.set("blocker1/blocked_one", row);
   backend.reverseBlocks.set("blocked_one/blocker1", row);
-  backend.dedupe.set(
-    "blocker1/user_blocks/blocked_one_block",
-    buildDedupeMarker({
-      nowMillis: NOW - 1_000,
-      targetPath: "/community_user_blocks/blocker1/blocked_one",
-      ttlMillis: 5_000,
-    }),
-  );
+  const blockMarker = buildDedupeMarker({
+    nowMillis: NOW - 1_000,
+    targetPath: "/community_user_blocks/blocker1/blocked_one",
+    ttlMillis: 5_000,
+  });
+  backend.dedupe.set("blocker1/user_blocks/block-op-1", blockMarker);
 
-  const result = await setCommunityUserBlockHandler(validRequest({ blocked: false }), backend);
+  const result = await setCommunityUserBlockHandler(
+    validRequest({ blocked: false }, "block-op-2"),
+    backend,
+  );
 
   assert.equal(result.status, "accepted");
   assert.equal(result.blocked, false);
   assert.equal(backend.privateBlocks.has("blocker1/blocked_one"), false);
   assert.equal(backend.reverseBlocks.has("blocked_one/blocker1"), false);
-  assert.equal(backend.dedupe.has("blocker1/user_blocks/blocked_one_unblock"), true);
+  assert.equal(
+    backend.dedupe.get("blocker1/user_blocks/block-op-2").targetPath,
+    "/community_user_blocks/blocker1/blocked_one",
+  );
+  // A distinct operation id is never collapsed into the earlier block operation's marker.
+  assert.equal(backend.dedupe.get("blocker1/user_blocks/block-op-1"), blockMarker);
 });
 
 test("no-op block states return duplicate before quota reservation", async () => {
@@ -160,7 +166,7 @@ test("no-op block states return duplicate before quota reservation", async () =>
 test("active same-state dedupe returns duplicate before block commit", async () => {
   const backend = new FakeUserBlockBackend();
   backend.dedupe.set(
-    "blocker1/user_blocks/blocked_one_block",
+    "blocker1/user_blocks/block-op-1",
     buildDedupeMarker({
       nowMillis: NOW - 1_000,
       targetPath: "/community_user_blocks/blocker1/blocked_one",

@@ -10,12 +10,12 @@ const {
 
 const NOW = Date.UTC(2026, 5, 7, 12, 0, 0);
 
-function validRequest(overrides = {}) {
+function validRequest(overrides = {}, operationId = "follow-op-1") {
   return {
     auth: { uid: "follower1" },
     app: { appId: "aura-test-app" },
     data: {
-      operationId: "follow-op-1",
+      operationId,
       clientSentAt: NOW - 1_000,
       payload: {
         creatorId: "creator.one",
@@ -94,33 +94,39 @@ test("accepted follow writes creator row, quota, and dedupe marker", async () =>
   });
   assert.equal(backend.quotas.get("follower1/20260607/follows").count, 1);
   assert.equal(
-    backend.dedupe.get("follower1/follows/creator_one_follow").targetPath,
+    backend.dedupe.get("follower1/follows/follow-op-1").targetPath,
     "/creator_follows/follower1/creator_one",
   );
 });
 
-test("accepted unfollow removes creator row with a separate dedupe key", async () => {
+test("accepted unfollow under a distinct operation id removes the creator row", async () => {
   const backend = new FakeFollowBackend();
   backend.follows.set("follower1/creator_one", {
     creatorId: "creator.one",
     label: "Creator One",
     followedAt: NOW - 10_000,
   });
-  backend.dedupe.set(
-    "follower1/follows/creator_one_follow",
-    buildDedupeMarker({
-      nowMillis: NOW - 1_000,
-      targetPath: "/creator_follows/follower1/creator_one",
-      ttlMillis: 5_000,
-    }),
-  );
+  const followMarker = buildDedupeMarker({
+    nowMillis: NOW - 1_000,
+    targetPath: "/creator_follows/follower1/creator_one",
+    ttlMillis: 5_000,
+  });
+  backend.dedupe.set("follower1/follows/follow-op-1", followMarker);
 
-  const result = await setCreatorFollowHandler(validRequest({ following: false }), backend);
+  const result = await setCreatorFollowHandler(
+    validRequest({ following: false }, "follow-op-2"),
+    backend,
+  );
 
   assert.equal(result.status, "accepted");
   assert.equal(result.following, false);
   assert.equal(backend.follows.has("follower1/creator_one"), false);
-  assert.equal(backend.dedupe.has("follower1/follows/creator_one_unfollow"), true);
+  assert.equal(
+    backend.dedupe.get("follower1/follows/follow-op-2").targetPath,
+    "/creator_follows/follower1/creator_one",
+  );
+  // A distinct operation id is never collapsed into the earlier follow operation's marker.
+  assert.equal(backend.dedupe.get("follower1/follows/follow-op-1"), followMarker);
 });
 
 test("no-op follow states return duplicate before quota reservation", async () => {
@@ -146,7 +152,7 @@ test("no-op follow states return duplicate before quota reservation", async () =
 test("active same-state dedupe returns duplicate before follow commit", async () => {
   const backend = new FakeFollowBackend();
   backend.dedupe.set(
-    "follower1/follows/creator_one_follow",
+    "follower1/follows/follow-op-1",
     buildDedupeMarker({
       nowMillis: NOW - 1_000,
       targetPath: "/creator_follows/follower1/creator_one",

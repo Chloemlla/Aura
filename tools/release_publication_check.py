@@ -64,9 +64,6 @@ APP_GRADLE = "app/build.gradle.kts"
 VERSION_NAME_RE = re.compile(r'versionName\s*=\s*"([^"]+)"')
 VERSION_CODE_RE = re.compile(r'versionCode\s*=\s*(\d+)')
 
-# The splits block nests no braces, so the first closing brace ends each level.
-SPLITS_BLOCK_RE = re.compile(r"splits\s*\{(.*?)\}", re.DOTALL)
-ABI_BLOCK_RE = re.compile(r"abi\s*\{(.*?)\}", re.DOTALL)
 ABI_INCLUDE_RE = re.compile(r"include\(([^)]*)\)")
 ABI_LITERAL_RE = re.compile(r'"([^"]+)"')
 
@@ -102,6 +99,40 @@ def declared_version_code(repo_root: Path) -> int:
     return int(match.group(1))
 
 
+def block_body(text: str, keyword: str) -> str | None:
+    """The body of the first `<keyword> { ... }` block, matched by brace depth.
+
+    `splits { abi { include(...) } }` nests, so the body cannot be taken with a
+    non-greedy regex: that stops at the first `}` after the opening brace, which
+    is the inner block's, and so reads the outer block as empty. Depth is what
+    makes the nested form readable. Braces inside string literals and line
+    comments are prose rather than structure, so the scan skips both.
+    """
+    match = re.search(rf"\b{re.escape(keyword)}\s*\{{", text)
+    if not match:
+        return None
+    depth = 0
+    index = match.end() - 1
+    while index < len(text):
+        char = text[index]
+        if char == '"':
+            index = text.find('"', index + 1)
+            if index < 0:
+                return None
+        elif char == "/" and text.startswith("//", index):
+            index = text.find("\n", index)
+            if index < 0:
+                return None
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[match.end():index]
+        index += 1
+    return None
+
+
 def shipped_abis(repo_root: Path) -> tuple[str, ...]:
     """The ABIs `splits { abi { include(...) } }` ships, in declaration order.
 
@@ -113,9 +144,9 @@ def shipped_abis(repo_root: Path) -> tuple[str, ...]:
     path = repo_root / APP_GRADLE
     if not path.is_file():
         raise ReleasePublicationError(f"missing file: {APP_GRADLE}")
-    splits = SPLITS_BLOCK_RE.search(path.read_text(encoding="utf-8"))
-    abi = ABI_BLOCK_RE.search(splits.group(1)) if splits else None
-    include = ABI_INCLUDE_RE.search(abi.group(1)) if abi else None
+    splits = block_body(path.read_text(encoding="utf-8"), "splits")
+    abi = block_body(splits, "abi") if splits else None
+    include = ABI_INCLUDE_RE.search(abi) if abi else None
     abis = tuple(ABI_LITERAL_RE.findall(include.group(1))) if include else ()
     if not abis:
         raise ReleasePublicationError(

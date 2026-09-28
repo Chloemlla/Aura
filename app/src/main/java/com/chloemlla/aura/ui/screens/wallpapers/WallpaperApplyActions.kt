@@ -242,7 +242,7 @@ internal class WallpaperApplyActions(
     private fun blockDisallowedAction(wallpaper: Wallpaper, action: WallpaperAction): Boolean {
         val capability = wallpaper.wallpaperLicenseCapabilities().capability(action)
         if (capability.decision != WallpaperActionDecision.DISABLED) return false
-        state.update { it.copy(error = capability.reason) }
+        state.update { it.copy(error = context.getString(wallpaperLicenseReasonRes(capability.reason))) }
         return true
     }
 
