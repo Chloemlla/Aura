@@ -24,6 +24,7 @@ import com.chloemlla.aura.data.repository.parseRedditRssPage
 import com.chloemlla.aura.data.repository.YouTubeRepository
 import com.chloemlla.aura.data.repository.YouTubeVideoMetadata
 import com.chloemlla.aura.data.repository.sanitizeVoteKey
+import com.chloemlla.aura.service.Av1CodecSupport
 import com.chloemlla.aura.service.SourceMetrics
 import com.chloemlla.aura.service.VideoPreviewCache
 import com.chloemlla.aura.service.VideoWallpaperStorage
@@ -252,6 +253,7 @@ class VideoWallpapersViewModelTest {
             ytDlpUpdateManager = mockk<YtDlpUpdateManager>(relaxed = true),
             ytDlpRequestFactory = mockk<YouTubeYtDlpRequestFactory>(relaxed = true),
             videoPreviewCache = mockk<VideoPreviewCache>(relaxed = true),
+            av1CodecSupport = Av1CodecSupport(),
             voteRepo = mockk<VoteRepository>(relaxed = true),
         )
 
