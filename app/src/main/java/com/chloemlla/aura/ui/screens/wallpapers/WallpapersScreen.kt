@@ -180,6 +180,8 @@ fun WallpapersScreen(
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val hiddenItemMessage = stringResource(R.string.community_item_hidden)
+    val undoActionLabel = stringResource(R.string.common_undo)
     var nonBlockingWarning by remember { mutableStateOf<String?>(null) }
     var nonBlockingWarningSource by remember { mutableStateOf<String?>(null) }
     var showSearchHistory by remember { mutableStateOf(false) }
@@ -854,8 +856,8 @@ fun WallpapersScreen(
                                     }
                                     scope.launch {
                                         val result = snackbarHostState.showSnackbar(
-                                            message = context.getString(R.string.community_item_hidden),
-                                            actionLabel = context.getString(R.string.common_undo),
+                                            message = hiddenItemMessage,
+                                            actionLabel = undoActionLabel,
                                             duration = SnackbarDuration.Short,
                                         )
                                         if (result == SnackbarResult.ActionPerformed) {
