@@ -19,6 +19,7 @@ import com.freevibe.data.repository.VoteRepository
 import com.freevibe.data.repository.createLegacyCompatibleYouTubeSearchHandler
 import com.freevibe.data.repository.parseRedditRssPage
 import com.freevibe.data.repository.YouTubeRepository
+import com.freevibe.service.Av1CodecSupport
 import com.freevibe.data.repository.YouTubeVideoMetadata
 import com.freevibe.data.repository.sanitizeVoteKey
 import com.freevibe.service.SourceMetrics
@@ -246,6 +247,7 @@ class VideoWallpapersViewModelTest {
             ytDlpUpdateManager = mockk<YtDlpUpdateManager>(relaxed = true),
             ytDlpRequestFactory = mockk<YouTubeYtDlpRequestFactory>(relaxed = true),
             videoPreviewCache = mockk<VideoPreviewCache>(relaxed = true),
+            av1CodecSupport = mockk<Av1CodecSupport>(relaxed = true),
             voteRepo = mockk<VoteRepository>(relaxed = true),
         )
 

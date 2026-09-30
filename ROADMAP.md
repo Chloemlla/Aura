@@ -619,15 +619,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Confidence: Verified
   Effort: M
 
-- [ ] P2 — Restore the video-wallpaper unit-test fixture after AV1 capability injection
-  Category: testing
-  Where: `app/src/test/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersViewModelTest.kt:237-250`; `app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersViewModel.kt:468-482`
-  Problem: A direct `VideoWallpapersViewModel` construction was not updated when `Av1CodecSupport` became a required dependency, so neither Android unit-test flavor can compile.
-  Evidence: The combined baseline stops at `:app:compileFullDebugUnitTestKotlin` with “No value passed for parameter 'av1CodecSupport'” at test line 249. The same source set feeds `testFossDebugUnitTest`, so the FOSS suite is gated by the same compile defect. The production constructor requires the dependency and uses it in download format selection and post-download validation.
-  Fix: Supply a deterministic AV1-capability fake in the fixture, preferably through the test's shared ViewModel factory, and exercise both supported and unsupported codec branches so the dependency cannot drift silently again.
-  Acceptance: `:app:testFullDebugUnitTest` and `:app:testFossDebugUnitTest` compile and pass; one test selects the AV1-capable format and another excludes AV1 and rejects an AV1 result on unsupported hardware.
-  Confidence: Verified
-  Effort: S
 
 - [ ] P2 — Remove the committed Compose resource errors from the wallpaper feed
   Category: correctness
