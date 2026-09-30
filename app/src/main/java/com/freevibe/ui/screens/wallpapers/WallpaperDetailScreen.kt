@@ -337,13 +337,13 @@ fun WallpaperDetailScreen(
                     beyondViewportPageCount = 1,
                     key = { page -> wallpapers[page].stableKey() },
                 ) { page ->
-                    val pageOffset = (pagerState.currentPage - page + pagerState.currentPageOffsetFraction)
                     val pageUrl = wallpapers.getOrNull(page)?.fullUrl ?: wp.fullUrl
                     WallpaperImage(
                         url = pageUrl,
                         modifier = Modifier
                             .fillMaxSize()
                             .graphicsLayer {
+                                val pageOffset = (pagerState.currentPage - page + pagerState.currentPageOffsetFraction)
                                 val scale = 1f + (pageOffset.absoluteValue * 0.15f).coerceAtMost(0.15f)
                                 scaleX = scale; scaleY = scale
                                 translationY = pageOffset * size.height * 0.06f

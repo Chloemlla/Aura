@@ -629,15 +629,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
 
 ### P3
 
-- [ ] P3 — Move wallpaper-pager animation state reads out of composition
-  Category: perf
-  Where: `app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperDetailScreen.kt:332-350`
-  Problem: Every fractional pager offset is read in composition before being passed to `graphicsLayer`, so a drag recomposes the page content for frame-by-frame transform values that only need draw-layer invalidation.
-  Evidence: Both flavor lint reports `FrequentlyChangingValue` at line 340 for `currentPageOffsetFraction`. The value drives only scale, translation, and alpha in the immediately following `graphicsLayer`; no composed structure depends on it.
-  Fix: Read pager offset inside the layer/draw phase or expose a derived value with an explicit recomposition threshold. Keep page identity and URL reads stable.
-  Acceptance: Lint no longer reports `FrequentlyChangingValue`; a pager macrobenchmark or recomposition counter shows page content does not recompose for every drag frame; scale, translation, alpha, and settled-page behavior match the current animation.
-  Confidence: Verified
-  Effort: S
 
 ## Issue Intake (2026-09-26)
 
