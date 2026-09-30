@@ -43,6 +43,13 @@ class FakeSoundUploadBackend {
     this.quotas = new Map();
     this.sounds = new Map();
     this.ownerUploads = new Map();
+    this.storageObject = { exists: true, size: 48_213, contentType: "audio/mpeg" };
+    this.verifiedPaths = [];
+  }
+
+  async verifyStorageObject(storagePath) {
+    this.verifiedPaths.push(storagePath);
+    return this.storageObject;
   }
 
   nowMillis() {
@@ -206,6 +213,32 @@ test("cooldown and daily-limit quota rejections do not commit sound metadata", a
     },
   );
   assert.equal(limitBackend.sounds.size, 0);
+});
+
+test("sound finalize verifies the stored object and bounds its size", async () => {
+  const accepted = new FakeSoundUploadBackend();
+  const result = await finalizeCommunitySoundUploadHandler(validRequest(), accepted);
+  assert.equal(result.status, "accepted");
+  assert.deepEqual(accepted.verifiedPaths, ["sounds/soundOwner1/1700000000000_soft_bell.mp3"]);
+
+  for (const storageObject of [
+    { exists: false },
+    { exists: true, size: 0 },
+    { exists: true, size: 20 * 1024 * 1024 + 1 },
+  ]) {
+    const backend = new FakeSoundUploadBackend();
+    backend.storageObject = storageObject;
+    await assert.rejects(
+      () => finalizeCommunitySoundUploadHandler(validRequest(), backend),
+      { code: "failed-precondition" },
+    );
+    assert.equal(backend.sounds.size, 0);
+    assert.equal(backend.ownerUploads.size, 0);
+  }
+
+  const unknownSize = new FakeSoundUploadBackend();
+  unknownSize.storageObject = { exists: true };
+  assert.equal((await finalizeCommunitySoundUploadHandler(validRequest(), unknownSize)).status, "accepted");
 });
 
 test("callable identity requires Firebase Auth and App Check", async () => {

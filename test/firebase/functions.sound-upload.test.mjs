@@ -15,22 +15,29 @@ const DOWNLOAD_URL = 'https://firebasestorage.googleapis.com/v0/b/aura/o/sounds%
 const requireFromFunctions = createRequire(new URL('../../functions/package.json', import.meta.url));
 const { getApps, initializeApp, deleteApp } = requireFromFunctions('firebase-admin/app');
 const { getDatabase } = requireFromFunctions('firebase-admin/database');
+const { getStorage } = requireFromFunctions('firebase-admin/storage');
 
 let app;
 
 before(async () => {
   assert.ok(
-    process.env.FIREBASE_DATABASE_EMULATOR_HOST,
-    'functions sound upload emulator test must run under firebase emulators:exec --only database',
+    process.env.FIREBASE_DATABASE_EMULATOR_HOST && process.env.FIREBASE_STORAGE_EMULATOR_HOST,
+    'functions sound upload emulator test must run under firebase emulators:exec --only database,storage',
   );
   app = getApps()[0] ?? initializeApp({
     projectId: PROJECT_ID,
     databaseURL: `https://${PROJECT_ID}.firebaseio.com`,
+    storageBucket: `${PROJECT_ID}.appspot.com`,
   });
 });
 
 beforeEach(async () => {
   await getDatabase(app).ref().set(null);
+  // The finalizer checks the uploaded object before publishing metadata.
+  await getStorage(app).bucket().file(STORAGE_PATH).save(Buffer.alloc(48_213, 1), {
+    contentType: 'audio/mpeg',
+    resumable: false,
+  });
 });
 
 after(async () => {
@@ -116,6 +123,16 @@ test('sound upload callable handler writes metadata, owner index, quota, and ded
   const dedupeKey = soundUploadDedupeKey(payload);
   const dedupe = await readValue(`community_write_dedupe/${OWNER_UID}/sound_uploads/${dedupeKey}`);
   assert.equal(dedupe.targetPath, `/community_sounds/${result.uploadId}`);
+});
+
+test('sound upload is refused when the storage object is missing', async () => {
+  await getStorage(app).bucket().file(STORAGE_PATH).delete();
+
+  await assert.rejects(
+    () => finalizeCommunitySoundUploadHandler(validRequest()),
+    { code: 'failed-precondition' },
+  );
+  assert.equal(await readValue('community_sounds'), null);
 });
 
 test('same storage path sound upload is idempotent through emulator dedupe', async () => {

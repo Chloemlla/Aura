@@ -94,7 +94,7 @@ test("accepted follow writes creator row, quota, and dedupe marker", async () =>
   });
   assert.equal(backend.quotas.get("follower1/20260607/follows").count, 1);
   assert.equal(
-    backend.dedupe.get("follower1/follows/creator_one_follow").targetPath,
+    backend.dedupe.get("follower1/follows/follow-op-1").targetPath,
     "/creator_follows/follower1/creator_one",
   );
 });
@@ -106,21 +106,24 @@ test("accepted unfollow removes creator row with a separate dedupe key", async (
     label: "Creator One",
     followedAt: NOW - 10_000,
   });
+  // The earlier follow left its own operation's marker; the unfollow is a new operation.
   backend.dedupe.set(
-    "follower1/follows/creator_one_follow",
+    "follower1/follows/follow-op-1",
     buildDedupeMarker({
       nowMillis: NOW - 1_000,
       targetPath: "/creator_follows/follower1/creator_one",
       ttlMillis: 5_000,
     }),
   );
+  const request = validRequest({ following: false });
+  request.data.operationId = "unfollow-op-2";
 
-  const result = await setCreatorFollowHandler(validRequest({ following: false }), backend);
+  const result = await setCreatorFollowHandler(request, backend);
 
   assert.equal(result.status, "accepted");
   assert.equal(result.following, false);
   assert.equal(backend.follows.has("follower1/creator_one"), false);
-  assert.equal(backend.dedupe.has("follower1/follows/creator_one_unfollow"), true);
+  assert.equal(backend.dedupe.has("follower1/follows/unfollow-op-2"), true);
 });
 
 test("no-op follow states return duplicate before quota reservation", async () => {
@@ -143,10 +146,10 @@ test("no-op follow states return duplicate before quota reservation", async () =
   assert.equal(missingBackend.quotas.size, 0);
 });
 
-test("active same-state dedupe returns duplicate before follow commit", async () => {
+test("retried operation ID returns duplicate before follow commit", async () => {
   const backend = new FakeFollowBackend();
   backend.dedupe.set(
-    "follower1/follows/creator_one_follow",
+    "follower1/follows/follow-op-1",
     buildDedupeMarker({
       nowMillis: NOW - 1_000,
       targetPath: "/creator_follows/follower1/creator_one",

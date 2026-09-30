@@ -90,6 +90,12 @@ All notable changes to Aura will be documented in this file.
   30 minutes plus a 1 KB read per clip for its length, and Play builds never
   contact TikTok.
 
+- **Community sound uploads finish again**: the upload service compared the
+  stored file against a size that sound uploads never send, so any upload whose
+  storage entry reported a size was turned away. It now checks that the file
+  exists and sits between 1 byte and 20 MB, the same limit the storage rules
+  use. Wallpaper uploads still have to match their declared size and type.
+
 - **Firebase CLI upgraded to 15.31.0**: root audit findings reduced from 15 to
   10 (non-breaking fixes applied). Functions audit is now zero. The remaining
   root findings are transitive deployment-tool dependencies.

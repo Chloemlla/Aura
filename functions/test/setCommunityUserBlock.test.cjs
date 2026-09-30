@@ -103,7 +103,7 @@ test("accepted block writes private and reverse index rows", async () => {
   assert.deepEqual(backend.reverseBlocks.get("blocked_one/blocker1"), row);
   assert.equal(backend.quotas.get("blocker1/20260607/user_blocks").count, 1);
   assert.equal(
-    backend.dedupe.get("blocker1/user_blocks/blocked_one_block").targetPath,
+    backend.dedupe.get("blocker1/user_blocks/block-op-1").targetPath,
     "/community_user_blocks/blocker1/blocked_one",
   );
 });
@@ -118,22 +118,25 @@ test("accepted unblock removes private and reverse index rows with a separate de
   };
   backend.privateBlocks.set("blocker1/blocked_one", row);
   backend.reverseBlocks.set("blocked_one/blocker1", row);
+  // The earlier block left its own operation's marker; the unblock is a new operation.
   backend.dedupe.set(
-    "blocker1/user_blocks/blocked_one_block",
+    "blocker1/user_blocks/block-op-1",
     buildDedupeMarker({
       nowMillis: NOW - 1_000,
       targetPath: "/community_user_blocks/blocker1/blocked_one",
       ttlMillis: 5_000,
     }),
   );
+  const request = validRequest({ blocked: false });
+  request.data.operationId = "unblock-op-2";
 
-  const result = await setCommunityUserBlockHandler(validRequest({ blocked: false }), backend);
+  const result = await setCommunityUserBlockHandler(request, backend);
 
   assert.equal(result.status, "accepted");
   assert.equal(result.blocked, false);
   assert.equal(backend.privateBlocks.has("blocker1/blocked_one"), false);
   assert.equal(backend.reverseBlocks.has("blocked_one/blocker1"), false);
-  assert.equal(backend.dedupe.has("blocker1/user_blocks/blocked_one_unblock"), true);
+  assert.equal(backend.dedupe.has("blocker1/user_blocks/unblock-op-2"), true);
 });
 
 test("no-op block states return duplicate before quota reservation", async () => {
@@ -157,10 +160,10 @@ test("no-op block states return duplicate before quota reservation", async () =>
   assert.equal(missingBackend.quotas.size, 0);
 });
 
-test("active same-state dedupe returns duplicate before block commit", async () => {
+test("retried operation ID returns duplicate before block commit", async () => {
   const backend = new FakeUserBlockBackend();
   backend.dedupe.set(
-    "blocker1/user_blocks/blocked_one_block",
+    "blocker1/user_blocks/block-op-1",
     buildDedupeMarker({
       nowMillis: NOW - 1_000,
       targetPath: "/community_user_blocks/blocker1/blocked_one",

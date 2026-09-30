@@ -49,6 +49,13 @@ class FakeWallpaperUploadBackend {
     this.quotas = new Map();
     this.wallpapers = new Map();
     this.ownerUploads = new Map();
+    this.storageObject = { exists: true, size: 410_000, contentType: "image/jpeg" };
+    this.verifiedPaths = [];
+  }
+
+  async verifyStorageObject(storagePath) {
+    this.verifiedPaths.push(storagePath);
+    return this.storageObject;
   }
 
   nowMillis() {
@@ -224,6 +231,27 @@ test("cooldown and daily-limit quota rejections do not commit wallpaper metadata
     },
   );
   assert.equal(limitBackend.wallpapers.size, 0);
+});
+
+test("wallpaper finalize matches the stored object's size and type", async () => {
+  const accepted = new FakeWallpaperUploadBackend();
+  assert.equal((await finalizeCommunityWallpaperUploadHandler(validRequest(), accepted)).status, "accepted");
+  assert.deepEqual(accepted.verifiedPaths, ["wallpapers/wallOwner1/1700000000000_night_grid.jpg"]);
+
+  for (const storageObject of [
+    { exists: false },
+    { exists: true, size: 409_999, contentType: "image/jpeg" },
+    { exists: true, size: 410_000, contentType: "audio/mpeg" },
+  ]) {
+    const backend = new FakeWallpaperUploadBackend();
+    backend.storageObject = storageObject;
+    await assert.rejects(
+      () => finalizeCommunityWallpaperUploadHandler(validRequest(), backend),
+      { code: "failed-precondition" },
+    );
+    assert.equal(backend.wallpapers.size, 0);
+    assert.equal(backend.ownerUploads.size, 0);
+  }
 });
 
 test("callable identity requires Firebase Auth and App Check", async () => {

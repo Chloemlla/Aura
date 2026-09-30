@@ -28,6 +28,8 @@ const MAX_TAG_LENGTH = 24;
 const MAX_SHORT_TEXT = 120;
 const MAX_URL = 2_048;
 const MAX_STORAGE_PATH = 512;
+// Same ceiling storage.rules applies to sounds/{uid}/ uploads.
+const MAX_SOUND_BYTES = 20 * 1024 * 1024;
 const FIREBASE_KEY_REGEX = /[.#$[\]/]/g;
 const STORAGE_SEGMENT_REGEX = /[^a-zA-Z0-9_-]/g;
 const UPLOAD_TAG_SANITIZE_REGEX = /[^a-z0-9_\- ]/g;
@@ -175,11 +177,12 @@ export async function finalizeCommunitySoundUploadHandler(
       storagePath: payload.storagePath,
     });
   }
-  if (storageObject.size !== undefined && storageObject.size !== payload.fileSize) {
-    throw new HttpsError("failed-precondition", "Declared file size does not match the stored object.", {
+  // Sound uploads declare no byte count, so bound the stored object instead of matching one.
+  if (storageObject.size !== undefined && (storageObject.size <= 0 || storageObject.size > MAX_SOUND_BYTES)) {
+    throw new HttpsError("failed-precondition", "Stored sound object size is outside the allowed range.", {
       operationId: envelope.operationId,
-      declared: payload.fileSize,
       actual: storageObject.size,
+      max: MAX_SOUND_BYTES,
     });
   }
 
