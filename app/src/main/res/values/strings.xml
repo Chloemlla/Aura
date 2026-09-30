@@ -524,6 +524,7 @@
     <string name="reports_refresh">Refresh reports</string>
     <string name="reports_admin_required_title">Admin access required</string>
     <string name="reports_admin_required_body">Report details are only available to accounts with the admin custom claim.</string>
+    <string name="reports_load_error_title">Could not load reports</string>
     <string name="reports_empty_title">No %1$s reports</string>
     <string name="reports_empty_open_body">New reports will appear here after users submit them from content detail screens.</string>
     <string name="reports_empty_closed_body">Closed reports will appear here after admins take action.</string>

@@ -70,8 +70,11 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -80,6 +83,8 @@ import javax.inject.Inject
 
 @Immutable
 data class CommunityReportsUiState(
+    val isLoading: Boolean = true,
+    val loadError: String? = null,
     val actionInFlightReportId: String? = null,
     val message: String? = null,
     val error: String? = null,
@@ -95,10 +100,18 @@ class CommunityReportsViewModel @Inject constructor(
     val isAdmin: Boolean get() = voteRepo.isAdmin
     private val _selectedStatus = MutableStateFlow(CommunityReportResolutionStatus.OPEN)
     val selectedStatus = _selectedStatus.asStateFlow()
+    private val refreshTrigger = MutableStateFlow(0)
     val reports = if (isAdmin) {
-        _selectedStatus.flatMapLatest { status ->
-            reportRepo.reports(status = status)
-        }
+        combine(_selectedStatus, refreshTrigger) { status, _ -> status }
+            .flatMapLatest { status ->
+                _state.update { it.copy(isLoading = true, loadError = null) }
+                reportRepo.reports(status = status)
+                    .onEach { _state.update { s -> s.copy(isLoading = false, loadError = null) } }
+                    .catch { e ->
+                        _state.update { s -> s.copy(isLoading = false, loadError = e.message ?: "Failed to load reports") }
+                        emit(emptyList())
+                    }
+            }
     } else {
         flowOf(emptyList())
     }
@@ -108,7 +121,7 @@ class CommunityReportsViewModel @Inject constructor(
     val state = _state.asStateFlow()
 
     fun refresh() {
-        _state.update { it.copy(message = "Report queue refreshed", error = null) }
+        refreshTrigger.update { it + 1 }
     }
 
     fun selectStatus(status: CommunityReportResolutionStatus) {
@@ -264,6 +277,39 @@ fun CommunityReportsScreen(
                         .align(Alignment.Center)
                         .padding(24.dp),
                 )
+                state.isLoading && reports.isEmpty() -> Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    CircularProgressIndicator()
+                }
+                state.loadError != null && reports.isEmpty() -> Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    ReportStatusChips(
+                        selectedStatus = selectedStatus,
+                        onSelectStatus = viewModel::selectStatus,
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                    ) {
+                        AuraStateCard(
+                            icon = Icons.Default.Report,
+                            title = stringResource(R.string.reports_load_error_title),
+                            description = state.loadError.orEmpty(),
+                            primaryAction = AuraStateAction(stringResource(R.string.common_retry), Icons.Default.Refresh, viewModel::refresh),
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .padding(24.dp),
+                        )
+                    }
+                }
                 reports.isEmpty() -> Column(
                     modifier = Modifier
                         .fillMaxSize()

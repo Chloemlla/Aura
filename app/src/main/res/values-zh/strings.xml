@@ -475,6 +475,7 @@
     <string name="reports_refresh">刷新举报</string>
     <string name="reports_admin_required_title">需要管理员权限</string>
     <string name="reports_admin_required_body">举报详情仅对具有管理员自定义声明的账户可用。</string>
+    <string name="reports_load_error_title">无法加载举报</string>
     <string name="reports_empty_title">没有 %1$s 举报</string>
     <string name="reports_empty_open_body">用户从内容详情页面提交后，新举报将显示在这里。</string>
     <string name="reports_empty_closed_body">管理员处理后，已关闭的举报将显示在这里。</string>

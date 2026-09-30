@@ -517,15 +517,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Effort: M
 
 
-- [ ] P2 — Add loading and failure states to Community Reports
-  Category: ux
-  Where: app/src/main/java/com/freevibe/ui/screens/community/CommunityReportsScreen.kt:82-86,110-112; app/src/main/java/com/freevibe/data/repository/CommunityReportRepository.kt:68-105
-  Problem: Reports has no distinct loading/error state and Refresh communicates only success. Offline or denied queries can look like a legitimate empty queue.
-  Evidence: Repository failures collapse before empty rendering and no retry card/error binds to load result.
-  Fix: Expose loading/content/empty/error with last-updated time. Preserve stale content under warning and provide Retry.
-  Acceptance: Offline and denied tests show different errors; legitimate empty says no reports; refresh updates time; content remains during recoverable failure.
-  Confidence: Verified
-  Effort: S
 
 - [ ] P2 — Make the embedded image picker fit small and enlarged displays
   Category: a11y
