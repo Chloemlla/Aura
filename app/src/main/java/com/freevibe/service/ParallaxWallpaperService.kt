@@ -91,6 +91,10 @@ class ParallaxWallpaperService : WallpaperService() {
         private var sensorRegistered = false
         private val mediaLoader = LiveWallpaperMediaLoader("aura-parallax-loader")
         private val colorPublisher = LiveWallpaperColorPublisher()
+        private var dimEnabled = false
+        private val dimming = LiveWallpaperDimming(
+            onRevealChanged = { if (visible) postDraw(0L) },
+        )
 
         private val renderContext: android.content.Context
             get() = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
@@ -117,6 +121,10 @@ class ParallaxWallpaperService : WallpaperService() {
             )
         }
 
+        private fun loadDimmingFromPrefs() {
+            dimEnabled = getPrefs().getBoolean(LIVE_WALLPAPER_DIM_ENABLED_PREF, false)
+        }
+
         private fun loadColorPublicationFromPrefs() {
             val enabled = getPrefs().getBoolean(
                 LIVE_WALLPAPER_COLORS_ENABLED_PREF,
@@ -130,6 +138,7 @@ class ParallaxWallpaperService : WallpaperService() {
 
         override fun onCreate(surfaceHolder: SurfaceHolder) {
             super.onCreate(surfaceHolder)
+            setTouchEventsEnabled(true)
             sensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
             accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
             requestSegmenterModuleInstall()
@@ -188,12 +197,18 @@ class ParallaxWallpaperService : WallpaperService() {
             receiptStore.recordVisibilityChanged(LiveWallpaperReceiptStore.ENGINE_PARALLAX, visible)
             if (visible) {
                 loadColorPublicationFromPrefs()
+                loadDimmingFromPrefs()
                 registerSensor()
                 scheduleDraw()
             } else {
                 unregisterSensor()
                 cancelDraw()
             }
+        }
+
+        override fun onTouchEvent(event: android.view.MotionEvent) {
+            super.onTouchEvent(event)
+            if (dimEnabled) dimming.onTouchEvent(event)
         }
 
         override fun onSurfaceDestroyed(holder: SurfaceHolder) {
@@ -554,6 +569,10 @@ class ParallaxWallpaperService : WallpaperService() {
                     } else if (fb != null && !fb.isRecycled) {
                         // Fallback: single image with slight parallax movement
                         canvas.drawBitmap(fb, baseX + bgOffsetX, baseY + bgOffsetY, paint)
+                    }
+                    if (dimEnabled) {
+                        dimming.tick()
+                        dimming.drawDimOverlay(canvas, canvas.width, canvas.height)
                     }
                     drawWallpaperClockOverlay(renderContext, canvas)
                 }

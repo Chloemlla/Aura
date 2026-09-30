@@ -61,6 +61,11 @@ All notable changes to Aura will be documented in this file.
   install channel, repro steps, and restart behavior. Diagnostics bundle is no
   longer required for no-launch crashes; an adb logcat fallback is documented.
 
+- **Live wallpaper dimming parity**: the dim overlay and double-tap reveal now
+  work on all three engines (video GIF path, weather, parallax). Previously only
+  the weather engine was wired; the Settings toggle was a silent no-op on the
+  other two.
+
 - **Sound detail action layout**: the action row breakpoint now derives from the
   actual container width via `BoxWithConstraints` instead of the device screen
   width. Split-screen, navigation rail, and foldable pane widths are reflected.

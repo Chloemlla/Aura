@@ -127,6 +127,10 @@ class VideoWallpaperService : WallpaperService() {
         // to be decoded to describe it. That runs here rather than inline in
         // initializePlayer, which is on the main thread.
         private val colorLoader = LiveWallpaperMediaLoader("aura-video-colors")
+        private var dimEnabled = false
+        private val dimming = LiveWallpaperDimming(
+            onRevealChanged = { if (visible) currentHolder?.let { drawGifFrame(it) } },
+        )
 
         private val renderContext: android.content.Context
             get() = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
@@ -169,6 +173,10 @@ class VideoWallpaperService : WallpaperService() {
             getRuntimePrefs().getBoolean(VIDEO_FPS_OVERLAY_PREF, false)
         private fun isAutoBatterySaverEnabled(): Boolean =
             getRuntimePrefs().getBoolean(VIDEO_AUTO_BATTERY_SAVER_PREF, true)
+
+        private fun loadDimmingFromPrefs() {
+            dimEnabled = getPrefs().getBoolean(LIVE_WALLPAPER_DIM_ENABLED_PREF, false)
+        }
 
         private fun loadColorPublicationFromPrefs() {
             val enabled = getPrefs().getBoolean(
@@ -235,6 +243,16 @@ class VideoWallpaperService : WallpaperService() {
             }
         }
 
+        override fun onCreate(surfaceHolder: SurfaceHolder) {
+            super.onCreate(surfaceHolder)
+            setTouchEventsEnabled(true)
+        }
+
+        override fun onTouchEvent(event: android.view.MotionEvent) {
+            super.onTouchEvent(event)
+            if (dimEnabled) dimming.onTouchEvent(event)
+        }
+
         override fun onSurfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
             super.onSurfaceChanged(holder, format, width, height)
         }
@@ -247,6 +265,7 @@ class VideoWallpaperService : WallpaperService() {
             reconcilePowerSavePause()
             receiptStore.recordSurfaceCreated(LiveWallpaperReceiptStore.ENGINE_VIDEO, getVideoPath())
             loadColorPublicationFromPrefs()
+            loadDimmingFromPrefs()
             initializePlayer(holder)
         }
 
@@ -269,6 +288,7 @@ class VideoWallpaperService : WallpaperService() {
             receiptStore.recordVisibilityChanged(LiveWallpaperReceiptStore.ENGINE_VIDEO, visible)
             if (visible) {
                 loadColorPublicationFromPrefs()
+                loadDimmingFromPrefs()
                 reconcilePowerSavePause()
                 startTelemetryHeartbeat()
                 val path = getVideoPath()
@@ -693,6 +713,10 @@ class VideoWallpaperService : WallpaperService() {
                 canvas.restore()
                 updateGifFpsSample(now)
                 if (isFpsOverlayEnabled()) drawFpsOverlay(canvas)
+                if (dimEnabled) {
+                    dimming.tick()
+                    dimming.drawDimOverlay(canvas, canvas.width, canvas.height)
+                }
                 drawWallpaperClockOverlay(renderContext, canvas)
             } finally {
                 try { holder.unlockCanvasAndPost(canvas) } catch (_: Exception) {}
