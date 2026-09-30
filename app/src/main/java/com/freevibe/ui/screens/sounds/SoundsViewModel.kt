@@ -12,10 +12,12 @@ import com.freevibe.data.model.CommunityUploadRights
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.ContentType
 import com.freevibe.data.model.Sound
+import com.freevibe.data.remote.tiktok.isTikTokMediaUrlUsable
 import com.freevibe.data.repository.CommunityBlockRepository
 import com.freevibe.data.repository.CommunityReportRepository
 import com.freevibe.data.repository.FavoritesRepository
 import com.freevibe.data.repository.SearchHistoryRepository
+import com.freevibe.data.repository.TikTokSoundRepository
 import com.freevibe.data.repository.UploadRepository
 import com.freevibe.data.repository.VoteRepository
 import com.freevibe.data.repository.YouTubeRepository
@@ -31,6 +33,7 @@ import com.freevibe.service.SoundUrlResolver
 import com.freevibe.service.SoundFeedCache
 import com.freevibe.service.soundFeedCacheKey
 import com.freevibe.service.SourceMetrics
+import com.freevibe.util.rethrowIfCancelled
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -50,6 +53,7 @@ import javax.inject.Inject
 class SoundsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val youtubeRepo: YouTubeRepository,
+    private val tiktokRepo: TikTokSoundRepository,
     private val favoritesRepo: FavoritesRepository,
     private val soundApplier: SoundApplier,
     private val downloadManager: DownloadManager,
@@ -136,11 +140,8 @@ class SoundsViewModel @Inject constructor(
         previewReadyIds = _previewReadyIds,
         playbackProgress = _playbackProgress,
         scope = viewModelScope,
-        resolveYouTubePreview = { sound ->
-            val videoId = sound.youtubeVideoId() ?: return@SoundPlaybackActions null
-            youtubeRepo.getAudioPreviewUrl(videoId)
-        },
-        shouldRefreshYouTubePreview = ::shouldRefreshYouTubePreview,
+        resolveRemotePreview = ::resolveRemotePreview,
+        shouldRefreshRemotePreview = ::shouldRefreshRemotePreview,
         youtubeDisabledMessage = ::youtubeDisabledMessage,
         persistFeed = { snapshot ->
             viewModelScope.launch(Dispatchers.IO) {
@@ -156,8 +157,8 @@ class SoundsViewModel @Inject constructor(
     internal val previewWarmup = SoundPreviewWarmup(
         scope = viewModelScope,
         permits = previewWorkPermits,
-        needsResolve = { sound -> sound.source == ContentSource.YOUTUBE && shouldRefreshYouTubePreview(sound) },
-        resolve = { sound -> sound.youtubeVideoId()?.let { youtubeRepo.getAudioPreviewUrl(it) } },
+        needsResolve = ::shouldRefreshRemotePreview,
+        resolve = ::resolveRemotePreview,
         onResolved = { sound, url -> playback.cacheResolvedPreview(sound, url) },
     )
 
@@ -190,6 +191,7 @@ class SoundsViewModel @Inject constructor(
     internal val browseQueries: SoundBrowseQueries = SoundBrowseQueries(
         prefs = prefs,
         bundledContent = bundledContent,
+        tiktokRingtones = tiktokRepo::ringtones,
     )
 
     internal val browse: SoundBrowseViewModel = SoundBrowseViewModel(
@@ -420,6 +422,23 @@ class SoundsViewModel @Inject constructor(
 
     private fun nextFilterKey() = _state.value.filterKey + 1
     private fun shouldRefreshYouTubePreview(sound: Sound): Boolean = youtubeActions.shouldRefreshYouTubePreview(sound)
+
+    /** YouTube previews need a stream resolve; TikTok ones need a fresh signed link once theirs expires. */
+    private fun shouldRefreshRemotePreview(sound: Sound): Boolean = when (sound.source) {
+        ContentSource.YOUTUBE -> shouldRefreshYouTubePreview(sound)
+        ContentSource.TIKTOK -> !isTikTokMediaUrlUsable(sound.previewUrl, System.currentTimeMillis() / 1000)
+        else -> false
+    }
+
+    private suspend fun resolveRemotePreview(sound: Sound): String? = when (sound.source) {
+        ContentSource.TIKTOK -> try {
+            tiktokRepo.playableMediaUrl(sound)
+        } catch (e: Exception) {
+            e.rethrowIfCancelled()
+            null
+        }
+        else -> sound.youtubeVideoId()?.let { youtubeRepo.getAudioPreviewUrl(it) }
+    }
     private fun cancelYouTubeLoad() = youtubeActions.cancel()
     private fun loadDefaultYouTube(isRefresh: Boolean) = youtubeActions.loadDefaultYouTube(isRefresh)
     private fun executeYouTubeSearch(query: String) = youtubeActions.executeYouTubeSearch(query)

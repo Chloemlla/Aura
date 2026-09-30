@@ -75,6 +75,25 @@
       "endpointIds": ["youtube-newpipe", "youtube-pot-provider"]
     },
     {
+      "id": "TIKTOK",
+      "displayName": "TikTok",
+      "publicUrl": "https://www.tiktok.com",
+      "publicSummary": "Ringtone clips from TikTok ringtone creators, saved as sound only, leading the Ringtones tab in GitHub and Obtainium builds.",
+      "mediaTypes": ["SOUND"],
+      "lifecycle": "ACTIVE",
+      "defaultPriority": {"SOUND": 5},
+      "credentialNeed": "NONE",
+      "buildFlavors": ["FULL", "FOSS"],
+      "releaseChannels": ["GITHUB"],
+      "permittedActions": ["BROWSE", "PREVIEW", "FAVORITE", "DOWNLOAD", "APPLY", "SHARE", "OPEN_SOURCE"],
+      "permission": "NONE",
+      "health": "NETWORKED",
+      "requiresAttribution": true,
+      "enabledByDefault": true,
+      "killSwitchKey": null,
+      "endpointIds": ["tiktok-creator-embed", "tiktok-media-cdn"]
+    },
+    {
       "id": "WALLHAVEN",
       "displayName": "Wallhaven",
       "publicUrl": "https://wallhaven.cc",

@@ -827,6 +827,7 @@ internal fun favoritesBatchProgressSummary(
 private fun sourceDisplayLabel(source: String): String =
     when (source.uppercase(java.util.Locale.ROOT)) {
         "YOUTUBE" -> "YouTube"
+        "TIKTOK" -> "TikTok"
         "CCMIXTER" -> "ccMixter"
         "SOUNDCLOUD" -> "SoundCloud"
         "BUNDLED" -> "Aura Originals"

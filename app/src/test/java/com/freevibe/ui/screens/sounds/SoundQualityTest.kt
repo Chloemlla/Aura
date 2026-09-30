@@ -7,6 +7,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 
 class SoundQualityTest {
@@ -240,6 +241,31 @@ class SoundQualityTest {
             if (isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE)) "youtube_best" else "bundled_1",
             ranked.first().id,
         )
+    }
+
+    @Test
+    fun `tiktok creator clips lead ringtones in the order they arrived`() {
+        assumeTrue(isProviderAvailableInCurrentArtifact(ContentSource.TIKTOK))
+        val sounds = listOf(
+            testSound("bundled_1", ContentSource.BUNDLED, "Soft Original Chime", 12.0, listOf("chime", "clean"), "CC0"),
+            // Remix and viral terms sink a clip in the keyword score; lead rows must not care.
+            testSound("tt_1", ContentSource.TIKTOK, "Reflections Ultra Remix", 17.0, listOf("viral"), "TikTok"),
+            testSound("tt_2", ContentSource.TIKTOK, "Nokia Banger", 24.0, license = "TikTok"),
+            testSound("youtube_best", ContentSource.YOUTUBE, "Crystal YouTube Chime", 12.0, listOf("chime", "clean")),
+        )
+
+        val ranked = rankSounds(sounds, SoundTab.RINGTONES, SoundQualityFilter.BEST)
+
+        assertEquals(listOf("tt_1", "tt_2"), ranked.take(2).map { it.id })
+        assertEquals(sounds.size, ranked.size)
+    }
+
+    @Test
+    fun `tiktok clips are not pinned outside the ringtones tab`() {
+        assertEquals(setOf(ContentSource.TIKTOK), leadSoundSources(SoundTab.RINGTONES))
+        SoundTab.entries.filterNot { it == SoundTab.RINGTONES }.forEach { tab ->
+            assertTrue("$tab pins a source", leadSoundSources(tab).isEmpty())
+        }
     }
 
     private fun testSound(

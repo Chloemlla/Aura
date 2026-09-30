@@ -530,6 +530,7 @@ fun SourceBadge(source: String, modifier: Modifier = Modifier) {
         "AUDIUS" -> Color(0xFF00C2A8) to "Audius"
         "CCMIXTER" -> Color(0xFF8E24AA) to "ccMixter"
         "YOUTUBE" -> Color(0xFFFF0000) to "YouTube"
+        "TIKTOK" -> Color(0xFF00A3AD) to "TikTok"
         "PEXELS" -> Color(0xFF05A081) to "Pexels"
         "PIXABAY" -> Color(0xFF00AB6C) to "Pixabay"
         "KLIPY" -> Color(0xFFE040FB) to "Klipy"

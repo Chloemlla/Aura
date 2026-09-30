@@ -4,14 +4,6 @@ Actionable work only. Historical and completed roadmap material is archived in C
 
 ## Research-Driven Additions
 
-### P1
-
-- [ ] P1 — Add TikTok as a ringtone audio source via audio-only extraction
-  Why: TikTok creators publish ringtone-length clips (e.g. @ringtonesforiphone) that are ideal for preview and download as tones. Aura already extracts audio from YouTube via yt-dlp/NewPipe; TikTok is the same pattern with a different host. Making it the top source of ringtone downloads fills the gap where Aura's sound section has limited fresh content.
-  Touches: `YouTubeRepository.kt` or a new `TikTokSoundRepository.kt`, `SoundBrowseQueries.kt`, `SoundBrowseViewModel.kt`, `ContentSource` enum, `ProviderDisclosure.kt`, `ProviderNetworkPolicy.kt`, `network_endpoint_inventory_check.py`, sound browse UI, string resources, tests.
-  Acceptance: users can browse a TikTok creator's videos, preview audio, and download the audio track as a ringtone/notification/alarm; extraction pulls audio only (no video); attribution is preserved; the source respects metered/data-saver posture; the endpoint is declared in the inventory and disclosure layer.
-  Complexity: L
-
 ### P2
 
 - [ ] P2 — Add named shuffle pools for ringtone, notification, and alarm sounds

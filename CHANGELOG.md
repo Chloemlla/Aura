@@ -79,6 +79,17 @@ All notable changes to Aura will be documented in this file.
   Switching tab or query cancels the old feed's work, and resolving and
   prebuffering share three slots.
 
+- **TikTok ringtones lead the Ringtones tab**: the latest clips from the
+  @ringtonesforiphone TikTok creator now sit at the top of Ringtones, most
+  played first, in GitHub and Obtainium builds. Aura keeps only the sound.
+  Previews play with the video track switched off, and applying or downloading
+  copies the clip's AAC track into an .m4a without re-encoding, then deletes
+  the video. Every clip keeps the creator's name and a link to the original
+  video. Stored links expire after a couple of days, so an older favorite
+  fetches a fresh one on its own. Background traffic is one embed page every
+  30 minutes plus a 1 KB read per clip for its length, and Play builds never
+  contact TikTok.
+
 - **Firebase CLI upgraded to 15.31.0**: root audit findings reduced from 15 to
   10 (non-breaking fixes applied). Functions audit is now zero. The remaining
   root findings are transitive deployment-tool dependencies.

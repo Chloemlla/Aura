@@ -40,6 +40,7 @@ class SoundUrlResolverTest {
         val resolver = SoundUrlResolver(
             okHttpClient = mockk<OkHttpClient>(relaxed = true),
             youtubeRepo = youtubeRepo,
+            tiktokAudioExtractor = mockk(relaxed = true),
         )
 
         val resolved = resolver.resolve(
@@ -61,6 +62,7 @@ class SoundUrlResolverTest {
         val resolver = SoundUrlResolver(
             okHttpClient = mockk(relaxed = true),
             youtubeRepo = mockk(relaxed = true),
+            tiktokAudioExtractor = mockk(relaxed = true),
         )
         val locator = "rawresource:///12345"
 
@@ -76,5 +78,31 @@ class SoundUrlResolverTest {
         )
 
         assertEquals(locator, resolved)
+    }
+
+    @Test
+    fun `tiktok sounds resolve to the extracted sound track, never the video link`() = runTest(dispatcher) {
+        val extractor = mockk<TikTokAudioExtractor>()
+        val extracted = "file:///data/user/0/com.freevibe/cache/tiktok-audio/tiktok_7688705749270252814.m4a"
+        coEvery { extractor.extract(any()) } returns extracted
+        val resolver = SoundUrlResolver(
+            okHttpClient = mockk(relaxed = true),
+            youtubeRepo = mockk(relaxed = true),
+            tiktokAudioExtractor = extractor,
+        )
+        val video = "https://v16m.tiktokcdn-us.com/2efdb7eb5474a4275cb2492f10c5c70a/6ac03799/video/tos/clip/"
+        val sound = Sound(
+            id = "tt_7688705749270252814",
+            source = ContentSource.TIKTOK,
+            name = "Nokia Banger",
+            previewUrl = video,
+            downloadUrl = video,
+            license = "TikTok",
+        )
+
+        assertEquals(extracted, resolver.resolve(sound))
+
+        coEvery { extractor.extract(any()) } returns null
+        assertEquals(null, resolver.resolve(sound))
     }
 }

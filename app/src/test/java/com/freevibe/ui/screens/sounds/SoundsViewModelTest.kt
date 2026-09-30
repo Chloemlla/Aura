@@ -24,6 +24,7 @@ import com.freevibe.data.repository.FreesoundRepository
 import com.freevibe.data.repository.FreesoundV2Repository
 import com.freevibe.data.repository.SearchHistoryRepository
 import com.freevibe.data.repository.SoundCloudRepository
+import com.freevibe.data.repository.TikTokSoundRepository
 import com.freevibe.data.repository.UploadRepository
 import com.freevibe.data.repository.VoteRepository
 import com.freevibe.data.repository.YouTubeRepository
@@ -218,6 +219,118 @@ class SoundsViewModelTest {
         assertFalse(state.hasMore)
         coVerify(exactly = 0) { youtubeRepo.searchSounds(any(), any(), any(), any()) }
         coVerify(exactly = 0) { youtubeRepo.getAudioPreviewUrl(any()) }
+    }
+
+    @Test
+    fun `tiktok creator clips lead the ringtones tab and stay off other tabs`() = runTest(dispatcher) {
+        assumeTrue(isProviderAvailableInCurrentArtifact(ContentSource.TIKTOK))
+        val youtubeRepo = mockk<YouTubeRepository>()
+        val freesoundRepo = mockk<FreesoundRepository>()
+        val freesoundV2Repo = mockk<FreesoundV2Repository>()
+        val audiusRepo = mockk<AudiusRepository>()
+        val ccMixterRepo = mockk<CcMixterRepository>()
+        val soundCloudRepo = mockk<SoundCloudRepository>()
+        stubCommonDependencies(youtubeRepo, freesoundRepo, freesoundV2Repo, audiusRepo, ccMixterRepo, soundCloudRepo)
+        coEvery { youtubeRepo.searchSounds(any(), any(), any(), any()) } returns SearchResult(
+            items = listOf(testSound("yt_abc12345678", ContentSource.YOUTUBE, "Crystal Chime")),
+            totalCount = 1,
+            currentPage = 1,
+            hasMore = false,
+        )
+        // "new" is on the YouTube spam blocklist; a creator clip must survive it.
+        val tiktok = listOf(
+            tiktokSound("7688705749270252814", "Nokia Banger"),
+            tiktokSound("7689085301091781901", "Sprinkles Remix | new iphone ringtone"),
+        )
+
+        val viewModel = createViewModel(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+            bundledRingtones = listOf(testSound("bundled_ring", ContentSource.BUNDLED, "Bundled Ring")),
+            tiktokRingtones = tiktok,
+        )
+        advanceUntilIdle()
+
+        val ringtoneIds = viewModel.state.value.sounds.map { it.id }
+        assertEquals(listOf("tt_7688705749270252814", "tt_7689085301091781901"), ringtoneIds.take(2))
+        assertTrue(ringtoneIds.contains("bundled_ring"))
+
+        viewModel.selectTab(SoundTab.NOTIFICATIONS)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.sounds.none { it.source == ContentSource.TIKTOK })
+    }
+
+    @Test
+    fun `tiktok clips stay in ringtones when youtube is disabled`() = runTest(dispatcher) {
+        assumeTrue(isProviderAvailableInCurrentArtifact(ContentSource.TIKTOK))
+        val youtubeRepo = mockk<YouTubeRepository>()
+        val freesoundRepo = mockk<FreesoundRepository>()
+        val freesoundV2Repo = mockk<FreesoundV2Repository>()
+        val audiusRepo = mockk<AudiusRepository>()
+        val ccMixterRepo = mockk<CcMixterRepository>()
+        val soundCloudRepo = mockk<SoundCloudRepository>()
+        stubCommonDependencies(youtubeRepo, freesoundRepo, freesoundV2Repo, audiusRepo, ccMixterRepo, soundCloudRepo)
+
+        val viewModel = createViewModel(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+            youtubeProviderEnabled = false,
+            bundledRingtones = listOf(testSound("bundled_ring", ContentSource.BUNDLED, "Bundled Ring")),
+            tiktokRingtones = listOf(tiktokSound("7688705749270252814", "Nokia Banger")),
+        )
+        advanceUntilIdle()
+
+        assertEquals(listOf("tt_7688705749270252814", "bundled_ring"), viewModel.state.value.sounds.map { it.id })
+        coVerify(exactly = 0) { youtubeRepo.searchSounds(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `an expired tiktok preview link is refreshed before playback`() = runTest(dispatcher) {
+        assumeTrue(isProviderAvailableInCurrentArtifact(ContentSource.TIKTOK))
+        val youtubeRepo = mockk<YouTubeRepository>()
+        val freesoundRepo = mockk<FreesoundRepository>()
+        val freesoundV2Repo = mockk<FreesoundV2Repository>()
+        val audiusRepo = mockk<AudiusRepository>()
+        val ccMixterRepo = mockk<CcMixterRepository>()
+        val soundCloudRepo = mockk<SoundCloudRepository>()
+        stubCommonDependencies(youtubeRepo, freesoundRepo, freesoundV2Repo, audiusRepo, ccMixterRepo, soundCloudRepo)
+        val refreshed = "https://v16m.tiktokcdn-us.com/ffffffffffffffffffffffffffffffff/7fffffff/video/tos/new/"
+        val tiktokRepo = mockk<TikTokSoundRepository>()
+        coEvery { tiktokRepo.ringtones(any()) } returns emptyList()
+        coEvery { tiktokRepo.playableMediaUrl(any(), any()) } returns refreshed
+        val playbackManager = mockk<AudioPlaybackManager>(relaxed = true).also {
+            every { it.currentSoundId } returns MutableStateFlow(null)
+            every { it.currentPosition } returns MutableStateFlow(0L)
+            every { it.duration } returns MutableStateFlow(0L)
+            every { it.isPlaying } returns MutableStateFlow(false)
+        }
+        val viewModel = createViewModel(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+            audioPlaybackManagerOverride = playbackManager,
+            tiktokRepoOverride = tiktokRepo,
+        )
+        advanceUntilIdle()
+        val expired = tiktokSound("7688705749270252814", "Nokia Banger", expiresAtSec = 1_000_000_000L)
+
+        viewModel.togglePlayback(expired)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { tiktokRepo.playableMediaUrl(match { it.id == expired.id }, any()) }
+        verify { playbackManager.play(match { it.id == expired.id }, refreshed, any()) }
     }
 
     @Test
@@ -1561,6 +1674,8 @@ class SoundsViewModelTest {
         uploadRepoOverride: UploadRepository? = null,
         youtubeProviderEnabled: Boolean = isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE),
         communityProviderEnabled: Boolean = true,
+        tiktokRingtones: List<Sound> = emptyList(),
+        tiktokRepoOverride: TikTokSoundRepository? = null,
     ): SoundsViewModel {
         val prefs = mockk<PreferencesManager>()
         every { prefs.autoPreviewSounds } returns flowOf(true)
@@ -1603,9 +1718,14 @@ class SoundsViewModelTest {
             coEvery { it.getLatestByIdAndType(any(), any()) } returns null
         }
 
+        val tiktokRepo = tiktokRepoOverride ?: mockk<TikTokSoundRepository>().also {
+            coEvery { it.ringtones(any()) } returns tiktokRingtones
+        }
+
         return SoundsViewModel(
             context = localizedFeedbackContext(),
             youtubeRepo = youtubeRepo,
+            tiktokRepo = tiktokRepo,
             favoritesRepo = favoritesRepo,
             soundApplier = mockk<SoundApplier>(relaxed = true),
             downloadManager = downloadManagerOverride ?: mockk<DownloadManager>(relaxed = true),
@@ -1667,6 +1787,26 @@ class SoundsViewModelTest {
         assumeTrue(
             "YouTube is intentionally excluded from this artifact",
             isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE),
+        )
+    }
+
+    private fun tiktokSound(
+        videoId: String,
+        name: String,
+        expiresAtSec: Long = System.currentTimeMillis() / 1000 + 86_400,
+    ): Sound {
+        val url = "https://v16m.tiktokcdn-us.com/2efdb7eb5474a4275cb2492f10c5c70a/" +
+            "${expiresAtSec.toString(16).padStart(8, '0')}/video/tos/$videoId/"
+        return Sound(
+            id = "tt_$videoId",
+            source = ContentSource.TIKTOK,
+            name = name,
+            previewUrl = url,
+            downloadUrl = url,
+            duration = 20.0,
+            license = "TikTok",
+            uploaderName = "Ringtones for iPhone",
+            sourcePageUrl = "https://www.tiktok.com/@ringtonesforiphone/video/$videoId",
         )
     }
 

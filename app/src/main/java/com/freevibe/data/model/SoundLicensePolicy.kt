@@ -100,6 +100,10 @@ fun Sound.soundLicenseCapabilities(): SoundLicenseCapabilities {
             disable(actions, SoundAction.EDIT, "YouTube sounds cannot be edited in Aura.")
             disable(actions, SoundAction.BUNDLE, "YouTube sounds cannot be included in Aura Originals.")
         }
+        ContentSource.TIKTOK -> {
+            disable(actions, SoundAction.EDIT, "TikTok sounds cannot be edited in Aura.")
+            disable(actions, SoundAction.BUNDLE, "TikTok sounds cannot be included in Aura Originals.")
+        }
         ContentSource.SOUNDCLOUD -> {
             disable(actions, SoundAction.APPLY, "SoundCloud sounds are link-only until source permissions are reviewed.")
             disable(actions, SoundAction.DOWNLOAD, "SoundCloud downloads are disabled until source permissions are reviewed.")
@@ -161,6 +165,7 @@ fun Sound.soundActionMessage(action: SoundAction): String =
 fun normalizeSoundLicense(source: ContentSource, license: String): String {
     val raw = license.trim()
     if (source == ContentSource.YOUTUBE) return "YouTube"
+    if (source == ContentSource.TIKTOK) return "TikTok"
     if (source == ContentSource.SOUNDCLOUD && raw.isBlank()) return "SoundCloud"
     if (source == ContentSource.COMMUNITY && raw.isBlank()) return "User Upload"
     if (source == ContentSource.LOCAL && raw.isBlank()) return "Local User Content"
@@ -192,6 +197,7 @@ private val REMOTE_SOUND_SOURCES = setOf(
     ContentSource.AUDIUS,
     ContentSource.CCMIXTER,
     ContentSource.YOUTUBE,
+    ContentSource.TIKTOK,
     ContentSource.SOUNDCLOUD,
     ContentSource.COMMUNITY,
     ContentSource.BUNDLED,

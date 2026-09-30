@@ -36,8 +36,9 @@ internal class SoundPlaybackActions(
     private val previewReadyIds: MutableStateFlow<Set<String>>,
     private val playbackProgress: MutableStateFlow<Float>,
     private val scope: CoroutineScope,
-    private val resolveYouTubePreview: suspend (Sound) -> String?,
-    private val shouldRefreshYouTubePreview: (Sound) -> Boolean,
+    /** Stream resolve for YouTube, fresh signed link for an expired TikTok clip. */
+    private val resolveRemotePreview: suspend (Sound) -> String?,
+    private val shouldRefreshRemotePreview: (Sound) -> Boolean,
     private val youtubeDisabledMessage: () -> String,
     private val persistFeed: (SoundsUiState) -> Unit = {},
     private val previewWorkPermits: Semaphore = Semaphore(PREVIEW_WORK_CONCURRENCY),
@@ -60,10 +61,10 @@ internal class SoundPlaybackActions(
             stopPlayback()
         } else if (soundKey == state.value.resolvingId) {
             state.update { it.copy(resolvingId = null) }
-        } else if (shouldRefreshYouTubePreview(sound)) {
+        } else if (shouldRefreshRemotePreview(sound)) {
             scope.launch {
                 state.update { it.copy(resolvingId = soundKey) }
-                val url = resolveYouTubePreview(sound)
+                val url = resolveRemotePreview(sound)
                 if (state.value.resolvingId != soundKey) return@launch
                 if (url != null) {
                     val updatedSound = cacheResolvedPreview(sound, url)

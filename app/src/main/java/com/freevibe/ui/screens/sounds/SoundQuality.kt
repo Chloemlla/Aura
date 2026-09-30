@@ -27,11 +27,20 @@ internal fun rankSounds(
     val rankedBase = deduped.ifEmpty {
         dedupeSounds(availableSounds, tab, SoundQualityFilter.BEST)
     }
+    // Lead sources keep the order they arrived in (a creator's most played first)
+    // and sit above the mixed feed instead of competing with its keyword scores.
+    val leadSources = leadSoundSources(tab)
+    val lead = rankedBase.filter { it.source in leadSources }
     val scored = rankedBase
+        .filterNot { it.source in leadSources }
         .map { sound -> sound to soundQualityScore(sound, tab, filter) }
         .sortedByDescending { it.second }
-    return mixSoundsByProviderPriority(applySoundQualityFloor(scored).map { it.first })
+    return lead + mixSoundsByProviderPriority(applySoundQualityFloor(scored).map { it.first })
 }
+
+/** Sources pinned to the top of a tab. TikTok's ringtone creators lead Ringtones. */
+internal fun leadSoundSources(tab: SoundTab): Set<ContentSource> =
+    if (tab == SoundTab.RINGTONES) setOf(ContentSource.TIKTOK) else emptySet()
 
 internal fun soundQualityScore(
     sound: Sound,
@@ -123,6 +132,7 @@ internal fun soundFingerprint(sound: Sound): String {
 internal fun soundSourceLabel(source: ContentSource): String = when (source) {
     ContentSource.BUNDLED -> "Aura Originals"
     ContentSource.YOUTUBE -> "YouTube"
+    ContentSource.TIKTOK -> "TikTok"
     ContentSource.FREESOUND -> "Freesound"
     ContentSource.JAMENDO -> "Jamendo"
     ContentSource.WIKIMEDIA -> "Wikimedia"

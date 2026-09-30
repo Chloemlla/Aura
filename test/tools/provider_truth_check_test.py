@@ -64,7 +64,7 @@ class ProviderTruthCheckTest(unittest.TestCase):
         result = validate_provider_truth(REPO_ROOT, MANIFEST)
 
         self.assertEqual("ok", result["status"])
-        self.assertEqual(22, result["providerCount"])
+        self.assertEqual(23, result["providerCount"])
         self.assertEqual(8, result["legacyProviderCount"])
         self.assertEqual(4, result["publicSurfaceCount"])
         self.assertEqual(25, result["runtimeSurfaceCount"])

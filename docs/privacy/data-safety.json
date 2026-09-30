@@ -335,6 +335,24 @@
       "deletionPath": "Remove generated favorites, clear generated files, clear the key, or clear app data."
     },
     {
+      "endpointId": "tiktok-creator-embed",
+      "dataTypes": ["Creator handles", "Video IDs", "Provider response metadata"],
+      "collectionStatus": "featureDependentCollection",
+      "sharingStatus": "sharedWithSelectedProviders",
+      "userControl": "Opening the Ringtones tab loads the creator feed; GitHub and Obtainium builds only.",
+      "retention": "Creator feed metadata is held in memory for 30 minutes and can be kept by the Ringtones feed cache.",
+      "deletionPath": "Clear caches, remove favorites, or clear app data."
+    },
+    {
+      "endpointId": "tiktok-media-cdn",
+      "dataTypes": ["Media requests", "Provider response metadata"],
+      "collectionStatus": "featureDependentCollection",
+      "sharingStatus": "sharedWithSelectedProviders",
+      "userControl": "Clips are fetched for duration labels, previews the user starts, and sounds the user applies or downloads.",
+      "retention": "Only the extracted .m4a sound track stays in app cache, capped at 12 files; the video is deleted after extraction.",
+      "deletionPath": "Remove downloads/favorites, clear caches, or clear app data."
+    },
+    {
       "endpointId": "youtube-newpipe",
       "dataTypes": ["Video IDs", "Provider response metadata"],
       "collectionStatus": "featureDependentCollection",

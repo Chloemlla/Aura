@@ -271,7 +271,7 @@ internal class SoundBrowseViewModel(
             }
 
             if (!queries.isYouTubeProviderEnabled()) {
-                handleYouTubeDisabledFeed(loadTab, loadMore)
+                handleYouTubeDisabledFeed(loadTab, loadMore, isRefresh)
                 return@launch
             }
 
@@ -290,7 +290,8 @@ internal class SoundBrowseViewModel(
 
             fun addUnique(sound: Sound): Boolean {
                 if (sound.source !in ACTIVE_SOUND_SOURCES) return false
-                if (titleBlocklist.containsMatchIn(sound.name)) return false
+                // The blocklist screens YouTube search spam; curated creator clips skip it.
+                if (sound.source != ContentSource.TIKTOK && titleBlocklist.containsMatchIn(sound.name)) return false
                 val fingerprint = soundFingerprint(sound)
                 return if (seenKeys.add(sound.stableKey()) && seenFingerprints.add(fingerprint)) {
                     synchronized(resultLock) { allResults.add(sound) }
@@ -335,6 +336,17 @@ internal class SoundBrowseViewModel(
                 if (allResults.isNotEmpty()) flushToUi()
 
                 supervisorScope {
+                    launch {
+                        try {
+                            var added = false
+                            queries.tiktokSoundsFor(loadTab, forceRefresh = isRefresh)
+                                .forEach { if (addUnique(it)) added = true }
+                            if (added) flushToUi()
+                        } catch (e: Exception) {
+                            e.rethrowIfCancelled()
+                            firstFailure.compareAndSet(null, e)
+                        }
+                    }
                     if (querySet.ytQueries.isNotEmpty()) {
                         val blocked = queries.blockedWords()
                         querySet.ytQueries.forEach { ytQuery ->
@@ -414,13 +426,20 @@ internal class SoundBrowseViewModel(
         }
     }
 
-    private suspend fun handleYouTubeDisabledFeed(loadTab: SoundTab, loadMore: Boolean) {
+    private suspend fun handleYouTubeDisabledFeed(loadTab: SoundTab, loadMore: Boolean, isRefresh: Boolean) {
         if (loadMore) {
             state.update { it.copy(isLoadingMore = false, hasMore = false) }
             return
         }
+        // TikTok is its own provider, so switching YouTube off keeps the creator clips.
+        val tiktokSounds = try {
+            queries.tiktokSoundsFor(loadTab, forceRefresh = isRefresh)
+        } catch (e: Exception) {
+            e.rethrowIfCancelled()
+            emptyList()
+        }
         val fallbackSounds = rankSounds(
-            sounds = queries.bundledSoundsFor(loadTab, state.value.query),
+            sounds = queries.bundledSoundsFor(loadTab, state.value.query) + tiktokSounds,
             tab = loadTab,
             filter = state.value.qualityFilter,
         )
@@ -467,6 +486,7 @@ internal class SoundBrowseViewModel(
         const val SOURCE_COMMUNITY = "community"
         val ACTIVE_SOUND_SOURCES = setOf(
             ContentSource.YOUTUBE,
+            ContentSource.TIKTOK,
             ContentSource.BUNDLED,
         )
     }
