@@ -432,6 +432,7 @@ dependencies {
     add("fullImplementation", libs.firebase.functions)
     add("fullImplementation", libs.firebase.appcheck.playintegrity)
     debugImplementation(libs.firebase.appcheck.debug)
+    debugImplementation(libs.leakcanary.android)
 
     // NewPipe Extractor (YouTube search without API key)
     // PIN: NewPipe ships YouTube-extractor patches monthly. Bumping versions can

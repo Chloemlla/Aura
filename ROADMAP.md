@@ -97,14 +97,6 @@ Actionable work only. Historical and completed roadmap material is archived in C
   Acceptance: an opt-in check compares the installed versionCode against the newest published Release, links to it, and shows the release notes; it is off by default, respects data-saver and metered-network posture, never auto-downloads or auto-installs, and is declared in the endpoint inventory and the data-safety doc; a test covers no-release, same-version, newer-version, and network-failure.
   Complexity: S
 
-- [ ] P2 — Add StrictMode and LeakCanary to debug builds
-  Why: the two recurring defect classes in this repo's history are main-thread preference and disk reads, and orphaned bitmaps and media players — precisely the two things these tools catch automatically, and neither is present. The `runBlocking` DataStore read on the main thread and the editor bitmap orphaning both reached shipped code and were found by reading, not by tooling.
-  Evidence: no `StrictMode` and no `leakcanary` anywhere in `app/src/main/java`, `app/build.gradle.kts`, or `gradle/libs.versions.toml`; the tracked editor-bitmap and `RotationTriggerService.kt:61-72` items; `SoundEditorViewModel.kt:520-532` nests six empty catches around MediaPlayer teardown.
-  Touches: `FreeVibeApp.kt`, `app/build.gradle.kts`, `gradle/libs.versions.toml`, `gradle/verification-metadata.xml`.
-  Acceptance: debug builds install a thread policy (disk and network reads/writes) and a VM policy (leaked closables, activity leaks) that log rather than crash, and LeakCanary is a `debugImplementation` only; release and FOSS release artifacts contain neither, asserted by the APK scan; the existing known violations are enumerated in `CLAUDE.md` so new ones are distinguishable.
-  Complexity: S
-
-  Note 2026-09-04: add `detectImplicitUriPermissionGrant()` to the VM policy while wiring this. Android 18 stops auto-granting URI permissions for `ACTION_SEND`, `ACTION_SEND_MULTIPLE`, and `ACTION_IMAGE_CAPTURE`, and Android 17 ships the detector specifically so apps can find the call sites early (https://developer.android.com/about/versions/17/behavior-changes-all). Aura is currently compliant by accident rather than by rule: every `ACTION_SEND` outside `CollectionExporter.kt:130-138` sends `text/plain` and no content URI, so nothing breaks today, but the queued "share the media file" item introduces exactly the pattern the change targets. Having the detector already on turns that from a future regression into a build-time signal.
 
 - [ ] P2 — Play more than one clip in the video live wallpaper
   Why: `VideoWallpaperService` plays exactly one video. A playlist with per-clip framing is the top-requested capability in the video-wallpaper category, and the whole rotation machinery Aura already owns — scheduler, day/night, collections — has no video equivalent.

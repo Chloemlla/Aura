@@ -99,6 +99,7 @@ class FreeVibeApp : Application(), Configuration.Provider, SingletonImageLoader.
 
     override fun onCreate() {
         super.onCreate()
+        if (BuildConfig.DEBUG) installStrictMode()
         setupCrashLogging()
         installAppCheck()
         NotificationChannels.createAll(this)
@@ -109,6 +110,24 @@ class FreeVibeApp : Application(), Configuration.Provider, SingletonImageLoader.
         enqueueAuraOriginalsDownload()
         publishWidgetPreview()
         reconcileRotationTriggers()
+    }
+
+    private fun installStrictMode() {
+        android.os.StrictMode.setThreadPolicy(
+            android.os.StrictMode.ThreadPolicy.Builder()
+                .detectDiskReads()
+                .detectDiskWrites()
+                .detectNetwork()
+                .penaltyLog()
+                .build(),
+        )
+        android.os.StrictMode.setVmPolicy(
+            android.os.StrictMode.VmPolicy.Builder()
+                .detectLeakedClosableObjects()
+                .detectActivityLeaks()
+                .penaltyLog()
+                .build(),
+        )
     }
 
     private fun installAppCheck() {

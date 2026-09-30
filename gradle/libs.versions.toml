@@ -28,6 +28,7 @@ activity-compose = "1.9.3"
 serialization = "1.7.3"
 moshi = "1.15.2"
 zxing = "3.5.4"
+leakcanary = "2.14"
 junit4 = "4.13.2"
 coroutines-test = "1.11.0"
 turbine = "1.2.0"
@@ -142,6 +143,7 @@ benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchmark-macro
 profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
 firebase-appcheck-playintegrity = { group = "com.google.firebase", name = "firebase-appcheck-playintegrity" }
 firebase-appcheck-debug = { group = "com.google.firebase", name = "firebase-appcheck-debug" }
+leakcanary-android = { group = "com.squareup.leakcanary", name = "leakcanary-android", version.ref = "leakcanary" }
 firebase-functions = { group = "com.google.firebase", name = "firebase-functions" }
 
 [plugins]
