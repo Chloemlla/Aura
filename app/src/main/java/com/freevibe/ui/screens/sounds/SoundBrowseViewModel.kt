@@ -19,7 +19,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
-import kotlinx.coroutines.sync.Semaphore
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
 
@@ -39,11 +38,10 @@ internal class SoundBrowseViewModel(
     private val executeYouTubeSearch: (String) -> Unit,
     private val cancelYouTubeLoad: () -> Unit,
     private val schedulePreviewPrebuffer: (List<Sound>) -> Unit,
-    private val cacheResolvedPreview: (Sound, String) -> Sound,
+    private val requestPreviewWindow: (List<Sound>) -> Unit,
     private val soundFeedCache: SoundFeedCache,
 ) {
     private var loadJob: Job? = null
-    private val ytResolveSemaphore = Semaphore(4)
     private val titleBlocklist = Regex(
         "hindi|telugu|pack|trending|popular|\\bnew\\b|\\btop\\b|\\bbest\\b|timer|countdown|quiz|comparison|tutorial|how to|turn on|turn off|notification spam",
         RegexOption.IGNORE_CASE,
@@ -350,23 +348,8 @@ internal class SoundBrowseViewModel(
                                     )
                                     var added = false
                                     result.items.forEach { if (addUnique(it)) added = true }
+                                    // Previews resolve from the list's visible window, not per query.
                                     if (added) flushToUi()
-
-                                    result.items.take(PREVIEW_RESOLVE_COUNT_PER_QUERY).forEach { yt ->
-                                        launch {
-                                            ytResolveSemaphore.acquire()
-                                            try {
-                                                youtubeRepo.getAudioPreviewUrl(yt.id.removePrefix("yt_"))?.let { url ->
-                                                    currentCoroutineContext().ensureActive()
-                                                    cacheResolvedPreview(yt, url)
-                                                }
-                                            } catch (e: Exception) {
-                                                e.rethrowIfCancelled()
-                                            } finally {
-                                                ytResolveSemaphore.release()
-                                            }
-                                        }
-                                    }
                                 } catch (e: Exception) {
                                     e.rethrowIfCancelled()
                                     firstFailure.compareAndSet(null, e)
@@ -410,6 +393,7 @@ internal class SoundBrowseViewModel(
                     )
                 }
                 schedulePreviewPrebuffer(visibleSoundsAfterLoad)
+                requestPreviewWindow(visibleSoundsAfterLoad.take(INITIAL_PREVIEW_RESOLVE_WINDOW))
                 persistFeed(visibleSoundsAfterLoad, loadTab, snapshot.query)
             } catch (e: Exception) {
                 e.rethrowIfCancelled()
@@ -481,7 +465,6 @@ internal class SoundBrowseViewModel(
     private companion object {
         const val SOURCE_YOUTUBE = "youtube"
         const val SOURCE_COMMUNITY = "community"
-        const val PREVIEW_RESOLVE_COUNT_PER_QUERY = 4
         val ACTIVE_SOUND_SOURCES = setOf(
             ContentSource.YOUTUBE,
             ContentSource.BUNDLED,

@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.util.concurrent.ConcurrentHashMap
 
 private const val FIRST_VISIBLE_PREVIEW_COUNT = 8
@@ -38,6 +40,7 @@ internal class SoundPlaybackActions(
     private val shouldRefreshYouTubePreview: (Sound) -> Boolean,
     private val youtubeDisabledMessage: () -> String,
     private val persistFeed: (SoundsUiState) -> Unit = {},
+    private val previewWorkPermits: Semaphore = Semaphore(PREVIEW_WORK_CONCURRENCY),
 ) {
     private var progressJob: Job? = null
     private val previewPrebufferInFlight = ConcurrentHashMap.newKeySet<String>()
@@ -104,7 +107,8 @@ internal class SoundPlaybackActions(
                 if (key in previewReadyIds.value || !previewPrebufferInFlight.add(key)) return@forEach
                 scope.launch {
                     try {
-                        if (audioPreviewCache.prebuffer(sound)) {
+                        // Shares slots with preview resolution so the two never fan out together.
+                        if (previewWorkPermits.withPermit { audioPreviewCache.prebuffer(sound) }) {
                             previewReadyIds.update { it + key }
                         }
                     } catch (e: Exception) {

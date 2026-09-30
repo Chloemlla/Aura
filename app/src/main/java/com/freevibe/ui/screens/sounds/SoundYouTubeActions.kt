@@ -10,15 +10,11 @@ import com.freevibe.util.rethrowIfCancelled
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.supervisorScope
-import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withContext
 
 internal class SoundYouTubeActions(
@@ -32,9 +28,9 @@ internal class SoundYouTubeActions(
     private val onProviderDisabled: () -> Unit,
     private val schedulePreviewPrebuffer: (List<Sound>) -> Unit,
     private val cacheResolvedPreview: (Sound, String) -> Sound,
+    private val requestPreviewWindow: (List<Sound>) -> Unit,
 ) {
     private var loadJob: Job? = null
-    private val ytResolveSemaphore = Semaphore(6)
 
     fun cancel() {
         loadJob?.cancel()
@@ -235,24 +231,8 @@ internal class SoundYouTubeActions(
                 )
             }
             schedulePreviewPrebuffer(rankedSounds)
-
-            supervisorScope {
-                result.items.forEach { yt ->
-                    launch {
-                        ytResolveSemaphore.acquire()
-                        try {
-                            youtubeRepo.getAudioPreviewUrl(yt.id.removePrefix("yt_"))?.let { url ->
-                                currentCoroutineContext().ensureActive()
-                                cacheResolvedPreview(yt, url)
-                            }
-                        } catch (e: Exception) {
-                            e.rethrowIfCancelled()
-                        } finally {
-                            ytResolveSemaphore.release()
-                        }
-                    }
-                }
-            }
+            // Only the top of the list resolves now; the rest waits until it scrolls into view.
+            requestPreviewWindow(rankedSounds.take(INITIAL_PREVIEW_RESOLVE_WINDOW))
         } catch (e: Exception) {
             e.rethrowIfCancelled()
             state.update {

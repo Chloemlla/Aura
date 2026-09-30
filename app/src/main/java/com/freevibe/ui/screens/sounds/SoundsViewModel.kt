@@ -37,11 +37,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
 import javax.inject.Inject
 
 @HiltViewModel
@@ -120,6 +122,8 @@ class SoundsViewModel @Inject constructor(
     private val _playbackProgress = MutableStateFlow(0f)
     val playbackProgress = _playbackProgress.asStateFlow()
 
+    private val previewWorkPermits = Semaphore(PREVIEW_WORK_CONCURRENCY)
+
     internal val playback: SoundPlaybackActions = SoundPlaybackActions(
         audioPlaybackManager = audioPlaybackManager,
         audioPreviewCache = audioPreviewCache,
@@ -146,6 +150,15 @@ class SoundsViewModel @Inject constructor(
                 )
             }
         },
+        previewWorkPermits = previewWorkPermits,
+    )
+
+    internal val previewWarmup = SoundPreviewWarmup(
+        scope = viewModelScope,
+        permits = previewWorkPermits,
+        needsResolve = { sound -> sound.source == ContentSource.YOUTUBE && shouldRefreshYouTubePreview(sound) },
+        resolve = { sound -> sound.youtubeVideoId()?.let { youtubeRepo.getAudioPreviewUrl(it) } },
+        onResolved = { sound, url -> playback.cacheResolvedPreview(sound, url) },
     )
 
     internal val youtubeActions: SoundYouTubeActions = SoundYouTubeActions(
@@ -159,6 +172,7 @@ class SoundsViewModel @Inject constructor(
         onProviderDisabled = ::selectRingtonesFromProviderFallback,
         schedulePreviewPrebuffer = playback::schedulePreviewPrebuffer,
         cacheResolvedPreview = playback::cacheResolvedPreview,
+        requestPreviewWindow = ::requestPreviewWindow,
     )
 
     internal val communityFeed: SoundCommunityFeed = SoundCommunityFeed(
@@ -194,7 +208,7 @@ class SoundsViewModel @Inject constructor(
         executeYouTubeSearch = ::executeYouTubeSearch,
         cancelYouTubeLoad = ::cancelYouTubeLoad,
         schedulePreviewPrebuffer = playback::schedulePreviewPrebuffer,
-        cacheResolvedPreview = playback::cacheResolvedPreview,
+        requestPreviewWindow = ::requestPreviewWindow,
         soundFeedCache = soundFeedCache,
     )
 
@@ -220,6 +234,10 @@ class SoundsViewModel @Inject constructor(
 
     init {
         community.init()
+        // A new tab, query, or refresh bumps filterKey; the old feed's resolves stop there.
+        viewModelScope.launch {
+            _state.map { it.filterKey }.distinctUntilChanged().collect(previewWarmup::switchFeed)
+        }
         browse.start()
         viewModelScope.launch {
             youtubeRepo.extractionStatus.collect { status ->
@@ -288,6 +306,11 @@ class SoundsViewModel @Inject constructor(
         previewUrl: String? = null,
         downloadUrl: String? = null,
     ): Boolean = selectionResolver.ensureSelectedSound(id, source, previewUrl, downloadUrl)
+
+    /** The list reports its visible rows plus lookahead; only those resolve ahead of a tap. */
+    fun onVisibleSoundsChanged(window: List<Sound>) = requestPreviewWindow(window)
+
+    private fun requestPreviewWindow(window: List<Sound>) = previewWarmup.request(_state.value.filterKey, window)
 
     fun togglePlayback(sound: Sound) = playback.togglePlayback(sound)
     fun seekTo(fraction: Float) = playback.seekTo(fraction)
@@ -388,6 +411,7 @@ class SoundsViewModel @Inject constructor(
     override fun onCleared() {
         browse.cancel()
         youtubeActions.cancel()
+        previewWarmup.cancel()
         playback.cancelProgress()
         community.cancelOnCleared()
         audioPlaybackManager.stop()

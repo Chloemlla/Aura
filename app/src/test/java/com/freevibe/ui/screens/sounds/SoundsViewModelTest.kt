@@ -763,6 +763,62 @@ class SoundsViewModelTest {
     }
 
     @Test
+    fun `thirty result youtube search resolves previews only for the visible window`() = runTest(dispatcher) {
+        assumeYouTubeAvailable()
+        val youtubeRepo = mockk<YouTubeRepository>()
+        val freesoundRepo = mockk<FreesoundRepository>()
+        val freesoundV2Repo = mockk<FreesoundV2Repository>()
+        val audiusRepo = mockk<AudiusRepository>()
+        val ccMixterRepo = mockk<CcMixterRepository>()
+        val soundCloudRepo = mockk<SoundCloudRepository>()
+
+        stubCommonDependencies(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+        )
+        val results = (1..30).map { testSound("yt_clip$it", ContentSource.YOUTUBE, "Clip $it") }
+        coEvery { youtubeRepo.searchSounds("focus", any(), any(), any()) } returns SearchResult(
+            items = results,
+            totalCount = results.size,
+            currentPage = 1,
+            hasMore = false,
+        )
+
+        val viewModel = createViewModel(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+        )
+        advanceUntilIdle()
+        viewModel.searchYouTube("focus")
+        advanceUntilIdle()
+
+        val feed = viewModel.state.value.sounds
+        assertEquals(30, feed.size)
+        coVerify(atMost = INITIAL_PREVIEW_RESOLVE_WINDOW) { youtubeRepo.getAudioPreviewUrl(any()) }
+
+        // Scrolling to rows 10..13 resolves those plus one lookahead, nothing further down.
+        val window = previewResolveWindow(feed, firstVisibleIndex = 10, lastVisibleIndex = 13)
+        viewModel.onVisibleSoundsChanged(window)
+        viewModel.onVisibleSoundsChanged(window)
+        advanceUntilIdle()
+
+        window.forEach { sound ->
+            coVerify(exactly = 1) { youtubeRepo.getAudioPreviewUrl(sound.id.removePrefix("yt_")) }
+        }
+        feed.drop(15).forEach { sound ->
+            coVerify(exactly = 0) { youtubeRepo.getAudioPreviewUrl(sound.id.removePrefix("yt_")) }
+        }
+    }
+
+    @Test
     fun `selecting youtube tab loads default results`() = runTest(dispatcher) {
         assumeYouTubeAvailable()
         val youtubeRepo = mockk<YouTubeRepository>()
