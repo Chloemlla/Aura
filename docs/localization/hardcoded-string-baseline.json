@@ -43,14 +43,6 @@
     },
     {
       "count": 1,
-      "firstLine": 111,
-      "id": "8d5ff1fe69e51d79",
-      "path": "app/src/main/java/com/freevibe/ui/screens/community/CommunityReportsScreen.kt",
-      "sink": "message",
-      "text": "Report queue refreshed"
-    },
-    {
-      "count": 1,
       "firstLine": 145,
       "id": "6b07640b3e420566",
       "path": "app/src/main/java/com/freevibe/ui/screens/community/CommunityReportsScreen.kt",

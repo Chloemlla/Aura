@@ -15,6 +15,7 @@ import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -24,6 +25,9 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -173,6 +177,72 @@ class CommunityReportsViewModelTest {
         assertEquals(listOf(hiddenReport), viewModel.reports.value)
         verify { reportRepo.reports(CommunityReportResolutionStatus.OPEN, any()) }
         verify { reportRepo.reports(CommunityReportResolutionStatus.HIDDEN, any()) }
+        job.cancel()
+    }
+
+    @Test
+    fun `failed refresh keeps the last good reports and surfaces the error`() = runTest(dispatcher) {
+        val report = testReport()
+        val reportRepo = mockk<CommunityReportRepository>()
+        val voteRepo = mockk<VoteRepository>()
+        every { voteRepo.isAdmin } returns true
+        every { reportRepo.reports(CommunityReportResolutionStatus.OPEN, any()) } returnsMany listOf(
+            flowOf(listOf(report)),
+            flow<List<CommunityReportRecord>> { throw IllegalStateException("Permission denied") },
+        )
+
+        val viewModel = createViewModel(reportRepo, voteRepo)
+        val job = backgroundScope.launch { viewModel.reports.collect { } }
+        advanceUntilIdle()
+        assertEquals(listOf(report), viewModel.reports.value)
+        assertFalse(viewModel.state.value.isLoading)
+        assertNotNull(viewModel.state.value.lastUpdatedAt)
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertEquals("stale rows stay visible", listOf(report), viewModel.reports.value)
+        assertEquals(ReportsLoadErrorKind.DENIED, viewModel.state.value.loadError?.kind)
+        assertFalse(viewModel.state.value.isLoading)
+        job.cancel()
+    }
+
+    @Test
+    fun `offline and denied failures get different messages`() {
+        val offline = classifyReportsLoadError(java.io.IOException("Client is offline"))
+        val disconnected = classifyReportsLoadError(
+            IllegalStateException("The operation had to be aborted due to a network disconnect"),
+        )
+        val denied = classifyReportsLoadError(IllegalStateException("Permission denied"))
+        val other = classifyReportsLoadError(IllegalStateException("Quota exceeded"))
+
+        assertEquals(ReportsLoadErrorKind.OFFLINE, offline.kind)
+        assertEquals(ReportsLoadErrorKind.OFFLINE, disconnected.kind)
+        assertEquals(ReportsLoadErrorKind.DENIED, denied.kind)
+        assertNotEquals(offline.kind, denied.kind)
+        assertEquals(ReportsLoadErrorKind.OTHER, other.kind)
+        assertEquals("Quota exceeded", other.detail)
+    }
+
+    @Test
+    fun `failed load on a new status tab does not show the previous tab's rows`() = runTest(dispatcher) {
+        val openReport = testReport(id = "report-open")
+        val reportRepo = mockk<CommunityReportRepository>()
+        val voteRepo = mockk<VoteRepository>()
+        every { voteRepo.isAdmin } returns true
+        every { reportRepo.reports(CommunityReportResolutionStatus.OPEN, any()) } returns flowOf(listOf(openReport))
+        every { reportRepo.reports(CommunityReportResolutionStatus.HIDDEN, any()) } returns
+            flow<List<CommunityReportRecord>> { throw IllegalStateException("offline") }
+
+        val viewModel = createViewModel(reportRepo, voteRepo)
+        val job = backgroundScope.launch { viewModel.reports.collect { } }
+        advanceUntilIdle()
+
+        viewModel.selectStatus(CommunityReportResolutionStatus.HIDDEN)
+        advanceUntilIdle()
+
+        assertEquals(emptyList<CommunityReportRecord>(), viewModel.reports.value)
+        assertEquals(ReportsLoadErrorKind.OFFLINE, viewModel.state.value.loadError?.kind)
         job.cancel()
     }
 

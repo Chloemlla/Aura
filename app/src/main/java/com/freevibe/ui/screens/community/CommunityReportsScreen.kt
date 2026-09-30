@@ -72,7 +72,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
@@ -84,11 +86,36 @@ import javax.inject.Inject
 @Immutable
 data class CommunityReportsUiState(
     val isLoading: Boolean = true,
-    val loadError: String? = null,
+    val loadError: ReportsLoadError? = null,
+    val lastUpdatedAt: Long? = null,
     val actionInFlightReportId: String? = null,
     val message: String? = null,
     val error: String? = null,
 )
+
+/** Why the report queue failed to load; the screen maps each kind to its own copy. */
+enum class ReportsLoadErrorKind { OFFLINE, DENIED, OTHER }
+
+@Immutable
+data class ReportsLoadError(val kind: ReportsLoadErrorKind, val detail: String? = null)
+
+/**
+ * Offline and permission failures need different next steps, so they are told
+ * apart here. RTDB reports both as a DatabaseException with a message.
+ */
+internal fun classifyReportsLoadError(error: Throwable): ReportsLoadError {
+    val text = error.message.orEmpty()
+    val kind = when {
+        error is java.io.IOException || OFFLINE_MARKERS.any { text.contains(it, ignoreCase = true) } ->
+            ReportsLoadErrorKind.OFFLINE
+        DENIED_MARKERS.any { text.contains(it, ignoreCase = true) } -> ReportsLoadErrorKind.DENIED
+        else -> ReportsLoadErrorKind.OTHER
+    }
+    return ReportsLoadError(kind = kind, detail = text.takeIf { it.isNotBlank() })
+}
+
+private val OFFLINE_MARKERS = listOf("offline", "network", "disconnect", "unavailable")
+private val DENIED_MARKERS = listOf("permission", "denied", "unauthorized")
 
 @HiltViewModel
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -100,25 +127,35 @@ class CommunityReportsViewModel @Inject constructor(
     val isAdmin: Boolean get() = voteRepo.isAdmin
     private val _selectedStatus = MutableStateFlow(CommunityReportResolutionStatus.OPEN)
     val selectedStatus = _selectedStatus.asStateFlow()
+    private val _state = MutableStateFlow(CommunityReportsUiState())
+    val state = _state.asStateFlow()
     private val refreshTrigger = MutableStateFlow(0)
+    private var loadedStatus: CommunityReportResolutionStatus? = null
     val reports = if (isAdmin) {
         combine(_selectedStatus, refreshTrigger) { status, _ -> status }
             .flatMapLatest { status ->
                 _state.update { it.copy(isLoading = true, loadError = null) }
-                reportRepo.reports(status = status)
-                    .onEach { _state.update { s -> s.copy(isLoading = false, loadError = null) } }
-                    .catch { e ->
-                        _state.update { s -> s.copy(isLoading = false, loadError = e.message ?: "Failed to load reports") }
-                        emit(emptyList())
-                    }
+                flow {
+                    // Rows from another status tab would be mislabeled, so a switch
+                    // clears them. A refresh of the same tab keeps them until new rows land.
+                    if (status != loadedStatus) emit(emptyList())
+                    emitAll(
+                        reportRepo.reports(status = status).onEach {
+                            loadedStatus = status
+                            _state.update { s ->
+                                s.copy(isLoading = false, loadError = null, lastUpdatedAt = System.currentTimeMillis())
+                            }
+                        },
+                    )
+                }.catch { e ->
+                    // No emission here: the last good list stays on screen under the error.
+                    _state.update { s -> s.copy(isLoading = false, loadError = classifyReportsLoadError(e)) }
+                }
             }
     } else {
         flowOf(emptyList())
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    private val _state = MutableStateFlow(CommunityReportsUiState())
-    val state = _state.asStateFlow()
 
     fun refresh() {
         refreshTrigger.update { it + 1 }
@@ -235,6 +272,13 @@ class CommunityReportsViewModel @Inject constructor(
     }
 }
 
+@Composable
+private fun reportsLoadErrorText(error: ReportsLoadError?): String = when (error?.kind) {
+    ReportsLoadErrorKind.OFFLINE -> stringResource(R.string.reports_load_error_offline)
+    ReportsLoadErrorKind.DENIED -> stringResource(R.string.reports_load_error_denied)
+    else -> error?.detail ?: stringResource(R.string.reports_load_error_generic)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommunityReportsScreen(
@@ -302,7 +346,7 @@ fun CommunityReportsScreen(
                         AuraStateCard(
                             icon = Icons.Default.Report,
                             title = stringResource(R.string.reports_load_error_title),
-                            description = state.loadError.orEmpty(),
+                            description = reportsLoadErrorText(state.loadError),
                             primaryAction = AuraStateAction(stringResource(R.string.common_retry), Icons.Default.Refresh, viewModel::refresh),
                             modifier = Modifier
                                 .align(Alignment.Center)
@@ -352,6 +396,29 @@ fun CommunityReportsScreen(
                             selectedStatus = selectedStatus,
                             onSelectStatus = viewModel::selectStatus,
                         )
+                    }
+                    if (state.loadError != null) {
+                        item {
+                            val updatedAt = state.lastUpdatedAt?.let {
+                                java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(it))
+                            }
+                            FilterChip(
+                                selected = false,
+                                onClick = viewModel::refresh,
+                                label = {
+                                    Text(
+                                        if (updatedAt != null) {
+                                            stringResource(R.string.reports_stale_banner, updatedAt)
+                                        } else {
+                                            stringResource(R.string.reports_stale_banner_no_time)
+                                        },
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                },
+                            )
+                        }
                     }
                     if (state.error != null || state.message != null) {
                         item {

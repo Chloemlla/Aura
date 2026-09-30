@@ -476,6 +476,11 @@
     <string name="reports_admin_required_title">需要管理员权限</string>
     <string name="reports_admin_required_body">举报详情仅对具有管理员自定义声明的账户可用。</string>
     <string name="reports_load_error_title">无法加载举报</string>
+    <string name="reports_load_error_offline">你已离线。恢复连接后会重新加载举报。</string>
+    <string name="reports_load_error_denied">此账户无法读取举报。请使用管理员账户登录。</string>
+    <string name="reports_load_error_generic">加载举报时出错。</string>
+    <string name="reports_stale_banner">无法刷新。正在显示 %1$s 的举报。点按重试。</string>
+    <string name="reports_stale_banner_no_time">无法刷新。正在显示之前的举报。点按重试。</string>
     <string name="reports_empty_title">没有 %1$s 举报</string>
     <string name="reports_empty_open_body">用户从内容详情页面提交后，新举报将显示在这里。</string>
     <string name="reports_empty_closed_body">管理员处理后，已关闭的举报将显示在这里。</string>
