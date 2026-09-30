@@ -582,12 +582,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
 
 ### P2
 
-- [ ] P2 — Upgrade Firebase CLI to 15.31.0 and gate the root audit
-  Why: Aura's deployment CLI is pinned to 15.19.1 and brings nine moderate advisories into the repository toolchain even though the production Functions dependency tree is clean.
-  Evidence: **Verified on 2026-09-25.** `package.json:15` and `package-lock.json:4446-4448` pin 15.19.1; root `npm audit` reports nine moderate vulnerabilities through Firebase CLI dependencies and names 15.31.0 as the non-major fix; 15.31.0 pins `stream-json` 3.6.0 or later and `csv-parse` 7.0.2 or later; `npm audit --omit=dev` in `functions/` reports zero; https://github.com/firebase/firebase-tools/releases/tag/v15.31.0.
-  Touches: `package.json`, `package-lock.json`, Firebase emulator and backend-manifest checks under `tools/`, release documentation that names the CLI version.
-  Acceptance: the root lockfile resolves Firebase CLI 15.31.0 or a newer reviewed 15.x patch; root and `functions/` audits report zero moderate, high, or critical findings without `--force`, blanket overrides, or ignored advisories; existing Firebase emulator, rules, Functions, and community-backend manifest checks pass; the gate labels root findings as deployment-tool findings so they are not reported as APK runtime vulnerabilities.
-  Complexity: S
 
 
 ## Deep Audit Additions — 2026-09-25

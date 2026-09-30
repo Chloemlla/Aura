@@ -61,6 +61,10 @@ All notable changes to Aura will be documented in this file.
   install channel, repro steps, and restart behavior. Diagnostics bundle is no
   longer required for no-launch crashes; an adb logcat fallback is documented.
 
+- **Firebase CLI upgraded to 15.31.0**: root audit findings reduced from 15 to
+  10 (non-breaking fixes applied). Functions audit is now zero. The remaining
+  root findings are transitive deployment-tool dependencies.
+
 - **Pager perf**: wallpaper detail pager reads `currentPageOffsetFraction` inside
   the `graphicsLayer` block instead of composition, eliminating per-drag-frame
   recomposition of page content.
