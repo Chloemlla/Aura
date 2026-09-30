@@ -61,6 +61,11 @@ All notable changes to Aura will be documented in this file.
   install channel, repro steps, and restart behavior. Diagnostics bundle is no
   longer required for no-launch crashes; an adb logcat fallback is documented.
 
+- **Fragmented MP4 support**: video wallpaper probe now distinguishes unknown
+  duration from known zero. When MediaMetadataRetriever reports zero (common
+  with Reddit CMAF fragments), MediaExtractor is tried as a fallback. Valid
+  multi-second fragmented MP4s are no longer rejected as "too short".
+
 - **Display context for live wallpapers**: all three engines (video, weather,
   parallax) now use `getDisplayContext()` on API 29+ for density, fallback
   dimensions, and clock overlays, so secondary-display rendering scales

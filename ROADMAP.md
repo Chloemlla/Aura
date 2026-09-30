@@ -362,17 +362,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
 
 ### P1
 
-- [ ] P1 — Accept valid fragmented Reddit MP4s without weakening short-video validation
-  Category: correctness
-  Where: app/src/main/java/com/freevibe/data/repository/RedditRssParser.kt:3-12; app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersScreen.kt:94-99,616,784-805; app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersViewModel.kt:667-724,1169-1235; app/src/main/java/com/freevibe/service/VideoWallpaperStorage.kt:29,79-83,159-211
-  Problem: API 29 MediaMetadataRetriever reports duration 0 for a valid fragmented Reddit MP4, and Aura converts unknown duration into Selected video is too short. The first ranked Reddit card can download fully and then fail even though it is an eight-second playable loop.
-  Evidence: On the current-run API 29 emulator, Reddit item Waves downloaded exactly 1,111 KiB and failed at VideoWallpaperStorage.kt:199. Its source post 1wcnmwo resolves to an MP4 with two four-second CMAF fragments; ffprobe reports H.264, 394x854, and 8.0 seconds. RSS carries no duration, Apply does not gate it, yt-dlp remux can leave fragmented MP4 unchanged, and probeVideoFile() maps missing duration to zero. The next Reddit item applied and animated successfully, isolating this to metadata probing.
-  Fix: Represent duration as known versus unknown. Reject only a known positive duration below 1,000 ms, use Media3 or MediaExtractor when retriever returns zero, and force Reddit HLS through a conventional fast-start MP4 stream-copy rewrap before final validation. Keep corrupt/truncated/zero-sample rejection. Optional manifest/preview metadata may disable genuinely sub-second items before download.
-  Acceptance: The captured Waves fixture applies on API 29 and persists at about eight seconds; a genuine 250 ms video still fails; corrupt and zero-sample fixtures fail; API 26, 29, and current instrumentation covers fragmented and conventional MP4 plus cleanup and size caps.
-  Confidence: Verified
-  Effort: M
-
-
 - [ ] P1 — Keep voter/follower identities private and restore aggregate queries
   Category: security
   Where: database.rules.json:3-19,208-212; functions/src/voteHandler.ts:270-312; app/src/main/java/com/freevibe/data/repository/VoteRepository.kt:420-433; app/src/main/java/com/freevibe/data/repository/CreatorProfileRepository.kt:359-374
