@@ -128,6 +128,13 @@ class VideoWallpaperService : WallpaperService() {
         // initializePlayer, which is on the main thread.
         private val colorLoader = LiveWallpaperMediaLoader("aura-video-colors")
 
+        private val renderContext: android.content.Context
+            get() = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                displayContext ?: this@VideoWallpaperService
+            } else {
+                this@VideoWallpaperService
+            }
+
         private fun getPrefs() = getSharedPreferences(VIDEO_WALLPAPER_PREFS_NAME, MODE_PRIVATE)
         private fun getRuntimePrefs() = getSharedPreferences(VIDEO_PREFS_NAME, MODE_PRIVATE)
         private fun getVideoPath(): String? =
@@ -210,7 +217,7 @@ class VideoWallpaperService : WallpaperService() {
 
         private fun resolveScreenSize() {
             try {
-                val wm = getSystemService(android.content.Context.WINDOW_SERVICE) as? android.view.WindowManager
+                val wm = renderContext.getSystemService(android.content.Context.WINDOW_SERVICE) as? android.view.WindowManager
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
                     wm?.currentWindowMetrics?.bounds?.let { bounds ->
                         screenWidth = bounds.width()
@@ -686,7 +693,7 @@ class VideoWallpaperService : WallpaperService() {
                 canvas.restore()
                 updateGifFpsSample(now)
                 if (isFpsOverlayEnabled()) drawFpsOverlay(canvas)
-                drawWallpaperClockOverlay(this@VideoWallpaperService, canvas)
+                drawWallpaperClockOverlay(renderContext, canvas)
             } finally {
                 try { holder.unlockCanvasAndPost(canvas) } catch (_: Exception) {}
             }

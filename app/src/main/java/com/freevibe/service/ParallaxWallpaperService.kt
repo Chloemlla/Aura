@@ -92,6 +92,13 @@ class ParallaxWallpaperService : WallpaperService() {
         private val mediaLoader = LiveWallpaperMediaLoader("aura-parallax-loader")
         private val colorPublisher = LiveWallpaperColorPublisher()
 
+        private val renderContext: android.content.Context
+            get() = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                displayContext ?: this@ParallaxWallpaperService
+            } else {
+                this@ParallaxWallpaperService
+            }
+
         private fun getPrefs() = getSharedPreferences(PARALLAX_WALLPAPER_PREFS_NAME, MODE_PRIVATE)
         private fun getImagePath(): String? =
             describedImagePath ?: getPrefs().getString("image_path", null)
@@ -290,8 +297,9 @@ class ParallaxWallpaperService : WallpaperService() {
 
         private fun resolveDecodeTarget(): Pair<Int, Int> {
             val padding = (maxOffset * 2).toInt()
-            val width = if (screenWidth > 0) screenWidth else resources.displayMetrics.widthPixels
-            val height = if (screenHeight > 0) screenHeight else resources.displayMetrics.heightPixels
+            val metrics = renderContext.resources.displayMetrics
+            val width = if (screenWidth > 0) screenWidth else metrics.widthPixels
+            val height = if (screenHeight > 0) screenHeight else metrics.heightPixels
             return (width + padding).coerceAtLeast(1) to (height + padding).coerceAtLeast(1)
         }
 
@@ -547,7 +555,7 @@ class ParallaxWallpaperService : WallpaperService() {
                         // Fallback: single image with slight parallax movement
                         canvas.drawBitmap(fb, baseX + bgOffsetX, baseY + bgOffsetY, paint)
                     }
-                    drawWallpaperClockOverlay(this@ParallaxWallpaperService, canvas)
+                    drawWallpaperClockOverlay(renderContext, canvas)
                 }
             } catch (_: Exception) {
             } finally {

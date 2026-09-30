@@ -11,6 +11,7 @@ Actionable work only. Historical and completed roadmap material is archived in C
   Evidence: **Verified.** `RingtoneShuffleWorker.kt` reads the broad SOUND download set for ringtone/alarm selection; no notification pool or user-managed membership exists; Peristyle and wallpaper competitors validate named pools as a comprehensible automation model, while ringtone users currently build folder-based rotation externally.
   Touches: sound collection/profile schema, `RingtoneShuffleWorker.kt`, notification target support, Sounds/Library UI, scheduler and boot restoration, history/Undo, export/import, tests.
   Acceptance: users create named pools, add local/downloaded/original sounds, choose ringtone, notification, alarm, or any combination, and set a schedule; the worker avoids an immediate repeat when another valid item exists, skips missing/incompatible media visibly, records history, and restores scheduling after reboot; disabling a pool cancels its work; pools and assignments round-trip through backup.
+  Audit evidence 2026-09-25: the in-progress implementation is not ready to merge. The repository gate currently reports 655 passing and five failing tool tests: the network and scheduling ledgers still require the replaced broad-download calls, the hardcoded-string baseline is missing `Applied automatically`, and two documentation-link checks reject the untracked `docs/sound-shuffle-pools.md`. Full and FOSS lint also report nine `LocalContextGetResourceValueCall` errors in `SoundShufflePoolsDialog.kt:105-244`. Treat these as acceptance blockers for this item, not separate roadmap work.
   Complexity: M
 
 - [ ] P2 — Add named Reddit feed presets for discovery and rotation
@@ -20,12 +21,6 @@ Actionable work only. Historical and completed roadmap material is archived in C
   Acceptance: users can create, rename, duplicate, reorder, and delete presets containing subreddit/community list, media type, sort, time window, safe-content setting, and minimum dimensions/duration; Aura ships several editable defaults without silently enabling adult content; the active preset is visible in each feed; rotation can bind to a preset; pagination/cache keys include the full preset; presets round-trip through backup and survive subreddit removal.
   Complexity: M
 
-- [ ] P2 — Repair crash issue intake for no-launch failures
-  Why: the current crash template requires an in-app diagnostics bundle even when the crash prevents Aura from opening, and it omits the exact environment and reproduction fields needed to act on device-specific media defects.
-  Evidence: **Verified.** `.github/ISSUE_TEMPLATE/crash_report.yml:10-20` requires diagnostics but does not collect reproduction steps, expected/actual result, Aura version, Android version, device model, source/media URL with privacy warning, or a no-launch fallback; the current tracker shows how much resolution depends on device and source details in issues #2 and #44.
-  Touches: `.github/ISSUE_TEMPLATE/crash_report.yml`, `SUPPORT.md` or existing troubleshooting docs, diagnostics screen copy, link validation test.
-  Acceptance: the template collects minimal repro, expected/actual, app version, Android version, device/model, install channel, feature/source, and whether the issue survives restart; diagnostics are requested when available but never mandatory for a no-launch crash; a redacted `adb logcat` or bugreport fallback is documented with secret-removal guidance; every referenced Settings path and URL exists; a fixture rejects future removal of the fallback.
-  Complexity: S
 
 - [ ] P2 — Replace or prove harmless the five under-aligned libwebp objects in the FFmpeg payload
   Why: with the 16 KB gate now reading inside `lib/<abi>/*.zip.so`, five prebuilt libwebp ELFs are measured at `p_align 4096` on both 64-bit ABIs. They are recorded as exceptions so the gate stays useful, but an exception is an acknowledgement, not a fix: on a 16 KB-page device `dlopen` of a 4 KB-aligned object fails, and FFmpeg is configured `--enable-libwebp`, so a WebP path can reach them.
@@ -165,14 +160,6 @@ Actionable work only. Historical and completed roadmap material is archived in C
   Acceptance: dim level and double-tap reveal behave identically on all three engines; re-dim after reveal follows the one-shot delayed-frame pattern CLAUDE.md documents for `WeatherWallpaperService.scheduleDraw()`; the soak harness runs the dimmed path and asserts no extra bitmap retention; until parity lands the toggle copy names the engines it affects.
   Complexity: S
 
-- [ ] P2 — Classify OEM ringtone-write failures instead of failing generically
-  Why: `SoundApplier` calls `RingtoneManager.setActualDefaultRingtoneUri` with no OEM-failure handling, and Samsung devices are documented throwing `IllegalArgumentException` ("cannot keep your settings in the secure settings") on notification-sound writes — the user sees a generic failure for a known, explainable device behavior in the app's core action.
-  Evidence: `SoundApplier.kt:70,109`; Samsung developer-forum reports of the secure-settings exception on Galaxy devices; Samsung community threads on tones not persisting after updates.
-  Touches: `SoundApplier.kt`, `ContactRingtoneService.kt`, error string resources, `SettingsDiagnosticsSection.kt` or the diagnostics bundle.
-  Acceptance: the secure-settings failure class is caught and distinguished from missing `WRITE_SETTINGS`; the user gets device-specific guidance including a one-tap route to the system sound picker as fallback; the failure class is counted in diagnostics; a test covers the `IllegalArgumentException` path for each of the three sound types.
-  Complexity: S
-
-  Note 2026-09-04: the Samsung developer-forum URL behind the `IllegalArgumentException` claim now 404s and the exception string appears in no Stack Overflow question, so treat the specific message as unconfirmed and catch the class defensively rather than matching on text. The item still stands on its own logic: `SoundApplier.kt:70,109` has no OEM-failure handling at all. Community evidence that does hold up is the `WRITE_SETTINGS` posture — the most-upvoted review on the category's leading editor asks for exactly the flow Aura already has, an entry in the system picker with no elevated permission, so confirm `WRITE_SETTINGS` is requested only when the user taps "set as default" and never as a precondition for saving. Separately, the contact-ringtone failure that dominates this category throws nothing at all; that is a distinct P2 item added 2026-09-04.
 
 - [ ] P2 — Prefetch the next rotation wallpaper
   Why: `AutoWallpaperWorker` fetches from the provider at fire time, so a dead or metered-blocked network at the trigger means a skipped rotation; prefetching the next candidate after each successful rotation makes remote-source rotation as reliable as local, and Wallora demonstrates the pattern.
@@ -275,36 +262,7 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
 
 ### P1
 
-- [ ] P1 — Validate release assets and digests in the publication gate
-  Category: testing
-  Where: tools/published_state.py:91-125; tools/release_publication_check.py:69-88; test/tools/release_publication_check_test.py:44-94; tools/release_artifact_bundle_check.py:21-35,227-320; docs/distribution/release-signing.md:48-63
-  Problem: Publication checks only whether a GitHub tag exists. They neither inventory nor validate assets, and an unknown remote state can still report ok, so an incomplete release passes.
-  Evidence: v6.45.3 is now published with five APKs and SHA256SUMS.txt, disproving the stale P0 publication-gap entry. The checker exits zero without fetching assets, while the documented bundle contract also names an AAB, notices, raw OSS inputs, native reports, notes, and verification receipts. Current tests mock tag existence only.
-  Fix: Define the deliberate public asset contract, fetch names and GitHub digests, compare them with the checksum manifest, and add a strict online mode where unknown state fails. Keep owner-only evidence private only if documentation explicitly separates it from public assets.
-  Acceptance: Missing, wrong-version, duplicate, and digest-mismatched fixture assets fail; unknown remote state cannot be publication verified in strict mode; the live release passes only after its public assets match the declared contract.
-  Confidence: Verified
-  Effort: M
 
-- [ ] P1 — Move to targetSdk 36
-  Why: Play has required targetSdk 36 for new apps and updates since 2026-08-31 and Accrescent removes apps that miss the target-SDK bar rather than hiding them, so targetSdk 35 closes two of the three stores Aura's distribution docs plan for. The work is small because the behavior changes are already satisfied, and it is not blocked: `Roadmap_Blocked.md` blocks targetSdk 37, which needs compileSdk 37 and an AGP beyond 8.9.3.
-  Evidence: `app/build.gradle.kts:81,95` (compileSdk 36, targetSdk 35, with an in-file comment explaining the split); Play target API requirements (https://support.google.com/googleplay/android-developer/answer/11926878); Accrescent publishing requirements (https://accrescent.app/docs/guide/publish/requirements.html); `AndroidManifest.xml:64` sets `android:enableOnBackInvokedCallback="true"`, `MainActivity.kt:257` calls `enableEdgeToEdge()`, the manifest declares no `screenOrientation`, `resizeableActivity`, or `maxAspectRatio`, and no `onBackPressed()` override exists — the seven `BackHandler` uses are scoped selection and unsaved-changes guards.
-  Touches: `app/build.gradle.kts`, `docs/distribution/release-metadata-consistency.json`, `tools/manifest_consistency_check.py`, `docs/security/target37-compatibility.json`, `README.md`, Roborazzi route fixtures.
-  Acceptance: `targetSdk = 36` builds, all gates pass, and every route renders correctly edge-to-edge on an API 36 image with insets applied and no content trapped behind the status or navigation bar; predictive back animates out of every top-level destination and the unsaved-changes guards still intercept; a large-screen or foldable configuration change does not lose editor state; `docs/security/target37-compatibility.json` records the 36 milestone so the armed 37 gate reads the right baseline.
-  Complexity: M
-
-- [ ] P1 — Bound what reaches the bundled FFmpeg 7.1.1
-  Why: the shipped FFmpeg predates the fix for a heap out-of-bounds write reachable from a crafted media file, and it cannot be upgraded independently because it arrives inside `ffmpeg-0.18.1.aar`. Removing FFmpeg entirely is already queued at P2 and is L-sized; this bounds the exposure now.
-  Evidence: `docs/legal/native-compliance.lock.json:364,428,492` records `"FFmpeg version": "FFmpeg version 7.1.1"` for all four ABIs with `--enable-gpl --enable-version3` and no codec exclusions; CVE-2026-8461 ("PixelSmash") affects FFmpeg before 8.1.2 and triggers on an odd `slice_height` in a crafted AVI, MKV, or MOV parsed by the MagicYUV decoder; user-chosen local video reaches FFmpeg through `VideoCropScreen.kt`, and remuxed yt-dlp output reaches it through `AudioTrimmer.kt` and `VideoWallpapersViewModel.kt`.
-  Touches: `app/src/main/java/com/freevibe/service/MediaIngestion.kt`, `app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoCropScreen.kt`, `app/src/main/java/com/freevibe/service/AudioTrimmer.kt`, a new `docs/security/ffmpeg-exposure.json`, `test/tools/`.
-  Acceptance: every FFmpeg invocation is preceded by a container and codec check that rejects anything outside a declared allowlist, and MagicYUV is not on it; Media3 handles the crop path wherever it already can, with FFmpeg reached only on a recorded fallback; a rejected file produces a clear message rather than a silent failure; a policy JSON records the bundled FFmpeg version and its known-unfixed advisories, and a gate fails when the version in the native-compliance lock changes without the policy being reviewed.
-  Complexity: M
-
-- [ ] P1 — Make post-boot ringtone restoration prove it worked
-  Why: the receiver reports success no matter what happens, so a device where restoration silently fails is indistinguishable from one where it worked, and "my ringtone reset itself" is a recurring, vendor-acknowledged complaint in this category with no diagnostic path in any app.
-  Evidence: `RingtoneRestorationReceiver.kt:72-77` catches everything and returns `Result.success()` with a comment describing it as best-effort; Google acknowledged a Pixel-side reset bug (https://9to5google.com/2022/05/06/google-pixel-ringtone-bug/) and users still report resets in 2026 (https://old.reddit.com/r/AndroidQuestions/comments/1vkjdd5/); `BootObservationStore.recordBoot` already exists in the same receiver for the rotation side, so the recording pattern is in place.
-  Touches: `app/src/main/java/com/freevibe/service/RingtoneRestorationReceiver.kt`, `app/src/main/java/com/freevibe/service/SoundApplier.kt`, the Rotation Health or Diagnostics surface, string resources, tests.
-  Acceptance: each of the three sound types records its restoration outcome (restored, already correct, source missing, write refused) with a timestamp; a failed restoration returns `Result.retry()` or `Result.failure()` rather than success; Diagnostics shows the last restoration result per type; tests cover a missing source URI, a `SecurityException` on write, and a successful no-op.
-  Complexity: M
 
 ### P2
 
@@ -354,12 +312,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Acceptance: all three versions move, dependency verification entries are built from the upstream-published `.sha256` rather than the local cache, the widget's generated preview still publishes, `:app:testFullDebugUnitTest` and `:app:testFossDebugUnitTest` are green, the Roborazzi gate passes, and the prerelease-pin comment is replaced with the stable pin.
   Complexity: S
 
-- [ ] P2 — Strip the dependency-info blob from release artifacts
-  Why: the APK signing block carries a Google-encrypted dependency payload that IzzyOnDroid's scanner flags and that works against byte-for-byte reproducibility, which is the submission Aura's distribution docs are aiming at.
-  Evidence: `dependenciesInfo` appears nowhere in `app/build.gradle.kts`, so AGP's default is in effect; IzzyOnDroid's APK checks list `DEPENDENCY_INFO_BLOCK` among the signing-block BLOBs it reports (https://android.izzysoft.de/articles/named/iod-scan-apkchecks); `tools/foss_reproducibility_check.py` compares signature-stripped archives, so the blob is a live variable in that comparison.
-  Touches: `app/build.gradle.kts`, `tools/foss_reproducibility_check.py`, `docs/distribution/supply-chain.md`, `test/tools/`.
-  Acceptance: `dependenciesInfo { includeInApk = false; includeInBundle = false }` is set, a freshly built release APK's signing block contains no dependency-info entry, the reproducibility check still passes, and a gate fails if the setting is removed.
-  Complexity: S
 
 - [ ] P2 — Run the API 35 half of the device-blocked backlog
   Why: two items sit in `Roadmap_Blocked.md` under "Blocker: Physical Device / Emulator" purely for want of an instrumentation target, and an emulator that can run both was available on this machine.
@@ -412,15 +364,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Confidence: Verified
   Effort: M
 
-- [ ] P1 — Verify community upload objects server-side before publication
-  Category: security
-  Where: functions/src/wallpaperUploadHandler.ts:99-110,192-249,540-578; functions/src/soundUploadHandler.ts:100-111,193-238,493-527; storage.rules:19-42
-  Problem: Finalization trusts client-supplied storagePath, HTTPS URLs, MIME type, size, and wallpaper dimensions. An authenticated and App-Checked caller can publish a nonexistent owner-shaped object path, an unrelated HTTPS URL, or false media metadata.
-  Evidence: Both handlers validate syntax and ranges, then publish the submitted values. Neither backend exposes a Storage lookup and neither Firebase implementation calls getStorage(), bucket(), or file(). Accepted-upload tests publish through fakes with no stored object. Storage rules validate initial creation but cannot bind later finalizer claims to the actual object.
-  Fix: Read Admin Storage metadata for the exact authenticated-owner object before reserving quota or publishing. Verify existence, bucket/object identity, canonical URL, content type, byte size, and decoded media properties. Delete or quarantine mismatches.
-  Acceptance: Function tests reject a missing object, wrong owner path, mismatched URL, false size/MIME, and false dimensions; a matching object publishes; quota is not consumed for rejected claims.
-  Confidence: Verified
-  Effort: M
 
 - [ ] P1 — Keep voter/follower identities private and restore aggregate queries
   Category: security
@@ -432,45 +375,7 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Confidence: Verified
   Effort: L
 
-- [ ] P1 — Replace seven-day semantic dedupe with operation identity
-  Category: correctness
-  Where: functions/src/quotaEngine.ts:3-5,142-159; functions/src/followHandler.ts:85-116,176-178; functions/src/blockHandler.ts:86-117,184-186; functions/src/profileHandler.ts:93-122,188-198
-  Problem: Dedupe keys encode desired state for seven days. A valid A to B to A sequence reuses the first A marker and returns duplicate without applying the final state. Block, unblock, block can therefore report success while leaving the creator unblocked.
-  Evidence: Follow and block compare current state first, then reserve a marker keyed only by target plus the desired action. Profile hashes the desired public payload. Tests cover same-state retries but no A/B/A sequence, so old A and B markers remain active.
-  Fix: Deduplicate transport retries with a client operation ID or monotonic transition version. Store the operation result, not only the semantic target.
-  Acceptance: Tests for follow/unfollow/follow, block/unblock/block, and profile A/B/A all finish in A; retrying one operation ID is idempotent; different IDs are never collapsed.
-  Confidence: Verified
-  Effort: M
 
-- [ ] P1 — Count or reject every body in imported theme-pack archives
-  Category: security
-  Where: app/src/main/java/com/freevibe/service/ThemePackRecipeManager.kt:557-575,766-800; app/src/main/java/com/freevibe/service/ArchiveExtractionGuard.kt:97-151; app/src/test/java/com/freevibe/service/ThemePackArchiveExtractionTest.kt:112-126
-  Problem: Asset bodies are capped, but directory-named and unrecognized ZIP entries are drained by closeEntry() outside byte and compression-ratio accounting. A small archive can force unbounded decompression and CPU work.
-  Evidence: beginEntry() runs for each entry, but only recognized assets pass through copyZipEntryCapped() and commitEntry(). There is no guarded else drain or compressed input-size ceiling. Existing tests use empty directory and ignored entries.
-  Fix: Reject unexpected nonempty entries immediately or drain every entry through the capped counter and commit it to total/ratio accounting. Add a compressed input ceiling before opening the archive.
-  Acceptance: Nonempty directory-body and highly compressible ignored-entry fixtures fail within the declared budget; total expanded bytes include every accepted entry; a normal exported pack still round-trips.
-  Confidence: Verified
-  Effort: M
-
-- [ ] P1 — Route toolbar back through editor unsaved-change guards
-  Category: correctness
-  Where: app/src/main/java/com/freevibe/ui/screens/editor/WallpaperEditorScreen.kt:147-193; app/src/main/java/com/freevibe/ui/screens/editor/SoundEditorScreen.kt:168-200,959-965; app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoCropScreen.kt:150-183,299-360,417-487; app/src/main/java/com/freevibe/ui/FreeVibeRoot.kt:732-736,960-966
-  Problem: Wallpaper and Sound toolbar arrows bypass real dirty-state dialogs. Video Crop has no dirty guard at all, its toolbar also bypasses the active-export BackHandler, and normal system back can leave the parent route rather than close the crop overlay.
-  Evidence: Wallpaper/Sound system BackHandler opens discard UI but toolbar calls raw popBackStack. Video Crop stores pan, zoom, trim, and smart-crop state locally; its only BackHandler is enabled during export, while the toolbar always calls onBack. Leaving composition can cancel result delivery. The screen is reached from the production video Apply flow.
-  Fix: Define one requestExit() per editor. Route toolbar, system, predictive, and secondary back through it; keep busy editors mounted; add explicit dirty tracking to Video Crop and make clean back close only that overlay.
-  Acceptance: Clean back leaves one level; dirty Wallpaper/Sound exits preserve data until explicit Discard; Video Crop adjustments cannot vanish silently; no back path dismisses active apply/export; tests dispatch toolbar and system back for all three.
-  Confidence: Verified
-  Effort: S
-
-- [ ] P1 — Stop presenting persistent Hide as wallpaper apply actions
-  Category: ux
-  Where: app/src/main/res/values/strings.xml:1790; app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt:297-301,820-849,1114-1118,1158-1222; app/src/main/java/com/freevibe/ui/components/WallpaperStyleActions.kt:33-42,73-83; app/src/main/java/com/freevibe/data/repository/VoteRepository.kt:164-171,322-384
-  Problem: A wallpaper card control announced as Show wallpaper apply actions performs the same destructive callback as Hide. It always removes the card and records a persistent negative taste signal; with community enabled it also persists a hidden ID, and an admin path can hide globally. Wallpaper offers no Undo.
-  Evidence: WallpaperGrid assigns one closure to onLongPress and onDownvote. Both the mislabeled custom action and physical long click call it. The same closure calls skipWallpaper and conditionally downvote. Sounds/Videos wire undoDownvote, but Wallpaper shows a no-action snackbar; resetting taste does not clear hidden IDs.
-  Fix: Split show-apply-actions from Hide, keep one correctly named local Hide, wire undoDownvote plus reversal of the taste signal, add durable hidden-wallpaper recovery, and keep admin moderation as an explicitly separate action.
-  Acceptance: Show wallpaper apply actions opens choices and changes no feed/taste/vote state; Hide has immediate Undo; hidden media remains recoverable after restart; tests cover FOSS/community-off, regular community, and admin behavior.
-  Confidence: Verified
-  Effort: M
 
 - [ ] P1 — Resolve YouTube sound streams only for the visible window
   Category: perf
@@ -482,25 +387,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Confidence: Verified
   Effort: M
 
-- [ ] P1 — Repair the flavored dependency-notice compliance lane
-  Category: docs
-  Where: tools/dependency_notice_lock.py:44-46,120-134,278-280,324-326; docs/distribution/supply-chain.md:97-107; docs/legal/dependency-notices.lock.json; CONTRIBUTING.md:84-87
-  Problem: The documented notice command and tool default target a nonexistent release flavor, the repair hint repeats that bad default, and the checked-in lock is materially stale.
-  Evidence: The documented :app:releaseOssLicensesTask and default check fail because Aura has fullRelease/fossRelease. The fullRelease checker reports 136 added and 127 removed dependencies plus 13 added and six removed notice sections. CONTRIBUTING claims a mirrored test that does not exist.
-  Fix: Require a variant or default to fullRelease, repair all commands/hints, regenerate the reviewed lock, and add fixture tests for flavored paths and drift.
-  Acceptance: Every copied command exists and executes; current fullRelease check passes; changing a dependency fails a fixture; the Python suite directly tests the notice checker.
-  Confidence: Verified
-  Effort: M
-
-- [ ] P1 — Pin the release runtime to JDK 21 and remove JBR 25 instructions
-  Category: docs
-  Where: docs/distribution/release-signing.md:52,71-74; docs/distribution/release-dry-run.md:74-78; docs/distribution/supply-chain.md:181-185; README.md:240-245; CONTRIBUTING.md:20-23; CLAUDE.md:22,26,32; app/build.gradle.kts:144-154
-  Problem: Release runbooks select Android Studio JBR 25.0.2, which Gradle 8.12.1 cannot configure, while contributor docs correctly require JDK 21. Following release documentation stops before any build.
-  Evidence: With the documented JBR, gradlew help --no-daemon failed in three seconds with What went wrong: 25.0.2. The same task and both serialized release builds passed with Adoptium JDK 21. The required runtime exists only in inconsistent prose, not a machine-readable declaration.
-  Fix: Declare JDK 21 once through a Gradle toolchain or checked configuration, make every runbook consume it, and add a preflight/gate that rejects an unsupported runtime with a clear message.
-  Acceptance: Every release command configures with the declared JDK; JDK 25 gets an immediate actionable preflight error; changing any documented major fails a fixture; Full and FOSS release builds pass serially.
-  Confidence: Verified
-  Effort: S
 
 ### P2
 
@@ -524,15 +410,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Confidence: Verified
   Effort: M
 
-- [ ] P2 — Accept WebM community sounds consistently
-  Category: correctness
-  Where: app/src/main/java/com/freevibe/service/MediaIngestion.kt:404,439-467; app/src/main/java/com/freevibe/data/repository/UploadRepository.kt:46; functions/src/soundUploadHandler.ts:37; storage.rules:19
-  Problem: Local ingestion and Storage rules accept WebM audio, but client upload validation and backend finalization omit it. A file accepted by Aura cannot complete upload.
-  Evidence: MediaIngestion maps audio/webm and tests exercise it; storage.rules permits it. UploadRepository and soundUploadHandler use narrower allowlists.
-  Fix: Define one supported sound MIME contract mirrored by client/server fixtures. Include WebM only after decode, preview, apply, and moderation paths pass.
-  Acceptance: One WebM fixture ingests, uploads, finalizes, previews, downloads, and applies; unsupported MIME fails at the first boundary with matching messages.
-  Confidence: Verified
-  Effort: S
 
 - [ ] P2 — Validate complete theme-pack contents before mutating local state
   Category: correctness
@@ -554,15 +431,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Confidence: Verified
   Effort: M
 
-- [ ] P2 — Populate MediaStore TITLE for downloaded YouTube tones
-  Category: correctness
-  Where: app/src/main/java/com/freevibe/service/SoundApplier.kt:154-180 insertMediaStoreAudio()
-  Problem: Aura sets DISPLAY_NAME but not MediaStore.Audio.Media.TITLE. WebM tones can appear blank in system ringtone pickers and metadata consumers.
-  Evidence: On the current-run API 29 emulator, applying a YouTube lofi ringtone succeeded and changed the system URI to Aura row 35, but ContentResolver returned a populated _display_name with empty title/title_key. A local OGG Aura Original auto-populated title, proving container-dependent behavior.
-  Fix: Derive a sanitized human title and write TITLE for every inserted ringtone, notification, and alarm. Keep the extension only in DISPLAY_NAME.
-  Acceptance: OGG, MP3, M4A, and WebM fixtures all produce nonblank TITLE; the OEM picker displays it; MIME and type flags remain correct.
-  Confidence: Verified
-  Effort: S
 
 - [ ] P2 — Make the accessibility release gate fail when primary scenarios are waived away
   Category: testing
@@ -574,15 +442,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Confidence: Verified
   Effort: M
 
-- [ ] P2 — Give collection tiles explicit labels and visible removal
-  Category: a11y
-  Where: app/src/main/java/com/freevibe/ui/screens/collections/CollectionsScreen.kt:477-513
-  Problem: Collection media tiles lack a useful merged label, and removal is discoverable only through long press.
-  Evidence: The production grid attaches long-click without a visible affordance or item-specific description. No Remove button or overflow action reaches the callback.
-  Fix: Merge title/type/source semantics, expose a custom Remove action, and add visible overflow or selection-mode removal.
-  Acceptance: TalkBack announces each tile/action; removal works without long press; instrumentation finds and removes an item by semantic label.
-  Confidence: Verified
-  Effort: S
 
 - [ ] P2 — Make wallpaper crop presets change and expose the selected ratio
   Category: ux
@@ -594,25 +453,7 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Confidence: Verified
   Effort: M
 
-- [ ] P2 — Render wallpaper preview time from a ticking locale-aware clock
-  Category: correctness
-  Where: app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperPreviewScreen.kt:166-170,182-204,225-228
-  Problem: Preview time is captured once and formatted with hardcoded 24-hour/date patterns. It freezes and can disagree with system settings.
-  Evidence: The composable remembers current time without a ticker and uses H:mm plus a fixed date pattern even though it represents the applied live preview.
-  Fix: Use a lifecycle-aware minute ticker, DateFormat.is24HourFormat(), and locale formatters shared with the applied overlay.
-  Acceptance: Preview updates across a minute; 12-hour, 24-hour, English, and Chinese match system format; ticker stops off-screen.
-  Confidence: Verified
-  Effort: S
 
-- [ ] P2 — Expose selected state on custom cards, chips, and tabs
-  Category: a11y
-  Where: app/src/main/java/com/freevibe/ui/screens/onboarding/OnboardingScreen.kt:377-432; app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperPreviewScreen.kt:83-93,148-161; app/src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt:805-844
-  Problem: Several custom choices communicate selection only through color/decoration. Screen readers hear ordinary buttons with no current value.
-  Evidence: The controls retain selected values in Compose state but do not set selected, role, or stateDescription on the clickable nodes.
-  Fix: Use selectable()/selectableGroup() or Role.RadioButton plus selected semantics and a non-color visual indicator.
-  Acceptance: TalkBack announces selected state; single-choice groups expose one selection; semantics tests cover onboarding, preview target, and sound mode.
-  Confidence: Verified
-  Effort: S
 
 - [ ] P2 — Derive search and source menus from live provider capabilities
   Category: correctness
@@ -634,35 +475,8 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Confidence: Verified
   Effort: M
 
-- [ ] P2 — Stop using localized display strings as upload-dialog control values
-  Category: correctness
-  Where: app/src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt:329-337; app/src/main/java/com/freevibe/ui/screens/sounds/SoundCommunityActions.kt:207; app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt:338-345; app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperCommunityActions.kt:182
-  Problem: Dialog dismissal depends on comparing returned localized strings. Translation wording can keep a completed dialog open or close it for the wrong result.
-  Evidence: Community helpers return presentation text and callers branch on equality with resources instead of a typed outcome. The app ships English and Chinese, so localized control flow is reachable.
-  Fix: Return a sealed success/cancel/failure result with message data. Use resources only when rendering and dismiss only on typed success/cancel.
-  Acceptance: English and Chinese tests produce identical behavior; changing wording cannot change control flow; success, cancel, validation failure, and network failure are covered.
-  Confidence: Verified
-  Effort: S
 
-- [ ] P2 — Clear stale-content warnings after a successful refresh
-  Category: reliability
-  Where: app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt:186-187,303-311,685-707; app/src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt:174,381-393,623-640
-  Problem: A stale-cache or degraded-source warning can remain after a later successful refresh, telling users fresh content is stale.
-  Evidence: Warning state is remembered separately and set on fallback branches, while success paths update items/loading without consistently resetting it on both primary feeds.
-  Fix: Make freshness/degradation part of each generation's load result and replace it atomically with items. Ignore completion from superseded requests.
-  Acceptance: Forced fallback shows a warning; restored network plus refresh clears it; an older delayed failure cannot re-add it after newer success.
-  Confidence: Verified
-  Effort: S
 
-- [ ] P2 — Show a terminal empty state instead of Loading YouTube sounds
-  Category: ux
-  Where: app/src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt:959-986,1023-1027
-  Problem: A completed YouTube query with zero results is rendered with loading copy, implying work is active and offering no recovery.
-  Evidence: The zero-item branch reuses Loading YouTube sounds after loading flags are false. Empty successful provider responses are a normal terminal state and the branch is reachable for any narrow query.
-  Fix: Distinguish loading, empty query, no results, disabled, degraded, and failed. Echo the query and offer Clear filters/try another term for no results.
-  Acceptance: A fake empty success never shows a spinner/loading wording; retry and clear work; loading copy appears only while a job is active.
-  Confidence: Verified
-  Effort: S
 
 - [ ] P2 — Make wallpaper-editor overlays operable and announced
   Category: a11y
@@ -694,15 +508,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Confidence: Verified
   Effort: M
 
-- [ ] P2 — Make the sound waveform scrubber adjustable to accessibility services
-  Category: a11y
-  Where: app/src/main/java/com/freevibe/ui/screens/sounds/SoundDetailScreen.kt:845-885
-  Problem: The waveform exposes progress-bar semantics but no SetProgress action. TalkBack announces position but cannot seek.
-  Evidence: Pointer taps/drags and ProgressBarRangeInfo exist, but there is no Slider, setProgress, or equivalent semantic action.
-  Fix: Add setProgress semantics through the bounded seek callback with elapsed/total state and coarse accessibility increments.
-  Acceptance: Semantics actions seek to 25, 50, and 75 percent; TalkBack announces elapsed position; touch scrubbing stays accurate.
-  Confidence: Verified
-  Effort: S
 
 - [ ] P2 — Wire New from follows to actual followed creators
   Category: correctness
@@ -714,15 +519,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Confidence: Verified
   Effort: M
 
-- [ ] P2 — Keep community edit/report dialogs open until mutation succeeds
-  Category: reliability
-  Where: app/src/main/java/com/freevibe/ui/screens/community/CreatorProfileScreen.kt:143-173,350-361; app/src/main/java/com/freevibe/ui/components/CommunityReportDialog.kt:94-100
-  Problem: Profile editing and reporting dismiss immediately after launching async work. Validation/network failure loses entered context.
-  Evidence: Confirm callbacks clear dialog state before suspend results. Results exist, but dismissal is not conditioned on success.
-  Fix: Add submitting state, disable duplicate submit, retain fields, show inline safe errors, and dismiss only on confirmed success.
-  Acceptance: Forced failure keeps each dialog open with data and Retry; success dismisses once; double tap produces one backend call.
-  Confidence: Verified
-  Effort: S
 
 - [ ] P2 — Add loading and failure states to Community Reports
   Category: ux
@@ -754,15 +550,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Confidence: Verified
   Effort: M
 
-- [ ] P2 — Coalesce download progress before publishing Compose state
-  Category: perf
-  Where: app/src/main/java/com/freevibe/service/DownloadManager.kt:193-214,464-466,503-515,660-666; app/src/main/java/com/freevibe/ui/screens/downloads/DownloadsViewModel.kt:20-23; app/src/main/java/com/freevibe/ui/screens/downloads/DownloadsScreen.kt:107-119
-  Problem: Every 8 KiB read allocates a new map and emits StateFlow even though notification updates are throttled later. A 64 MiB file emits about 8,192 times.
-  Evidence: The copy loop calls updateProgress per buffer; it uses map plus on every call; only notification publication has a 250 ms throttle.
-  Fix: Coalesce UI state by elapsed time and meaningful byte/percent delta while always emitting initial, terminal, and error states.
-  Acceptance: A deterministic 64 MiB/8 KiB stream stays within a declared event bound; terminal bytes are exact; recompositions are bounded; throughput does not regress.
-  Confidence: Verified
-  Effort: S
 
 - [ ] P2 — Move collection QR work off the main thread and bound decode memory
   Category: perf
@@ -774,15 +561,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Confidence: Verified
   Effort: M
 
-- [ ] P1 — Prevent YouTube video wallpaper installs from selecting unsupported AV1
-  Category: functionality
-  Where: app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersViewModel.kt:733-743; app/src/main/java/com/freevibe/service/Av1CodecSupport.kt:11-57; app/src/main/java/com/freevibe/service/VideoWallpaperService.kt:363-427
-  Problem: The YouTube yt-dlp selector constrains the container to MP4 but not the video codec. Aura can install an AV1 stream on a device without an AV1 decoder, replacing the user's wallpaper with a black screen while the service retries playback.
-  Evidence: Current-run API 29 search for `loop` returned the seven-second YouTube item `Loop Background | Live Wallpaper | Chilling Cat | No Sound`. Apply downloaded a 293,136-byte 1920x1080 MP4 that ffprobe identifies as AV1 Main. The system accepted `VideoWallpaperService`, but `NuPlayerDecoder` repeatedly logged `Failed to create video/av01 decoder`, and emu-youtube-video-home-black2.png records the black installed wallpaper. `Av1CodecSupport` still has no production caller.
-  Fix: Feed device decoder capability into yt-dlp format selection, prefer AVC/H.264 as the compatibility fallback, and validate the downloaded codec before opening the system picker. Select AV1 only after a supported decoder and a successful bounded decode probe; otherwise obtain or transcode a compatible stream and preserve the previous wallpaper on failure.
-  Acceptance: The captured YouTube fixture installs and animates on an AVC-only API 29 device without decoder errors; an AV1-capable device may select AV1 after a decode probe; an incompatible download is rejected before the system picker with a retry path and never replaces the current wallpaper.
-  Confidence: Verified
-  Effort: M
 
 - [ ] P2 — Add save, download, share, and in-app report actions to video items
   Category: ux
@@ -796,23 +574,14 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
 
 - [ ] P2 — Expand the localization gate to every user-facing string path
   Category: testing
-  Where: tools/compose_hardcoded_string_check.py; docs/localization/hardcoded-string-baseline.json; app/src/main/java/com/freevibe/ui/screens/downloads/DownloadsScreen.kt:329-364; app/src/main/java/com/freevibe/ui/screens/favorites/FavoritesScreen.kt:667-731; app/src/main/java/com/freevibe/ui/screens/settings/WallpaperHistoryScreen.kt:48,54,115-122; app/src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt:770-777,1019-1047; app/src/main/java/com/freevibe/data/repository/AiWallpaperRepository.kt:19-27; app/src/main/java/com/freevibe/service/MediaIngestion.kt:488-494
+  Where: tools/compose_hardcoded_string_check.py; docs/localization/hardcoded-string-baseline.json; app/src/main/java/com/freevibe/ui/screens/downloads/DownloadsScreen.kt:329-364; app/src/main/java/com/freevibe/ui/screens/favorites/FavoritesScreen.kt:667-731; app/src/main/java/com/freevibe/ui/screens/settings/WallpaperHistoryScreen.kt:48,54,115-122; app/src/main/java/com/freevibe/ui/screens/sounds/SoundsScreen.kt:770-777,1019-1047; app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperFeedQuality.kt:88-123; app/src/main/java/com/freevibe/data/repository/AiWallpaperRepository.kt:19-27; app/src/main/java/com/freevibe/service/MediaIngestion.kt:488-494
   Problem: The current checker and baseline miss user-visible literals outside its narrow Compose patterns, so Chinese and future locales silently fall back to embedded English that the gate reports as clean.
-  Evidence: Direct review found hardcoded labels/status text in the listed production screens, repository errors, and English-built list conjunctions. The baseline can also be grown in write mode without a required reason.
+  Evidence: Direct review found hardcoded labels/status text in the listed production screens, repository errors, and English-built list conjunctions. The wallpaper card's TalkBack summary also assembles English-only orientation, AMOLED, vote-count, and saved-state phrases outside Android resources. The baseline can be grown in write mode without a required reason, and the 2026-09-25 tool run already drifted on a new `Applied automatically` message.
   Fix: Parse all Kotlin user-facing sinks, including Snackbar/toast/state/error constructors and content descriptions. Extract current literals, require a reason for any unavoidable baseline entry, and forbid automatic baseline growth.
-  Acceptance: The named strings come from resources in English and Chinese; a fixture in each supported sink fails; the baseline is empty or every entry has a reviewed reason; write mode cannot increase it silently.
+  Acceptance: The named strings and wallpaper-card semantics come from resources in English and Chinese, including proper plurals for vote counts; a fixture in each supported sink fails; the baseline is empty or every entry has a reviewed reason; write mode cannot increase it silently.
   Confidence: Verified
   Effort: M
 
-- [ ] P2 — Make the performance harness fail when it misses a destination
-  Category: testing
-  Where: baselineprofile/src/main/java/com/freevibe/benchmark/AuraBenchmarkFlows.kt:27-43,56-71; baselineprofile/src/main/java/com/freevibe/benchmark/GridScrollBenchmark.kt:20-30; app/src/main/java/com/freevibe/ui/navigation/Screen.kt:365-368; docs/performance/baseline-profile.md:17-21,39-46
-  Problem: The harness still taps Favorites even though bottom navigation now contains Library. Missing selectors and shell waits are ignored, so it waits about 16 seconds and measures the wrong screen while reporting success.
-  Evidence: tapBottomNav uses nullable click and waitForAuraShell discards its boolean result. Selectors are hardcoded English. The runbook also names a deleted performance workflow. A baseline was regenerated after the nav change, proving the no-op can produce nominal output.
-  Fix: Add stable test tags/resource IDs, fail immediately on missing shell/destination, navigate Library then Favorites, and document only the local physical-device lane.
-  Acceptance: An invalid destination fails immediately; English and Chinese runs reach identical routes; trace evidence proves Library-to-Favorites navigation; every documented command/file exists.
-  Confidence: Verified
-  Effort: S
 
 ### P3
 
@@ -826,26 +595,8 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Confidence: Verified
   Effort: S
 
-- [ ] P3 — Expose collection rename instead of hiding implemented behavior
-  Category: ux
-  Where: app/src/main/java/com/freevibe/ui/screens/collections/CollectionsScreen.kt:228-230,399-438; collection ViewModel and DAO rename methods
-  Problem: Rename exists in the data layer but has no discoverable user action. Correcting a name requires creating a replacement collection.
-  Evidence: ViewModel/DAO rename functions have no visible collection-list/card menu entry.
-  Fix: Add Rename to overflow, reuse create-name validation, retain text on error, and announce success.
-  Acceptance: Rename works from a visible menu; blank/duplicate names show inline errors; contents/order survive restart.
-  Confidence: Verified
-  Effort: S
 
 ## Research-Driven Additions — 2026-09-25
-
-### P1
-
-- [ ] P1 — Render each live wallpaper engine with its display context
-  Why: Android can run concurrent wallpaper engines on displays with different densities, but Aura sizes clock overlays and fallback surfaces from service resources, so secondary-display rendering can be scaled incorrectly.
-  Evidence: **Verified.** Android's `WallpaperService.Engine.getDisplayContext()` contract says to avoid the service context in a multiple-display environment; `WallpaperClockOverlay.kt:88` reads `context.resources.displayMetrics.density`; `VideoWallpaperService.kt:689`, `WeatherWallpaperService.kt:480`, and `ParallaxWallpaperService.kt:550` pass their service context; the weather and parallax fallbacks also read service metrics at `WeatherWallpaperService.kt:259-260` and `ParallaxWallpaperService.kt:293-294`; https://developer.android.com/reference/android/service/wallpaper/WallpaperService.Engine#getDisplayContext
-  Touches: `VideoWallpaperService.kt`, `WeatherWallpaperService.kt`, `ParallaxWallpaperService.kt`, `WallpaperClockOverlay.kt`, live-wallpaper engine and rendering tests.
-  Acceptance: on API 29 and later, every engine obtains its context only after `onCreate(SurfaceHolder)` and uses that context for density, fallback dimensions, overlays, and display resources; API 26 through 28 keep an explicit service-context fallback; a test creates two concurrent engines with distinct densities and surfaces and proves each produces independently scaled output; preview and applied-engine lifecycle tests pass without service-global display state.
-  Complexity: M
 
 ### P2
 
@@ -855,6 +606,83 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Touches: `package.json`, `package-lock.json`, Firebase emulator and backend-manifest checks under `tools/`, release documentation that names the CLI version.
   Acceptance: the root lockfile resolves Firebase CLI 15.31.0 or a newer reviewed 15.x patch; root and `functions/` audits report zero moderate, high, or critical findings without `--force`, blanket overrides, or ignored advisories; existing Firebase emulator, rules, Functions, and community-backend manifest checks pass; the gate labels root findings as deployment-tool findings so they are not reported as APK runtime vulnerabilities.
   Complexity: S
+
+
+## Deep Audit Additions — 2026-09-25
+
+### P2
+
+- [ ] P2 — Finish server-side Storage attestation for community uploads
+  Category: security
+  Where: `functions/src/soundUploadHandler.ts:77-90,171-183,217-257,460-469`; `functions/src/wallpaperUploadHandler.ts:69-88,169-189,513-522`; `app/src/main/java/com/freevibe/data/model/CommunitySoundUpload.kt:24-64`; `app/src/main/java/com/freevibe/data/repository/UploadRepository.kt:121-150,363-378`; `functions/test/finalizeCommunitySoundUpload.test.cjs:15-35`; `functions/test/finalizeCommunityWallpaperUpload.test.cjs:18-38`
+  Problem: The new finalizers only partly bind published metadata to the uploaded object. The sound path references a nonexistent `payload.fileSize`, its Android caller never sends that field, and it never compares the declared MIME type with Storage metadata. Both media types still publish client-selected HTTPS URLs, and wallpaper dimensions are never decoded from the stored JPEG.
+  Evidence: `npm --prefix functions test` and `npm run test:functions-emulator` both stop in TypeScript compilation at `soundUploadHandler.ts:178,181` because `CommunitySoundUploadPayload` has no `fileSize`. `verifyStorageObject()` returns only existence, MIME, and byte size. The wallpaper check accepts any Storage MIME whose top-level type is `image`, then persists the submitted URLs and dimensions. The JavaScript fakes have no `verifyStorageObject` method or missing-object, MIME, URL, size, and dimension mismatch cases, so runtime coverage would still fail after the type error is corrected. Storage creation rules reduce exposure, but they do not prove that later public metadata describes the same object.
+  Fix: Add one shared attestation result whose required fields come from Admin Storage and media inspection. Derive the public locator from the verified bucket/object instead of accepting it from the caller, require exact allowed MIME and byte size, decode JPEG dimensions server-side, and add `fileSize` to the sound client contract. Update the fakes before publication logic is considered complete. Keep quota-failure reconciliation in its existing roadmap item.
+  Acceptance: Both Functions test commands compile and pass; missing objects and unavailable metadata fail closed; wrong owner path, URL, size, exact MIME, and wallpaper dimensions are rejected without a public row; a matching sound and wallpaper publish only server-derived object metadata; Android payload tests prove sound size is bounded and transmitted.
+  Confidence: Verified
+  Effort: M
+
+- [ ] P2 — Restore the video-wallpaper unit-test fixture after AV1 capability injection
+  Category: testing
+  Where: `app/src/test/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersViewModelTest.kt:237-250`; `app/src/main/java/com/freevibe/ui/screens/videowallpapers/VideoWallpapersViewModel.kt:468-482`
+  Problem: A direct `VideoWallpapersViewModel` construction was not updated when `Av1CodecSupport` became a required dependency, so neither Android unit-test flavor can compile.
+  Evidence: The combined baseline stops at `:app:compileFullDebugUnitTestKotlin` with “No value passed for parameter 'av1CodecSupport'” at test line 249. The same source set feeds `testFossDebugUnitTest`, so the FOSS suite is gated by the same compile defect. The production constructor requires the dependency and uses it in download format selection and post-download validation.
+  Fix: Supply a deterministic AV1-capability fake in the fixture, preferably through the test's shared ViewModel factory, and exercise both supported and unsupported codec branches so the dependency cannot drift silently again.
+  Acceptance: `:app:testFullDebugUnitTest` and `:app:testFossDebugUnitTest` compile and pass; one test selects the AV1-capable format and another excludes AV1 and rejects an AV1 result on unsupported hardware.
+  Confidence: Verified
+  Effort: S
+
+- [ ] P2 — Remove the committed Compose resource errors from the wallpaper feed
+  Category: correctness
+  Where: `app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt:183,859-868`
+  Problem: The Hide snackbar reads strings through `LocalContext.current` from a coroutine callback. Compose cannot invalidate those values when configuration changes, and the committed code now fails lint for both the message and Undo label.
+  Evidence: `:app:lintFullDebug` reports two `LocalContextGetResourceValueCall` errors at lines 861-862; `:app:lintFossDebug` reports the same two errors. The other nine errors belong to the separate in-progress shuffle-pool implementation and are recorded on that roadmap item.
+  Fix: Resolve the localized strings in composition with `stringResource`, or read through configuration-aware resources before launching the snackbar coroutine. Add a lint regression fixture if this pattern is not already covered.
+  Acceptance: The wallpaper Hide and Undo flow still works after an in-app locale change, and both flavor lint tasks report no error in `WallpapersScreen.kt`.
+  Confidence: Verified
+  Effort: S
+
+- [ ] P2 — Keep every primary destination usable at 200 percent text
+  Category: a11y
+  Where: `app/src/main/java/com/freevibe/ui/FreeVibeRoot.kt:241-301,1156-1224`
+  Problem: The fixed bottom bar and navigation rail cannot contain five always-visible text labels at the platform's 200 percent font setting. Portrait labels are cut mid-word, while the landscape rail truncates Wallpapers and pushes Settings completely off-screen.
+  Evidence: Current-run API 35 emulator captures at `font_scale=2.0` show `Wallpa`, `Sound`, and `Settin` in the 64 dp portrait bar. At 2400 by 1080 landscape, the 86 dp rail shows only four destinations and clips the selected label. The code fixes bar height to 64 dp, rail width to 86 dp, labels to one line, and gives the full-height rail no scroll or compact mode. This concrete defect is actionable independently of the remaining scanner matrix in `Roadmap_Blocked.md`.
+  Fix: Introduce a large-text navigation presentation that preserves all five targets, such as semantic icon-only compact navigation or a scroll-safe rail, and size it from the actual container and insets. Keep full accessible names even when visible labels are shortened or hidden.
+  Acceptance: At 200 percent text in portrait and landscape, all five destinations are simultaneously reachable with no clipped text or target; TalkBack announces their full localized names and selected state; normal text, RTL, gesture navigation, and three-button navigation retain at least 48 dp targets; screenshot tests cover both navigation forms.
+  Confidence: Verified
+  Effort: M
+
+- [ ] P2 — Replace URL-only wallpaper dedupe with safe media identity
+  Category: correctness
+  Where: `app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperFeedQuality.kt:67-85,253-264`; wallpaper feed cache and provider merge tests
+  Problem: Feed dedupe treats a normalized URL as content identity. Exact duplicate files at different URLs remain side by side, while lowercasing the entire URL can collapse distinct resources whose case-sensitive paths differ.
+  Evidence: The current-run Popular feed rendered its first two cards as the same artwork under Reddit IDs `rd_1wpu3qi` and `rd_1wpu03j`. Their distinct `i.redd.it` URLs downloaded to two 519,117-byte, 978 by 2,030 JPEGs with the same SHA-256, `0D1C55A70581FACE052D4CA39B102900B5A29BBF89A492B8B45187FB65F30D1F`. `wallpaperKey()` strips query and fragment, lowercases the full URL, and has no content fingerprint.
+  Fix: Canonicalize only URL components that are case-insensitive, preserve path/query identity where providers use it, and attach a bounded content digest or decoded-thumbnail fingerprint to fetched media. Coalesce exact duplicates while retaining attribution aliases and the highest-quality metadata.
+  Acceptance: Distinct URLs with identical bytes render once; differently cased, case-sensitive paths remain distinct; signed/resized variants of one asset resolve according to a documented provider rule; pagination and cache restoration do not reintroduce a duplicate; unit fixtures cover all four cases.
+  Confidence: Verified
+  Effort: M
+
+- [ ] P2 — Size sound-detail actions from the actual content container
+  Category: ux
+  Where: `app/src/main/java/com/freevibe/ui/screens/sounds/SoundDetailScreen.kt:80-92`
+  Problem: The action-row breakpoint subtracts padding from the device screen width instead of measuring the composable's available width. Navigation rails, split-screen, freeform windows, and foldable panes can therefore select the one-row layout when four labeled actions do not fit.
+  Evidence: Android lint reports `ConfigurationScreenWidthHeight` at line 83 and directs the screen to `LocalWindowInfo.current.containerSize`. The current calculation has no knowledge of the 86 dp primary rail or any parent pane width, despite its comment claiming to use “real width.”
+  Fix: Make the action container own the breakpoint through `BoxWithConstraints`, a custom layout, or window/container information converted with current density. Base the decision on measured content width and preserve the existing font-scale term.
+  Acceptance: Phone, rail, 50/50 split-screen, narrow freeform, foldable pane, and 200 percent text tests show four untruncated actions or the stacked form; resize transitions do not lose state; the lint warning is gone.
+  Confidence: Verified
+  Effort: S
+
+### P3
+
+- [ ] P3 — Move wallpaper-pager animation state reads out of composition
+  Category: perf
+  Where: `app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperDetailScreen.kt:332-350`
+  Problem: Every fractional pager offset is read in composition before being passed to `graphicsLayer`, so a drag recomposes the page content for frame-by-frame transform values that only need draw-layer invalidation.
+  Evidence: Both flavor lint reports `FrequentlyChangingValue` at line 340 for `currentPageOffsetFraction`. The value drives only scale, translation, and alpha in the immediately following `graphicsLayer`; no composed structure depends on it.
+  Fix: Read pager offset inside the layer/draw phase or expose a derived value with an explicit recomposition threshold. Keep page identity and URL reads stable.
+  Acceptance: Lint no longer reports `FrequentlyChangingValue`; a pager macrobenchmark or recomposition counter shows page content does not recompose for every drag frame; scale, translation, alpha, and settled-page behavior match the current animation.
+  Confidence: Verified
+  Effort: S
 
 ## Issue Intake (2026-09-26)
 
