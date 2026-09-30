@@ -46,7 +46,7 @@ private const val MIN_VIDEO_WALLPAPER_DURATION_MS = 1_000L
 
 internal data class VideoWallpaperProbe(
     val hasVideo: Boolean,
-    val durationMs: Long,
+    val durationMs: Long?,
     val width: Int,
     val height: Int,
     val mimeType: String?,
@@ -128,7 +128,8 @@ internal fun resolveVideoWallpaperExtension(
 internal fun videoWallpaperProbeFailure(probe: VideoWallpaperProbe): String? =
     when {
         !probe.hasVideo -> "Selected file does not contain a video track"
-        probe.durationMs < MIN_VIDEO_WALLPAPER_DURATION_MS -> "Selected video is too short"
+        probe.durationMs != null && probe.durationMs < MIN_VIDEO_WALLPAPER_DURATION_MS ->
+            "Selected video is too short"
         probe.width <= 0 || probe.height <= 0 -> "Selected video dimensions could not be read"
         else -> null
     }
@@ -481,10 +482,14 @@ class VideoWallpaperStorage @Inject constructor(
             retriever.setDataSource(file.absolutePath)
             val hasVideo = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO)
                 ?.equals("yes", ignoreCase = true) == true
+            var durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                ?.toLongOrNull()
+            if (durationMs == null || durationMs <= 0L) {
+                durationMs = probeWithMediaExtractor(file)
+            }
             VideoWallpaperProbe(
                 hasVideo = hasVideo,
-                durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-                    ?.toLongOrNull() ?: 0L,
+                durationMs = durationMs?.takeIf { it > 0L },
                 width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
                     ?.toIntOrNull() ?: 0,
                 height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
@@ -497,6 +502,28 @@ class VideoWallpaperStorage @Inject constructor(
             throw IOException("Selected video could not be decoded", e)
         } finally {
             runCatching { retriever.release() }
+        }
+    }
+
+    private fun probeWithMediaExtractor(file: File): Long? {
+        val extractor = android.media.MediaExtractor()
+        return try {
+            extractor.setDataSource(file.absolutePath)
+            var maxDurationUs = -1L
+            for (i in 0 until extractor.trackCount) {
+                val format = extractor.getTrackFormat(i)
+                val mime = format.getString(android.media.MediaFormat.KEY_MIME).orEmpty()
+                if (!mime.startsWith("video/")) continue
+                val trackDuration = runCatching {
+                    format.getLong(android.media.MediaFormat.KEY_DURATION)
+                }.getOrDefault(-1L)
+                if (trackDuration > maxDurationUs) maxDurationUs = trackDuration
+            }
+            if (maxDurationUs > 0) maxDurationUs / 1_000L else null
+        } catch (_: Exception) {
+            null
+        } finally {
+            runCatching { extractor.release() }
         }
     }
 
