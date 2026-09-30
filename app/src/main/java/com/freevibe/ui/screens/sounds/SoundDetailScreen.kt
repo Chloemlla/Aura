@@ -26,7 +26,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import kotlinx.coroutines.launch
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -80,16 +79,6 @@ fun SoundDetailScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val selectedSound by viewModel.selectedSound.collectAsStateWithLifecycle()
     val fontScale = LocalDensity.current.fontScale
-    val screenWidthDp = LocalConfiguration.current.screenWidthDp
-    // A 411dp phone at default font scale cannot fit four labelled secondary
-    // actions in one row: "Contact" ellipsized. Decide from real width, not just
-    // font scale, so the default case reflows instead of truncating.
-    val useStackedActions = shouldStackSoundActions(
-        availableWidthDp = screenWidthDp - SOUND_DETAIL_HORIZONTAL_PADDING_DP * 2,
-        itemCount = 4,
-        minItemWidthDp = SOUND_SECONDARY_ACTION_MIN_WIDTH_DP,
-        fontScale = fontScale,
-    )
     val targetSource = fallbackSound?.source
     val targetPreviewUrl = fallbackSound?.previewUrl?.takeIf { it.isNotBlank() }
     val targetDownloadUrl = fallbackSound?.downloadUrl?.takeIf { it.isNotBlank() }
@@ -358,10 +347,20 @@ fun SoundDetailScreen(
             )
         },
     ) { padding ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxSize().padding(padding),
         ) {
+            val containerWidthDp = with(LocalDensity.current) { constraints.maxWidth.toDp() }
+            val useStackedActions = shouldStackSoundActions(
+                availableWidthDp = (containerWidthDp - (SOUND_DETAIL_HORIZONTAL_PADDING_DP * 2).dp).value.toInt(),
+                itemCount = 4,
+                minItemWidthDp = SOUND_SECONDARY_ACTION_MIN_WIDTH_DP,
+                fontScale = fontScale,
+            )
+            Column(
+                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
             // Waveform with integrated play button
             Box(
                 modifier = Modifier.fillMaxWidth().height(156.dp).clip(RoundedCornerShape(8.dp)),
@@ -639,6 +638,7 @@ fun SoundDetailScreen(
 
             Spacer(Modifier.height(16.dp))
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+        }
         }
     }
 }

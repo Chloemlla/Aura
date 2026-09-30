@@ -61,6 +61,10 @@ All notable changes to Aura will be documented in this file.
   install channel, repro steps, and restart behavior. Diagnostics bundle is no
   longer required for no-launch crashes; an adb logcat fallback is documented.
 
+- **Sound detail action layout**: the action row breakpoint now derives from the
+  actual container width via `BoxWithConstraints` instead of the device screen
+  width. Split-screen, navigation rail, and foldable pane widths are reflected.
+
 - **Community Reports states**: the report queue now shows a loading indicator
   while waiting for data, and shows a distinct error state with Retry when the
   Firebase query fails instead of looking like a legitimate empty queue.

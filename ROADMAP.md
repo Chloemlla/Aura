@@ -632,15 +632,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Confidence: Verified
   Effort: M
 
-- [ ] P2 — Size sound-detail actions from the actual content container
-  Category: ux
-  Where: `app/src/main/java/com/freevibe/ui/screens/sounds/SoundDetailScreen.kt:80-92`
-  Problem: The action-row breakpoint subtracts padding from the device screen width instead of measuring the composable's available width. Navigation rails, split-screen, freeform windows, and foldable panes can therefore select the one-row layout when four labeled actions do not fit.
-  Evidence: Android lint reports `ConfigurationScreenWidthHeight` at line 83 and directs the screen to `LocalWindowInfo.current.containerSize`. The current calculation has no knowledge of the 86 dp primary rail or any parent pane width, despite its comment claiming to use “real width.”
-  Fix: Make the action container own the breakpoint through `BoxWithConstraints`, a custom layout, or window/container information converted with current density. Base the decision on measured content width and preserve the existing font-scale term.
-  Acceptance: Phone, rail, 50/50 split-screen, narrow freeform, foldable pane, and 200 percent text tests show four untruncated actions or the stacked form; resize transitions do not lose state; the lint warning is gone.
-  Confidence: Verified
-  Effort: S
 
 ### P3
 
