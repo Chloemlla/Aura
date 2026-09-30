@@ -65,9 +65,19 @@ All notable changes to Aura will be documented in this file.
   thread) and LeakCanary (leaked closables, activity leaks), both logging only.
   Release builds contain neither.
 
-- **Rotation countdown restart**: a manual wallpaper apply now restarts the
-  rotation timer so the next scheduled change counts from the manual apply, not
-  from the original schedule. Governed by an on-by-default preference.
+- **Rotation countdown restart**: picking a wallpaper yourself now starts the
+  rotation interval over, so the next automatic change is a full interval away.
+  That covers applies from the app, widget shuffles, the Quick Settings tile,
+  automation broadcasts and Diagnostics' Run now. Unlock and screen-off
+  rotations leave the timer alone. The restart uses the scheduler's minute
+  interval when the scheduler is on. It's governed by a preference that's on
+  by default.
+
+- **Sound previews resolve on demand**: YouTube sound tabs and search used to
+  extract streams for every result (up to 30) before you tapped anything. Now
+  only the rows on screen plus one ahead get resolved, each once per feed.
+  Switching tab or query cancels the old feed's work, and resolving and
+  prebuffering share three slots.
 
 - **Firebase CLI upgraded to 15.31.0**: root audit findings reduced from 15 to
   10 (non-breaking fixes applied). Functions audit is now zero. The remaining
@@ -77,18 +87,19 @@ All notable changes to Aura will be documented in this file.
   the `graphicsLayer` block instead of composition, eliminating per-drag-frame
   recomposition of page content.
 
-- **Live wallpaper dimming parity**: the dim overlay and double-tap reveal now
-  work on all three engines (video GIF path, weather, parallax). Previously only
-  the weather engine was wired; the Settings toggle was a silent no-op on the
-  other two.
+- **Live wallpaper dimming**: the dim overlay and double-tap reveal now work on
+  the parallax engine and on animated GIFs in the video engine, not only on the
+  weather engine. MP4 video wallpapers aren't dimmed yet.
 
 - **Sound detail action layout**: the action row breakpoint now derives from the
   actual container width via `BoxWithConstraints` instead of the device screen
   width. Split-screen, navigation rail, and foldable pane widths are reflected.
 
-- **Community Reports states**: the report queue now shows a loading indicator
-  while waiting for data, and shows a distinct error state with Retry when the
-  Firebase query fails instead of looking like a legitimate empty queue.
+- **Community Reports states**: the report queue shows a loading indicator while
+  it waits and an error with Retry when the query fails, instead of looking like
+  an empty queue. Being offline and lacking admin access now read differently.
+  A failed refresh keeps the reports you were looking at and says when they
+  were last updated.
 
 - **Lint fix**: wallpaper Hide snackbar now resolves strings via `stringResource`
   in composition scope instead of `context.getString()` from a coroutine,

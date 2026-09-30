@@ -19,6 +19,7 @@ Actionable work only. Historical and completed roadmap material is archived in C
   Evidence: **Verified.** `RingtoneShuffleWorker.kt` reads the broad SOUND download set for ringtone/alarm selection; no notification pool or user-managed membership exists; Peristyle and wallpaper competitors validate named pools as a comprehensible automation model, while ringtone users currently build folder-based rotation externally.
   Touches: sound collection/profile schema, `RingtoneShuffleWorker.kt`, notification target support, Sounds/Library UI, scheduler and boot restoration, history/Undo, export/import, tests.
   Acceptance: users create named pools, add local/downloaded/original sounds, choose ringtone, notification, alarm, or any combination, and set a schedule; the worker avoids an immediate repeat when another valid item exists, skips missing/incompatible media visibly, records history, and restores scheduling after reboot; disabling a pool cancels its work; pools and assignments round-trip through backup.
+  JVM evidence 2026-09-30: with the in-progress files in the tree, `SettingsViewModelDelegateContractTest` fails ("the facade must not create independent jobs") because `SettingsViewModel.kt` launches the pool operations on `viewModelScope` itself. Move them into a settings delegate.
   Audit evidence 2026-09-25: the in-progress implementation is not ready to merge. The repository gate currently reports 655 passing and five failing tool tests: the network and scheduling ledgers still require the replaced broad-download calls, the hardcoded-string baseline is missing `Applied automatically`, and two documentation-link checks reject the untracked `docs/sound-shuffle-pools.md`. Full and FOSS lint also report nine `LocalContextGetResourceValueCall` errors in `SoundShufflePoolsDialog.kt:105-244`. Treat these as acceptance blockers for this item, not separate roadmap work.
   Complexity: M
 
@@ -354,16 +355,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
 
 
 
-- [ ] P1 — Resolve YouTube sound streams only for the visible window
-  Category: perf
-  Where: app/src/main/java/com/freevibe/ui/screens/sounds/SoundBrowseQueries.kt:17-47; app/src/main/java/com/freevibe/ui/screens/sounds/SoundBrowseViewModel.kt:334-367,484; app/src/main/java/com/freevibe/ui/screens/sounds/SoundYouTubeActions.kt:202-255; app/src/main/java/com/freevibe/data/repository/YouTubeRepository.kt:228-339,449-473; app/src/main/java/com/freevibe/ui/screens/sounds/SoundPlaybackActions.kt:85-104; app/src/main/java/com/freevibe/service/AudioPreviewCache.kt:52-76
-  Problem: Opening sound tabs can resolve up to 12 streams before a tap, and direct search can resolve all 30 results at concurrency six, followed by eight prebuffer jobs. This spends CPU, battery, and mobile data on unheard media.
-  Evidence: The code launches three searches per category and resolves four from each; direct search maps every fallback result through extraction. Current-run API 29 logs showed ten lofi ringtone resolutions in about eight seconds before selection. Playback and apply worked, so this is eager fan-out rather than provider failure.
-  Fix: Resolve only visible rows plus one lookahead through one bounded, cancellable queue keyed by query/tab. Resolve remaining items on visibility or tap.
-  Acceptance: A 30-result test makes no more resolver calls than the visible budget; switching query cancels obsolete work; combined resolve/prebuffer concurrency stays bounded; first-play latency does not regress.
-  Confidence: Verified
-  Effort: M
-
 
 ### P2
 
@@ -608,6 +599,63 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
 
 
 ### P3
+
+
+## Drain Leftovers — 2026-09-30
+
+Remainders of items closed in the 2026-09-30 drain whose full acceptance did not land.
+
+### P2
+
+- [ ] P2 — Give restart-on-manual-apply a Settings switch and a diagnostics line
+  Why: a manual apply now restarts the rotation interval (CANCEL_AND_REENQUEUE, scheduler-aware), but `AUTO_WP_RESTART_ON_MANUAL` defaults on with no setter and no UI, so nobody can turn it off, and Diagnostics can't show when the next rotation is due.
+  Touches: `PreferencesManager.kt` (setter), `SettingsRotationDelegate.kt`, rotation settings UI, Diagnostics export, strings (en + zh), tests.
+  Acceptance: a switch under rotation settings toggles the pref; Diagnostics shows the next scheduled rotation time from `WorkInfo.nextScheduleTimeMillis`; a test covers the off path leaving the countdown untouched.
+  Complexity: S
+
+- [ ] P2 — Dim the MP4 path of the video live wallpaper and name the dimmed engines
+  Why: dimming now reaches the GIF path of `VideoWallpaperService` and the parallax engine, but MP4 playback renders straight to the surface through ExoPlayer, so the dim overlay never draws over it. The toggle copy doesn't say which live wallpapers honor it.
+  Touches: `VideoWallpaperService.kt` (render MP4 through a GL or TextureView-style composition pass, or apply the dim in the player's video effect chain), `LiveWallpaperDimming.kt`, settings strings, a soak run on device.
+  Acceptance: an MP4 live wallpaper dims and reveals on touch like the GIF path; the setting text lists the engines it affects; a 30-minute on-device soak shows no frame-rate or memory regression.
+  Complexity: M
+
+- [ ] P2 — Measure first-play latency and resolve counts for on-demand sound previews on a phone
+  Why: Sounds now resolves YouTube previews only for visible rows plus one lookahead (`SoundPreviewWarmup`). JVM tests prove the budget, cancellation and shared concurrency, but no device run has compared first-play latency or counted `Audio preview resolved` log lines against the old eager fan-out (ten resolutions in about eight seconds on API 29).
+  Touches: debug build on the S22 or S25, logcat `YouTubeRepo` lines, a short timing script.
+  Acceptance: opening Ringtones logs no more than about eight resolutions before any tap; scrolling adds only the newly visible rows; time from tapping a top-row preview to audio is no worse than the previous release on the same phone.
+  Complexity: S
+
+- [ ] P2 — Prove display-context rendering on a second density
+  Why: Video, Weather and Parallax now draw with `displayContext` on API 29+, but no test runs two engines on displays of different density.
+  Touches: Robolectric or instrumented test for `resolveDecodeTarget()` and `resolveScreenSize()` with a secondary display.
+  Acceptance: a test with two display configurations shows each engine sizing its decode target from its own display.
+  Complexity: S
+
+### P3
+
+- [ ] P3 — Cover the AV1 branches of the video wallpaper feed and the fragmented-MP4 fallback on device
+  Why: `VideoWallpapersViewModelTest` compiles again but never exercises `Av1CodecSupport` returning true or false, and the MediaExtractor duration fallback for fragmented MP4 has only a JVM test. When neither the retriever nor MediaExtractor reports a duration, the too-short check is skipped entirely, so a short clip with no duration metadata gets through. HLS sources are never rewrapped (`RedditRssParser.kt`, `VideoWallpapersViewModel.kt`).
+  Touches: `VideoWallpapersViewModelTest.kt`, an androidTest with a fragmented MP4 fixture (the "Waves" clip), `VideoWallpaperStorage.kt`, `RedditRssParser.kt`.
+  Acceptance: AV1-supported and unsupported cases each pick the expected rendition; an on-device test on API 26 and API 29 applies a fragmented MP4 with no container duration; an unknown-duration clip is measured by decoding frames or rejected with a clear message rather than skipped.
+  Complexity: M
+
+- [ ] P3 — Prove the wallpaper detail pager no longer recomposes per drag frame
+  Why: the page offset read moved into `graphicsLayer`, but nothing measures recomposition, so a later edit can move it back unnoticed.
+  Touches: `WallpaperDetailScreen.kt`, a Compose test with a recomposition counter.
+  Acceptance: a test drags the pager across a page and asserts page content recomposes a bounded number of times, independent of frame count.
+  Complexity: S
+
+- [ ] P3 — Settle the root npm audit residue and add Sound detail width tests
+  Why: after the firebase-tools 15.31.0 bump, `npm audit` at the repo root still reports 10 findings that come through firebase-tools itself. The container-width layout fix in Sound detail has no test at narrow width or 200 percent text.
+  Touches: root `package.json`/`package-lock.json`, the dependency gate's accepted-advisory list, `SoundDetailScreen.kt` tests.
+  Acceptance: each remaining advisory is fixed or recorded with a reason in the gate; a Compose test shows the secondary actions stacking at 320 dp and at fontScale 2.0.
+  Complexity: S
+
+- [ ] P3 — Finish the debug-build StrictMode and LeakCanary pass
+  Why: debug builds now run StrictMode and LeakCanary, but nothing asserts LeakCanary is absent from release APKs, the violations it logs on a real device haven't been listed, and `detectImplicitUriPermissionGrant` needs compileSdk 37.
+  Touches: release APK scan in the build gates, repo notes, `FreeVibeApp.kt`.
+  Acceptance: a gate fails if `leakcanary` classes appear in a release APK; the violations seen during a device session are recorded and each has a fix or an open item; the URI-grant check is enabled once compileSdk reaches 37.
+  Complexity: S
 
 
 ## Issue Intake (2026-09-26)
