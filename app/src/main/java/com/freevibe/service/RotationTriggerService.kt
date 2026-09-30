@@ -110,8 +110,10 @@ class RotationTriggerService : Service() {
         val rx = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 when (intent.action) {
-                    Intent.ACTION_USER_PRESENT -> if (unlockEnabled) enqueueRotation(context)
-                    Intent.ACTION_SCREEN_OFF -> if (screenOffEnabled) enqueueRotation(context)
+                    // Unlock and screen-off rotations are automatic, so they leave the
+                    // periodic countdown alone; tile and automation taps restart it.
+                    Intent.ACTION_USER_PRESENT -> if (unlockEnabled) enqueueRotation(context, restartCountdown = false)
+                    Intent.ACTION_SCREEN_OFF -> if (screenOffEnabled) enqueueRotation(context, restartCountdown = false)
                 }
             }
         }
@@ -177,7 +179,7 @@ class RotationTriggerService : Service() {
          * from prefs and applies). Expedited so the wallpaper is set in time for
          * the user to see it on their lock screen / next unlock.
          */
-        internal fun enqueueRotation(context: Context) {
+        internal fun enqueueRotation(context: Context, restartCountdown: Boolean = true) {
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .setRequiresBatteryNotLow(true)
@@ -188,6 +190,7 @@ class RotationTriggerService : Service() {
                     workDataOf(
                         AutoWallpaperWorker.RECEIPT_WORK_NAME_KEY to WORK_NAME,
                         AutoWallpaperWorker.TRIGGERED_ROTATION_KEY to true,
+                        AutoWallpaperWorker.RESTART_COUNTDOWN_KEY to restartCountdown,
                     ),
                 )
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)

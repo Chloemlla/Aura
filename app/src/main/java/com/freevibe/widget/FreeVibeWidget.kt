@@ -438,6 +438,7 @@ private suspend fun applyFromSource(context: Context, source: String, target: Wa
             ep.wallpaperApplier().applyFromUrl(wp.fullUrl, target).fold(
                 onSuccess = {
                     ep.wallpaperHistoryManager().record(wp, target)
+                    com.freevibe.service.AutoWallpaperWorker.restartCountdownAfterManualChange(context)
                     true
                 },
                 onFailure = { error ->
@@ -478,6 +479,7 @@ private suspend fun applyRandom(context: Context, target: WallpaperTarget): Bool
             ep.wallpaperApplier().applyFromUrl(wp.fullUrl, target).fold(
                 onSuccess = {
                     ep.wallpaperHistoryManager().record(wp, target)
+                    com.freevibe.service.AutoWallpaperWorker.restartCountdownAfterManualChange(context)
                     true
                 },
                 onFailure = { error ->

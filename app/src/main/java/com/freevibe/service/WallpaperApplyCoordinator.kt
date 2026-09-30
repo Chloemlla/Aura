@@ -10,7 +10,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.first
 
 /**
  * What a caller wants persisted when a wallpaper apply succeeds.
@@ -30,6 +29,11 @@ data class WallpaperApplyPolicy(
     val recordStyleSignal: Boolean,
     /** Post a user-visible apply event with an Undo target. */
     val postFeedback: Boolean,
+    /**
+     * A person chose this wallpaper, so a running rotation starts its interval
+     * over instead of replacing the pick minutes later.
+     */
+    val restartsRotation: Boolean = postFeedback,
 ) {
     companion object {
         /** Browsing and applying a catalog wallpaper: everything. */
@@ -153,8 +157,8 @@ class WallpaperApplyCoordinator @Inject constructor(
             applyFeedbackBus.post(ApplyFeedbackEvent(message = feedbackMessage, undoTarget = undoTarget))
         }
 
-        if (policy.postFeedback) {
-            restartRotationCountdown()
+        if (policy.restartsRotation) {
+            AutoWallpaperWorker.restartCountdownAfterManualChange(context, prefs)
         }
 
         return Result.success(
@@ -165,13 +169,6 @@ class WallpaperApplyCoordinator @Inject constructor(
                 feedbackMessage = feedbackMessage,
             ),
         )
-    }
-    private suspend fun restartRotationCountdown() {
-        val enabled = prefs.autoWallpaperEnabled.first()
-        val restart = prefs.autoWallpaperRestartOnManual.first()
-        if (!enabled || !restart) return
-        val intervalHours = prefs.autoWallpaperInterval.first()
-        AutoWallpaperWorker.schedule(context, intervalHours * 60)
     }
 }
 

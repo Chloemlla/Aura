@@ -134,6 +134,7 @@ class AndroidRotationHealthReader @Inject constructor(
                                 AutoWallpaperWorker.RECEIPT_WORK_NAME_KEY,
                                 AutoWallpaperWorker.WORK_NAME,
                             )
+                            .putBoolean(AutoWallpaperWorker.RESTART_COUNTDOWN_KEY, true)
                             .build(),
                     )
                     .build(),

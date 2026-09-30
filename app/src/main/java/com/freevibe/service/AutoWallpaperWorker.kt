@@ -61,6 +61,11 @@ class AutoWallpaperWorker @AssistedInject constructor(
                 resultClassName = result.javaClass.simpleName,
                 retryReason = "wallpaper source returned no usable item or apply failed; check selected source, saved collection, and wallpaper permission",
             )
+            // One-shot work runs under its own unique name, so re-enqueueing the
+            // periodic work here cannot cancel this run.
+            if (result is Result.Success && inputData.getBoolean(RESTART_COUNTDOWN_KEY, false)) {
+                restartCountdownAfterManualChange(applicationContext, prefs)
+            }
             result
         } catch (excluded: AllRotationCandidatesExcludedException) {
             receiptStore.recordFailure(
@@ -298,6 +303,33 @@ class AutoWallpaperWorker @AssistedInject constructor(
         const val WORK_NAME = "auto_wallpaper"
         const val RECEIPT_WORK_NAME_KEY = "receipt_work_name"
         const val TRIGGERED_ROTATION_KEY = "triggered_rotation"
+        /** Set on one-shot rotations a person asked for (tile, automation, Run now). */
+        const val RESTART_COUNTDOWN_KEY = "restart_countdown"
+
+        /**
+         * Starts the rotation interval over after a wallpaper change a person asked
+         * for (browse, widget, tile, automation), so the next automatic change is a
+         * full interval away instead of minutes later. Never throws: the change
+         * itself already succeeded, and the old countdown keeps running on failure.
+         */
+        suspend fun restartCountdownAfterManualChange(
+            context: Context,
+            prefs: PreferencesManager = PreferencesManager(context),
+        ) {
+            try {
+                val intervalMinutes = rotationRestartIntervalMinutes(
+                    restartOnManual = prefs.autoWallpaperRestartOnManual.first(),
+                    schedulerEnabled = prefs.schedulerEnabled.first(),
+                    schedulerIntervalMinutes = prefs.schedulerIntervalMinutes.first(),
+                    autoWallpaperEnabled = prefs.autoWallpaperEnabled.first(),
+                    autoWallpaperIntervalHours = prefs.autoWallpaperInterval.first(),
+                ) ?: return
+                schedule(context, intervalMinutes, restartCountdown = true)
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                android.util.Log.w("AutoWallpaperWorker", "Rotation countdown restart failed", e)
+            }
+        }
 
         /**
          * Schedule with minute-based intervals (minimum 15 min, WorkManager floor).
@@ -312,7 +344,11 @@ class AutoWallpaperWorker @AssistedInject constructor(
          * Wi-Fi / idle so existing users keep current behavior on upgrade; opt-in
          * via Settings.
          */
-        suspend fun schedule(context: Context, intervalMinutes: Long = 360) {
+        suspend fun schedule(
+            context: Context,
+            intervalMinutes: Long = 360,
+            restartCountdown: Boolean = false,
+        ) {
             val prefs = PreferencesManager(context)
             val requiresCharging = prefs.autoWallpaperRequiresCharging.first()
             val requiresWiFiOnly = prefs.autoWallpaperRequiresWiFiOnly.first()
@@ -334,6 +370,7 @@ class AutoWallpaperWorker @AssistedInject constructor(
                 requiresWiFiOnly = requiresWiFiOnly,
                 requiresIdle = requiresIdle,
                 requiresNetwork = requiresNetwork,
+                restartCountdown = restartCountdown,
             )
         }
 
@@ -349,6 +386,7 @@ class AutoWallpaperWorker @AssistedInject constructor(
             requiresWiFiOnly: Boolean,
             requiresIdle: Boolean,
             requiresNetwork: Boolean = true,
+            restartCountdown: Boolean = false,
         ) {
             val constraints = buildAutoWallpaperConstraints(
                 requiresCharging = requiresCharging,
@@ -364,9 +402,15 @@ class AutoWallpaperWorker @AssistedInject constructor(
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
                 .build()
 
+            // UPDATE keeps the existing period's start time, so it cannot reset the
+            // countdown. A manual apply needs a fresh work item to start a full interval.
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 WORK_NAME,
-                ExistingPeriodicWorkPolicy.UPDATE,
+                if (restartCountdown) {
+                    ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE
+                } else {
+                    ExistingPeriodicWorkPolicy.UPDATE
+                },
                 request,
             )
         }
@@ -380,6 +424,24 @@ class AutoWallpaperWorker @AssistedInject constructor(
             WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
         }
     }
+}
+
+/**
+ * The interval a manual change restarts the rotation with, or null when nothing
+ * should be rescheduled. The scheduler owns the work whenever it is on, matching
+ * how Settings schedules it, so its minute interval wins over the hourly one.
+ */
+internal fun rotationRestartIntervalMinutes(
+    restartOnManual: Boolean,
+    schedulerEnabled: Boolean,
+    schedulerIntervalMinutes: Long,
+    autoWallpaperEnabled: Boolean,
+    autoWallpaperIntervalHours: Long,
+): Long? = when {
+    !restartOnManual -> null
+    schedulerEnabled -> schedulerIntervalMinutes
+    autoWallpaperEnabled -> autoWallpaperIntervalHours * 60
+    else -> null
 }
 
 private data class LocalRotationPick(

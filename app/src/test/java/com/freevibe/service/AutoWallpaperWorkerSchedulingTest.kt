@@ -9,6 +9,9 @@ import androidx.work.WorkManager
 import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.WorkManagerTestInitHelper
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -79,5 +82,91 @@ class AutoWallpaperWorkerSchedulingTest {
         val infos = uniqueWork()
         assertEquals("re-arm stays idempotent", 1, infos.size)
         assertEquals(NetworkType.CONNECTED, infos[0].constraints.requiredNetworkType)
+    }
+
+    private fun enqueuedWork(): List<WorkInfo> = uniqueWork().filter { it.state == WorkInfo.State.ENQUEUED }
+
+    private fun arm(restartCountdown: Boolean) = AutoWallpaperWorker.scheduleWithConstraints(
+        context = context,
+        requiresCharging = false,
+        requiresWiFiOnly = false,
+        requiresIdle = false,
+        requiresNetwork = false,
+        restartCountdown = restartCountdown,
+    )
+
+    @Test
+    fun `a plain re-arm keeps the running countdown`() {
+        arm(restartCountdown = false)
+        val first = enqueuedWork().single().id
+
+        arm(restartCountdown = false)
+
+        assertEquals("UPDATE keeps the same work item and its period start", first, enqueuedWork().single().id)
+    }
+
+    @Test
+    fun `a manual apply restart replaces the work so the interval starts over`() {
+        arm(restartCountdown = false)
+        val first = enqueuedWork().single().id
+
+        arm(restartCountdown = true)
+
+        val restarted = enqueuedWork().single().id
+        assertNotEquals("restart must enqueue a fresh periodic work item", first, restarted)
+        assertTrue(
+            "the replaced item must not stay scheduled",
+            uniqueWork().filter { it.id == first }.all { it.state == WorkInfo.State.CANCELLED },
+        )
+    }
+
+    @Test
+    fun `restart interval follows the scheduler when it owns the work`() {
+        assertEquals(
+            45L,
+            rotationRestartIntervalMinutes(
+                restartOnManual = true,
+                schedulerEnabled = true,
+                schedulerIntervalMinutes = 45L,
+                autoWallpaperEnabled = true,
+                autoWallpaperIntervalHours = 12L,
+            ),
+        )
+    }
+
+    @Test
+    fun `restart interval converts the hourly rotation to minutes`() {
+        assertEquals(
+            720L,
+            rotationRestartIntervalMinutes(
+                restartOnManual = true,
+                schedulerEnabled = false,
+                schedulerIntervalMinutes = 45L,
+                autoWallpaperEnabled = true,
+                autoWallpaperIntervalHours = 12L,
+            ),
+        )
+    }
+
+    @Test
+    fun `no restart when the option is off or nothing rotates`() {
+        assertNull(
+            rotationRestartIntervalMinutes(
+                restartOnManual = false,
+                schedulerEnabled = true,
+                schedulerIntervalMinutes = 45L,
+                autoWallpaperEnabled = true,
+                autoWallpaperIntervalHours = 12L,
+            ),
+        )
+        assertNull(
+            rotationRestartIntervalMinutes(
+                restartOnManual = true,
+                schedulerEnabled = false,
+                schedulerIntervalMinutes = 45L,
+                autoWallpaperEnabled = false,
+                autoWallpaperIntervalHours = 12L,
+            ),
+        )
     }
 }

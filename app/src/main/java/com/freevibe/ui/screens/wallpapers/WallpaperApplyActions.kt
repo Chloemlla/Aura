@@ -135,7 +135,7 @@ internal class WallpaperApplyActions(
             applyCoordinator.apply(
                 wallpaper = wallpaper,
                 target = WallpaperTarget.BOTH,
-                policy = WallpaperApplyPolicy.BROWSE.copy(postFeedback = false),
+                policy = WallpaperApplyPolicy.BROWSE.copy(postFeedback = false, restartsRotation = true),
                 onStyleSignal = { onStyleSignal(it, WallpaperStyleLearningSignal.APPLIED) },
             ) { dualWallpaperService.applySplitCrop(wallpaper) }
                 .onSuccess {
