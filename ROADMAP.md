@@ -620,15 +620,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Effort: M
 
 
-- [ ] P2 — Remove the committed Compose resource errors from the wallpaper feed
-  Category: correctness
-  Where: `app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpapersScreen.kt:183,859-868`
-  Problem: The Hide snackbar reads strings through `LocalContext.current` from a coroutine callback. Compose cannot invalidate those values when configuration changes, and the committed code now fails lint for both the message and Undo label.
-  Evidence: `:app:lintFullDebug` reports two `LocalContextGetResourceValueCall` errors at lines 861-862; `:app:lintFossDebug` reports the same two errors. The other nine errors belong to the separate in-progress shuffle-pool implementation and are recorded on that roadmap item.
-  Fix: Resolve the localized strings in composition with `stringResource`, or read through configuration-aware resources before launching the snackbar coroutine. Add a lint regression fixture if this pattern is not already covered.
-  Acceptance: The wallpaper Hide and Undo flow still works after an in-app locale change, and both flavor lint tasks report no error in `WallpapersScreen.kt`.
-  Confidence: Verified
-  Effort: S
 
 - [ ] P2 — Keep every primary destination usable at 200 percent text
   Category: a11y
