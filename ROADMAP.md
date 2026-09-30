@@ -237,12 +237,6 @@ Actionable work only. Historical and completed roadmap material is archived in C
   Acceptance: `docs/distribution/channel-strategy.md` records which lists were submitted to and when, with links; GitHub topics are set; submissions happen only after the Fastlane-image, signing-transparency, and reproducibility prerequisites in this roadmap are complete; an IzzyOnDroid inclusion request waits for the owner decision recorded in `Roadmap_Blocked.md`.
   Complexity: S
 
-- [ ] P3 — Restart the rotation countdown on manual wallpaper changes
-  Why: a manual apply does not touch the periodic schedule (`ExistingPeriodicWorkPolicy.UPDATE` keeps the existing cadence and the apply coordinator never reschedules), so rotation can overwrite a user's deliberate choice moments after they made it — a documented complaint class in Paperize.
-  Evidence: `WallpaperApplyCoordinator.kt` (no rescheduling); `AutoWallpaperWorker.kt:307` (`ExistingPeriodicWorkPolicy.UPDATE`); Paperize #591.
-  Touches: `WallpaperApplyCoordinator.kt`, `AutoWallpaperWorker.kt` scheduling companion, settings copy, tests.
-  Acceptance: a manual apply from any surface (detail, shuffle, widget, tile, external broadcast) restarts the rotation countdown, governed by an on-by-default "restart timer on manual change" setting; rotation diagnostics show the recomputed next-fire time; a test proves the next fire moves after a manual apply and does not move when the setting is off.
-  Complexity: S
 
 - [ ] P3 — Add Undo and Skip actions to the rotation notification
   Why: the daily-rotation notification is display-only, so recovering from an unwanted rotated wallpaper requires opening the app, finding history, and undoing — while Aura already owns a working undo path; Peristyle and Paperize both ship notification-level controls.

@@ -61,6 +61,10 @@ All notable changes to Aura will be documented in this file.
   install channel, repro steps, and restart behavior. Diagnostics bundle is no
   longer required for no-launch crashes; an adb logcat fallback is documented.
 
+- **Rotation countdown restart**: a manual wallpaper apply now restarts the
+  rotation timer so the next scheduled change counts from the manual apply, not
+  from the original schedule. Governed by an on-by-default preference.
+
 - **Firebase CLI upgraded to 15.31.0**: root audit findings reduced from 15 to
   10 (non-breaking fixes applied). Functions audit is now zero. The remaining
   root findings are transitive deployment-tool dependencies.

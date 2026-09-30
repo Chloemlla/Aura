@@ -383,6 +383,7 @@ class PreferencesManager @Inject constructor(
     val rotateOnUnlock: Flow<Boolean> = get(Keys.ROTATE_ON_UNLOCK, false)
     /** NX-6: pre-stage a new wallpaper on screen-off so unlock shows the new one. */
     val rotateOnScreenOff: Flow<Boolean> = get(Keys.ROTATE_ON_SCREEN_OFF, false)
+    val autoWallpaperRestartOnManual: Flow<Boolean> = get(Keys.AUTO_WP_RESTART_ON_MANUAL, true)
 
     suspend fun setAutoWallpaperEnabled(enabled: Boolean) = set(Keys.AUTO_WP_ENABLED, enabled)
     suspend fun setAutoWallpaperInterval(hours: Long) = set(Keys.AUTO_WP_INTERVAL, hours)
@@ -441,6 +442,8 @@ class PreferencesManager @Inject constructor(
     suspend fun setSoundProfilesJson(json: String) = set(Keys.SOUND_PROFILES_JSON, json)
     val soundProfileLastAppliedId: Flow<String> = get(Keys.SOUND_PROFILE_LAST_APPLIED_ID, "")
     suspend fun setSoundProfileLastAppliedId(id: String) = set(Keys.SOUND_PROFILE_LAST_APPLIED_ID, id)
+    val soundShufflePoolsJson: Flow<String> = get(Keys.SOUND_SHUFFLE_POOLS_JSON, "")
+    suspend fun setSoundShufflePoolsJson(json: String) = set(Keys.SOUND_SHUFFLE_POOLS_JSON, json)
 
     // Wallpaper packs (24H)
     val wallpaperPackEnabled: Flow<Boolean> = get(Keys.WALLPAPER_PACK_ENABLED, false)
@@ -1003,6 +1006,7 @@ class PreferencesManager @Inject constructor(
         val GRID_COLUMNS = intPreferencesKey("grid_columns")
         val SHOW_NSFW = booleanPreferencesKey("show_nsfw")
         val SHOW_SKETCHY = booleanPreferencesKey("show_sketchy")
+        val AUTO_WP_RESTART_ON_MANUAL = booleanPreferencesKey("auto_wp_restart_on_manual")
         val AUTO_WP_REQUIRES_CHARGING = booleanPreferencesKey("auto_wp_requires_charging")
         val AUTO_WP_REQUIRES_WIFI = booleanPreferencesKey("auto_wp_requires_wifi")
         val AUTO_WP_REQUIRES_IDLE = booleanPreferencesKey("auto_wp_requires_idle")
@@ -1080,6 +1084,7 @@ class PreferencesManager @Inject constructor(
         val SOUND_PROFILES_ENABLED = booleanPreferencesKey("sound_profiles_enabled")
         val SOUND_PROFILES_JSON = stringPreferencesKey("sound_profiles_json")
         val SOUND_PROFILE_LAST_APPLIED_ID = stringPreferencesKey("sound_profile_last_applied_id")
+        val SOUND_SHUFFLE_POOLS_JSON = stringPreferencesKey("sound_shuffle_pools_json")
         val LAST_APPLIED_RINGTONE_URI = stringPreferencesKey("last_applied_ringtone_uri")
         val LAST_APPLIED_NOTIFICATION_URI = stringPreferencesKey("last_applied_notification_uri")
         val LAST_APPLIED_ALARM_URI = stringPreferencesKey("last_applied_alarm_uri")
