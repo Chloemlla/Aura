@@ -627,8 +627,3 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
 ## Issue Intake (2026-09-26)
 
 Open GitHub issues checked against this list on 2026-09-26. The only open issue is #47 (translation call, help wanted). It is covered by the P2 item above that cites it ("Reported: #47"): Simplified Chinese landed through PR #48 on 2026-08-12, and the issue stays open as the umbrella for further languages. No new items.
-
-- [ ] P3: Keep #47 current (issue #47)
-  Why: the issue body still says "zero translations" although zh ships; a stale umbrella issue puts off the next contributor.
-  Next: edit the body to list the languages that exist, the coverage percentage and the review path from docs, then leave it open.
-  Evidence: https://github.com/SysAdminDoc/Aura/issues/47
