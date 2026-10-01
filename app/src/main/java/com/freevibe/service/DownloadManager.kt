@@ -28,16 +28,21 @@ import com.freevibe.data.model.SOURCE_AVAILABILITY_UNAVAILABLE
 import com.freevibe.data.model.sourceUnavailableReasonForFailure
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.roundToInt
@@ -68,6 +73,16 @@ class DownloadManager @Inject constructor(
 ) {
     private val _activeDownloads = MutableStateFlow<Map<String, DownloadProgress>>(emptyMap())
     val activeDownloads: StateFlow<Map<String, DownloadProgress>> = _activeDownloads.asStateFlow()
+
+    /**
+     * How to run each download again, by history ID, until it succeeds or its card is dismissed.
+     * In memory only, like the cards themselves, which don't outlive the process.
+     */
+    private val retryRequests = ConcurrentHashMap<String, suspend () -> Result<Uri>>()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /** How long a finished download stays under Active before history alone shows it. */
+    internal var completedProgressVisibleMs = COMPLETED_PROGRESS_VISIBLE_MS
     private val notificationLock = Any()
     private val notificationSnapshots = mutableMapOf<String, DownloadNotificationSnapshot>()
 
@@ -80,9 +95,11 @@ class DownloadManager @Inject constructor(
         provenanceUrl: String = url,
     ): Result<Uri> = withContext(Dispatchers.IO) {
         val contentType = "WALLPAPER"
+        val historyId = downloadHistoryId(contentType, id)
+        retryRequests[historyId] = { downloadWallpaper(id, url, fileName, source, provenanceUrl) }
         downloadFile(
             contentId = id,
-            historyId = downloadHistoryId(contentType, id),
+            historyId = historyId,
             url = url,
             fileName = sanitize(fileName),
             relativePath = Environment.DIRECTORY_PICTURES + "/Aura",
@@ -112,9 +129,11 @@ class DownloadManager @Inject constructor(
             else -> Environment.DIRECTORY_MUSIC
         } + "/Aura"
 
+        val historyId = downloadHistoryId(contentType, id)
+        retryRequests[historyId] = { downloadSound(id, url, fileName, type, source, provenanceUrl) }
         downloadFile(
             contentId = id,
-            historyId = downloadHistoryId(contentType, id),
+            historyId = historyId,
             url = url,
             fileName = sanitize(fileName),
             relativePath = relativePath,
@@ -266,8 +285,22 @@ class DownloadManager @Inject constructor(
         sourceUnavailableReasonForFailure(contentSource, e)?.let { reason ->
             downloadDao.updateSourceAvailability(historyId, SOURCE_AVAILABILITY_UNAVAILABLE, reason)
         }
-        updateProgress(historyId, DownloadProgress(historyId, fileName, 0f, 0, 0, error = e.message))
+        updateProgress(historyId, DownloadProgress(historyId, fileName, 0f, 0, 0, error = downloadFailureReason(e)))
         Result.failure(e)
+    }
+
+    /**
+     * Runs a failed download again with the request that started it. The retry replaces the
+     * card in place, and a success replaces any earlier copy the same way a first download does.
+     */
+    suspend fun retryDownload(id: String): Result<Uri> {
+        val request = retryRequests[id] ?: return Result.failure(IllegalStateException("This download can't be retried"))
+        return request()
+    }
+
+    /** Starts [retryDownload] in the manager's own scope, so leaving the screen doesn't cancel it. */
+    fun startRetry(id: String) {
+        scope.launch { retryDownload(id) }
     }
 
     private suspend fun writeValidatedDownloadToMediaStore(
@@ -403,11 +436,15 @@ class DownloadManager @Inject constructor(
                     downloadDao.deleteById(existingId)
                 }
 
-            // Mark download complete
-            updateProgress(
-                historyId,
-                DownloadProgress(historyId, fileName, 1f, totalBytes, downloadedBytes, isComplete = true),
-            )
+            // Mark download complete, then let the card go once history has it.
+            val completed = DownloadProgress(historyId, fileName, 1f, totalBytes, downloadedBytes, isComplete = true)
+            updateProgress(historyId, completed)
+            retryRequests.remove(historyId)
+            scope.launch {
+                delay(completedProgressVisibleMs)
+                _activeDownloads.update { current -> withoutFinishedProgress(current, historyId, completed) }
+                synchronized(notificationLock) { notificationSnapshots.remove(historyId) }
+            }
             success = true
         } finally {
             if (!success) {
@@ -420,6 +457,7 @@ class DownloadManager @Inject constructor(
 
     fun clearCompleted(id: String) {
         _activeDownloads.update { it - id }
+        retryRequests.remove(id)
         synchronized(notificationLock) { notificationSnapshots.remove(id) }
         NotificationManagerCompat.from(context).cancel(downloadNotificationId(id))
     }
@@ -759,6 +797,19 @@ class DownloadManager @Inject constructor(
 
 internal fun downloadHistoryId(type: String, id: String): String =
     "${type.lowercase(java.util.Locale.ROOT)}:$id"
+
+/** Drops a finished card only if it is still the one that finished, not a newer attempt. */
+internal fun withoutFinishedProgress(
+    current: Map<String, DownloadProgress>,
+    id: String,
+    finished: DownloadProgress,
+): Map<String, DownloadProgress> = if (current[id] == finished) current - id else current
+
+/** A failure always carries a reason, or its card would look like a download still running. */
+internal fun downloadFailureReason(error: Throwable): String =
+    error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName.ifBlank { "Download failed" }
+
+private const val COMPLETED_PROGRESS_VISIBLE_MS = 4_000L
 
 /** Hard cap on wallpaper downloads — ~64 MB covers any realistic 8K JPG/PNG/WEBP. */
 private const val MAX_IMAGE_DOWNLOAD_BYTES = 64L * 1024 * 1024

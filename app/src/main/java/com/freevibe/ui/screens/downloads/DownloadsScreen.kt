@@ -151,7 +151,11 @@ fun DownloadsScreen(
                 ) {
                     Text(stringResource(R.string.downloads_active), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     activeDownloads.forEach { (id, dl) ->
-                        ActiveDownloadCard(dl) { viewModel.dismissActive(id) }
+                        ActiveDownloadCard(
+                            dl = dl,
+                            onDismiss = { viewModel.dismissActive(id) },
+                            onRetry = { viewModel.retryActive(id) },
+                        )
                     }
                 }
             }
@@ -276,9 +280,10 @@ fun DownloadsScreen(
 }
 
 @Composable
-private fun ActiveDownloadCard(dl: DownloadProgress, onDismiss: () -> Unit) {
+private fun ActiveDownloadCard(dl: DownloadProgress, onDismiss: () -> Unit, onRetry: () -> Unit) {
     val statusLabel = downloadProgressStatusLabel(dl)
     val dismissLabel = stringResource(R.string.downloads_dismiss_file, dl.fileName)
+    val retryLabel = stringResource(R.string.downloads_retry_file, dl.fileName)
     val summary = stringResource(R.string.downloads_active_summary, dl.fileName, statusLabel)
     Surface(
         modifier = Modifier.semantics(mergeDescendants = true) {
@@ -304,6 +309,14 @@ private fun ActiveDownloadCard(dl: DownloadProgress, onDismiss: () -> Unit) {
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(dl.fileName, Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (dl.error != null) {
+                    TextButton(
+                        onClick = onRetry,
+                        modifier = Modifier.semantics { onClick(label = retryLabel, action = null) },
+                    ) {
+                        Text(stringResource(R.string.common_retry))
+                    }
+                }
                 if (dl.isComplete || dl.error != null) {
                     IconButton(
                         onClick = onDismiss,
@@ -318,6 +331,16 @@ private fun ActiveDownloadCard(dl: DownloadProgress, onDismiss: () -> Unit) {
                         )
                     }
                 }
+            }
+            dl.error?.let { reason ->
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    reason,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
             if (!dl.isComplete && dl.error == null) {
                 Spacer(Modifier.height(6.dp))

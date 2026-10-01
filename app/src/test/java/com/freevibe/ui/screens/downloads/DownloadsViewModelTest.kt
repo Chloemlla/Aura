@@ -102,6 +102,12 @@ class DownloadsViewModelTest {
     }
 
     @Test
+    fun `retryActive starts the retry in the manager`() {
+        viewModel.retryActive("dl-1")
+        verify { downloadManager.startRetry("dl-1") }
+    }
+
+    @Test
     fun `deleteOptimizedCopy removes only the working copy`() = runTest {
         viewModel.deleteOptimizedCopy("1")
         coVerify { mediaCopyStore.deleteOptimizedCopy("1") }

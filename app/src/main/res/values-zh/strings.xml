@@ -700,6 +700,7 @@
     <string name="downloads_file_no_longer_exists">文件不再存在</string>
     <string name="downloads_cannot_open_file">无法打开文件</string>
     <string name="downloads_dismiss_file">忽略 %1$s</string>
+    <string name="downloads_retry_file">重试 %1$s</string>
     <string name="downloads_active_summary">%1$s. %2$s</string>
     <string name="downloads_delete_file">删除 %1$s</string>
     <string name="downloads_type_wallpaper">壁纸</string>

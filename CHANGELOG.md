@@ -161,6 +161,13 @@ All notable changes to Aura will be documented in this file.
   changed the home screen but found every lock screen item excluded now
   restarts the countdown like any other change.
 
+- **Finished downloads leave Active, and failed ones can be retried**: a
+  finished download used to sit under Active until you dismissed it, so it
+  showed up twice next to your history. It now clears itself a few seconds
+  after it lands in history. A failed download shows why it failed and has a
+  Retry button that runs the same download again. A retry that succeeds
+  saves one copy, never a second one next to a half-written file.
+
 - **Older uploads can be deleted again**: uploads made before the private
   upload list existed couldn't be deleted by their owner, because the delete
   also clears that list entry and the database refused to clear one that

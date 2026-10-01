@@ -336,16 +336,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
 
 ### P2
 
-- [ ] P2 — Remove completed work from Active Downloads and make failures recoverable
-  Category: ux
-  Where: app/src/main/java/com/freevibe/service/DownloadManager.kt:333-350,464-466; app/src/main/java/com/freevibe/ui/screens/downloads/DownloadsViewModel.kt:20-29; app/src/main/java/com/freevibe/ui/screens/downloads/DownloadsScreen.kt:107-244
-  Problem: Terminal progress remains in activeDownloads until manual dismissal, so a successful file appears twice under Active and history indefinitely. Failed cards expose no visible cause or retry action.
-  Evidence: Current-run S22 capture 10b-downloads-reopen.png shows the same Reddit PNG completed under Active and in history after reopening. The success path sets isComplete and never clears it; the screen renders every map entry.
-  Fix: Auto-remove successful progress after a short announced completion state or use a separate recent-status area. Show safe failure details, Retry, and Dismiss; persist request metadata when retry must survive death.
-  Acceptance: A completion appears once in history and leaves Active after the interval/reopen; a forced failure displays its reason and Retry succeeds without duplicate MediaStore rows.
-  Confidence: Verified
-  Effort: M
-
 
 - [ ] P2 — Make the accessibility release gate fail when primary scenarios are waived away
   Category: testing
