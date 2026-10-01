@@ -3,6 +3,7 @@ const test = require("node:test");
 
 const { buildDedupeMarker, evaluateCommunityQuotaAttempt } = require("../lib/quotaEngine.js");
 const {
+  communityUploadMetadataPath,
   normalizeVoteContentId,
   recordCommunityVoteHandler,
 } = require("../lib/voteHandler.js");
@@ -89,7 +90,7 @@ test("accepted vote increments tally and writes voter and dedupe markers", async
   assert.deepEqual(result, {
     operationId: "vote-op-1",
     status: "accepted",
-    targetPath: "/votes/WALLPAPER::COMMUNITY::cw_one",
+    targetPath: "/vote_counts/WALLPAPER::COMMUNITY::cw_one",
     serverTimeMillis: NOW,
     upvotes: 1,
   });
@@ -98,7 +99,7 @@ test("accepted vote increments tally and writes voter and dedupe markers", async
   assert.equal(backend.quotas.get("voter1/20260607/votes").count, 1);
   assert.equal(
     backend.dedupe.get("voter1/votes/WALLPAPER::COMMUNITY::cw_one").targetPath,
-    "/votes/WALLPAPER::COMMUNITY::cw_one",
+    "/vote_counts/WALLPAPER::COMMUNITY::cw_one",
   );
 });
 
@@ -112,7 +113,7 @@ test("existing voter marker returns duplicate before quota reservation", async (
   const result = await recordCommunityVoteHandler(validRequest(), backend);
 
   assert.equal(result.status, "duplicate");
-  assert.equal(result.targetPath, "/votes/WALLPAPER::COMMUNITY::cw_one");
+  assert.equal(result.targetPath, "/vote_counts/WALLPAPER::COMMUNITY::cw_one");
   assert.equal(backend.quotas.size, 0);
   assert.equal(backend.votes.get("WALLPAPER::COMMUNITY::cw_one").upvotes, 3);
 });
@@ -178,6 +179,15 @@ test("callable identity requires Firebase Auth and App Check", async () => {
     () => recordCommunityVoteHandler({ ...validRequest(), app: undefined }, backend),
     { code: "failed-precondition" },
   );
+});
+
+test("only community upload vote keys map to an upload metadata row", () => {
+  assert.equal(communityUploadMetadataPath("SOUND::COMMUNITY::cu_-Nabc_12"), "community_sounds/-Nabc_12");
+  assert.equal(communityUploadMetadataPath("WALLPAPER::COMMUNITY::cw_wall1"), "community_wallpapers/wall1");
+  assert.equal(communityUploadMetadataPath("SOUND::COMMUNITY::cw_wall1"), null);
+  assert.equal(communityUploadMetadataPath("WALLPAPER::WALLHAVEN::cw_wall1"), null);
+  assert.equal(communityUploadMetadataPath("WALLPAPER::COMMUNITY::cw_a_b:c"), null);
+  assert.equal(communityUploadMetadataPath("WALLPAPER::COMMUNITY::cw_"), null);
 });
 
 test("content IDs are sanitized and required", () => {

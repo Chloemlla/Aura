@@ -319,6 +319,104 @@ test('votes, follows, and creator profiles reject direct user writes', async () 
   await assertSucceeds(unauthenticatedDb().ref('creator_profiles/callable-user').once('value'));
 });
 
+const WALL_KEY = 'WALLPAPER::COMMUNITY::cw_wall1';
+const SOUND_KEY = 'SOUND::COMMUNITY::cu_sound1';
+
+async function seedVoteSchema() {
+  await seed('vote_counts', {
+    [WALL_KEY]: { upvotes: 4 },
+    [SOUND_KEY]: { upvotes: 2 },
+    'WALLPAPER::WALLHAVEN::zero': { upvotes: 0 },
+  });
+  await seed('vote_markers', {
+    'voter-one': { [WALL_KEY]: true },
+    'voter-two': { [SOUND_KEY]: true },
+  });
+  await seed('votes', { [WALL_KEY]: { upvotes: 4, voters: { 'voter-one': true } } });
+  await seed('voters', { [WALL_KEY]: { 'voter-one': true } });
+  await seed('creator_follows', {
+    'voter-one': { creator1: { creatorId: 'creator1', label: 'Creator One', followedAt: nowMs() } },
+  });
+}
+
+function childValues(snapshot) {
+  const rows = [];
+  snapshot.forEach((child) => {
+    rows.push([child.key, child.child('upvotes').val()]);
+  });
+  return rows;
+}
+
+test('app vote count paths return nonzero public counts without any UID', async () => {
+  await seedVoteSchema();
+  const anonymous = unauthenticatedDb();
+  const user = dbFor('voter-two');
+
+  // VoteRepository.getVoteCount / getVoteCounts / getVoteCountsOnce: one row per item.
+  const row = await assertSucceeds(anonymous.ref(`vote_counts/${WALL_KEY}/upvotes`).once('value'));
+  assert.equal(row.val(), 4);
+
+  // VoteRepository.getTopVotedIds: the leaderboard query the rules allow on the collection.
+  const board = await assertSucceeds(
+    user.ref('vote_counts').orderByChild('upvotes').limitToLast(50).once('value'),
+  );
+  assert.deepEqual(childValues(board), [
+    ['WALLPAPER::WALLHAVEN::zero', 0],
+    [SOUND_KEY, 2],
+    [WALL_KEY, 4],
+  ]);
+  assert.doesNotMatch(JSON.stringify(board.val()), /voter-/);
+
+  // Anything else on the collection is refused: a whole-tree read or an oversized page.
+  await assertFails(anonymous.ref('vote_counts').once('value'));
+  await assertFails(anonymous.ref('vote_counts').orderByChild('upvotes').limitToLast(201).once('value'));
+  await assertFails(anonymous.ref('vote_counts').orderByKey().limitToLast(10).once('value'));
+  await assertSucceeds(adminDb().ref('vote_counts').once('value'));
+});
+
+test('one account cannot enumerate another account vote or follow markers', async () => {
+  await seedVoteSchema();
+  const one = dbFor('voter-one');
+  const two = dbFor('voter-two');
+  const anonymous = unauthenticatedDb();
+
+  const own = await assertSucceeds(one.ref('vote_markers/voter-one').once('value'));
+  assert.deepEqual(own.val(), { [WALL_KEY]: true });
+  await assertSucceeds(one.ref(`vote_markers/voter-one/${WALL_KEY}`).once('value'));
+  await assertFails(two.ref('vote_markers/voter-one').once('value'));
+  await assertFails(two.ref(`vote_markers/voter-one/${WALL_KEY}`).once('value'));
+  await assertFails(two.ref('vote_markers').once('value'));
+  await assertFails(anonymous.ref('vote_markers/voter-one').once('value'));
+
+  // Legacy trees that carried UIDs are admin-only; the old count leaf stays for older builds.
+  await assertFails(two.ref('votes').once('value'));
+  await assertFails(two.ref(`votes/${WALL_KEY}`).once('value'));
+  await assertFails(two.ref(`votes/${WALL_KEY}/voters`).once('value'));
+  await assertFails(two.ref('voters').once('value'));
+  await assertFails(two.ref(`voters/${WALL_KEY}`).once('value'));
+  const legacyCount = await assertSucceeds(anonymous.ref(`votes/${WALL_KEY}/upvotes`).once('value'));
+  assert.equal(legacyCount.val(), 4);
+  await assertSucceeds(adminDb().ref(`votes/${WALL_KEY}/voters`).once('value'));
+
+  await assertSucceeds(one.ref('creator_follows/voter-one').once('value'));
+  await assertFails(two.ref('creator_follows/voter-one').once('value'));
+  await assertFails(two.ref('creator_follows').once('value'));
+  await assertFails(anonymous.ref('creator_follows/voter-one').once('value'));
+});
+
+test('vote counts and markers are callable-owned and the count row cannot carry voters', async () => {
+  const user = dbFor('voter-one');
+  const admin = adminDb();
+
+  await assertFails(user.ref(`vote_counts/${WALL_KEY}`).set({ upvotes: 1 }));
+  await assertFails(user.ref(`vote_markers/voter-one/${WALL_KEY}`).set(true));
+  await assertSucceeds(admin.ref(`vote_counts/${WALL_KEY}`).set({ upvotes: 1 }));
+  await assertFails(admin.ref(`vote_counts/${WALL_KEY}`).set({ upvotes: -1 }));
+  await assertFails(admin.ref(`vote_counts/${WALL_KEY}`).set({ upvotes: 2, voters: { 'voter-one': true } }));
+  await assertSucceeds(admin.ref(`vote_markers/voter-one/${WALL_KEY}`).set(true));
+  await assertFails(admin.ref(`vote_markers/voter-one/${SOUND_KEY}`).set('yes'));
+});
+
 test('community upload deletion tombstones stay private and validate ownership evidence', async () => {
   const owner = dbFor('delete-owner');
   const other = dbFor('delete-other');

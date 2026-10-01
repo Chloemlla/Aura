@@ -66,7 +66,7 @@ py -3 tools\community_callable_wire_protocol_check.py --contract docs\community-
 | Reports | `submitCommunityReport` | `CommunityReportInput` | `/community_reports/{reportId}` | Yes |
 | Sound uploads | `finalizeCommunitySoundUpload` | `CommunitySoundUploadMetadata` | `/community_sounds/{uploadId}`, `/owner_uploads/{uid}/sounds/{uploadId}` | Yes |
 | Wallpaper uploads | `finalizeCommunityWallpaperUpload` | `CommunityWallpaperUploadMetadata` | `/community_wallpapers/{uploadId}`, `/owner_uploads/{uid}/wallpapers/{uploadId}` | Yes |
-| Votes | `recordCommunityVote` | `CommunityVoteInput` | `/votes/{contentId}`, `/voters/{contentId}/{uid}` | No |
+| Votes | `recordCommunityVote` | `CommunityVoteInput` | `/vote_markers/{uid}/{contentId}`, `/vote_counts/{contentId}`, and the upload row's `votes` field for community uploads | No |
 | Follows | `setCreatorFollow` | `CommunityFollowInput` | `/creator_follows/{uid}/{creatorId}` | No |
 | User blocks | `setCommunityUserBlock` | `CommunityUserBlockInput` | `/community_user_blocks/{uid}/{blockedUid}`, `/community_blocked_by/{blockedUid}/{uid}` | No |
 | Profile edits | `updateCreatorProfile` | `CreatorProfileUpdateInput` | `/creator_profiles/{uid}` | No |
@@ -112,6 +112,23 @@ Cycle 95 added:
 - `functions/test/recordCommunityVote.test.cjs` covers accepted,
   existing-voter duplicate, active-dedupe duplicate, cooldown, daily-limit,
   unauthenticated, missing-App-Check, and invalid-content-ID cases.
+
+The vote schema was later split so voter UIDs never sit in a public tree:
+
+- `/vote_counts/{contentId}/upvotes` is the public count. Anyone can read one
+  row, and the collection answers only the `orderByChild('upvotes')` leaderboard
+  query with `limitToLast` of 200 or less.
+- `/vote_markers/{uid}/{contentId}` records who voted. Only that account (or an
+  admin) can read it.
+- The callable claims the marker in a transaction, then bumps the count in a
+  second transaction and removes the marker again if the count cannot commit.
+  A first vote after the split starts from the legacy `/votes/{contentId}/upvotes`
+  value. Community uploads also get the count mirrored into their own `votes`
+  field, which the upload feeds sort by.
+- `/votes` and `/voters` are admin-only now, except the old per-item
+  `/votes/{contentId}/upvotes` leaf, which stays readable for older app builds.
+  `tools/community_vote_privacy_backfill.py` turns a database export into the
+  one-time multi-path update that copies legacy counts and markers across.
 
 Cycle 96 added:
 

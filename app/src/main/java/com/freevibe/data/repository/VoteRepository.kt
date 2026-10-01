@@ -13,7 +13,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
@@ -30,6 +33,21 @@ private val FIREBASE_KEY_REGEX = Regex("[.#$\\[\\]/]")
 
 internal fun sanitizeVoteKey(id: String): String =
     id.replace(FIREBASE_KEY_REGEX, "_")
+
+/** Public per-item counts. Rules allow single-row reads and the [TOP_VOTED_MAX_LIMIT] leaderboard query. */
+internal const val VOTE_COUNTS_PATH = "vote_counts"
+
+/** Private `{uid}/{contentId}` markers. Rules let only the owning account read its own subtree. */
+internal const val VOTE_MARKERS_PATH = "vote_markers"
+
+/** Mirrors the `limitToLast <= 200` bound in database.rules.json for `/vote_counts`. */
+internal const val TOP_VOTED_MAX_LIMIT = 200
+
+/** Leaderboard rows from an ascending `orderByChild("upvotes")` read: positive counts, highest first. */
+internal fun topVotedRows(rows: List<Pair<String, Int>>, limit: Int): List<Pair<String, Int>> =
+    rows.filter { it.second > 0 }
+        .sortedByDescending { it.second }
+        .take(limit.coerceIn(0, TOP_VOTED_MAX_LIMIT))
 
 /**
  * Pure-JVM admin-precedence rule. Tested by [com.freevibe.data.repository.AdminPrecedenceTest].
@@ -70,10 +88,11 @@ private fun expandHiddenIds(ids: Set<String>): Set<String> = buildSet(ids.size *
  * Community voting + admin moderation via Firebase Realtime Database.
  *
  * Firebase structure:
- *   /votes/{contentId}/upvotes = Int                 (community vote tally)
- *   /votes/{contentId}/voters/{deviceId} = true      (prevents double-voting, transactional)
- *   /voters/{contentId}/{deviceId} = true            (legacy path still read for compatibility)
+ *   /vote_counts/{contentId}/upvotes = Int           (public tally, written only by recordCommunityVote)
+ *   /vote_markers/{uid}/{contentId} = true           (private; readable only by that account)
  *   /moderation/{contentId} = true                   (admin global hide — removes for ALL users)
+ *
+ * The older /votes and /voters trees carried voter UIDs in public nodes and are admin-only now.
  *
  * Regular downvote = local-only hide (SharedPreferences).
  * Admin downvote = global hide via /moderation (visible to no one).
@@ -88,8 +107,8 @@ class VoteRepository @Inject constructor(
     private val db by lazy {
         try { FirebaseDatabase.getInstance().reference } catch (_: Exception) { null }
     }
-    private val votesRef get() = db?.child("votes")
-    private val votersRef get() = db?.child("voters")
+    private val voteCountsRef get() = db?.child(VOTE_COUNTS_PATH)
+    private val voteMarkersRef get() = db?.child(VOTE_MARKERS_PATH)
     private val moderationRef get() = db?.child("moderation")
 
     /**
@@ -260,10 +279,10 @@ class VoteRepository @Inject constructor(
 
     fun getVoteCount(contentId: String): Flow<Int> = callbackFlow {
         if (!isCommunityAccessEnabled()) { trySend(0); awaitClose {}; return@callbackFlow }
-        val votesRefInstance = votesRef
-        if (votesRefInstance == null) { trySend(0); awaitClose {}; return@callbackFlow }
+        val countsRefInstance = voteCountsRef
+        if (countsRefInstance == null) { trySend(0); awaitClose {}; return@callbackFlow }
         val safeId = sanitizeKey(contentId)
-        val ref = votesRefInstance.child(safeId).child("upvotes")
+        val ref = countsRefInstance.child(safeId).child("upvotes")
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 trySend(snapshot.getValue(Int::class.java) ?: 0)
@@ -277,15 +296,15 @@ class VoteRepository @Inject constructor(
     suspend fun hasVoted(contentId: String, alreadySanitized: Boolean = false): Boolean {
         if (!isCommunityAccessEnabled()) return false
         val safeId = if (alreadySanitized) contentId else sanitizeKey(contentId)
+        // Only the signed-in account's own marker is readable. Votes recorded under an older
+        // device ID are still caught server-side, where the callable answers "duplicate".
+        val uid = identityProvider.currentFirebaseUid()?.let(::sanitizeKey)?.takeIf { it.isNotBlank() }
+            ?: return false
+        val markersRefInstance = voteMarkersRef ?: return false
         return try {
-            identityProvider.knownIdentityIds()
-                .map(::sanitizeKey)
-                .any { voterId ->
-                    awaitFirebaseRead("Community vote status") {
-                        votesRef?.child(safeId)?.child("voters")?.child(voterId)?.get()?.await()?.exists() == true ||
-                            votersRef?.child(safeId)?.child(voterId)?.get()?.await()?.exists() == true
-                    }
-                }
+            awaitFirebaseRead("Community vote status") {
+                markersRefInstance.child(uid).child(safeId).get().await().exists()
+            }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             false
@@ -389,14 +408,14 @@ class VoteRepository @Inject constructor(
 
     fun getVoteCounts(contentIds: List<String>): Flow<Map<String, Int>> = callbackFlow {
         if (!isCommunityAccessEnabled()) { trySend(emptyMap()); awaitClose {}; return@callbackFlow }
-        val votesRefInstance = votesRef
-        if (votesRefInstance == null) { trySend(emptyMap()); awaitClose {}; return@callbackFlow }
+        val countsRefInstance = voteCountsRef
+        if (countsRefInstance == null) { trySend(emptyMap()); awaitClose {}; return@callbackFlow }
         val counts = java.util.concurrent.ConcurrentHashMap<String, Int>()
         val listeners = mutableListOf<Pair<String, ValueEventListener>>()
 
         contentIds.take(50).forEach { id ->
             val safeId = sanitizeKey(id)
-            val ref = votesRefInstance.child(safeId).child("upvotes")
+            val ref = countsRefInstance.child(safeId).child("upvotes")
             val listener = object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     counts[id] = snapshot.getValue(Int::class.java) ?: 0
@@ -411,22 +430,51 @@ class VoteRepository @Inject constructor(
         }
         awaitClose {
             listeners.forEach { (safeId, listener) ->
-                votesRefInstance.child(safeId).child("upvotes").removeEventListener(listener)
+                countsRefInstance.child(safeId).child("upvotes").removeEventListener(listener)
             }
+        }
+    }
+
+    /** One-shot public counts keyed by the ids passed in, read row by row from `/vote_counts`. */
+    suspend fun getVoteCountsOnce(contentIds: List<String>): Map<String, Int> {
+        val ids = contentIds.distinct()
+        if (ids.isEmpty() || !isCommunityAccessEnabled()) return emptyMap()
+        val countsRefInstance = voteCountsRef ?: return emptyMap()
+        return coroutineScope {
+            ids.map { id ->
+                async {
+                    val upvotes = try {
+                        awaitFirebaseRead("Community vote counts") {
+                            countsRefInstance.child(sanitizeKey(id)).child("upvotes").get().await()
+                        }.getValue(Int::class.java) ?: 0
+                    } catch (e: Exception) {
+                        if (e is kotlinx.coroutines.CancellationException) throw e
+                        0
+                    }
+                    id to upvotes
+                }
+            }.awaitAll().toMap()
         }
     }
 
     /** Get top upvoted content IDs globally, sorted by vote count descending */
     suspend fun getTopVotedIds(limit: Int = 50): List<Pair<String, Int>> {
         if (!isCommunityAccessEnabled()) return emptyList()
-        val votesRefInstance = votesRef ?: return emptyList()
+        val countsRefInstance = voteCountsRef ?: return emptyList()
+        val queryLimit = limit.coerceIn(1, TOP_VOTED_MAX_LIMIT)
         return try {
-            val snapshot = awaitFirebaseRead("Community vote leaderboard") { votesRefInstance.get().await() }
-            snapshot.children.mapNotNull { child ->
-                val key = child.key ?: return@mapNotNull null
-                val upvotes = child.child("upvotes").getValue(Int::class.java) ?: 0
-                if (upvotes > 0) key to upvotes else null
-            }.sortedByDescending { it.second }.take(limit)
+            // Rules only answer this exact query shape on the collection, so a whole-tree read
+            // is refused rather than silently scanning every count.
+            val snapshot = awaitFirebaseRead("Community vote leaderboard") {
+                countsRefInstance.orderByChild("upvotes").limitToLast(queryLimit).get().await()
+            }
+            topVotedRows(
+                snapshot.children.mapNotNull { child ->
+                    val key = child.key ?: return@mapNotNull null
+                    key to (child.child("upvotes").getValue(Int::class.java) ?: 0)
+                },
+                limit,
+            )
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             if (com.freevibe.BuildConfig.DEBUG) android.util.Log.e("VoteRepo", "getTopVotedIds failed: ${e.message}")

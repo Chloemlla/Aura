@@ -333,21 +333,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
 
 ## Audit Findings — 2026-09-13
 
-### P1
-
-- [ ] P1 — Keep voter/follower identities private and restore aggregate queries
-  Category: security
-  Where: database.rules.json:3-19,208-212; functions/src/voteHandler.ts:270-312; app/src/main/java/com/freevibe/data/repository/VoteRepository.kt:420-433; app/src/main/java/com/freevibe/data/repository/CreatorProfileRepository.kt:359-374
-  Problem: Public vote nodes and authenticated parent-readable follow nodes expose raw Firebase UIDs, while the app's own parent query for Top Voted and creator totals is denied. The UI then treats permission failure as an empty leaderboard and zero totals.
-  Evidence: voteHandler writes the UID under two publicly readable trees. Anonymous Firebase sign-in makes the follow-tree barrier weak. RTDB does not inherit child grants upward, so both production /votes parent reads fail and catch to empty data. Upload metadata starts at votes: 0 and the vote handler does not maintain that fallback aggregate.
-  Fix: Store public aggregate counts separately from private per-user markers. Permit each account to read only its own state, update aggregate nodes transactionally in callable functions, and point leaderboard/profile queries at that schema.
-  Acceptance: Rules tests prove one user cannot enumerate another user's vote/follow markers; exact production query paths return nonzero fixtures; vote changes update counts atomically without exposing UIDs.
-  Confidence: Verified
-  Effort: L
-
-
-
-
 ### P2
 
 - [ ] P2 — Move shared-collection and deletion-ledger writes behind bounded backend operations
@@ -596,6 +581,14 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
 ## Drain Leftovers — 2026-09-30
 
 Remainders of items closed in the 2026-09-30 drain whose full acceptance did not land.
+
+### P1
+
+- [ ] P1 — Deploy the private vote schema, the sound upload fix and run the vote backfill
+  Why: the code for private vote markers, the public `vote_counts` tree and the sound finalize fix is merged, but production still runs the old rules and functions until they are deployed. Until then voter UIDs stay public and every sound upload with a reported size is refused.
+  Needs: `firebase login` on this PC (the CLI is signed out), then an RTDB export.
+  Steps: `firebase deploy --only database,functions:community --project <prod>`; export the database; `python tools/community_vote_privacy_backfill.py --database-export <export.json> --output <update.json>`; `firebase database:update / <update.json> --project <prod>`; after the release that reads the new paths is out, rerun with `--drop-legacy`.
+  Acceptance: production `/votes` and `/voters` refuse a signed-in non-admin read; Top Voted shows the backfilled leaders on a phone; a real community sound upload finalizes.
 
 ### P2
 

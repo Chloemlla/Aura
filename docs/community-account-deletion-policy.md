@@ -136,7 +136,9 @@ ID, credentials, command output, and tokens.
 
 The planner removes:
 
-- `/votes/{contentId}/voters/{uid}` nested vote markers.
+- `/vote_markers/{uid}` private vote markers.
+- `/votes/{contentId}/voters/{uid}` nested vote markers from before the schema
+  split.
 - `/voters/{contentId}/{uid}` legacy vote markers.
 - `/creator_follows/{uid}` outbound follows.
 - `/creator_follows/{followerUid}/{uid}` inbound follows that reference the
@@ -155,8 +157,8 @@ community votes, so slash/dot variants resolve to the stored key form.
 
 ## Retained Data
 
-- `/votes/{contentId}/upvotes` aggregate counts are retained after per-user
-  markers are removed. Aggregate counts no longer identify the deleted user,
+- `/vote_counts/{contentId}/upvotes` and legacy `/votes/{contentId}/upvotes`
+  aggregate counts are retained after per-user markers are removed. Aggregate counts no longer identify the deleted user,
   and decrementing them from a dry-run export would be race-prone.
 - `/community_reports`, `/community_report_resolutions`,
   `/community_takedown_receipts`, `/community_upload_deletions`, and

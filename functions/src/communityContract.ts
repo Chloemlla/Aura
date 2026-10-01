@@ -100,8 +100,10 @@ export const COMMUNITY_CALLABLE_SURFACES: readonly CommunityCallableSurface[] = 
       functionName: "recordCommunityVote",
       payloadSchema: "CommunityVoteInput",
       finalWritePaths: [
-        "/votes/{contentId}",
-        "/voters/{contentId}/{uid}",
+        "/vote_markers/{uid}/{contentId}",
+        "/vote_counts/{contentId}",
+        "/community_sounds/{uploadId}/votes",
+        "/community_wallpapers/{uploadId}/votes",
       ],
       consumeLimitedUseAppCheckToken: false,
       requiresAuth: true,

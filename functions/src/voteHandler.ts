@@ -1,4 +1,5 @@
 import { getDatabase } from "firebase-admin/database";
+import * as logger from "firebase-functions/logger";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 
 import { requireCallableIdentity } from "./callableScaffold";
@@ -22,6 +23,7 @@ const MAX_OPERATION_ID = 120;
 const FIREBASE_KEY_REGEX = /[.#$[\]/]/g;
 const WHITESPACE_REGEX = /\s+/g;
 const CONTROL_REGEX = /[\u0000-\u001F\u007F]/g;
+const COMMUNITY_UPLOAD_VOTE_KEY = /^(SOUND|WALLPAPER)::COMMUNITY::(cu|cw)_([A-Za-z0-9_-]{1,200})$/;
 
 interface CallableRequestLike {
   readonly data?: unknown;
@@ -78,7 +80,7 @@ export async function recordCommunityVoteHandler(
   const nowMillis = backend.nowMillis();
   const envelope = normalizeEnvelope(request.data);
   const contentId = normalizeVoteContentId(requiredString(envelope.payload, "contentId"));
-  const targetPath = `/votes/${contentId}`;
+  const targetPath = `/vote_counts/${contentId}`;
   if (await backend.hasExistingVote(uid, contentId)) {
     return {
       operationId: envelope.operationId,
@@ -140,6 +142,19 @@ export async function recordCommunityVoteHandler(
     serverTimeMillis: decision.serverTimeMillis,
     upvotes: commit.upvotes,
   };
+}
+
+/**
+ * Maps a community upload's vote key (`SOUND::COMMUNITY::cu_<id>` or
+ * `WALLPAPER::COMMUNITY::cw_<id>`) to its metadata row, or null for any other content.
+ */
+export function communityUploadMetadataPath(contentId: string): string | null {
+  const match = COMMUNITY_UPLOAD_VOTE_KEY.exec(contentId);
+  if (!match) return null;
+  const [, type, prefix, uploadId] = match;
+  if (type === "SOUND" && prefix === "cu") return `community_sounds/${uploadId}`;
+  if (type === "WALLPAPER" && prefix === "cw") return `community_wallpapers/${uploadId}`;
+  return null;
 }
 
 export function normalizeVoteContentId(value: string): string {
@@ -211,11 +226,13 @@ class FirebaseVoteBackend implements VoteBackend {
   }
 
   async hasExistingVote(uid: string, contentId: string): Promise<boolean> {
-    const [nested, legacy] = await Promise.all([
+    // Votes cast before the private marker tree existed still count as duplicates.
+    const [marker, nested, legacy] = await Promise.all([
+      this.markerRef(uid, contentId).get(),
       this.root.child("votes").child(contentId).child("voters").child(uid).get(),
       this.root.child("voters").child(contentId).child(uid).get(),
     ]);
-    return nested.exists() || legacy.exists();
+    return marker.exists() || nested.exists() || legacy.exists();
   }
 
   async readDedupeMarker(
@@ -268,48 +285,77 @@ class FirebaseVoteBackend implements VoteBackend {
   }
 
   async commitVote(input: CommitVoteInput): Promise<VoteCommitResult> {
-    let sawExistingVoter = false;
-    let upvotes = 0;
-    const result = await this.root.child("votes").child(input.contentId).transaction(
-      (current: unknown) => {
-        const voteData = current !== null && typeof current === "object"
-          ? current as Record<string, unknown>
-          : {};
-        const voters = voteData.voters !== null && typeof voteData.voters === "object"
-          ? voteData.voters as Record<string, unknown>
-          : {};
-        if (voters[input.uid] === true) {
-          sawExistingVoter = true;
-          return undefined;
-        }
-        const currentUpvotes = typeof voteData.upvotes === "number" ? voteData.upvotes : 0;
-        upvotes = Math.max(0, Math.trunc(currentUpvotes)) + 1;
-        return {
-          ...voteData,
-          upvotes,
-          voters: {
-            ...voters,
-            [input.uid]: true,
-          },
-        };
-      },
+    // The private marker is claimed first so two racing calls from one account cannot both
+    // increment the public count. Only the owner can read vote_markers/{uid}.
+    const markerRef = this.markerRef(input.uid, input.contentId);
+    const claim = await markerRef.transaction(
+      (current: unknown) => (current === true ? undefined : true),
       undefined,
       false,
     );
+    if (!claim.committed) return { status: "duplicate" };
 
-    if (!result.committed) {
-      if (sawExistingVoter) return { status: "duplicate" };
+    let upvotes = 0;
+    try {
+      const legacySeed = await this.legacyUpvotes(input.contentId);
+      const counted = await this.root.child("vote_counts").child(input.contentId).transaction(
+        (current: unknown) => {
+          const stored = current !== null && typeof current === "object"
+            ? (current as Record<string, unknown>).upvotes
+            : undefined;
+          const base = typeof stored === "number" ? stored : legacySeed;
+          upvotes = Math.max(0, Math.trunc(base)) + 1;
+          return { upvotes };
+        },
+        undefined,
+        false,
+      );
+      if (!counted.committed) throw new Error("vote count transaction aborted");
+    } catch {
+      await markerRef.remove();
       throw new HttpsError("aborted", "Unable to commit community vote.");
     }
 
     await this.root.update({
-      [`voters/${input.contentId}/${input.uid}`]: true,
       [`community_write_dedupe/${input.uid}/${input.surfaceKey}/${input.dedupeKey}`]: input.dedupeMarker,
     });
+    try {
+      await this.mirrorUploadVotes(input.contentId, upvotes);
+    } catch (error) {
+      // The vote itself is committed; the next vote on this upload re-mirrors the count.
+      logger.warn("Community upload vote mirror failed", { contentId: input.contentId, error: String(error) });
+    }
     return {
       status: "accepted",
       upvotes,
     };
+  }
+
+  private markerRef(uid: string, contentId: string) {
+    return this.root.child("vote_markers").child(uid).child(contentId);
+  }
+
+  /** Seeds a first vote_counts row from the count kept before the schema split. */
+  private async legacyUpvotes(contentId: string): Promise<number> {
+    const snapshot = await this.root.child("votes").child(contentId).child("upvotes").get();
+    const value = snapshot.val();
+    return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+  }
+
+  /**
+   * Community feeds sort and filter by the upload row's own `votes` field, so keep it in
+   * step with the public count. Skipped when the upload row is gone.
+   */
+  private async mirrorUploadVotes(contentId: string, upvotes: number): Promise<void> {
+    const uploadPath = communityUploadMetadataPath(contentId);
+    if (!uploadPath) return;
+    const upload = this.root.child(uploadPath);
+    if (!(await upload.child("storagePath").get()).exists()) return;
+    await upload.child("votes").transaction(
+      (current: unknown) => Math.max(typeof current === "number" ? Math.trunc(current) : 0, upvotes),
+      undefined,
+      false,
+    );
   }
 
   private quotaRef(uid: string, dayKey: string, surfaceKey: string) {

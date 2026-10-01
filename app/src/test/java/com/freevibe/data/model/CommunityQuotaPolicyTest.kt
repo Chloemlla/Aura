@@ -97,7 +97,12 @@ class CommunityQuotaPolicyTest {
             CommunityQuotaPolicies.wallpaperUploads.callable.finalWritePaths,
         )
         assertEquals(
-            listOf("/votes/{contentId}", "/voters/{contentId}/{uid}"),
+            listOf(
+                "/vote_markers/{uid}/{contentId}",
+                "/vote_counts/{contentId}",
+                "/community_sounds/{uploadId}/votes",
+                "/community_wallpapers/{uploadId}/votes",
+            ),
             CommunityQuotaPolicies.votes.callable.finalWritePaths,
         )
         assertEquals(listOf("/creator_follows/{uid}/{creatorId}"), CommunityQuotaPolicies.follows.callable.finalWritePaths)

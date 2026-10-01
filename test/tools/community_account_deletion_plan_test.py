@@ -79,6 +79,21 @@ class CommunityAccountDeletionPlanTest(unittest.TestCase):
         self.assertEqual(["/voters/content1/uid_1", "/voters/content3/uid_1", "/votes/content1/voters/uid_1"], plan["categories"]["voteMarkers"])
         self.assertTrue(any(item["root"] == "/votes/*/upvotes" for item in plan["retained"]))
 
+    def test_plan_removes_private_vote_marker_subtree_and_keeps_public_counts(self) -> None:
+        database_export = {
+            "vote_markers": {
+                "uid_1": {"content1": True, "content2": True},
+                "other": {"content1": True},
+            },
+            "vote_counts": {"content1": {"upvotes": 2}},
+        }
+
+        plan = build_account_deletion_plan(database_export, "uid/1")
+
+        self.assertEqual({"/vote_markers/uid_1": None}, plan["updates"])
+        self.assertEqual(["/vote_markers/uid_1"], plan["categories"]["voteMarkers"])
+        self.assertTrue(any(item["root"] == "/vote_counts/*/upvotes" for item in plan["retained"]))
+
     def test_plan_rejects_blank_uid_and_invalid_roots(self) -> None:
         with self.assertRaises(ValueError):
             build_account_deletion_plan({}, "   ")

@@ -59,8 +59,10 @@ EXPECTED_SURFACES: dict[str, dict[str, Any]] = {
         "functionName": "recordCommunityVote",
         "payloadSchema": "CommunityVoteInput",
         "finalWritePaths": [
-            "/votes/{contentId}",
-            "/voters/{contentId}/{uid}",
+            "/vote_markers/{uid}/{contentId}",
+            "/vote_counts/{contentId}",
+            "/community_sounds/{uploadId}/votes",
+            "/community_wallpapers/{uploadId}/votes",
         ],
         "consumeLimitedUseAppCheckToken": False,
     },

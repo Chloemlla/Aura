@@ -96,6 +96,17 @@ All notable changes to Aura will be documented in this file.
   exists and sits between 1 byte and 20 MB, the same limit the storage rules
   use. Wallpaper uploads still have to match their declared size and type.
 
+- **Votes and follows stay private, and Top Voted works again**: vote counts
+  now live apart from the record of who voted. Anyone can read a count, but
+  only your own account can read which items you voted for, and only you can
+  read who you follow. Before this, voter IDs sat in publicly readable nodes,
+  while the Top Voted list and creator vote totals asked for a whole-tree read
+  the database refused, so they came back empty or zero. Top Voted now uses a
+  sorted, capped query and creator totals read one count per upload. Community
+  uploads also keep their own vote field in step, so feeds sorted by votes
+  order correctly. A one-time backfill tool copies existing counts and voter
+  records into the new layout.
+
 - **Firebase CLI upgraded to 15.31.0**: root audit findings reduced from 15 to
   10 (non-breaking fixes applied). Functions audit is now zero. The remaining
   root findings are transitive deployment-tool dependencies.

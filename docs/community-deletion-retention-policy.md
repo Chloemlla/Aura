@@ -44,11 +44,10 @@ Storage path must remain under the uploader-scoped `sounds/{uid}/` or
 
 ## Follow-Up
 
-Vote and voter-marker retention remains intentionally conservative. The current
-client cannot safely delete `/voters/{contentId}` as a whole, and the current
-rules expose voter markers through the public vote tree. The callable backend or
-trusted admin cleanup should migrate this to private vote markers before account
-deletion work claims vote data is minimized.
+Vote markers now live under `/vote_markers/{uid}`, readable only by that account
+and admins, and the public `/vote_counts` tree holds counts alone. The legacy
+`/votes` and `/voters` trees are admin-only. Account deletion removes the whole
+`/vote_markers/{uid}` subtree plus any legacy markers, and keeps the counts.
 
 ## Sources
 

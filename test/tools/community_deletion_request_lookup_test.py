@@ -68,6 +68,14 @@ class CommunityDeletionRequestLookupTest(unittest.TestCase):
         self.assertIn("blocked/raw", candidates)
         self.assertIn("owner-1", candidates)
 
+    def test_lookup_finds_private_vote_marker_owner(self) -> None:
+        database_export = {"vote_markers": {"firebase-uid-123": {"content1": True}}}
+
+        lookup = lookup_deletion_request(database_export, deletion_request_code("firebase-uid-123"))
+
+        self.assertEqual(1, lookup["matchCount"])
+        self.assertIn("/vote_markers/firebase-uid-123", lookup["matches"][0]["evidence"])
+
     def test_lookup_rejects_invalid_input(self) -> None:
         with self.assertRaises(ValueError):
             normalize_request_code("not-a-code")
