@@ -13,6 +13,8 @@ import com.freevibe.service.SelectedContentHolder
 import com.freevibe.util.rethrowIfCancelled
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,6 +47,10 @@ internal class SoundPlaybackActions(
 ) {
     private var progressJob: Job? = null
     private val previewPrebufferInFlight = ConcurrentHashMap.newKeySet<String>()
+    private var prebufferFeedKey: Int? = null
+    @Volatile private var prebufferScope = newPrebufferScope()
+
+    private fun newPrebufferScope() = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
 
     fun togglePlayback(sound: Sound) {
         val soundKey = sound.stableKey()
@@ -97,6 +103,8 @@ internal class SoundPlaybackActions(
 
     fun schedulePreviewPrebuffer(sounds: List<Sound>) {
         if (!autoPreview.value) return
+        switchPrebufferFeed(state.value.filterKey)
+        val feedScope = prebufferScope
         sounds
             .asSequence()
             .filter { it.previewUrl.isNotBlank() }
@@ -106,7 +114,7 @@ internal class SoundPlaybackActions(
             .forEach { sound ->
                 val key = sound.stableKey()
                 if (key in previewReadyIds.value || !previewPrebufferInFlight.add(key)) return@forEach
-                scope.launch {
+                feedScope.launch {
                     try {
                         // Shares slots with preview resolution so the two never fan out together.
                         if (previewWorkPermits.withPermit { audioPreviewCache.prebuffer(sound) }) {
@@ -115,10 +123,23 @@ internal class SoundPlaybackActions(
                     } catch (e: Exception) {
                         e.rethrowIfCancelled()
                     } finally {
-                        previewPrebufferInFlight.remove(key)
+                        // A switched feed already cleared the set and may own this key again.
+                        if (feedScope === prebufferScope) previewPrebufferInFlight.remove(key)
                     }
                 }
             }
+    }
+
+    /**
+     * A new tab, query or refresh drops the old feed's prebuffers, so clips nobody
+     * can see stop spending data and stop holding the slots a tapped preview needs.
+     */
+    fun switchPrebufferFeed(key: Int) {
+        if (key == prebufferFeedKey) return
+        prebufferScope.cancel()
+        prebufferScope = newPrebufferScope()
+        previewPrebufferInFlight.clear()
+        prebufferFeedKey = key
     }
 
     fun isInPreviewPrebufferWindow(soundKey: String): Boolean {

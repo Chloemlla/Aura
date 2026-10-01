@@ -197,7 +197,10 @@ class RotationTriggerService : Service() {
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork(
                 WORK_NAME,
-                ExistingWorkPolicy.KEEP, // Coalesce: don't queue 10 rotations on a chatty unlock
+                // Passive triggers coalesce so a chatty unlock can't queue 10 rotations. An explicit
+                // tap or automation action replaces a waiting passive one instead of being dropped,
+                // since only it restarts the rotation countdown.
+                if (restartCountdown) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP,
                 request,
             )
         }

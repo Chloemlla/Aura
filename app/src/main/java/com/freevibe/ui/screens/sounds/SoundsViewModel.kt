@@ -238,7 +238,10 @@ class SoundsViewModel @Inject constructor(
         community.init()
         // A new tab, query, or refresh bumps filterKey; the old feed's resolves stop there.
         viewModelScope.launch {
-            _state.map { it.filterKey }.distinctUntilChanged().collect(previewWarmup::switchFeed)
+            _state.map { it.filterKey }.distinctUntilChanged().collect { key ->
+                previewWarmup.switchFeed(key)
+                playback.switchPrebufferFeed(key)
+            }
         }
         browse.start()
         viewModelScope.launch {

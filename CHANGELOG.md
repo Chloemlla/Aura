@@ -71,13 +71,16 @@ All notable changes to Aura will be documented in this file.
   automation broadcasts and Diagnostics' Run now. Unlock and screen-off
   rotations leave the timer alone. The restart uses the scheduler's minute
   interval when the scheduler is on. It's governed by a preference that's on
-  by default.
+  by default. A tile or automation request that lands while an unlock rotation
+  is still waiting now replaces it instead of being dropped, and a request that
+  changes nothing (the chosen source is switched off, say) leaves the timer
+  alone.
 
 - **Sound previews resolve on demand**: YouTube sound tabs and search used to
   extract streams for every result (up to 30) before you tapped anything. Now
   only the rows on screen plus one ahead get resolved, each once per feed.
-  Switching tab or query cancels the old feed's work, and resolving and
-  prebuffering share three slots.
+  Switching tab or query cancels the old feed's work, prebuffers included, and
+  resolving and prebuffering share three slots.
 
 - **TikTok ringtones lead the Ringtones tab**: the latest clips from the
   @ringtonesforiphone TikTok creator now sit at the top of Ringtones, most
@@ -86,9 +89,12 @@ All notable changes to Aura will be documented in this file.
   copies the clip's AAC track into an .m4a without re-encoding, then deletes
   the video. Every clip keeps the creator's name and a link to the original
   video. Stored links expire after a couple of days, so an older favorite
-  fetches a fresh one on its own. Background traffic is one embed page every
-  30 minutes plus a 1 KB read per clip for its length, and Play builds never
-  contact TikTok.
+  fetches a fresh one on its own. Loading the list costs one embed page every
+  30 minutes plus a 1 KB read per clip for its length. With Auto preview on,
+  the first few clips are partly buffered, the same as other sources. Play
+  builds never contact TikTok. A clip that fails to download shows an error
+  instead of crashing, half-written files are swept on the next try, and a
+  cached list drops clips whose links have expired.
 
 - **Community sound uploads finish again**: the upload service compared the
   stored file against a size that sound uploads never send, so any upload whose
@@ -127,7 +133,8 @@ All notable changes to Aura will be documented in this file.
   it waits and an error with Retry when the query fails, instead of looking like
   an empty queue. Being offline and lacking admin access now read differently.
   A failed refresh keeps the reports you were looking at and says when they
-  were last updated.
+  were last updated. Any other failure shows the translated message first, with
+  the reason under it.
 
 - **Lint fix**: wallpaper Hide snackbar now resolves strings via `stringResource`
   in composition scope instead of `context.getString()` from a coroutine,

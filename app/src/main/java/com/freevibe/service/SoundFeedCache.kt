@@ -4,6 +4,7 @@ import android.content.Context
 import com.freevibe.data.model.ContentSource
 import com.freevibe.data.model.SOURCE_AVAILABILITY_AVAILABLE
 import com.freevibe.data.model.Sound
+import com.freevibe.data.remote.tiktok.isTikTokMediaUrlUsable
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -85,6 +86,11 @@ internal fun decodeSoundFeedCache(raw: String?, nowMs: Long): CachedSoundFeed? {
                 }.getOrNull()
                 if (id.isBlank() || source == null) return@repeat
                 val cachedPreview = properties.getProperty("${prefix}previewUrl").orEmpty()
+                // An expired TikTok row would cost an embed fetch to warm up, only to be
+                // replaced moments later by the fresh creator feed, so leave it out.
+                if (source == ContentSource.TIKTOK && !isTikTokMediaUrlUsable(cachedPreview, nowMs / 1000L)) {
+                    return@repeat
+                }
                 add(
                     Sound(
                         id = id,

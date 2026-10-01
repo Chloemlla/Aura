@@ -45,7 +45,9 @@ Android 16 still charges ordinary and expedited WorkManager jobs against job
 runtime quota when they continue after a TOP-state start and while they run
 concurrently with a foreground service. The only Aura concurrency path is
 `RotationTriggerService` enqueuing `rotation_trigger_oneshot`. That path uses
-unique `KEEP` to coalesce chatty events and
+unique `KEEP` to coalesce chatty unlock and screen-off events, `REPLACE` for an
+explicit tile or automation request so a waiting passive trigger can't swallow
+its countdown restart, and
 `RUN_AS_NON_EXPEDITED_WORK_REQUEST` to preserve the request when expedited quota
 is unavailable. Settings and copied support diagnostics now report every unique
 work name and summarize non-active `WorkInfo.stopReason` values such as `QUOTA`,

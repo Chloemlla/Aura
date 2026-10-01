@@ -276,7 +276,10 @@ class CommunityReportsViewModel @Inject constructor(
 private fun reportsLoadErrorText(error: ReportsLoadError?): String = when (error?.kind) {
     ReportsLoadErrorKind.OFFLINE -> stringResource(R.string.reports_load_error_offline)
     ReportsLoadErrorKind.DENIED -> stringResource(R.string.reports_load_error_denied)
-    else -> error?.detail ?: stringResource(R.string.reports_load_error_generic)
+    // The localized message leads; the raw detail stays visible because this admin-only
+    // screen has no other place to show why a load failed.
+    else -> stringResource(R.string.reports_load_error_generic) +
+        error?.detail?.let { "\n$it" }.orEmpty()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

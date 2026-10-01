@@ -44,6 +44,9 @@ class AutoWallpaperWorker @AssistedInject constructor(
     private val receiptStore: BackgroundWorkReceiptStore,
 ) : CoroutineWorker(appContext, workerParams) {
 
+    /** True once this run changed a wallpaper; a disabled provider returns success without one. */
+    private var appliedWallpaper = false
+
     override suspend fun doWork(): Result {
         val receiptWorkName = inputData.getString(RECEIPT_WORK_NAME_KEY) ?: WORK_NAME
         return try {
@@ -63,7 +66,12 @@ class AutoWallpaperWorker @AssistedInject constructor(
             )
             // One-shot work runs under its own unique name, so re-enqueueing the
             // periodic work here cannot cancel this run.
-            if (result is Result.Success && inputData.getBoolean(RESTART_COUNTDOWN_KEY, false)) {
+            if (shouldRestartRotationCountdown(
+                    requested = inputData.getBoolean(RESTART_COUNTDOWN_KEY, false),
+                    succeeded = result is Result.Success,
+                    applied = appliedWallpaper,
+                )
+            ) {
                 restartCountdownAfterManualChange(applicationContext, prefs)
             }
             result
@@ -288,6 +296,7 @@ class AutoWallpaperWorker @AssistedInject constructor(
             imageFlow = MediaIngestionImageFlow.AUTO_ROTATION,
         ).fold(
             onSuccess = {
+                appliedWallpaper = true
                 historyManager.record(wallpaper, target)
                 prefs.setLastNightVariantWallpaper(wallpaper.fullUrl, target.name, darkenPercent)
                 if (prefs.avoidRecentRepeats.first()) {
@@ -458,6 +467,17 @@ internal fun shouldRunLegacyRotation(
     legacyEnabled: Boolean,
     triggeredRotation: Boolean,
 ): Boolean = !schedulerEnabled && (legacyEnabled || triggeredRotation)
+
+/**
+ * A tile or automation rotation restarts the periodic countdown only when it actually
+ * changed the wallpaper. A run skipped for a disabled provider still reports success,
+ * and restarting then would push the next real rotation a full interval out for nothing.
+ */
+internal fun shouldRestartRotationCountdown(
+    requested: Boolean,
+    succeeded: Boolean,
+    applied: Boolean,
+): Boolean = requested && succeeded && applied
 
 /**
  * Pure builder for AutoWallpaper rotation constraints. Always sets

@@ -52,6 +52,9 @@ class TikTokAudioExtractor @Inject constructor(
                 audio.setLastModified(System.currentTimeMillis())
                 return@withLock Uri.fromFile(audio).toString()
             }
+            // Extraction is serialized by the mutex, so any .part file here was left by a
+            // process that died mid-download (a clip can be 40 MB).
+            directory.listFiles { file -> file.isFile && file.name.endsWith(".part") }?.forEach { it.delete() }
             val video = File(directory, "tiktok_$videoId.mp4.part")
             val partialAudio = File(directory, "tiktok_$videoId.m4a.part")
             try {
@@ -109,6 +112,7 @@ class TikTokAudioExtractor @Inject constructor(
         val extractor = MediaExtractor()
         var muxer: MediaMuxer? = null
         var muxerStarted = false
+        var failure: Throwable? = null
         try {
             extractor.setDataSource(video.absolutePath)
             val trackIndex = (0 until extractor.trackCount).firstOrNull { index ->
@@ -131,15 +135,24 @@ class TikTokAudioExtractor @Inject constructor(
                 buffer = ByteBuffer.allocate(bufferSize),
             )
             if (copied == 0) throw IOException("TikTok clip sound track is empty")
+        } catch (t: Throwable) {
+            failure = t
+            throw t
         } finally {
-            muxer?.let { output ->
-                try {
-                    if (muxerStarted) output.stop()
-                } finally {
-                    output.release()
+            try {
+                muxer?.let { output ->
+                    try {
+                        if (muxerStarted) output.stop()
+                    } catch (e: RuntimeException) {
+                        // stop() throws when nothing was written; keep the error that got us here.
+                        failure?.addSuppressed(e) ?: throw e
+                    } finally {
+                        output.release()
+                    }
                 }
+            } finally {
+                extractor.release()
             }
-            extractor.release()
         }
     }
 

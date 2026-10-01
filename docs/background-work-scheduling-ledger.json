@@ -403,7 +403,7 @@
       "outOfQuotaPolicy": "OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST",
       "enabledSurface": "Rotation trigger foreground service toggles and public Tasker/MacroDroid actions",
       "scheduleTrigger": "Unlock, screen-off, ROTATE_NOW, or SHUFFLE_NOW trigger",
-      "cancelTrigger": "Unique KEEP coalesces chatty triggers; no explicit cancel path",
+      "cancelTrigger": "Unique KEEP coalesces unlock and screen-off triggers; an explicit tile, ROTATE_NOW, or SHUFFLE_NOW request uses REPLACE so a waiting passive trigger cannot swallow its countdown restart; no explicit cancel path",
       "deferralReasons": [
         "network unavailable",
         "battery low",
@@ -415,6 +415,7 @@
         "\"rotation_trigger_oneshot\"",
         "OneTimeWorkRequestBuilder<AutoWallpaperWorker>",
         "ExistingWorkPolicy.KEEP",
+        "ExistingWorkPolicy.REPLACE",
         "NetworkType.CONNECTED",
         "setRequiresBatteryNotLow(true)",
         "setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)"

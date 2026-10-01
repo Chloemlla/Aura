@@ -47,6 +47,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -780,6 +781,67 @@ class SoundsViewModelTest {
         }
         assertFalse(readyIds.contains(providerSounds[8].stableKey()))
         coVerify(exactly = 0) { audioPreviewCache.prebuffer(match { it.id == providerSounds[8].id }) }
+    }
+
+    @Test
+    fun `switching tabs cancels the old feed's prebuffers so the new feed gets the slots`() = runTest(dispatcher) {
+        assumeYouTubeAvailable()
+        val youtubeRepo = mockk<YouTubeRepository>()
+        val freesoundRepo = mockk<FreesoundRepository>()
+        val freesoundV2Repo = mockk<FreesoundV2Repository>()
+        val audiusRepo = mockk<AudiusRepository>()
+        val ccMixterRepo = mockk<CcMixterRepository>()
+        val soundCloudRepo = mockk<SoundCloudRepository>()
+        val audioPreviewCache = mockk<AudioPreviewCache>()
+        val ringtones = (1..8).map { testSound("yt_ring_$it", ContentSource.YOUTUBE, "Ring Tone $it") }
+        val alerts = (1..3).map { testSound("yt_alert_$it", ContentSource.YOUTUBE, "Alert Tone $it") }
+
+        stubCommonDependencies(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+        )
+        coEvery { youtubeRepo.searchSounds(any(), any(), any(), any()) } returns
+            SearchResult(items = ringtones, totalCount = ringtones.size, currentPage = 1, hasMore = false)
+        var startedRingtonePrebuffers = 0
+        var cancelledRingtonePrebuffers = 0
+        // Ringtone clips never finish, so without cancellation they hold every shared slot.
+        coEvery { audioPreviewCache.prebuffer(any()) } coAnswers {
+            if (firstArg<Sound>().id.startsWith("yt_ring_")) {
+                startedRingtonePrebuffers++
+                try {
+                    awaitCancellation()
+                } finally {
+                    cancelledRingtonePrebuffers++
+                }
+            } else {
+                true
+            }
+        }
+
+        val viewModel = createViewModel(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+            audioPreviewCacheOverride = audioPreviewCache,
+        )
+        advanceUntilIdle()
+        assertTrue(startedRingtonePrebuffers > 0)
+        assertEquals(0, cancelledRingtonePrebuffers)
+
+        coEvery { youtubeRepo.searchSounds(any(), any(), any(), any()) } returns
+            SearchResult(items = alerts, totalCount = alerts.size, currentPage = 1, hasMore = false)
+        viewModel.selectTab(SoundTab.NOTIFICATIONS)
+        advanceUntilIdle()
+
+        assertEquals(startedRingtonePrebuffers, cancelledRingtonePrebuffers)
+        alerts.forEach { assertTrue(viewModel.previewReadyIds.value.contains(it.stableKey())) }
     }
 
     @Test
