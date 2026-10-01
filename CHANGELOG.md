@@ -157,8 +157,10 @@ All notable changes to Aura will be documented in this file.
   WorkManager refuses to build that, so the rotation never got queued. Taps
   and automation actions still run right away. Unlock and screen-off
   rotations now run as ordinary work and still wait while the battery is
-  low. A tap that lands while a rotation is being applied now waits for it
-  to finish instead of cancelling it part way through, and a rotation that
+  low. A tap that lands while a rotation is being applied starts a fresh one
+  right after it. The rotation already under way still sets both screens
+  before it stops, so home and lock never end up out of step, and only one
+  rotation applies at a time. A rotation that
   changed the home screen but found every lock screen item excluded now
   restarts the countdown like any other change.
 

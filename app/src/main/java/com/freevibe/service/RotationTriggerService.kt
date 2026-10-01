@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.first
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
-import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 
@@ -199,34 +198,18 @@ class RotationTriggerService : Service() {
                 )
                 .apply { if (restartCountdown) setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST) }
                 .build()
-            val workManager = WorkManager.getInstance(context)
-            if (!restartCountdown) {
-                workManager.enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.KEEP, request)
-                return
-            }
-            // The policy depends on whether a rotation is mid-apply, so read the state first. The
-            // listener runs on WorkManager's own thread, which keeps the caller off a blocking read.
-            val existing = workManager.getWorkInfosForUniqueWork(WORK_NAME)
-            existing.addListener(
-                {
-                    val states = runCatching { existing.get().map { it.state } }.getOrDefault(emptyList())
-                    workManager.enqueueUniqueWork(WORK_NAME, triggeredRotationPolicy(restartCountdown, states), request)
-                },
-                Runnable::run,
-            )
+            WorkManager.getInstance(context)
+                .enqueueUniqueWork(WORK_NAME, triggeredRotationPolicy(restartCountdown), request)
         }
     }
 }
 
 /**
  * Passive triggers coalesce so a chatty unlock can't queue 10 rotations. An explicit tap or
- * automation action replaces a waiting rotation instead of being dropped, since only it restarts
- * the countdown, but it queues behind one that is already applying rather than cancelling it
- * part way through.
+ * automation action replaces any trigger work instead of being dropped, since only it restarts the
+ * countdown. Replacing never cuts an apply in half: [AutoWallpaperWorker] applies NonCancellable
+ * under its run lock, so a run that is already applying finishes and the tap applies after it.
+ * Chaining the tap behind the running work instead would fail it whenever that run failed.
  */
-internal fun triggeredRotationPolicy(restartCountdown: Boolean, existing: List<WorkInfo.State>): ExistingWorkPolicy =
-    when {
-        !restartCountdown -> ExistingWorkPolicy.KEEP
-        WorkInfo.State.RUNNING in existing -> ExistingWorkPolicy.APPEND_OR_REPLACE
-        else -> ExistingWorkPolicy.REPLACE
-    }
+internal fun triggeredRotationPolicy(restartCountdown: Boolean): ExistingWorkPolicy =
+    if (restartCountdown) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP

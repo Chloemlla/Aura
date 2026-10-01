@@ -32,29 +32,11 @@ class RotationTriggerPolicyTest {
     }
 
     @Test
-    fun `a tap queues behind a rotation that is applying and replaces one that is only waiting`() {
-        assertEquals(
-            ExistingWorkPolicy.APPEND_OR_REPLACE,
-            triggeredRotationPolicy(restartCountdown = true, existing = listOf(WorkInfo.State.RUNNING)),
-        )
-        assertEquals(
-            ExistingWorkPolicy.REPLACE,
-            triggeredRotationPolicy(restartCountdown = true, existing = listOf(WorkInfo.State.ENQUEUED)),
-        )
-        assertEquals(
-            ExistingWorkPolicy.REPLACE,
-            triggeredRotationPolicy(restartCountdown = true, existing = listOf(WorkInfo.State.SUCCEEDED)),
-        )
-        assertEquals(ExistingWorkPolicy.REPLACE, triggeredRotationPolicy(restartCountdown = true, existing = emptyList()))
-    }
-
-    @Test
-    fun `passive triggers always coalesce`() {
-        assertEquals(
-            ExistingWorkPolicy.KEEP,
-            triggeredRotationPolicy(restartCountdown = false, existing = listOf(WorkInfo.State.RUNNING)),
-        )
-        assertEquals(ExistingWorkPolicy.KEEP, triggeredRotationPolicy(restartCountdown = false, existing = emptyList()))
+    fun `a tap replaces trigger work and passive triggers coalesce`() {
+        // A run that is already applying is protected by the worker's run lock, not by chaining the
+        // tap behind it, which would fail the tap whenever that run failed.
+        assertEquals(ExistingWorkPolicy.REPLACE, triggeredRotationPolicy(restartCountdown = true))
+        assertEquals(ExistingWorkPolicy.KEEP, triggeredRotationPolicy(restartCountdown = false))
     }
 
     @Test

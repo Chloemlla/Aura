@@ -23,7 +23,11 @@ import com.freevibe.data.repository.RotationExclusionRepository
 import com.freevibe.data.repository.WallpaperRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -47,7 +51,9 @@ class AutoWallpaperWorker @AssistedInject constructor(
     /** True once this run changed a wallpaper; a disabled provider returns success without one. */
     private var appliedWallpaper = false
 
-    override suspend fun doWork(): Result {
+    override suspend fun doWork(): Result = rotationRunLock.withLock { runRotation() }
+
+    private suspend fun runRotation(): Result {
         val receiptWorkName = inputData.getString(RECEIPT_WORK_NAME_KEY) ?: WORK_NAME
         return try {
             val schedulerEnabled = prefs.schedulerEnabled.first()
@@ -146,8 +152,11 @@ class AutoWallpaperWorker @AssistedInject constructor(
                 }
                 return Result.retry()
             }
-            homePick.wallpaper?.let { applyAndRecord(it, WallpaperTarget.HOME) }
-            lockPick.wallpaper?.let { applyAndRecord(it, WallpaperTarget.LOCK) }
+            // Home and lock change together: a tap that replaces this run can't land between them.
+            withContext(NonCancellable) {
+                homePick.wallpaper?.let { applyAndRecord(it, WallpaperTarget.HOME) }
+                lockPick.wallpaper?.let { applyAndRecord(it, WallpaperTarget.LOCK) }
+            }
             if (homePick.allExcluded || lockPick.allExcluded) {
                 throw AllRotationCandidatesExcludedException("one selected local-folder target")
             }
@@ -280,7 +289,11 @@ class AutoWallpaperWorker @AssistedInject constructor(
         }
     }
 
-    private suspend fun applyAndRecord(wallpaper: Wallpaper, target: WallpaperTarget): Result {
+    /**
+     * Runs to the end even when a newer tap replaces this work, so a started apply always lands in
+     * history. The newer run waits on [rotationRunLock] and applies after it.
+     */
+    private suspend fun applyAndRecord(wallpaper: Wallpaper, target: WallpaperTarget): Result = withContext(NonCancellable) {
         val darkenPercent = prefs.autoWallpaperDarkenPercent.first()
         val nightVariant = shouldUseNightWallpaperVariant(
             enabled = prefs.autoWallpaperNightVariantEnabled.first(),
@@ -292,7 +305,7 @@ class AutoWallpaperWorker @AssistedInject constructor(
             isSystemDark = applicationContext.resources.configuration.uiMode and
                 Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES,
         )
-        return wallpaperApplier.applyByLocator(
+        wallpaperApplier.applyByLocator(
             wallpaper.fullUrl,
             target,
             darkenPercent = darkenPercent,
@@ -313,6 +326,8 @@ class AutoWallpaperWorker @AssistedInject constructor(
     }
 
     companion object {
+        /** One rotation at a time, so a replaced run that is already applying finishes before the next one starts. */
+        internal val rotationRunLock = Mutex()
         const val WORK_NAME = "auto_wallpaper"
         const val RECEIPT_WORK_NAME_KEY = "receipt_work_name"
         const val TRIGGERED_ROTATION_KEY = "triggered_rotation"

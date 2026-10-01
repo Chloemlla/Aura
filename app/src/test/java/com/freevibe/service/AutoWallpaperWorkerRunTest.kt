@@ -22,8 +22,15 @@ import com.freevibe.data.repository.RotationExclusionRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -41,6 +48,7 @@ class AutoWallpaperWorkerRunTest {
     private val applier = mockk<WallpaperApplier>()
     private val exclusions = mockk<RotationExclusionRepository>()
     private val catalog = mockk<LocalWallpaperCatalog>()
+    private val history = mockk<WallpaperHistoryManager>(relaxed = true)
 
     @Before
     fun setUp(): Unit = runBlocking {
@@ -52,6 +60,9 @@ class AutoWallpaperWorkerRunTest {
         prefs = PreferencesManager(context)
         prefs.setSchedulerEnabled(true)
         prefs.setSchedulerSource(WALLPAPER_SOURCE_LOCAL_FOLDER)
+        // DataStore outlives a single test in this process, so every test states both screens.
+        prefs.setSchedulerHome(true)
+        prefs.setSchedulerLock(true)
         coEvery { catalog.migrateLegacyFolder(any()) } returns null
         coEvery { catalog.rotationWallpapers(WallpaperTarget.HOME) } returns listOf(home)
         coEvery { catalog.rotationWallpapers(WallpaperTarget.LOCK) } returns listOf(lock)
@@ -87,6 +98,76 @@ class AutoWallpaperWorkerRunTest {
         assertTrue(scheduledRotation().isEmpty())
     }
 
+    @Test
+    fun `a run waits while another rotation holds the run lock`() = runBlocking {
+        coEvery { exclusions.filter(any()) } answers { RotationCandidateSet(firstArg(), 0, false) }
+        AutoWallpaperWorker.rotationRunLock.lock()
+        val run = async(Dispatchers.Default) { runWorker() }
+        try {
+            delay(300)
+            assertFalse("the run must not start while another rotation is applying", run.isCompleted)
+            coVerify(exactly = 0) {
+                applier.applyByLocator(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+            }
+        } finally {
+            AutoWallpaperWorker.rotationRunLock.unlock()
+        }
+
+        assertEquals(ListenableWorker.Result.success(), withTimeout(10_000) { run.await() })
+        coVerify(exactly = 2) {
+            applier.applyByLocator(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `a run replaced while applying home still applies lock before it stops`() = runBlocking {
+        coEvery { exclusions.filter(any()) } answers { RotationCandidateSet(firstArg(), 0, false) }
+        val homeStarted = CompletableDeferred<Unit>()
+        val releaseHome = CompletableDeferred<Unit>()
+        coEvery {
+            applier.applyByLocator(home.fullUrl, WallpaperTarget.HOME, any(), any(), any(), any(), any(), any(), any(), any())
+        } coAnswers {
+            homeStarted.complete(Unit)
+            releaseHome.await()
+            Result.success(Unit)
+        }
+        val run = launch(Dispatchers.Default) { runWorker() }
+        withTimeout(10_000) { homeStarted.await() }
+
+        run.cancel()
+        releaseHome.complete(Unit)
+        withTimeout(10_000) { run.join() }
+
+        coVerify(exactly = 1) {
+            applier.applyByLocator(lock.fullUrl, WallpaperTarget.LOCK, any(), any(), any(), any(), any(), any(), any(), any())
+        }
+        assertFalse("the lock is free once the replaced run is gone", AutoWallpaperWorker.rotationRunLock.isLocked)
+    }
+
+    @Test
+    fun `a single-screen run replaced while applying still records what it applied`() = runBlocking {
+        prefs.setSchedulerLock(false)
+        coEvery { exclusions.filter(any()) } answers { RotationCandidateSet(firstArg(), 0, false) }
+        val homeStarted = CompletableDeferred<Unit>()
+        val releaseHome = CompletableDeferred<Unit>()
+        coEvery {
+            applier.applyByLocator(home.fullUrl, WallpaperTarget.HOME, any(), any(), any(), any(), any(), any(), any(), any())
+        } coAnswers {
+            homeStarted.complete(Unit)
+            releaseHome.await()
+            Result.success(Unit)
+        }
+        val run = launch(Dispatchers.Default) { runWorker() }
+        withTimeout(10_000) { homeStarted.await() }
+
+        run.cancel()
+        releaseHome.complete(Unit)
+        withTimeout(10_000) { run.join() }
+
+        coVerify(exactly = 1) { history.record(home, WallpaperTarget.HOME) }
+        assertFalse(AutoWallpaperWorker.rotationRunLock.isLocked)
+    }
+
     private suspend fun runWorker(): ListenableWorker.Result =
         TestListenableWorkerBuilder<AutoWallpaperWorker>(context)
             .setInputData(workDataOf(AutoWallpaperWorker.RESTART_COUNTDOWN_KEY to true))
@@ -105,7 +186,7 @@ class AutoWallpaperWorkerRunTest {
                         collectionRepo = mockk(relaxed = true),
                         rotationExclusions = exclusions,
                         wallpaperApplier = applier,
-                        historyManager = mockk(relaxed = true),
+                        historyManager = history,
                         prefs = prefs,
                         localWallpaperCatalog = catalog,
                         receiptStore = mockk(relaxed = true),

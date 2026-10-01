@@ -47,8 +47,9 @@ concurrently with a foreground service. The only Aura concurrency path is
 `RotationTriggerService` enqueuing `rotation_trigger_oneshot`. That path uses
 unique `KEEP` to coalesce chatty unlock and screen-off events, `REPLACE` for an
 explicit tile or automation request so a waiting passive trigger can't swallow
-its countdown restart (`APPEND_OR_REPLACE` when a rotation is already running,
-so it isn't cancelled part way through), and
+its countdown restart (a rotation that is already applying finishes first,
+because `AutoWallpaperWorker` applies under one run lock and can't be cancelled
+mid-apply), and
 `RUN_AS_NON_EXPEDITED_WORK_REQUEST` to preserve the request when expedited quota
 is unavailable. Only explicit requests are expedited. WorkManager refuses to
 build expedited work with a battery constraint, so the unlock and screen-off
