@@ -5,7 +5,10 @@ import { HttpsError } from "firebase-functions/v2/https";
 import type { CommunityCallableSurface } from "./communityContract";
 import {
   evaluateCommunityQuotaAttempt,
+  millisSinceUtcDayStart,
+  PENDING_RESERVATION_LEASE_MILLIS,
   settledQuotaState,
+  utcQuotaDayKey,
   type DedupeMarker,
   type QuotaDecision,
   type QuotaLedgerState,
@@ -13,19 +16,33 @@ import {
   type QuotaSettlement,
 } from "./quotaEngine";
 
-/** Realtime Database half of reserveQuota: one transaction over the surface's day ledger. */
+const DAY_MILLIS = 24 * 60 * 60 * 1_000;
+
+/**
+ * Realtime Database half of reserveQuota: one transaction over the surface's day ledger at
+ * `/community_write_quotas/{uid}/{dayKey}/{surfaceKey}`. Just after UTC midnight it also reads
+ * yesterday's ledger, so a pending reservation or cooldown from before midnight still holds.
+ */
 export async function reserveQuotaLedger(
-  ref: Reference,
+  uidLedger: Reference,
+  dayKey: string,
   surface: CommunityCallableSurface,
   nowMillis: number,
   dedupe: DedupeMarker | null,
   operationKey: string | undefined,
 ): Promise<QuotaDecision> {
+  const ref = uidLedger.child(dayKey).child(surface.surfaceKey);
+  const carryOverMillis = Math.max(PENDING_RESERVATION_LEASE_MILLIS, surface.minIntervalMillis);
+  let previousDayQuota: QuotaLedgerState | undefined;
+  if (millisSinceUtcDayStart(nowMillis) < carryOverMillis) {
+    const previous = (await uidLedger.child(utcQuotaDayKey(nowMillis - DAY_MILLIS)).child(surface.surfaceKey).get()).val();
+    if (previous !== null && typeof previous === "object") previousDayQuota = previous as QuotaLedgerState;
+  }
   let decision: QuotaDecision | null = null;
   const result = await ref.transaction(
     (current: unknown) => {
       const quota = current !== null && typeof current === "object" ? current as QuotaLedgerState : {};
-      decision = evaluateCommunityQuotaAttempt({ surface, nowMillis, quota, dedupe, operationKey });
+      decision = evaluateCommunityQuotaAttempt({ surface, nowMillis, quota, dedupe, operationKey, previousDayQuota });
       return decision.status === "duplicate" ? current : decision.quota;
     },
     undefined,

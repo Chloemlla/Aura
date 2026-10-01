@@ -21,10 +21,10 @@ import {
   type QuotaSettlement,
 } from "./quotaEngine";
 import {
+  type QuotaSettlingBackend,
   reserveQuotaLedger,
   runWithQuotaReservation,
   settleQuotaLedger,
-  type QuotaSettlingBackend,
 } from "./quotaReservation";
 
 const SHARE_SURFACE = surfaceByFunctionName("publishSharedCollection");
@@ -356,7 +356,14 @@ class FirebaseSharedCollectionBackend implements SharedCollectionBackend {
     dedupe: DedupeMarker | null,
     operationKey?: string,
   ): Promise<QuotaDecision> {
-    return reserveQuotaLedger(this.quotaRef(uid, dayKey, surface.surfaceKey), surface, nowMillis, dedupe, operationKey);
+    return reserveQuotaLedger(
+      this.root.child("community_write_quotas").child(uid),
+      dayKey,
+      surface,
+      nowMillis,
+      dedupe,
+      operationKey,
+    );
   }
 
   async settleQuota(

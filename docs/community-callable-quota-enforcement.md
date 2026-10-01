@@ -396,6 +396,12 @@ and counted in `expiredCount`. Their unit stays spent, because the write may
 have landed and a refund could hand out a free one. The pending map can't grow
 past the day's limit, since every entry in it is counted.
 
+Ledgers are per UTC day, so for the first five minutes after midnight (or the
+surface's cooldown, if longer) `reserveQuotaLedger` also reads yesterday's
+ledger. A replay whose run started before midnight is still blocked as
+`in-progress`, and yesterday's `lastAt` still counts toward the cooldown. Every
+callable backend reserves through that one helper.
+
 Refunds don't loosen the limits on what gets published: only a write that
 landed keeps its unit, so the daily cap still bounds stored content. A caller
 who forces failures on purpose gets no cooldown, but each of those calls still

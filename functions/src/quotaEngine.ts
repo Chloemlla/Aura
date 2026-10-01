@@ -81,6 +81,12 @@ export interface QuotaAttemptInput {
   readonly dedupe?: DedupeMarker | null;
   /** The caller's operation ID as a ledger key; see [quotaOperationKey]. */
   readonly operationKey?: string;
+  /**
+   * Yesterday's ledger for the same surface, read only. Ledgers are per UTC day, so without it
+   * a replay or a quick second attempt just after midnight would miss yesterday's pending
+   * reservation and cooldown.
+   */
+  readonly previousDayQuota?: QuotaLedgerState;
 }
 
 export interface DedupeMarkerInput {
@@ -154,7 +160,24 @@ export function evaluateCommunityQuotaAttempt(input: QuotaAttemptInput): QuotaDe
     };
   }
 
-  const lastAt = positiveNumberOrUndefined(quota.lastAt);
+  const previousDay = input.previousDayQuota;
+  const earlier = operationKey === undefined ? undefined : previousDay?.pending?.[operationKey];
+  if (earlier !== undefined && typeof earlier.at === "number" && nowMillis - earlier.at < PENDING_RESERVATION_LEASE_MILLIS) {
+    // Started before midnight and still running: the replay waits for it like a same-day one.
+    return {
+      status: "blocked",
+      code: "resource-exhausted",
+      reason: "in-progress",
+      retryAfterMillis: PENDING_RESERVATION_LEASE_MILLIS - Math.max(0, nowMillis - earlier.at),
+      quota: nextBlockedQuotaState(quota, nowMillis),
+      serverTimeMillis: nowMillis,
+    };
+  }
+
+  const lastAt = latestTimestamp(
+    positiveNumberOrUndefined(quota.lastAt),
+    positiveNumberOrUndefined(previousDay?.lastAt),
+  );
   if (lastAt !== undefined) {
     const elapsed = nowMillis - lastAt;
     if (elapsed < surface.minIntervalMillis) {
@@ -280,6 +303,19 @@ function activeDedupeMarker(
  * unit stays spent: refunding could hand out a free write that did land. The caller's
  * own reservation is kept so its replay can take it over.
  */
+function latestTimestamp(a: number | undefined, b: number | undefined): number | undefined {
+  if (a === undefined) return b;
+  if (b === undefined) return a;
+  return Math.max(a, b);
+}
+
+/** Milliseconds since the UTC midnight that started [timestampMillis]'s quota day. */
+export function millisSinceUtcDayStart(timestampMillis: number): number {
+  requireValidTimestamp(timestampMillis);
+  const instant = new Date(timestampMillis);
+  return timestampMillis - Date.UTC(instant.getUTCFullYear(), instant.getUTCMonth(), instant.getUTCDate());
+}
+
 function expireStalePending(
   quota: QuotaLedgerState,
   nowMillis: number,

@@ -136,6 +136,53 @@ test("a replay after the lease takes over the dead run's unit instead of paying 
   assert.equal("lastAt" in released, false);
 });
 
+test("a replay just after UTC midnight still waits for a run that started before it", () => {
+  const started = Date.UTC(2026, 5, 7, 23, 59, 50);
+  const yesterday = evaluateCommunityQuotaAttempt({ surface: reports, nowMillis: started, operationKey: "op" });
+  const replayAt = Date.UTC(2026, 5, 8, 0, 0, 5);
+
+  const replay = evaluateCommunityQuotaAttempt({
+    surface: reports,
+    nowMillis: replayAt,
+    quota: {},
+    previousDayQuota: yesterday.quota,
+    operationKey: "op",
+  });
+
+  assert.equal(replay.status, "blocked");
+  assert.equal(replay.reason, "in-progress");
+  assert.equal(replay.retryAfterMillis, PENDING_RESERVATION_LEASE_MILLIS - 15_000);
+  assert.equal(replay.quota.count ?? 0, 0);
+
+  // Once yesterday's run is past its lease the replay goes ahead in today's ledger.
+  const late = evaluateCommunityQuotaAttempt({
+    surface: reports,
+    nowMillis: started + PENDING_RESERVATION_LEASE_MILLIS,
+    quota: {},
+    previousDayQuota: yesterday.quota,
+    operationKey: "op",
+  });
+  assert.equal(late.status, "accepted");
+});
+
+test("the cooldown from just before UTC midnight still applies just after it", () => {
+  const votes = surfaceByKey("votes");
+  const lastAt = Date.UTC(2026, 5, 7, 23, 59, 59);
+  const nowMillis = lastAt + 1_000;
+
+  const decision = evaluateCommunityQuotaAttempt({
+    surface: votes,
+    nowMillis,
+    quota: {},
+    previousDayQuota: { count: 4, lastAt },
+    operationKey: "next",
+  });
+
+  assert.equal(decision.status, "blocked");
+  assert.equal(decision.reason, "cooldown");
+  assert.equal(decision.retryAfterMillis, votes.minIntervalMillis - 1_000);
+});
+
 test("other operations' stale reservations expire as spent on the next attempt", () => {
   const now = Date.UTC(2026, 5, 7, 12, 0, 0);
   const dead = evaluateCommunityQuotaAttempt({ surface: reports, nowMillis: now, operationKey: "dead" });
