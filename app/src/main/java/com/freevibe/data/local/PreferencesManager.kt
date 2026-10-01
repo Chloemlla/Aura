@@ -453,6 +453,29 @@ class PreferencesManager @Inject constructor(
     val wallpaperPackLastAppliedDaypart: Flow<String> = get(Keys.WALLPAPER_PACK_LAST_DAYPART, "")
     suspend fun setWallpaperPackLastAppliedDaypart(daypart: String) = set(Keys.WALLPAPER_PACK_LAST_DAYPART, daypart)
 
+    /** Stores every key a theme-pack import changes in one edit. A null value leaves that key alone. */
+    suspend fun applyThemePackImport(
+        wallpaperPackJson: String?,
+        soundProfilesJson: String?,
+        ringtoneUri: String?,
+        notificationUri: String?,
+        alarmUri: String?,
+    ) {
+        dataStore.edit { values ->
+            wallpaperPackJson?.let {
+                values[Keys.WALLPAPER_PACK_JSON] = it
+                values[Keys.WALLPAPER_PACK_LAST_DAYPART] = ""
+            }
+            soundProfilesJson?.let {
+                values[Keys.SOUND_PROFILES_JSON] = it
+                values[Keys.SOUND_PROFILE_LAST_APPLIED_ID] = ""
+            }
+            ringtoneUri?.let { values[Keys.LAST_APPLIED_RINGTONE_URI] = it }
+            notificationUri?.let { values[Keys.LAST_APPLIED_NOTIFICATION_URI] = it }
+            alarmUri?.let { values[Keys.LAST_APPLIED_ALARM_URI] = it }
+        }
+    }
+
     // Live wallpaper dimming
     val liveWallpaperDimEnabled: Flow<Boolean> = get(Keys.LIVE_WALLPAPER_DIM_ENABLED, false)
     suspend fun setLiveWallpaperDimEnabled(v: Boolean) {

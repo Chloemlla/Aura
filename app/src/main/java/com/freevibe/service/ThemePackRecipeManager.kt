@@ -1,6 +1,7 @@
 package com.freevibe.service
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.freevibe.data.local.PreferencesManager
@@ -24,7 +25,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-private const val THEME_PACK_VERSION = 1
+internal const val THEME_PACK_VERSION = 1
 private const val THEME_PACK_MANIFEST_ENTRY = "theme-pack.json"
 private const val THEME_PACK_MAX_MANIFEST_CHARS = 1_000_000
 private const val THEME_PACK_MAX_ASSET_BYTES = 64L * 1024L * 1024L
@@ -44,6 +45,8 @@ internal val THEME_PACK_EXTRACTION_LIMITS = ArchiveExtractionLimits(
 )
 private const val WIDGET_PREFS = "freevibe_widget"
 private const val LIVE_WALLPAPER_PREFS = "freevibe_live_wp"
+private val VIDEO_IMPORT_KEYS = setOf("video_path", "scale_mode")
+private val WIDGET_IMPORT_KEYS = setOf("tint_vibrant", "tint_accent", "tint_dominant", "shuffle_count")
 
 @Serializable
 data class ThemePackRecipe(
@@ -224,7 +227,7 @@ internal fun themePackImportInstructions(
     return instructions.toList()
 }
 
-private fun remappedLocator(
+internal fun remappedLocator(
     locator: String,
     references: List<ThemePackMediaReference>,
     assetRemaps: Map<String, String>,
@@ -261,78 +264,21 @@ class ThemePackRecipeManager @Inject constructor(
         withContext(Dispatchers.IO) {
             runCatching {
                 val imported = readThemePack(inputUri)
-                val recipe = imported.recipe
-                if (recipe.version > THEME_PACK_VERSION) {
+                val plan = try {
+                    // The whole pack is checked before anything is written, so a bad entry
+                    // anywhere leaves settings and files as they were.
+                    planThemePackImport(imported.recipe, imported.assetsByKey)
+                        .also { commitThemePackImport(it) }
+                } catch (e: Throwable) {
                     imported.importDir?.let { runCatching { it.deleteRecursively() } }
-                    throw IllegalStateException("Theme pack version ${recipe.version} is not supported yet")
-                }
-                val references = recipe.allMediaReferences()
-                var importedCount = 0
-
-                if (recipe.wallpaperPackJson.isNotBlank()) {
-                    prefs.setWallpaperPackJson(
-                        remapWallpaperPackAssetLocators(
-                            raw = recipe.wallpaperPackJson,
-                            references = references,
-                            assetRemaps = imported.assetsByKey,
-                        ),
-                    )
-                    prefs.setWallpaperPackLastAppliedDaypart("")
-                    importedCount++
-                }
-
-                if (recipe.soundProfilesJson.isNotBlank()) {
-                    prefs.setSoundProfilesJson(
-                        remapSoundProfileAssetLocators(
-                            raw = recipe.soundProfilesJson,
-                            references = references,
-                            assetRemaps = imported.assetsByKey,
-                        ),
-                    )
-                    prefs.setSoundProfileLastAppliedId("")
-                    importedCount++
-                }
-
-                val sounds = recipe.sounds
-                val ringtone = remappedLocator(sounds.ringtoneUri, references, imported.assetsByKey)
-                val notification = remappedLocator(sounds.notificationUri, references, imported.assetsByKey)
-                val alarm = remappedLocator(sounds.alarmUri, references, imported.assetsByKey)
-                if (ringtone.isNotBlank()) {
-                    prefs.setLastAppliedRingtoneUri(ringtone)
-                    importedCount++
-                }
-                if (notification.isNotBlank()) {
-                    prefs.setLastAppliedNotificationUri(notification)
-                    importedCount++
-                }
-                if (alarm.isNotBlank()) {
-                    prefs.setLastAppliedAlarmUri(alarm)
-                    importedCount++
-                }
-
-                recipe.videoWallpaper?.let { video ->
-                    val resolvedVideo = video.assetKey.takeIf { it.isNotBlank() }
-                        ?.let(imported.assetsByKey::get)
-                    if (!resolvedVideo.isNullOrBlank()) {
-                        context.getSharedPreferences(LIVE_WALLPAPER_PREFS, Context.MODE_PRIVATE)
-                            .edit()
-                            .putString("video_path", resolvedVideo)
-                            .putString("scale_mode", VIDEO_WALLPAPER_SCALE_MODE_ZOOM)
-                            .apply()
-                        importedCount++
-                    }
-                }
-
-                if (recipe.widget != ThemePackWidgetState()) {
-                    importWidget(recipe.widget)
-                    importedCount++
+                    throw e
                 }
 
                 pruneStaleImportDirs(current = imported.importDir)
 
                 ThemePackImportReport(
-                    importedItemCount = importedCount,
-                    instructions = themePackImportInstructions(recipe, imported.assetsByKey),
+                    importedItemCount = plan.importedItemCount,
+                    instructions = plan.instructions,
                 )
             }.onFailure { it.rethrowIfCancelled() }
         }
@@ -507,14 +453,42 @@ class ThemePackRecipeManager @Inject constructor(
         )
     }
 
-    private fun importWidget(widget: ThemePackWidgetState) {
-        context.getSharedPreferences(WIDGET_PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putInt("tint_vibrant", widget.primaryTint)
-            .putInt("tint_accent", widget.accentTint)
-            .putInt("tint_dominant", widget.dominantTint)
-            .putInt("shuffle_count", widget.shuffleCount.coerceAtLeast(0))
-            .apply()
+    /**
+     * Writes a validated plan. The DataStore keys land in one edit. The live-wallpaper and
+     * widget SharedPreferences go first and are put back if that edit fails.
+     */
+    private suspend fun commitThemePackImport(plan: ThemePackImportPlan) {
+        val videoPrefs = context.getSharedPreferences(LIVE_WALLPAPER_PREFS, Context.MODE_PRIVATE)
+        val widgetPrefs = context.getSharedPreferences(WIDGET_PREFS, Context.MODE_PRIVATE)
+        val videoBefore = videoPrefs.all.filterKeys { it in VIDEO_IMPORT_KEYS }
+        val widgetBefore = widgetPrefs.all.filterKeys { it in WIDGET_IMPORT_KEYS }
+        try {
+            plan.videoPath?.let { path ->
+                videoPrefs.edit()
+                    .putString("video_path", path)
+                    .putString("scale_mode", VIDEO_WALLPAPER_SCALE_MODE_ZOOM)
+                    .commitOrThrow()
+            }
+            plan.widget?.let { widget ->
+                widgetPrefs.edit()
+                    .putInt("tint_vibrant", widget.primaryTint)
+                    .putInt("tint_accent", widget.accentTint)
+                    .putInt("tint_dominant", widget.dominantTint)
+                    .putInt("shuffle_count", widget.shuffleCount)
+                    .commitOrThrow()
+            }
+            prefs.applyThemePackImport(
+                wallpaperPackJson = plan.wallpaperPackJson,
+                soundProfilesJson = plan.soundProfilesJson,
+                ringtoneUri = plan.ringtoneUri,
+                notificationUri = plan.notificationUri,
+                alarmUri = plan.alarmUri,
+            )
+        } catch (e: Throwable) {
+            videoPrefs.restoreKeys(VIDEO_IMPORT_KEYS, videoBefore)
+            widgetPrefs.restoreKeys(WIDGET_IMPORT_KEYS, widgetBefore)
+            throw e
+        }
     }
 
     private fun writeThemePack(
@@ -745,6 +719,25 @@ class ThemePackRecipeManager @Inject constructor(
         val byteCount: Long,
     )
 
+}
+
+private fun SharedPreferences.Editor.commitOrThrow() {
+    if (!commit()) throw IOException("Could not save theme pack settings")
+}
+
+private fun SharedPreferences.restoreKeys(keys: Set<String>, before: Map<String, *>) {
+    val editor = edit()
+    keys.forEach { key ->
+        when (val value = before[key]) {
+            is String -> editor.putString(key, value)
+            is Int -> editor.putInt(key, value)
+            is Long -> editor.putLong(key, value)
+            is Float -> editor.putFloat(key, value)
+            is Boolean -> editor.putBoolean(key, value)
+            else -> editor.remove(key)
+        }
+    }
+    editor.commit()
 }
 
 internal data class ImportedThemePack(

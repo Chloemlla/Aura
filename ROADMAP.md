@@ -335,16 +335,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
 
 ### P2
 
-- [ ] P2 — Validate complete theme-pack contents before mutating local state
-  Category: correctness
-  Where: app/src/main/java/com/freevibe/service/ThemePackRecipeManager.kt:166,183-197,260-337,557-800
-  Problem: Import validates the outer archive more strongly than nested recipes/media, then writes pieces as it proceeds. An invalid later entry can leave partial pack/profile state.
-  Evidence: Supported pieces are parsed and persisted independently; inner recipes do not all use standalone validators, and the full operation has no staged transaction.
-  Fix: Parse to an immutable staged model, validate every recipe/reference first, then commit preferences/database changes atomically. Delete staged files on failure.
-  Acceptance: Bad final recipe, missing asset, duplicate slot, and invalid locator fixtures leave preferences, rows, and files unchanged; a valid pack round-trips.
-  Confidence: Verified
-  Effort: M
-
 - [ ] P2 — Remove completed work from Active Downloads and make failures recoverable
   Category: ux
   Where: app/src/main/java/com/freevibe/service/DownloadManager.kt:333-350,464-466; app/src/main/java/com/freevibe/ui/screens/downloads/DownloadsViewModel.kt:20-29; app/src/main/java/com/freevibe/ui/screens/downloads/DownloadsScreen.kt:107-244

@@ -133,6 +133,15 @@ All notable changes to Aura will be documented in this file.
   own upload now has to remove the upload in the same step that records the
   deletion, so nobody can file deletion records for uploads that never existed.
 
+- **Theme pack import is all or nothing**: importing used to write each part
+  of a pack as it went, so a broken piece near the end left you with half a
+  theme, and a bad 24H or sound profile recipe could be saved as is. The whole
+  pack is now checked first: every recipe has to parse, each daypart can only
+  appear once, every file the pack points to has to be in the archive, and
+  every location has to be something Aura can open. If anything fails, nothing
+  changes and the unpacked files are removed. The settings it does change are
+  saved together.
+
 - **Firebase CLI upgraded to 15.31.0**: root audit findings reduced from 15 to
   10 (non-breaking fixes applied). Functions audit is now zero. The remaining
   root findings are transitive deployment-tool dependencies.
