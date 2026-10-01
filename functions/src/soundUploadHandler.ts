@@ -13,11 +13,15 @@ import {
 import {
   buildDedupeMarker,
   evaluateCommunityQuotaAttempt,
+  quotaOperationKey,
   utcQuotaDayKey,
   type DedupeMarker,
   type QuotaDecision,
   type QuotaLedgerState,
+  type QuotaReservation,
+  type QuotaSettlement,
 } from "./quotaEngine";
+import { runWithQuotaReservation, settleQuotaLedger, type QuotaSettlingBackend } from "./quotaReservation";
 
 const SOUND_UPLOAD_SURFACE = surfaceByFunctionName("finalizeCommunitySoundUpload");
 const MAX_OPERATION_ID = 120;
@@ -107,7 +111,7 @@ export interface StorageObjectMetadata {
   readonly size?: number;
 }
 
-export interface SoundUploadBackend {
+export interface SoundUploadBackend extends QuotaSettlingBackend {
   nowMillis(): number;
   createUploadId(): Promise<string>;
   readDedupeMarker(uid: string, surfaceKey: string, dedupeKey: string): Promise<DedupeMarker | null>;
@@ -117,6 +121,7 @@ export interface SoundUploadBackend {
     surface: CommunityCallableSurface,
     nowMillis: number,
     dedupe: DedupeMarker | null,
+    operationKey?: string,
   ): Promise<QuotaDecision>;
   verifyStorageObject(storagePath: string): Promise<StorageObjectMetadata>;
   commitSoundUpload(input: CommitSoundUploadInput): Promise<void>;
@@ -145,6 +150,7 @@ export async function finalizeCommunitySoundUploadHandler(
     SOUND_UPLOAD_SURFACE,
     nowMillis,
     dedupe,
+    quotaOperationKey(envelope.operationId),
   );
 
   if (decision.status === "duplicate") {
@@ -170,40 +176,48 @@ export async function finalizeCommunitySoundUploadHandler(
     );
   }
 
-  const storageObject = await backend.verifyStorageObject(payload.storagePath);
-  if (!storageObject.exists) {
-    throw new HttpsError("failed-precondition", "Storage object does not exist at the declared path.", {
-      operationId: envelope.operationId,
-      storagePath: payload.storagePath,
-    });
-  }
-  // Sound uploads declare no byte count, so bound the stored object instead of matching one.
-  if (storageObject.size !== undefined && (storageObject.size <= 0 || storageObject.size > MAX_SOUND_BYTES)) {
-    throw new HttpsError("failed-precondition", "Stored sound object size is outside the allowed range.", {
-      operationId: envelope.operationId,
-      actual: storageObject.size,
-      max: MAX_SOUND_BYTES,
-    });
-  }
+  // Anything that stops the upload from landing refunds the reserved unit and cooldown.
+  const reserved = { uid, dayKey, surface: SOUND_UPLOAD_SURFACE, reservation: decision.reservation };
+  const { uploadId, targetPath, ownerIndexPath } = await runWithQuotaReservation(backend, reserved, async () => {
+    const storageObject = await backend.verifyStorageObject(payload.storagePath);
+    if (!storageObject.exists) {
+      throw new HttpsError("failed-precondition", "Storage object does not exist at the declared path.", {
+        operationId: envelope.operationId,
+        storagePath: payload.storagePath,
+      });
+    }
+    // Sound uploads declare no byte count, so bound the stored object instead of matching one.
+    if (storageObject.size !== undefined && (storageObject.size <= 0 || storageObject.size > MAX_SOUND_BYTES)) {
+      throw new HttpsError("failed-precondition", "Stored sound object size is outside the allowed range.", {
+        operationId: envelope.operationId,
+        actual: storageObject.size,
+        max: MAX_SOUND_BYTES,
+      });
+    }
 
-  const uploadId = sanitizeUploadId(await backend.createUploadId());
-  if (!uploadId) {
-    throw new HttpsError("internal", "Unable to allocate sound upload ID.");
-  }
-  const targetPath = `/community_sounds/${uploadId}`;
-  const ownerIndexPath = `/owner_uploads/${payload.uploaderKey}/sounds/${uploadId}`;
+    const allocatedId = sanitizeUploadId(await backend.createUploadId());
+    if (!allocatedId) {
+      throw new HttpsError("internal", "Unable to allocate sound upload ID.");
+    }
+    const allocatedTarget = `/community_sounds/${allocatedId}`;
 
-  await backend.commitSoundUpload({
-    uid,
-    surfaceKey: SOUND_UPLOAD_SURFACE.surfaceKey,
-    dedupeKey,
-    uploadId,
-    payload,
-    uploadedAt: nowMillis,
-    dedupeMarker: buildDedupeMarker({
-      nowMillis,
-      targetPath,
-    }),
+    await backend.commitSoundUpload({
+      uid,
+      surfaceKey: SOUND_UPLOAD_SURFACE.surfaceKey,
+      dedupeKey,
+      uploadId: allocatedId,
+      payload,
+      uploadedAt: nowMillis,
+      dedupeMarker: buildDedupeMarker({
+        nowMillis,
+        targetPath: allocatedTarget,
+      }),
+    });
+    return {
+      uploadId: allocatedId,
+      targetPath: allocatedTarget,
+      ownerIndexPath: `/owner_uploads/${payload.uploaderKey}/sounds/${allocatedId}`,
+    };
   });
 
   return {
@@ -507,6 +521,7 @@ class FirebaseSoundUploadBackend implements SoundUploadBackend {
     surface: CommunityCallableSurface,
     nowMillis: number,
     dedupe: DedupeMarker | null,
+    operationKey?: string,
   ): Promise<QuotaDecision> {
     let decision: QuotaDecision | null = null;
     const result = await this.quotaRef(uid, dayKey, surface.surfaceKey).transaction(
@@ -519,6 +534,7 @@ class FirebaseSoundUploadBackend implements SoundUploadBackend {
           nowMillis,
           quota,
           dedupe,
+          operationKey,
         });
         if (decision.status === "duplicate") {
           return current;
@@ -532,6 +548,16 @@ class FirebaseSoundUploadBackend implements SoundUploadBackend {
       throw new HttpsError("aborted", "Unable to reserve community sound upload quota.");
     }
     return decision;
+  }
+
+  async settleQuota(
+    uid: string,
+    dayKey: string,
+    surface: CommunityCallableSurface,
+    reservation: QuotaReservation,
+    settlement: QuotaSettlement,
+  ): Promise<void> {
+    await settleQuotaLedger(this.quotaRef(uid, dayKey, surface.surfaceKey), reservation, settlement, this.nowMillis());
   }
 
   async commitSoundUpload(input: CommitSoundUploadInput): Promise<void> {

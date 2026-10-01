@@ -11,11 +11,15 @@ import {
 import {
   buildDedupeMarker,
   evaluateCommunityQuotaAttempt,
+  quotaOperationKey,
   utcQuotaDayKey,
   type DedupeMarker,
   type QuotaDecision,
   type QuotaLedgerState,
+  type QuotaReservation,
+  type QuotaSettlement,
 } from "./quotaEngine";
+import { runWithQuotaReservation, settleQuotaLedger, type QuotaSettlingBackend } from "./quotaReservation";
 
 const VOTE_SURFACE = surfaceByFunctionName("recordCommunityVote");
 const MAX_CONTENT_ID = 240;
@@ -52,7 +56,7 @@ export interface VoteCommitResult {
   readonly upvotes?: number;
 }
 
-export interface VoteBackend {
+export interface VoteBackend extends QuotaSettlingBackend {
   nowMillis(): number;
   hasExistingVote(uid: string, contentId: string): Promise<boolean>;
   readDedupeMarker(uid: string, surfaceKey: string, dedupeKey: string): Promise<DedupeMarker | null>;
@@ -62,6 +66,7 @@ export interface VoteBackend {
     surface: CommunityCallableSurface,
     nowMillis: number,
     dedupe: DedupeMarker | null,
+    operationKey?: string,
   ): Promise<QuotaDecision>;
   commitVote(input: CommitVoteInput): Promise<VoteCommitResult>;
 }
@@ -99,6 +104,7 @@ export async function recordCommunityVoteHandler(
     VOTE_SURFACE,
     nowMillis,
     dedupe,
+    quotaOperationKey(envelope.operationId),
   );
 
   if (decision.status === "duplicate") {
@@ -124,16 +130,22 @@ export async function recordCommunityVoteHandler(
     );
   }
 
-  const commit = await backend.commitVote({
-    uid,
-    contentId,
-    surfaceKey: VOTE_SURFACE.surfaceKey,
-    dedupeKey,
-    dedupeMarker: buildDedupeMarker({
-      nowMillis,
-      targetPath,
+  // A failed commit, or one that lost the marker race and counted nothing, refunds the unit.
+  const commit = await runWithQuotaReservation(
+    backend,
+    { uid, dayKey, surface: VOTE_SURFACE, reservation: decision.reservation },
+    () => backend.commitVote({
+      uid,
+      contentId,
+      surfaceKey: VOTE_SURFACE.surfaceKey,
+      dedupeKey,
+      dedupeMarker: buildDedupeMarker({
+        nowMillis,
+        targetPath,
+      }),
     }),
-  });
+    (result) => result.status === "accepted",
+  );
 
   return {
     operationId: envelope.operationId,
@@ -257,6 +269,7 @@ class FirebaseVoteBackend implements VoteBackend {
     surface: CommunityCallableSurface,
     nowMillis: number,
     dedupe: DedupeMarker | null,
+    operationKey?: string,
   ): Promise<QuotaDecision> {
     let decision: QuotaDecision | null = null;
     const result = await this.quotaRef(uid, dayKey, surface.surfaceKey).transaction(
@@ -269,6 +282,7 @@ class FirebaseVoteBackend implements VoteBackend {
           nowMillis,
           quota,
           dedupe,
+          operationKey,
         });
         if (decision.status === "duplicate") {
           return current;
@@ -282,6 +296,16 @@ class FirebaseVoteBackend implements VoteBackend {
       throw new HttpsError("aborted", "Unable to reserve community vote quota.");
     }
     return decision;
+  }
+
+  async settleQuota(
+    uid: string,
+    dayKey: string,
+    surface: CommunityCallableSurface,
+    reservation: QuotaReservation,
+    settlement: QuotaSettlement,
+  ): Promise<void> {
+    await settleQuotaLedger(this.quotaRef(uid, dayKey, surface.surfaceKey), reservation, settlement, this.nowMillis());
   }
 
   async commitVote(input: CommitVoteInput): Promise<VoteCommitResult> {
@@ -316,9 +340,15 @@ class FirebaseVoteBackend implements VoteBackend {
       throw new HttpsError("aborted", "Unable to commit community vote.");
     }
 
-    await this.root.update({
-      [`community_write_dedupe/${input.uid}/${input.surfaceKey}/${input.dedupeKey}`]: input.dedupeMarker,
-    });
+    try {
+      // The vote marker already turns away a second vote, so a lost dedupe row must not
+      // fail a vote that counted (that would also refund its quota unit).
+      await this.root.update({
+        [`community_write_dedupe/${input.uid}/${input.surfaceKey}/${input.dedupeKey}`]: input.dedupeMarker,
+      });
+    } catch (error) {
+      logger.warn("Community vote dedupe write failed", { contentId: input.contentId, error: String(error) });
+    }
     try {
       await this.mirrorUploadVotes(input.contentId, upvotes);
     } catch (error) {

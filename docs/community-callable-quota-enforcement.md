@@ -303,7 +303,7 @@ All callable requests use a common envelope:
 
 | Field | Source | Rule |
 | --- | --- | --- |
-| `operationId` | Client-generated UUID | Required for logs and retry correlation; not trusted for quota identity. |
+| `operationId` | Client-generated UUID | Required for logs and retry correlation. Keys the pending quota reservation so a replay of the same call can't take a second unit; never used to skip a limit. |
 | `clientSentAt` | Client wall clock | Informational only; server time owns ledgers. |
 | `payload` | Surface-specific object | Normalized and revalidated by the callable. |
 
@@ -328,12 +328,38 @@ UID, profile UID, or owner index UID unless the caller has an admin claim.
 7. Transactionally update `/community_write_quotas/{uid}/{yyyyMMdd}/{surface}`.
    Reject when the daily limit would be exceeded or when `lastAt` is inside the
    cooldown window. Increment `blockedCount` and set `lastBlockedAt` for blocked
-   attempts.
+   attempts. An accepted attempt takes its unit as a reservation: `count` and
+   `lastAt` move, and `pending/{operationKey}` records `at` plus the previous
+   `lastAt` as `prevLastAt`.
 8. Write the public action and any private owner index in one Admin SDK
    multi-location update when the surface needs more than one path.
 9. Write the dedupe marker with `createdAt`, `expiresAt`, and `target`.
-10. Return a small result object with `status`, `targetPath`, `retryAfterMillis`
+10. Settle the reservation in a second ledger transaction. When the action
+    stored something, drop the pending entry and keep the unit. When anything
+    after the reservation threw (a storage precondition, an ID allocation, the
+    write itself) or the write stored nothing (a vote that lost the marker race),
+    refund it: `count` drops by one, `lastAt` goes back to `prevLastAt` unless a
+    newer reservation has moved it, and `releasedCount`/`lastReleasedAt` record
+    the refund. A failed settle is logged and never changes the caller's result.
+11. Return a small result object with `status`, `targetPath`, `retryAfterMillis`
     when blocked, and the server timestamp used for the write.
+
+### Reservations that never settle
+
+A run that dies between steps 7 and 10 leaves its pending entry behind. For five
+minutes (callables time out after 60 seconds) a replay with the same operation
+ID is blocked with reason `in-progress` instead of taking a second unit. After
+that the replay takes the entry over and settles it as its own, keeping the
+original cooldown stamp in `cooldownAt` so a refund still restores it. Entries
+for other operations older than five minutes are dropped on the next attempt
+and counted in `expiredCount`. Their unit stays spent, because the write may
+have landed and a refund could hand out a free one. The pending map can't grow
+past the day's limit, since every entry in it is counted.
+
+Refunds don't loosen the limits on what gets published: only a write that
+landed keeps its unit, so the daily cap still bounds stored content. A caller
+who forces failures on purpose gets no cooldown, but each of those calls still
+needs App Check, and the upload finalizers burn a limited-use token every time.
 
 ## Error Codes
 
@@ -343,7 +369,7 @@ UID, profile UID, or owner index UID unless the caller has an admin claim.
 | `FAILED_PRECONDITION` | Missing or invalid App Check. |
 | `PERMISSION_DENIED` | Authenticated caller cannot write the requested owner/admin path. |
 | `INVALID_ARGUMENT` | Payload fails normalization or bounds checks. |
-| `RESOURCE_EXHAUSTED` | Daily limit or cooldown blocks the write. |
+| `RESOURCE_EXHAUSTED` | Daily limit or cooldown blocks the write, or the same operation is still in flight (`in-progress`). |
 | `ALREADY_EXISTS` | Dedupe marker proves an equivalent write already exists. |
 | `ABORTED` | Transaction conflict exceeded backend retry budget. |
 

@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { buildDedupeMarker, evaluateCommunityQuotaAttempt } = require("../lib/quotaEngine.js");
+const { buildDedupeMarker, evaluateCommunityQuotaAttempt, settledQuotaState } = require("../lib/quotaEngine.js");
 const {
   finalizeCommunityWallpaperUploadHandler,
   normalizeWallpaperUploadPayload,
@@ -47,6 +47,8 @@ class FakeWallpaperUploadBackend {
     this.nextId = "wallA";
     this.dedupe = new Map();
     this.quotas = new Map();
+    this.settlements = [];
+    this.commitFailure = null;
     this.wallpapers = new Map();
     this.ownerUploads = new Map();
     this.storageObject = { exists: true, size: 410_000, contentType: "image/jpeg" };
@@ -70,13 +72,14 @@ class FakeWallpaperUploadBackend {
     return this.dedupe.get(`${uid}/${surfaceKey}/${dedupeKey}`) ?? null;
   }
 
-  async reserveQuota(uid, dayKey, surface, nowMillis, dedupe) {
+  async reserveQuota(uid, dayKey, surface, nowMillis, dedupe, operationKey) {
     const key = `${uid}/${dayKey}/${surface.surfaceKey}`;
     const decision = evaluateCommunityQuotaAttempt({
       surface,
       nowMillis,
       quota: this.quotas.get(key) ?? {},
       dedupe,
+      operationKey,
     });
     if (decision.status !== "duplicate") {
       this.quotas.set(key, decision.quota);
@@ -84,7 +87,15 @@ class FakeWallpaperUploadBackend {
     return decision;
   }
 
+  async settleQuota(uid, dayKey, surface, reservation, settlement) {
+    this.settlements.push(settlement);
+    const key = `${uid}/${dayKey}/${surface.surfaceKey}`;
+    const next = settledQuotaState(this.quotas.get(key) ?? {}, reservation, settlement, this.now);
+    if (next !== null) this.quotas.set(key, next);
+  }
+
   async commitWallpaperUpload(input) {
+    if (this.commitFailure) throw this.commitFailure;
     const metadataPath = `/community_wallpapers/${input.uploadId}`;
     const publicRow = {
       name: input.payload.name,
@@ -315,4 +326,36 @@ test("wallpaper upload payload normalizes fields and rejects invalid metadata", 
     () => normalizeWallpaperUploadPayload(validRequest({ colors: ["not-hex"] }).data.payload, "wallOwner1"),
     { code: "invalid-argument" },
   );
+});
+
+test("a wallpaper upload whose write fails refunds its quota unit and cooldown", async () => {
+  const backend = new FakeWallpaperUploadBackend();
+  backend.commitFailure = new Error("database unavailable");
+  await assert.rejects(() => finalizeCommunityWallpaperUploadHandler(validRequest(), backend), /database unavailable/);
+
+  const refunded = backend.quotas.get("wallOwner1/20260607/wallpaper_uploads");
+  assert.deepEqual(backend.settlements, ["released"]);
+  assert.equal(refunded.count, 0);
+  assert.equal(refunded.lastAt, undefined);
+  assert.equal(refunded.pending, undefined);
+
+  // The person's retry is a new call, and it goes through inside the old cooldown.
+  backend.commitFailure = null;
+  backend.now = NOW + 1;
+  const retry = validRequest();
+  const result = await finalizeCommunityWallpaperUploadHandler({ ...retry, data: { ...retry.data, operationId: "retry-op" } }, backend);
+  assert.equal(result.status, "accepted");
+  assert.deepEqual(backend.settlements, ["released", "finalized"]);
+  const spent = backend.quotas.get("wallOwner1/20260607/wallpaper_uploads");
+  assert.equal(spent.count, 1);
+  assert.equal(spent.pending, undefined);
+});
+
+test("a wallpaper upload refused for its stored object refunds its quota unit", async () => {
+  const backend = new FakeWallpaperUploadBackend();
+  backend.storageObject = { exists: false };
+  await assert.rejects(() => finalizeCommunityWallpaperUploadHandler(validRequest(), backend), { code: "failed-precondition" });
+
+  assert.deepEqual(backend.settlements, ["released"]);
+  assert.equal(backend.quotas.get("wallOwner1/20260607/wallpaper_uploads").count, 0);
 });

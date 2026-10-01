@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { buildDedupeMarker } = require("../lib/quotaEngine.js");
+const { buildDedupeMarker, settledQuotaState } = require("../lib/quotaEngine.js");
 const {
   normalizeReportPayload,
   submitCommunityReportHandler,
@@ -38,6 +38,8 @@ class FakeReportBackend {
     this.nextId = "reportA";
     this.dedupe = new Map();
     this.quotas = new Map();
+    this.settlements = [];
+    this.commitFailure = null;
     this.reports = new Map();
   }
 
@@ -53,7 +55,7 @@ class FakeReportBackend {
     return this.dedupe.get(`${uid}/${surfaceKey}/${dedupeKey}`) ?? null;
   }
 
-  async reserveQuota(uid, dayKey, surface, nowMillis, dedupe) {
+  async reserveQuota(uid, dayKey, surface, nowMillis, dedupe, operationKey) {
     const key = `${uid}/${dayKey}/${surface.surfaceKey}`;
     const { evaluateCommunityQuotaAttempt } = require("../lib/quotaEngine.js");
     const decision = evaluateCommunityQuotaAttempt({
@@ -61,6 +63,7 @@ class FakeReportBackend {
       nowMillis,
       quota: this.quotas.get(key) ?? {},
       dedupe,
+      operationKey,
     });
     if (decision.status !== "duplicate") {
       this.quotas.set(key, decision.quota);
@@ -68,7 +71,15 @@ class FakeReportBackend {
     return decision;
   }
 
+  async settleQuota(uid, dayKey, surface, reservation, settlement) {
+    this.settlements.push(settlement);
+    const key = `${uid}/${dayKey}/${surface.surfaceKey}`;
+    const next = settledQuotaState(this.quotas.get(key) ?? {}, reservation, settlement, this.now);
+    if (next !== null) this.quotas.set(key, next);
+  }
+
   async commitAcceptedReport(input) {
+    if (this.commitFailure) throw this.commitFailure;
     this.reports.set(input.reportId, input.report);
     this.dedupe.set(`${input.uid}/${input.surfaceKey}/${input.dedupeKey}`, input.dedupeMarker);
   }
@@ -238,4 +249,27 @@ test("payload cannot override reporter UID or use insecure source URL", () => {
     () => normalizeReportPayload(validRequest({ sourceUrl: "http://example.com" }).data.payload, "reporter1", NOW),
     { code: "invalid-argument" },
   );
+});
+
+test("a report whose write fails refunds its quota unit and cooldown", async () => {
+  const backend = new FakeReportBackend();
+  backend.commitFailure = new Error("database unavailable");
+  await assert.rejects(() => submitCommunityReportHandler(validRequest(), backend), /database unavailable/);
+
+  const refunded = backend.quotas.get("reporter1/20260607/reports");
+  assert.deepEqual(backend.settlements, ["released"]);
+  assert.equal(refunded.count, 0);
+  assert.equal(refunded.lastAt, undefined);
+  assert.equal(refunded.pending, undefined);
+
+  // The person's retry is a new call, and it goes through inside the old cooldown.
+  backend.commitFailure = null;
+  backend.now = NOW + 1;
+  const retry = validRequest();
+  const result = await submitCommunityReportHandler({ ...retry, data: { ...retry.data, operationId: "retry-op" } }, backend);
+  assert.equal(result.status, "accepted");
+  assert.deepEqual(backend.settlements, ["released", "finalized"]);
+  const spent = backend.quotas.get("reporter1/20260607/reports");
+  assert.equal(spent.count, 1);
+  assert.equal(spent.pending, undefined);
 });

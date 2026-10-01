@@ -13,11 +13,15 @@ import {
 import {
   buildDedupeMarker,
   evaluateCommunityQuotaAttempt,
+  quotaOperationKey,
   utcQuotaDayKey,
   type DedupeMarker,
   type QuotaDecision,
   type QuotaLedgerState,
+  type QuotaReservation,
+  type QuotaSettlement,
 } from "./quotaEngine";
+import { runWithQuotaReservation, settleQuotaLedger, type QuotaSettlingBackend } from "./quotaReservation";
 
 const WALLPAPER_UPLOAD_SURFACE = surfaceByFunctionName("finalizeCommunityWallpaperUpload");
 const MAX_OPERATION_ID = 120;
@@ -103,7 +107,7 @@ export interface StorageObjectMetadata {
   readonly size?: number;
 }
 
-export interface WallpaperUploadBackend {
+export interface WallpaperUploadBackend extends QuotaSettlingBackend {
   nowMillis(): number;
   createUploadId(): Promise<string>;
   readDedupeMarker(uid: string, surfaceKey: string, dedupeKey: string): Promise<DedupeMarker | null>;
@@ -113,6 +117,7 @@ export interface WallpaperUploadBackend {
     surface: CommunityCallableSurface,
     nowMillis: number,
     dedupe: DedupeMarker | null,
+    operationKey?: string,
   ): Promise<QuotaDecision>;
   verifyStorageObject(storagePath: string): Promise<StorageObjectMetadata>;
   commitWallpaperUpload(input: CommitWallpaperUploadInput): Promise<void>;
@@ -141,6 +146,7 @@ export async function finalizeCommunityWallpaperUploadHandler(
     WALLPAPER_UPLOAD_SURFACE,
     nowMillis,
     dedupe,
+    quotaOperationKey(envelope.operationId),
   );
 
   if (decision.status === "duplicate") {
@@ -166,46 +172,54 @@ export async function finalizeCommunityWallpaperUploadHandler(
     );
   }
 
-  const storageObject = await backend.verifyStorageObject(payload.storagePath);
-  if (!storageObject.exists) {
-    throw new HttpsError("failed-precondition", "Storage object does not exist at the declared path.", {
-      operationId: envelope.operationId,
-      storagePath: payload.storagePath,
-    });
-  }
-  if (storageObject.size !== undefined && storageObject.size !== payload.fileSize) {
-    throw new HttpsError("failed-precondition", "Declared file size does not match the stored object.", {
-      operationId: envelope.operationId,
-      declared: payload.fileSize,
-      actual: storageObject.size,
-    });
-  }
-  if (storageObject.contentType && !payload.fileType.startsWith(storageObject.contentType.split("/")[0])) {
-    throw new HttpsError("failed-precondition", "Declared file type does not match the stored object.", {
-      operationId: envelope.operationId,
-      declared: payload.fileType,
-      actual: storageObject.contentType,
-    });
-  }
+  // Anything that stops the upload from landing refunds the reserved unit and cooldown.
+  const reserved = { uid, dayKey, surface: WALLPAPER_UPLOAD_SURFACE, reservation: decision.reservation };
+  const { uploadId, targetPath, ownerIndexPath } = await runWithQuotaReservation(backend, reserved, async () => {
+    const storageObject = await backend.verifyStorageObject(payload.storagePath);
+    if (!storageObject.exists) {
+      throw new HttpsError("failed-precondition", "Storage object does not exist at the declared path.", {
+        operationId: envelope.operationId,
+        storagePath: payload.storagePath,
+      });
+    }
+    if (storageObject.size !== undefined && storageObject.size !== payload.fileSize) {
+      throw new HttpsError("failed-precondition", "Declared file size does not match the stored object.", {
+        operationId: envelope.operationId,
+        declared: payload.fileSize,
+        actual: storageObject.size,
+      });
+    }
+    if (storageObject.contentType && !payload.fileType.startsWith(storageObject.contentType.split("/")[0])) {
+      throw new HttpsError("failed-precondition", "Declared file type does not match the stored object.", {
+        operationId: envelope.operationId,
+        declared: payload.fileType,
+        actual: storageObject.contentType,
+      });
+    }
 
-  const uploadId = sanitizeUploadId(await backend.createUploadId());
-  if (!uploadId) {
-    throw new HttpsError("internal", "Unable to allocate wallpaper upload ID.");
-  }
-  const targetPath = `/community_wallpapers/${uploadId}`;
-  const ownerIndexPath = `/owner_uploads/${payload.uploaderKey}/wallpapers/${uploadId}`;
+    const allocatedId = sanitizeUploadId(await backend.createUploadId());
+    if (!allocatedId) {
+      throw new HttpsError("internal", "Unable to allocate wallpaper upload ID.");
+    }
+    const allocatedTarget = `/community_wallpapers/${allocatedId}`;
 
-  await backend.commitWallpaperUpload({
-    uid,
-    surfaceKey: WALLPAPER_UPLOAD_SURFACE.surfaceKey,
-    dedupeKey,
-    uploadId,
-    payload,
-    uploadedAt: nowMillis,
-    dedupeMarker: buildDedupeMarker({
-      nowMillis,
-      targetPath,
-    }),
+    await backend.commitWallpaperUpload({
+      uid,
+      surfaceKey: WALLPAPER_UPLOAD_SURFACE.surfaceKey,
+      dedupeKey,
+      uploadId: allocatedId,
+      payload,
+      uploadedAt: nowMillis,
+      dedupeMarker: buildDedupeMarker({
+        nowMillis,
+        targetPath: allocatedTarget,
+      }),
+    });
+    return {
+      uploadId: allocatedId,
+      targetPath: allocatedTarget,
+      ownerIndexPath: `/owner_uploads/${payload.uploaderKey}/wallpapers/${allocatedId}`,
+    };
   });
 
   return {
@@ -557,6 +571,7 @@ class FirebaseWallpaperUploadBackend implements WallpaperUploadBackend {
     surface: CommunityCallableSurface,
     nowMillis: number,
     dedupe: DedupeMarker | null,
+    operationKey?: string,
   ): Promise<QuotaDecision> {
     let decision: QuotaDecision | null = null;
     const result = await this.quotaRef(uid, dayKey, surface.surfaceKey).transaction(
@@ -569,6 +584,7 @@ class FirebaseWallpaperUploadBackend implements WallpaperUploadBackend {
           nowMillis,
           quota,
           dedupe,
+          operationKey,
         });
         if (decision.status === "duplicate") {
           return current;
@@ -582,6 +598,16 @@ class FirebaseWallpaperUploadBackend implements WallpaperUploadBackend {
       throw new HttpsError("aborted", "Unable to reserve community wallpaper upload quota.");
     }
     return decision;
+  }
+
+  async settleQuota(
+    uid: string,
+    dayKey: string,
+    surface: CommunityCallableSurface,
+    reservation: QuotaReservation,
+    settlement: QuotaSettlement,
+  ): Promise<void> {
+    await settleQuotaLedger(this.quotaRef(uid, dayKey, surface.surfaceKey), reservation, settlement, this.nowMillis());
   }
 
   async commitWallpaperUpload(input: CommitWallpaperUploadInput): Promise<void> {

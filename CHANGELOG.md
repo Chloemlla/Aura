@@ -113,6 +113,15 @@ All notable changes to Aura will be documented in this file.
   order correctly. A one-time backfill tool copies existing counts and voter
   records into the new layout.
 
+- **A failed community action no longer uses up your allowance**: votes,
+  follows, blocks, profile edits, reports and uploads used to count against the
+  daily limit and start the cooldown before anything was saved. If the save then
+  failed, the attempt still counted, so a sound upload that hit a storage hiccup
+  cost one of three daily uploads and locked you out for 15 minutes. Each
+  attempt now holds its slot until the save finishes and hands it back, cooldown
+  included, when nothing was stored. If the server stops partway through, the
+  attempt still counts, because its save may have gone through.
+
 - **Firebase CLI upgraded to 15.31.0**: root audit findings reduced from 15 to
   10 (non-breaking fixes applied). Functions audit is now zero. The remaining
   root findings are transitive deployment-tool dependencies.

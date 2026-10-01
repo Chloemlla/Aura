@@ -604,6 +604,26 @@ test('community quota and dedupe ledgers are admin-only', async () => {
   await assertSucceeds(admin.ref(quotaPath).once('value'));
 });
 
+test('quota ledgers hold pending reservations and settlement counters in a fixed shape', async () => {
+  const user = dbFor('quota-user');
+  const admin = adminDb();
+  const quotaPath = `community_write_quotas/quota-user/${DAY_KEY}/sound_uploads`;
+  const time = nowMs();
+  const settled = quotaPayload({
+    pending: { 'sound_upload_9f2c': { at: time, prevLastAt: time - 1000 } },
+    releasedCount: 1,
+    lastReleasedAt: time,
+    expiredCount: 2,
+  });
+
+  await assertFails(user.ref(quotaPath).set(settled));
+  await assertSucceeds(admin.ref(quotaPath).set(settled));
+  await assertSucceeds(admin.ref(`${quotaPath}/pending/takeover_op`).set({ at: time, cooldownAt: time - 5000 }));
+  await assertFails(admin.ref(`${quotaPath}/pending/no_stamp`).set({ prevLastAt: time }));
+  await assertFails(admin.ref(`${quotaPath}/pending/extra_field`).set({ at: time, uid: 'someone' }));
+  await assertFails(admin.ref(`${quotaPath}/releasedCount`).set(-1));
+});
+
 test('community user block lists are callable-owned, private, and maintain an admin reverse index', async () => {
   const blocker = dbFor('blocker1');
   const blocked = dbFor('blocked1');

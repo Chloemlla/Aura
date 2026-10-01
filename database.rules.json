@@ -206,7 +206,19 @@
             "firstAt": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now" },
             "lastAt": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now" },
             "blockedCount": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000" },
-            "lastBlockedAt": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now" }
+            "lastBlockedAt": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now" },
+            "pending": {
+              "$operation": {
+                ".validate": "newData.hasChildren(['at'])",
+                "at": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now" },
+                "prevLastAt": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now" },
+                "cooldownAt": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now" },
+                "$other": { ".validate": false }
+              }
+            },
+            "releasedCount": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000" },
+            "lastReleasedAt": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now" },
+            "expiredCount": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000" }
           }
         }
       }

@@ -345,17 +345,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Confidence: Verified
   Effort: M
 
-- [ ] P2 — Reconcile quota reservations when the protected write fails
-  Category: reliability
-  Where: functions/src/quotaEngine.ts:119-134; functions/src/wallpaperUploadHandler.ts:130,168; functions/src/soundUploadHandler.ts:131,169; functions/src/voteHandler.ts:94,125; functions/src/followHandler.ts:101,133; functions/src/blockHandler.ts:102,134; functions/src/profileHandler.ts:108,139; functions/src/reportHandler.ts:133,166
-  Problem: Each callable increments quota/cooldown before a separate action commit. A Firebase failure after reservation consumes a low daily allowance even though nothing was stored.
-  Evidence: Accepted reservation writes count and lastAt, then each handler commits independently with no rollback, finalization state, or reconciliation. Tests do not inject commit failure after reservation.
-  Fix: Model pending/finalized reservations with recovery, or compensate failed commits without weakening abuse limits. Replays must reuse operation identity.
-  Acceptance: Forced commit failures remain retryable without counting as successful; stale pending reservations reconcile deterministically; a successful action consumes one unit.
-  Confidence: Verified
-  Effort: M
-
-
 - [ ] P2 — Validate complete theme-pack contents before mutating local state
   Category: correctness
   Where: app/src/main/java/com/freevibe/service/ThemePackRecipeManager.kt:166,183-197,260-337,557-800
