@@ -165,6 +165,7 @@ class AutoWallpaperWorkerRunTest {
         withTimeout(10_000) { run.join() }
 
         coVerify(exactly = 1) { history.record(home, WallpaperTarget.HOME) }
+        assertEquals("the countdown restarts for the change it made", 1, scheduledRotation().size)
         assertFalse(AutoWallpaperWorker.rotationRunLock.isLocked)
     }
 

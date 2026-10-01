@@ -172,9 +172,9 @@ All notable changes to Aura will be documented in this file.
   and automation actions still run right away. Unlock and screen-off
   rotations now run as ordinary work and still wait while the battery is
   low. A tap that lands while a rotation is being applied starts a fresh one
-  right after it. The rotation already under way still sets both screens
-  before it stops, so home and lock never end up out of step, and only one
-  rotation applies at a time. A rotation that
+  right after it. The rotation already under way still sets both screens and
+  restarts the countdown before it stops, so home and lock never end up out
+  of step, and only one rotation applies at a time. A rotation that
   changed the home screen but found every lock screen item excluded now
   restarts the countdown like any other change.
 

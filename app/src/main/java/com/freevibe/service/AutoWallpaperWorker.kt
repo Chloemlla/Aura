@@ -66,11 +66,14 @@ class AutoWallpaperWorker @AssistedInject constructor(
                     shouldRunLegacyRotation(schedulerEnabled, legacyEnabled, triggeredRotation) -> doLegacyWork()
                     else -> Result.success()
                 }.also { result ->
-                    receiptStore.recordWorkerResult(
-                        uniqueWorkName = receiptWorkName,
-                        resultClassName = result.javaClass.simpleName,
-                        retryReason = "wallpaper source returned no usable item or apply failed; check selected source, saved collection, and wallpaper permission",
-                    )
+                    // An apply that finished counts even if a tap replaced this run meanwhile.
+                    withContext(NonCancellable) {
+                        receiptStore.recordWorkerResult(
+                            uniqueWorkName = receiptWorkName,
+                            resultClassName = result.javaClass.simpleName,
+                            retryReason = "wallpaper source returned no usable item or apply failed; check selected source, saved collection, and wallpaper permission",
+                        )
+                    }
                 }
             } catch (excluded: AllRotationCandidatesExcludedException) {
                 receiptStore.recordFailure(
@@ -91,7 +94,7 @@ class AutoWallpaperWorker @AssistedInject constructor(
                     applied = appliedWallpaper,
                 )
             ) {
-                restartCountdownAfterManualChange(applicationContext, prefs)
+                withContext(NonCancellable) { restartCountdownAfterManualChange(applicationContext, prefs) }
             }
             result
         } catch (_: java.io.IOException) {
