@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
+import android.os.Parcel
+import androidx.core.os.bundleOf
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
 import com.freevibe.data.model.ContentSource
@@ -93,6 +95,22 @@ class WallpaperCropAspectTest {
     }
 
     @Test
+    fun `the crop survives process death through a parceled Bundle`() = runBlocking {
+        val tall = picture("tall")
+        val first = loaded(viewModel(), tall)
+        first.selectAspect(CropAspect.PORTRAIT)
+        first.applyGesture(zoom = 1.5f, panX = -60f, panY = 25f)
+        val saved = first.state.value
+
+        val restored = loaded(viewModel(SavedStateHandle(throughParcel(savedState))), tall).state.value
+
+        assertEquals(CropAspect.PORTRAIT, restored.aspect)
+        assertEquals(saved.scale, restored.scale, 0.0001f)
+        assertEquals(saved.offsetX, restored.offsetX, 0.01f)
+        assertEquals(saved.offsetY, restored.offsetY, 0.01f)
+    }
+
+    @Test
     fun `another wallpaper starts from Free`() = runBlocking {
         loaded(viewModel(), picture("tall")).selectAspect(CropAspect.SQUARE)
 
@@ -137,14 +155,29 @@ class WallpaperCropAspectTest {
         }
     }
 
-    private fun viewModel() = WallpaperCropViewModel(
+    private fun viewModel(handle: SavedStateHandle = savedState) = WallpaperCropViewModel(
         wallpaperApplier = applier,
         okHttpClient = mockk(relaxed = true),
         smartCropDetector = mockk(relaxed = true),
         appContext = context,
         applyCoordinator = coordinator,
-        savedStateHandle = savedState,
+        savedStateHandle = handle,
     )
+
+    /** What a recreated activity hands back: every saved value written to a Parcel and read out again. */
+    @Suppress("DEPRECATION")
+    private fun throughParcel(handle: SavedStateHandle): Map<String, Any?> {
+        val bundle = bundleOf(*handle.keys().map { it to handle.get<Any?>(it) }.toTypedArray())
+        val parcel = Parcel.obtain()
+        try {
+            parcel.writeBundle(bundle)
+            parcel.setDataPosition(0)
+            val restored = parcel.readBundle(javaClass.classLoader)!!
+            return restored.keySet().associateWith { restored.get(it) }
+        } finally {
+            parcel.recycle()
+        }
+    }
 
     private suspend fun loaded(vm: WallpaperCropViewModel, wallpaper: Wallpaper): WallpaperCropViewModel {
         vm.loadWallpaper(wallpaper)

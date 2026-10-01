@@ -264,21 +264,7 @@ fun WallpaperCropScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
                 )
-                if (presentation != WALLPAPER_PRESENTATION_FIT) {
-                    val aspectLabel = cropAspectLabel(state.aspect)
-                    val aspectAnnouncement = stringResource(R.string.editor_crop_ratio_selected, aspectLabel)
-                    Text(
-                        aspectLabel,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .padding(horizontal = 8.dp)
-                            .semantics {
-                                liveRegion = LiveRegionMode.Polite
-                                contentDescription = aspectAnnouncement
-                            },
-                    )
-                }
+                if (presentation != WALLPAPER_PRESENTATION_FIT) CropAspectIndicator(state.aspect)
                 Text(
                     String.format(java.util.Locale.ROOT, "%.0f%%", state.scale * 100),
                     style = MaterialTheme.typography.labelMedium,
@@ -317,16 +303,11 @@ fun WallpaperCropScreen(
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.heightIn(min = 40.dp),
                 )
-                CropAspect.entries.forEach { aspect ->
-                    FilterChip(
-                        selected = state.aspect == aspect,
-                        enabled = state.bitmap != null,
-                        onClick = { viewModel.selectAspect(aspect) },
-                        label = { Text(cropAspectLabel(aspect), style = MaterialTheme.typography.labelSmall) },
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.heightIn(min = 40.dp),
-                    )
-                }
+                CropAspectChips(
+                    selected = state.aspect,
+                    enabled = state.bitmap != null,
+                    onSelect = viewModel::selectAspect,
+                )
             }
 
             // Apply buttons
@@ -380,6 +361,39 @@ fun WallpaperCropScreen(
                 }
             }
         }
+    }
+}
+
+/** The current frame ratio. TalkBack reads the change politely when a chip or Smart Crop switches it. */
+@Composable
+internal fun CropAspectIndicator(aspect: CropAspect) {
+    val aspectLabel = cropAspectLabel(aspect)
+    val aspectAnnouncement = stringResource(R.string.editor_crop_ratio_selected, aspectLabel)
+    Text(
+        aspectLabel,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .padding(horizontal = 8.dp)
+            .semantics {
+                liveRegion = LiveRegionMode.Polite
+                contentDescription = aspectAnnouncement
+            },
+    )
+}
+
+/** One chip per frame ratio. Emitted straight into the caller's row so they line up with Smart Crop. */
+@Composable
+internal fun CropAspectChips(selected: CropAspect, enabled: Boolean, onSelect: (CropAspect) -> Unit) {
+    CropAspect.entries.forEach { aspect ->
+        FilterChip(
+            selected = selected == aspect,
+            enabled = enabled,
+            onClick = { onSelect(aspect) },
+            label = { Text(cropAspectLabel(aspect), style = MaterialTheme.typography.labelSmall) },
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.heightIn(min = 40.dp),
+        )
     }
 }
 
