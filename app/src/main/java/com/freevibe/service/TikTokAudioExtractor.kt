@@ -139,20 +139,13 @@ class TikTokAudioExtractor @Inject constructor(
             failure = t
             throw t
         } finally {
-            try {
-                muxer?.let { output ->
-                    try {
-                        if (muxerStarted) output.stop()
-                    } catch (e: RuntimeException) {
-                        // stop() throws when nothing was written; keep the error that got us here.
-                        failure?.addSuppressed(e) ?: throw e
-                    } finally {
-                        output.release()
-                    }
-                }
-            } finally {
-                extractor.release()
-            }
+            val output = muxer
+            closeRemuxResources(
+                failure = failure,
+                stopMuxer = if (output != null && muxerStarted) output::stop else null,
+                releaseMuxer = output?.let { it::release },
+                releaseExtractor = extractor::release,
+            )
         }
     }
 
@@ -161,6 +154,30 @@ class TikTokAudioExtractor @Inject constructor(
             ?.sortedByDescending { it.lastModified() }
             ?.drop(KEEP_EXTRACTED_FILES - 1)
             ?.forEach { it.delete() }
+    }
+}
+
+/**
+ * Stops and releases the muxer, then the extractor, whatever throws on the way. MediaMuxer.stop()
+ * throws when nothing was written; that is added to [failure] as suppressed so the error that got
+ * here is the one reported, and rethrown only when the remux had otherwise succeeded.
+ */
+internal fun closeRemuxResources(
+    failure: Throwable?,
+    stopMuxer: (() -> Unit)?,
+    releaseMuxer: (() -> Unit)?,
+    releaseExtractor: () -> Unit,
+) {
+    try {
+        try {
+            stopMuxer?.invoke()
+        } catch (e: RuntimeException) {
+            failure?.addSuppressed(e) ?: throw e
+        } finally {
+            releaseMuxer?.invoke()
+        }
+    } finally {
+        releaseExtractor()
     }
 }
 

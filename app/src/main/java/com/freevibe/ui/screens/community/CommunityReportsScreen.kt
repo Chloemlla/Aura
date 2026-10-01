@@ -273,13 +273,26 @@ class CommunityReportsViewModel @Inject constructor(
 }
 
 @Composable
-private fun reportsLoadErrorText(error: ReportsLoadError?): String = when (error?.kind) {
-    ReportsLoadErrorKind.OFFLINE -> stringResource(R.string.reports_load_error_offline)
-    ReportsLoadErrorKind.DENIED -> stringResource(R.string.reports_load_error_denied)
-    // The localized message leads; the raw detail stays visible because this admin-only
-    // screen has no other place to show why a load failed.
-    else -> stringResource(R.string.reports_load_error_generic) +
-        error?.detail?.let { "\n$it" }.orEmpty()
+private fun reportsLoadErrorText(error: ReportsLoadError?): String = reportsLoadErrorMessage(
+    error = error,
+    offline = stringResource(R.string.reports_load_error_offline),
+    denied = stringResource(R.string.reports_load_error_denied),
+    generic = stringResource(R.string.reports_load_error_generic),
+)
+
+/**
+ * The localized message leads; the raw detail stays visible because this admin-only screen
+ * has no other place to show why a load failed.
+ */
+internal fun reportsLoadErrorMessage(
+    error: ReportsLoadError?,
+    offline: String,
+    denied: String,
+    generic: String,
+): String = when (error?.kind) {
+    ReportsLoadErrorKind.OFFLINE -> offline
+    ReportsLoadErrorKind.DENIED -> denied
+    else -> generic + error?.detail?.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

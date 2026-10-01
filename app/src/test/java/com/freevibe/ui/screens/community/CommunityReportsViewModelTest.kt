@@ -225,6 +225,18 @@ class CommunityReportsViewModelTest {
     }
 
     @Test
+    fun `the localized message leads and the raw reason sits under it`() {
+        fun message(error: ReportsLoadError?) =
+            reportsLoadErrorMessage(error, offline = "Offline", denied = "Denied", generic = "Couldn't load reports")
+
+        assertEquals("Couldn't load reports\nQuota exceeded", message(ReportsLoadError(ReportsLoadErrorKind.OTHER, "Quota exceeded")))
+        assertEquals("Couldn't load reports", message(ReportsLoadError(ReportsLoadErrorKind.OTHER, " ")))
+        assertEquals("Couldn't load reports", message(null))
+        assertEquals("Offline", message(ReportsLoadError(ReportsLoadErrorKind.OFFLINE, "Client is offline")))
+        assertEquals("Denied", message(ReportsLoadError(ReportsLoadErrorKind.DENIED, "Permission denied")))
+    }
+
+    @Test
     fun `failed load on a new status tab does not show the previous tab's rows`() = runTest(dispatcher) {
         val openReport = testReport(id = "report-open")
         val reportRepo = mockk<CommunityReportRepository>()
