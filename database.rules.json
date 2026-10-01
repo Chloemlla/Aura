@@ -94,7 +94,7 @@
         ".write": "auth != null && auth.token.admin === true",
         "sounds": {
           "$uploadId": {
-            ".write": "auth != null && (auth.token.admin === true || (auth.uid === $uid && data.exists() && !newData.exists()))",
+            ".write": "auth != null && (auth.token.admin === true || (auth.uid === $uid && !newData.exists()))",
             "uploadId": { ".validate": "newData.isString() && newData.val() === $uploadId" },
             "publicId": { ".validate": "newData.isString() && newData.val().length > 3 && newData.val().beginsWith('cu_')" },
             "contentType": { ".validate": "newData.val() === 'SOUND'" },
@@ -106,7 +106,7 @@
         },
         "wallpapers": {
           "$uploadId": {
-            ".write": "auth != null && (auth.token.admin === true || (auth.uid === $uid && data.exists() && !newData.exists()))",
+            ".write": "auth != null && (auth.token.admin === true || (auth.uid === $uid && !newData.exists()))",
             "uploadId": { ".validate": "newData.isString() && newData.val() === $uploadId" },
             "publicId": { ".validate": "newData.isString() && newData.val().length > 3 && newData.val().beginsWith('cw_')" },
             "contentType": { ".validate": "newData.val() === 'WALLPAPER'" },

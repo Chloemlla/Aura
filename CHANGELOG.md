@@ -151,6 +151,11 @@ All notable changes to Aura will be documented in this file.
   change move across on the server, so a vote cast during the move isn't
   overwritten.
 
+- **Older uploads can be deleted again**: uploads made before the private
+  upload list existed couldn't be deleted by their owner, because the delete
+  also clears that list entry and the database refused to clear one that
+  wasn't there.
+
 - **Firebase CLI upgraded to 15.31.0**: root audit findings reduced from 15 to
   10 (non-breaking fixes applied). Functions audit is now zero. The remaining
   root findings are transitive deployment-tool dependencies.

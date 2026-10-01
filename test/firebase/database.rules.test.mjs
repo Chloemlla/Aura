@@ -493,6 +493,12 @@ test('community upload deletion tombstones stay private and need the owner delet
   await seedUpload({ uploadId: 'wall2', uid: 'delete-owner', kind: 'wallpapers' });
   await assertSucceeds(owner.ref().update(ownerDeleteUpdates({ uploadId: 'wall2', uid: 'delete-owner', kind: 'wallpapers' })));
 
+  // Uploads from before the owner index existed have no owner_uploads row, and the app's
+  // delete still clears that path in the same write.
+  await seed('community_sounds/legacy1', soundMetadata('delete-owner', { storagePath: 'sounds/delete-owner/legacy1.mp3' }));
+  await assertFails(other.ref('owner_uploads/delete-owner/sounds/legacy1').remove());
+  await assertSucceeds(owner.ref().update(ownerDeleteUpdates({ uploadId: 'legacy1', uid: 'delete-owner' })));
+
   await assertSucceeds(admin.ref('community_upload_deletions/cw_wall1').set(
     uploadDeletionPayload({
       uploadId: 'wall1',
