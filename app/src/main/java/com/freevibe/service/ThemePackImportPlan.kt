@@ -128,7 +128,13 @@ internal fun isAcceptableThemePackLocator(locator: String): Boolean {
     if (locator != locator.trim() || locator.any { it.isISOControl() }) return false
     val scheme = THEME_PACK_SCHEME_REGEX.find(locator)?.groupValues?.get(1)?.lowercase(Locale.ROOT)
         ?: return locator.startsWith("/") && ".." !in locator.split('/')
-    if (scheme == "file") return locator.startsWith("file:///") && ".." !in locator.split('/')
+    // `File.toURI()` writes `file:/path` and `Uri.fromFile` writes `file:///path`. Both are local;
+    // `file://host/path` names another machine and is refused.
+    if (scheme == "file") {
+        val local = locator.startsWith("file:///", ignoreCase = true) ||
+            (locator.startsWith("file:/", ignoreCase = true) && !locator.startsWith("file://", ignoreCase = true))
+        return local && locator.length > "file:/".length && ".." !in locator.split('/')
+    }
     return scheme in THEME_PACK_URI_SCHEMES &&
         locator.startsWith("$scheme://", ignoreCase = true) &&
         locator.length > scheme.length + 3

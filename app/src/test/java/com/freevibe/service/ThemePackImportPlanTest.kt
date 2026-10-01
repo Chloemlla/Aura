@@ -143,6 +143,25 @@ class ThemePackImportPlanTest {
         ).forEach { assertFalse(it, isAcceptableThemePackLocator(it)) }
     }
 
+    @Test
+    fun `an AI wallpaper saved with a single-slash file locator imports`() {
+        // AiWallpaperRepository stores `File.toURI().toString()`, which is `file:/data/...`.
+        val generated = "file:/data/user/0/com.freevibe/files/ai_wallpapers/generated-1.png"
+        val recipe = validRecipe().copy(
+            media = validRecipe().media + ThemePackMediaReference(
+                role = "current_wallpaper",
+                label = "Current wallpaper",
+                locator = generated,
+            ),
+        )
+
+        val plan = planThemePackImport(recipe, assets)
+
+        assertEquals(assets[videoAsset], plan.videoPath)
+        assertTrue(isAcceptableThemePackLocator(generated))
+        listOf("file:/", "file:/data/../etc/x", "FILE://host/x").forEach { assertFalse(it, isAcceptableThemePackLocator(it)) }
+    }
+
     private fun planFor(recipe: ThemePackRecipe, assetsByKey: Map<String, String>): () -> ThemePackImportPlan =
         { planThemePackImport(recipe, assetsByKey) }
 

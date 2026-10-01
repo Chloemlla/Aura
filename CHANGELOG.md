@@ -138,7 +138,8 @@ All notable changes to Aura will be documented in this file.
   theme, and a bad 24H or sound profile recipe could be saved as is. The whole
   pack is now checked first: every recipe has to parse, each daypart can only
   appear once, every file the pack points to has to be in the archive, and
-  every location has to be something Aura can open. If anything fails, nothing
+  every location has to be something Aura can open, AI wallpapers it generated
+  included. If anything fails, nothing
   changes and the unpacked files are removed. The settings it does change are
   saved together.
 
