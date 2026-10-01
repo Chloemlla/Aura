@@ -25,7 +25,7 @@ release docs, and verify/release workflow wiring.
 | Wallpaper pack | `WallpaperPackWorker` | Periodic | `wallpaper_pack` | `ExistingPeriodicWorkPolicy.UPDATE` | 15 minutes | No explicit constraints | No |
 | Weather effect refresh | `WeatherUpdateWorker` | Periodic | `weather_update` | `ExistingPeriodicWorkPolicy.KEEP` | 30 minutes | Connected network | No |
 | Aura Originals download | `AuraOriginalsDownloader` | One-time | `aura_originals_download` | `ExistingWorkPolicy.KEEP` | Enqueued on app startup, idempotent after hashes match | Unmetered network | Yes, downgraded to non-expedited on quota exhaustion |
-| Rotation trigger one-shot | `AutoWallpaperWorker` through `RotationTriggerService` | One-time | `rotation_trigger_oneshot` | `ExistingWorkPolicy.KEEP` | Unlock, screen-off, Tasker, MacroDroid, adb, or Termux trigger | Connected network and battery-not-low | Yes, downgraded to non-expedited on quota exhaustion |
+| Rotation trigger one-shot | `AutoWallpaperWorker` through `RotationTriggerService` | One-time | `rotation_trigger_oneshot` | `ExistingWorkPolicy.KEEP` | Unlock, screen-off, Tasker, MacroDroid, adb, or Termux trigger | Connected network; battery-not-low for unlock and screen-off | Tile and automation requests only, downgraded to non-expedited on quota exhaustion |
 
 ## Android 16 quota audit
 
@@ -47,9 +47,12 @@ concurrently with a foreground service. The only Aura concurrency path is
 `RotationTriggerService` enqueuing `rotation_trigger_oneshot`. That path uses
 unique `KEEP` to coalesce chatty unlock and screen-off events, `REPLACE` for an
 explicit tile or automation request so a waiting passive trigger can't swallow
-its countdown restart, and
+its countdown restart (`APPEND_OR_REPLACE` when a rotation is already running,
+so it isn't cancelled part way through), and
 `RUN_AS_NON_EXPEDITED_WORK_REQUEST` to preserve the request when expedited quota
-is unavailable. Settings and copied support diagnostics now report every unique
+is unavailable. Only explicit requests are expedited. WorkManager refuses to
+build expedited work with a battery constraint, so the unlock and screen-off
+rotations run as ordinary work and keep battery-not-low. Settings and copied support diagnostics now report every unique
 work name and summarize non-active `WorkInfo.stopReason` values such as `QUOTA`,
 `TIMEOUT`, `BACKGROUND_RESTRICTION`, and constraint stops.
 

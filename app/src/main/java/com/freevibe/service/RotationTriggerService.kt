@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.first
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 
@@ -176,13 +177,16 @@ class RotationTriggerService : Service() {
         /**
          * Enqueue a one-shot rotation. Reuses [AutoWallpaperWorker] (the periodic
          * worker already does the right thing — it reads source / target / shuffle
-         * from prefs and applies). Expedited so the wallpaper is set in time for
-         * the user to see it on their lock screen / next unlock.
+         * from prefs and applies). A tap or automation action is expedited so the
+         * change shows right away.
          */
         internal fun enqueueRotation(context: Context, restartCountdown: Boolean = true) {
+            // WorkManager refuses to build expedited work with a battery constraint, so only a
+            // tap or automation action is expedited; unlock and screen-off rotations run as
+            // ordinary work and keep the battery floor.
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
-                .setRequiresBatteryNotLow(true)
+                .apply { if (!restartCountdown) setRequiresBatteryNotLow(true) }
                 .build()
             val request = OneTimeWorkRequestBuilder<AutoWallpaperWorker>()
                 .setConstraints(constraints)
@@ -193,16 +197,36 @@ class RotationTriggerService : Service() {
                         AutoWallpaperWorker.RESTART_COUNTDOWN_KEY to restartCountdown,
                     ),
                 )
-                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                .apply { if (restartCountdown) setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST) }
                 .build()
-            WorkManager.getInstance(context).enqueueUniqueWork(
-                WORK_NAME,
-                // Passive triggers coalesce so a chatty unlock can't queue 10 rotations. An explicit
-                // tap or automation action replaces a waiting passive one instead of being dropped,
-                // since only it restarts the rotation countdown.
-                if (restartCountdown) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP,
-                request,
+            val workManager = WorkManager.getInstance(context)
+            if (!restartCountdown) {
+                workManager.enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.KEEP, request)
+                return
+            }
+            // The policy depends on whether a rotation is mid-apply, so read the state first. The
+            // listener runs on WorkManager's own thread, which keeps the caller off a blocking read.
+            val existing = workManager.getWorkInfosForUniqueWork(WORK_NAME)
+            existing.addListener(
+                {
+                    val states = runCatching { existing.get().map { it.state } }.getOrDefault(emptyList())
+                    workManager.enqueueUniqueWork(WORK_NAME, triggeredRotationPolicy(restartCountdown, states), request)
+                },
+                Runnable::run,
             )
         }
     }
 }
+
+/**
+ * Passive triggers coalesce so a chatty unlock can't queue 10 rotations. An explicit tap or
+ * automation action replaces a waiting rotation instead of being dropped, since only it restarts
+ * the countdown, but it queues behind one that is already applying rather than cancelling it
+ * part way through.
+ */
+internal fun triggeredRotationPolicy(restartCountdown: Boolean, existing: List<WorkInfo.State>): ExistingWorkPolicy =
+    when {
+        !restartCountdown -> ExistingWorkPolicy.KEEP
+        WorkInfo.State.RUNNING in existing -> ExistingWorkPolicy.APPEND_OR_REPLACE
+        else -> ExistingWorkPolicy.REPLACE
+    }

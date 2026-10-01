@@ -151,6 +151,16 @@ All notable changes to Aura will be documented in this file.
   change move across on the server, so a vote cast during the move isn't
   overwritten.
 
+- **Tile, unlock and automation rotations start again**: every one of these
+  asked WorkManager for urgent work with a battery condition attached, and
+  WorkManager refuses to build that, so the rotation never got queued. Taps
+  and automation actions still run right away. Unlock and screen-off
+  rotations now run as ordinary work and still wait while the battery is
+  low. A tap that lands while a rotation is being applied now waits for it
+  to finish instead of cancelling it part way through, and a rotation that
+  changed the home screen but found every lock screen item excluded now
+  restarts the countdown like any other change.
+
 - **Older uploads can be deleted again**: uploads made before the private
   upload list existed couldn't be deleted by their owner, because the delete
   also clears that list entry and the database refused to clear one that

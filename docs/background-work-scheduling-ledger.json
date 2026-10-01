@@ -37,7 +37,7 @@
       "All persistent jobs are owned by WorkManager; Aura does not retain JobParameters or implement JobService, so STOP_REASON_TIMEOUT_ABANDONED does not apply directly.",
       "No CoroutineWorker calls setForeground or setForegroundAsync; Aura has no long-running WorkManager worker that consumes Android 16 quota through a worker-owned foreground service.",
       "Ordinary and expedited WorkManager jobs consume quota when started while the app is TOP and while concurrent with a foreground service on Android 16.",
-      "RotationTriggerService can overlap rotation_trigger_oneshot; unique KEEP coalesces triggers and expedited quota exhaustion downgrades to ordinary work instead of dropping the request.",
+      "RotationTriggerService can overlap rotation_trigger_oneshot; unique KEEP coalesces passive triggers, only explicit requests are expedited, and expedited quota exhaustion downgrades to ordinary work instead of dropping the request.",
       "Every CoroutineWorker rethrows CancellationException so WorkManager can complete stop handling without abandoned in-process work.",
       "Settings and support diagnostics expose WorkInfo stop reasons, including QUOTA, TIMEOUT, and BACKGROUND_RESTRICTION."
     ]
@@ -396,14 +396,14 @@
       "initialDelay": "none",
       "constraints": [
         "NetworkType.CONNECTED",
-        "battery not low"
+        "battery not low (unlock and screen-off only; expedited work accepts network and storage constraints only)"
       ],
       "backoff": "WorkManager default for one-shot trigger work",
       "expedited": true,
       "outOfQuotaPolicy": "OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST",
       "enabledSurface": "Rotation trigger foreground service toggles and public Tasker/MacroDroid actions",
       "scheduleTrigger": "Unlock, screen-off, ROTATE_NOW, or SHUFFLE_NOW trigger",
-      "cancelTrigger": "Unique KEEP coalesces unlock and screen-off triggers; an explicit tile, ROTATE_NOW, or SHUFFLE_NOW request uses REPLACE so a waiting passive trigger cannot swallow its countdown restart; no explicit cancel path",
+      "cancelTrigger": "Unique KEEP coalesces unlock and screen-off triggers; an explicit tile, ROTATE_NOW, or SHUFFLE_NOW request uses REPLACE so a waiting passive trigger cannot swallow its countdown restart, or APPEND_OR_REPLACE when a rotation is already running so it is not cancelled part way through; no explicit cancel path",
       "deferralReasons": [
         "network unavailable",
         "battery low",

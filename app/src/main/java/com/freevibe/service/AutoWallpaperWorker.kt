@@ -54,18 +54,31 @@ class AutoWallpaperWorker @AssistedInject constructor(
             val legacyEnabled = prefs.autoWallpaperEnabled.first()
             val triggeredRotation = inputData.getBoolean(TRIGGERED_ROTATION_KEY, false)
 
-            val result = when {
-                schedulerEnabled -> doSchedulerWork()
-                shouldRunLegacyRotation(schedulerEnabled, legacyEnabled, triggeredRotation) -> doLegacyWork()
-                else -> Result.success()
+            val result = try {
+                when {
+                    schedulerEnabled -> doSchedulerWork()
+                    shouldRunLegacyRotation(schedulerEnabled, legacyEnabled, triggeredRotation) -> doLegacyWork()
+                    else -> Result.success()
+                }.also { result ->
+                    receiptStore.recordWorkerResult(
+                        uniqueWorkName = receiptWorkName,
+                        resultClassName = result.javaClass.simpleName,
+                        retryReason = "wallpaper source returned no usable item or apply failed; check selected source, saved collection, and wallpaper permission",
+                    )
+                }
+            } catch (excluded: AllRotationCandidatesExcludedException) {
+                receiptStore.recordFailure(
+                    uniqueWorkName = receiptWorkName,
+                    errorClass = "AllRotationCandidatesExcluded",
+                    deferralReason = "Every item in ${excluded.sourceLabel} is excluded from rotation. Restore one in Settings, Rotation exclusions.",
+                )
+                // A persistent user choice is not transient work failure. Returning
+                // success prevents WorkManager from retrying the same empty pool.
+                Result.success()
             }
-            receiptStore.recordWorkerResult(
-                uniqueWorkName = receiptWorkName,
-                resultClassName = result.javaClass.simpleName,
-                retryReason = "wallpaper source returned no usable item or apply failed; check selected source, saved collection, and wallpaper permission",
-            )
             // One-shot work runs under its own unique name, so re-enqueueing the
-            // periodic work here cannot cancel this run.
+            // periodic work here cannot cancel this run. A run that changed home but
+            // found every lock item excluded still changed the wallpaper.
             if (shouldRestartRotationCountdown(
                     requested = inputData.getBoolean(RESTART_COUNTDOWN_KEY, false),
                     succeeded = result is Result.Success,
@@ -75,15 +88,6 @@ class AutoWallpaperWorker @AssistedInject constructor(
                 restartCountdownAfterManualChange(applicationContext, prefs)
             }
             result
-        } catch (excluded: AllRotationCandidatesExcludedException) {
-            receiptStore.recordFailure(
-                uniqueWorkName = receiptWorkName,
-                errorClass = "AllRotationCandidatesExcluded",
-                deferralReason = "Every item in ${excluded.sourceLabel} is excluded from rotation. Restore one in Settings, Rotation exclusions.",
-            )
-            // A persistent user choice is not transient work failure. Returning
-            // success prevents WorkManager from retrying the same empty pool.
-            Result.success()
         } catch (_: java.io.IOException) {
             receiptStore.recordRetry(
                 uniqueWorkName = receiptWorkName,
