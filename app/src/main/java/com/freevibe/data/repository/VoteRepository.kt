@@ -7,6 +7,7 @@ import com.freevibe.service.CommunityIdentityProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -40,6 +41,9 @@ internal const val VOTE_COUNTS_PATH = "vote_counts"
 /** Private `{uid}/{contentId}` markers. Rules let only the owning account read its own subtree. */
 internal const val VOTE_MARKERS_PATH = "vote_markers"
 
+/** Pre-migration tallies at `/votes/{contentId}/upvotes`. Read only until `/vote_counts` has the row. */
+internal const val LEGACY_VOTES_PATH = "votes"
+
 /** Mirrors the `limitToLast <= 200` bound in database.rules.json for `/vote_counts`. */
 internal const val TOP_VOTED_MAX_LIMIT = 200
 
@@ -65,6 +69,60 @@ internal suspend fun collectVoteCounts(
             upvotes?.let { id to it }
         }
     }.awaitAll().filterNotNull().toMap()
+}
+
+/**
+ * A backend that hasn't been migrated has no `/vote_counts` rows yet, only the legacy tallies the
+ * seeding job copies from. The public count wins whenever it exists.
+ */
+internal fun preferredUpvotes(current: Int?, legacy: Int?): Int = current ?: legacy ?: 0
+
+/**
+ * The legacy read is refused once the private vote rules are deployed. That failure reaches
+ * [collectVoteCounts], which leaves the id out.
+ */
+internal suspend fun upvotesWithLegacyFallback(
+    readCurrent: suspend () -> Int?,
+    readLegacy: suspend () -> Int?,
+): Int? = readCurrent() ?: readLegacy()
+
+/** The legacy leaderboard is read only while the public one is empty. */
+internal suspend fun topVotedWithLegacyFallback(
+    limit: Int,
+    readCurrent: suspend () -> List<Pair<String, Int>>,
+    readLegacy: suspend () -> List<Pair<String, Int>>,
+): List<Pair<String, Int>> {
+    val current = topVotedRows(readCurrent(), limit)
+    if (current.isNotEmpty()) return current
+    return try {
+        topVotedRows(readLegacy(), limit)
+    } catch (e: Exception) {
+        if (e is kotlinx.coroutines.CancellationException) throw e
+        emptyList()
+    }
+}
+
+/** Live public and legacy counts for one item. Reports nothing until both listeners have answered. */
+internal class UpvoteTally {
+    private var current: Int? = null
+    private var legacy: Int? = null
+    private var currentAnswered = false
+    private var legacyAnswered = false
+
+    fun onCurrent(value: Int?): Int? {
+        current = value
+        currentAnswered = true
+        return settled()
+    }
+
+    fun onLegacy(value: Int?): Int? {
+        legacy = value
+        legacyAnswered = true
+        return settled()
+    }
+
+    private fun settled(): Int? =
+        if (currentAnswered && legacyAnswered) preferredUpvotes(current, legacy) else null
 }
 
 /**
@@ -111,6 +169,8 @@ private fun expandHiddenIds(ids: Set<String>): Set<String> = buildSet(ids.size *
  *   /moderation/{contentId} = true                   (admin global hide — removes for ALL users)
  *
  * The older /votes and /voters trees carried voter UIDs in public nodes and are admin-only now.
+ * Until the backend is migrated, counts fall back to `/votes/{contentId}/upvotes` for rows
+ * `/vote_counts` doesn't have yet.
  *
  * Regular downvote = local-only hide (SharedPreferences).
  * Admin downvote = global hide via /moderation (visible to no one).
@@ -127,6 +187,7 @@ class VoteRepository @Inject constructor(
     }
     private val voteCountsRef get() = db?.child(VOTE_COUNTS_PATH)
     private val voteMarkersRef get() = db?.child(VOTE_MARKERS_PATH)
+    private val legacyVotesRef get() = db?.child(LEGACY_VOTES_PATH)
     private val moderationRef get() = db?.child("moderation")
 
     /**
@@ -297,18 +358,9 @@ class VoteRepository @Inject constructor(
 
     fun getVoteCount(contentId: String): Flow<Int> = callbackFlow {
         if (!isCommunityAccessEnabled()) { trySend(0); awaitClose {}; return@callbackFlow }
-        val countsRefInstance = voteCountsRef
-        if (countsRefInstance == null) { trySend(0); awaitClose {}; return@callbackFlow }
-        val safeId = sanitizeKey(contentId)
-        val ref = countsRefInstance.child(safeId).child("upvotes")
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                trySend(snapshot.getValue(Int::class.java) ?: 0)
-            }
-            override fun onCancelled(error: DatabaseError) { trySend(0) }
-        }
-        ref.addValueEventListener(listener)
-        awaitClose { ref.removeEventListener(listener) }
+        if (voteCountsRef == null) { trySend(0); awaitClose {}; return@callbackFlow }
+        val stop = observeUpvotes(sanitizeKey(contentId)) { trySend(it) }
+        awaitClose { stop() }
     }
 
     suspend fun hasVoted(contentId: String, alreadySanitized: Boolean = false): Boolean {
@@ -426,45 +478,77 @@ class VoteRepository @Inject constructor(
 
     fun getVoteCounts(contentIds: List<String>): Flow<Map<String, Int>> = callbackFlow {
         if (!isCommunityAccessEnabled()) { trySend(emptyMap()); awaitClose {}; return@callbackFlow }
-        val countsRefInstance = voteCountsRef
-        if (countsRefInstance == null) { trySend(emptyMap()); awaitClose {}; return@callbackFlow }
+        if (voteCountsRef == null) { trySend(emptyMap()); awaitClose {}; return@callbackFlow }
         val counts = java.util.concurrent.ConcurrentHashMap<String, Int>()
-        val listeners = mutableListOf<Pair<String, ValueEventListener>>()
-
-        contentIds.take(50).forEach { id ->
-            val safeId = sanitizeKey(id)
-            val ref = countsRefInstance.child(safeId).child("upvotes")
-            val listener = object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    counts[id] = snapshot.getValue(Int::class.java) ?: 0
-                    trySend(counts.toMap())
-                }
-                override fun onCancelled(error: DatabaseError) {
-                    Log.w("VoteRepository", "Vote listener cancelled: ${error.message}")
-                }
+        val stops = contentIds.take(50).map { id ->
+            observeUpvotes(sanitizeKey(id)) { upvotes ->
+                counts[id] = upvotes
+                trySend(counts.toMap())
             }
-            ref.addValueEventListener(listener)
-            listeners.add(safeId to listener)
         }
-        awaitClose {
-            listeners.forEach { (safeId, listener) ->
-                countsRefInstance.child(safeId).child("upvotes").removeEventListener(listener)
+        awaitClose { stops.forEach { it() } }
+    }
+
+    /**
+     * Follows an item's public count and its legacy tally together, so a backend that hasn't been
+     * migrated still shows counts. Returns the call that removes both listeners.
+     */
+    private fun observeUpvotes(safeId: String, onCount: (Int) -> Unit): () -> Unit {
+        val currentRef = voteCountsRef?.child(safeId)?.child("upvotes") ?: return {}
+        val legacyRef = legacyVotesRef?.child(safeId)?.child("upvotes")
+        val tally = UpvoteTally()
+        val currentListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                tally.onCurrent(snapshot.getValue(Int::class.java))?.let(onCount)
             }
+            override fun onCancelled(error: DatabaseError) {
+                Log.w("VoteRepository", "Vote listener cancelled: ${error.message}")
+                tally.onCurrent(null)?.let(onCount)
+            }
+        }
+        // Refused once the private vote rules are deployed, which is expected.
+        val legacyListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                tally.onLegacy(snapshot.getValue(Int::class.java))?.let(onCount)
+            }
+            override fun onCancelled(error: DatabaseError) {
+                tally.onLegacy(null)?.let(onCount)
+            }
+        }
+        if (legacyRef == null) tally.onLegacy(null)
+        currentRef.addValueEventListener(currentListener)
+        legacyRef?.addValueEventListener(legacyListener)
+        return {
+            currentRef.removeEventListener(currentListener)
+            legacyRef?.removeEventListener(legacyListener)
         }
     }
 
     /**
-     * One-shot public counts keyed by the ids passed in, read row by row from `/vote_counts`.
-     * An id whose row is missing or whose read failed is left out, so callers keep the count
-     * they already had instead of showing zero.
+     * One-shot public counts keyed by the ids passed in, read row by row from `/vote_counts`,
+     * then from the legacy tally for a row that isn't there yet. An id with neither, or whose
+     * read failed, is left out, so callers keep the count they already had instead of showing zero.
      */
     suspend fun getVoteCountsOnce(contentIds: List<String>): Map<String, Int> {
         if (!isCommunityAccessEnabled()) return emptyMap()
         val countsRefInstance = voteCountsRef ?: return emptyMap()
+        val legacyRefInstance = legacyVotesRef
         return collectVoteCounts(contentIds) { id ->
-            awaitFirebaseRead("Community vote counts") {
-                countsRefInstance.child(sanitizeKey(id)).child("upvotes").get().await()
-            }.getValue(Int::class.java)
+            val key = sanitizeKey(id)
+            upvotesWithLegacyFallback(
+                readCurrent = {
+                    awaitFirebaseRead("Community vote counts") {
+                        countsRefInstance.child(key).child("upvotes").get().await()
+                    }.getValue(Int::class.java)
+                },
+                readLegacy = {
+                    legacyRefInstance?.let { ref ->
+                        awaitFirebaseRead("Legacy community vote counts") {
+                            ref.child(key).child("upvotes").get().await()
+                        }.getValue(Int::class.java)
+                    }
+                },
+            )
         }
     }
 
@@ -474,22 +558,34 @@ class VoteRepository @Inject constructor(
         val countsRefInstance = voteCountsRef ?: return emptyList()
         val queryLimit = limit.coerceIn(1, TOP_VOTED_MAX_LIMIT)
         return try {
-            // Rules only answer this exact query shape on the collection, so a whole-tree read
-            // is refused rather than silently scanning every count.
-            val snapshot = awaitFirebaseRead("Community vote leaderboard") {
-                countsRefInstance.orderByChild("upvotes").limitToLast(queryLimit).get().await()
-            }
-            topVotedRows(
-                snapshot.children.mapNotNull { child ->
-                    val key = child.key ?: return@mapNotNull null
-                    key to (child.child("upvotes").getValue(Int::class.java) ?: 0)
-                },
+            topVotedWithLegacyFallback(
                 limit,
+                readCurrent = { leaderboardRows(countsRefInstance, queryLimit, "Community vote leaderboard") },
+                readLegacy = {
+                    legacyVotesRef?.let { leaderboardRows(it, queryLimit, "Legacy community vote leaderboard") }
+                        .orEmpty()
+                },
             )
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             if (com.freevibe.BuildConfig.DEBUG) android.util.Log.e("VoteRepo", "getTopVotedIds failed: ${e.message}")
             emptyList()
+        }
+    }
+
+    // Rules only answer this exact query shape on `/vote_counts`, so a whole-tree read is refused
+    // rather than silently scanning every count.
+    private suspend fun leaderboardRows(
+        ref: DatabaseReference,
+        queryLimit: Int,
+        label: String,
+    ): List<Pair<String, Int>> {
+        val snapshot = awaitFirebaseRead(label) {
+            ref.orderByChild("upvotes").limitToLast(queryLimit).get().await()
+        }
+        return snapshot.children.mapNotNull { child ->
+            val key = child.key ?: return@mapNotNull null
+            key to (child.child("upvotes").getValue(Int::class.java) ?: 0)
         }
     }
 

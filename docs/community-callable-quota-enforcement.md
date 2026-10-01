@@ -337,6 +337,19 @@ share sheet still sends the collection file when the link can't be made (quota,
 size, or no backend). A read the rules refuse because the share expired shows
 "Collection link is expired or unavailable."
 
+Until `publishSharedCollection` is deployed, a call that comes back `NOT_FOUND`
+or `UNIMPLEMENTED` writes the share directly to `/shared_collections/{token}`
+with the same fields and 30 day `expiresAt` the function stores
+(`publishShareWithFallback` and `directSharedCollectionRecord`). Any other
+refusal still fails the link. Vote counts follow the same migration rule: each
+read prefers `/vote_counts/{contentId}/upvotes` and falls back to the legacy
+`/votes/{contentId}/upvotes` tally for a row that isn't there yet, and the
+leaderboard reads the legacy tree only while `/vote_counts` is empty. Both
+fallbacks stop on their own once the functions and the private vote rules are
+deployed, because the rules refuse the direct share write and the legacy reads.
+Voting itself has no fallback, so votes aren't recorded until
+`recordCommunityVote` is deployed.
+
 Report, vote, follow, user-block, sound upload finalization, wallpaper upload
 finalization, profile edit, and collection share writes are the Android write
 surfaces with callable client code and checked Android wire-protocol coverage

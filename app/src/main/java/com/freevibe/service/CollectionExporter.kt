@@ -11,6 +11,7 @@ import com.freevibe.data.model.MAX_SHARED_COLLECTION_DOCUMENT_BYTES
 import com.freevibe.data.model.MAX_SHARED_COLLECTION_ITEMS
 import com.freevibe.data.model.SharedCollectionInput
 import com.freevibe.data.repository.CommunityCallableClient
+import com.freevibe.data.repository.CommunityCallableException
 import com.freevibe.data.repository.awaitFirebaseRead
 import com.freevibe.util.rethrowIfCancelled
 import com.freevibe.data.model.WallpaperCollectionEntity
@@ -34,6 +35,7 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -50,6 +52,38 @@ private val SHARE_TOKEN_REGEX = Regex(
 private const val CURRENT_VERSION = 1
 private const val TAG = "CollectionExporter"
 internal const val EXPIRED_COLLECTION_LINK_MESSAGE = "Collection link is expired or unavailable."
+internal const val SHARED_COLLECTION_TTL_MILLIS = 30L * 24 * 60 * 60 * 1000
+
+/**
+ * Until `publishSharedCollection` is deployed, the link is written straight to the database the way
+ * older builds do. Any other backend refusal (quota, size, App Check) still fails the link.
+ */
+internal suspend fun publishShareWithFallback(
+    publishViaBackend: suspend () -> String,
+    publishDirectly: suspend () -> String,
+): String = try {
+    publishViaBackend()
+} catch (e: CommunityCallableException) {
+    if (!e.isMissingEndpoint()) throw e
+    publishDirectly()
+}
+
+/** The same fields `publishSharedCollection` stores, so expiry and pruning treat both alike. */
+internal fun directSharedCollectionRecord(
+    json: String,
+    collectionName: String,
+    itemCount: Int,
+    creatorUid: String,
+    nowMillis: Long,
+): Map<String, Any> = mapOf(
+    "version" to CURRENT_VERSION,
+    "payload" to json,
+    "collectionName" to collectionName,
+    "itemCount" to itemCount,
+    "createdAt" to nowMillis,
+    "expiresAt" to nowMillis + SHARED_COLLECTION_TTL_MILLIS,
+    "createdByUid" to creatorUid,
+)
 
 @Singleton
 class CollectionExporter @Inject constructor(
@@ -223,12 +257,34 @@ class CollectionExporter @Inject constructor(
     /** The backend stores the share under a token it picks, with a quota and a 30-day expiry. */
     private suspend fun publishPayload(json: String, collectionName: String, itemCount: Int): String {
         requireShareableAsLink(json, itemCount)
-        identityProvider.ensureSignedIn()
-        val result = callableClient.publishSharedCollection(
-            SharedCollectionInput(document = json, collectionName = collectionName),
+        val creatorUid = identityProvider.ensureSignedIn()
+        return publishShareWithFallback(
+            publishViaBackend = {
+                val result = callableClient.publishSharedCollection(
+                    SharedCollectionInput(document = json, collectionName = collectionName),
+                )
+                result.targetId().takeIf { it.matches(SHARE_TOKEN_REGEX) }
+                    ?: throw IllegalStateException("Collection link could not be created.")
+            },
+            publishDirectly = {
+                Log.w(TAG, "publishSharedCollection is not deployed; writing the link directly")
+                val db = database ?: throw IllegalStateException("Firebase Database not available")
+                val token = UUID.randomUUID().toString().replace("-", "")
+                db.child("shared_collections")
+                    .child(token)
+                    .setValue(
+                        directSharedCollectionRecord(
+                            json,
+                            collectionName,
+                            itemCount,
+                            creatorUid,
+                            System.currentTimeMillis(),
+                        ),
+                    )
+                    .await()
+                token
+            },
         )
-        return result.targetId().takeIf { it.matches(SHARE_TOKEN_REGEX) }
-            ?: throw IllegalStateException("Collection link could not be created.")
     }
 
     private fun buildShareLink(token: String): String = "aura://collection/import/$token"
