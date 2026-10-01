@@ -214,6 +214,25 @@ test('the seeding job resumes where the last run stopped instead of re-walking t
   }
 });
 
+test('a finished first root is not walked again while the second root resumes', async () => {
+  const voteIds = ['A', 'B', 'C'].map((suffix) => `SOUND::FREESOUND::votes_${suffix}`);
+  const voterIds = ['A', 'B', 'C'].map((suffix) => `SOUND::FREESOUND::voters_${suffix}`);
+  await getDatabase(app).ref().update({
+    ...Object.fromEntries(voteIds.map((id) => [`votes/${id}`, { upvotes: 2 }])),
+    ...Object.fromEntries(voterIds.map((id) => [`voters/${id}/someone`, true])),
+  });
+  const run = () => seedLegacyVoteCounts(getDatabase(app).ref(), 1, 2);
+
+  assert.equal(await run(), 2);
+  assert.equal(await run(), 3);
+  assert.deepEqual(await readValue('vote_seed_cursor'), { votes: true, voters: voterIds[1] });
+
+  // /votes is done, so this run spends its batches on /voters instead of starting /votes over.
+  assert.equal(await run(), 1);
+  assert.deepEqual(await readValue(`vote_counts/${voterIds[2]}`), { upvotes: 1 });
+  assert.equal(await readValue('vote_seed_cursor'), null);
+});
+
 test('the seeding job starts no batch once its deadline has passed', async () => {
   await getDatabase(app).ref('votes/SOUND::FREESOUND::late').set({ upvotes: 3 });
 

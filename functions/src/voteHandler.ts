@@ -36,6 +36,7 @@ const SEED_BATCH_SIZE = 200;
 const SEED_MAX_BATCHES = 50;
 /** Where each legacy root's walk stopped, so the next run picks up there instead of the first key. */
 export const SEED_CURSOR_PATH = "vote_seed_cursor";
+const SEED_ROOT_DONE = true;
 /** Scheduled runs stop starting batches after this, well inside the function timeout below. */
 const SEED_RUN_BUDGET_MILLIS = 480_000;
 const SEED_TIMEOUT_SECONDS = 540;
@@ -251,7 +252,8 @@ export async function mirrorUploadVotes(root: Reference, contentId: string, upvo
  *
  * Each batch saves its last key under [SEED_CURSOR_PATH], so a run that hits the batch cap, the
  * deadline or the function timeout loses at most one batch and the next run continues from there.
- * A root walked to the end clears its cursor, and the next run starts that root over.
+ * A root walked to the end is marked done, so a later run goes straight to the root still being
+ * walked. Once both are done the cursor is cleared and the next run starts a fresh pass.
  */
 export async function seedLegacyVoteCounts(
   root: Reference,
@@ -265,6 +267,7 @@ export async function seedLegacyVoteCounts(
   for (const legacyRoot of ["votes", "voters"]) {
     const cursor = root.child(SEED_CURSOR_PATH).child(legacyRoot);
     const saved: unknown = (await cursor.get()).val();
+    if (saved === SEED_ROOT_DONE) continue;
     let lastKey: string | undefined = typeof saved === "string" && saved.length > 0 ? saved : undefined;
     let finishedRoot = false;
     for (let batch = 0; batch < maxBatches; batch++) {
@@ -284,7 +287,7 @@ export async function seedLegacyVoteCounts(
         if (counted > 0) await mirrorUploadVotes(root, contentId, counted);
       }
       if (keys.length < batchSize) {
-        await cursor.remove();
+        await cursor.set(SEED_ROOT_DONE);
         finishedRoot = true;
         break;
       }
@@ -294,6 +297,7 @@ export async function seedLegacyVoteCounts(
     // Out of batches part way through: finish this root next run before starting the other.
     if (!finishedRoot) return seeded;
   }
+  await root.child(SEED_CURSOR_PATH).remove();
   return seeded;
 }
 

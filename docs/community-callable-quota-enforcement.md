@@ -139,7 +139,8 @@ The vote schema was later split so voter UIDs never sit in a public tree:
   each root in key order and saves the last key it finished under the
   admin-only `/vote_seed_cursor/{root}`, so a run that hits its batch cap or its
   8 minute budget (inside the 9 minute function timeout) picks up there next
-  time. A root walked to the end clears its cursor.
+  time. A root walked to the end is marked done so later runs go straight to
+  the other one, and once both are done the cursor is cleared for a fresh pass.
 - `/votes` and `/voters` are admin-only now, except the old per-item
   `/votes/{contentId}/upvotes` leaf, which stays readable for older app builds.
   `tools/community_vote_privacy_backfill.py` turns a database export into the
