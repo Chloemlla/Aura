@@ -41,6 +41,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.io.IOException
 import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
@@ -290,8 +291,10 @@ class DownloadManager @Inject constructor(
         sourceUnavailableReasonForFailure(contentSource, e)?.let { reason ->
             downloadDao.updateSourceAvailability(historyId, SOURCE_AVAILABILITY_UNAVAILABLE, reason)
         }
-        updateProgress(historyId, DownloadProgress(historyId, fileName, 0f, 0, 0, error = downloadFailureReason(context, e)))
-        Result.failure(e)
+        val reason = downloadFailureReason(context, e)
+        updateProgress(historyId, DownloadProgress(historyId, fileName, 0f, 0, 0, error = reason))
+        // Callers show the message in a snackbar, so it carries the same safe reason as the card.
+        Result.failure(DownloadFailedException(reason, e))
     }
 
     /**
@@ -825,13 +828,16 @@ internal fun downloadFailureReason(context: Context, error: Throwable): String {
         causes.any { it is SocketTimeoutException } -> context.getString(R.string.download_failed_timeout)
         causes.any { it is SSLException } -> context.getString(R.string.download_failed_secure)
         httpStatus != null -> context.getString(R.string.download_failed_http, httpStatus)
-        "size limit" in message -> context.getString(R.string.download_failed_too_large)
-        "content type" in message -> context.getString(R.string.download_failed_not_media)
-        error is SecurityException || STORAGE_FAILURE_MARKERS.any { it in message } ->
+        message.contains("size limit", ignoreCase = true) -> context.getString(R.string.download_failed_too_large)
+        message.contains("content type", ignoreCase = true) -> context.getString(R.string.download_failed_not_media)
+        error is SecurityException || STORAGE_FAILURE_MARKERS.any { message.contains(it, ignoreCase = true) } ->
             context.getString(R.string.download_failed_storage)
         else -> context.getString(R.string.download_failed_unknown)
     }
 }
+
+/** A failed download whose message is already worded for people. [cause] keeps the original for logs. */
+class DownloadFailedException(message: String, cause: Throwable) : IOException(message, cause)
 
 private val HTTP_STATUS_REGEX = Regex("""\bHTTP (\d{3})\b""")
 private val STORAGE_FAILURE_MARKERS = listOf("MediaStore", "output stream", "saved original")

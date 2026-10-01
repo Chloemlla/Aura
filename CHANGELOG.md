@@ -183,8 +183,9 @@ All notable changes to Aura will be documented in this file.
   showed up twice next to your history. It now clears itself a few seconds
   after it lands in history. A failed download says why in plain words (no
   connection, a slow or unhappy server, a file too big or not media, or no
-  room to save it) without echoing the link, and has a Retry button that runs
-  the same download again. A retry that succeeds
+  room to save it) without echoing the link, both on its card and in the
+  message a wallpaper or sound page shows. The card has a Retry button that
+  runs the same download again. A retry that succeeds
   saves one copy, never a second one next to a half-written file.
 
 - **Crop ratios work, and the crop you see is the crop you get**: tapping

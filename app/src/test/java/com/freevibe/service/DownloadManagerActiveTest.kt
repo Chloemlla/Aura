@@ -71,6 +71,7 @@ class DownloadManagerActiveTest {
         assertTrue(first.isFailure)
         val failed = manager.activeDownloads.value.getValue(ID)
         assertEquals(context.getString(R.string.download_failed_storage), failed.error)
+        assertEquals("the snackbar gets the same reason", failed.error, first.exceptionOrNull()?.message)
         assertFalse(failed.isComplete)
         assertEquals("the half-written row was removed", 0, media.rows.size)
 
@@ -141,6 +142,10 @@ class DownloadManagerActiveTest {
         assertEquals(
             context.getString(R.string.download_failed_not_media),
             reason(IOException("Wallpaper content type mismatch: expected image")),
+        )
+        assertEquals(
+            context.getString(R.string.download_failed_storage),
+            reason(IllegalStateException("Saved original did not match its source bytes")),
         )
         listOf(
             UnknownHostException("Unable to resolve host \"secret.example.com\""),
