@@ -13,7 +13,7 @@ Actionable work only. Historical and completed roadmap material is archived in C
   Acceptance: users create named pools, add local/downloaded/original sounds, choose ringtone, notification, alarm, or any combination, and set a schedule; the worker avoids an immediate repeat when another valid item exists, skips missing/incompatible media visibly, records history, and restores scheduling after reboot; disabling a pool cancels its work; pools and assignments round-trip through backup.
   Boot restore 2026-09-30: `RingtoneRestorationWorker` no longer calls `soundShufflePoolManager.migrateLegacyIfNeeded()` and `restoreSchedules()`, because the manager was never committed and a clean checkout failed KSP. Put the injection and both calls back in the same commit that adds `SoundShufflePoolManager.kt`.
   JVM evidence 2026-09-30: with the in-progress files in the tree, `SettingsViewModelDelegateContractTest` fails ("the facade must not create independent jobs") because `SettingsViewModel.kt` launches the pool operations on `viewModelScope` itself. Move them into a settings delegate.
-  Audit evidence 2026-09-25: the in-progress implementation is not ready to merge. The repository gate currently reports 655 passing and five failing tool tests: the network and scheduling ledgers still require the replaced broad-download calls, the hardcoded-string baseline is missing `Applied automatically`, and two documentation-link checks reject the untracked `docs/sound-shuffle-pools.md`. Full and FOSS lint also report nine `LocalContextGetResourceValueCall` errors in `SoundShufflePoolsDialog.kt:105-244`. Treat these as acceptance blockers for this item, not separate roadmap work.
+  Audit evidence 2026-09-25: the in-progress implementation is not ready to merge. The repository gate currently reports 655 passing and five failing tool tests: the network and scheduling ledgers still require the replaced broad-download calls, the hardcoded-string baseline is missing `Applied automatically`, and two documentation-link checks reject the untracked sound shuffle pools doc. Full and FOSS lint also report nine `LocalContextGetResourceValueCall` errors in `SoundShufflePoolsDialog.kt:105-244`. Treat these as acceptance blockers for this item, not separate roadmap work.
   Complexity: M
 
 - [ ] P2 — Add named Reddit feed presets for discovery and rotation
@@ -590,6 +590,12 @@ Remainders of items closed in the 2026-09-30 drain whose full acceptance did not
   Why: debug builds now run StrictMode and LeakCanary, but nothing asserts LeakCanary is absent from release APKs, the violations it logs on a real device haven't been listed, and `detectImplicitUriPermissionGrant` needs compileSdk 37.
   Touches: release APK scan in the build gates, repo notes, `FreeVibeApp.kt`.
   Acceptance: a gate fails if `leakcanary` classes appear in a release APK; the violations seen during a device session are recorded and each has a fix or an open item; the URI-grant check is enabled once compileSdk reaches 37.
+  Complexity: S
+
+- [ ] P3 — Localize the Active download status that TalkBack reads
+  Why: `downloadProgressStatusLabel` in `DownloadsScreen.kt` builds "Download failed: <reason>" and the percent label in English, so a Chinese TalkBack user hears an English prefix around a Chinese reason.
+  Touches: `DownloadsScreen.kt`, `values/strings.xml`, `values-zh/strings.xml`, `DownloadsScreenPolishTest.kt`.
+  Acceptance: the status label comes from string resources in both locales; a test under the zh locale reads the failed and in-progress labels without English text.
   Complexity: S
 
 
