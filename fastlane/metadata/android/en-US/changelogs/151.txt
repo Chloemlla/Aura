@@ -1,3 +1,3 @@
 Aura v6.46.1
 
-Recent highlights: collection links and vote counts keep working while the community server update is still on its way. This release also carries everything from 6.46.0: Aura targets Android 16, tile, unlock and automation rotations run again, finished downloads clear from Active and can be retried when they fail, and crop ratios save exactly what you see.
+Recent highlights: vote counts and Top Voted keep working while the community server update is still on its way, and the community database is locked down. This release also carries everything from 6.46.0: Aura targets Android 16, tile, unlock and automation rotations run again, finished downloads clear from Active and can be retried when they fail, and crop ratios save exactly what you see.

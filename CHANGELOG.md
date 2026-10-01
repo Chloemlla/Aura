@@ -15,11 +15,18 @@ All notable changes to Aura will be documented in this file.
 
 ## v6.46.1 (2026-09-30)
 
-- **Community features work before the server update**: collection links are
-  written straight to the database again when the server function that
-  normally creates them isn't available yet, with the same 30 day expiry.
-  Vote counts and Top Voted read the existing tallies until the new public
-  counts are filled in, so they no longer show zero.
+- **Vote counts and Top Voted keep working before the server update**: they
+  read the existing tallies whenever the new public counts don't have a row
+  yet, so they no longer show zero. When the server function that makes
+  collection links is missing, the app tries writing the link directly, the
+  way older versions did.
+
+- **Community database locked down**: Aura's community database now only
+  answers the reads the app needs, like vote counts, Top Voted and global
+  hides, and refuses everything else. Who voted for what stays private.
+  Collection links, voting, reports, follows and uploads come back with the
+  community server update. Sharing a collection still sends the collection
+  file.
 
 ## v6.46.0 (2026-09-30)
 

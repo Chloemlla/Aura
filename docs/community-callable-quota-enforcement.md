@@ -344,11 +344,18 @@ with the same fields and 30 day `expiresAt` the function stores
 refusal still fails the link. Vote counts follow the same migration rule: each
 read prefers `/vote_counts/{contentId}/upvotes` and falls back to the legacy
 `/votes/{contentId}/upvotes` tally for a row that isn't there yet, and the
-leaderboard reads the legacy tree only while `/vote_counts` is empty. Both
-fallbacks stop on their own once the functions and the private vote rules are
-deployed, because the rules refuse the direct share write and the legacy reads.
-Voting itself has no fallback, so votes aren't recorded until
-`recordCommunityVote` is deployed.
+leaderboard reads the legacy tree only while `/vote_counts` is empty. The
+rules keep `/votes/{contentId}/upvotes` public, so the per-item fallback works
+under them, while the whole-tree leaderboard read is admin-only. Voting itself
+has no fallback, so votes aren't recorded until `recordCommunityVote` is
+deployed.
+
+Production order on 2026-09-30: `database.rules.json` went live before any
+function, after `/vote_counts` was seeded by running `seedLegacyVoteCounts`
+locally against production and the legacy vote markers were backfilled. From
+then on the rules refuse the direct share write, so collection links wait for
+`publishSharedCollection`. Firebase Authentication isn't set up on the project
+yet either, so every signed-in community action fails at sign-in.
 
 Report, vote, follow, user-block, sound upload finalization, wallpaper upload
 finalization, profile edit, and collection share writes are the Android write
