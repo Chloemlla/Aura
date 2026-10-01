@@ -417,6 +417,8 @@
     <string name="editor_crop_gesture_hint">Pinch to zoom, drag to position</string>
     <string name="editor_crop_detecting">Detecting…</string>
     <string name="editor_crop_smart_crop">Smart Crop</string>
+    <string name="editor_crop_ratio_free">Free</string>
+    <string name="editor_crop_ratio_selected">Crop frame %1$s</string>
 
     <!-- Sound editor -->
     <string name="editor_sound_create_title">Create Sound</string>

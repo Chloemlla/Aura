@@ -373,6 +373,8 @@
     <string name="editor_crop_gesture_hint">双指缩放，拖动调整位置</string>
     <string name="editor_crop_detecting">正在检测…</string>
     <string name="editor_crop_smart_crop">智能裁剪</string>
+    <string name="editor_crop_ratio_free">自由</string>
+    <string name="editor_crop_ratio_selected">裁剪框 %1$s</string>
 
     <!-- Sound editor -->
     <string name="editor_sound_create_title">创建声音</string>

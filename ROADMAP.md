@@ -348,16 +348,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Effort: M
 
 
-- [ ] P2 — Make wallpaper crop presets change and expose the selected ratio
-  Category: ux
-  Where: app/src/main/java/com/freevibe/ui/screens/editor/WallpaperCropScreen.kt:260-295; app/src/main/java/com/freevibe/ui/screens/editor/WallpaperEditorViewModel.kt:173-190
-  Problem: Ratio presets lack clear selected state and do not consistently produce an observable crop-geometry change, so taps can appear inert.
-  Evidence: Callbacks update ratio inputs but the overlay is not keyed to explicit preset identity; controls omit selected semantics; the ViewModel has crop values but no restored/announced preset state.
-  Fix: Model ratio explicitly, recompute the crop rectangle around its current center within bounds, style one selected preset, and announce it.
-  Acceptance: Every preset visibly/semantically selects, changes a nonmatching crop, survives recreation, and exports within one pixel of the requested ratio.
-  Confidence: Verified
-  Effort: M
-
 
 
 - [ ] P2 — Derive search and source menus from live provider capabilities

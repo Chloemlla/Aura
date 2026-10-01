@@ -3,6 +3,7 @@ package com.freevibe.ui.screens.editor
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.freevibe.data.model.Wallpaper
@@ -30,6 +31,8 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import javax.inject.Inject
+import kotlin.math.max
+import kotlin.math.roundToInt
 
 data class CropState(
     val bitmap: Bitmap? = null,
@@ -37,6 +40,7 @@ data class CropState(
     val scale: Float = 1f,
     val offsetX: Float = 0f,
     val offsetY: Float = 0f,
+    val aspect: CropAspect = CropAspect.FREE,
     val isApplying: Boolean = false,
     val smartCropInProgress: Boolean = false,
     val success: String? = null,
@@ -50,11 +54,14 @@ class WallpaperCropViewModel @Inject constructor(
     private val smartCropDetector: SmartCropDetector,
     @ApplicationContext private val appContext: Context,
     private val applyCoordinator: WallpaperApplyCoordinator,
+    private val savedStateHandle: SavedStateHandle = SavedStateHandle(),
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CropState())
     val state = _state.asStateFlow()
     private var loadedWallpaperKey: String? = null
+    private var viewportWidth = 0
+    private var viewportHeight = 0
 
     /**
      * Identity for the cropped output: the wallpaper the crop was loaded from is
@@ -69,30 +76,32 @@ class WallpaperCropViewModel @Inject constructor(
         if (loadedWallpaperKey == wallpaperKey && (currentState.bitmap != null || currentState.isLoading)) {
             return true
         }
+        // After the process comes back, a saved crop for this same wallpaper is restored, not reset.
+        val restoring = loadedWallpaperKey == null && savedStateHandle.get<String>(KEY_WALLPAPER) == wallpaperKey
         loadedWallpaperKey = wallpaperKey
+        savedStateHandle[KEY_WALLPAPER] = wallpaperKey
+        val (aspect, transform) = if (restoring) savedCrop() else CropAspect.FREE to CropTransform()
         val url = wallpaper.fullUrl
         val scheme = url.substringBefore(":", "").lowercase(java.util.Locale.ROOT)
         if (scheme == "content" || scheme == "file") {
-            loadFromContentUri(Uri.parse(url))
+            loadFromContentUri(Uri.parse(url), aspect, transform)
         } else {
-            loadFromUrl(url)
+            loadFromUrl(url, aspect, transform)
         }
         return true
     }
 
-    fun loadFromUrl(url: String) {
+    fun loadFromUrl(url: String, aspect: CropAspect = CropAspect.FREE, transform: CropTransform = CropTransform()) {
         viewModelScope.launch {
             _state.update {
                 it.copy(
                     bitmap = null,
                     isLoading = true,
-                    scale = 1f,
-                    offsetX = 0f,
-                    offsetY = 0f,
                     success = null,
                     error = null,
                 )
             }
+            setCrop(aspect, transform)
             try {
                 val bitmap = withContext(Dispatchers.IO) {
                     val request = Request.Builder().url(url).build()
@@ -114,6 +123,7 @@ class WallpaperCropViewModel @Inject constructor(
                     }
                 }
                 _state.update { it.copy(bitmap = bitmap, isLoading = false) }
+                refit()
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 _state.update { it.copy(isLoading = false, error = e.message) }
@@ -121,19 +131,17 @@ class WallpaperCropViewModel @Inject constructor(
         }
     }
 
-    private fun loadFromContentUri(uri: Uri) {
+    private fun loadFromContentUri(uri: Uri, aspect: CropAspect = CropAspect.FREE, transform: CropTransform = CropTransform()) {
         viewModelScope.launch {
             _state.update {
                 it.copy(
                     bitmap = null,
                     isLoading = true,
-                    scale = 1f,
-                    offsetX = 0f,
-                    offsetY = 0f,
                     success = null,
                     error = null,
                 )
             }
+            setCrop(aspect, transform)
             try {
                 val bitmap = withContext(Dispatchers.IO) {
                     val stream = appContext.contentResolver.openInputStream(uri)
@@ -152,6 +160,7 @@ class WallpaperCropViewModel @Inject constructor(
                     }
                 }
                 _state.update { it.copy(bitmap = bitmap, isLoading = false) }
+                refit()
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 _state.update { it.copy(isLoading = false, error = e.message) }
@@ -164,12 +173,62 @@ class WallpaperCropViewModel @Inject constructor(
     }
 
     fun updateTransform(scale: Float, offsetX: Float, offsetY: Float) {
-        _state.update { it.copy(scale = scale, offsetX = offsetX, offsetY = offsetY) }
+        setCrop(_state.value.aspect, CropTransform(scale, offsetX, offsetY))
+    }
+
+    /** Pinch and drag. A zoom past the usual ceiling, as a ratio frame can need, only ever comes down. */
+    fun applyGesture(zoom: Float, panX: Float, panY: Float) {
+        val s = _state.value
+        val scale = (s.scale * zoom).coerceIn(MIN_GESTURE_SCALE, max(MAX_GESTURE_SCALE, s.scale))
+        setCrop(s.aspect, CropTransform(scale, s.offsetX + panX, s.offsetY + panY))
     }
 
     fun resetTransform() {
-        _state.update { it.copy(scale = 1f, offsetX = 0f, offsetY = 0f) }
+        setCrop(CropAspect.FREE, CropTransform())
     }
+
+    fun selectAspect(aspect: CropAspect) {
+        setCrop(aspect, _state.value.transform())
+        refit()
+    }
+
+    /** The crop frame follows the viewport, so a new size (a rotation, say) re-covers a ratio frame. */
+    fun setViewport(width: Int, height: Int) {
+        if (width == viewportWidth && height == viewportHeight) return
+        viewportWidth = width
+        viewportHeight = height
+        refit()
+    }
+
+    private fun refit() {
+        val s = _state.value
+        val bmp = s.bitmap ?: return
+        if (viewportWidth <= 0 || viewportHeight <= 0) return
+        setCrop(s.aspect, transformForAspect(bmp.width, bmp.height, viewportWidth, viewportHeight, s.aspect, s.transform()))
+    }
+
+    private fun setCrop(aspect: CropAspect, transform: CropTransform) {
+        _state.update {
+            it.copy(aspect = aspect, scale = transform.scale, offsetX = transform.offsetX, offsetY = transform.offsetY)
+        }
+        savedStateHandle[KEY_ASPECT] = aspect.name
+        savedStateHandle[KEY_SCALE] = transform.scale
+        savedStateHandle[KEY_OFFSET_X] = transform.offsetX
+        savedStateHandle[KEY_OFFSET_Y] = transform.offsetY
+    }
+
+    private fun savedCrop(): Pair<CropAspect, CropTransform> {
+        val aspect = savedStateHandle.get<String>(KEY_ASPECT)
+            ?.let { name -> CropAspect.entries.firstOrNull { it.name == name } }
+            ?: CropAspect.FREE
+        return aspect to CropTransform(
+            scale = savedStateHandle.get<Float>(KEY_SCALE) ?: 1f,
+            offsetX = savedStateHandle.get<Float>(KEY_OFFSET_X) ?: 0f,
+            offsetY = savedStateHandle.get<Float>(KEY_OFFSET_Y) ?: 0f,
+        )
+    }
+
+    private fun CropState.transform() = CropTransform(scale, offsetX, offsetY)
 
     fun applyCropped(
         target: WallpaperTarget,
@@ -185,7 +244,7 @@ class WallpaperCropViewModel @Inject constructor(
             try {
                 val outputBitmap = if (fitCanvasStyle == null) {
                     withContext(Dispatchers.Default) {
-                        cropBitmap(bmp, s.scale, s.offsetX, s.offsetY, viewportWidth, viewportHeight)
+                        cropBitmap(bmp, s.aspect, s.transform(), viewportWidth, viewportHeight)
                     }
                 } else {
                     // WallpaperApplier treats its input as borrowed and renders
@@ -246,23 +305,26 @@ class WallpaperCropViewModel @Inject constructor(
                 }
                 return null
             }
+            // The calculator centers the subject in the crop frame and works in viewport pixels
+            // per source pixel. The editor's scale is relative to the fitted image.
+            val frame = cropFrame(viewportWidth, viewportHeight, _state.value.aspect)
             val t = SmartCropCalculator.computeTransform(
                 bitmapWidth = bmp.width,
                 bitmapHeight = bmp.height,
                 subject = subject,
-                viewportWidth = viewportWidth,
-                viewportHeight = viewportHeight,
+                viewportWidth = frame.width.roundToInt(),
+                viewportHeight = frame.height.roundToInt(),
             )
+            val fit = cropFitScale(bmp.width, bmp.height, viewportWidth, viewportHeight)
+            val transform = CropTransform(t.scale / fit, t.offsetX, t.offsetY)
+            setCrop(_state.value.aspect, transform)
             _state.update {
                 it.copy(
                     smartCropInProgress = false,
-                    scale = t.scale,
-                    offsetX = t.offsetX,
-                    offsetY = t.offsetY,
                     success = "Smart crop applied",
                 )
             }
-            t
+            SmartCropCalculator.Transform(transform.scale, transform.offsetX, transform.offsetY)
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             _state.update { it.copy(smartCropInProgress = false, error = e.message) }
@@ -274,40 +336,25 @@ class WallpaperCropViewModel @Inject constructor(
 
     private fun cropBitmap(
         source: Bitmap,
-        scale: Float,
-        offsetX: Float,
-        offsetY: Float,
+        aspect: CropAspect,
+        transform: CropTransform,
         viewWidth: Int,
         viewHeight: Int,
     ): Bitmap {
-        val scaledW = source.width * scale
-        val scaledH = source.height * scale
-
-        val imgLeft = (viewWidth - scaledW) / 2f + offsetX
-        val imgTop = (viewHeight - scaledH) / 2f + offsetY
-
-        val visLeft = (0f - imgLeft).coerceAtLeast(0f)
-        val visTop = (0f - imgTop).coerceAtLeast(0f)
-        val visRight = (viewWidth - imgLeft).coerceAtMost(scaledW)
-        val visBottom = (viewHeight - imgTop).coerceAtMost(scaledH)
-
-        val srcLeft = (visLeft / scale).toInt().coerceIn(0, source.width - 1)
-        val srcTop = (visTop / scale).toInt().coerceIn(0, source.height - 1)
-        val srcRight = (visRight / scale).toInt().coerceIn(srcLeft + 1, source.width)
-        val srcBottom = (visBottom / scale).toInt().coerceIn(srcTop + 1, source.height)
-
-        return Bitmap.createBitmap(
-            source,
-            srcLeft,
-            srcTop,
-            srcRight - srcLeft,
-            srcBottom - srcTop,
-        )
+        val rect = cropSourceRect(source.width, source.height, viewWidth, viewHeight, aspect, transform)
+        return Bitmap.createBitmap(source, rect.left, rect.top, rect.width, rect.height)
     }
 
     private companion object {
         /** Max bytes accepted when downloading a wallpaper for cropping. */
         private const val MAX_CROP_BYTES = 64L * 1024 * 1024
         private const val MAX_CROP_LONG_EDGE = 4096
+        private const val MIN_GESTURE_SCALE = 0.5f
+        private const val MAX_GESTURE_SCALE = 5f
+        private const val KEY_WALLPAPER = "crop_wallpaper"
+        private const val KEY_ASPECT = "crop_aspect"
+        private const val KEY_SCALE = "crop_scale"
+        private const val KEY_OFFSET_X = "crop_offset_x"
+        private const val KEY_OFFSET_Y = "crop_offset_y"
     }
 }

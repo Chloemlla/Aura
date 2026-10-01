@@ -168,6 +168,17 @@ All notable changes to Aura will be documented in this file.
   Retry button that runs the same download again. A retry that succeeds
   saves one copy, never a second one next to a half-written file.
 
+- **Crop ratios work, and the crop you see is the crop you get**: tapping
+  9:16, 16:9 or 1:1 now draws that frame on the picture, dims everything
+  outside it, zooms in only as far as the frame needs and keeps the part of
+  the picture you were looking at. The chosen ratio is highlighted, read out
+  by TalkBack, and kept through a rotation or when Android closes and
+  reopens the app. The saved wallpaper is the framed area, within a pixel of
+  the ratio. Before this, the export used a different zoom from the screen,
+  so a pan or pinch moved the saved crop by a different amount than the
+  preview, and the picture shown whole at the start was saved as a tighter
+  center crop.
+
 - **Older uploads can be deleted again**: uploads made before the private
   upload list existed couldn't be deleted by their owner, because the delete
   also clears that list entry and the database refused to clear one that
