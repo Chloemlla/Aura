@@ -99,6 +99,16 @@ EXPECTED_SURFACES: dict[str, dict[str, Any]] = {
         "finalWritePaths": ["/creator_profiles/{uid}"],
         "consumeLimitedUseAppCheckToken": False,
     },
+    "collection_shares": {
+        "dailyLimit": 10,
+        "minIntervalMillis": 30000,
+        "dedupeKey": "operationId",
+        "enforcement": ["APP_CHECKED_CALLABLE"],
+        "functionName": "publishSharedCollection",
+        "payloadSchema": "SharedCollectionInput",
+        "finalWritePaths": ["/shared_collections/{token}"],
+        "consumeLimitedUseAppCheckToken": True,
+    },
 }
 
 

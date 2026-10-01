@@ -36,8 +36,12 @@ Reasons:
 - `ADMIN_TAKEDOWN`
 
 Rules make tombstones admin-readable only. Owners can create their own initial
-`OWNER_DELETE` tombstone as part of the same multi-location update that removes
-public metadata and owner index rows. Admins can create or update tombstones
+`OWNER_DELETE` tombstone only as part of the same multi-location update that
+removes public metadata and owner index rows. The rules check that the metadata
+row existed before the write, belonged to the caller, carried the same
+`storagePath`, and is gone after it, and that the tombstone key is the upload's
+own public ID. A tombstone for an upload that never existed is refused. Admins
+can create or update tombstones
 during takedown cleanup, including `ADMIN_TAKEDOWN` tombstones. The recorded
 Storage path must remain under the uploader-scoped `sounds/{uid}/` or
 `wallpapers/{uid}/` prefix for the content type.

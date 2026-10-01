@@ -38,6 +38,7 @@ test("runtime options enforce App Check and limited-use token choices", () => {
     "submitCommunityReport",
     "finalizeCommunitySoundUpload",
     "finalizeCommunityWallpaperUpload",
+    "publishSharedCollection",
   ]);
 
   for (const functionName of callableExportNames()) {

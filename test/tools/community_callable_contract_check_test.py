@@ -46,8 +46,9 @@ class CommunityCallableContractCheckTest(unittest.TestCase):
     def test_valid_contract_returns_function_summary(self) -> None:
         result = validate_contract(valid_contract())
 
-        self.assertEqual(7, result["surfaceCount"])
+        self.assertEqual(8, result["surfaceCount"])
         self.assertIn("submitCommunityReport", result["functionNames"])
+        self.assertIn("publishSharedCollection", result["functionNames"])
         self.assertEqual("UTC", result["quotaDayBoundary"])
 
     def test_contract_requires_all_surfaces(self) -> None:

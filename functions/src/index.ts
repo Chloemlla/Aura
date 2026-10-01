@@ -1,6 +1,10 @@
 import { getApps, initializeApp } from "firebase-admin/app";
 
 import { createSetCommunityUserBlockCallable } from "./blockHandler";
+import {
+  createPruneExpiredSharedCollectionsJob,
+  createPublishSharedCollectionCallable,
+} from "./collectionShareHandler";
 import { createSetCreatorFollowCallable } from "./followHandler";
 import { createUpdateCreatorProfileCallable } from "./profileHandler";
 import { createSubmitCommunityReportCallable } from "./reportHandler";
@@ -19,3 +23,5 @@ export const recordCommunityVote = createRecordCommunityVoteCallable();
 export const setCreatorFollow = createSetCreatorFollowCallable();
 export const setCommunityUserBlock = createSetCommunityUserBlockCallable();
 export const updateCreatorProfile = createUpdateCreatorProfileCallable();
+export const publishSharedCollection = createPublishSharedCollectionCallable();
+export const pruneExpiredSharedCollections = createPruneExpiredSharedCollectionsJob();

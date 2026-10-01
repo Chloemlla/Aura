@@ -136,7 +136,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Community Wallpapers** | Upload phone-cropped gallery images with tags, Palette colors, and community voting |
 | **HEIF/AVIF Wallpaper Import** | Local apply, editor, rotation, and community upload flows share one format policy with HEIF support and Android 14+ AVIF gating |
 | **Creator Profiles** | View upload stats, votes, followed creators, followed uploads, and top creator leaderboard |
-| **Shareable Collections** | Share wallpaper collections as Aura links, QR codes, or JSON files and import them on another device |
+| **Shareable Collections** | Share wallpaper collections as Aura links, QR codes, or JSON files and import them on another device. Links hold up to 250 wallpapers and work for 30 days |
 | **Video Wallpapers** | Browse YouTube video wallpapers with ExoPlayer auto-preview or import local clips/GIFs |
 | **Video Feed Pagination** | Warm-cache loading and pagination share one request gate, so provider results aren't duplicated or dropped |
 | **Video Quality Hints** | Loop-safe, low-battery, and phone-fit filters plus per-card motion hints |

@@ -1,13 +1,41 @@
 import type { Reference } from "firebase-admin/database";
 import * as logger from "firebase-functions/logger";
+import { HttpsError } from "firebase-functions/v2/https";
 
 import type { CommunityCallableSurface } from "./communityContract";
 import {
+  evaluateCommunityQuotaAttempt,
   settledQuotaState,
+  type DedupeMarker,
+  type QuotaDecision,
   type QuotaLedgerState,
   type QuotaReservation,
   type QuotaSettlement,
 } from "./quotaEngine";
+
+/** Realtime Database half of reserveQuota: one transaction over the surface's day ledger. */
+export async function reserveQuotaLedger(
+  ref: Reference,
+  surface: CommunityCallableSurface,
+  nowMillis: number,
+  dedupe: DedupeMarker | null,
+  operationKey: string | undefined,
+): Promise<QuotaDecision> {
+  let decision: QuotaDecision | null = null;
+  const result = await ref.transaction(
+    (current: unknown) => {
+      const quota = current !== null && typeof current === "object" ? current as QuotaLedgerState : {};
+      decision = evaluateCommunityQuotaAttempt({ surface, nowMillis, quota, dedupe, operationKey });
+      return decision.status === "duplicate" ? current : decision.quota;
+    },
+    undefined,
+    false,
+  );
+  if (!result.committed || decision === null) {
+    throw new HttpsError("aborted", `Unable to reserve ${surface.surfaceKey} quota.`);
+  }
+  return decision;
+}
 
 /** The settle half of a callable backend; reserveQuota hands out the reservation. */
 export interface QuotaSettlingBackend {

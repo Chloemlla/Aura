@@ -70,6 +70,7 @@ py -3 tools\community_callable_wire_protocol_check.py --contract docs\community-
 | Follows | `setCreatorFollow` | `CommunityFollowInput` | `/creator_follows/{uid}/{creatorId}` | No |
 | User blocks | `setCommunityUserBlock` | `CommunityUserBlockInput` | `/community_user_blocks/{uid}/{blockedUid}`, `/community_blocked_by/{blockedUid}/{uid}` | No |
 | Profile edits | `updateCreatorProfile` | `CreatorProfileUpdateInput` | `/creator_profiles/{uid}` | No |
+| Collection shares | `publishSharedCollection` | `SharedCollectionInput` | `/shared_collections/{token}` | Yes |
 
 Every callable also owns these protected ledgers for its surface:
 
@@ -187,6 +188,25 @@ Cycle 100 added:
   daily-limit, unauthenticated, missing-App-Check, UID/timestamp override, and
   invalid public-copy cases.
 
+Collection share links moved behind a callable too:
+
+- `functions/src/collectionShareHandler.ts` implements `publishSharedCollection`.
+  The app sends the exported collection JSON as `document` plus a display name.
+  The server parses it, refuses anything that isn't a version 1 document with
+  1 to 250 item objects inside 512 KB of UTF-8, counts the items itself, picks a
+  random 128-bit token, and writes `createdByUid`, `createdAt`, and an
+  `expiresAt` 30 days out. Callers can't send any of those fields. Shares cost a
+  limited-use App Check token, 10 a day with a 30 second cooldown.
+- `pruneExpiredSharedCollections` runs every 24 hours (UTC) and deletes shares
+  whose `createdAt` is at least 30 days old, oldest first, in batches of 500.
+  The rules index `shared_collections` on `createdAt` for that query, and they
+  already refuse reads of an expired share, so the job only reclaims space.
+- `functions/test/publishSharedCollection.test.cjs` covers the accepted write,
+  replay, cooldown, daily limit, missing Auth or App Check, refused fields and
+  sizes, name fallback, and the refund on a failed write.
+  `test/firebase/functions.collection-share.test.mjs` runs the handler and the
+  prune against the emulator with the repo rules loaded.
+
 Do not claim production callable enforcement until all callable surfaces have
 owner-approved deploy evidence, live callable invocation evidence, Firebase
 Console App Check evidence, and direct RTDB rule tightening.
@@ -293,9 +313,16 @@ Cycle 116 added:
   operation-prefix drift, manifest-hash drift, invalid Functions App Check
   state, and duplicate receipt surfaces.
 
+`CommunityCallableClient.publishSharedCollection()` publishes collection links.
+`CollectionExporter` checks the 250 item and 512 KB link limits first, and a
+share sheet still sends the collection file when the link can't be made (quota,
+size, or no backend). A read the rules refuse because the share expired shows
+"Collection link is expired or unavailable."
+
 Report, vote, follow, user-block, sound upload finalization, wallpaper upload
-finalization, and profile edit writes are the Android write surfaces with
-callable client code and checked Android wire-protocol coverage today.
+finalization, profile edit, and collection share writes are the Android write
+surfaces with callable client code and checked Android wire-protocol coverage
+today.
 
 ## Request Envelope
 

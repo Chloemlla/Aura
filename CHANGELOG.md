@@ -122,6 +122,17 @@ All notable changes to Aura will be documented in this file.
   included, when nothing was stored. If the server stops partway through, the
   attempt still counts, because its save may have gone through.
 
+- **Collection links expire, and deletion records need a real deletion**: the
+  app used to write shared collection links straight into the database, with
+  no cap on how many and no expiry. Links now go through the server, which
+  checks the collection, counts its wallpapers and picks the link token itself.
+  You can make 10 links a day, 30 seconds apart, and each one opens for 30 days
+  before a daily job clears it out. Opening an expired link says it has
+  expired. When a link can't be made (the daily cap, more than 250 wallpapers,
+  or no server), the share sheet still sends the collection file. Deleting your
+  own upload now has to remove the upload in the same step that records the
+  deletion, so nobody can file deletion records for uploads that never existed.
+
 - **Firebase CLI upgraded to 15.31.0**: root audit findings reduced from 15 to
   10 (non-breaking fixes applied). Functions audit is now zero. The remaining
   root findings are transitive deployment-tool dependencies.

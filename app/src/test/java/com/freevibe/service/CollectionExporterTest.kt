@@ -1,5 +1,8 @@
 package com.freevibe.service
 
+import android.net.Uri
+import com.freevibe.data.model.MAX_SHARED_COLLECTION_DOCUMENT_BYTES
+import com.freevibe.data.model.MAX_SHARED_COLLECTION_ITEMS
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.BinaryBitmap
 import com.google.zxing.MultiFormatReader
@@ -7,6 +10,7 @@ import com.google.zxing.RGBLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.qrcode.QRCodeWriter
 import com.squareup.moshi.Moshi
+import io.mockk.mockk
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -137,6 +141,44 @@ class CollectionExporterTest {
 
         assertEquals(expected, restored?.items)
         assertEquals(expected.size, buildCollectionImportPlan(expected).items.size)
+    }
+
+    @Test
+    fun `collection links stop at the server item and size limits`() {
+        requireShareableAsLink("{}", MAX_SHARED_COLLECTION_ITEMS)
+
+        val tooMany = runCatching { requireShareableAsLink("{}", MAX_SHARED_COLLECTION_ITEMS + 1) }.exceptionOrNull()
+        val tooBig = runCatching {
+            requireShareableAsLink("x".repeat(MAX_SHARED_COLLECTION_DOCUMENT_BYTES + 1), 1)
+        }.exceptionOrNull()
+
+        assertTrue(tooMany is IllegalArgumentException)
+        assertTrue(tooMany?.message.orEmpty().contains("Share it as a file"))
+        assertTrue(tooBig is IllegalArgumentException)
+    }
+
+    @Test
+    fun `a refused read of an old share reads as an expired link`() {
+        val denied = RuntimeException("Firebase Database error: Permission denied")
+
+        assertTrue(isFirebasePermissionDenied(denied))
+        assertTrue(isFirebasePermissionDenied(IllegalStateException("wrapped", denied)))
+        assertFalse(isFirebasePermissionDenied(IllegalStateException("Network error")))
+        assertEquals("Collection link is expired or unavailable.", EXPIRED_COLLECTION_LINK_MESSAGE)
+    }
+
+    @Test
+    fun `share text leaves the link out when only the file could be shared`() {
+        val uri = mockk<Uri>(relaxed = true)
+
+        assertEquals(
+            "Aura collection: Evening\n3 wallpapers\naura://collection/import/abc12345",
+            buildCollectionShareText(CollectionShareBundle(uri, "Evening", "aura://collection/import/abc12345", 3)),
+        )
+        assertEquals(
+            "Aura collection: Evening\n3 wallpapers",
+            buildCollectionShareText(CollectionShareBundle(uri, "Evening", null, 3)),
+        )
     }
 
     private fun exportItem(

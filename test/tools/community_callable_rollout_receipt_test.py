@@ -82,7 +82,7 @@ class CommunityCallableRolloutReceiptTest(unittest.TestCase):
         receipt_text = dump_callable_rollout_receipt(receipt)
 
         self.assertEqual("callablesInvoked", receipt["executionStatus"])
-        self.assertEqual(7, receipt["callableSurfaceCount"])
+        self.assertEqual(8, receipt["callableSurfaceCount"])
         self.assertEqual("monitoring", receipt["appCheckFunctionsState"])
         self.assertIn("contractHash", receipt)
         self.assertIn("wireProtocolHash", receipt)

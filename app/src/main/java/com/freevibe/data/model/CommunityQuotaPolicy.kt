@@ -161,6 +161,20 @@ object CommunityQuotaPolicies {
         ),
     )
 
+    val collectionShares = CommunityQuotaPolicy(
+        surfaceKey = "collection_shares",
+        dailyLimit = 10,
+        minIntervalMillis = 30 * SECOND_MILLIS,
+        dedupeKey = "operationId",
+        enforcement = setOf(CommunityQuotaEnforcement.APP_CHECKED_CALLABLE),
+        callable = CommunityQuotaCallableContract(
+            functionName = "publishSharedCollection",
+            payloadSchema = "SharedCollectionInput",
+            finalWritePaths = listOf("/shared_collections/{token}"),
+            consumeLimitedUseAppCheckToken = true,
+        ),
+    )
+
     val all: List<CommunityQuotaPolicy> = listOf(
         reports,
         soundUploads,
@@ -169,5 +183,6 @@ object CommunityQuotaPolicies {
         follows,
         userBlocks,
         profileEdits,
+        collectionShares,
     )
 }

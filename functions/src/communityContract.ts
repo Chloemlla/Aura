@@ -164,6 +164,23 @@ export const COMMUNITY_CALLABLE_SURFACES: readonly CommunityCallableSurface[] = 
       requiresAppCheck: true,
     },
   },
+  {
+    surfaceKey: "collection_shares",
+    dailyLimit: 10,
+    minIntervalMillis: 30 * SECOND_MILLIS,
+    dedupeKey: "operationId",
+    enforcement: ["APP_CHECKED_CALLABLE"],
+    quotaLedgerPath: "/community_write_quotas/{uid}/{yyyyMMdd}/collection_shares",
+    dedupeLedgerPath: "/community_write_dedupe/{uid}/collection_shares/{dedupeKey}",
+    callable: {
+      functionName: "publishSharedCollection",
+      payloadSchema: "SharedCollectionInput",
+      finalWritePaths: ["/shared_collections/{token}"],
+      consumeLimitedUseAppCheckToken: true,
+      requiresAuth: true,
+      requiresAppCheck: true,
+    },
+  },
 ] as const;
 
 export function surfaceByKey(surfaceKey: string): CommunityCallableSurface {

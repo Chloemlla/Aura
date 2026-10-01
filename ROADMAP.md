@@ -335,16 +335,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
 
 ### P2
 
-- [ ] P2 — Move shared-collection and deletion-ledger writes behind bounded backend operations
-  Category: security
-  Where: app/src/main/java/com/freevibe/service/CollectionExporter.kt:189-206; database.rules.json:96-111,240-249; test/firebase/database.rules.test.mjs:322-380; functions/src/communityContract.ts:35-157
-  Problem: Clients can create unlimited bounded shared-collection nodes without quota, expiry, or App Check, and can fabricate owner-claimed deletion records for uploads that never existed. This enables storage/cost abuse and corrupts the audit trail.
-  Evidence: CollectionExporter writes RTDB directly and no collection policy exists in the callable quota contract. The rules test creates a tombstone in an empty database and expects success. Existing ownership checks do prevent cross-account media deletion, so the issue is abuse and ledger integrity.
-  Fix: Use callable operations with App Check, per-user rate/byte/count quotas, server timestamps, and TTL cleanup. Create deletion evidence only from backend-verified metadata and ownership.
-  Acceptance: Rules tests reject fabricated tombstones and direct share writes; callable tests enforce quotas/expiry; valid owner shares and verified deletions succeed.
-  Confidence: Verified
-  Effort: M
-
 - [ ] P2 — Validate complete theme-pack contents before mutating local state
   Category: correctness
   Where: app/src/main/java/com/freevibe/service/ThemePackRecipeManager.kt:166,183-197,260-337,557-800
@@ -573,11 +563,11 @@ Remainders of items closed in the 2026-09-30 drain whose full acceptance did not
 
 ### P1
 
-- [ ] P1 — Deploy the private vote schema, the sound upload fix and run the vote backfill
-  Why: the code for private vote markers, the public `vote_counts` tree and the sound finalize fix is merged, but production still runs the old rules and functions until they are deployed. Until then voter UIDs stay public and every sound upload with a reported size is refused.
+- [ ] P1 — Deploy the private vote schema, the callable fixes and collection shares, then run the vote backfill
+  Why: the code for private vote markers, the public `vote_counts` tree and the sound finalize fix is merged, but production still runs the old rules and functions until they are deployed. Until then voter UIDs stay public, every sound upload with a reported size is refused, a failed community write still spends its quota unit, and collection links are written straight from the app with no quota or expiry. The tombstone rules that need a real owner delete ship in the same rules file.
   Needs: `firebase login` on this PC (the CLI is signed out), then an RTDB export.
-  Steps: `firebase deploy --only database,functions:community --project <prod>`; export the database; `python tools/community_vote_privacy_backfill.py --database-export <export.json> --output <update.json>`; `firebase database:update / <update.json> --project <prod>`; after the release that reads the new paths is out, rerun with `--drop-legacy`.
-  Acceptance: production `/votes` and `/voters` refuse a signed-in non-admin read; Top Voted shows the backfilled leaders on a phone; a real community sound upload finalizes.
+  Order: deploy functions first (`firebase deploy --only functions:community --project <prod>`, which also creates the Cloud Scheduler job for `pruneExpiredSharedCollections` and needs the Blaze plan), then the rules only once the release that calls `publishSharedCollection` is out, because older builds write `shared_collections` directly and their share sheet fails when that write is refused. Steps: `firebase deploy --only database --project <prod>`; export the database; `python tools/community_vote_privacy_backfill.py --database-export <export.json> --output <update.json>`; `firebase database:update / <update.json> --project <prod>`; after the release that reads the new paths is out, rerun with `--drop-legacy`.
+  Acceptance: production `/votes` and `/voters` refuse a signed-in non-admin read; Top Voted shows the backfilled leaders on a phone; a real community sound upload finalizes; a collection link made on one phone imports on the other; a direct client write to `shared_collections` is refused; the prune job shows a successful run in the Functions log.
 
 ### P2
 

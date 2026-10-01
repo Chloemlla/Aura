@@ -5,7 +5,12 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.Log
 import com.freevibe.data.local.CollectionDao
+import com.freevibe.data.model.MAX_SHARED_COLLECTION_DOCUMENT_BYTES
+import com.freevibe.data.model.MAX_SHARED_COLLECTION_ITEMS
+import com.freevibe.data.model.SharedCollectionInput
+import com.freevibe.data.repository.CommunityCallableClient
 import com.freevibe.data.repository.awaitFirebaseRead
 import com.freevibe.util.rethrowIfCancelled
 import com.freevibe.data.model.WallpaperCollectionEntity
@@ -29,7 +34,6 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
-import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -44,6 +48,8 @@ private val SHARE_TOKEN_REGEX = Regex(
         "${LibraryTransferContract.MAX_SHARE_TOKEN_CHARS}}$"
 )
 private const val CURRENT_VERSION = 1
+private const val TAG = "CollectionExporter"
+internal const val EXPIRED_COLLECTION_LINK_MESSAGE = "Collection link is expired or unavailable."
 
 @Singleton
 class CollectionExporter @Inject constructor(
@@ -51,6 +57,7 @@ class CollectionExporter @Inject constructor(
     private val collectionDao: CollectionDao,
     private val moshi: Moshi,
     private val identityProvider: CommunityIdentityProvider,
+    private val callableClient: CommunityCallableClient,
 ) {
     private val adapter = moshi.adapter(CollectionExportFile::class.java).indent("  ")
     private val database by lazy {
@@ -63,11 +70,17 @@ class CollectionExporter @Inject constructor(
                 val file = buildExportFile(collectionId, collectionName)
                 val json = serialize(file)
                 val uri = writeShareFile(collectionId, file.collectionName, json)
-                val token = publishPayload(json, file.collectionName, file.items.size)
+                // The file always shares. The link is a bonus that can hit its quota or size limit.
+                val shareLink = runCatching { buildShareLink(publishPayload(json, file.collectionName, file.items.size)) }
+                    .onFailure {
+                        it.rethrowIfCancelled()
+                        Log.w(TAG, "Collection link not created; sharing the file only", it)
+                    }
+                    .getOrNull()
                 CollectionShareBundle(
                     uri = uri,
                     collectionName = file.collectionName,
-                    shareLink = buildShareLink(token),
+                    shareLink = shareLink,
                     itemCount = file.items.size,
                 )
             }.onFailure { it.rethrowIfCancelled() }
@@ -99,15 +112,22 @@ class CollectionExporter @Inject constructor(
             val token = extractCollectionShareToken(input)
                 ?: throw IllegalArgumentException("Paste an Aura collection link or share token.")
             val db = database ?: throw IllegalStateException("Firebase Database not available")
-            val json = awaitFirebaseRead("Shared collection") {
-                db.child("shared_collections")
-                    .child(token)
-                    .child("payload")
-                    .get()
-                    .await()
+            val snapshot = try {
+                awaitFirebaseRead("Shared collection") {
+                    db.child("shared_collections")
+                        .child(token)
+                        .child("payload")
+                        .get()
+                        .await()
+                }
+            } catch (e: Exception) {
+                e.rethrowIfCancelled()
+                // The rules refuse reads of a share past its 30 days.
+                if (isFirebasePermissionDenied(e)) throw IllegalStateException(EXPIRED_COLLECTION_LINK_MESSAGE, e)
+                throw e
             }
-                .getValue(String::class.java)
-                ?: throw IllegalStateException("Collection link is expired or unavailable.")
+            val json = snapshot.getValue(String::class.java)
+                ?: throw IllegalStateException(EXPIRED_COLLECTION_LINK_MESSAGE)
             importJson(json)
         }.onFailure { it.rethrowIfCancelled() }
     }
@@ -129,10 +149,7 @@ class CollectionExporter @Inject constructor(
             type = "application/json"
             putExtra(Intent.EXTRA_STREAM, bundle.uri)
             putExtra(Intent.EXTRA_SUBJECT, "Aura collection: ${bundle.collectionName}")
-            putExtra(
-                Intent.EXTRA_TEXT,
-                "Aura collection: ${bundle.collectionName}\n${bundle.itemCount} wallpapers\n${bundle.shareLink}",
-            )
+            putExtra(Intent.EXTRA_TEXT, buildCollectionShareText(bundle))
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 
@@ -203,24 +220,15 @@ class CollectionExporter @Inject constructor(
         return ShareOutbox.uriFor(context, shareFile)
     }
 
+    /** The backend stores the share under a token it picks, with a quota and a 30-day expiry. */
     private suspend fun publishPayload(json: String, collectionName: String, itemCount: Int): String {
-        val db = database ?: throw IllegalStateException("Firebase Database not available")
-        val creatorUid = identityProvider.ensureSignedIn()
-        val token = UUID.randomUUID().toString().replace("-", "")
-        db.child("shared_collections")
-            .child(token)
-            .setValue(
-                mapOf(
-                    "version" to CURRENT_VERSION,
-                    "payload" to json,
-                    "collectionName" to collectionName,
-                    "itemCount" to itemCount,
-                    "createdAt" to System.currentTimeMillis(),
-                    "createdByUid" to creatorUid,
-                ),
-            )
-            .await()
-        return token
+        requireShareableAsLink(json, itemCount)
+        identityProvider.ensureSignedIn()
+        val result = callableClient.publishSharedCollection(
+            SharedCollectionInput(document = json, collectionName = collectionName),
+        )
+        return result.targetId().takeIf { it.matches(SHARE_TOKEN_REGEX) }
+            ?: throw IllegalStateException("Collection link could not be created.")
     }
 
     private fun buildShareLink(token: String): String = "aura://collection/import/$token"
@@ -326,7 +334,7 @@ class CollectionExporter @Inject constructor(
 data class CollectionShareBundle(
     val uri: Uri,
     val collectionName: String,
-    val shareLink: String,
+    val shareLink: String?,
     val itemCount: Int,
 )
 
@@ -387,6 +395,25 @@ internal fun extractCollectionShareToken(input: String): String? {
             .takeIf { it.matches(SHARE_TOKEN_REGEX) }
     }
 }
+
+internal fun requireShareableAsLink(json: String, itemCount: Int) {
+    require(
+        itemCount <= MAX_SHARED_COLLECTION_ITEMS &&
+            json.toByteArray(Charsets.UTF_8).size <= MAX_SHARED_COLLECTION_DOCUMENT_BYTES,
+    ) { "Collection links hold up to $MAX_SHARED_COLLECTION_ITEMS wallpapers. Share it as a file instead." }
+}
+
+internal fun isFirebasePermissionDenied(error: Throwable): Boolean =
+    generateSequence(error) { it.cause }
+        .take(8)
+        .any { it.message?.contains("permission denied", ignoreCase = true) == true }
+
+internal fun buildCollectionShareText(bundle: CollectionShareBundle): String =
+    listOfNotNull(
+        "Aura collection: ${bundle.collectionName}",
+        "${bundle.itemCount} wallpapers",
+        bundle.shareLink,
+    ).joinToString("\n")
 
 internal fun sanitizeImportedCollectionName(name: String): String =
     name.trim()

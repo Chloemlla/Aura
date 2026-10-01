@@ -82,13 +82,17 @@ covers:
   the receipt;
 - delete receipt state transitions for `STARTED`, `SUCCEEDED`, and `FAILED`
   retry evidence after the initial handle-matched receipt is created;
-- private `/community_upload_deletions/{publicId}` tombstones that allow
-  owner-created `OWNER_DELETE` rows, admin-created takedown rows, admin-only
-  reads, owner-prefix Storage path validation, and admin-only updates;
+- private `/community_upload_deletions/{publicId}` tombstones that allow an
+  owner `OWNER_DELETE` row only in the same write that removes that owner's
+  live upload metadata with the same `storagePath`, plus admin-created takedown
+  rows, admin-only reads, owner-prefix Storage path validation, and admin-only
+  updates. A tombstone with no upload behind it is refused;
 - private `community_user_blocks` rows readable by the blocker/admins plus
   admin-only `community_blocked_by` reverse indexes;
-- app-matched `shared_collections/{token}` public reads, authenticated creator
-  writes, owner/admin cleanup, and bounded payloads; and
+- `shared_collections/{token}` rows written only by the `publishSharedCollection`
+  callable (or an admin), public reads until `expiresAt` (or 30 days after
+  `createdAt` for older rows without it), owner/admin removal, a fixed field
+  set, and bounded payloads; and
 - denial for the old unused `collection_shares` path.
 
 The emulator pass also keeps the rules file deploy-compatible: no top-level or
