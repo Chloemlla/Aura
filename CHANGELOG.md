@@ -4,6 +4,17 @@ All notable changes to Aura will be documented in this file.
 
 ## Unreleased
 
+- **Sound rotation now uses named pools**: each pool can mix downloaded sounds,
+  local files, and Aura Originals, then target the ringtone, notification,
+  alarm, or any combination on its own schedule. The worker avoids immediate
+  repeats, filters duration per target, records skipped or missing media, and
+  restores enabled schedules after reboot. Users can relink missing members,
+  inspect apply history, and safely undo while the system sound still matches
+  Aura's last change. Portable library format 4 restores locator-free pool
+  assignments without copying audio, private paths, system URIs, or history.
+
+## v6.46.0 (2026-09-30)
+
 - **targetSdk 36**: meets Play and Accrescent requirements. All Android 16
   behavior changes (predictive back, edge-to-edge, orientation freedom) were
   already in place.
@@ -256,15 +267,6 @@ All notable changes to Aura will be documented in this file.
 - **Benchmark harness fixed**: taps Library instead of stale Favorites, fails
   immediately when a bottom nav destination is missing, and waits for the
   shell to appear before measuring.
-
-- **Sound rotation now uses named pools**: each pool can mix downloaded sounds,
-  local files, and Aura Originals, then target the ringtone, notification,
-  alarm, or any combination on its own schedule. The worker avoids immediate
-  repeats, filters duration per target, records skipped or missing media, and
-  restores enabled schedules after reboot. Users can relink missing members,
-  inspect apply history, and safely undo while the system sound still matches
-  Aura's last change. Portable library format 4 restores locator-free pool
-  assignments without copying audio, private paths, system URIs, or history.
 
 - **Missing local media can be repaired**: downloads, favorites, and local
   wallpaper catalog entries now stay visible when a file moves, disappears,
