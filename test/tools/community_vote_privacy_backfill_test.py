@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest import mock
 
 from tools import community_vote_privacy_backfill as backfill_tool
-from tools.community_vote_privacy_backfill import build_vote_privacy_backfill, community_upload_root
+from tools.community_vote_privacy_backfill import build_vote_privacy_backfill
 
 
 class CommunityVotePrivacyBackfillTest(unittest.TestCase):
@@ -32,15 +32,11 @@ class CommunityVotePrivacyBackfillTest(unittest.TestCase):
             "community_sounds": {},
         }
 
-    def test_backfill_moves_counts_and_markers_without_losing_votes(self) -> None:
+    def test_backfill_moves_markers_and_leaves_counts_to_the_seeding_job(self) -> None:
         result = build_vote_privacy_backfill(self.database_export())
 
         self.assertEqual(
             {
-                "community_wallpapers/wall1/votes": 3,
-                "vote_counts/SOUND::COMMUNITY::cu_sound1/upvotes": 1,
-                "vote_counts/WALLPAPER::COMMUNITY::cw_wall1/upvotes": 3,
-                "vote_counts/WALLPAPER::WALLHAVEN::abc/upvotes": 5,
                 "vote_markers/uid-a/WALLPAPER::COMMUNITY::cw_wall1": True,
                 "vote_markers/uid-b/WALLPAPER::COMMUNITY::cw_wall1": True,
                 "vote_markers/uid-d/WALLPAPER::COMMUNITY::cw_wall1": True,
@@ -48,33 +44,35 @@ class CommunityVotePrivacyBackfillTest(unittest.TestCase):
             },
             result["updates"],
         )
-        self.assertEqual(
-            {"voteCounts": 3, "voteMarkers": 4, "uploadVoteFields": 1, "legacyDropped": False},
-            result["summary"],
-        )
+        self.assertEqual({"voteMarkers": 4, "missingCounts": 3, "legacyDropped": False}, result["summary"])
 
-    def test_count_never_drops_below_distinct_voters(self) -> None:
-        result = build_vote_privacy_backfill(
-            {"votes": {"item": {"upvotes": 1, "voters": {"a": True, "b": True}}}, "voters": {"item": {"c": True}}}
-        )
+    def test_counts_and_upload_rows_are_never_written_from_an_export(self) -> None:
+        # Votes cast after the export would be overwritten by an absolute count.
+        export = self.database_export()
+        export["vote_counts"]["WALLPAPER::COMMUNITY::cw_wall1"] = {"upvotes": 1}
 
-        self.assertEqual(3, result["updates"]["vote_counts/item/upvotes"])
+        updates = build_vote_privacy_backfill(export)["updates"]
 
-    def test_drop_legacy_clears_both_legacy_roots(self) -> None:
-        result = build_vote_privacy_backfill(self.database_export(), drop_legacy=True)
+        self.assertFalse([key for key in updates if not key.startswith("vote_markers/")])
+
+    def test_drop_legacy_refuses_until_every_legacy_count_has_a_row(self) -> None:
+        with self.assertRaisesRegex(ValueError, "3 legacy content IDs have no /vote_counts row"):
+            build_vote_privacy_backfill(self.database_export(), drop_legacy=True)
+
+        export = self.database_export()
+        for content_id in ("WALLPAPER::COMMUNITY::cw_wall1", "SOUND::COMMUNITY::cu_sound1", "SOUND::FREESOUND::zero"):
+            export["vote_counts"][content_id] = {"upvotes": 0}
+        result = build_vote_privacy_backfill(export, drop_legacy=True)
 
         self.assertIsNone(result["updates"]["votes"])
         self.assertIsNone(result["updates"]["voters"])
         self.assertTrue(result["summary"]["legacyDropped"])
+        self.assertEqual(0, result["summary"]["missingCounts"])
 
-    def test_upload_mirror_skips_missing_rows_and_mismatched_prefixes(self) -> None:
-        self.assertEqual(("community_sounds", "abc"), community_upload_root("SOUND::COMMUNITY::cu_abc"))
-        self.assertEqual(("community_wallpapers", "abc"), community_upload_root("WALLPAPER::COMMUNITY::cw_abc"))
-        self.assertIsNone(community_upload_root("SOUND::COMMUNITY::cw_abc"))
-        self.assertIsNone(community_upload_root("WALLPAPER::WALLHAVEN::cw_abc"))
+    def test_a_count_row_that_is_not_a_whole_number_still_counts_as_missing(self) -> None:
+        export = {"votes": {"item": {"upvotes": 2}}, "vote_counts": {"item": {"upvotes": -1}}}
 
-        result = build_vote_privacy_backfill(self.database_export())
-        self.assertNotIn("community_sounds/sound1/votes", result["updates"])
+        self.assertEqual(1, build_vote_privacy_backfill(export)["summary"]["missingCounts"])
 
     def test_rejects_non_object_roots(self) -> None:
         with self.assertRaises(ValueError):
@@ -92,9 +90,9 @@ class CommunityVotePrivacyBackfillTest(unittest.TestCase):
                 self.assertEqual(0, backfill_tool.main())
 
             written = json.loads(output_path.read_text(encoding="utf-8"))
-            self.assertEqual(3, written["vote_counts/WALLPAPER::COMMUNITY::cw_wall1/upvotes"])
+            self.assertTrue(written["vote_markers/uid-a/WALLPAPER::COMMUNITY::cw_wall1"])
             self.assertNotIn("summary", written)
-            self.assertIn("3 counts, 4 markers, 1 upload vote fields", write.call_args.args[0])
+            self.assertIn("4 markers, 3 content IDs still waiting for a count", write.call_args.args[0])
 
 
 if __name__ == "__main__":

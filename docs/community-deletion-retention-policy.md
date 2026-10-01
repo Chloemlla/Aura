@@ -51,7 +51,8 @@ Storage path must remain under the uploader-scoped `sounds/{uid}/` or
 Vote markers now live under `/vote_markers/{uid}`, readable only by that account
 and admins, and the public `/vote_counts` tree holds counts alone. The legacy
 `/votes` and `/voters` trees are admin-only. Account deletion removes the whole
-`/vote_markers/{uid}` subtree plus any legacy markers, and keeps the counts.
+`/vote_markers/{uid}` and `/vote_locks/{uid}` subtrees plus any legacy markers,
+and keeps the counts.
 
 ## Sources
 

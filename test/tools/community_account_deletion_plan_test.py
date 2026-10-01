@@ -94,6 +94,17 @@ class CommunityAccountDeletionPlanTest(unittest.TestCase):
         self.assertEqual(["/vote_markers/uid_1"], plan["categories"]["voteMarkers"])
         self.assertTrue(any(item["root"] == "/vote_counts/*/upvotes" for item in plan["retained"]))
 
+    def test_plan_removes_a_vote_lock_left_by_an_interrupted_vote(self) -> None:
+        database_export = {
+            "vote_markers": {"uid_1": {"content1": True}},
+            "vote_locks": {"uid_1": {"content2": {"at": 1}}, "other": {"content2": {"at": 1}}},
+        }
+
+        plan = build_account_deletion_plan(database_export, "uid/1")
+
+        self.assertEqual({"/vote_markers/uid_1": None, "/vote_locks/uid_1": None}, plan["updates"])
+        self.assertEqual(["/vote_locks/uid_1", "/vote_markers/uid_1"], sorted(plan["categories"]["voteMarkers"]))
+
     def test_plan_rejects_blank_uid_and_invalid_roots(self) -> None:
         with self.assertRaises(ValueError):
             build_account_deletion_plan({}, "   ")

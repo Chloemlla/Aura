@@ -121,15 +121,28 @@ The vote schema was later split so voter UIDs never sit in a public tree:
   query with `limitToLast` of 200 or less.
 - `/vote_markers/{uid}/{contentId}` records who voted. Only that account (or an
   admin) can read it.
-- The callable claims the marker in a transaction, then bumps the count in a
-  second transaction and removes the marker again if the count cannot commit.
-  A first vote after the split starts from the legacy `/votes/{contentId}/upvotes`
-  value. Community uploads also get the count mirrored into their own `votes`
-  field, which the upload feeds sort by.
+- The callable takes a private lock at `/vote_locks/{uid}/{contentId}` in a
+  transaction, so a second call from the same account for the same item is
+  turned away while the first is counted. The marker, the `ServerValue.increment`
+  on the count, and the lock removal then land in one atomic update. A run that
+  dies before that update leaves no marker, so the vote can be cast again once
+  the lock's 5 minute lease runs out.
+- A missing count row is seeded first from the legacy `/votes/{contentId}/upvotes`
+  value, never below the number of distinct legacy voters. The seed transaction
+  leaves any whole-number row alone. Community uploads also get the count
+  mirrored into their own `votes` field, which the upload feeds sort by. The
+  mirror is one transaction on the upload row and skips a row that is gone, so
+  a deleted upload can't come back as a stub.
+- `seedLegacyVoteCounts` runs every 24 hours (UTC) and gives every content ID
+  under `/votes` or `/voters` a count row through that same seed transaction, so
+  it and the callable can run in either order without losing a vote.
 - `/votes` and `/voters` are admin-only now, except the old per-item
   `/votes/{contentId}/upvotes` leaf, which stays readable for older app builds.
   `tools/community_vote_privacy_backfill.py` turns a database export into the
-  one-time multi-path update that copies legacy counts and markers across.
+  one-time multi-path update that copies legacy voter markers across. It never
+  writes counts, since an absolute count from an export would overwrite votes
+  cast after it, and `--drop-legacy` refuses while any legacy content in the
+  export still lacks a count row.
 
 Cycle 96 added:
 

@@ -142,6 +142,15 @@ All notable changes to Aura will be documented in this file.
   changes and the unpacked files are removed. The settings it does change are
   saved together.
 
+- **Votes can't get lost part way**: the server recorded that you voted and
+  then added your vote to the count in a second step. If it stopped between
+  the two, your vote never counted and you couldn't vote again. Both now land
+  together, and a vote that was cut off can be cast again a few minutes later.
+  Creator pages kept showing 0 votes when a count couldn't be loaded. They now
+  keep the count they already had. Vote totals from before the private vote
+  change move across on the server, so a vote cast during the move isn't
+  overwritten.
+
 - **Firebase CLI upgraded to 15.31.0**: root audit findings reduced from 15 to
   10 (non-breaking fixes applied). Functions audit is now zero. The remaining
   root findings are transitive deployment-tool dependencies.

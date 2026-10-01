@@ -9,7 +9,7 @@ import { createSetCreatorFollowCallable } from "./followHandler";
 import { createUpdateCreatorProfileCallable } from "./profileHandler";
 import { createSubmitCommunityReportCallable } from "./reportHandler";
 import { createFinalizeCommunitySoundUploadCallable } from "./soundUploadHandler";
-import { createRecordCommunityVoteCallable } from "./voteHandler";
+import { createRecordCommunityVoteCallable, createSeedLegacyVoteCountsJob } from "./voteHandler";
 import { createFinalizeCommunityWallpaperUploadCallable } from "./wallpaperUploadHandler";
 
 if (getApps().length === 0) {
@@ -20,6 +20,7 @@ export const submitCommunityReport = createSubmitCommunityReportCallable();
 export const finalizeCommunitySoundUpload = createFinalizeCommunitySoundUploadCallable();
 export const finalizeCommunityWallpaperUpload = createFinalizeCommunityWallpaperUploadCallable();
 export const recordCommunityVote = createRecordCommunityVoteCallable();
+export const seedLegacyVoteCounts = createSeedLegacyVoteCountsJob();
 export const setCreatorFollow = createSetCreatorFollowCallable();
 export const setCommunityUserBlock = createSetCommunityUserBlockCallable();
 export const updateCreatorProfile = createUpdateCreatorProfileCallable();

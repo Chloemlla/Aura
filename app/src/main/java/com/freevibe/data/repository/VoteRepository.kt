@@ -49,6 +49,24 @@ internal fun topVotedRows(rows: List<Pair<String, Int>>, limit: Int): List<Pair<
         .sortedByDescending { it.second }
         .take(limit.coerceIn(0, TOP_VOTED_MAX_LIMIT))
 
+/** Reads each distinct id once; a null row or a failed read is dropped rather than counted as zero. */
+internal suspend fun collectVoteCounts(
+    contentIds: List<String>,
+    readUpvotes: suspend (String) -> Int?,
+): Map<String, Int> = coroutineScope {
+    contentIds.distinct().map { id ->
+        async {
+            val upvotes = try {
+                readUpvotes(id)
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                null
+            }
+            upvotes?.let { id to it }
+        }
+    }.awaitAll().filterNotNull().toMap()
+}
+
 /**
  * Pure-JVM admin-precedence rule. Tested by [com.freevibe.data.repository.AdminPrecedenceTest].
  * Roadmap N-2: server-side Custom Claim is always authoritative; legacy device-hash and
@@ -435,25 +453,18 @@ class VoteRepository @Inject constructor(
         }
     }
 
-    /** One-shot public counts keyed by the ids passed in, read row by row from `/vote_counts`. */
+    /**
+     * One-shot public counts keyed by the ids passed in, read row by row from `/vote_counts`.
+     * An id whose row is missing or whose read failed is left out, so callers keep the count
+     * they already had instead of showing zero.
+     */
     suspend fun getVoteCountsOnce(contentIds: List<String>): Map<String, Int> {
-        val ids = contentIds.distinct()
-        if (ids.isEmpty() || !isCommunityAccessEnabled()) return emptyMap()
+        if (!isCommunityAccessEnabled()) return emptyMap()
         val countsRefInstance = voteCountsRef ?: return emptyMap()
-        return coroutineScope {
-            ids.map { id ->
-                async {
-                    val upvotes = try {
-                        awaitFirebaseRead("Community vote counts") {
-                            countsRefInstance.child(sanitizeKey(id)).child("upvotes").get().await()
-                        }.getValue(Int::class.java) ?: 0
-                    } catch (e: Exception) {
-                        if (e is kotlinx.coroutines.CancellationException) throw e
-                        0
-                    }
-                    id to upvotes
-                }
-            }.awaitAll().toMap()
+        return collectVoteCounts(contentIds) { id ->
+            awaitFirebaseRead("Community vote counts") {
+                countsRefInstance.child(sanitizeKey(id)).child("upvotes").get().await()
+            }.getValue(Int::class.java)
         }
     }
 

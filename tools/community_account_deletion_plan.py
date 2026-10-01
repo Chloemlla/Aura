@@ -104,9 +104,10 @@ def build_account_deletion_plan(database_export: Any, uid: str) -> dict[str, Any
             if matches_uid(voter_key, safe_uid):
                 add_update(updates, categories, "voteMarkers", f"/voters/{content_id}/{voter_key}")
 
-    for marker_uid in sorted(object_root(database_export, "vote_markers")):
-        if matches_uid(marker_uid, safe_uid):
-            add_update(updates, categories, "voteMarkers", f"/vote_markers/{marker_uid}")
+    for marker_root in ("vote_markers", "vote_locks"):
+        for marker_uid in sorted(object_root(database_export, marker_root)):
+            if matches_uid(marker_uid, safe_uid):
+                add_update(updates, categories, "voteMarkers", f"/{marker_root}/{marker_uid}")
 
     follows = object_root(database_export, "creator_follows")
     if safe_uid in follows:

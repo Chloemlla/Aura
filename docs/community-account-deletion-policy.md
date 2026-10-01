@@ -137,6 +137,8 @@ ID, credentials, command output, and tokens.
 The planner removes:
 
 - `/vote_markers/{uid}` private vote markers.
+- `/vote_locks/{uid}` locks left by a vote that was interrupted while it was
+  being counted.
 - `/votes/{contentId}/voters/{uid}` nested vote markers from before the schema
   split.
 - `/voters/{contentId}/{uid}` legacy vote markers.

@@ -387,6 +387,9 @@ test('one account cannot enumerate another account vote or follow markers', asyn
   await assertFails(two.ref(`vote_markers/voter-one/${WALL_KEY}`).once('value'));
   await assertFails(two.ref('vote_markers').once('value'));
   await assertFails(anonymous.ref('vote_markers/voter-one').once('value'));
+  // In-flight vote locks are server-only, even for the voter.
+  await assertFails(one.ref('vote_locks/voter-one').once('value'));
+  await assertFails(one.ref(`vote_locks/voter-one/${WALL_KEY}`).set({ at: 1 }));
 
   // Legacy trees that carried UIDs are admin-only; the old count leaf stays for older builds.
   await assertFails(two.ref('votes').once('value'));

@@ -2,7 +2,7 @@ import { after, before, beforeEach, test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { createRequire } from 'node:module';
 
-import { recordCommunityVoteHandler } from '../../functions/lib/voteHandler.js';
+import { recordCommunityVoteHandler, seedLegacyVoteCounts } from '../../functions/lib/voteHandler.js';
 
 const PROJECT_ID = 'aura-rules-test';
 const VOTER_UID = 'voter-emulator';
@@ -62,6 +62,7 @@ test('vote callable handler writes a public count, a private marker, quota, and 
 
   assert.deepEqual(await readValue(`vote_counts/${CONTENT_ID}`), { upvotes: 1 });
   assert.equal(await readValue(`vote_markers/${VOTER_UID}/${CONTENT_ID}`), true);
+  assert.equal(await readValue('vote_locks'), null);
 
   // Nothing that names the voter lands in the old public trees.
   assert.equal(await readValue('votes'), null);
@@ -121,6 +122,77 @@ test('first vote after the split starts from the legacy count and legacy voters 
     assert.equal(repeat.status, 'duplicate');
   }
   assert.equal((await readValue(`vote_counts/${CONTENT_ID}`)).upvotes, 6);
+});
+
+test('a vote interrupted before it was counted can be cast again once its lock lapses', async () => {
+  // What a run that died after taking the lock leaves behind: a lock, no marker, no count.
+  await getDatabase(app).ref(`vote_locks/${VOTER_UID}/${CONTENT_ID}`).set({ at: Date.now() - 6 * 60 * 1_000 });
+
+  const retry = await recordCommunityVoteHandler(validRequest());
+
+  assert.equal(retry.status, 'accepted');
+  assert.equal(retry.upvotes, 1);
+  assert.equal(await readValue(`vote_markers/${VOTER_UID}/${CONTENT_ID}`), true);
+  assert.equal(await readValue('vote_locks'), null);
+});
+
+test('a vote still being counted turns a second call away without counting or charging it', async () => {
+  await getDatabase(app).ref(`vote_locks/${VOTER_UID}/${CONTENT_ID}`).set({ at: Date.now() });
+
+  await assert.rejects(
+    recordCommunityVoteHandler(validRequest()),
+    (error) => error.code === 'aborted' && /still being counted/.test(error.message),
+  );
+
+  assert.equal(await readValue(`vote_counts/${CONTENT_ID}`), null);
+  assert.equal(await readValue(`vote_markers/${VOTER_UID}/${CONTENT_ID}`), null);
+  const quotas = await readValue(`community_write_quotas/${VOTER_UID}`) ?? {};
+  for (const day of Object.values(quotas)) {
+    assert.equal(day.votes?.count ?? 0, 0);
+  }
+});
+
+test('a stored count that is not a whole number is cleaned up before the vote adds to it', async () => {
+  await getDatabase(app).ref(`vote_counts/${CONTENT_ID}`).set({ upvotes: -4 });
+
+  const result = await recordCommunityVoteHandler(validRequest());
+
+  assert.equal(result.upvotes, 1);
+  assert.deepEqual(await readValue(`vote_counts/${CONTENT_ID}`), { upvotes: 1 });
+});
+
+test('the seeding job fills missing counts from legacy rows and never lowers one already counted', async () => {
+  const counted = 'WALLPAPER::COMMUNITY::cw_counted';
+  await getDatabase(app).ref().update({
+    [`votes/${CONTENT_ID}`]: { upvotes: 4, voters: { 'legacy-voter': true } },
+    [`votes/${counted}`]: { upvotes: 9 },
+    'votes/SOUND::FREESOUND::zero': { upvotes: 0 },
+    'votes/SOUND::FREESOUND::crowd': { upvotes: 1, voters: { a: true, b: true } },
+    'voters/SOUND::FREESOUND::crowd/c': true,
+    'voters/SOUND::FREESOUND::voters_only/d': true,
+    'community_wallpapers/vote_target': { name: 'Target', storagePath: 'wallpapers/owner/vote_target.jpg', votes: 1 },
+  });
+  // A vote cast after the split but before the job runs seeds from legacy and adds itself.
+  const vote = await recordCommunityVoteHandler(validRequest({ contentId: counted }));
+  assert.equal(vote.upvotes, 10);
+
+  const firstRun = await seedLegacyVoteCounts(getDatabase(app).ref(), 2, 10);
+
+  assert.equal(firstRun, 4);
+  assert.deepEqual(await readValue(`vote_counts/${CONTENT_ID}`), { upvotes: 4 });
+  assert.deepEqual(await readValue(`vote_counts/${counted}`), { upvotes: 10 });
+  assert.deepEqual(await readValue('vote_counts/SOUND::FREESOUND::zero'), { upvotes: 0 });
+  // A count never starts below the number of distinct legacy voters.
+  assert.deepEqual(await readValue('vote_counts/SOUND::FREESOUND::crowd'), { upvotes: 3 });
+  assert.deepEqual(await readValue('vote_counts/SOUND::FREESOUND::voters_only'), { upvotes: 1 });
+  assert.equal(await readValue('community_wallpapers/vote_target/votes'), 4);
+  assert.equal(await readValue('community_wallpapers/counted'), null);
+
+  // A later vote adds to the seeded count, and a second run changes nothing.
+  const next = await recordCommunityVoteHandler({ ...validRequest(), auth: { uid: 'voter-two' } });
+  assert.equal(next.upvotes, 5);
+  assert.equal(await seedLegacyVoteCounts(getDatabase(app).ref(), 2, 10), 0);
+  assert.deepEqual(await readValue(`vote_counts/${CONTENT_ID}`), { upvotes: 5 });
 });
 
 test('community upload rows get the count mirrored into their votes field', async () => {
