@@ -57,7 +57,6 @@ class RingtoneRestorationWorker @AssistedInject constructor(
     @Assisted workerParams: WorkerParameters,
     private val prefs: PreferencesManager,
     private val livenessMonitor: LiveWallpaperLivenessMonitor,
-    private val soundShufflePoolManager: SoundShufflePoolManager,
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
@@ -69,8 +68,6 @@ class RingtoneRestorationWorker @AssistedInject constructor(
                 .onSuccess { if (!restoreIfNeeded(RingtoneManager.TYPE_NOTIFICATION, it)) anyFailed = true }
             runCatching { prefs.lastAppliedAlarmUri.first() }
                 .onSuccess { if (!restoreIfNeeded(RingtoneManager.TYPE_ALARM, it)) anyFailed = true }
-            soundShufflePoolManager.migrateLegacyIfNeeded()
-            soundShufflePoolManager.restoreSchedules()
             runCatching { livenessMonitor.refresh() }
             if (anyFailed) Result.retry() else Result.success()
         } catch (e: Exception) {
