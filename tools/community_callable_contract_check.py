@@ -60,6 +60,7 @@ EXPECTED_SURFACES: dict[str, dict[str, Any]] = {
         "payloadSchema": "CommunityVoteInput",
         "finalWritePaths": [
             "/vote_markers/{uid}/{contentId}",
+            "/vote_locks/{uid}/{contentId}",
             "/vote_counts/{contentId}",
             "/community_sounds/{uploadId}/votes",
             "/community_wallpapers/{uploadId}/votes",

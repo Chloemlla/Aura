@@ -101,6 +101,7 @@ export const COMMUNITY_CALLABLE_SURFACES: readonly CommunityCallableSurface[] = 
       payloadSchema: "CommunityVoteInput",
       finalWritePaths: [
         "/vote_markers/{uid}/{contentId}",
+        "/vote_locks/{uid}/{contentId}",
         "/vote_counts/{contentId}",
         "/community_sounds/{uploadId}/votes",
         "/community_wallpapers/{uploadId}/votes",

@@ -66,7 +66,7 @@ py -3 tools\community_callable_wire_protocol_check.py --contract docs\community-
 | Reports | `submitCommunityReport` | `CommunityReportInput` | `/community_reports/{reportId}` | Yes |
 | Sound uploads | `finalizeCommunitySoundUpload` | `CommunitySoundUploadMetadata` | `/community_sounds/{uploadId}`, `/owner_uploads/{uid}/sounds/{uploadId}` | Yes |
 | Wallpaper uploads | `finalizeCommunityWallpaperUpload` | `CommunityWallpaperUploadMetadata` | `/community_wallpapers/{uploadId}`, `/owner_uploads/{uid}/wallpapers/{uploadId}` | Yes |
-| Votes | `recordCommunityVote` | `CommunityVoteInput` | `/vote_markers/{uid}/{contentId}`, `/vote_counts/{contentId}`, and the upload row's `votes` field for community uploads | No |
+| Votes | `recordCommunityVote` | `CommunityVoteInput` | `/vote_markers/{uid}/{contentId}`, `/vote_locks/{uid}/{contentId}`, `/vote_counts/{contentId}`, and the upload row's `votes` field for community uploads | No |
 | Follows | `setCreatorFollow` | `CommunityFollowInput` | `/creator_follows/{uid}/{creatorId}` | No |
 | User blocks | `setCommunityUserBlock` | `CommunityUserBlockInput` | `/community_user_blocks/{uid}/{blockedUid}`, `/community_blocked_by/{blockedUid}/{uid}` | No |
 | Profile edits | `updateCreatorProfile` | `CreatorProfileUpdateInput` | `/creator_profiles/{uid}` | No |
@@ -135,7 +135,11 @@ The vote schema was later split so voter UIDs never sit in a public tree:
   a deleted upload can't come back as a stub.
 - `seedLegacyVoteCounts` runs every 24 hours (UTC) and gives every content ID
   under `/votes` or `/voters` a count row through that same seed transaction, so
-  it and the callable can run in either order without losing a vote.
+  it and the callable can run in either order without losing a vote. It walks
+  each root in key order and saves the last key it finished under the
+  admin-only `/vote_seed_cursor/{root}`, so a run that hits its batch cap or its
+  8 minute budget (inside the 9 minute function timeout) picks up there next
+  time. A root walked to the end clears its cursor.
 - `/votes` and `/voters` are admin-only now, except the old per-item
   `/votes/{contentId}/upvotes` leaf, which stays readable for older app builds.
   `tools/community_vote_privacy_backfill.py` turns a database export into the

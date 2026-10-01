@@ -108,6 +108,7 @@ object CommunityQuotaPolicies {
             payloadSchema = "CommunityVoteInput",
             finalWritePaths = listOf(
                 "/vote_markers/{uid}/{contentId}",
+                "/vote_locks/{uid}/{contentId}",
                 "/vote_counts/{contentId}",
                 "/community_sounds/{uploadId}/votes",
                 "/community_wallpapers/{uploadId}/votes",

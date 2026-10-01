@@ -195,6 +195,35 @@ test('the seeding job fills missing counts from legacy rows and never lowers one
   assert.deepEqual(await readValue(`vote_counts/${CONTENT_ID}`), { upvotes: 5 });
 });
 
+test('the seeding job resumes where the last run stopped instead of re-walking the start', async () => {
+  const ids = ['A', 'B', 'C', 'D', 'E'].map((suffix) => `SOUND::FREESOUND::seed_${suffix}`);
+  await getDatabase(app).ref().update(Object.fromEntries(ids.map((id) => [`votes/${id}`, { upvotes: 2 }])));
+
+  // Two keys per run: each run picks up after the last one instead of seeding the same head.
+  assert.equal(await seedLegacyVoteCounts(getDatabase(app).ref(), 1, 2), 2);
+  assert.equal(await readValue('vote_seed_cursor/votes'), ids[1]);
+  assert.equal(await readValue(`vote_counts/${ids[2]}`), null);
+  assert.equal(await seedLegacyVoteCounts(getDatabase(app).ref(), 1, 2), 2);
+  assert.equal(await readValue('vote_seed_cursor/votes'), ids[3]);
+  assert.equal(await seedLegacyVoteCounts(getDatabase(app).ref(), 1, 2), 1);
+
+  // The last key ended the walk, so the cursor is cleared and every item has a count.
+  assert.equal(await readValue('vote_seed_cursor/votes'), null);
+  for (const id of ids) {
+    assert.deepEqual(await readValue(`vote_counts/${id}`), { upvotes: 2 });
+  }
+});
+
+test('the seeding job starts no batch once its deadline has passed', async () => {
+  await getDatabase(app).ref('votes/SOUND::FREESOUND::late').set({ upvotes: 3 });
+
+  assert.equal(await seedLegacyVoteCounts(getDatabase(app).ref(), 1, 10, 1_000, () => 1_000), 0);
+  assert.equal(await readValue('vote_counts/SOUND::FREESOUND::late'), null);
+
+  assert.equal(await seedLegacyVoteCounts(getDatabase(app).ref(), 1, 10, 1_000, () => 999), 1);
+  assert.deepEqual(await readValue('vote_counts/SOUND::FREESOUND::late'), { upvotes: 3 });
+});
+
 test('community upload rows get the count mirrored into their votes field', async () => {
   await getDatabase(app).ref(`community_wallpapers/vote_target`).set({
     name: 'Target',

@@ -136,8 +136,9 @@ def collect_vote_marker_uids(candidates: dict[str, set[str]], database_export: d
         for voter_key in raw_voters:
             add_candidate(candidates, voter_key, f"/voters/{content_id}/{voter_key}")
 
-    for marker_uid in object_root(database_export, "vote_markers"):
-        add_candidate(candidates, marker_uid, f"/vote_markers/{marker_uid}")
+    for marker_root in ("vote_markers", "vote_locks"):
+        for marker_uid in object_root(database_export, marker_root):
+            add_candidate(candidates, marker_uid, f"/{marker_root}/{marker_uid}")
 
 
 def collect_uid_candidates(database_export: Any) -> dict[str, list[str]]:

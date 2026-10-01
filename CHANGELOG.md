@@ -150,7 +150,10 @@ All notable changes to Aura will be documented in this file.
   Creator pages kept showing 0 votes when a count couldn't be loaded. They now
   keep the count they already had. Vote totals from before the private vote
   change move across on the server, so a vote cast during the move isn't
-  overwritten.
+  overwritten. The move runs in batches and picks up where the last run
+  stopped, so a large backlog finishes instead of starting over each day.
+  Deletion request lookups also find the short-lived lock a cut-off vote
+  leaves behind.
 
 - **Tile, unlock and automation rotations start again**: every one of these
   asked WorkManager for urgent work with a battery condition attached, and

@@ -29,10 +29,23 @@ class VoteCountsOnceTest {
     @Test
     fun `creator uploads keep their stored votes when the public count is unavailable`() = runTest {
         val counts = collectVoteCounts(listOf("a", "b")) { id -> if (id == "a") 12 else null }
-        val stored = mapOf("a" to 3, "b" to 5)
+        val stored = listOf(upload("a", votes = 3), upload("b", votes = 5))
 
-        val merged = stored.mapValues { (id, votes) -> counts[id] ?: votes }
+        val merged = withPublicVoteCounts(stored, counts)
 
-        assertEquals(mapOf("a" to 12, "b" to 5), merged)
+        assertEquals(mapOf("a" to 12, "b" to 5), merged.associate { it.stableKey to it.votes })
+        assertEquals(stored.map { it.copy(votes = 0) }, merged.map { it.copy(votes = 0) })
     }
+
+    private fun upload(stableKey: String, votes: Int) = CreatorUploadRef(
+        id = "cu_$stableKey",
+        stableKey = stableKey,
+        contentType = "sound",
+        title = "Upload $stableKey",
+        creatorId = "creator",
+        creatorLabel = "Creator",
+        thumbnailUrl = "",
+        votes = votes,
+        uploadedAt = 1L,
+    )
 }

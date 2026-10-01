@@ -35,6 +35,10 @@ data class CreatorUploadRef(
     val uploadedAt: Long,
 )
 
+/** Takes each upload's public count where one was read, and keeps the stored count otherwise. */
+internal fun withPublicVoteCounts(uploads: List<CreatorUploadRef>, counts: Map<String, Int>): List<CreatorUploadRef> =
+    uploads.map { it.copy(votes = counts[it.stableKey] ?: it.votes) }
+
 data class CreatorStats(
     val creatorId: String,
     val label: String,
@@ -265,8 +269,7 @@ class CreatorProfileRepository @Inject constructor(
                 .filter { it.creatorId.isNotBlank() }
                 .sortedByDescending { it.uploadedAt }
                 .take(limit * 2)
-            val voteCounts = voteRepo.getVoteCountsOnce(uploads.map { it.stableKey })
-            uploads.map { it.copy(votes = voteCounts[it.stableKey] ?: it.votes) }
+            withPublicVoteCounts(uploads, voteRepo.getVoteCountsOnce(uploads.map { it.stableKey }))
         }
     }
 

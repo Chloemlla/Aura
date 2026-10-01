@@ -34,6 +34,11 @@ const WHITESPACE_REGEX = /\s+/g;
 const CONTROL_REGEX = /[\u0000-\u001F\u007F]/g;
 const SEED_BATCH_SIZE = 200;
 const SEED_MAX_BATCHES = 50;
+/** Where each legacy root's walk stopped, so the next run picks up there instead of the first key. */
+export const SEED_CURSOR_PATH = "vote_seed_cursor";
+/** Scheduled runs stop starting batches after this, well inside the function timeout below. */
+const SEED_RUN_BUDGET_MILLIS = 480_000;
+const SEED_TIMEOUT_SECONDS = 540;
 const COMMUNITY_UPLOAD_VOTE_KEY = /^(SOUND|WALLPAPER)::COMMUNITY::(cu|cw)_([A-Za-z0-9_-]{1,200})$/;
 
 interface CallableRequestLike {
@@ -243,17 +248,27 @@ export async function mirrorUploadVotes(root: Reference, contentId: string, upvo
  * Gives every content ID under the legacy `/votes` and `/voters` roots a `/vote_counts` row and
  * mirrors it onto the upload row, through the same transaction the callable uses. Content already
  * counted under the new schema keeps its row. Returns how many rows it wrote.
+ *
+ * Each batch saves its last key under [SEED_CURSOR_PATH], so a run that hits the batch cap, the
+ * deadline or the function timeout loses at most one batch and the next run continues from there.
+ * A root walked to the end clears its cursor, and the next run starts that root over.
  */
 export async function seedLegacyVoteCounts(
   root: Reference,
   batchSize = SEED_BATCH_SIZE,
   maxBatches = SEED_MAX_BATCHES,
+  deadlineMillis = Number.POSITIVE_INFINITY,
+  clock: () => number = Date.now,
 ): Promise<number> {
   let seeded = 0;
   const visited = new Set<string>();
   for (const legacyRoot of ["votes", "voters"]) {
-    let lastKey: string | undefined;
+    const cursor = root.child(SEED_CURSOR_PATH).child(legacyRoot);
+    const saved: unknown = (await cursor.get()).val();
+    let lastKey: string | undefined = typeof saved === "string" && saved.length > 0 ? saved : undefined;
+    let finishedRoot = false;
     for (let batch = 0; batch < maxBatches; batch++) {
+      if (clock() >= deadlineMillis) return seeded;
       let query = root.child(legacyRoot).orderByKey();
       if (lastKey !== undefined) query = query.startAfter(lastKey);
       const snapshot = await query.limitToFirst(batchSize).get();
@@ -268,18 +283,35 @@ export async function seedLegacyVoteCounts(
         const counted = wholeCount((await root.child("vote_counts").child(contentId).child("upvotes").get()).val());
         if (counted > 0) await mirrorUploadVotes(root, contentId, counted);
       }
-      if (keys.length < batchSize) break;
+      if (keys.length < batchSize) {
+        await cursor.remove();
+        finishedRoot = true;
+        break;
+      }
       lastKey = keys[keys.length - 1];
+      await cursor.set(lastKey);
     }
+    // Out of batches part way through: finish this root next run before starting the other.
+    if (!finishedRoot) return seeded;
   }
   return seeded;
 }
 
 export function createSeedLegacyVoteCountsJob() {
-  return onSchedule({ schedule: "every 24 hours", timeZone: "UTC" }, async () => {
-    const seeded = await seedLegacyVoteCounts(getDatabase().ref());
-    logger.info("Seeded legacy vote counts", { seeded });
-  });
+  return onSchedule(
+    { schedule: "every 24 hours", timeZone: "UTC", timeoutSeconds: SEED_TIMEOUT_SECONDS },
+    async () => {
+      const root = getDatabase().ref();
+      const seeded = await seedLegacyVoteCounts(
+        root,
+        SEED_BATCH_SIZE,
+        SEED_MAX_BATCHES,
+        Date.now() + SEED_RUN_BUDGET_MILLIS,
+      );
+      const resumeAt = (await root.child(SEED_CURSOR_PATH).get()).val() ?? null;
+      logger.info("Seeded legacy vote counts", { seeded, resumeAt });
+    },
+  );
 }
 
 function wholeCount(value: unknown): number {
