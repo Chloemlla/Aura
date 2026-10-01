@@ -8,6 +8,7 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import androidx.test.core.app.ApplicationProvider
+import com.freevibe.R
 import com.freevibe.data.local.DownloadDao
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -27,8 +28,12 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.File
+import java.io.IOException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
+import javax.net.ssl.SSLHandshakeException
 
 /** Drives real downloads from a file locator into a fake MediaStore, so saved rows can be counted. */
 @RunWith(RobolectricTestRunner::class)
@@ -65,7 +70,7 @@ class DownloadManagerActiveTest {
 
         assertTrue(first.isFailure)
         val failed = manager.activeDownloads.value.getValue(ID)
-        assertEquals("Failed to publish saved original", failed.error)
+        assertEquals(context.getString(R.string.download_failed_storage), failed.error)
         assertFalse(failed.isComplete)
         assertEquals("the half-written row was removed", 0, media.rows.size)
 
@@ -114,10 +119,33 @@ class DownloadManagerActiveTest {
     }
 
     @Test
-    fun `a failure without a message still has a reason`() {
-        assertEquals("HTTP 404", downloadFailureReason(IllegalStateException("HTTP 404")))
-        assertEquals("IllegalStateException", downloadFailureReason(IllegalStateException(" ")))
-        assertEquals("IllegalStateException", downloadFailureReason(IllegalStateException()))
+    fun `a failure always has a reason in the app's words and never echoes the exception`() {
+        fun reason(error: Throwable) = downloadFailureReason(context, error)
+
+        assertEquals(context.getString(R.string.download_failed_unknown), reason(IllegalStateException()))
+        assertEquals(context.getString(R.string.download_failed_unknown), reason(IllegalStateException(" ")))
+        assertEquals("The server answered with error 404.", reason(IllegalStateException("Download failed: HTTP 404")))
+        assertEquals(
+            context.getString(R.string.download_failed_offline),
+            reason(UnknownHostException("Unable to resolve host \"cdn.example.com\"")),
+        )
+        assertEquals(
+            context.getString(R.string.download_failed_timeout),
+            reason(IOException("call failed", SocketTimeoutException("timeout"))),
+        )
+        assertEquals(context.getString(R.string.download_failed_secure), reason(SSLHandshakeException("bad cert")))
+        assertEquals(
+            context.getString(R.string.download_failed_too_large),
+            reason(IllegalStateException("Download exceeds size limit (9 > 1)")),
+        )
+        assertEquals(
+            context.getString(R.string.download_failed_not_media),
+            reason(IOException("Wallpaper content type mismatch: expected image")),
+        )
+        listOf(
+            UnknownHostException("Unable to resolve host \"secret.example.com\""),
+            IllegalStateException("GET https://secret.example.com/file?token=abc failed"),
+        ).forEach { assertFalse(reason(it).contains("secret")) }
     }
 
     class FakeMediaProvider : ContentProvider() {

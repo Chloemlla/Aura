@@ -756,6 +756,14 @@
     <string name="downloads_cannot_open_file">Cannot open file</string>
     <string name="downloads_dismiss_file">Dismiss %1$s</string>
     <string name="downloads_retry_file">Retry %1$s</string>
+    <string name="download_failed_offline">Couldn\'t reach the server. Check your connection.</string>
+    <string name="download_failed_timeout">The server took too long to answer.</string>
+    <string name="download_failed_secure">Couldn\'t open a secure connection to the server.</string>
+    <string name="download_failed_http">The server answered with error %1$d.</string>
+    <string name="download_failed_too_large">The file is bigger than Aura allows.</string>
+    <string name="download_failed_not_media">The file isn\'t the kind of media Aura expected.</string>
+    <string name="download_failed_storage">Couldn\'t save the file on this phone.</string>
+    <string name="download_failed_unknown">Something went wrong. Try again.</string>
     <string name="downloads_active_summary">%1$s. %2$s</string>
     <string name="downloads_delete_file">Delete %1$s</string>
     <string name="downloads_type_wallpaper">Wallpaper</string>

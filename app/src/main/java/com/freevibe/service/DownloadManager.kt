@@ -41,10 +41,15 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.net.ConnectException
+import java.net.NoRouteToHostException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
+import javax.net.ssl.SSLException
 import kotlin.math.roundToInt
 
 data class DownloadProgress(
@@ -285,7 +290,7 @@ class DownloadManager @Inject constructor(
         sourceUnavailableReasonForFailure(contentSource, e)?.let { reason ->
             downloadDao.updateSourceAvailability(historyId, SOURCE_AVAILABILITY_UNAVAILABLE, reason)
         }
-        updateProgress(historyId, DownloadProgress(historyId, fileName, 0f, 0, 0, error = downloadFailureReason(e)))
+        updateProgress(historyId, DownloadProgress(historyId, fileName, 0f, 0, 0, error = downloadFailureReason(context, e)))
         Result.failure(e)
     }
 
@@ -805,9 +810,31 @@ internal fun withoutFinishedProgress(
     finished: DownloadProgress,
 ): Map<String, DownloadProgress> = if (current[id] == finished) current - id else current
 
-/** A failure always carries a reason, or its card would look like a download still running. */
-internal fun downloadFailureReason(error: Throwable): String =
-    error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName.ifBlank { "Download failed" }
+/**
+ * A failure always carries a reason, or its card would look like a download still running. The
+ * reason is a short sentence in the app's language: exception text can carry a URL or host name,
+ * so it's never shown as is.
+ */
+internal fun downloadFailureReason(context: Context, error: Throwable): String {
+    val causes = generateSequence(error) { it.cause }.take(8).toList()
+    val message = error.message.orEmpty()
+    val httpStatus = HTTP_STATUS_REGEX.find(message)?.groupValues?.get(1)?.toInt()
+    return when {
+        causes.any { it is UnknownHostException || it is ConnectException || it is NoRouteToHostException } ->
+            context.getString(R.string.download_failed_offline)
+        causes.any { it is SocketTimeoutException } -> context.getString(R.string.download_failed_timeout)
+        causes.any { it is SSLException } -> context.getString(R.string.download_failed_secure)
+        httpStatus != null -> context.getString(R.string.download_failed_http, httpStatus)
+        "size limit" in message -> context.getString(R.string.download_failed_too_large)
+        "content type" in message -> context.getString(R.string.download_failed_not_media)
+        error is SecurityException || STORAGE_FAILURE_MARKERS.any { it in message } ->
+            context.getString(R.string.download_failed_storage)
+        else -> context.getString(R.string.download_failed_unknown)
+    }
+}
+
+private val HTTP_STATUS_REGEX = Regex("""\bHTTP (\d{3})\b""")
+private val STORAGE_FAILURE_MARKERS = listOf("MediaStore", "output stream", "saved original")
 
 private const val COMPLETED_PROGRESS_VISIBLE_MS = 4_000L
 

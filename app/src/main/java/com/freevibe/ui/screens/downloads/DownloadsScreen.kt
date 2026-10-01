@@ -280,7 +280,7 @@ fun DownloadsScreen(
 }
 
 @Composable
-private fun ActiveDownloadCard(dl: DownloadProgress, onDismiss: () -> Unit, onRetry: () -> Unit) {
+internal fun ActiveDownloadCard(dl: DownloadProgress, onDismiss: () -> Unit, onRetry: () -> Unit) {
     val statusLabel = downloadProgressStatusLabel(dl)
     val dismissLabel = stringResource(R.string.downloads_dismiss_file, dl.fileName)
     val retryLabel = stringResource(R.string.downloads_retry_file, dl.fileName)

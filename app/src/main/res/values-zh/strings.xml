@@ -703,6 +703,14 @@
     <string name="downloads_cannot_open_file">无法打开文件</string>
     <string name="downloads_dismiss_file">忽略 %1$s</string>
     <string name="downloads_retry_file">重试 %1$s</string>
+    <string name="download_failed_offline">无法连接服务器。请检查网络连接。</string>
+    <string name="download_failed_timeout">服务器响应超时。</string>
+    <string name="download_failed_secure">无法与服务器建立安全连接。</string>
+    <string name="download_failed_http">服务器返回错误 %1$d。</string>
+    <string name="download_failed_too_large">文件超出 Aura 允许的大小。</string>
+    <string name="download_failed_not_media">文件不是 Aura 预期的媒体类型。</string>
+    <string name="download_failed_storage">无法将文件保存到此手机。</string>
+    <string name="download_failed_unknown">出了点问题。请重试。</string>
     <string name="downloads_active_summary">%1$s. %2$s</string>
     <string name="downloads_delete_file">删除 %1$s</string>
     <string name="downloads_type_wallpaper">壁纸</string>
