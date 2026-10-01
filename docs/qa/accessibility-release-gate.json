@@ -60,9 +60,9 @@
         "dark and light themes"
       ],
       "waiver": {
-        "version": "6.46.0",
+        "version": "6.46.1",
         "owner": "SysAdminDoc",
-        "reason": "Not run with TalkBack for 6.46.0. The release session could not take over the active phone display, so this scenario rests on the JVM test suites and the reviewed 200 percent font baselines in the repository."
+        "reason": "Not run with TalkBack for 6.46.1. The release session could not take over the active phone display, so this scenario rests on the JVM test suites and the reviewed 200 percent font baselines in the repository."
       }
     },
     {
@@ -75,9 +75,9 @@
         "live-wallpaper picker labels"
       ],
       "waiver": {
-        "version": "6.46.0",
+        "version": "6.46.1",
         "owner": "SysAdminDoc",
-        "reason": "Not run with TalkBack for 6.46.0. The release session could not take over the active phone display. The wallpaper crop screen gained ratio frames with a selected chip and a spoken ratio in this release. The crop state behind them is covered by JVM tests, but the spoken output was not heard on a phone."
+        "reason": "Not run with TalkBack for 6.46.1. The release session could not take over the active phone display. The wallpaper crop screen gained ratio frames with a selected chip and a spoken ratio in this release. The crop state behind them is covered by JVM tests, but the spoken output was not heard on a phone."
       }
     },
     {
@@ -90,9 +90,9 @@
         "record/upload disclosure"
       ],
       "waiver": {
-        "version": "6.46.0",
+        "version": "6.46.1",
         "owner": "SysAdminDoc",
-        "reason": "Not run with TalkBack for 6.46.0. The release session could not take over the active phone display, so editor gestures and spoken labels rest on the JVM test suites."
+        "reason": "Not run with TalkBack for 6.46.1. The release session could not take over the active phone display, so editor gestures and spoken labels rest on the JVM test suites."
       }
     },
     {
@@ -105,9 +105,9 @@
         "support bundle actions"
       ],
       "waiver": {
-        "version": "6.46.0",
+        "version": "6.46.1",
         "owner": "SysAdminDoc",
-        "reason": "Not run with TalkBack for 6.46.0. The release session could not take over the active phone display, so switch labels, dialog headings and error states rest on the JVM test suites and the reviewed visual baselines."
+        "reason": "Not run with TalkBack for 6.46.1. The release session could not take over the active phone display, so switch labels, dialog headings and error states rest on the JVM test suites and the reviewed visual baselines."
       }
     },
     {
@@ -120,9 +120,9 @@
         "scroll reachability"
       ],
       "waiver": {
-        "version": "6.46.0",
+        "version": "6.46.1",
         "owner": "SysAdminDoc",
-        "reason": "Not run on a phone for 6.46.0. The release session could not change the active display's font size or contrast, so this scenario rests on the reviewed phone, 200 percent font, pseudolocale, Arabic RTL and tablet baselines for both app flavors."
+        "reason": "Not run on a phone for 6.46.1. The release session could not change the active display's font size or contrast, so this scenario rests on the reviewed phone, 200 percent font, pseudolocale, Arabic RTL and tablet baselines for both app flavors."
       }
     },
     {
@@ -134,9 +134,9 @@
         "large display size"
       ],
       "waiver": {
-        "version": "6.46.0",
+        "version": "6.46.1",
         "owner": "SysAdminDoc",
-        "reason": "Not run on a phone for 6.46.0. The release session could not use the active launcher, so spoken widget labels and placement rest on the automated widget contract tests."
+        "reason": "Not run on a phone for 6.46.1. The release session could not use the active launcher, so spoken widget labels and placement rest on the automated widget contract tests."
       }
     }
   ],

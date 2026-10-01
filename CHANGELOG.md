@@ -13,6 +13,14 @@ All notable changes to Aura will be documented in this file.
   Aura's last change. Portable library format 4 restores locator-free pool
   assignments without copying audio, private paths, system URIs, or history.
 
+## v6.46.1 (2026-09-30)
+
+- **Community features work before the server update**: collection links are
+  written straight to the database again when the server function that
+  normally creates them isn't available yet, with the same 30 day expiry.
+  Vote counts and Top Voted read the existing tallies until the new public
+  counts are filled in, so they no longer show zero.
+
 ## v6.46.0 (2026-09-30)
 
 - **targetSdk 36**: meets Play and Accrescent requirements. All Android 16

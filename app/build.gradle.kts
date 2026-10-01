@@ -102,8 +102,8 @@ android {
         applicationId = "com.freevibe"
         minSdk = 26
         targetSdk = 36
-        versionCode = 150
-        versionName = "6.46.0"
+        versionCode = 151
+        versionName = "6.46.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "AURA_RELEASE_CHANNEL", "\"$auraReleaseChannel\"")
