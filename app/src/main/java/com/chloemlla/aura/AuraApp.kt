@@ -115,8 +115,10 @@ class AuraApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
     override fun onCreate() {
         super.onCreate()
         installLumenCrashSdk() // idempotent via isInstalled() check
+        // Upstream's setupCrashLogging() is not ported: the fork's LumenCrash SDK already
+        // captures the crash report, and CrashDiagnosticsCollector reads it back through
+        // LumenCrash.loadPendingReportSafely() instead of a local crash.log file.
         if (BuildConfig.DEBUG) installStrictMode()
-        setupCrashLogging()
         installAppCheck()
         NotificationChannels.createAll(this)
         ExternalAutomationGate.warmUp(this)

@@ -144,33 +144,6 @@ class AutoWallpaperWorker @AssistedInject constructor(
     }
 
     /** Enhanced scheduler with separate home/lock, collections, day/night */
-            if (attempt >= MAX_FAILED_ATTEMPTS) {
-                receiptStore.recordFailure(
-                    uniqueWorkName = receiptWorkName,
-                    errorClass = "TooManyRetries",
-                    deferralReason = "wallpaper source I/O failed $MAX_FAILED_ATTEMPTS+ consecutive attempts; check connection and provider availability",
-                )
-                Result.failure()
-            } else {
-                receiptStore.recordRetry(
-                    uniqueWorkName = receiptWorkName,
-                    errorClass = "IOException",
-                    deferralReason = "network or remote wallpaper source I/O failed; check connection and provider availability",
-                )
-                Result.retry()
-            }
-        } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            receiptStore.recordFailure(
-                uniqueWorkName = receiptWorkName,
-                errorClass = e.javaClass.simpleName,
-                deferralReason = "wallpaper rotation worker crashed before completing; include diagnostics bundle",
-            )
-            Result.failure()
-        }
-    }
-
-    /** Enhanced scheduler with separate home/lock, collections, day/night */
     private suspend fun doSchedulerWork(): Result {
         val homeEnabled = prefs.schedulerHomeEnabled.first()
         val lockEnabled = prefs.schedulerLockEnabled.first()
@@ -223,7 +196,6 @@ class AutoWallpaperWorker @AssistedInject constructor(
                     homePick.wallpaper?.let { add(applyAndRecord(it, WallpaperTarget.HOME)) }
                     lockPick.wallpaper?.let { add(applyAndRecord(it, WallpaperTarget.LOCK)) }
                 }
-            }
             }
             if (homePick.allExcluded || lockPick.allExcluded) {
                 throw AllRotationCandidatesExcludedException("one selected local-folder target")
