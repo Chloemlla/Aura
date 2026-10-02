@@ -24,6 +24,15 @@ class AutoWallpaperWorkerTest {
     }
 
     @Test
+    fun `a tapped rotation restarts the countdown only after it changed the wallpaper`() {
+        assertTrue(shouldRestartRotationCountdown(requested = true, succeeded = true, applied = true))
+        // Provider switched off: the run succeeds but nothing changed on screen.
+        assertFalse(shouldRestartRotationCountdown(requested = true, succeeded = true, applied = false))
+        assertFalse(shouldRestartRotationCountdown(requested = true, succeeded = false, applied = true))
+        assertFalse(shouldRestartRotationCountdown(requested = false, succeeded = true, applied = true))
+    }
+
+    @Test
     fun `clock schedule swaps sources exactly at day and night boundaries`() {
         fun sourceAt(hour: Int) = resolveScheduledWallpaperSource(
             defaultSource = "discover",

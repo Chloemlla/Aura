@@ -98,6 +98,19 @@
       "resultResourceIdField": "profileUid",
       "consumeLimitedUseAppCheckToken": false,
       "focusedTest": "updateCreatorProfile sends public profile with standard app check token request"
+    },
+    {
+      "surfaceKey": "collection_shares",
+      "functionName": "publishSharedCollection",
+      "quotaPolicyAccessor": "collectionShares",
+      "androidMethod": "publishSharedCollection",
+      "payloadSchema": "SharedCollectionInput",
+      "androidInputType": "SharedCollectionInput",
+      "payloadBuilder": "buildSharedCollectionCallablePayload",
+      "operationPrefixes": ["collection_share"],
+      "resultResourceIdField": "token",
+      "consumeLimitedUseAppCheckToken": true,
+      "focusedTest": "publishSharedCollection sends the collection document with limited use token request"
     }
   ]
 }

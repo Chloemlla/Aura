@@ -152,8 +152,10 @@ class RotationTriggerService : Service() {
         val rx = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 when (intent.action) {
-                    Intent.ACTION_USER_PRESENT -> if (unlockEnabled) enqueueRotation(context)
-                    Intent.ACTION_SCREEN_OFF -> if (screenOffEnabled) enqueueRotation(context)
+                    // Unlock and screen-off rotations are automatic, so they leave the
+                    // periodic countdown alone; tile and automation taps restart it.
+                    Intent.ACTION_USER_PRESENT -> if (unlockEnabled) enqueueRotation(context, restartCountdown = false)
+                    Intent.ACTION_SCREEN_OFF -> if (screenOffEnabled) enqueueRotation(context, restartCountdown = false)
                 }
             }
         }
@@ -227,8 +229,16 @@ class RotationTriggerService : Service() {
          * under a third name of its own, which meant it could run concurrently with
          * an unlock trigger and a periodic rotation, each overwriting the other's
          * wallpaper and history row (AURA-G2-07).
+         *
+         * [restartCountdown] is set on rotations a person asked for (tile,
+         * automation, Run now), so the periodic interval starts over instead of
+         * firing minutes later.
          */
-        internal fun enqueueRotation(context: Context, receiptWorkName: String = WORK_NAME) {
+        internal fun enqueueRotation(
+            context: Context,
+            receiptWorkName: String = WORK_NAME,
+            restartCountdown: Boolean = true,
+        ) {
             // Reuse the periodic path's constraint resolution (source-aware
             // network requirement + the user's charging / Wi-Fi / idle opt-ins)
             // instead of hard-coding NetworkType.CONNECTED, which stranded
@@ -247,6 +257,7 @@ class RotationTriggerService : Service() {
                     workDataOf(
                         AutoWallpaperWorker.RECEIPT_WORK_NAME_KEY to receiptWorkName,
                         AutoWallpaperWorker.TRIGGERED_ROTATION_KEY to true,
+                        AutoWallpaperWorker.RESTART_COUNTDOWN_KEY to restartCountdown,
                     ),
                 )
                 .build()
@@ -255,7 +266,8 @@ class RotationTriggerService : Service() {
                 // APPEND_OR_REPLACE, not KEEP: KEEP silently dropped a tap on the
                 // tile or "Run now" whenever a rotation was already queued, which
                 // reads as "the button does nothing". Appending runs them in order
-                // instead of concurrently.
+                // instead of concurrently, and the countdown restart still lands
+                // because the worker re-enqueues the periodic work itself.
                 ExistingWorkPolicy.APPEND_OR_REPLACE,
                 request,
             )

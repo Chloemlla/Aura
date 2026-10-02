@@ -9,12 +9,19 @@ import {
 } from "./communityContract";
 import {
   buildDedupeMarker,
-  evaluateCommunityQuotaAttempt,
+  quotaOperationKey,
   utcQuotaDayKey,
   type DedupeMarker,
   type QuotaDecision,
-  type QuotaLedgerState,
+  type QuotaReservation,
+  type QuotaSettlement,
 } from "./quotaEngine";
+import {
+  type QuotaSettlingBackend,
+  reserveQuotaLedger,
+  runWithQuotaReservation,
+  settleQuotaLedger,
+} from "./quotaReservation";
 
 const USER_BLOCK_SURFACE = surfaceByFunctionName("setCommunityUserBlock");
 const MAX_UID = 240;
@@ -55,7 +62,7 @@ interface CommitUserBlockInput {
   readonly dedupeMarker: DedupeMarker;
 }
 
-export interface UserBlockBackend {
+export interface UserBlockBackend extends QuotaSettlingBackend {
   nowMillis(): number;
   readBlockState(blockerKey: string, blockedKey: string): Promise<boolean>;
   readDedupeMarker(uid: string, surfaceKey: string, dedupeKey: string): Promise<DedupeMarker | null>;
@@ -65,6 +72,7 @@ export interface UserBlockBackend {
     surface: CommunityCallableSurface,
     nowMillis: number,
     dedupe: DedupeMarker | null,
+    operationKey?: string,
   ): Promise<QuotaDecision>;
   commitUserBlock(input: CommitUserBlockInput): Promise<void>;
 }
@@ -105,6 +113,7 @@ export async function setCommunityUserBlockHandler(
     USER_BLOCK_SURFACE,
     nowMillis,
     dedupe,
+    quotaOperationKey(envelope.operationId),
   );
 
   if (decision.status === "duplicate") {
@@ -131,17 +140,21 @@ export async function setCommunityUserBlockHandler(
     );
   }
 
-  await backend.commitUserBlock({
-    uid,
-    surfaceKey: USER_BLOCK_SURFACE.surfaceKey,
-    dedupeKey,
-    payload,
-    createdAt: nowMillis,
-    dedupeMarker: buildDedupeMarker({
-      nowMillis,
-      targetPath,
+  await runWithQuotaReservation(
+    backend,
+    { uid, dayKey, surface: USER_BLOCK_SURFACE, reservation: decision.reservation },
+    () => backend.commitUserBlock({
+      uid,
+      surfaceKey: USER_BLOCK_SURFACE.surfaceKey,
+      dedupeKey,
+      payload,
+      createdAt: nowMillis,
+      dedupeMarker: buildDedupeMarker({
+        nowMillis,
+        targetPath,
+      }),
     }),
-  });
+  );
 
   return {
     operationId: envelope.operationId,
@@ -299,31 +312,26 @@ class FirebaseUserBlockBackend implements UserBlockBackend {
     surface: CommunityCallableSurface,
     nowMillis: number,
     dedupe: DedupeMarker | null,
+    operationKey?: string,
   ): Promise<QuotaDecision> {
-    let decision: QuotaDecision | null = null;
-    const result = await this.quotaRef(uid, dayKey, surface.surfaceKey).transaction(
-      (current: unknown) => {
-        const quota = current !== null && typeof current === "object"
-          ? current as QuotaLedgerState
-          : {};
-        decision = evaluateCommunityQuotaAttempt({
-          surface,
-          nowMillis,
-          quota,
-          dedupe,
-        });
-        if (decision.status === "duplicate") {
-          return current;
-        }
-        return decision.quota;
-      },
-      undefined,
-      false,
+    return reserveQuotaLedger(
+      this.root.child("community_write_quotas").child(uid),
+      dayKey,
+      surface,
+      nowMillis,
+      dedupe,
+      operationKey,
     );
-    if (!result.committed || decision === null) {
-      throw new HttpsError("aborted", "Unable to reserve community user block quota.");
-    }
-    return decision;
+  }
+
+  async settleQuota(
+    uid: string,
+    dayKey: string,
+    surface: CommunityCallableSurface,
+    reservation: QuotaReservation,
+    settlement: QuotaSettlement,
+  ): Promise<void> {
+    await settleQuotaLedger(this.quotaRef(uid, dayKey, surface.surfaceKey), reservation, settlement, this.nowMillis());
   }
 
   async commitUserBlock(input: CommitUserBlockInput): Promise<void> {

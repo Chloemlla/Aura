@@ -72,8 +72,11 @@
         "functionName": "recordCommunityVote",
         "payloadSchema": "CommunityVoteInput",
         "finalWritePaths": [
-          "/votes/{contentId}",
-          "/voters/{contentId}/{uid}"
+          "/vote_markers/{uid}/{contentId}",
+          "/vote_locks/{uid}/{contentId}",
+          "/vote_counts/{contentId}",
+          "/community_sounds/{uploadId}/votes",
+          "/community_wallpapers/{uploadId}/votes"
         ],
         "consumeLimitedUseAppCheckToken": false,
         "requiresAuth": true,
@@ -130,6 +133,23 @@
         "payloadSchema": "CreatorProfileUpdateInput",
         "finalWritePaths": ["/creator_profiles/{uid}"],
         "consumeLimitedUseAppCheckToken": false,
+        "requiresAuth": true,
+        "requiresAppCheck": true
+      }
+    },
+    {
+      "surfaceKey": "collection_shares",
+      "dailyLimit": 10,
+      "minIntervalMillis": 30000,
+      "dedupeKey": "operationId",
+      "enforcement": ["APP_CHECKED_CALLABLE"],
+      "quotaLedgerPath": "/community_write_quotas/{uid}/{yyyyMMdd}/collection_shares",
+      "dedupeLedgerPath": "/community_write_dedupe/{uid}/collection_shares/{dedupeKey}",
+      "callable": {
+        "functionName": "publishSharedCollection",
+        "payloadSchema": "SharedCollectionInput",
+        "finalWritePaths": ["/shared_collections/{token}"],
+        "consumeLimitedUseAppCheckToken": true,
         "requiresAuth": true,
         "requiresAppCheck": true
       }

@@ -38,6 +38,7 @@ FORBIDDEN_UPDATE_PREFIXES = (
     "/community_wallpapers",
     "/moderation",
     "/owner_uploads",
+    "/vote_counts",
 )
 
 

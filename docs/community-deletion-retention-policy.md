@@ -36,19 +36,23 @@ Reasons:
 - `ADMIN_TAKEDOWN`
 
 Rules make tombstones admin-readable only. Owners can create their own initial
-`OWNER_DELETE` tombstone as part of the same multi-location update that removes
-public metadata and owner index rows. Admins can create or update tombstones
+`OWNER_DELETE` tombstone only as part of the same multi-location update that
+removes public metadata and owner index rows. The rules check that the metadata
+row existed before the write, belonged to the caller, carried the same
+`storagePath`, and is gone after it, and that the tombstone key is the upload's
+own public ID. A tombstone for an upload that never existed is refused. Admins
+can create or update tombstones
 during takedown cleanup, including `ADMIN_TAKEDOWN` tombstones. The recorded
 Storage path must remain under the uploader-scoped `sounds/{uid}/` or
 `wallpapers/{uid}/` prefix for the content type.
 
 ## Follow-Up
 
-Vote and voter-marker retention remains intentionally conservative. The current
-client cannot safely delete `/voters/{contentId}` as a whole, and the current
-rules expose voter markers through the public vote tree. The callable backend or
-trusted admin cleanup should migrate this to private vote markers before account
-deletion work claims vote data is minimized.
+Vote markers now live under `/vote_markers/{uid}`, readable only by that account
+and admins, and the public `/vote_counts` tree holds counts alone. The legacy
+`/votes` and `/voters` trees are admin-only. Account deletion removes the whole
+`/vote_markers/{uid}` and `/vote_locks/{uid}` subtrees plus any legacy markers,
+and keeps the counts.
 
 ## Sources
 

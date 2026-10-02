@@ -9,6 +9,9 @@ import com.chloemlla.aura.data.model.CommunityUserBlockInput
 import com.chloemlla.aura.data.model.CommunityWallpaperUploadMetadataInput
 import com.chloemlla.aura.data.model.CreatorProfileUpdateInput
 import com.chloemlla.aura.data.model.ContentSource
+import com.chloemlla.aura.data.model.MAX_SHARED_COLLECTION_DOCUMENT_BYTES
+import com.chloemlla.aura.data.model.SharedCollectionInput
+import com.chloemlla.aura.data.model.buildSharedCollectionCallablePayload
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -389,6 +392,53 @@ class CommunityCallableClientTest {
         assertFalse(payload.containsKey("ownerUid"))
         assertFalse(payload.containsKey("createdAt"))
         assertFalse(payload.containsKey("updatedAt"))
+    }
+
+    @Test
+    fun `publishSharedCollection sends the collection document with limited use token request`() = runTest {
+        val invoker = RecordingCommunityCallableInvoker(
+            response = mapOf(
+                "operationId" to "collection_share_test",
+                "status" to "accepted",
+                "token" to "0123456789abcdef0123456789abcdef",
+                "targetPath" to "/shared_collections/0123456789abcdef0123456789abcdef",
+                "expiresAt" to 999L,
+                "serverTimeMillis" to 123L,
+            ),
+        )
+        val client = CommunityCallableClient(invoker)
+        val document = "{\"version\":1,\"collectionName\":\"Evening\",\"items\":[]}"
+
+        val result = client.publishSharedCollection(
+            SharedCollectionInput(document = document, collectionName = "  Evening\n Set  "),
+        )
+
+        val request = requireNotNull(invoker.lastRequest)
+        assertEquals("publishSharedCollection", request.functionName)
+        assertTrue(request.consumeLimitedUseAppCheckToken)
+        assertEquals("0123456789abcdef0123456789abcdef", result.targetId())
+        assertEquals("accepted", result.status)
+
+        assertTrue((request.data["operationId"] as String).startsWith("collection_share_"))
+        val payload = request.data["payload"] as Map<*, *>
+        assertEquals(1, payload["version"])
+        assertEquals(document, payload["document"])
+        assertEquals("Evening Set", payload["collectionName"])
+        assertFalse(payload.containsKey("createdByUid"))
+        assertFalse(payload.containsKey("createdAt"))
+        assertFalse(payload.containsKey("expiresAt"))
+        assertFalse(payload.containsKey("itemCount"))
+    }
+
+    @Test
+    fun `shared collection payload refuses a document over the link size limit`() {
+        val oversized = "x".repeat(MAX_SHARED_COLLECTION_DOCUMENT_BYTES + 1)
+
+        val error = runCatching {
+            buildSharedCollectionCallablePayload(SharedCollectionInput(document = oversized, collectionName = "Big"))
+        }.exceptionOrNull()
+
+        assertTrue(error is IllegalArgumentException)
     }
 
     @Test

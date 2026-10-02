@@ -3,8 +3,8 @@ package com.chloemlla.aura.ui.screens.sounds
 import com.chloemlla.aura.BuildConfig
 import android.content.Context
 import com.chloemlla.aura.R
-import com.chloemlla.aura.data.legal.isProviderAvailableInCurrentArtifact
 import com.chloemlla.aura.data.local.PreferencesManager
+import com.chloemlla.aura.data.legal.isProviderAvailableInCurrentArtifact
 import com.chloemlla.aura.data.model.CommunityBlockReason
 import com.chloemlla.aura.data.model.CommunityReportReason
 import com.chloemlla.aura.data.model.CommunityUploadRights
@@ -14,7 +14,6 @@ import com.chloemlla.aura.data.model.FavoriteEntity
 import com.chloemlla.aura.data.model.SearchResult
 import com.chloemlla.aura.data.model.Sound
 import com.chloemlla.aura.data.model.SearchHistoryEntity
-import com.chloemlla.aura.data.model.favoriteIdentity
 import com.chloemlla.aura.data.model.stableKey
 import com.chloemlla.aura.data.repository.AudiusRepository
 import com.chloemlla.aura.data.repository.CcMixterRepository
@@ -25,6 +24,8 @@ import com.chloemlla.aura.data.repository.FreesoundRepository
 import com.chloemlla.aura.data.repository.FreesoundV2Repository
 import com.chloemlla.aura.data.repository.SearchHistoryRepository
 import com.chloemlla.aura.data.repository.SoundCloudRepository
+import com.chloemlla.aura.data.repository.TikTokSoundRepository
+import com.chloemlla.aura.data.model.favoriteIdentity
 import com.chloemlla.aura.data.repository.UploadRepository
 import com.chloemlla.aura.data.repository.VoteRepository
 import com.chloemlla.aura.data.repository.YouTubeRepository
@@ -47,6 +48,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -219,6 +221,118 @@ class SoundsViewModelTest {
         assertFalse(state.hasMore)
         coVerify(exactly = 0) { youtubeRepo.searchSounds(any(), any(), any(), any()) }
         coVerify(exactly = 0) { youtubeRepo.getAudioPreviewUrl(any()) }
+    }
+
+    @Test
+    fun `tiktok creator clips lead the ringtones tab and stay off other tabs`() = runTest(dispatcher) {
+        assumeTrue(isProviderAvailableInCurrentArtifact(ContentSource.TIKTOK))
+        val youtubeRepo = mockk<YouTubeRepository>()
+        val freesoundRepo = mockk<FreesoundRepository>()
+        val freesoundV2Repo = mockk<FreesoundV2Repository>()
+        val audiusRepo = mockk<AudiusRepository>()
+        val ccMixterRepo = mockk<CcMixterRepository>()
+        val soundCloudRepo = mockk<SoundCloudRepository>()
+        stubCommonDependencies(youtubeRepo, freesoundRepo, freesoundV2Repo, audiusRepo, ccMixterRepo, soundCloudRepo)
+        coEvery { youtubeRepo.searchSounds(any(), any(), any(), any()) } returns SearchResult(
+            items = listOf(testSound("yt_abc12345678", ContentSource.YOUTUBE, "Crystal Chime")),
+            totalCount = 1,
+            currentPage = 1,
+            hasMore = false,
+        )
+        // "new" is on the YouTube spam blocklist; a creator clip must survive it.
+        val tiktok = listOf(
+            tiktokSound("7688705749270252814", "Nokia Banger"),
+            tiktokSound("7689085301091781901", "Sprinkles Remix | new iphone ringtone"),
+        )
+
+        val viewModel = createViewModel(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+            bundledRingtones = listOf(testSound("bundled_ring", ContentSource.BUNDLED, "Bundled Ring")),
+            tiktokRingtones = tiktok,
+        )
+        advanceUntilIdle()
+
+        val ringtoneIds = viewModel.state.value.sounds.map { it.id }
+        assertEquals(listOf("tt_7688705749270252814", "tt_7689085301091781901"), ringtoneIds.take(2))
+        assertTrue(ringtoneIds.contains("bundled_ring"))
+
+        viewModel.selectTab(SoundTab.NOTIFICATIONS)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.sounds.none { it.source == ContentSource.TIKTOK })
+    }
+
+    @Test
+    fun `tiktok clips stay in ringtones when youtube is disabled`() = runTest(dispatcher) {
+        assumeTrue(isProviderAvailableInCurrentArtifact(ContentSource.TIKTOK))
+        val youtubeRepo = mockk<YouTubeRepository>()
+        val freesoundRepo = mockk<FreesoundRepository>()
+        val freesoundV2Repo = mockk<FreesoundV2Repository>()
+        val audiusRepo = mockk<AudiusRepository>()
+        val ccMixterRepo = mockk<CcMixterRepository>()
+        val soundCloudRepo = mockk<SoundCloudRepository>()
+        stubCommonDependencies(youtubeRepo, freesoundRepo, freesoundV2Repo, audiusRepo, ccMixterRepo, soundCloudRepo)
+
+        val viewModel = createViewModel(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+            youtubeProviderEnabled = false,
+            bundledRingtones = listOf(testSound("bundled_ring", ContentSource.BUNDLED, "Bundled Ring")),
+            tiktokRingtones = listOf(tiktokSound("7688705749270252814", "Nokia Banger")),
+        )
+        advanceUntilIdle()
+
+        assertEquals(listOf("tt_7688705749270252814", "bundled_ring"), viewModel.state.value.sounds.map { it.id })
+        coVerify(exactly = 0) { youtubeRepo.searchSounds(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `an expired tiktok preview link is refreshed before playback`() = runTest(dispatcher) {
+        assumeTrue(isProviderAvailableInCurrentArtifact(ContentSource.TIKTOK))
+        val youtubeRepo = mockk<YouTubeRepository>()
+        val freesoundRepo = mockk<FreesoundRepository>()
+        val freesoundV2Repo = mockk<FreesoundV2Repository>()
+        val audiusRepo = mockk<AudiusRepository>()
+        val ccMixterRepo = mockk<CcMixterRepository>()
+        val soundCloudRepo = mockk<SoundCloudRepository>()
+        stubCommonDependencies(youtubeRepo, freesoundRepo, freesoundV2Repo, audiusRepo, ccMixterRepo, soundCloudRepo)
+        val refreshed = "https://v16m.tiktokcdn-us.com/ffffffffffffffffffffffffffffffff/7fffffff/video/tos/new/"
+        val tiktokRepo = mockk<TikTokSoundRepository>()
+        coEvery { tiktokRepo.ringtones(any()) } returns emptyList()
+        coEvery { tiktokRepo.playableMediaUrl(any(), any()) } returns refreshed
+        val playbackManager = mockk<AudioPlaybackManager>(relaxed = true).also {
+            every { it.currentSoundId } returns MutableStateFlow(null)
+            every { it.currentPosition } returns MutableStateFlow(0L)
+            every { it.duration } returns MutableStateFlow(0L)
+            every { it.isPlaying } returns MutableStateFlow(false)
+        }
+        val viewModel = createViewModel(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+            audioPlaybackManagerOverride = playbackManager,
+            tiktokRepoOverride = tiktokRepo,
+        )
+        advanceUntilIdle()
+        val expired = tiktokSound("7688705749270252814", "Nokia Banger", expiresAtSec = 1_000_000_000L)
+
+        viewModel.togglePlayback(expired)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { tiktokRepo.playableMediaUrl(match { it.id == expired.id }, any()) }
+        verify { playbackManager.play(match { it.id == expired.id }, refreshed, any()) }
     }
 
     @Test
@@ -671,6 +785,67 @@ class SoundsViewModelTest {
     }
 
     @Test
+    fun `switching tabs cancels the old feed's prebuffers so the new feed gets the slots`() = runTest(dispatcher) {
+        assumeYouTubeAvailable()
+        val youtubeRepo = mockk<YouTubeRepository>()
+        val freesoundRepo = mockk<FreesoundRepository>()
+        val freesoundV2Repo = mockk<FreesoundV2Repository>()
+        val audiusRepo = mockk<AudiusRepository>()
+        val ccMixterRepo = mockk<CcMixterRepository>()
+        val soundCloudRepo = mockk<SoundCloudRepository>()
+        val audioPreviewCache = mockk<AudioPreviewCache>()
+        val ringtones = (1..8).map { testSound("yt_ring_$it", ContentSource.YOUTUBE, "Ring Tone $it") }
+        val alerts = (1..3).map { testSound("yt_alert_$it", ContentSource.YOUTUBE, "Alert Tone $it") }
+
+        stubCommonDependencies(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+        )
+        coEvery { youtubeRepo.searchSounds(any(), any(), any(), any()) } returns
+            SearchResult(items = ringtones, totalCount = ringtones.size, currentPage = 1, hasMore = false)
+        var startedRingtonePrebuffers = 0
+        var cancelledRingtonePrebuffers = 0
+        // Ringtone clips never finish, so without cancellation they hold every shared slot.
+        coEvery { audioPreviewCache.prebuffer(any()) } coAnswers {
+            if (firstArg<Sound>().id.startsWith("yt_ring_")) {
+                startedRingtonePrebuffers++
+                try {
+                    awaitCancellation()
+                } finally {
+                    cancelledRingtonePrebuffers++
+                }
+            } else {
+                true
+            }
+        }
+
+        val viewModel = createViewModel(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+            audioPreviewCacheOverride = audioPreviewCache,
+        )
+        advanceUntilIdle()
+        assertTrue(startedRingtonePrebuffers > 0)
+        assertEquals(0, cancelledRingtonePrebuffers)
+
+        coEvery { youtubeRepo.searchSounds(any(), any(), any(), any()) } returns
+            SearchResult(items = alerts, totalCount = alerts.size, currentPage = 1, hasMore = false)
+        viewModel.selectTab(SoundTab.NOTIFICATIONS)
+        advanceUntilIdle()
+
+        assertEquals(startedRingtonePrebuffers, cancelledRingtonePrebuffers)
+        alerts.forEach { assertTrue(viewModel.previewReadyIds.value.contains(it.stableKey())) }
+    }
+
+    @Test
     fun `loadMore is disabled for youtube sound feed`() = runTest(dispatcher) {
         assumeYouTubeAvailable()
         val youtubeRepo = mockk<YouTubeRepository>()
@@ -761,6 +936,62 @@ class SoundsViewModelTest {
         assertEquals(SoundTab.YOUTUBE, state.selectedTab)
         assertEquals(listOf("yt_focus"), state.sounds.map { it.id })
         assertFalse(state.hasMore)
+    }
+
+    @Test
+    fun `thirty result youtube search resolves previews only for the visible window`() = runTest(dispatcher) {
+        assumeYouTubeAvailable()
+        val youtubeRepo = mockk<YouTubeRepository>()
+        val freesoundRepo = mockk<FreesoundRepository>()
+        val freesoundV2Repo = mockk<FreesoundV2Repository>()
+        val audiusRepo = mockk<AudiusRepository>()
+        val ccMixterRepo = mockk<CcMixterRepository>()
+        val soundCloudRepo = mockk<SoundCloudRepository>()
+
+        stubCommonDependencies(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+        )
+        val results = (1..30).map { testSound("yt_clip$it", ContentSource.YOUTUBE, "Clip $it") }
+        coEvery { youtubeRepo.searchSounds("focus", any(), any(), any()) } returns SearchResult(
+            items = results,
+            totalCount = results.size,
+            currentPage = 1,
+            hasMore = false,
+        )
+
+        val viewModel = createViewModel(
+            youtubeRepo = youtubeRepo,
+            freesoundRepo = freesoundRepo,
+            freesoundV2Repo = freesoundV2Repo,
+            audiusRepo = audiusRepo,
+            ccMixterRepo = ccMixterRepo,
+            soundCloudRepo = soundCloudRepo,
+        )
+        advanceUntilIdle()
+        viewModel.searchYouTube("focus")
+        advanceUntilIdle()
+
+        val feed = viewModel.state.value.sounds
+        assertEquals(30, feed.size)
+        coVerify(atMost = INITIAL_PREVIEW_RESOLVE_WINDOW) { youtubeRepo.getAudioPreviewUrl(any()) }
+
+        // Scrolling to rows 10..13 resolves those plus one lookahead, nothing further down.
+        val window = previewResolveWindow(feed, firstVisibleIndex = 10, lastVisibleIndex = 13)
+        viewModel.onVisibleSoundsChanged(window)
+        viewModel.onVisibleSoundsChanged(window)
+        advanceUntilIdle()
+
+        window.forEach { sound ->
+            coVerify(exactly = 1) { youtubeRepo.getAudioPreviewUrl(sound.id.removePrefix("yt_")) }
+        }
+        feed.drop(15).forEach { sound ->
+            coVerify(exactly = 0) { youtubeRepo.getAudioPreviewUrl(sound.id.removePrefix("yt_")) }
+        }
     }
 
     @Test
@@ -1506,6 +1737,8 @@ class SoundsViewModelTest {
         uploadRepoOverride: UploadRepository? = null,
         youtubeProviderEnabled: Boolean = isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE),
         communityProviderEnabled: Boolean = true,
+        tiktokRingtones: List<Sound> = emptyList(),
+        tiktokRepoOverride: TikTokSoundRepository? = null,
     ): SoundsViewModel {
         val prefs = mockk<PreferencesManager>()
         every { prefs.autoPreviewSounds } returns flowOf(true)
@@ -1548,9 +1781,14 @@ class SoundsViewModelTest {
             coEvery { it.getLatestByIdAndType(any(), any()) } returns null
         }
 
+        val tiktokRepo = tiktokRepoOverride ?: mockk<TikTokSoundRepository>().also {
+            coEvery { it.ringtones(any()) } returns tiktokRingtones
+        }
+
         return SoundsViewModel(
             context = localizedFeedbackContext(),
             youtubeRepo = youtubeRepo,
+            tiktokRepo = tiktokRepo,
             favoritesRepo = favoritesRepo,
             soundApplier = mockk<SoundApplier>(relaxed = true),
             downloadManager = downloadManagerOverride ?: mockk<DownloadManager>(relaxed = true),
@@ -1614,6 +1852,26 @@ class SoundsViewModelTest {
         assumeTrue(
             "YouTube is intentionally excluded from this artifact",
             isProviderAvailableInCurrentArtifact(ContentSource.YOUTUBE),
+        )
+    }
+
+    private fun tiktokSound(
+        videoId: String,
+        name: String,
+        expiresAtSec: Long = System.currentTimeMillis() / 1000 + 86_400,
+    ): Sound {
+        val url = "https://v16m.tiktokcdn-us.com/2efdb7eb5474a4275cb2492f10c5c70a/" +
+            "${expiresAtSec.toString(16).padStart(8, '0')}/video/tos/$videoId/"
+        return Sound(
+            id = "tt_$videoId",
+            source = ContentSource.TIKTOK,
+            name = name,
+            previewUrl = url,
+            downloadUrl = url,
+            duration = 20.0,
+            license = "TikTok",
+            uploaderName = "Ringtones for iPhone",
+            sourcePageUrl = "https://www.tiktok.com/@ringtonesforiphone/video/$videoId",
         )
     }
 

@@ -15,6 +15,7 @@ import javax.inject.Singleton
 class SoundUrlResolver @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val youtubeRepo: YouTubeRepository,
+    private val tiktokAudioExtractor: TikTokAudioExtractor,
 ) {
     suspend fun resolve(sound: Sound): String? = withContext(Dispatchers.IO) {
         val directCandidates = listOf(sound.downloadUrl, sound.previewUrl)
@@ -23,6 +24,17 @@ class SoundUrlResolver @Inject constructor(
             .distinct()
 
         directCandidates.firstOrNull(::isLocalMediaLocator)?.let { return@withContext it }
+
+        // A TikTok link is a video; only the extracted sound track may leave here. Like every
+        // other path, a failure resolves to null so callers show their own error.
+        if (sound.source == ContentSource.TIKTOK) {
+            return@withContext try {
+                tiktokAudioExtractor.extract(sound)
+            } catch (e: Exception) {
+                e.rethrowIfCancelled()
+                null
+            }
+        }
 
         sound.youtubeVideoId()?.let { videoId ->
             youtubeRepo.getAudioStreamUrl(videoId)?.let { return@withContext it }

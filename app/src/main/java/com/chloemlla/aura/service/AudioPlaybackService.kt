@@ -70,6 +70,11 @@ class AudioPlaybackService : MediaLibraryService() {
             )
             .setHandleAudioBecomingNoisy(true)
             .build()
+        // Previews are sound only; TikTok clips arrive as MP4 video, so never decode the picture.
+        player.trackSelectionParameters = player.trackSelectionParameters
+            .buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true)
+            .build()
 
         mediaLibrarySession = MediaLibraryService.MediaLibrarySession.Builder(this, player, libraryCallback)
             .build()

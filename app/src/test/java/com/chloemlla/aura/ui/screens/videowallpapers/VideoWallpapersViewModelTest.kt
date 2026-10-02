@@ -2,15 +2,12 @@ package com.chloemlla.aura.ui.screens.videowallpapers
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.content.res.Resources
-import com.chloemlla.aura.R
 import com.chloemlla.aura.data.legal.ProviderBuild
 import com.chloemlla.aura.data.legal.ProviderChannel
 import com.chloemlla.aura.data.local.PreferencesManager
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.DEFAULT_FIT_CANVAS_COLOR
 import com.chloemlla.aura.data.model.FitCanvasMode
-import com.chloemlla.aura.data.model.VideoWallpaperItem
 import com.chloemlla.aura.data.model.WALLPAPER_PRESENTATION_FILL
 import com.chloemlla.aura.data.remote.pexels.PexelsApi
 import com.chloemlla.aura.data.remote.pixabay.PixabayApi
@@ -22,9 +19,12 @@ import com.chloemlla.aura.data.repository.VoteRepository
 import com.chloemlla.aura.data.repository.createLegacyCompatibleYouTubeSearchHandler
 import com.chloemlla.aura.data.repository.parseRedditRssPage
 import com.chloemlla.aura.data.repository.YouTubeRepository
+import com.chloemlla.aura.service.Av1CodecSupport
 import com.chloemlla.aura.data.repository.YouTubeVideoMetadata
 import com.chloemlla.aura.data.repository.sanitizeVoteKey
-import com.chloemlla.aura.service.Av1CodecSupport
+import android.content.res.Resources
+import com.chloemlla.aura.R
+import com.chloemlla.aura.data.model.VideoWallpaperItem
 import com.chloemlla.aura.service.SourceMetrics
 import com.chloemlla.aura.service.VideoPreviewCache
 import com.chloemlla.aura.service.VideoWallpaperStorage

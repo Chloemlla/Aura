@@ -22,7 +22,11 @@ import com.chloemlla.aura.data.repository.RotationExclusionRepository
 import com.chloemlla.aura.data.repository.WallpaperRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -43,10 +47,15 @@ class AutoWallpaperWorker @AssistedInject constructor(
     private val receiptStore: BackgroundWorkReceiptStore,
 ) : CoroutineWorker(appContext, workerParams) {
 
-    override suspend fun doWork(): Result {
+    /** True once this run changed a wallpaper; a disabled provider returns success without one. */
+    private var appliedWallpaper = false
+
+    override suspend fun doWork(): Result = rotationRunLock.withLock { runRotation() }
+
+    private suspend fun runRotation(): Result {
         val receiptWorkName = inputData.getString(RECEIPT_WORK_NAME_KEY) ?: WORK_NAME
         val attempt = runAttemptCount
-        return try {
+        val result = try {
             if (prefs.wallpaperPackEnabled.first()) {
                 // The 24H pack owns the wallpaper while it is on. Both features used to
                 // set wallpapers on their own schedules, so a rotation was reverted at
@@ -60,12 +69,12 @@ class AutoWallpaperWorker @AssistedInject constructor(
             val legacyEnabled = prefs.autoWallpaperEnabled.first()
             val triggeredRotation = inputData.getBoolean(TRIGGERED_ROTATION_KEY, false)
 
-            val result = when {
+            val outcome = when {
                 schedulerEnabled -> doSchedulerWork()
                 shouldRunLegacyRotation(schedulerEnabled, legacyEnabled, triggeredRotation) -> doLegacyWork()
                 else -> Result.success()
             }
-            if (result == Result.retry() && attempt >= MAX_FAILED_ATTEMPTS) {
+            if (outcome == Result.retry() && attempt >= MAX_FAILED_ATTEMPTS) {
                 // A persistent failure (dead provider, revoked SAF grant, cleared
                 // collection) would otherwise retry forever with 15min->5h exponential
                 // backoff, waking the device for doomed network calls (AURA-G2-31).
@@ -76,12 +85,15 @@ class AutoWallpaperWorker @AssistedInject constructor(
                 )
                 Result.failure()
             } else {
-                receiptStore.recordWorkerResult(
-                    uniqueWorkName = receiptWorkName,
-                    outcome = result.toWorkOutcome(),
-                    retryReason = "wallpaper source returned no usable item or apply failed; check selected source, saved collection, and wallpaper permission",
-                )
-                result
+                // An apply that finished counts even if a tap replaced this run meanwhile.
+                withContext(NonCancellable) {
+                    receiptStore.recordWorkerResult(
+                        uniqueWorkName = receiptWorkName,
+                        outcome = outcome.toWorkOutcome(),
+                        retryReason = "wallpaper source returned no usable item or apply failed; check selected source, saved collection, and wallpaper permission",
+                    )
+                }
+                outcome
             }
         } catch (excluded: AllRotationCandidatesExcludedException) {
             receiptStore.recordFailure(
@@ -93,6 +105,45 @@ class AutoWallpaperWorker @AssistedInject constructor(
             // success prevents WorkManager from retrying the same empty pool.
             Result.success()
         } catch (_: java.io.IOException) {
+            if (attempt >= MAX_FAILED_ATTEMPTS) {
+                receiptStore.recordFailure(
+                    uniqueWorkName = receiptWorkName,
+                    errorClass = "TooManyRetries",
+                    deferralReason = "wallpaper source I/O failed $MAX_FAILED_ATTEMPTS+ consecutive attempts; check connection and provider availability",
+                )
+                Result.failure()
+            } else {
+                receiptStore.recordRetry(
+                    uniqueWorkName = receiptWorkName,
+                    errorClass = "IOException",
+                    deferralReason = "network or remote wallpaper source I/O failed; check connection and provider availability",
+                )
+                Result.retry()
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            receiptStore.recordFailure(
+                uniqueWorkName = receiptWorkName,
+                errorClass = e.javaClass.simpleName,
+                deferralReason = "wallpaper rotation worker crashed before completing; include diagnostics bundle",
+            )
+            Result.failure()
+        }
+        // One-shot work runs under its own unique name, so re-enqueueing the
+        // periodic work here cannot cancel this run. A run that changed home but
+        // found every lock item excluded still changed the wallpaper.
+        if (shouldRestartRotationCountdown(
+                requested = inputData.getBoolean(RESTART_COUNTDOWN_KEY, false),
+                succeeded = result is Result.Success,
+                applied = appliedWallpaper,
+            )
+        ) {
+            withContext(NonCancellable) { restartCountdownAfterManualChange(applicationContext, prefs) }
+        }
+        return result
+    }
+
+    /** Enhanced scheduler with separate home/lock, collections, day/night */
             if (attempt >= MAX_FAILED_ATTEMPTS) {
                 receiptStore.recordFailure(
                     uniqueWorkName = receiptWorkName,
@@ -167,9 +218,12 @@ class AutoWallpaperWorker @AssistedInject constructor(
                 }
                 return Result.retry()
             }
-            val results = buildList {
-                homePick.wallpaper?.let { add(applyAndRecord(it, WallpaperTarget.HOME)) }
-                lockPick.wallpaper?.let { add(applyAndRecord(it, WallpaperTarget.LOCK)) }
+            val results = withContext(NonCancellable) {
+                buildList {
+                    homePick.wallpaper?.let { add(applyAndRecord(it, WallpaperTarget.HOME)) }
+                    lockPick.wallpaper?.let { add(applyAndRecord(it, WallpaperTarget.LOCK)) }
+                }
+            }
             }
             if (homePick.allExcluded || lockPick.allExcluded) {
                 throw AllRotationCandidatesExcludedException("one selected local-folder target")
@@ -308,7 +362,11 @@ class AutoWallpaperWorker @AssistedInject constructor(
         }
     }
 
-    private suspend fun applyAndRecord(wallpaper: Wallpaper, target: WallpaperTarget): Result {
+    /**
+     * Runs to the end even when a newer tap replaces this work, so a started apply always lands in
+     * history. The newer run waits on [rotationRunLock] and applies after it.
+     */
+    private suspend fun applyAndRecord(wallpaper: Wallpaper, target: WallpaperTarget): Result = withContext(NonCancellable) {
         val darkenPercent = prefs.autoWallpaperDarkenPercent.first()
         val nightVariant = shouldUseNightWallpaperVariant(
             enabled = prefs.autoWallpaperNightVariantEnabled.first(),
@@ -323,21 +381,27 @@ class AutoWallpaperWorker @AssistedInject constructor(
         // Through the coordinator, not straight to the applier: it owns the
         // history/night-variant commit and the process-wide apply lock, so a rotation
         // can no longer interleave with a trigger run or the 24H pack (AURA-G2-14).
-        val applied = applyCoordinator.apply(
-            wallpaper = wallpaper,
-            target = target,
-            policy = WallpaperApplyPolicy.BACKGROUND,
-            nightVariantDarkenPercent = darkenPercent,
-        ) {
-            wallpaperApplier.applyByLocator(
-                wallpaper.fullUrl,
-                target,
-                darkenPercent = darkenPercent,
-                nightVariant = nightVariant,
-                imageFlow = MediaIngestionImageFlow.AUTO_ROTATION,
-            )
+        // NonCancellable so a started apply always lands in history even when a newer
+        // tap replaces this run; the newer run waits on rotationRunLock instead.
+        val applied = withContext(NonCancellable) {
+            applyCoordinator.apply(
+                wallpaper = wallpaper,
+                target = target,
+                policy = WallpaperApplyPolicy.BACKGROUND,
+                nightVariantDarkenPercent = darkenPercent,
+            ) {
+                wallpaperApplier.applyByLocator(
+                    wallpaper.fullUrl,
+                    target,
+                    darkenPercent = darkenPercent,
+                    nightVariant = nightVariant,
+                    imageFlow = MediaIngestionImageFlow.AUTO_ROTATION,
+                )
+            }
         }
         if (applied.isFailure) return Result.retry()
+        // A run that changed a wallpaper counts even if it later finds nothing left to do.
+        appliedWallpaper = true
         if (prefs.avoidRecentRepeats.first()) {
             prefs.addRecentRotationId(wallpaper.stableKey())
         }
@@ -345,9 +409,38 @@ class AutoWallpaperWorker @AssistedInject constructor(
     }
 
     companion object {
+        /** One rotation at a time, so a replaced run that is already applying finishes before the next one starts. */
+        internal val rotationRunLock = Mutex()
         const val WORK_NAME = "auto_wallpaper"
         const val RECEIPT_WORK_NAME_KEY = "receipt_work_name"
         const val TRIGGERED_ROTATION_KEY = "triggered_rotation"
+        /** Set on one-shot rotations a person asked for (tile, automation, Run now). */
+        const val RESTART_COUNTDOWN_KEY = "restart_countdown"
+
+        /**
+         * Starts the rotation interval over after a wallpaper change a person asked
+         * for (browse, widget, tile, automation), so the next automatic change is a
+         * full interval away instead of minutes later. Never throws: the change
+         * itself already succeeded, and the old countdown keeps running on failure.
+         */
+        suspend fun restartCountdownAfterManualChange(
+            context: Context,
+            prefs: PreferencesManager = PreferencesManager(context),
+        ) {
+            try {
+                val intervalMinutes = rotationRestartIntervalMinutes(
+                    restartOnManual = prefs.autoWallpaperRestartOnManual.first(),
+                    schedulerEnabled = prefs.schedulerEnabled.first(),
+                    schedulerIntervalMinutes = prefs.schedulerIntervalMinutes.first(),
+                    autoWallpaperEnabled = prefs.autoWallpaperEnabled.first(),
+                    autoWallpaperIntervalHours = prefs.autoWallpaperInterval.first(),
+                ) ?: return
+                schedule(context, prefs, intervalMinutes, restartCountdown = true)
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                android.util.Log.w("AutoWallpaperWorker", "Rotation countdown restart failed", e)
+            }
+        }
 
         /**
          * Consecutive [Result.retry] attempts before a run is downgraded to
@@ -370,7 +463,12 @@ class AutoWallpaperWorker @AssistedInject constructor(
          * Wi-Fi / idle so existing users keep current behavior on upgrade; opt-in
          * via Settings.
          */
-        suspend fun schedule(context: Context, prefs: PreferencesManager, intervalMinutes: Long = 360) {
+        suspend fun schedule(
+            context: Context,
+            prefs: PreferencesManager,
+            intervalMinutes: Long = 360,
+            restartCountdown: Boolean = false,
+        ) {
             refreshOneShotConstraints(prefs)
             scheduleWithConstraints(
                 context = context,
@@ -379,6 +477,7 @@ class AutoWallpaperWorker @AssistedInject constructor(
                 requiresWiFiOnly = cachedRequiresWiFiOnly,
                 requiresIdle = cachedRequiresIdle,
                 requiresNetwork = cachedRequiresNetwork,
+                restartCountdown = restartCountdown,
             )
         }
 
@@ -436,6 +535,7 @@ class AutoWallpaperWorker @AssistedInject constructor(
             requiresWiFiOnly: Boolean,
             requiresIdle: Boolean,
             requiresNetwork: Boolean = true,
+            restartCountdown: Boolean = false,
         ) {
             val constraints = buildAutoWallpaperConstraints(
                 requiresCharging = requiresCharging,
@@ -451,9 +551,15 @@ class AutoWallpaperWorker @AssistedInject constructor(
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
                 .build()
 
+            // UPDATE keeps the existing period's start time, so it cannot reset the
+            // countdown. A manual apply needs a fresh work item to start a full interval.
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 WORK_NAME,
-                ExistingPeriodicWorkPolicy.UPDATE,
+                if (restartCountdown) {
+                    ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE
+                } else {
+                    ExistingPeriodicWorkPolicy.UPDATE
+                },
                 request,
             )
         }
@@ -467,6 +573,24 @@ class AutoWallpaperWorker @AssistedInject constructor(
             WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
         }
     }
+}
+
+/**
+ * The interval a manual change restarts the rotation with, or null when nothing
+ * should be rescheduled. The scheduler owns the work whenever it is on, matching
+ * how Settings schedules it, so its minute interval wins over the hourly one.
+ */
+internal fun rotationRestartIntervalMinutes(
+    restartOnManual: Boolean,
+    schedulerEnabled: Boolean,
+    schedulerIntervalMinutes: Long,
+    autoWallpaperEnabled: Boolean,
+    autoWallpaperIntervalHours: Long,
+): Long? = when {
+    !restartOnManual -> null
+    schedulerEnabled -> schedulerIntervalMinutes
+    autoWallpaperEnabled -> autoWallpaperIntervalHours * 60
+    else -> null
 }
 
 private data class LocalRotationPick(
@@ -483,6 +607,17 @@ internal fun shouldRunLegacyRotation(
     legacyEnabled: Boolean,
     triggeredRotation: Boolean,
 ): Boolean = !schedulerEnabled && (legacyEnabled || triggeredRotation)
+
+/**
+ * A tile or automation rotation restarts the periodic countdown only when it actually
+ * changed the wallpaper. A run skipped for a disabled provider still reports success,
+ * and restarting then would push the next real rotation a full interval out for nothing.
+ */
+internal fun shouldRestartRotationCountdown(
+    requested: Boolean,
+    succeeded: Boolean,
+    applied: Boolean,
+): Boolean = requested && succeeded && applied
 
 /**
  * Pure builder for AutoWallpaper rotation constraints. Always sets

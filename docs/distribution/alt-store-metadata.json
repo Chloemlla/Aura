@@ -10,7 +10,7 @@
     "releaseChannel": "GITHUB",
     "wallpaper": ["REDDIT", "WALLHAVEN", "PEXELS", "PIXABAY", "BING", "WIKIMEDIA", "NASA", "LEMMY", "COMMUNITY", "LOCAL", "AI_GENERATED", "OPEN_METEO"],
     "video": ["REDDIT", "YOUTUBE", "PEXELS", "PIXABAY", "LOCAL"],
-    "sound": ["YOUTUBE", "BUNDLED", "COMMUNITY", "LOCAL"],
+    "sound": ["YOUTUBE", "TIKTOK", "BUNDLED", "COMMUNITY", "LOCAL"],
     "legacyAttributionOnly": ["PICSUM", "INTERNET_ARCHIVE", "FREESOUND", "JAMENDO", "AUDIUS", "CCMIXTER", "KLIPY", "SOUNDCLOUD"]
   },
   "requiredEvidencePaths": [
@@ -300,6 +300,14 @@
     {
       "id": "youtube-newpipe",
       "disclosure": "YouTube search/extraction path for sounds and videos; provider switch available."
+    },
+    {
+      "id": "tiktok-creator-embed",
+      "disclosure": "Public TikTok embed pages for the ringtone creators that lead the Ringtones tab."
+    },
+    {
+      "id": "tiktok-media-cdn",
+      "disclosure": "TikTok clip links for duration labels, previews, and sound-only extraction when the user applies or downloads a ringtone."
     },
     {
       "id": "youtube-pot-provider",

@@ -7,8 +7,8 @@ body:
     id: aura-version
     attributes:
       label: Aura version
-      description: "Settings > About, or the APK filename (e.g. 6.45.3)."
-      placeholder: "6.45.3"
+      description: "Settings > About, or the APK filename (e.g. 6.46.1)."
+      placeholder: "6.46.1"
     validations:
       required: true
   - type: input

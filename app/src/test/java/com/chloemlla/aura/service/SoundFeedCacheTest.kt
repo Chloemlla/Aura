@@ -39,6 +39,24 @@ class SoundFeedCacheTest {
     }
 
     @Test
+    fun `tiktok rows are kept only while their signed link still works`() {
+        val nowMs = 1_790_000_000_000L
+        val nowSec = nowMs / 1000L
+        fun clip(id: String, expiresAtSec: Long): Sound {
+            val link = "https://v16m.tiktokcdn-us.com/2efdb7eb5474a4275cb2492f10c5c70a/${expiresAtSec.toString(16)}/video/tos/clip/"
+            return Sound(id = id, source = ContentSource.TIKTOK, name = id, previewUrl = link, downloadUrl = link)
+        }
+        val fresh = clip("tt_fresh", nowSec + 86_400L)
+        val expired = clip("tt_expired", nowSec - 60L)
+        val sounds = listOf(fresh, expired, sound("bundled", ContentSource.BUNDLED))
+
+        val decoded = decodeSoundFeedCache(encodeSoundFeedCache(CachedSoundFeed(sounds, nowMs)), nowMs = nowMs + 1_000L)
+
+        assertEquals(listOf("tt_fresh", "bundled"), decoded?.sounds?.map { it.id })
+        assertEquals(fresh.previewUrl, decoded?.sounds?.first()?.previewUrl)
+    }
+
+    @Test
     fun `stale feed expires and cache keys separate tabs and queries`() {
         val now = 10_000_000L
         val raw = encodeSoundFeedCache(CachedSoundFeed(listOf(sound("one", ContentSource.YOUTUBE)), now))

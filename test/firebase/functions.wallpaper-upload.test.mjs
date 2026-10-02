@@ -15,22 +15,29 @@ const WALLPAPER_URL = 'https://firebasestorage.googleapis.com/v0/b/aura/o/wallpa
 const requireFromFunctions = createRequire(new URL('../../functions/package.json', import.meta.url));
 const { getApps, initializeApp, deleteApp } = requireFromFunctions('firebase-admin/app');
 const { getDatabase } = requireFromFunctions('firebase-admin/database');
+const { getStorage } = requireFromFunctions('firebase-admin/storage');
 
 let app;
 
 before(async () => {
   assert.ok(
-    process.env.FIREBASE_DATABASE_EMULATOR_HOST,
-    'functions wallpaper upload emulator test must run under firebase emulators:exec --only database',
+    process.env.FIREBASE_DATABASE_EMULATOR_HOST && process.env.FIREBASE_STORAGE_EMULATOR_HOST,
+    'functions wallpaper upload emulator test must run under firebase emulators:exec --only database,storage',
   );
   app = getApps()[0] ?? initializeApp({
     projectId: PROJECT_ID,
     databaseURL: `https://${PROJECT_ID}.firebaseio.com`,
+    storageBucket: `${PROJECT_ID}.appspot.com`,
   });
 });
 
 beforeEach(async () => {
   await getDatabase(app).ref().set(null);
+  // The finalizer matches the uploaded object's size and type against the declared payload.
+  await getStorage(app).bucket().file(STORAGE_PATH).save(Buffer.alloc(410_000, 1), {
+    contentType: 'image/jpeg',
+    resumable: false,
+  });
 });
 
 after(async () => {
@@ -128,6 +135,19 @@ test('wallpaper upload callable handler writes metadata, owner index, quota, and
   const dedupeKey = wallpaperUploadDedupeKey(payload);
   const dedupe = await readValue(`community_write_dedupe/${OWNER_UID}/wallpaper_uploads/${dedupeKey}`);
   assert.equal(dedupe.targetPath, `/community_wallpapers/${result.uploadId}`);
+});
+
+test('wallpaper upload is refused when the stored object size differs from the declared size', async () => {
+  await getStorage(app).bucket().file(STORAGE_PATH).save(Buffer.alloc(1_000, 1), {
+    contentType: 'image/jpeg',
+    resumable: false,
+  });
+
+  await assert.rejects(
+    () => finalizeCommunityWallpaperUploadHandler(validRequest()),
+    { code: 'failed-precondition' },
+  );
+  assert.equal(await readValue('community_wallpapers'), null);
 });
 
 test('same storage path wallpaper upload is idempotent through emulator dedupe', async () => {

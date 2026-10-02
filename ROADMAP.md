@@ -11,6 +11,9 @@ Actionable work only. Historical and completed roadmap material is archived in C
   Evidence: **Verified.** `RingtoneShuffleWorker.kt` reads the broad SOUND download set for ringtone/alarm selection; no notification pool or user-managed membership exists; Peristyle and wallpaper competitors validate named pools as a comprehensible automation model, while ringtone users currently build folder-based rotation externally.
   Touches: sound collection/profile schema, `RingtoneShuffleWorker.kt`, notification target support, Sounds/Library UI, scheduler and boot restoration, history/Undo, export/import, tests.
   Acceptance: users create named pools, add local/downloaded/original sounds, choose ringtone, notification, alarm, or any combination, and set a schedule; the worker avoids an immediate repeat when another valid item exists, skips missing/incompatible media visibly, records history, and restores scheduling after reboot; disabling a pool cancels its work; pools and assignments round-trip through backup.
+  Boot restore 2026-09-30: `RingtoneRestorationWorker` no longer calls `soundShufflePoolManager.migrateLegacyIfNeeded()` and `restoreSchedules()`, because the manager was never committed and a clean checkout failed KSP. Put the injection and both calls back in the same commit that adds `SoundShufflePoolManager.kt`.
+  JVM evidence 2026-09-30: with the in-progress files in the tree, `SettingsViewModelDelegateContractTest` fails ("the facade must not create independent jobs") because `SettingsViewModel.kt` launches the pool operations on `viewModelScope` itself. Move them into a settings delegate.
+  Audit evidence 2026-09-25: the in-progress implementation is not ready to merge. The repository gate currently reports 655 passing and five failing tool tests: the network and scheduling ledgers still require the replaced broad-download calls, the hardcoded-string baseline is missing `Applied automatically`, and two documentation-link checks reject the untracked sound shuffle pools doc. Full and FOSS lint also report nine `LocalContextGetResourceValueCall` errors in `SoundShufflePoolsDialog.kt:105-244`. Treat these as acceptance blockers for this item, not separate roadmap work.
   Complexity: M
 
 - [ ] P2 — Add named Reddit feed presets for discovery and rotation
@@ -20,12 +23,6 @@ Actionable work only. Historical and completed roadmap material is archived in C
   Acceptance: users can create, rename, duplicate, reorder, and delete presets containing subreddit/community list, media type, sort, time window, safe-content setting, and minimum dimensions/duration; Aura ships several editable defaults without silently enabling adult content; the active preset is visible in each feed; rotation can bind to a preset; pagination/cache keys include the full preset; presets round-trip through backup and survive subreddit removal.
   Complexity: M
 
-- [ ] P2 — Repair crash issue intake for no-launch failures
-  Why: the current crash template requires an in-app diagnostics bundle even when the crash prevents Aura from opening, and it omits the exact environment and reproduction fields needed to act on device-specific media defects.
-  Evidence: **Verified.** `.github/ISSUE_TEMPLATE/crash_report.yml:10-20` requires diagnostics but does not collect reproduction steps, expected/actual result, Aura version, Android version, device model, source/media URL with privacy warning, or a no-launch fallback; the current tracker shows how much resolution depends on device and source details in issues #2 and #44.
-  Touches: `.github/ISSUE_TEMPLATE/crash_report.yml`, `SUPPORT.md` or existing troubleshooting docs, diagnostics screen copy, link validation test.
-  Acceptance: the template collects minimal repro, expected/actual, app version, Android version, device/model, install channel, feature/source, and whether the issue survives restart; diagnostics are requested when available but never mandatory for a no-launch crash; a redacted `adb logcat` or bugreport fallback is documented with secret-removal guidance; every referenced Settings path and URL exists; a fixture rejects future removal of the fallback.
-  Complexity: S
 
 - [ ] P2 — Replace or prove harmless the five under-aligned libwebp objects in the FFmpeg payload
   Why: with the 16 KB gate now reading inside `lib/<abi>/*.zip.so`, five prebuilt libwebp ELFs are measured at `p_align 4096` on both 64-bit ABIs. They are recorded as exceptions so the gate stays useful, but an exception is an acknowledgement, not a fix: on a 16 KB-page device `dlopen` of a 4 KB-aligned object fails, and FFmpeg is configured `--enable-libwebp`, so a WebP path can reach them.
@@ -163,21 +160,7 @@ Actionable work only. Historical and completed roadmap material is archived in C
   Acceptance: users can create named profiles mapping ringtone/notification/alarm URIs to start/end hours, enable/disable each, and delete them; the worker is enqueued only when at least one enabled profile exists; profile application records into the existing `lastApplied*Uri` restoration data so boot restoration does not stomp it; tests cover empty gating, overlapping windows, and the overnight wrap.
   Complexity: M
 
-- [ ] P2 — Finish live-wallpaper dimming on the video and parallax engines
-  Why: `LiveWallpaperDimming` (dim + double-tap reveal) shipped wired into `WeatherWallpaperService` only, with the other two engines named as follow-up wiring that never happened; the Settings toggle reads as engine-agnostic, so on video/parallax it is a silent no-op.
-  Evidence: commit `517f642` ("reusable by VideoWallpaperService and ParallaxWallpaperService (left as follow-up wiring)"); grep shows no dimming reference in `VideoWallpaperService.kt` or `ParallaxWallpaperService.kt`; Muzei recede mode is the category reference.
-  Touches: `VideoWallpaperService.kt`, `ParallaxWallpaperService.kt`, `LiveWallpaperDimming.kt`, the live-wallpaper soak harness, string resources.
-  Acceptance: dim level and double-tap reveal behave identically on all three engines; re-dim after reveal follows the one-shot delayed-frame pattern CLAUDE.md documents for `WeatherWallpaperService.scheduleDraw()`; the soak harness runs the dimmed path and asserts no extra bitmap retention; until parity lands the toggle copy names the engines it affects.
-  Complexity: S
 
-- [ ] P2 — Classify OEM ringtone-write failures instead of failing generically
-  Why: `SoundApplier` calls `RingtoneManager.setActualDefaultRingtoneUri` with no OEM-failure handling, and Samsung devices are documented throwing `IllegalArgumentException` ("cannot keep your settings in the secure settings") on notification-sound writes — the user sees a generic failure for a known, explainable device behavior in the app's core action.
-  Evidence: `SoundApplier.kt:70,109`; Samsung developer-forum reports of the secure-settings exception on Galaxy devices; Samsung community threads on tones not persisting after updates.
-  Touches: `SoundApplier.kt`, `ContactRingtoneService.kt`, error string resources, `SettingsDiagnosticsSection.kt` or the diagnostics bundle.
-  Acceptance: the secure-settings failure class is caught and distinguished from missing `WRITE_SETTINGS`; the user gets device-specific guidance including a one-tap route to the system sound picker as fallback; the failure class is counted in diagnostics; a test covers the `IllegalArgumentException` path for each of the three sound types.
-  Complexity: S
-
-  Note 2026-09-04: the Samsung developer-forum URL behind the `IllegalArgumentException` claim now 404s and the exception string appears in no Stack Overflow question, so treat the specific message as unconfirmed and catch the class defensively rather than matching on text. The item still stands on its own logic: `SoundApplier.kt:70,109` has no OEM-failure handling at all. Community evidence that does hold up is the `WRITE_SETTINGS` posture — the most-upvoted review on the category's leading editor asks for exactly the flow Aura already has, an entry in the system picker with no elevated permission, so confirm `WRITE_SETTINGS` is requested only when the user taps "set as default" and never as a precondition for saving. Separately, the contact-ringtone failure that dominates this category throws nothing at all; that is a distinct P2 item added 2026-09-04.
 
 - [ ] P2 — Prefetch the next rotation wallpaper
   Why: `AutoWallpaperWorker` fetches from the provider at fire time, so a dead or metered-blocked network at the trigger means a skipped rotation; prefetching the next candidate after each successful rotation makes remote-source rotation as reliable as local, and Wallora demonstrates the pattern.
@@ -260,12 +243,6 @@ Actionable work only. Historical and completed roadmap material is archived in C
   Acceptance: `docs/distribution/channel-strategy.md` records which lists were submitted to and when, with links; GitHub topics are set; submissions happen only after the Fastlane-image, signing-transparency, and reproducibility prerequisites in this roadmap are complete; an IzzyOnDroid inclusion request waits for the owner decision recorded in `Roadmap_Blocked.md`.
   Complexity: S
 
-- [ ] P3 — Restart the rotation countdown on manual wallpaper changes
-  Why: a manual apply does not touch the periodic schedule (`ExistingPeriodicWorkPolicy.UPDATE` keeps the existing cadence and the apply coordinator never reschedules), so rotation can overwrite a user's deliberate choice moments after they made it — a documented complaint class in Paperize.
-  Evidence: `WallpaperApplyCoordinator.kt` (no rescheduling); `AutoWallpaperWorker.kt:307` (`ExistingPeriodicWorkPolicy.UPDATE`); Paperize #591.
-  Touches: `WallpaperApplyCoordinator.kt`, `AutoWallpaperWorker.kt` scheduling companion, settings copy, tests.
-  Acceptance: a manual apply from any surface (detail, shuffle, widget, tile, external broadcast) restarts the rotation countdown, governed by an on-by-default "restart timer on manual change" setting; rotation diagnostics show the recomputed next-fire time; a test proves the next fire moves after a manual apply and does not move when the setting is off.
-  Complexity: S
 
 - [ ] P3 — Add Undo and Skip actions to the rotation notification
   Why: the daily-rotation notification is display-only, so recovering from an unwanted rotated wallpaper requires opening the app, finding history, and undoing — while Aura already owns a working undo path; Peristyle and Paperize both ship notification-level controls.
@@ -287,15 +264,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
 
 ### P1
 
-- [ ] P1 — Validate release assets and digests in the publication gate
-  Category: testing
-  Where: tools/published_state.py:91-125; tools/release_publication_check.py:69-88; test/tools/release_publication_check_test.py:44-94; tools/release_artifact_bundle_check.py:21-35,227-320; docs/distribution/release-signing.md:48-63
-  Problem: Publication checks only whether a GitHub tag exists. They neither inventory nor validate assets, and an unknown remote state can still report ok, so an incomplete release passes.
-  Evidence: v6.45.3 is now published with five APKs and SHA256SUMS.txt, disproving the stale P0 publication-gap entry. The checker exits zero without fetching assets, while the documented bundle contract also names an AAB, notices, raw OSS inputs, native reports, notes, and verification receipts. Current tests mock tag existence only.
-  Fix: Define the deliberate public asset contract, fetch names and GitHub digests, compare them with the checksum manifest, and add a strict online mode where unknown state fails. Keep owner-only evidence private only if documentation explicitly separates it from public assets.
-  Acceptance: Missing, wrong-version, duplicate, and digest-mismatched fixture assets fail; unknown remote state cannot be publication verified in strict mode; the live release passes only after its public assets match the declared contract.
-  Confidence: Verified
-  Effort: M
 
 - [ ] P1 — Move to targetSdk 36
   Why: Play has required targetSdk 36 for new apps and updates since 2026-08-31 and Accrescent removes apps that miss the target-SDK bar rather than hiding them, so targetSdk 35 closes two of the three stores Aura's distribution docs plan for. The work is small because the behavior changes are already satisfied, and it is not blocked: `Roadmap_Blocked.md` blocks targetSdk 37, which needs compileSdk 37 and an AGP beyond 8.9.3.
@@ -366,12 +334,6 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Acceptance: all three versions move, dependency verification entries are built from the upstream-published `.sha256` rather than the local cache, the widget's generated preview still publishes, `:app:testFullDebugUnitTest` and `:app:testFossDebugUnitTest` are green, the Roborazzi gate passes, and the prerelease-pin comment is replaced with the stable pin.
   Complexity: S
 
-- [ ] P2 — Strip the dependency-info blob from release artifacts
-  Why: the APK signing block carries a Google-encrypted dependency payload that IzzyOnDroid's scanner flags and that works against byte-for-byte reproducibility, which is the submission Aura's distribution docs are aiming at.
-  Evidence: `dependenciesInfo` appears nowhere in `app/build.gradle.kts`, so AGP's default is in effect; IzzyOnDroid's APK checks list `DEPENDENCY_INFO_BLOCK` among the signing-block BLOBs it reports (https://android.izzysoft.de/articles/named/iod-scan-apkchecks); `tools/foss_reproducibility_check.py` compares signature-stripped archives, so the blob is a live variable in that comparison.
-  Touches: `app/build.gradle.kts`, `tools/foss_reproducibility_check.py`, `docs/distribution/supply-chain.md`, `test/tools/`.
-  Acceptance: `dependenciesInfo { includeInApk = false; includeInBundle = false }` is set, a freshly built release APK's signing block contains no dependency-info entry, the reproducibility check still passes, and a gate fails if the setting is removed.
-  Complexity: S
 
 - [ ] P2 — Run the API 35 half of the device-blocked backlog
   Why: two items sit in `Roadmap_Blocked.md` under "Blocker: Physical Device / Emulator" purely for want of an instrumentation target, and an emulator that can run both was available on this machine.
@@ -810,9 +772,9 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
   Category: testing
   Where: tools/compose_hardcoded_string_check.py; docs/localization/hardcoded-string-baseline.json; app/src/main/java/com/chloemlla/aura/ui/screens/downloads/DownloadsScreen.kt:329-364; app/src/main/java/com/chloemlla/aura/ui/screens/favorites/FavoritesScreen.kt:667-731; app/src/main/java/com/chloemlla/aura/ui/screens/settings/WallpaperHistoryScreen.kt:48,54,115-122; app/src/main/java/com/chloemlla/aura/ui/screens/sounds/SoundsScreen.kt:770-777,1019-1047; app/src/main/java/com/chloemlla/aura/data/repository/AiWallpaperRepository.kt:19-27; app/src/main/java/com/chloemlla/aura/service/MediaIngestion.kt:488-494
   Problem: The current checker and baseline miss user-visible literals outside its narrow Compose patterns, so Chinese and future locales silently fall back to embedded English that the gate reports as clean.
-  Evidence: Direct review found hardcoded labels/status text in the listed production screens, repository errors, and English-built list conjunctions. The baseline can also be grown in write mode without a required reason.
+  Evidence: Direct review found hardcoded labels/status text in the listed production screens, repository errors, and English-built list conjunctions. The wallpaper card's TalkBack summary also assembles English-only orientation, AMOLED, vote-count, and saved-state phrases outside Android resources. The baseline can be grown in write mode without a required reason, and the 2026-09-25 tool run already drifted on a new `Applied automatically` message.
   Fix: Parse all Kotlin user-facing sinks, including Snackbar/toast/state/error constructors and content descriptions. Extract current literals, require a reason for any unavoidable baseline entry, and forbid automatic baseline growth.
-  Acceptance: The named strings come from resources in English and Chinese; a fixture in each supported sink fails; the baseline is empty or every entry has a reviewed reason; write mode cannot increase it silently.
+  Acceptance: The named strings and wallpaper-card semantics come from resources in English and Chinese, including proper plurals for vote counts; a fixture in each supported sink fails; the baseline is empty or every entry has a reviewed reason; write mode cannot increase it silently.
   Confidence: Verified
   Effort: M
 
@@ -850,29 +812,127 @@ Evidence for every item below is in RESEARCH.md (2026-09-04 pass).
 
 ## Research-Driven Additions — 2026-09-25
 
-### P1
+### P2
 
-- [ ] P1 — Render each live wallpaper engine with its display context
-  Why: Android can run concurrent wallpaper engines on displays with different densities, but Aura sizes clock overlays and fallback surfaces from service resources, so secondary-display rendering can be scaled incorrectly.
-  Evidence: **Verified.** Android's `WallpaperService.Engine.getDisplayContext()` contract says to avoid the service context in a multiple-display environment; `WallpaperClockOverlay.kt:88` reads `context.resources.displayMetrics.density`; `VideoWallpaperService.kt:689`, `WeatherWallpaperService.kt:480`, and `ParallaxWallpaperService.kt:550` pass their service context; the weather and parallax fallbacks also read service metrics at `WeatherWallpaperService.kt:259-260` and `ParallaxWallpaperService.kt:293-294`; https://developer.android.com/reference/android/service/wallpaper/WallpaperService.Engine#getDisplayContext
-  Touches: `VideoWallpaperService.kt`, `WeatherWallpaperService.kt`, `ParallaxWallpaperService.kt`, `WallpaperClockOverlay.kt`, live-wallpaper engine and rendering tests.
-  Acceptance: on API 29 and later, every engine obtains its context only after `onCreate(SurfaceHolder)` and uses that context for density, fallback dimensions, overlays, and display resources; API 26 through 28 keep an explicit service-context fallback; a test creates two concurrent engines with distinct densities and surfaces and proves each produces independently scaled output; preview and applied-engine lifecycle tests pass without service-global display state.
-  Complexity: M
+
+
+## Deep Audit Additions — 2026-09-25
 
 ### P2
 
-- [ ] P2 — Upgrade Firebase CLI to 15.31.0 and gate the root audit
-  Why: Aura's deployment CLI is pinned to 15.19.1 and brings nine moderate advisories into the repository toolchain even though the production Functions dependency tree is clean.
-  Evidence: **Verified on 2026-09-25.** `package.json:15` and `package-lock.json:4446-4448` pin 15.19.1; root `npm audit` reports nine moderate vulnerabilities through Firebase CLI dependencies and names 15.31.0 as the non-major fix; 15.31.0 pins `stream-json` 3.6.0 or later and `csv-parse` 7.0.2 or later; `npm audit --omit=dev` in `functions/` reports zero; https://github.com/firebase/firebase-tools/releases/tag/v15.31.0.
-  Touches: `package.json`, `package-lock.json`, Firebase emulator and backend-manifest checks under `tools/`, release documentation that names the CLI version.
-  Acceptance: the root lockfile resolves Firebase CLI 15.31.0 or a newer reviewed 15.x patch; root and `functions/` audits report zero moderate, high, or critical findings without `--force`, blanket overrides, or ignored advisories; existing Firebase emulator, rules, Functions, and community-backend manifest checks pass; the gate labels root findings as deployment-tool findings so they are not reported as APK runtime vulnerabilities.
+- [ ] P2 — Finish server-side Storage attestation for community uploads
+  Category: security
+  Where: `functions/src/soundUploadHandler.ts:77-90,171-183,217-257,460-469`; `functions/src/wallpaperUploadHandler.ts:69-88,169-189,513-522`; `app/src/main/java/com/freevibe/data/model/CommunitySoundUpload.kt:24-64`; `app/src/main/java/com/freevibe/data/repository/UploadRepository.kt:121-150,363-378`; `functions/test/finalizeCommunitySoundUpload.test.cjs:15-35`; `functions/test/finalizeCommunityWallpaperUpload.test.cjs:18-38`
+  Problem: The new finalizers only partly bind published metadata to the uploaded object. The sound path references a nonexistent `payload.fileSize`, its Android caller never sends that field, and it never compares the declared MIME type with Storage metadata. Both media types still publish client-selected HTTPS URLs, and wallpaper dimensions are never decoded from the stored JPEG.
+  Evidence: `npm --prefix functions test` and `npm run test:functions-emulator` both stop in TypeScript compilation at `soundUploadHandler.ts:178,181` because `CommunitySoundUploadPayload` has no `fileSize`. `verifyStorageObject()` returns only existence, MIME, and byte size. The wallpaper check accepts any Storage MIME whose top-level type is `image`, then persists the submitted URLs and dimensions. The JavaScript fakes have no `verifyStorageObject` method or missing-object, MIME, URL, size, and dimension mismatch cases, so runtime coverage would still fail after the type error is corrected. Storage creation rules reduce exposure, but they do not prove that later public metadata describes the same object.
+  Fix: Add one shared attestation result whose required fields come from Admin Storage and media inspection. Derive the public locator from the verified bucket/object instead of accepting it from the caller, require exact allowed MIME and byte size, decode JPEG dimensions server-side, and add `fileSize` to the sound client contract. Update the fakes before publication logic is considered complete. Keep quota-failure reconciliation in its existing roadmap item.
+  Acceptance: Both Functions test commands compile and pass; missing objects and unavailable metadata fail closed; wrong owner path, URL, size, exact MIME, and wallpaper dimensions are rejected without a public row; a matching sound and wallpaper publish only server-derived object metadata; Android payload tests prove sound size is bounded and transmitted.
+  Confidence: Verified
+  Effort: M
+
+
+
+- [ ] P2 — Keep every primary destination usable at 200 percent text
+  Category: a11y
+  Where: `app/src/main/java/com/freevibe/ui/FreeVibeRoot.kt:241-301,1156-1224`
+  Problem: The fixed bottom bar and navigation rail cannot contain five always-visible text labels at the platform's 200 percent font setting. Portrait labels are cut mid-word, while the landscape rail truncates Wallpapers and pushes Settings completely off-screen.
+  Evidence: Current-run API 35 emulator captures at `font_scale=2.0` show `Wallpa`, `Sound`, and `Settin` in the 64 dp portrait bar. At 2400 by 1080 landscape, the 86 dp rail shows only four destinations and clips the selected label. The code fixes bar height to 64 dp, rail width to 86 dp, labels to one line, and gives the full-height rail no scroll or compact mode. This concrete defect is actionable independently of the remaining scanner matrix in `Roadmap_Blocked.md`.
+  Fix: Introduce a large-text navigation presentation that preserves all five targets, such as semantic icon-only compact navigation or a scroll-safe rail, and size it from the actual container and insets. Keep full accessible names even when visible labels are shortened or hidden.
+  Acceptance: At 200 percent text in portrait and landscape, all five destinations are simultaneously reachable with no clipped text or target; TalkBack announces their full localized names and selected state; normal text, RTL, gesture navigation, and three-button navigation retain at least 48 dp targets; screenshot tests cover both navigation forms.
+  Confidence: Verified
+  Effort: M
+
+- [ ] P2 — Replace URL-only wallpaper dedupe with safe media identity
+  Category: correctness
+  Where: `app/src/main/java/com/freevibe/ui/screens/wallpapers/WallpaperFeedQuality.kt:67-85,253-264`; wallpaper feed cache and provider merge tests
+  Problem: Feed dedupe treats a normalized URL as content identity. Exact duplicate files at different URLs remain side by side, while lowercasing the entire URL can collapse distinct resources whose case-sensitive paths differ.
+  Evidence: The current-run Popular feed rendered its first two cards as the same artwork under Reddit IDs `rd_1wpu3qi` and `rd_1wpu03j`. Their distinct `i.redd.it` URLs downloaded to two 519,117-byte, 978 by 2,030 JPEGs with the same SHA-256, `0D1C55A70581FACE052D4CA39B102900B5A29BBF89A492B8B45187FB65F30D1F`. `wallpaperKey()` strips query and fragment, lowercases the full URL, and has no content fingerprint.
+  Fix: Canonicalize only URL components that are case-insensitive, preserve path/query identity where providers use it, and attach a bounded content digest or decoded-thumbnail fingerprint to fetched media. Coalesce exact duplicates while retaining attribution aliases and the highest-quality metadata.
+  Acceptance: Distinct URLs with identical bytes render once; differently cased, case-sensitive paths remain distinct; signed/resized variants of one asset resolve according to a documented provider rule; pagination and cache restoration do not reintroduce a duplicate; unit fixtures cover all four cases.
+  Confidence: Verified
+  Effort: M
+
+
+### P3
+
+
+## Drain Leftovers — 2026-09-30
+
+Remainders of items closed in the 2026-09-30 drain whose full acceptance did not land.
+
+### P1
+
+- [ ] P1 — Turn on Firebase Authentication so community sign-in and admin moderation work
+  Why: Firebase Auth was never set up on `aura-1b494` (the Identity Toolkit config answers `CONFIGURATION_NOT_FOUND` and the project has no users), so `ensureSignedIn()` fails on every install and every signed-in community action fails before it reaches the backend. Since the private database rules went live on 2026-09-30, a global hide from the app also needs an account with the `admin` claim.
+  Needs: Matt signed in to the Firebase console: Authentication, Get started, then enable Anonymous. The API route (`identityPlatform:initializeAuth`) answers `BILLING_NOT_ENABLED` on Spark, while the console's own Get started doesn't need billing.
+  Then: open Aura on the phone Matt moderates from, find its new anonymous UID in the Authentication users list, and grant `admin: true` (`docs/firebase-admin-claims.md`, or Identity Toolkit `accounts:update` with `customAttributes` using the CLI login). Until then, hide content globally with `npx firebase database:set /moderation/<contentId> true --project aura-1b494`.
+  Acceptance: a fresh install signs in anonymously; an admin hide from the app lands in `/moderation`; a non-admin hide stays on that phone.
+
+- [ ] P1 — Deploy the community functions, then finish the vote migration
+  Why: production has never had a Cloud Function (the Cloud Functions, Cloud Build and Artifact Registry APIs were never enabled), so votes aren't recorded, and reports, follows, blocks, profile edits and collection links all fail. The private database rules went live on 2026-09-30 ahead of the functions. `/vote_counts` was seeded by running the backend's own `seedLegacyVoteCounts` locally against production (33 rows, 36 votes) and the 35 legacy vote markers were backfilled, so counts and Top Voted already read the new paths. Cloud Storage for Firebase isn't enabled and the project has no bucket (`aura-1b494.firebasestorage.app` doesn't exist), so community uploads need that too.
+  Needs: Firebase Auth (item above) and the Blaze plan on `aura-1b494`. The project is on Spark, and `snafumatthew@gmail.com` (the account the Firebase CLI on this PC is signed in to since 2026-09-30) has no Cloud billing account, so the functions dry run stops at enabling Artifact Registry. At current usage Blaze stays inside its no-cost quotas, but it needs a card and has no hard cap, so set a budget alert.
+  Steps: `npx firebase deploy --only functions:community --project aura-1b494` (it also creates the Scheduler jobs for `pruneExpiredSharedCollections` and `seedLegacyVoteCounts`); create the default Storage bucket and deploy `storage.rules`; check the seeding job's "Seeded legacy vote counts" log line. Once most installs run 6.46.1 or later, export the database, run `python tools/community_vote_privacy_backfill.py --database-export <export.json> --output <update.json> --drop-legacy`, apply it with `firebase database:update / <update.json> --project aura-1b494`, then delete the `seedLegacyVoteCounts` export from `functions/src/index.ts`.
+  Acceptance: a vote from a phone raises its `/vote_counts` row; a real community sound upload finalizes; a collection link made on one phone imports on the other; the prune job shows a successful run in the Functions log.
+
+### P2
+
+- [ ] P2 — Give restart-on-manual-apply a Settings switch and a diagnostics line
+  Why: a manual apply now restarts the rotation interval (CANCEL_AND_REENQUEUE, scheduler-aware), but `AUTO_WP_RESTART_ON_MANUAL` defaults on with no setter and no UI, so nobody can turn it off, and Diagnostics can't show when the next rotation is due.
+  Touches: `PreferencesManager.kt` (setter), `SettingsRotationDelegate.kt`, rotation settings UI, Diagnostics export, strings (en + zh), tests.
+  Acceptance: a switch under rotation settings toggles the pref; Diagnostics shows the next scheduled rotation time from `WorkInfo.nextScheduleTimeMillis`; a test covers the off path leaving the countdown untouched.
   Complexity: S
+
+- [ ] P2 — Dim the MP4 path of the video live wallpaper and name the dimmed engines
+  Why: dimming now reaches the GIF path of `VideoWallpaperService` and the parallax engine, but MP4 playback renders straight to the surface through ExoPlayer, so the dim overlay never draws over it. The toggle copy doesn't say which live wallpapers honor it.
+  Touches: `VideoWallpaperService.kt` (render MP4 through a GL or TextureView-style composition pass, or apply the dim in the player's video effect chain), `LiveWallpaperDimming.kt`, settings strings, a soak run on device.
+  Acceptance: an MP4 live wallpaper dims and reveals on touch like the GIF path; the setting text lists the engines it affects; a 30-minute on-device soak shows no frame-rate or memory regression.
+  Complexity: M
+
+- [ ] P2 — Measure first-play latency and resolve counts for on-demand sound previews on a phone
+  Why: Sounds now resolves YouTube previews only for visible rows plus one lookahead (`SoundPreviewWarmup`). JVM tests prove the budget, cancellation and shared concurrency, but no device run has compared first-play latency or counted `Audio preview resolved` log lines against the old eager fan-out (ten resolutions in about eight seconds on API 29).
+  Touches: debug build on the S22 or S25, logcat `YouTubeRepo` lines, a short timing script.
+  Acceptance: opening Ringtones logs no more than about eight resolutions before any tap; scrolling adds only the newly visible rows; time from tapping a top-row preview to audio is no worse than the previous release on the same phone.
+  Complexity: S
+
+- [ ] P2 — Prove display-context rendering on a second density
+  Why: Video, Weather and Parallax now draw with `displayContext` on API 29+, but no test runs two engines on displays of different density.
+  Touches: Robolectric or instrumented test for `resolveDecodeTarget()` and `resolveScreenSize()` with a secondary display.
+  Acceptance: a test with two display configurations shows each engine sizing its decode target from its own display.
+  Complexity: S
+
+### P3
+
+- [ ] P3 — Cover the AV1 branches of the video wallpaper feed and the fragmented-MP4 fallback on device
+  Why: `VideoWallpapersViewModelTest` compiles again but never exercises `Av1CodecSupport` returning true or false, and the MediaExtractor duration fallback for fragmented MP4 has only a JVM test. When neither the retriever nor MediaExtractor reports a duration, the too-short check is skipped entirely, so a short clip with no duration metadata gets through. HLS sources are never rewrapped (`RedditRssParser.kt`, `VideoWallpapersViewModel.kt`).
+  Touches: `VideoWallpapersViewModelTest.kt`, an androidTest with a fragmented MP4 fixture (the "Waves" clip), `VideoWallpaperStorage.kt`, `RedditRssParser.kt`.
+  Acceptance: AV1-supported and unsupported cases each pick the expected rendition; an on-device test on API 26 and API 29 applies a fragmented MP4 with no container duration; an unknown-duration clip is measured by decoding frames or rejected with a clear message rather than skipped.
+  Complexity: M
+
+- [ ] P3 — Prove the wallpaper detail pager no longer recomposes per drag frame
+  Why: the page offset read moved into `graphicsLayer`, but nothing measures recomposition, so a later edit can move it back unnoticed.
+  Touches: `WallpaperDetailScreen.kt`, a Compose test with a recomposition counter.
+  Acceptance: a test drags the pager across a page and asserts page content recomposes a bounded number of times, independent of frame count.
+  Complexity: S
+
+- [ ] P3 — Settle the root npm audit residue and add Sound detail width tests
+  Why: after the firebase-tools 15.31.0 bump, `npm audit` at the repo root still reports 10 findings that come through firebase-tools itself. The container-width layout fix in Sound detail has no test at narrow width or 200 percent text.
+  Touches: root `package.json`/`package-lock.json`, the dependency gate's accepted-advisory list, `SoundDetailScreen.kt` tests.
+  Acceptance: each remaining advisory is fixed or recorded with a reason in the gate; a Compose test shows the secondary actions stacking at 320 dp and at fontScale 2.0.
+  Complexity: S
+
+- [ ] P3 — Finish the debug-build StrictMode and LeakCanary pass
+  Why: debug builds now run StrictMode and LeakCanary, but nothing asserts LeakCanary is absent from release APKs, the violations it logs on a real device haven't been listed, and `detectImplicitUriPermissionGrant` needs compileSdk 37.
+  Touches: release APK scan in the build gates, repo notes, `FreeVibeApp.kt`.
+  Acceptance: a gate fails if `leakcanary` classes appear in a release APK; the violations seen during a device session are recorded and each has a fix or an open item; the URI-grant check is enabled once compileSdk reaches 37.
+  Complexity: S
+
+- [ ] P3 — Localize the Active download status that TalkBack reads
+  Why: `downloadProgressStatusLabel` in `DownloadsScreen.kt` builds "Download failed: <reason>" and the percent label in English, so a Chinese TalkBack user hears an English prefix around a Chinese reason.
+  Touches: `DownloadsScreen.kt`, `values/strings.xml`, `values-zh/strings.xml`, `DownloadsScreenPolishTest.kt`.
+  Acceptance: the status label comes from string resources in both locales; a test under the zh locale reads the failed and in-progress labels without English text.
+  Complexity: S
+
 
 ## Issue Intake (2026-09-26)
 
 Open GitHub issues checked against this list on 2026-09-26. The only open issue is #47 (translation call, help wanted). It is covered by the P2 item above that cites it ("Reported: #47"): Simplified Chinese landed through PR #48 on 2026-08-12, and the issue stays open as the umbrella for further languages. No new items.
-
-- [ ] P3: Keep #47 current (issue #47)
-  Why: the issue body still says "zero translations" although zh ships; a stale umbrella issue puts off the next contributor.
-  Next: edit the body to list the languages that exist, the coverage percentage and the review path from docs, then leave it open.
-  Evidence: https://github.com/SysAdminDoc/Aura/issues/47

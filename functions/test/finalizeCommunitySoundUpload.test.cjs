@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { buildDedupeMarker, evaluateCommunityQuotaAttempt } = require("../lib/quotaEngine.js");
+const { buildDedupeMarker, evaluateCommunityQuotaAttempt, settledQuotaState } = require("../lib/quotaEngine.js");
 const {
   finalizeCommunitySoundUploadHandler,
   normalizeSoundUploadPayload,
@@ -41,10 +41,17 @@ class FakeSoundUploadBackend {
     this.nextId = "soundA";
     this.dedupe = new Map();
     this.quotas = new Map();
+    this.settlements = [];
+    this.commitFailure = null;
     this.sounds = new Map();
     this.ownerUploads = new Map();
-    this.storageObject = { exists: true };
-    this.verifiedStoragePaths = [];
+    this.storageObject = { exists: true, size: 48_213, contentType: "audio/mpeg" };
+    this.verifiedPaths = [];
+  }
+
+  async verifyStorageObject(storagePath) {
+    this.verifiedPaths.push(storagePath);
+    return this.storageObject;
   }
 
   nowMillis() {
@@ -59,13 +66,14 @@ class FakeSoundUploadBackend {
     return this.dedupe.get(`${uid}/${surfaceKey}/${dedupeKey}`) ?? null;
   }
 
-  async reserveQuota(uid, dayKey, surface, nowMillis, dedupe) {
+  async reserveQuota(uid, dayKey, surface, nowMillis, dedupe, operationKey) {
     const key = `${uid}/${dayKey}/${surface.surfaceKey}`;
     const decision = evaluateCommunityQuotaAttempt({
       surface,
       nowMillis,
       quota: this.quotas.get(key) ?? {},
       dedupe,
+      operationKey,
     });
     if (decision.status !== "duplicate") {
       this.quotas.set(key, decision.quota);
@@ -73,12 +81,15 @@ class FakeSoundUploadBackend {
     return decision;
   }
 
-  async verifyStorageObject(storagePath) {
-    this.verifiedStoragePaths.push(storagePath);
-    return this.storageObject;
+  async settleQuota(uid, dayKey, surface, reservation, settlement) {
+    this.settlements.push(settlement);
+    const key = `${uid}/${dayKey}/${surface.surfaceKey}`;
+    const next = settledQuotaState(this.quotas.get(key) ?? {}, reservation, settlement, this.now);
+    if (next !== null) this.quotas.set(key, next);
   }
 
   async commitSoundUpload(input) {
+    if (this.commitFailure) throw this.commitFailure;
     const metadataPath = `/community_sounds/${input.uploadId}`;
     const publicRow = {
       name: input.payload.name,
@@ -161,64 +172,6 @@ test("accepted sound upload writes public metadata, owner index, quota, and dedu
   );
 });
 
-test("a declared file size that disagrees with the stored object is rejected", async () => {
-  const backend = new FakeSoundUploadBackend();
-  backend.storageObject = { exists: true, size: 1_234 };
-
-  await assert.rejects(
-    () => finalizeCommunitySoundUploadHandler(validRequest({ fileSize: 4_321 }), backend),
-    (error) => {
-      assert.equal(error.code, "failed-precondition");
-      assert.equal(error.message, "Declared file size does not match the stored object.");
-      assert.equal(error.details.declared, 4_321);
-      assert.equal(error.details.actual, 1_234);
-      return true;
-    },
-  );
-  assert.deepEqual(backend.verifiedStoragePaths, ["sounds/soundOwner1/1700000000000_soft_bell.mp3"]);
-  assert.equal(backend.sounds.size, 0);
-  assert.equal(backend.ownerUploads.size, 0);
-});
-
-test("a declared file size that matches the stored object is accepted", async () => {
-  const backend = new FakeSoundUploadBackend();
-  backend.storageObject = { exists: true, size: 1_234 };
-
-  const result = await finalizeCommunitySoundUploadHandler(validRequest({ fileSize: 1_234 }), backend);
-
-  assert.equal(result.status, "accepted");
-  assert.equal(result.uploadId, "soundA");
-  assert.equal(backend.sounds.size, 1);
-});
-
-test("a missing storage object is rejected", async () => {
-  const backend = new FakeSoundUploadBackend();
-  backend.storageObject = { exists: false };
-
-  await assert.rejects(
-    () => finalizeCommunitySoundUploadHandler(validRequest(), backend),
-    (error) => {
-      assert.equal(error.code, "failed-precondition");
-      assert.equal(error.message, "Storage object does not exist at the declared path.");
-      assert.equal(error.details.storagePath, "sounds/soundOwner1/1700000000000_soft_bell.mp3");
-      return true;
-    },
-  );
-  assert.equal(backend.sounds.size, 0);
-  assert.equal(backend.ownerUploads.size, 0);
-});
-
-test("an upload that declares no file size is accepted when the stored object reports one", async () => {
-  const backend = new FakeSoundUploadBackend();
-  backend.storageObject = { exists: true, size: 1_234 };
-
-  const result = await finalizeCommunitySoundUploadHandler(validRequest(), backend);
-
-  assert.equal(result.status, "accepted");
-  assert.equal(result.uploadId, "soundA");
-  assert.equal(backend.sounds.size, 1);
-});
-
 test("active storage-path dedupe returns duplicate without creating another upload", async () => {
   const backend = new FakeSoundUploadBackend();
   const payload = normalizeSoundUploadPayload(validRequest().data.payload, "soundOwner1");
@@ -273,6 +226,32 @@ test("cooldown and daily-limit quota rejections do not commit sound metadata", a
   assert.equal(limitBackend.sounds.size, 0);
 });
 
+test("sound finalize verifies the stored object and bounds its size", async () => {
+  const accepted = new FakeSoundUploadBackend();
+  const result = await finalizeCommunitySoundUploadHandler(validRequest(), accepted);
+  assert.equal(result.status, "accepted");
+  assert.deepEqual(accepted.verifiedPaths, ["sounds/soundOwner1/1700000000000_soft_bell.mp3"]);
+
+  for (const storageObject of [
+    { exists: false },
+    { exists: true, size: 0 },
+    { exists: true, size: 20 * 1024 * 1024 + 1 },
+  ]) {
+    const backend = new FakeSoundUploadBackend();
+    backend.storageObject = storageObject;
+    await assert.rejects(
+      () => finalizeCommunitySoundUploadHandler(validRequest(), backend),
+      { code: "failed-precondition" },
+    );
+    assert.equal(backend.sounds.size, 0);
+    assert.equal(backend.ownerUploads.size, 0);
+  }
+
+  const unknownSize = new FakeSoundUploadBackend();
+  unknownSize.storageObject = { exists: true };
+  assert.equal((await finalizeCommunitySoundUploadHandler(validRequest(), unknownSize)).status, "accepted");
+});
+
 test("callable identity requires Firebase Auth and App Check", async () => {
   const backend = new FakeSoundUploadBackend();
   await assert.rejects(
@@ -323,4 +302,36 @@ test("sound upload payload normalizes fields and rejects ownership overrides", (
     () => normalizeSoundUploadPayload(validRequest({ tags: ["ok", 12] }).data.payload, "soundOwner1"),
     { code: "invalid-argument" },
   );
+});
+
+test("a sound upload whose write fails refunds its quota unit and cooldown", async () => {
+  const backend = new FakeSoundUploadBackend();
+  backend.commitFailure = new Error("database unavailable");
+  await assert.rejects(() => finalizeCommunitySoundUploadHandler(validRequest(), backend), /database unavailable/);
+
+  const refunded = backend.quotas.get("soundOwner1/20260607/sound_uploads");
+  assert.deepEqual(backend.settlements, ["released"]);
+  assert.equal(refunded.count, 0);
+  assert.equal(refunded.lastAt, undefined);
+  assert.equal(refunded.pending, undefined);
+
+  // The person's retry is a new call, and it goes through inside the old cooldown.
+  backend.commitFailure = null;
+  backend.now = NOW + 1;
+  const retry = validRequest();
+  const result = await finalizeCommunitySoundUploadHandler({ ...retry, data: { ...retry.data, operationId: "retry-op" } }, backend);
+  assert.equal(result.status, "accepted");
+  assert.deepEqual(backend.settlements, ["released", "finalized"]);
+  const spent = backend.quotas.get("soundOwner1/20260607/sound_uploads");
+  assert.equal(spent.count, 1);
+  assert.equal(spent.pending, undefined);
+});
+
+test("a sound upload refused for its stored object refunds its quota unit", async () => {
+  const backend = new FakeSoundUploadBackend();
+  backend.storageObject = { exists: false };
+  await assert.rejects(() => finalizeCommunitySoundUploadHandler(validRequest(), backend), { code: "failed-precondition" });
+
+  assert.deepEqual(backend.settlements, ["released"]);
+  assert.equal(backend.quotas.get("soundOwner1/20260607/sound_uploads").count, 0);
 });

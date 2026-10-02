@@ -436,6 +436,8 @@
     <string name="editor_crop_smart_crop">Smart Crop</string>
     <string name="editor_crop_subject_not_found">Couldn\'t detect a subject — drag to position manually</string>
     <string name="editor_crop_smart_applied">Smart crop applied</string>
+    <string name="editor_crop_ratio_free">Free</string>
+    <string name="editor_crop_ratio_selected">Crop frame %1$s</string>
 
     <!-- Sound editor -->
     <string name="editor_sound_create_title">Create Sound</string>
@@ -548,6 +550,12 @@
     <string name="reports_refresh">Refresh reports</string>
     <string name="reports_admin_required_title">Admin access required</string>
     <string name="reports_admin_required_body">Report details are only available to accounts with the admin custom claim.</string>
+    <string name="reports_load_error_title">Could not load reports</string>
+    <string name="reports_load_error_offline">You\'re offline. Reports load again when the connection is back.</string>
+    <string name="reports_load_error_denied">This account can\'t read reports. Sign in with an admin account.</string>
+    <string name="reports_load_error_generic">Something went wrong loading reports.</string>
+    <string name="reports_stale_banner">Couldn\'t refresh. Showing reports from %1$s. Tap to retry.</string>
+    <string name="reports_stale_banner_no_time">Couldn\'t refresh. Showing earlier reports. Tap to retry.</string>
     <string name="reports_empty_title">No %1$s reports</string>
     <string name="reports_empty_open_body">New reports will appear here after users submit them from content detail screens.</string>
     <string name="reports_empty_closed_body">Closed reports will appear here after admins take action.</string>
@@ -823,6 +831,15 @@
     <string name="downloads_file_no_longer_exists">File no longer exists</string>
     <string name="downloads_cannot_open_file">Cannot open file</string>
     <string name="downloads_dismiss_file">Dismiss %1$s</string>
+    <string name="downloads_retry_file">Retry %1$s</string>
+    <string name="download_failed_offline">Couldn\'t reach the server. Check your connection.</string>
+    <string name="download_failed_timeout">The server took too long to answer.</string>
+    <string name="download_failed_secure">Couldn\'t open a secure connection to the server.</string>
+    <string name="download_failed_http">The server answered with error %1$d.</string>
+    <string name="download_failed_too_large">The file is bigger than Aura allows.</string>
+    <string name="download_failed_not_media">The file isn\'t the kind of media Aura expected.</string>
+    <string name="download_failed_storage">Couldn\'t save the file on this phone.</string>
+    <string name="download_failed_unknown">Something went wrong. Try again.</string>
     <string name="downloads_active_summary">%1$s. %2$s</string>
     <string name="downloads_delete_file">Delete %1$s</string>
     <string name="downloads_type_wallpaper">Wallpaper</string>

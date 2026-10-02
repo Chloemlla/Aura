@@ -90,6 +90,7 @@ import com.chloemlla.aura.ui.navigation.isExpanded
 import com.chloemlla.aura.ui.policy.CommunityUploadPolicyKind
 import com.chloemlla.aura.ui.policy.communityUploadPolicyCopy
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlin.math.sin
@@ -685,6 +686,7 @@ fun SoundsScreen(
                             onLongPress = { quickApplySound = it },
                             onPlayClick = { viewModel.togglePlayback(it) },
                             onLoadMore = { viewModel.loadMore() },
+                            onVisibleSoundsChanged = viewModel::onVisibleSoundsChanged,
                             playbackProgress = playbackProgress,
                             isExpandedLayout = isExpandedLayout,
                             voteCounts = voteCounts,
@@ -923,9 +925,27 @@ private fun SoundsList(
     onRecordClick: (() -> Unit)? = null,
     onUpvote: ((Sound) -> Unit)? = null,
     onDownvote: ((Sound) -> Unit)? = null,
+    onVisibleSoundsChanged: (List<Sound>) -> Unit = {},
 ) {
     val listState = rememberLazyListState()
     LaunchedEffect(filterKey) { listState.scrollToItem(0) }
+
+    // Report the on-screen rows (plus lookahead) so previews resolve for what is
+    // seen, not for every result. Sound rows are the first items in the list.
+    val currentSounds by rememberUpdatedState(sounds)
+    val currentOnVisible by rememberUpdatedState(onVisibleSoundsChanged)
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val visible = listState.layoutInfo.visibleItemsInfo
+            previewResolveWindow(
+                sounds = currentSounds,
+                firstVisibleIndex = visible.firstOrNull()?.index,
+                lastVisibleIndex = visible.lastOrNull()?.index,
+            ).map { it.stableKey() to it }
+        }
+            .distinctUntilChanged { old, new -> old.map { it.first } == new.map { it.first } }
+            .collect { window -> if (window.isNotEmpty()) currentOnVisible(window.map { it.second }) }
+    }
 
     val shouldLoadMore by remember {
         derivedStateOf {

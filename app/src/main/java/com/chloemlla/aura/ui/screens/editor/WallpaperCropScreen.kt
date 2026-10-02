@@ -1,7 +1,7 @@
 package com.chloemlla.aura.ui.screens.editor
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,14 +10,15 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -27,6 +28,10 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chloemlla.aura.R
@@ -65,10 +70,6 @@ fun WallpaperCropScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var viewportSize by remember { mutableStateOf(IntSize.Zero) }
-    // The pointerInput key does not change with the bitmap, so read these through
-    // State to keep the gesture lambda seeing the current bitmap and viewport dimensions.
-    val currentBitmap by rememberUpdatedState(state.bitmap)
-    val currentViewportSize by rememberUpdatedState(viewportSize)
     val cropIdentityKey = remember(wallpaperId, fallbackWallpaper?.source, fallbackWallpaper?.fullUrl) {
         listOf(
             wallpaperId,
@@ -77,11 +78,6 @@ fun WallpaperCropScreen(
         ).joinToString("|")
     }
     var selectionResolved by remember(cropIdentityKey) { mutableStateOf<Boolean?>(null) }
-
-    // Gesture state — survives configuration changes
-    var scale by rememberSaveable { mutableFloatStateOf(1f) }
-    var offsetX by rememberSaveable { mutableFloatStateOf(0f) }
-    var offsetY by rememberSaveable { mutableFloatStateOf(0f) }
 
     LaunchedEffect(state.success) {
         state.success?.let { snackbarHostState.showSnackbar(it); viewModel.clearMessages() }
@@ -93,9 +89,7 @@ fun WallpaperCropScreen(
         }
     }
     LaunchedEffect(wallpaperId, fallbackWallpaper?.source, fallbackWallpaper?.fullUrl) {
-        scale = 1f
-        offsetX = 0f
-        offsetY = 0f
+        // The view model owns the crop, so a rotation or a restored process keeps it.
         val wallpaper = fallbackWallpaper?.let {
             recoveryViewModel.resolveWallpaper(
                 id = wallpaperId,
@@ -117,10 +111,7 @@ fun WallpaperCropScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = {
-                        scale = 1f; offsetX = 0f; offsetY = 0f
-                        viewModel.resetTransform()
-                    }) {
+                    TextButton(onClick = viewModel::resetTransform) {
                         Text(stringResource(R.string.common_reset), color = MaterialTheme.colorScheme.primary)
                     }
                 },
@@ -175,32 +166,14 @@ fun WallpaperCropScreen(
                     .fillMaxWidth()
                     .background(Color.Black)
                     .clipToBounds()
-                    .onSizeChanged { viewportSize = it }
+                    .onSizeChanged {
+                        viewportSize = it
+                        viewModel.setViewport(it.width, it.height)
+                    }
                     .pointerInput(presentation) {
                         if (presentation != WALLPAPER_PRESENTATION_FIT) {
                             detectTransformGestures { _, pan, zoom, _ ->
-                                scale = (scale * zoom).coerceIn(0.5f, 5f)
-                                val bitmap = currentBitmap
-                                val vp = currentViewportSize
-                                if (bitmap != null && vp != IntSize.Zero) {
-                                    // Clamp translation so the scaled image keeps covering the
-                                    // viewport. Dragging it fully out of view would otherwise
-                                    // crop down to a sub-64px sliver and apply that as wallpaper.
-                                    val fit = minOf(
-                                        vp.width / bitmap.width.toFloat(),
-                                        vp.height / bitmap.height.toFloat(),
-                                    )
-                                    val visibleW = bitmap.width * fit * scale
-                                    val visibleH = bitmap.height * fit * scale
-                                    val maxOffsetX = ((visibleW - vp.width) / 2f).coerceAtLeast(0f)
-                                    val maxOffsetY = ((visibleH - vp.height) / 2f).coerceAtLeast(0f)
-                                    offsetX = (offsetX + pan.x).coerceIn(-maxOffsetX, maxOffsetX)
-                                    offsetY = (offsetY + pan.y).coerceIn(-maxOffsetY, maxOffsetY)
-                                } else {
-                                    offsetX += pan.x
-                                    offsetY += pan.y
-                                }
-                                viewModel.updateTransform(scale, offsetX, offsetY)
+                                viewModel.applyGesture(zoom, pan.x, pan.y)
                             }
                         }
                     },
@@ -224,21 +197,35 @@ fun WallpaperCropScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .graphicsLayer(
-                                    scaleX = scale,
-                                    scaleY = scale,
-                                    translationX = offsetX,
-                                    translationY = offsetY,
+                                    scaleX = state.scale,
+                                    scaleY = state.scale,
+                                    translationX = state.offsetX,
+                                    translationY = state.offsetY,
                                 ),
                         )
                     }
                 }
 
-                // Screen overlay guides
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
-                )
+                // The crop frame: the whole viewport for Free, the selected ratio otherwise, with
+                // everything that won't be exported dimmed.
+                val frameColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                val frameAspect = if (presentation == WALLPAPER_PRESENTATION_FIT) CropAspect.FREE else state.aspect
+                Canvas(Modifier.fillMaxSize()) {
+                    val frame = cropFrame(size.width.toInt(), size.height.toInt(), frameAspect)
+                    val scrim = Color.Black.copy(alpha = 0.55f)
+                    val frameRight = frame.left + frame.width
+                    val frameBottom = frame.top + frame.height
+                    drawRect(scrim, Offset.Zero, Size(size.width, frame.top))
+                    drawRect(scrim, Offset(0f, frameBottom), Size(size.width, size.height - frameBottom))
+                    drawRect(scrim, Offset(0f, frame.top), Size(frame.left, frame.height))
+                    drawRect(scrim, Offset(frameRight, frame.top), Size(size.width - frameRight, frame.height))
+                    drawRect(
+                        frameColor,
+                        Offset(frame.left, frame.top),
+                        Size(frame.width, frame.height),
+                        style = Stroke(2.dp.toPx()),
+                    )
+                }
 
                 if (state.isLoading) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
@@ -275,9 +262,11 @@ fun WallpaperCropScreen(
                     ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
                 )
+                if (presentation != WALLPAPER_PRESENTATION_FIT) CropAspectIndicator(state.aspect)
                 Text(
-                    String.format(java.util.Locale.ROOT, "%.0f%%", scale * 100),
+                    String.format(java.util.Locale.ROOT, "%.0f%%", state.scale * 100),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -296,14 +285,7 @@ fun WallpaperCropScreen(
                     enabled = !state.smartCropInProgress && state.bitmap != null && viewportSize != IntSize.Zero,
                     onClick = {
                         if (viewportSize == IntSize.Zero) return@FilterChip
-                        scope.launch {
-                            val t = viewModel.applySmartCrop(viewportSize.width, viewportSize.height)
-                            if (t != null) {
-                                scale = t.scale
-                                offsetX = t.offsetX
-                                offsetY = t.offsetY
-                            }
-                        }
+                        scope.launch { viewModel.applySmartCrop(viewportSize.width, viewportSize.height) }
                     },
                     leadingIcon = {
                         if (state.smartCropInProgress) {
@@ -321,43 +303,11 @@ fun WallpaperCropScreen(
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.heightIn(min = 40.dp),
                 )
-                val presets = listOf("Free" to null, "9:16" to (9f / 16f), "16:9" to (16f / 9f), "1:1" to 1f)
-                presets.forEach { (label, ratio) ->
-                    FilterChip(
-                        selected = false,
-                        onClick = {
-                            val bitmap = state.bitmap
-                            if (ratio != null && bitmap != null && viewportSize != IntSize.Zero) {
-                                val vpW = viewportSize.width.toFloat()
-                                val vpH = viewportSize.height.toFloat()
-                                val vpRatio = vpW / vpH
-                                // Scale so the target aspect ratio fills the viewport
-                                val fitScale = if (bitmap.width.toFloat() / bitmap.height > vpRatio) {
-                                    vpH / bitmap.height // image wider than viewport → fit height
-                                } else {
-                                    vpW / bitmap.width // image taller → fit width
-                                }
-                                val targetScale = if (ratio < vpRatio) {
-                                    // Target is taller than viewport: need to show less width → zoom in
-                                    (vpW / ratio) / (bitmap.height * fitScale)
-                                } else {
-                                    // Target is wider: need to show less height → zoom in
-                                    (vpH * ratio) / (bitmap.width * fitScale)
-                                }
-                                scale = targetScale.coerceIn(0.5f, 5f)
-                                offsetX = 0f
-                                offsetY = 0f
-                                viewModel.updateTransform(scale, offsetX, offsetY)
-                            } else {
-                                scale = 1f; offsetX = 0f; offsetY = 0f
-                                viewModel.resetTransform()
-                            }
-                        },
-                        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.heightIn(min = 40.dp),
-                    )
-                }
+                CropAspectChips(
+                    selected = state.aspect,
+                    enabled = state.bitmap != null,
+                    onSelect = viewModel::selectAspect,
+                )
             }
 
             // Apply buttons
@@ -413,3 +363,40 @@ fun WallpaperCropScreen(
         }
     }
 }
+
+/** The current frame ratio. TalkBack reads the change politely when a chip or Smart Crop switches it. */
+@Composable
+internal fun CropAspectIndicator(aspect: CropAspect) {
+    val aspectLabel = cropAspectLabel(aspect)
+    val aspectAnnouncement = stringResource(R.string.editor_crop_ratio_selected, aspectLabel)
+    Text(
+        aspectLabel,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .padding(horizontal = 8.dp)
+            .semantics {
+                liveRegion = LiveRegionMode.Polite
+                contentDescription = aspectAnnouncement
+            },
+    )
+}
+
+/** One chip per frame ratio. Emitted straight into the caller's row so they line up with Smart Crop. */
+@Composable
+internal fun CropAspectChips(selected: CropAspect, enabled: Boolean, onSelect: (CropAspect) -> Unit) {
+    CropAspect.entries.forEach { aspect ->
+        FilterChip(
+            selected = selected == aspect,
+            enabled = enabled,
+            onClick = { onSelect(aspect) },
+            label = { Text(cropAspectLabel(aspect), style = MaterialTheme.typography.labelSmall) },
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.heightIn(min = 40.dp),
+        )
+    }
+}
+
+@Composable
+private fun cropAspectLabel(aspect: CropAspect): String =
+    aspect.label ?: stringResource(R.string.editor_crop_ratio_free)

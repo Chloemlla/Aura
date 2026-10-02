@@ -34,8 +34,9 @@ class CommunityCallableWireProtocolCheckTest(unittest.TestCase):
 
         result = validate_android_client(REPO_ROOT, protocol, surfaces)
 
-        self.assertEqual(7, result["surfaceCount"])
+        self.assertEqual(8, result["surfaceCount"])
         self.assertIn("updateCreatorProfile", result["functionNames"])
+        self.assertIn("publishSharedCollection", result["functionNames"])
 
     def test_protocol_rejects_missing_contract_surface(self) -> None:
         protocol = copy.deepcopy(live_protocol())

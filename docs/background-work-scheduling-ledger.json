@@ -66,7 +66,7 @@
       "backoff": "exponential, 15 minutes",
       "expedited": false,
       "enabledSurface": "Settings auto wallpaper and enhanced scheduler toggles",
-      "scheduleTrigger": "Enable auto wallpaper or scheduler; changing interval or constraint preferences reschedules the unique work",
+      "scheduleTrigger": "Enable auto wallpaper or scheduler; changing interval or constraint preferences reschedules the unique work; a manual apply, widget shuffle, tile tap, automation broadcast, or Run now re-enqueues it with CANCEL_AND_REENQUEUE so the interval starts over",
       "cancelTrigger": "Disable auto wallpaper or scheduler",
       "deferralReasons": [
         "network unavailable",
@@ -81,6 +81,8 @@
         "PeriodicWorkRequestBuilder<AutoWallpaperWorker>",
         "intervalMinutes.coerceAtLeast(15)",
         "ExistingPeriodicWorkPolicy.UPDATE",
+        "ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE",
+        "restartCountdownAfterManualChange",
         "buildAutoWallpaperConstraints",
         "resolveScheduledWallpaperSource",
         "schedulerDayNightMode.first()",
@@ -399,7 +401,7 @@
       "expedited": false,
       "enabledSurface": "Rotation trigger foreground service toggles and public Tasker/MacroDroid actions",
       "scheduleTrigger": "Unlock, screen-off, ROTATE_NOW, or SHUFFLE_NOW trigger",
-      "cancelTrigger": "No explicit cancel path; APPEND_OR_REPLACE appends a later trigger behind rotation work that is already pending and runs them in order",
+      "cancelTrigger": "No explicit cancel path; APPEND_OR_REPLACE appends a later trigger behind rotation work that is already pending and runs them in order, so a tap is never dropped and the countdown restart is carried by the worker",
       "deferralReasons": [
         "resolved network constraint not satisfied when the active source needs network",
         "battery low",
@@ -411,6 +413,7 @@
         "\"rotation_trigger_oneshot\"",
         "OneTimeWorkRequestBuilder<AutoWallpaperWorker>",
         "ExistingWorkPolicy.APPEND_OR_REPLACE",
+        "NetworkType.CONNECTED",
         "buildAutoWallpaperConstraints(",
         "AutoWallpaperWorker.cachedRequiresNetwork",
         "AutoWallpaperWorker.cachedRequiresWiFiOnly"

@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { buildDedupeMarker, evaluateCommunityQuotaAttempt } = require("../lib/quotaEngine.js");
+const { buildDedupeMarker, evaluateCommunityQuotaAttempt, settledQuotaState } = require("../lib/quotaEngine.js");
 const {
   followDedupeKey,
   normalizeFollowPayload,
@@ -10,12 +10,12 @@ const {
 
 const NOW = Date.UTC(2026, 5, 7, 12, 0, 0);
 
-function validRequest(overrides = {}, operationId = "follow-op-1") {
+function validRequest(overrides = {}) {
   return {
     auth: { uid: "follower1" },
     app: { appId: "aura-test-app" },
     data: {
-      operationId,
+      operationId: "follow-op-1",
       clientSentAt: NOW - 1_000,
       payload: {
         creatorId: "creator.one",
@@ -32,6 +32,8 @@ class FakeFollowBackend {
     this.now = nowMillis;
     this.dedupe = new Map();
     this.quotas = new Map();
+    this.settlements = [];
+    this.commitFailure = null;
     this.follows = new Map();
   }
 
@@ -47,13 +49,14 @@ class FakeFollowBackend {
     return this.dedupe.get(`${uid}/${surfaceKey}/${dedupeKey}`) ?? null;
   }
 
-  async reserveQuota(uid, dayKey, surface, nowMillis, dedupe) {
+  async reserveQuota(uid, dayKey, surface, nowMillis, dedupe, operationKey) {
     const key = `${uid}/${dayKey}/${surface.surfaceKey}`;
     const decision = evaluateCommunityQuotaAttempt({
       surface,
       nowMillis,
       quota: this.quotas.get(key) ?? {},
       dedupe,
+      operationKey,
     });
     if (decision.status !== "duplicate") {
       this.quotas.set(key, decision.quota);
@@ -61,7 +64,15 @@ class FakeFollowBackend {
     return decision;
   }
 
+  async settleQuota(uid, dayKey, surface, reservation, settlement) {
+    this.settlements.push(settlement);
+    const key = `${uid}/${dayKey}/${surface.surfaceKey}`;
+    const next = settledQuotaState(this.quotas.get(key) ?? {}, reservation, settlement, this.now);
+    if (next !== null) this.quotas.set(key, next);
+  }
+
   async commitFollow(input) {
+    if (this.commitFailure) throw this.commitFailure;
     const followKey = `${input.uid}/${input.payload.creatorKey}`;
     if (input.payload.following) {
       this.follows.set(followKey, {
@@ -99,34 +110,31 @@ test("accepted follow writes creator row, quota, and dedupe marker", async () =>
   );
 });
 
-test("accepted unfollow under a distinct operation id removes the creator row", async () => {
+test("accepted unfollow removes creator row with a separate dedupe key", async () => {
   const backend = new FakeFollowBackend();
   backend.follows.set("follower1/creator_one", {
     creatorId: "creator.one",
     label: "Creator One",
     followedAt: NOW - 10_000,
   });
-  const followMarker = buildDedupeMarker({
-    nowMillis: NOW - 1_000,
-    targetPath: "/creator_follows/follower1/creator_one",
-    ttlMillis: 5_000,
-  });
-  backend.dedupe.set("follower1/follows/follow-op-1", followMarker);
-
-  const result = await setCreatorFollowHandler(
-    validRequest({ following: false }, "follow-op-2"),
-    backend,
+  // The earlier follow left its own operation's marker; the unfollow is a new operation.
+  backend.dedupe.set(
+    "follower1/follows/follow-op-1",
+    buildDedupeMarker({
+      nowMillis: NOW - 1_000,
+      targetPath: "/creator_follows/follower1/creator_one",
+      ttlMillis: 5_000,
+    }),
   );
+  const request = validRequest({ following: false });
+  request.data.operationId = "unfollow-op-2";
+
+  const result = await setCreatorFollowHandler(request, backend);
 
   assert.equal(result.status, "accepted");
   assert.equal(result.following, false);
   assert.equal(backend.follows.has("follower1/creator_one"), false);
-  assert.equal(
-    backend.dedupe.get("follower1/follows/follow-op-2").targetPath,
-    "/creator_follows/follower1/creator_one",
-  );
-  // A distinct operation id is never collapsed into the earlier follow operation's marker.
-  assert.equal(backend.dedupe.get("follower1/follows/follow-op-1"), followMarker);
+  assert.equal(backend.dedupe.has("follower1/follows/unfollow-op-2"), true);
 });
 
 test("no-op follow states return duplicate before quota reservation", async () => {
@@ -149,7 +157,7 @@ test("no-op follow states return duplicate before quota reservation", async () =
   assert.equal(missingBackend.quotas.size, 0);
 });
 
-test("active same-state dedupe returns duplicate before follow commit", async () => {
+test("retried operation ID returns duplicate before follow commit", async () => {
   const backend = new FakeFollowBackend();
   backend.dedupe.set(
     "follower1/follows/follow-op-1",
@@ -231,4 +239,27 @@ test("follow payload is sanitized and rejects follower overrides", () => {
     () => normalizeFollowPayload({ creatorId: "creator.one", following: true, followerUid: "fake" }),
     { code: "invalid-argument" },
   );
+});
+
+test("a follow whose write fails refunds its quota unit and cooldown", async () => {
+  const backend = new FakeFollowBackend();
+  backend.commitFailure = new Error("database unavailable");
+  await assert.rejects(() => setCreatorFollowHandler(validRequest(), backend), /database unavailable/);
+
+  const refunded = backend.quotas.get("follower1/20260607/follows");
+  assert.deepEqual(backend.settlements, ["released"]);
+  assert.equal(refunded.count, 0);
+  assert.equal(refunded.lastAt, undefined);
+  assert.equal(refunded.pending, undefined);
+
+  // The person's retry is a new call, and it goes through inside the old cooldown.
+  backend.commitFailure = null;
+  backend.now = NOW + 1;
+  const retry = validRequest();
+  const result = await setCreatorFollowHandler({ ...retry, data: { ...retry.data, operationId: "retry-op" } }, backend);
+  assert.equal(result.status, "accepted");
+  assert.deepEqual(backend.settlements, ["released", "finalized"]);
+  const spent = backend.quotas.get("follower1/20260607/follows");
+  assert.equal(spent.count, 1);
+  assert.equal(spent.pending, undefined);
 });

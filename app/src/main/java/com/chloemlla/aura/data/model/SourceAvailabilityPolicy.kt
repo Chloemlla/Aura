@@ -103,6 +103,7 @@ private fun permanentReasonFor(sourceName: String, raw: String): String =
         ContentSource.PEXELS.name -> "Pexels media is unavailable or removed"
         ContentSource.PIXABAY.name -> "Pixabay media is unavailable or removed"
         ContentSource.YOUTUBE.name -> "YouTube media is unavailable or removed"
+        ContentSource.TIKTOK.name -> "TikTok video is unavailable or removed"
         ContentSource.COMMUNITY.name -> "Community upload is unavailable or removed"
         ContentSource.FREESOUND.name -> "Freesound media is unavailable or removed"
         ContentSource.SOUNDCLOUD.name -> "SoundCloud media is unavailable or removed"

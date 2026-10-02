@@ -14,29 +14,24 @@ All notable changes to Aura will be documented in this file.
   already-extracted `success = "…"` counted as done. That shape now matches, and it
   immediately found more of the same elsewhere. The baseline it compares against is now
   empty rather than a list of tolerated exceptions.
-
 - **The release checks no longer read a package the app stopped shipping** — two governance
   scripts still pointed at `com.freevibe`, the pre-rename package, and one of them had its
   backup rule backwards: it required backup-excluded stores to appear in
   `data_extraction_rules.xml`, which is an allowlist, so a store that was *correctly* excluded
   was reported as a defect. Both now read the real sources, and the backup check fails on the
   condition that actually leaks data — an excluded store reappearing in the allowlist.
-
 - **A stale reflection entry was hiding a real one** — the Android 16 compatibility policy
   listed four reflection call sites whose reflection had since been deliberately removed, and
   the checker validated those entries *before* it looked at anything unreviewed, so a genuine
   unreviewed reflection went unreported. The stale entries are gone, the real one is recorded
   with its reason, and a test now re-reads the repository to prove every reviewed entry still
   names code that exists.
-
 - **Editing documentation now re-runs the checks that read it** — CI only triggered on code
   paths, so a change to `docs/` or a root markdown file could invalidate a governance check
   without ever running it.
-
 - **Contributor docs match the toolchain again** — `CONTRIBUTING.md` and `README.md` described
   a Gradle, AGP, and SDK combination several upgrades out of date, including an Android Studio
   release too old to open the project.
-
 - **Reliability: a Clash partner refusal no longer masquerades as "not routing"** — CMFA
   `partnerStatus` v3 returns a non-null bundle even when the partner app is refused access, and
   that refusal was previously read as a live "VPN off" status: the VPN-active fallback was
@@ -44,6 +39,31 @@ All notable changes to Aura will be documented in this file.
   (`accessTier`: denied/basic/full) and trusts status fields only when the provider actually
   granted them. Refusals carry the provider's actionable reason (pending approval / denied by
   user / signer unverified / not a partner / no signature) instead of a silent all-false status.
+- **Sound rotation now uses named pools**: each pool can mix downloaded sounds,
+  local files, and Aura Originals, then target the ringtone, notification,
+  alarm, or any combination on its own schedule. The worker avoids immediate
+  repeats, filters duration per target, records skipped or missing media, and
+  restores enabled schedules after reboot. Users can relink missing members,
+  inspect apply history, and safely undo while the system sound still matches
+  Aura's last change. Portable library format 4 restores locator-free pool
+  assignments without copying audio, private paths, system URIs, or history.
+
+## v6.46.1 (2026-09-30)
+
+- **Vote counts and Top Voted keep working before the server update**: they
+  read the existing tallies whenever the new public counts don't have a row
+  yet, so they no longer show zero. When the server function that makes
+  collection links is missing, the app tries writing the link directly, the
+  way older versions did.
+
+- **Community database locked down**: Aura's community database now only
+  answers the reads the app needs, like vote counts, Top Voted and global
+  hides, and refuses everything else. Who voted for what stays private.
+  Collection links, voting, reports, follows and uploads come back with the
+  community server update. Sharing a collection still sends the collection
+  file.
+
+## v6.46.0 (2026-09-30)
 
 - **targetSdk 36**: meets Play and Accrescent requirements. All Android 16
   behavior changes (predictive back, edge-to-edge, orientation freedom) were
@@ -102,6 +122,178 @@ All notable changes to Aura will be documented in this file.
   install channel, repro steps, and restart behavior. Diagnostics bundle is no
   longer required for no-launch crashes; an adb logcat fallback is documented.
 
+- **Debug tooling**: debug builds now install StrictMode (disk/network on main
+  thread) and LeakCanary (leaked closables, activity leaks), both logging only.
+  Release builds contain neither.
+
+- **Rotation countdown restart**: picking a wallpaper yourself now starts the
+  rotation interval over, so the next automatic change is a full interval away.
+  That covers applies from the app, widget shuffles, the Quick Settings tile,
+  automation broadcasts and Diagnostics' Run now. Unlock and screen-off
+  rotations leave the timer alone. The restart uses the scheduler's minute
+  interval when the scheduler is on. It's governed by a preference that's on
+  by default. A tile or automation request that lands while an unlock rotation
+  is still waiting now replaces it instead of being dropped, and a request that
+  changes nothing (the chosen source is switched off, say) leaves the timer
+  alone.
+
+- **Sound previews resolve on demand**: YouTube sound tabs and search used to
+  extract streams for every result (up to 30) before you tapped anything. Now
+  only the rows on screen plus one ahead get resolved, each once per feed.
+  Switching tab or query cancels the old feed's work, prebuffers included, and
+  resolving and prebuffering share three slots.
+
+- **TikTok ringtones lead the Ringtones tab**: the latest clips from the
+  @ringtonesforiphone TikTok creator now sit at the top of Ringtones, most
+  played first, in GitHub and Obtainium builds. Aura keeps only the sound.
+  Previews play with the video track switched off, and applying or downloading
+  copies the clip's AAC track into an .m4a without re-encoding, then deletes
+  the video. Every clip keeps the creator's name and a link to the original
+  video. Stored links expire after a couple of days, so an older favorite
+  fetches a fresh one on its own. Loading the list costs one embed page every
+  30 minutes plus a 1 KB read per clip for its length. With Auto preview on,
+  the first few clips are partly buffered, the same as other sources. Play
+  builds never contact TikTok. A clip that fails to download shows an error
+  instead of crashing, half-written files are swept on the next try, and a
+  cached list drops clips whose links have expired.
+
+- **Community sound uploads finish again**: the upload service compared the
+  stored file against a size that sound uploads never send, so any upload whose
+  storage entry reported a size was turned away. It now checks that the file
+  exists and sits between 1 byte and 20 MB, the same limit the storage rules
+  use. Wallpaper uploads still have to match their declared size and type.
+
+- **Votes and follows stay private, and Top Voted works again**: vote counts
+  now live apart from the record of who voted. Anyone can read a count, but
+  only your own account can read which items you voted for, and only you can
+  read who you follow. Before this, voter IDs sat in publicly readable nodes,
+  while the Top Voted list and creator vote totals asked for a whole-tree read
+  the database refused, so they came back empty or zero. Top Voted now uses a
+  sorted, capped query and creator totals read one count per upload. Community
+  uploads also keep their own vote field in step, so feeds sorted by votes
+  order correctly. A one-time backfill tool copies existing counts and voter
+  records into the new layout.
+
+- **A failed community action no longer uses up your allowance**: votes,
+  follows, blocks, profile edits, reports and uploads used to count against the
+  daily limit and start the cooldown before anything was saved. If the save then
+  failed, the attempt still counted, so a sound upload that hit a storage hiccup
+  cost one of three daily uploads and locked you out for 15 minutes. Each
+  attempt now holds its slot until the save finishes and hands it back, cooldown
+  included, when nothing was stored. If the server stops partway through, the
+  attempt still counts, because its save may have gone through.
+
+- **Collection links expire, and deletion records need a real deletion**: the
+  app used to write shared collection links straight into the database, with
+  no cap on how many and no expiry. Links now go through the server, which
+  checks the collection, counts its wallpapers and picks the link token itself.
+  You can make 10 links a day, 30 seconds apart, and each one opens for 30 days
+  before a daily job clears it out. Opening an expired link says it has
+  expired. When a link can't be made (the daily cap, more than 250 wallpapers,
+  or no server), the share sheet still sends the collection file. Deleting your
+  own upload now has to remove the upload in the same step that records the
+  deletion, so nobody can file deletion records for uploads that never existed.
+
+- **Theme pack import is all or nothing**: importing used to write each part
+  of a pack as it went, so a broken piece near the end left you with half a
+  theme, and a bad 24H or sound profile recipe could be saved as is. The whole
+  pack is now checked first: every recipe has to parse, each daypart can only
+  appear once, every file the pack points to has to be in the archive, and
+  every location has to be something Aura can open, AI wallpapers it generated
+  included. If anything fails, nothing
+  changes and the unpacked files are removed. The settings it does change are
+  saved together.
+
+- **Votes can't get lost part way**: the server recorded that you voted and
+  then added your vote to the count in a second step. If it stopped between
+  the two, your vote never counted and you couldn't vote again. Both now land
+  together, and a vote that was cut off can be cast again a few minutes later.
+  Creator pages kept showing 0 votes when a count couldn't be loaded. They now
+  keep the count they already had. Vote totals from before the private vote
+  change move across on the server, so a vote cast during the move isn't
+  overwritten. The move runs in batches and picks up where the last run
+  stopped, so a large backlog finishes instead of starting over each day.
+  Deletion request lookups also find the short-lived lock a cut-off vote
+  leaves behind.
+
+- **Tile, unlock and automation rotations start again**: every one of these
+  asked WorkManager for urgent work with a battery condition attached, and
+  WorkManager refuses to build that, so the rotation never got queued. Taps
+  and automation actions still run right away. Unlock and screen-off
+  rotations now run as ordinary work and still wait while the battery is
+  low. A tap that lands while a rotation is being applied starts a fresh one
+  right after it. The rotation already under way still sets both screens and
+  restarts the countdown before it stops, so home and lock never end up out
+  of step, and only one rotation applies at a time. A rotation that
+  changed the home screen but found every lock screen item excluded now
+  restarts the countdown like any other change.
+
+- **Finished downloads leave Active, and failed ones can be retried**: a
+  finished download used to sit under Active until you dismissed it, so it
+  showed up twice next to your history. It now clears itself a few seconds
+  after it lands in history. A failed download says why in plain words (no
+  connection, a slow or unhappy server, a file too big or not media, or no
+  room to save it) without echoing the link, both on its card and in the
+  message a wallpaper or sound page shows. The card has a Retry button that
+  runs the same download again. A retry that succeeds
+  saves one copy, never a second one next to a half-written file.
+
+- **Crop ratios work, and the crop you see is the crop you get**: tapping
+  9:16, 16:9 or 1:1 now draws that frame on the picture, dims everything
+  outside it, zooms in only as far as the frame needs and keeps the part of
+  the picture you were looking at. The chosen ratio is highlighted, read out
+  by TalkBack, and kept through a rotation or when Android closes and
+  reopens the app. The saved wallpaper is the framed area, within a pixel of
+  the ratio. Before this, the export used a different zoom from the screen,
+  so a pan or pinch moved the saved crop by a different amount than the
+  preview, and the picture shown whole at the start was saved as a tighter
+  center crop.
+
+- **Older uploads can be deleted again**: uploads made before the private
+  upload list existed couldn't be deleted by their owner, because the delete
+  also clears that list entry and the database refused to clear one that
+  wasn't there.
+
+- **Firebase CLI upgraded to 15.31.0**: root audit findings reduced from 15 to
+  10 (non-breaking fixes applied). Functions audit is now zero. The remaining
+  root findings are transitive deployment-tool dependencies.
+
+- **Pager perf**: wallpaper detail pager reads `currentPageOffsetFraction` inside
+  the `graphicsLayer` block instead of composition, eliminating per-drag-frame
+  recomposition of page content.
+
+- **Live wallpaper dimming**: the dim overlay and double-tap reveal now work on
+  the parallax engine and on animated GIFs in the video engine, not only on the
+  weather engine. MP4 video wallpapers aren't dimmed yet.
+
+- **Sound detail action layout**: the action row breakpoint now derives from the
+  actual container width via `BoxWithConstraints` instead of the device screen
+  width. Split-screen, navigation rail, and foldable pane widths are reflected.
+
+- **Community Reports states**: the report queue shows a loading indicator while
+  it waits and an error with Retry when the query fails, instead of looking like
+  an empty queue. Being offline and lacking admin access now read differently.
+  A failed refresh keeps the reports you were looking at and says when they
+  were last updated. Any other failure shows the translated message first, with
+  the reason under it.
+
+- **Lint fix**: wallpaper Hide snackbar now resolves strings via `stringResource`
+  in composition scope instead of `context.getString()` from a coroutine,
+  fixing two `LocalContextGetResourceValueCall` lint errors.
+
+- **Unit test compilation restored**: fixed VideoWallpapersViewModelTest to supply
+  the AV1CodecSupport dependency, unblocking both Full and FOSS unit test suites.
+
+- **Fragmented MP4 support**: video wallpaper probe now distinguishes unknown
+  duration from known zero. When MediaMetadataRetriever reports zero (common
+  with Reddit CMAF fragments), MediaExtractor is tried as a fallback. Valid
+  multi-second fragmented MP4s are no longer rejected as "too short".
+
+- **Display context for live wallpapers**: all three engines (video, weather,
+  parallax) now use `getDisplayContext()` on API 29+ for density, fallback
+  dimensions, and clock overlays, so secondary-display rendering scales
+  correctly. API 26-28 falls back to the service context.
+
 - **Silent failure surfacing**: Firebase vote errors, share intent failures, and
   video wallpaper display-metrics/retriever exceptions now log or show user
   feedback instead of being swallowed silently.
@@ -126,15 +318,6 @@ All notable changes to Aura will be documented in this file.
 - **Benchmark harness fixed**: taps Library instead of stale Favorites, fails
   immediately when a bottom nav destination is missing, and waits for the
   shell to appear before measuring.
-
-- **Sound rotation now uses named pools**: each pool can mix downloaded sounds,
-  local files, and Aura Originals, then target the ringtone, notification,
-  alarm, or any combination on its own schedule. The worker avoids immediate
-  repeats, filters duration per target, records skipped or missing media, and
-  restores enabled schedules after reboot. Users can relink missing members,
-  inspect apply history, and safely undo while the system sound still matches
-  Aura's last change. Portable library format 4 restores locator-free pool
-  assignments without copying audio, private paths, system URIs, or history.
 
 - **Missing local media can be repaired**: downloads, favorites, and local
   wallpaper catalog entries now stay visible when a file moves, disappears,

@@ -40,11 +40,10 @@ internal class SoundBrowseViewModel(
     private val executeYouTubeSearch: (String) -> Unit,
     private val cancelYouTubeLoad: () -> Unit,
     private val schedulePreviewPrebuffer: (List<Sound>) -> Unit,
-    private val cacheResolvedPreview: (Sound, String) -> Sound,
+    private val requestPreviewWindow: (List<Sound>) -> Unit,
     private val soundFeedCache: SoundFeedCache,
 ) {
     private var loadJob: Job? = null
-    private val ytResolveSemaphore = Semaphore(4)
     private val titleBlocklist = Regex(
         "hindi|telugu|pack|trending|popular|\\bnew\\b|\\btop\\b|\\bbest\\b|timer|countdown|quiz|comparison|tutorial|how to|turn on|turn off|notification spam",
         RegexOption.IGNORE_CASE,
@@ -274,7 +273,7 @@ internal class SoundBrowseViewModel(
             }
 
             if (!queries.isYouTubeProviderEnabled()) {
-                handleYouTubeDisabledFeed(loadTab, loadMore)
+                handleYouTubeDisabledFeed(loadTab, loadMore, isRefresh)
                 return@launch
             }
 
@@ -293,7 +292,8 @@ internal class SoundBrowseViewModel(
 
             fun addUnique(sound: Sound): Boolean {
                 if (sound.source !in ACTIVE_SOUND_SOURCES) return false
-                if (titleBlocklist.containsMatchIn(sound.name)) return false
+                // The blocklist screens YouTube search spam; curated creator clips skip it.
+                if (sound.source != ContentSource.TIKTOK && titleBlocklist.containsMatchIn(sound.name)) return false
                 val fingerprint = soundFingerprint(sound)
                 return if (seenKeys.add(sound.stableKey()) && seenFingerprints.add(fingerprint)) {
                     synchronized(resultLock) { allResults.add(sound) }
@@ -338,6 +338,17 @@ internal class SoundBrowseViewModel(
                 if (allResults.isNotEmpty()) flushToUi()
 
                 supervisorScope {
+                    launch {
+                        try {
+                            var added = false
+                            queries.tiktokSoundsFor(loadTab, forceRefresh = isRefresh)
+                                .forEach { if (addUnique(it)) added = true }
+                            if (added) flushToUi()
+                        } catch (e: Exception) {
+                            e.rethrowIfCancelled()
+                            firstFailure.compareAndSet(null, e)
+                        }
+                    }
                     if (querySet.ytQueries.isNotEmpty()) {
                         val blocked = queries.blockedWords()
                         querySet.ytQueries.forEach { ytQuery ->
@@ -351,23 +362,8 @@ internal class SoundBrowseViewModel(
                                     )
                                     var added = false
                                     result.items.forEach { if (addUnique(it)) added = true }
+                                    // Previews resolve from the list's visible window, not per query.
                                     if (added) flushToUi()
-
-                                    result.items.take(PREVIEW_RESOLVE_COUNT_PER_QUERY).forEach { yt ->
-                                        launch {
-                                            ytResolveSemaphore.acquire()
-                                            try {
-                                                youtubeRepo.getAudioPreviewUrl(yt.id.removePrefix("yt_"))?.let { url ->
-                                                    currentCoroutineContext().ensureActive()
-                                                    cacheResolvedPreview(yt, url)
-                                                }
-                                            } catch (e: Exception) {
-                                                e.rethrowIfCancelled()
-                                            } finally {
-                                                ytResolveSemaphore.release()
-                                            }
-                                        }
-                                    }
                                 } catch (e: Exception) {
                                     e.rethrowIfCancelled()
                                     firstFailure.compareAndSet(null, e)
@@ -411,6 +407,7 @@ internal class SoundBrowseViewModel(
                     )
                 }
                 schedulePreviewPrebuffer(visibleSoundsAfterLoad)
+                requestPreviewWindow(visibleSoundsAfterLoad.take(INITIAL_PREVIEW_RESOLVE_WINDOW))
                 persistFeed(visibleSoundsAfterLoad, loadTab, snapshot.query)
             } catch (e: Exception) {
                 e.rethrowIfCancelled()
@@ -431,13 +428,20 @@ internal class SoundBrowseViewModel(
         }
     }
 
-    private suspend fun handleYouTubeDisabledFeed(loadTab: SoundTab, loadMore: Boolean) {
+    private suspend fun handleYouTubeDisabledFeed(loadTab: SoundTab, loadMore: Boolean, isRefresh: Boolean) {
         if (loadMore) {
             state.update { it.copy(isLoadingMore = false, hasMore = false) }
             return
         }
+        // TikTok is its own provider, so switching YouTube off keeps the creator clips.
+        val tiktokSounds = try {
+            queries.tiktokSoundsFor(loadTab, forceRefresh = isRefresh)
+        } catch (e: Exception) {
+            e.rethrowIfCancelled()
+            emptyList()
+        }
         val fallbackSounds = rankSounds(
-            sounds = queries.bundledSoundsFor(loadTab, state.value.query),
+            sounds = queries.bundledSoundsFor(loadTab, state.value.query) + tiktokSounds,
             tab = loadTab,
             filter = state.value.qualityFilter,
         )
@@ -486,9 +490,9 @@ internal class SoundBrowseViewModel(
     private companion object {
         const val SOURCE_YOUTUBE = "youtube"
         const val SOURCE_COMMUNITY = "community"
-        const val PREVIEW_RESOLVE_COUNT_PER_QUERY = 4
         val ACTIVE_SOUND_SOURCES = setOf(
             ContentSource.YOUTUBE,
+            ContentSource.TIKTOK,
             ContentSource.BUNDLED,
         )
     }

@@ -66,10 +66,11 @@ py -3 tools\community_callable_wire_protocol_check.py --contract docs\community-
 | Reports | `submitCommunityReport` | `CommunityReportInput` | `/community_reports/{reportId}` | Yes |
 | Sound uploads | `finalizeCommunitySoundUpload` | `CommunitySoundUploadMetadata` | `/community_sounds/{uploadId}`, `/owner_uploads/{uid}/sounds/{uploadId}` | Yes |
 | Wallpaper uploads | `finalizeCommunityWallpaperUpload` | `CommunityWallpaperUploadMetadata` | `/community_wallpapers/{uploadId}`, `/owner_uploads/{uid}/wallpapers/{uploadId}` | Yes |
-| Votes | `recordCommunityVote` | `CommunityVoteInput` | `/votes/{contentId}`, `/voters/{contentId}/{uid}` | No |
+| Votes | `recordCommunityVote` | `CommunityVoteInput` | `/vote_markers/{uid}/{contentId}`, `/vote_locks/{uid}/{contentId}`, `/vote_counts/{contentId}`, and the upload row's `votes` field for community uploads | No |
 | Follows | `setCreatorFollow` | `CommunityFollowInput` | `/creator_follows/{uid}/{creatorId}` | No |
 | User blocks | `setCommunityUserBlock` | `CommunityUserBlockInput` | `/community_user_blocks/{uid}/{blockedUid}`, `/community_blocked_by/{blockedUid}/{uid}` | No |
 | Profile edits | `updateCreatorProfile` | `CreatorProfileUpdateInput` | `/creator_profiles/{uid}` | No |
+| Collection shares | `publishSharedCollection` | `SharedCollectionInput` | `/shared_collections/{token}` | Yes |
 
 Every callable also owns these protected ledgers for its surface:
 
@@ -112,6 +113,41 @@ Cycle 95 added:
 - `functions/test/recordCommunityVote.test.cjs` covers accepted,
   existing-voter duplicate, active-dedupe duplicate, cooldown, daily-limit,
   unauthenticated, missing-App-Check, and invalid-content-ID cases.
+
+The vote schema was later split so voter UIDs never sit in a public tree:
+
+- `/vote_counts/{contentId}/upvotes` is the public count. Anyone can read one
+  row, and the collection answers only the `orderByChild('upvotes')` leaderboard
+  query with `limitToLast` of 200 or less.
+- `/vote_markers/{uid}/{contentId}` records who voted. Only that account (or an
+  admin) can read it.
+- The callable takes a private lock at `/vote_locks/{uid}/{contentId}` in a
+  transaction, so a second call from the same account for the same item is
+  turned away while the first is counted. The marker, the `ServerValue.increment`
+  on the count, and the lock removal then land in one atomic update. A run that
+  dies before that update leaves no marker, so the vote can be cast again once
+  the lock's 5 minute lease runs out.
+- A missing count row is seeded first from the legacy `/votes/{contentId}/upvotes`
+  value, never below the number of distinct legacy voters. The seed transaction
+  leaves any whole-number row alone. Community uploads also get the count
+  mirrored into their own `votes` field, which the upload feeds sort by. The
+  mirror is one transaction on the upload row and skips a row that is gone, so
+  a deleted upload can't come back as a stub.
+- `seedLegacyVoteCounts` runs every 24 hours (UTC) and gives every content ID
+  under `/votes` or `/voters` a count row through that same seed transaction, so
+  it and the callable can run in either order without losing a vote. It walks
+  each root in key order and saves the last key it finished under the
+  admin-only `/vote_seed_cursor/{root}`, so a run that hits its batch cap or its
+  8 minute budget (inside the 9 minute function timeout) picks up there next
+  time. A root walked to the end is marked done so later runs go straight to
+  the other one, and once both are done the cursor is cleared for a fresh pass.
+- `/votes` and `/voters` are admin-only now, except the old per-item
+  `/votes/{contentId}/upvotes` leaf, which stays readable for older app builds.
+  `tools/community_vote_privacy_backfill.py` turns a database export into the
+  one-time multi-path update that copies legacy voter markers across. It never
+  writes counts, since an absolute count from an export would overwrite votes
+  cast after it, and `--drop-legacy` refuses while any legacy content in the
+  export still lacks a count row.
 
 Cycle 96 added:
 
@@ -169,6 +205,25 @@ Cycle 100 added:
   identical-profile duplicate, active normalized-profile dedupe, cooldown,
   daily-limit, unauthenticated, missing-App-Check, UID/timestamp override, and
   invalid public-copy cases.
+
+Collection share links moved behind a callable too:
+
+- `functions/src/collectionShareHandler.ts` implements `publishSharedCollection`.
+  The app sends the exported collection JSON as `document` plus a display name.
+  The server parses it, refuses anything that isn't a version 1 document with
+  1 to 250 item objects inside 512 KB of UTF-8, counts the items itself, picks a
+  random 128-bit token, and writes `createdByUid`, `createdAt`, and an
+  `expiresAt` 30 days out. Callers can't send any of those fields. Shares cost a
+  limited-use App Check token, 10 a day with a 30 second cooldown.
+- `pruneExpiredSharedCollections` runs every 24 hours (UTC) and deletes shares
+  whose `createdAt` is at least 30 days old, oldest first, in batches of 500.
+  The rules index `shared_collections` on `createdAt` for that query, and they
+  already refuse reads of an expired share, so the job only reclaims space.
+- `functions/test/publishSharedCollection.test.cjs` covers the accepted write,
+  replay, cooldown, daily limit, missing Auth or App Check, refused fields and
+  sizes, name fallback, and the refund on a failed write.
+  `test/firebase/functions.collection-share.test.mjs` runs the handler and the
+  prune against the emulator with the repo rules loaded.
 
 Do not claim production callable enforcement until all callable surfaces have
 owner-approved deploy evidence, live callable invocation evidence, Firebase
@@ -276,9 +331,36 @@ Cycle 116 added:
   operation-prefix drift, manifest-hash drift, invalid Functions App Check
   state, and duplicate receipt surfaces.
 
+`CommunityCallableClient.publishSharedCollection()` publishes collection links.
+`CollectionExporter` checks the 250 item and 512 KB link limits first, and a
+share sheet still sends the collection file when the link can't be made (quota,
+size, or no backend). A read the rules refuse because the share expired shows
+"Collection link is expired or unavailable."
+
+Until `publishSharedCollection` is deployed, a call that comes back `NOT_FOUND`
+or `UNIMPLEMENTED` writes the share directly to `/shared_collections/{token}`
+with the same fields and 30 day `expiresAt` the function stores
+(`publishShareWithFallback` and `directSharedCollectionRecord`). Any other
+refusal still fails the link. Vote counts follow the same migration rule: each
+read prefers `/vote_counts/{contentId}/upvotes` and falls back to the legacy
+`/votes/{contentId}/upvotes` tally for a row that isn't there yet, and the
+leaderboard reads the legacy tree only while `/vote_counts` is empty. The
+rules keep `/votes/{contentId}/upvotes` public, so the per-item fallback works
+under them, while the whole-tree leaderboard read is admin-only. Voting itself
+has no fallback, so votes aren't recorded until `recordCommunityVote` is
+deployed.
+
+Production order on 2026-09-30: `database.rules.json` went live before any
+function, after `/vote_counts` was seeded by running `seedLegacyVoteCounts`
+locally against production and the legacy vote markers were backfilled. From
+then on the rules refuse the direct share write, so collection links wait for
+`publishSharedCollection`. Firebase Authentication isn't set up on the project
+yet either, so every signed-in community action fails at sign-in.
+
 Report, vote, follow, user-block, sound upload finalization, wallpaper upload
-finalization, and profile edit writes are the Android write surfaces with
-callable client code and checked Android wire-protocol coverage today.
+finalization, profile edit, and collection share writes are the Android write
+surfaces with callable client code and checked Android wire-protocol coverage
+today.
 
 ## Request Envelope
 
@@ -286,7 +368,7 @@ All callable requests use a common envelope:
 
 | Field | Source | Rule |
 | --- | --- | --- |
-| `operationId` | Client-generated UUID | Required for logs and retry correlation; not trusted for quota identity. |
+| `operationId` | Client-generated UUID | Required for logs and retry correlation. Keys the pending quota reservation so a replay of the same call can't take a second unit; never used to skip a limit. |
 | `clientSentAt` | Client wall clock | Informational only; server time owns ledgers. |
 | `payload` | Surface-specific object | Normalized and revalidated by the callable. |
 
@@ -311,12 +393,44 @@ UID, profile UID, or owner index UID unless the caller has an admin claim.
 7. Transactionally update `/community_write_quotas/{uid}/{yyyyMMdd}/{surface}`.
    Reject when the daily limit would be exceeded or when `lastAt` is inside the
    cooldown window. Increment `blockedCount` and set `lastBlockedAt` for blocked
-   attempts.
+   attempts. An accepted attempt takes its unit as a reservation: `count` and
+   `lastAt` move, and `pending/{operationKey}` records `at` plus the previous
+   `lastAt` as `prevLastAt`.
 8. Write the public action and any private owner index in one Admin SDK
    multi-location update when the surface needs more than one path.
 9. Write the dedupe marker with `createdAt`, `expiresAt`, and `target`.
-10. Return a small result object with `status`, `targetPath`, `retryAfterMillis`
+10. Settle the reservation in a second ledger transaction. When the action
+    stored something, drop the pending entry and keep the unit. When anything
+    after the reservation threw (a storage precondition, an ID allocation, the
+    write itself) or the write stored nothing (a vote that lost the marker race),
+    refund it: `count` drops by one, `lastAt` goes back to `prevLastAt` unless a
+    newer reservation has moved it, and `releasedCount`/`lastReleasedAt` record
+    the refund. A failed settle is logged and never changes the caller's result.
+11. Return a small result object with `status`, `targetPath`, `retryAfterMillis`
     when blocked, and the server timestamp used for the write.
+
+### Reservations that never settle
+
+A run that dies between steps 7 and 10 leaves its pending entry behind. For five
+minutes (callables time out after 60 seconds) a replay with the same operation
+ID is blocked with reason `in-progress` instead of taking a second unit. After
+that the replay takes the entry over and settles it as its own, keeping the
+original cooldown stamp in `cooldownAt` so a refund still restores it. Entries
+for other operations older than five minutes are dropped on the next attempt
+and counted in `expiredCount`. Their unit stays spent, because the write may
+have landed and a refund could hand out a free one. The pending map can't grow
+past the day's limit, since every entry in it is counted.
+
+Ledgers are per UTC day, so for the first five minutes after midnight (or the
+surface's cooldown, if longer) `reserveQuotaLedger` also reads yesterday's
+ledger. A replay whose run started before midnight is still blocked as
+`in-progress`, and yesterday's `lastAt` still counts toward the cooldown. Every
+callable backend reserves through that one helper.
+
+Refunds don't loosen the limits on what gets published: only a write that
+landed keeps its unit, so the daily cap still bounds stored content. A caller
+who forces failures on purpose gets no cooldown, but each of those calls still
+needs App Check, and the upload finalizers burn a limited-use token every time.
 
 ## Error Codes
 
@@ -326,7 +440,7 @@ UID, profile UID, or owner index UID unless the caller has an admin claim.
 | `FAILED_PRECONDITION` | Missing or invalid App Check. |
 | `PERMISSION_DENIED` | Authenticated caller cannot write the requested owner/admin path. |
 | `INVALID_ARGUMENT` | Payload fails normalization or bounds checks. |
-| `RESOURCE_EXHAUSTED` | Daily limit or cooldown blocks the write. |
+| `RESOURCE_EXHAUSTED` | Daily limit or cooldown blocks the write, or the same operation is still in flight (`in-progress`). |
 | `ALREADY_EXISTS` | Dedupe marker proves an equivalent write already exists. |
 | `ABORTED` | Transaction conflict exceeded backend retry budget. |
 

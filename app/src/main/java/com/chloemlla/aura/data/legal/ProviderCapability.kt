@@ -426,6 +426,31 @@ val providerCapabilities: List<ProviderCapability> = listOf(
         endpointIds = setOf("youtube-newpipe", "youtube-pot-provider"),
     ),
     ProviderCapability(
+        source = ContentSource.TIKTOK,
+        mediaTypes = setOf(ProviderMediaType.SOUND),
+        defaultPriority = mapOf(ProviderMediaType.SOUND to 5),
+        permittedActions = setOf(
+            ProviderAction.BROWSE,
+            ProviderAction.PREVIEW,
+            ProviderAction.FAVORITE,
+            ProviderAction.DOWNLOAD,
+            ProviderAction.APPLY,
+            ProviderAction.SHARE,
+            ProviderAction.OPEN_SOURCE,
+        ),
+        lifecycle = ProviderLifecycle.ACTIVE,
+        builds = ALL_BUILDS,
+        // Same risk profile as YouTube extraction: GitHub/Obtainium only.
+        channels = GITHUB_ONLY,
+        configuration = ProviderConfiguration.NONE,
+        permission = ProviderPermission.NONE,
+        health = ProviderHealth.NETWORKED,
+        requiresAttribution = true,
+        enabledByDefault = true,
+        killSwitchKey = null,
+        endpointIds = setOf("tiktok-creator-embed", "tiktok-media-cdn"),
+    ),
+    ProviderCapability(
         source = ContentSource.PEXELS,
         mediaTypes = setOf(ProviderMediaType.WALLPAPER, ProviderMediaType.VIDEO),
         defaultPriority = mapOf(

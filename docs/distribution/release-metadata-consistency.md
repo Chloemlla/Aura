@@ -10,8 +10,8 @@ disclosures, and GitHub Release artifacts. The machine-readable contract is
 | Field | Value |
 | --- | --- |
 | Package | `com.chloemlla.aura` |
-| Version name | `6.45.3` |
-| Version code | `149` |
+| Version name | `6.46.1` |
+| Version code | `151` |
 | Fastlane metadata root | `fastlane/metadata/android/en-US` |
 | Privacy policy URL | `https://github.com/SysAdminDoc/Aura/blob/main/docs/privacy/privacy-policy.md` |
 

@@ -197,6 +197,18 @@ val providerDisclosures = listOf(
         storeDisclosure = "Optional third-party network service using extractor/downloader tooling.",
     ),
     ProviderDisclosure(
+        source = ContentSource.TIKTOK,
+        displayName = "TikTok",
+        content = "Active ringtone feed from public creator embeds",
+        status = ProviderStatus.ACTIVE,
+        termsUrl = "https://www.tiktok.com/legal/page/us/terms-of-service/en",
+        licenseSummary = "Provider-defined content terms",
+        attribution = "Keep the creator name and the video link on every TikTok sound.",
+        cachePolicy = "Creator feed metadata is held in memory for 30 minutes; only the extracted sound track is kept, and the video file is deleted after extraction.",
+        userActions = "Preview, apply, download, favorite, and open the source video.",
+        storeDisclosure = "Optional third-party network service reached through public embed pages.",
+    ),
+    ProviderDisclosure(
         source = ContentSource.PEXELS,
         displayName = "Pexels",
         content = "Photos and videos",
@@ -401,6 +413,14 @@ val providerRuntimeControls = listOf(
         status = ProviderRuntimeControlStatus.COVERED,
         currentControl = "The artifact channel blocks YouTube in Play builds. GitHub and Obtainium builds also expose a YouTube provider-enabled flag, query customization, and blocked words.",
         disabledBehavior = "Play builds omit YouTube controls and downloader initialization. Disabled GitHub mode hides browsing, skips top hits and video discovery, falls back to bundled sounds, and blocks stream resolution before cache or downloader use.",
+        followUp = "None.",
+    ),
+    ProviderRuntimeControl(
+        source = ContentSource.TIKTOK,
+        surfaces = "Ringtones tab lead rows, sound preview, apply, download, favorites, and contact ringtones.",
+        status = ProviderRuntimeControlStatus.COVERED,
+        currentControl = "The artifact channel blocks TikTok in Play builds at the repository and the network interceptor. GitHub and Obtainium builds load the creator feed with the Ringtones tab.",
+        disabledBehavior = "Play builds never request the creator embed or the media CDN; the Ringtones tab shows bundled and YouTube sounds only.",
         followUp = "None.",
     ),
     ProviderRuntimeControl(

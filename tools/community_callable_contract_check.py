@@ -59,8 +59,11 @@ EXPECTED_SURFACES: dict[str, dict[str, Any]] = {
         "functionName": "recordCommunityVote",
         "payloadSchema": "CommunityVoteInput",
         "finalWritePaths": [
-            "/votes/{contentId}",
-            "/voters/{contentId}/{uid}",
+            "/vote_markers/{uid}/{contentId}",
+            "/vote_locks/{uid}/{contentId}",
+            "/vote_counts/{contentId}",
+            "/community_sounds/{uploadId}/votes",
+            "/community_wallpapers/{uploadId}/votes",
         ],
         "consumeLimitedUseAppCheckToken": False,
     },
@@ -96,6 +99,16 @@ EXPECTED_SURFACES: dict[str, dict[str, Any]] = {
         "payloadSchema": "CreatorProfileUpdateInput",
         "finalWritePaths": ["/creator_profiles/{uid}"],
         "consumeLimitedUseAppCheckToken": False,
+    },
+    "collection_shares": {
+        "dailyLimit": 10,
+        "minIntervalMillis": 30000,
+        "dedupeKey": "operationId",
+        "enforcement": ["APP_CHECKED_CALLABLE"],
+        "functionName": "publishSharedCollection",
+        "payloadSchema": "SharedCollectionInput",
+        "finalWritePaths": ["/shared_collections/{token}"],
+        "consumeLimitedUseAppCheckToken": True,
     },
 }
 

@@ -15,11 +15,15 @@ import com.chloemlla.aura.service.SelectedContentHolder
 import com.chloemlla.aura.util.rethrowIfCancelled
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.util.concurrent.ConcurrentHashMap
 
 private const val FIRST_VISIBLE_PREVIEW_COUNT = 8
@@ -37,13 +41,19 @@ internal class SoundPlaybackActions(
     private val previewReadyIds: MutableStateFlow<Set<String>>,
     private val playbackProgress: MutableStateFlow<Float>,
     private val scope: CoroutineScope,
-    private val resolveYouTubePreview: suspend (Sound) -> String?,
-    private val shouldRefreshYouTubePreview: (Sound) -> Boolean,
+    /** Stream resolve for YouTube, fresh signed link for an expired TikTok clip. */
+    private val resolveRemotePreview: suspend (Sound) -> String?,
+    private val shouldRefreshRemotePreview: (Sound) -> Boolean,
     private val youtubeDisabledMessage: () -> String,
     private val persistFeed: (SoundsUiState) -> Unit = {},
+    private val previewWorkPermits: Semaphore = Semaphore(PREVIEW_WORK_CONCURRENCY),
 ) {
     private var progressJob: Job? = null
     private val previewPrebufferInFlight = ConcurrentHashMap.newKeySet<String>()
+    private var prebufferFeedKey: Int? = null
+    @Volatile private var prebufferScope = newPrebufferScope()
+
+    private fun newPrebufferScope() = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
     private var pendingSeekFraction: Float? = null
 
     fun togglePlayback(sound: Sound) {
@@ -61,10 +71,10 @@ internal class SoundPlaybackActions(
             stopPlayback()
         } else if (soundKey == state.value.resolvingId) {
             state.update { it.copy(resolvingId = null) }
-        } else if (shouldRefreshYouTubePreview(sound)) {
+        } else if (shouldRefreshRemotePreview(sound)) {
             scope.launch {
                 state.update { it.copy(resolvingId = soundKey) }
-                val url = resolveYouTubePreview(sound)
+                val url = resolveRemotePreview(sound)
                 if (state.value.resolvingId != soundKey) return@launch
                 if (url != null) {
                     val updatedSound = cacheResolvedPreview(sound, url)
@@ -109,6 +119,8 @@ internal class SoundPlaybackActions(
 
     fun schedulePreviewPrebuffer(sounds: List<Sound>) {
         if (!autoPreview.value) return
+        switchPrebufferFeed(state.value.filterKey)
+        val feedScope = prebufferScope
         sounds
             .asSequence()
             .filter { it.previewUrl.isNotBlank() }
@@ -118,18 +130,32 @@ internal class SoundPlaybackActions(
             .forEach { sound ->
                 val key = sound.stableKey()
                 if (key in previewReadyIds.value || !previewPrebufferInFlight.add(key)) return@forEach
-                scope.launch {
+                feedScope.launch {
                     try {
-                        if (audioPreviewCache.prebuffer(sound)) {
+                        // Shares slots with preview resolution so the two never fan out together.
+                        if (previewWorkPermits.withPermit { audioPreviewCache.prebuffer(sound) }) {
                             previewReadyIds.update { it + key }
                         }
                     } catch (e: Exception) {
                         e.rethrowIfCancelled()
                     } finally {
-                        previewPrebufferInFlight.remove(key)
+                        // A switched feed already cleared the set and may own this key again.
+                        if (feedScope === prebufferScope) previewPrebufferInFlight.remove(key)
                     }
                 }
             }
+    }
+
+    /**
+     * A new tab, query or refresh drops the old feed's prebuffers, so clips nobody
+     * can see stop spending data and stop holding the slots a tapped preview needs.
+     */
+    fun switchPrebufferFeed(key: Int) {
+        if (key == prebufferFeedKey) return
+        prebufferScope.cancel()
+        prebufferScope = newPrebufferScope()
+        previewPrebufferInFlight.clear()
+        prebufferFeedKey = key
     }
 
     fun isInPreviewPrebufferWindow(soundKey: String): Boolean {

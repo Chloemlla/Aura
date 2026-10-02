@@ -301,6 +301,42 @@
       ]
     },
     {
+      "id": "tiktok-creator-embed",
+      "ownership": "content-source",
+      "hosts": ["www.tiktok.com"],
+      "schemes": ["https"],
+      "surface": "Public TikTok creator and video embed pages for the Ringtones tab",
+      "authLocation": "none",
+      "dataSent": "creator handle in the embed path, or a video ID when a stored media link has expired",
+      "mediaCached": "creator feed metadata is held in memory for 30 minutes; the Ringtones feed cache can keep the returned rows",
+      "rateLimitCachePolicy": "30-minute in-memory feed cache, OkHttp connect/read/write timeouts, and degraded-source cooldown after repeated failures",
+      "fallbackBehavior": "the last good creator feed is served when a refresh fails; with none, the Ringtones tab shows bundled and YouTube sounds",
+      "killSwitch": "release channel (GitHub and Obtainium builds only)",
+      "releaseOwner": "maintainer",
+      "sourceFiles": [
+        "app/src/main/java/com/chloemlla/aura/data/repository/TikTokSoundRepository.kt",
+        "app/src/main/java/com/chloemlla/aura/data/remote/tiktok/TikTokEmbed.kt"
+      ]
+    },
+    {
+      "id": "tiktok-media-cdn",
+      "ownership": "content-source",
+      "hosts": ["*.tiktokcdn-us.com", "*.tiktokcdn.com"],
+      "schemes": ["https"],
+      "surface": "Signed TikTok clip links for preview playback, duration probes, and sound extraction",
+      "authLocation": "signed link returned by the embed page",
+      "dataSent": "a 1 KB range request per clip for its duration; the full clip only when the user previews, applies, or downloads it",
+      "mediaCached": "preview bytes use the shared audio preview cache; after apply or download only the extracted .m4a sound track stays in app cache, capped at 12 files",
+      "rateLimitCachePolicy": "four duration probes at a time, and one fresh-link retry per expired download",
+      "fallbackBehavior": "an expired link is replaced from the video embed page; a clip that cannot be fetched shows no duration and reports a download error",
+      "killSwitch": "release channel (GitHub and Obtainium builds only)",
+      "releaseOwner": "maintainer",
+      "sourceFiles": [
+        "app/src/main/java/com/chloemlla/aura/data/repository/TikTokSoundRepository.kt",
+        "app/src/main/java/com/chloemlla/aura/service/TikTokAudioExtractor.kt"
+      ]
+    },
+    {
       "id": "youtube-pot-provider",
       "ownership": "content-source",
       "hosts": ["user-configured provider host"],

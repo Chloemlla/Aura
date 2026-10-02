@@ -9,12 +9,19 @@ import {
 } from "./communityContract";
 import {
   buildDedupeMarker,
-  evaluateCommunityQuotaAttempt,
+  quotaOperationKey,
   utcQuotaDayKey,
   type DedupeMarker,
   type QuotaDecision,
-  type QuotaLedgerState,
+  type QuotaReservation,
+  type QuotaSettlement,
 } from "./quotaEngine";
+import {
+  type QuotaSettlingBackend,
+  reserveQuotaLedger,
+  runWithQuotaReservation,
+  settleQuotaLedger,
+} from "./quotaReservation";
 
 const REPORT_SURFACE = surfaceByFunctionName("submitCommunityReport");
 const MAX_CONTENT_ID = 240;
@@ -99,7 +106,7 @@ interface CommitAcceptedReportInput {
   readonly dedupeMarker: DedupeMarker;
 }
 
-export interface SubmitReportBackend {
+export interface SubmitReportBackend extends QuotaSettlingBackend {
   nowMillis(): number;
   createReportId(): Promise<string>;
   readDedupeMarker(uid: string, surfaceKey: string, dedupeKey: string): Promise<DedupeMarker | null>;
@@ -109,6 +116,7 @@ export interface SubmitReportBackend {
     surface: CommunityCallableSurface,
     nowMillis: number,
     dedupe: DedupeMarker | null,
+    operationKey?: string,
   ): Promise<QuotaDecision>;
   commitAcceptedReport(input: CommitAcceptedReportInput): Promise<void>;
 }
@@ -136,6 +144,7 @@ export async function submitCommunityReportHandler(
     REPORT_SURFACE,
     nowMillis,
     dedupe,
+    quotaOperationKey(envelope.operationId),
   );
 
   if (decision.status === "duplicate") {
@@ -161,18 +170,22 @@ export async function submitCommunityReportHandler(
     );
   }
 
-  const reportId = await backend.createReportId();
-  const targetPath = `/community_reports/${reportId}`;
-  await backend.commitAcceptedReport({
-    uid: reporterUid,
-    surfaceKey: REPORT_SURFACE.surfaceKey,
-    dedupeKey,
-    reportId,
-    report,
-    dedupeMarker: buildDedupeMarker({
-      nowMillis,
-      targetPath,
-    }),
+  const reserved = { uid: reporterUid, dayKey, surface: REPORT_SURFACE, reservation: decision.reservation };
+  const { reportId, targetPath } = await runWithQuotaReservation(backend, reserved, async () => {
+    const allocatedId = await backend.createReportId();
+    const allocatedTarget = `/community_reports/${allocatedId}`;
+    await backend.commitAcceptedReport({
+      uid: reporterUid,
+      surfaceKey: REPORT_SURFACE.surfaceKey,
+      dedupeKey,
+      reportId: allocatedId,
+      report,
+      dedupeMarker: buildDedupeMarker({
+        nowMillis,
+        targetPath: allocatedTarget,
+      }),
+    });
+    return { reportId: allocatedId, targetPath: allocatedTarget };
   });
 
   return {
@@ -341,31 +354,26 @@ class FirebaseSubmitReportBackend implements SubmitReportBackend {
     surface: CommunityCallableSurface,
     nowMillis: number,
     dedupe: DedupeMarker | null,
+    operationKey?: string,
   ): Promise<QuotaDecision> {
-    let decision: QuotaDecision | null = null;
-    const result = await this.quotaRef(uid, dayKey, surface.surfaceKey).transaction(
-      (current: unknown) => {
-        const quota = current !== null && typeof current === "object"
-          ? current as QuotaLedgerState
-          : {};
-        decision = evaluateCommunityQuotaAttempt({
-          surface,
-          nowMillis,
-          quota,
-          dedupe,
-        });
-        if (decision.status === "duplicate") {
-          return current;
-        }
-        return decision.quota;
-      },
-      undefined,
-      false,
+    return reserveQuotaLedger(
+      this.root.child("community_write_quotas").child(uid),
+      dayKey,
+      surface,
+      nowMillis,
+      dedupe,
+      operationKey,
     );
-    if (!result.committed || decision === null) {
-      throw new HttpsError("aborted", "Unable to reserve community report quota.");
-    }
-    return decision;
+  }
+
+  async settleQuota(
+    uid: string,
+    dayKey: string,
+    surface: CommunityCallableSurface,
+    reservation: QuotaReservation,
+    settlement: QuotaSettlement,
+  ): Promise<void> {
+    await settleQuotaLedger(this.quotaRef(uid, dayKey, surface.surfaceKey), reservation, settlement, this.nowMillis());
   }
 
   async commitAcceptedReport(input: CommitAcceptedReportInput): Promise<void> {

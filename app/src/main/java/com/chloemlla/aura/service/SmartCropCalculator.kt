@@ -10,12 +10,16 @@ import android.graphics.RectF
  * offsetX, offsetY) such that the subject lands at the viewport centre at a
  * sensible coverage ratio (default ~75 %).
  *
- * Coordinate convention matches [com.chloemlla.aura.ui.screens.editor.WallpaperCropViewModel.cropBitmap]:
+ * [Transform.scale] here is absolute (viewport pixels per source pixel), with
  *
  * ```
  * imgLeft = (viewportWidth  - bitmapWidth  * scale) / 2 + offsetX
  * imgTop  = (viewportHeight - bitmapHeight * scale) / 2 + offsetY
  * ```
+ *
+ * The crop editor's [com.chloemlla.aura.ui.screens.editor.CropTransform.scale] is relative to the
+ * fitted image, so [com.chloemlla.aura.ui.screens.editor.WallpaperCropViewModel] divides this scale
+ * by the fit scale before using it. The offsets carry over unchanged.
  *
  * Pure — no Android dependencies beyond [RectF] — unit-testable in isolation.
  */

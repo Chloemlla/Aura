@@ -163,6 +163,21 @@ class VideoWallpaperStorageTest {
     }
 
     @Test
+    fun `video probe accepts unknown duration`() {
+        val failure = videoWallpaperProbeFailure(
+            VideoWallpaperProbe(
+                hasVideo = true,
+                durationMs = null,
+                width = 1080,
+                height = 1920,
+                mimeType = "video/mp4",
+            ),
+        )
+
+        assertEquals(null, failure)
+    }
+
+    @Test
     fun `gif header validation accepts gif signatures only`() {
         assertTrue(hasValidGifHeader("GIF87a".toByteArray()))
         assertTrue(hasValidGifHeader("GIF89a".toByteArray()))

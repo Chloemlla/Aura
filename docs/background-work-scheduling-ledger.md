@@ -46,18 +46,12 @@ runtime quota when they continue after a TOP-state start and while they run
 concurrently with a foreground service. The only Aura concurrency path is
 `RotationTriggerService` enqueuing `rotation_trigger_oneshot`. That path uses
 unique `APPEND_OR_REPLACE` so a new trigger is queued behind rotation work that
-is already pending instead of replacing or dropping it, and the requests are
+is already pending instead of replacing or dropping it (a tap is never lost, and
+the countdown restart is carried by the worker itself). The requests are
 plain non-expedited one-shots, so they consume no expedited quota and have no
 quota downgrade path. Settings and copied support diagnostics now report every
 unique work name and summarize non-active `WorkInfo.stopReason` values such as
 `QUOTA`, `TIMEOUT`, `BACKGROUND_RESTRICTION`, and constraint stops.
-
-No Aura one-shot requests expedited work: the Aura Originals download and the
-rotation trigger are both plain one-shots because expedited execution requires
-`getForegroundInfo()`, which neither worker implements, so expedited runs failed
-outright on API 26-30. Ordinary WorkManager jobs can still be charged against
-job runtime quota on Android 16, which is why the ledger keeps recording every
-deferral path above.
 
 ## Deferral reasons
 

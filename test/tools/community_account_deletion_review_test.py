@@ -121,6 +121,26 @@ class CommunityAccountDeletionReviewTest(unittest.TestCase):
         with self.assertRaises(ReviewError):
             review_account_deletion_request(lookup, plan, request_code)
 
+    def test_review_rejects_deleting_public_vote_counts(self) -> None:
+        lookup, plan, request_code = sample_artifacts()
+        plan["updates"]["/vote_counts/content1"] = None
+        plan["categories"]["voteMarkers"].append("/vote_counts/content1")
+        plan["updateCount"] = 3
+
+        with self.assertRaises(ReviewError):
+            review_account_deletion_request(lookup, plan, request_code)
+
+    def test_review_accepts_private_vote_marker_subtree(self) -> None:
+        lookup, plan, request_code = sample_artifacts()
+        plan["updates"]["/vote_markers/firebase-uid-123"] = None
+        plan["categories"]["voteMarkers"].append("/vote_markers/firebase-uid-123")
+        plan["updateCount"] = 3
+
+        review = review_account_deletion_request(lookup, plan, request_code, reviewed_at="2026-06-06T12:00:00Z")
+
+        self.assertEqual("readyForTrustedApply", review["reviewStatus"])
+        self.assertEqual(2, review["categoryCounts"]["voteMarkers"])
+
     def test_review_rejects_missing_retained_roots(self) -> None:
         lookup, plan, request_code = sample_artifacts()
         plan["retained"] = []

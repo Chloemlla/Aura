@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { buildDedupeMarker, evaluateCommunityQuotaAttempt } = require("../lib/quotaEngine.js");
+const { buildDedupeMarker, evaluateCommunityQuotaAttempt, settledQuotaState } = require("../lib/quotaEngine.js");
 const {
   normalizeUserBlockPayload,
   setCommunityUserBlockHandler,
@@ -10,12 +10,12 @@ const {
 
 const NOW = Date.UTC(2026, 5, 7, 12, 0, 0);
 
-function validRequest(overrides = {}, operationId = "block-op-1") {
+function validRequest(overrides = {}) {
   return {
     auth: { uid: "blocker1" },
     app: { appId: "aura-test-app" },
     data: {
-      operationId,
+      operationId: "block-op-1",
       clientSentAt: NOW - 1_000,
       payload: {
         blockedUid: "blocked.one",
@@ -32,6 +32,8 @@ class FakeUserBlockBackend {
     this.now = nowMillis;
     this.dedupe = new Map();
     this.quotas = new Map();
+    this.settlements = [];
+    this.commitFailure = null;
     this.privateBlocks = new Map();
     this.reverseBlocks = new Map();
   }
@@ -48,13 +50,14 @@ class FakeUserBlockBackend {
     return this.dedupe.get(`${uid}/${surfaceKey}/${dedupeKey}`) ?? null;
   }
 
-  async reserveQuota(uid, dayKey, surface, nowMillis, dedupe) {
+  async reserveQuota(uid, dayKey, surface, nowMillis, dedupe, operationKey) {
     const key = `${uid}/${dayKey}/${surface.surfaceKey}`;
     const decision = evaluateCommunityQuotaAttempt({
       surface,
       nowMillis,
       quota: this.quotas.get(key) ?? {},
       dedupe,
+      operationKey,
     });
     if (decision.status !== "duplicate") {
       this.quotas.set(key, decision.quota);
@@ -62,7 +65,15 @@ class FakeUserBlockBackend {
     return decision;
   }
 
+  async settleQuota(uid, dayKey, surface, reservation, settlement) {
+    this.settlements.push(settlement);
+    const key = `${uid}/${dayKey}/${surface.surfaceKey}`;
+    const next = settledQuotaState(this.quotas.get(key) ?? {}, reservation, settlement, this.now);
+    if (next !== null) this.quotas.set(key, next);
+  }
+
   async commitUserBlock(input) {
+    if (this.commitFailure) throw this.commitFailure;
     const privateKey = `${input.payload.blockerKey}/${input.payload.blockedKey}`;
     const reverseKey = `${input.payload.blockedKey}/${input.payload.blockerKey}`;
     if (input.payload.blocked) {
@@ -108,7 +119,7 @@ test("accepted block writes private and reverse index rows", async () => {
   );
 });
 
-test("accepted unblock under a distinct operation id removes private and reverse index rows", async () => {
+test("accepted unblock removes private and reverse index rows with a separate dedupe key", async () => {
   const backend = new FakeUserBlockBackend();
   const row = {
     blockerUid: "blocker1",
@@ -118,28 +129,25 @@ test("accepted unblock under a distinct operation id removes private and reverse
   };
   backend.privateBlocks.set("blocker1/blocked_one", row);
   backend.reverseBlocks.set("blocked_one/blocker1", row);
-  const blockMarker = buildDedupeMarker({
-    nowMillis: NOW - 1_000,
-    targetPath: "/community_user_blocks/blocker1/blocked_one",
-    ttlMillis: 5_000,
-  });
-  backend.dedupe.set("blocker1/user_blocks/block-op-1", blockMarker);
-
-  const result = await setCommunityUserBlockHandler(
-    validRequest({ blocked: false }, "block-op-2"),
-    backend,
+  // The earlier block left its own operation's marker; the unblock is a new operation.
+  backend.dedupe.set(
+    "blocker1/user_blocks/block-op-1",
+    buildDedupeMarker({
+      nowMillis: NOW - 1_000,
+      targetPath: "/community_user_blocks/blocker1/blocked_one",
+      ttlMillis: 5_000,
+    }),
   );
+  const request = validRequest({ blocked: false });
+  request.data.operationId = "unblock-op-2";
+
+  const result = await setCommunityUserBlockHandler(request, backend);
 
   assert.equal(result.status, "accepted");
   assert.equal(result.blocked, false);
   assert.equal(backend.privateBlocks.has("blocker1/blocked_one"), false);
   assert.equal(backend.reverseBlocks.has("blocked_one/blocker1"), false);
-  assert.equal(
-    backend.dedupe.get("blocker1/user_blocks/block-op-2").targetPath,
-    "/community_user_blocks/blocker1/blocked_one",
-  );
-  // A distinct operation id is never collapsed into the earlier block operation's marker.
-  assert.equal(backend.dedupe.get("blocker1/user_blocks/block-op-1"), blockMarker);
+  assert.equal(backend.dedupe.has("blocker1/user_blocks/unblock-op-2"), true);
 });
 
 test("no-op block states return duplicate before quota reservation", async () => {
@@ -163,7 +171,7 @@ test("no-op block states return duplicate before quota reservation", async () =>
   assert.equal(missingBackend.quotas.size, 0);
 });
 
-test("active same-state dedupe returns duplicate before block commit", async () => {
+test("retried operation ID returns duplicate before block commit", async () => {
   const backend = new FakeUserBlockBackend();
   backend.dedupe.set(
     "blocker1/user_blocks/block-op-1",
@@ -250,4 +258,27 @@ test("block payload is sanitized and rejects invalid ownership", () => {
     () => normalizeUserBlockPayload({ blockedUid: "blocked.one", blocked: true, reason: "UNKNOWN" }, "blocker.1"),
     { code: "invalid-argument" },
   );
+});
+
+test("a block whose write fails refunds its quota unit and cooldown", async () => {
+  const backend = new FakeUserBlockBackend();
+  backend.commitFailure = new Error("database unavailable");
+  await assert.rejects(() => setCommunityUserBlockHandler(validRequest(), backend), /database unavailable/);
+
+  const refunded = backend.quotas.get("blocker1/20260607/user_blocks");
+  assert.deepEqual(backend.settlements, ["released"]);
+  assert.equal(refunded.count, 0);
+  assert.equal(refunded.lastAt, undefined);
+  assert.equal(refunded.pending, undefined);
+
+  // The person's retry is a new call, and it goes through inside the old cooldown.
+  backend.commitFailure = null;
+  backend.now = NOW + 1;
+  const retry = validRequest();
+  const result = await setCommunityUserBlockHandler({ ...retry, data: { ...retry.data, operationId: "retry-op" } }, backend);
+  assert.equal(result.status, "accepted");
+  assert.deepEqual(backend.settlements, ["released", "finalized"]);
+  const spent = backend.quotas.get("blocker1/20260607/user_blocks");
+  assert.equal(spent.count, 1);
+  assert.equal(spent.pending, undefined);
 });

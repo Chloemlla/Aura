@@ -13,7 +13,12 @@ internal data class SoundQuerySet(
 internal class SoundBrowseQueries(
     private val prefs: PreferencesManager,
     private val bundledContent: BundledContentProvider,
+    private val tiktokRingtones: suspend (forceRefresh: Boolean) -> List<Sound> = { emptyList() },
 ) {
+    /** The TikTok ringtone creators feed the Ringtones tab only. */
+    suspend fun tiktokSoundsFor(tab: SoundTab, forceRefresh: Boolean = false): List<Sound> =
+        if (tab == SoundTab.RINGTONES) tiktokRingtones(forceRefresh) else emptyList()
+
     suspend fun buildQueries(snapshot: SoundsUiState): SoundQuerySet {
         if (!isYouTubeProviderEnabled()) return SoundQuerySet(emptyList())
 

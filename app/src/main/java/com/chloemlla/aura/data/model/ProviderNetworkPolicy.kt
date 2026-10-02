@@ -223,6 +223,18 @@ val providerNetworkPolicies = listOf(
         quotaSummary = "Explicit user actions only; no automatic prefetch or batch downloading.",
     ),
     ProviderNetworkPolicy(
+        source = ContentSource.TIKTOK,
+        requestCacheTtlMs = TimeUnit.MINUTES.toMillis(30),
+        hostSuffixes = setOf("tiktok.com", "tiktokcdn.com", "tiktokcdn-us.com"),
+        maxAutomaticPrefetch = 8,
+        maxBatchDownloadPerUserAction = 1,
+        timeoutPolicy = "OkHttp connect/read/write timeouts",
+        backoffPolicy = "degraded-source cooldown after repeated failures; one fresh-link retry per expired download",
+        cacheFallbackPolicy = "30-minute in-memory creator feed with last-good fallback; extracted sounds stay in cache",
+        disabledBehavior = "unavailable artifacts skip the creator feed",
+        quotaSummary = "One public creator embed per 30 minutes and a 1 KB duration probe per clip; a clip's embed page only when its stored link has expired and it is played or saved; clip bytes while a preview plays, the first 192 KB of up to 8 clips when Auto preview is on, and the whole clip when a sound is applied or downloaded.",
+    ),
+    ProviderNetworkPolicy(
         source = ContentSource.PEXELS,
         requestCacheTtlMs = PROVIDER_CACHE_TTL_DEFAULT_MS,
         hostSuffixes = setOf("pexels.com"),

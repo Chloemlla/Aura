@@ -115,6 +115,8 @@ class AuraApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
     override fun onCreate() {
         super.onCreate()
         installLumenCrashSdk() // idempotent via isInstalled() check
+        if (BuildConfig.DEBUG) installStrictMode()
+        setupCrashLogging()
         installAppCheck()
         NotificationChannels.createAll(this)
         ExternalAutomationGate.warmUp(this)
@@ -126,6 +128,24 @@ class AuraApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
         enqueueAuraOriginalsDownload()
         publishWidgetPreview()
         reconcileRotationTriggers()
+    }
+
+    private fun installStrictMode() {
+        android.os.StrictMode.setThreadPolicy(
+            android.os.StrictMode.ThreadPolicy.Builder()
+                .detectDiskReads()
+                .detectDiskWrites()
+                .detectNetwork()
+                .penaltyLog()
+                .build(),
+        )
+        android.os.StrictMode.setVmPolicy(
+            android.os.StrictMode.VmPolicy.Builder()
+                .detectLeakedClosableObjects()
+                .detectActivityLeaks()
+                .penaltyLog()
+                .build(),
+        )
     }
 
     private fun installLumenCrashSdk() {

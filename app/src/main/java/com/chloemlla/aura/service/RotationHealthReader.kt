@@ -158,9 +158,14 @@ class AndroidRotationHealthReader @Inject constructor(
             // any leftover work under that name, then go through the shared one-shot
             // path — RUN_NOW_WORK_NAME survives only as the receipt bucket, which is
             // what keeps a manual run from overwriting the periodic run's last-success
-            // time (AURA-G2-07, AURA-G2-11).
+            // time (AURA-G2-07, AURA-G2-11). restartCountdown starts the interval over,
+            // since this run is one the person asked for.
             WorkManager.getInstance(context).cancelUniqueWork(RUN_NOW_WORK_NAME)
-            RotationTriggerService.enqueueRotation(context, receiptWorkName = RUN_NOW_WORK_NAME)
+            RotationTriggerService.enqueueRotation(
+                context,
+                receiptWorkName = RUN_NOW_WORK_NAME,
+                restartCountdown = true,
+            )
         }
     }
 

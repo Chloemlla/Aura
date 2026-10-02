@@ -127,6 +127,19 @@ class VideoWallpaperService : WallpaperService() {
         // to be decoded to describe it. That runs here rather than inline in
         // initializePlayer, which is on the main thread.
         private val colorLoader = LiveWallpaperMediaLoader("aura-video-colors")
+        private var dimEnabled = false
+        private val dimming = LiveWallpaperDimming(
+            onRevealChanged = { if (visible) currentHolder?.let { drawGifFrame(it) } },
+        )
+
+        // The engine's own display, so a wallpaper on a secondary display decodes at its
+        // size instead of the default display's.
+        private val renderContext: android.content.Context
+            get() = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                displayContext ?: this@VideoWallpaperService
+            } else {
+                this@VideoWallpaperService
+            }
         // Player setup offloads MediaMetadataRetriever / Movie.decodeFile here (both do
         // synchronous file I/O that used to stall the main thread). MediaPlayer itself
         // is still created back on the main thread where its callbacks expect a Looper.
@@ -172,6 +185,10 @@ class VideoWallpaperService : WallpaperService() {
             getRuntimePrefs().getBoolean(VIDEO_FPS_OVERLAY_PREF, false)
         private fun isAutoBatterySaverEnabled(): Boolean =
             getRuntimePrefs().getBoolean(VIDEO_AUTO_BATTERY_SAVER_PREF, true)
+
+        private fun loadDimmingFromPrefs() {
+            dimEnabled = getPrefs().getBoolean(LIVE_WALLPAPER_DIM_ENABLED_PREF, false)
+        }
 
         private fun loadColorPublicationFromPrefs() {
             val enabled = getPrefs().getBoolean(
@@ -220,7 +237,7 @@ class VideoWallpaperService : WallpaperService() {
 
         private fun resolveScreenSize() {
             try {
-                val wm = getSystemService(android.content.Context.WINDOW_SERVICE) as? android.view.WindowManager
+                val wm = renderContext.getSystemService(android.content.Context.WINDOW_SERVICE) as? android.view.WindowManager
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
                     wm?.currentWindowMetrics?.bounds?.let { bounds ->
                         screenWidth = bounds.width()
@@ -238,6 +255,16 @@ class VideoWallpaperService : WallpaperService() {
             }
         }
 
+        override fun onCreate(surfaceHolder: SurfaceHolder) {
+            super.onCreate(surfaceHolder)
+            setTouchEventsEnabled(true)
+        }
+
+        override fun onTouchEvent(event: android.view.MotionEvent) {
+            super.onTouchEvent(event)
+            if (dimEnabled) dimming.onTouchEvent(event)
+        }
+
         override fun onSurfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
             super.onSurfaceChanged(holder, format, width, height)
         }
@@ -246,11 +273,12 @@ class VideoWallpaperService : WallpaperService() {
             super.onSurfaceCreated(holder)
             currentHolder = holder
             resolveScreenSize()
-            clockOverlayRenderer.refresh(this@VideoWallpaperService)
+            clockOverlayRenderer.refresh(renderContext)
             registerPowerSaveReceiver()
             reconcilePowerSavePause()
             receiptStore.recordSurfaceCreated(LiveWallpaperReceiptStore.ENGINE_VIDEO, getVideoPath())
             loadColorPublicationFromPrefs()
+            loadDimmingFromPrefs()
             initializePlayer(holder)
         }
 
@@ -272,8 +300,9 @@ class VideoWallpaperService : WallpaperService() {
             this.visible = visible
             receiptStore.recordVisibilityChanged(LiveWallpaperReceiptStore.ENGINE_VIDEO, visible)
             if (visible) {
-                clockOverlayRenderer.refresh(this@VideoWallpaperService)
+                clockOverlayRenderer.refresh(renderContext)
                 loadColorPublicationFromPrefs()
+                loadDimmingFromPrefs()
                 reconcilePowerSavePause()
                 startTelemetryHeartbeat()
                 val path = getVideoPath()
@@ -763,7 +792,11 @@ class VideoWallpaperService : WallpaperService() {
                 canvas.restore()
                 updateGifFpsSample(now)
                 if (isFpsOverlayEnabled()) drawFpsOverlay(canvas)
-                clockOverlayRenderer.draw(this@VideoWallpaperService, canvas)
+                if (dimEnabled) {
+                    dimming.tick()
+                    dimming.drawDimOverlay(canvas, canvas.width, canvas.height)
+                }
+                clockOverlayRenderer.draw(renderContext, canvas)
             } finally {
                 try { holder.unlockCanvasAndPost(canvas) } catch (_: Exception) {}
             }

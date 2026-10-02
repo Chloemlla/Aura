@@ -17,6 +17,7 @@ class CommunityQuotaPolicyTest {
             "follows",
             "user_blocks",
             "profile_edits",
+            "collection_shares",
         )
 
         assertEquals(expected, CommunityQuotaPolicies.all.map { it.surfaceKey }.toSet())
@@ -79,6 +80,7 @@ class CommunityQuotaPolicyTest {
         assertTrue(CommunityQuotaPolicies.reports.callable.consumeLimitedUseAppCheckToken)
         assertTrue(CommunityQuotaPolicies.soundUploads.callable.consumeLimitedUseAppCheckToken)
         assertTrue(CommunityQuotaPolicies.wallpaperUploads.callable.consumeLimitedUseAppCheckToken)
+        assertTrue(CommunityQuotaPolicies.collectionShares.callable.consumeLimitedUseAppCheckToken)
         assertFalse(CommunityQuotaPolicies.votes.callable.consumeLimitedUseAppCheckToken)
         assertFalse(CommunityQuotaPolicies.follows.callable.consumeLimitedUseAppCheckToken)
         assertFalse(CommunityQuotaPolicies.userBlocks.callable.consumeLimitedUseAppCheckToken)
@@ -97,7 +99,13 @@ class CommunityQuotaPolicyTest {
             CommunityQuotaPolicies.wallpaperUploads.callable.finalWritePaths,
         )
         assertEquals(
-            listOf("/votes/{contentId}", "/voters/{contentId}/{uid}"),
+            listOf(
+                "/vote_markers/{uid}/{contentId}",
+                "/vote_locks/{uid}/{contentId}",
+                "/vote_counts/{contentId}",
+                "/community_sounds/{uploadId}/votes",
+                "/community_wallpapers/{uploadId}/votes",
+            ),
             CommunityQuotaPolicies.votes.callable.finalWritePaths,
         )
         assertEquals(listOf("/creator_follows/{uid}/{creatorId}"), CommunityQuotaPolicies.follows.callable.finalWritePaths)
@@ -106,5 +114,6 @@ class CommunityQuotaPolicyTest {
             CommunityQuotaPolicies.userBlocks.callable.finalWritePaths,
         )
         assertEquals(listOf("/creator_profiles/{uid}"), CommunityQuotaPolicies.profileEdits.callable.finalWritePaths)
+        assertEquals(listOf("/shared_collections/{token}"), CommunityQuotaPolicies.collectionShares.callable.finalWritePaths)
     }
 }

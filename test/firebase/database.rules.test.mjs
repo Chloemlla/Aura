@@ -9,8 +9,6 @@ import {
 
 const PROJECT_ID = 'aura-rules-test';
 const DAY_KEY = '20260606';
-const DAY_MS = 24 * 60 * 60 * 1000;
-const COLLECTION_SHARE_TTL_MS = 30 * DAY_MS;
 const MAX_COLLECTION_PAYLOAD_BYTES = 512 * 1024;
 
 let testEnv;
@@ -217,7 +215,6 @@ function collectionPayload(createdByUid = 'collection-owner', overrides = {}) {
     collectionName: 'Evening',
     itemCount: 1,
     createdAt: nowMs(),
-    expiresAt: Date.now() + COLLECTION_SHARE_TTL_MS,
     createdByUid,
     ...overrides,
   };
@@ -322,52 +319,185 @@ test('votes, follows, and creator profiles reject direct user writes', async () 
   await assertSucceeds(unauthenticatedDb().ref('creator_profiles/callable-user').once('value'));
 });
 
-test('community upload deletion tombstones stay private and validate ownership evidence', async () => {
+const WALL_KEY = 'WALLPAPER::COMMUNITY::cw_wall1';
+const SOUND_KEY = 'SOUND::COMMUNITY::cu_sound1';
+
+async function seedVoteSchema() {
+  await seed('vote_counts', {
+    [WALL_KEY]: { upvotes: 4 },
+    [SOUND_KEY]: { upvotes: 2 },
+    'WALLPAPER::WALLHAVEN::zero': { upvotes: 0 },
+  });
+  await seed('vote_markers', {
+    'voter-one': { [WALL_KEY]: true },
+    'voter-two': { [SOUND_KEY]: true },
+  });
+  await seed('votes', { [WALL_KEY]: { upvotes: 4, voters: { 'voter-one': true } } });
+  await seed('voters', { [WALL_KEY]: { 'voter-one': true } });
+  await seed('creator_follows', {
+    'voter-one': { creator1: { creatorId: 'creator1', label: 'Creator One', followedAt: nowMs() } },
+  });
+}
+
+function childValues(snapshot) {
+  const rows = [];
+  snapshot.forEach((child) => {
+    rows.push([child.key, child.child('upvotes').val()]);
+  });
+  return rows;
+}
+
+test('app vote count paths return nonzero public counts without any UID', async () => {
+  await seedVoteSchema();
+  const anonymous = unauthenticatedDb();
+  const user = dbFor('voter-two');
+
+  // VoteRepository.getVoteCount / getVoteCounts / getVoteCountsOnce: one row per item.
+  const row = await assertSucceeds(anonymous.ref(`vote_counts/${WALL_KEY}/upvotes`).once('value'));
+  assert.equal(row.val(), 4);
+
+  // VoteRepository.getTopVotedIds: the leaderboard query the rules allow on the collection.
+  const board = await assertSucceeds(
+    user.ref('vote_counts').orderByChild('upvotes').limitToLast(50).once('value'),
+  );
+  assert.deepEqual(childValues(board), [
+    ['WALLPAPER::WALLHAVEN::zero', 0],
+    [SOUND_KEY, 2],
+    [WALL_KEY, 4],
+  ]);
+  assert.doesNotMatch(JSON.stringify(board.val()), /voter-/);
+
+  // Anything else on the collection is refused: a whole-tree read or an oversized page.
+  await assertFails(anonymous.ref('vote_counts').once('value'));
+  await assertFails(anonymous.ref('vote_counts').orderByChild('upvotes').limitToLast(201).once('value'));
+  await assertFails(anonymous.ref('vote_counts').orderByKey().limitToLast(10).once('value'));
+  await assertSucceeds(adminDb().ref('vote_counts').once('value'));
+});
+
+test('one account cannot enumerate another account vote or follow markers', async () => {
+  await seedVoteSchema();
+  const one = dbFor('voter-one');
+  const two = dbFor('voter-two');
+  const anonymous = unauthenticatedDb();
+
+  const own = await assertSucceeds(one.ref('vote_markers/voter-one').once('value'));
+  assert.deepEqual(own.val(), { [WALL_KEY]: true });
+  await assertSucceeds(one.ref(`vote_markers/voter-one/${WALL_KEY}`).once('value'));
+  await assertFails(two.ref('vote_markers/voter-one').once('value'));
+  await assertFails(two.ref(`vote_markers/voter-one/${WALL_KEY}`).once('value'));
+  await assertFails(two.ref('vote_markers').once('value'));
+  await assertFails(anonymous.ref('vote_markers/voter-one').once('value'));
+  // In-flight vote locks are server-only, even for the voter.
+  await assertFails(one.ref('vote_locks/voter-one').once('value'));
+  await assertFails(one.ref(`vote_locks/voter-one/${WALL_KEY}`).set({ at: 1 }));
+
+  // Legacy trees that carried UIDs are admin-only; the old count leaf stays for older builds.
+  await assertFails(two.ref('votes').once('value'));
+  await assertFails(two.ref(`votes/${WALL_KEY}`).once('value'));
+  await assertFails(two.ref(`votes/${WALL_KEY}/voters`).once('value'));
+  await assertFails(two.ref('voters').once('value'));
+  await assertFails(two.ref(`voters/${WALL_KEY}`).once('value'));
+  const legacyCount = await assertSucceeds(anonymous.ref(`votes/${WALL_KEY}/upvotes`).once('value'));
+  assert.equal(legacyCount.val(), 4);
+  await assertSucceeds(adminDb().ref(`votes/${WALL_KEY}/voters`).once('value'));
+
+  await assertSucceeds(one.ref('creator_follows/voter-one').once('value'));
+  await assertFails(two.ref('creator_follows/voter-one').once('value'));
+  await assertFails(two.ref('creator_follows').once('value'));
+  await assertFails(anonymous.ref('creator_follows/voter-one').once('value'));
+});
+
+test('vote counts and markers are callable-owned and the count row cannot carry voters', async () => {
+  const user = dbFor('voter-one');
+  const admin = adminDb();
+
+  await assertFails(user.ref(`vote_counts/${WALL_KEY}`).set({ upvotes: 1 }));
+  await assertFails(user.ref(`vote_markers/voter-one/${WALL_KEY}`).set(true));
+  await assertSucceeds(admin.ref(`vote_counts/${WALL_KEY}`).set({ upvotes: 1 }));
+  await assertFails(admin.ref(`vote_counts/${WALL_KEY}`).set({ upvotes: -1 }));
+  await assertFails(admin.ref(`vote_counts/${WALL_KEY}`).set({ upvotes: 2, voters: { 'voter-one': true } }));
+  await assertSucceeds(admin.ref(`vote_markers/voter-one/${WALL_KEY}`).set(true));
+  await assertFails(admin.ref(`vote_markers/voter-one/${SOUND_KEY}`).set('yes'));
+});
+
+function ownerDeleteUpdates({ uploadId, uid, kind = 'sounds', overrides = {} }) {
+  const tombstone = uploadDeletionPayload({ uploadId, uid, kind, overrides });
+  return {
+    [`${kind === 'sounds' ? 'community_sounds' : 'community_wallpapers'}/${uploadId}`]: null,
+    [`owner_uploads/${uid}/${kind}/${uploadId}`]: null,
+    [`community_upload_deletions/${tombstone.publicId}`]: tombstone,
+  };
+}
+
+async function seedUpload({ uploadId, uid, kind = 'sounds', storagePath }) {
+  const isSound = kind === 'sounds';
+  const path = storagePath ?? `${kind}/${uid}/${uploadId}.${isSound ? 'mp3' : 'jpg'}`;
+  const metadata = isSound ? soundMetadata(uid, { storagePath: path }) : wallpaperMetadata(uid, { storagePath: path });
+  await seed(`${isSound ? 'community_sounds' : 'community_wallpapers'}/${uploadId}`, metadata);
+  await seed(`owner_uploads/${uid}/${kind}/${uploadId}`, ownerIndexPayload({ uploadId, uid, kind, overrides: { storagePath: path } }));
+}
+
+test('community upload deletion tombstones stay private and need the owner delete in the same write', async () => {
   const owner = dbFor('delete-owner');
   const other = dbFor('delete-other');
   const admin = adminDb();
   const path = 'community_upload_deletions/cu_sound1';
   const payload = uploadDeletionPayload({ uploadId: 'sound1', uid: 'delete-owner' });
 
+  // With no upload behind it, a tombstone is fabricated.
   await assertFails(unauthenticatedDb().ref(path).set(payload));
-  await assertFails(other.ref(path).set(payload));
-  await assertSucceeds(owner.ref(path).set(payload));
+  await assertFails(owner.ref(path).set(payload));
+
+  await seedUpload({ uploadId: 'sound1', uid: 'delete-owner' });
+  // The upload is still live after this write, so it is not a deletion.
+  await assertFails(owner.ref(path).set(payload));
+  await assertFails(other.ref().update(ownerDeleteUpdates({ uploadId: 'sound1', uid: 'delete-owner' })));
+  // The tombstone must name the upload it replaces.
+  await assertFails(owner.ref().update(ownerDeleteUpdates({
+    uploadId: 'sound1',
+    uid: 'delete-owner',
+    overrides: { storagePath: 'sounds/delete-owner/another-file.mp3' },
+  })));
+  await assertFails(owner.ref().update({
+    'community_sounds/sound1': null,
+    'owner_uploads/delete-owner/sounds/sound1': null,
+    'community_upload_deletions/cu_decoy': { ...payload, publicId: 'cu_decoy' },
+  }));
+
+  await assertSucceeds(owner.ref().update(ownerDeleteUpdates({ uploadId: 'sound1', uid: 'delete-owner' })));
   await assertFails(owner.ref(path).once('value'));
   await assertSucceeds(admin.ref(path).once('value'));
   await assertFails(owner.ref(path).update({ deletedAt: nowMs() }));
 
-  await assertFails(owner.ref('community_upload_deletions/cu_badpath').set(
-    uploadDeletionPayload({
-      uploadId: 'badpath',
-      uid: 'delete-owner',
-      overrides: {
-        publicId: 'cu_badpath',
-        storagePath: 'wallpapers/delete-owner/badpath.jpg',
-      },
-    }),
-  ));
+  await seedUpload({ uploadId: 'badpath', uid: 'delete-owner' });
+  await assertFails(owner.ref().update(ownerDeleteUpdates({
+    uploadId: 'badpath',
+    uid: 'delete-owner',
+    overrides: { storagePath: 'wallpapers/delete-owner/badpath.jpg' },
+  })));
 
-  await assertFails(owner.ref('community_upload_deletions/cu_wrongowner').set(
-    uploadDeletionPayload({
-      uploadId: 'wrongowner',
-      uid: 'delete-owner',
-      overrides: {
-        publicId: 'cu_wrongowner',
-        storagePath: 'sounds/someone-else/wrongowner.mp3',
-      },
-    }),
-  ));
+  await seedUpload({ uploadId: 'wrongowner', uid: 'delete-owner', storagePath: 'sounds/someone-else/wrongowner.mp3' });
+  await assertFails(owner.ref().update(ownerDeleteUpdates({
+    uploadId: 'wrongowner',
+    uid: 'delete-owner',
+    overrides: { storagePath: 'sounds/someone-else/wrongowner.mp3' },
+  })));
 
-  await assertFails(owner.ref('community_upload_deletions/cu_badreason').set(
-    uploadDeletionPayload({
-      uploadId: 'badreason',
-      uid: 'delete-owner',
-      overrides: {
-        publicId: 'cu_badreason',
-        reason: 'ADMIN_TAKEDOWN',
-      },
-    }),
-  ));
+  await seedUpload({ uploadId: 'badreason', uid: 'delete-owner' });
+  await assertFails(owner.ref().update(ownerDeleteUpdates({
+    uploadId: 'badreason',
+    uid: 'delete-owner',
+    overrides: { reason: 'ADMIN_TAKEDOWN' },
+  })));
+
+  await seedUpload({ uploadId: 'wall2', uid: 'delete-owner', kind: 'wallpapers' });
+  await assertSucceeds(owner.ref().update(ownerDeleteUpdates({ uploadId: 'wall2', uid: 'delete-owner', kind: 'wallpapers' })));
+
+  // Uploads from before the owner index existed have no owner_uploads row, and the app's
+  // delete still clears that path in the same write.
+  await seed('community_sounds/legacy1', soundMetadata('delete-owner', { storagePath: 'sounds/delete-owner/legacy1.mp3' }));
+  await assertFails(other.ref('owner_uploads/delete-owner/sounds/legacy1').remove());
+  await assertSucceeds(owner.ref().update(ownerDeleteUpdates({ uploadId: 'legacy1', uid: 'delete-owner' })));
 
   await assertSucceeds(admin.ref('community_upload_deletions/cw_wall1').set(
     uploadDeletionPayload({
@@ -509,6 +639,26 @@ test('community quota and dedupe ledgers are admin-only', async () => {
   await assertSucceeds(admin.ref(quotaPath).once('value'));
 });
 
+test('quota ledgers hold pending reservations and settlement counters in a fixed shape', async () => {
+  const user = dbFor('quota-user');
+  const admin = adminDb();
+  const quotaPath = `community_write_quotas/quota-user/${DAY_KEY}/sound_uploads`;
+  const time = nowMs();
+  const settled = quotaPayload({
+    pending: { 'sound_upload_9f2c': { at: time, prevLastAt: time - 1000 } },
+    releasedCount: 1,
+    lastReleasedAt: time,
+    expiredCount: 2,
+  });
+
+  await assertFails(user.ref(quotaPath).set(settled));
+  await assertSucceeds(admin.ref(quotaPath).set(settled));
+  await assertSucceeds(admin.ref(`${quotaPath}/pending/takeover_op`).set({ at: time, cooldownAt: time - 5000 }));
+  await assertFails(admin.ref(`${quotaPath}/pending/no_stamp`).set({ prevLastAt: time }));
+  await assertFails(admin.ref(`${quotaPath}/pending/extra_field`).set({ at: time, uid: 'someone' }));
+  await assertFails(admin.ref(`${quotaPath}/releasedCount`).set(-1));
+});
+
 test('community user block lists are callable-owned, private, and maintain an admin reverse index', async () => {
   const blocker = dbFor('blocker1');
   const blocked = dbFor('blocked1');
@@ -544,46 +694,50 @@ test('community user block lists are callable-owned, private, and maintain an ad
   await assertSucceeds(admin.ref(reversePath).remove());
 });
 
-test('collection share tokens use the app path, expiring reads, and bounded payloads', async () => {
+test('collection shares are callable-written, readable for 30 days, and removable by their owner', async () => {
   const owner = dbFor('collection-owner');
   const other = dbFor('collection-other');
   const admin = adminDb();
   const anonymous = unauthenticatedDb();
   const path = 'shared_collections/token12345';
-  const ownerDeletePath = 'shared_collections/tokenOwnerDelete';
-  const expiredPath = 'shared_collections/tokenExpired';
+  const now = Date.now();
+  const thirtyOneDays = 31 * 24 * 60 * 60 * 1000;
 
-  await assertSucceeds(owner.ref(path).set(collectionPayload('collection-owner')));
-  await assertSucceeds(anonymous.ref(path).once('value'));
-  await assertSucceeds(anonymous.ref(`${path}/payload`).once('value'));
+  // Clients can't write shares directly, owners included.
+  await assertFails(owner.ref(path).set(collectionPayload('collection-owner')));
   await assertFails(anonymous.ref('shared_collections/anon12345').set(collectionPayload('collection-owner')));
-  await assertFails(owner.ref('shared_collections/wrongOwner').set(collectionPayload('someone-else')));
-  await assertFails(other.ref(path).update({ collectionName: 'Overwritten' }));
-  await assertSucceeds(owner.ref(path).update({ collectionName: 'Evening Set' }));
-  await assertFails(owner.ref('shared_collections/oversize1').set(
-    collectionPayload('collection-owner', { payload: 'x'.repeat(MAX_COLLECTION_PAYLOAD_BYTES + 1) }),
-  ));
   await assertFails(owner.ref('collection_shares/legacy12345').set(collectionPayload('collection-owner')));
 
-  const missingExpiry = collectionPayload('collection-owner');
-  delete missingExpiry.expiresAt;
-  await assertFails(owner.ref('shared_collections/noExpiry12345').set(missingExpiry));
-  await assertFails(owner.ref('shared_collections/pastExpiry12345').set(
-    collectionPayload('collection-owner', { expiresAt: nowMs() }),
+  await assertSucceeds(admin.ref(path).set(collectionPayload('collection-owner', { expiresAt: now + 60_000 })));
+  await assertSucceeds(anonymous.ref(path).once('value'));
+  await assertSucceeds(anonymous.ref(`${path}/payload`).once('value'));
+  await assertSucceeds(anonymous.ref('shared_collections/missing12345/payload').once('value'));
+  await assertFails(anonymous.ref('shared_collections').once('value'));
+  await assertFails(owner.ref(path).update({ collectionName: 'Evening Set' }));
+  await assertFails(other.ref(path).remove());
+
+  await assertFails(admin.ref('shared_collections/oversize1').set(
+    collectionPayload('collection-owner', { payload: 'x'.repeat(MAX_COLLECTION_PAYLOAD_BYTES + 1) }),
   ));
-  await assertFails(owner.ref('shared_collections/farExpiry12345').set(
-    collectionPayload('collection-owner', { expiresAt: Date.now() + 60 * DAY_MS }),
+  await assertFails(admin.ref('shared_collections/extra12345').set(
+    collectionPayload('collection-owner', { ownerEmail: 'someone@example.com' }),
+  ));
+  await assertFails(admin.ref('shared_collections/longlife123').set(
+    collectionPayload('collection-owner', { expiresAt: now + thirtyOneDays }),
   ));
 
-  await seed(expiredPath, collectionPayload('collection-owner', { expiresAt: nowMs() }));
-  await assertFails(anonymous.ref(expiredPath).once('value'));
-  await assertFails(anonymous.ref(`${expiredPath}/payload`).once('value'));
-  await assertFails(owner.ref(expiredPath).once('value'));
+  // A share stops resolving at expiresAt, and an older share without one after 30 days.
+  await seed('shared_collections/expired12345', collectionPayload('collection-owner', {
+    createdAt: now - thirtyOneDays,
+    expiresAt: now - 1_000,
+  }));
+  await seed('shared_collections/legacyold123', collectionPayload('collection-owner', { createdAt: now - thirtyOneDays }));
+  await seed('shared_collections/legacynew123', collectionPayload('collection-owner'));
+  await assertFails(anonymous.ref('shared_collections/expired12345/payload').once('value'));
+  await assertFails(anonymous.ref('shared_collections/legacyold123/payload').once('value'));
+  await assertSucceeds(anonymous.ref('shared_collections/legacynew123/payload').once('value'));
 
-  await assertSucceeds(admin.ref(path).remove());
-
-  await assertSucceeds(owner.ref(ownerDeletePath).set(collectionPayload('collection-owner')));
-  await assertSucceeds(owner.ref(ownerDeletePath).remove());
+  await assertSucceeds(owner.ref(path).remove());
 });
 
 test('test environment initialized database rules', () => {

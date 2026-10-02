@@ -130,6 +130,19 @@ class ParallaxWallpaperService : WallpaperService() {
         private var sensorRegistered = false
         private val mediaLoader = LiveWallpaperMediaLoader("aura-parallax-loader")
         private val colorPublisher = LiveWallpaperColorPublisher()
+        private var dimEnabled = false
+        private val dimming = LiveWallpaperDimming(
+            onRevealChanged = { if (visible) postDraw(0L) },
+        )
+
+        // The engine's own display, so a wallpaper on a secondary display decodes at its
+        // size instead of the default display's.
+        private val renderContext: android.content.Context
+            get() = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                displayContext ?: this@ParallaxWallpaperService
+            } else {
+                this@ParallaxWallpaperService
+            }
 
         private fun getPrefs() = getSharedPreferences(PARALLAX_WALLPAPER_PREFS_NAME, MODE_PRIVATE)
         private fun getImagePath(): String? =
@@ -157,14 +170,24 @@ class ParallaxWallpaperService : WallpaperService() {
             if (colorPublisher.setEnabled(enabled)) notifyWallpaperColorsChanged()
         }
 
+        private fun loadDimmingFromPrefs() {
+            dimEnabled = getPrefs().getBoolean(LIVE_WALLPAPER_DIM_ENABLED_PREF, false)
+        }
+
         @RequiresApi(android.os.Build.VERSION_CODES.O_MR1)
         override fun onComputeColors(): WallpaperColors? = colorPublisher.current
 
         override fun onCreate(surfaceHolder: SurfaceHolder) {
             super.onCreate(surfaceHolder)
+            setTouchEventsEnabled(true)
             sensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
             accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
             requestSegmenterModuleInstall()
+        }
+
+        override fun onTouchEvent(event: android.view.MotionEvent) {
+            super.onTouchEvent(event)
+            if (dimEnabled) dimming.onTouchEvent(event)
         }
 
         /**
@@ -206,7 +229,6 @@ class ParallaxWallpaperService : WallpaperService() {
             receiptStore.recordSurfaceCreated(LiveWallpaperReceiptStore.ENGINE_PARALLAX, getImagePath())
             loadImage()
         }
-
         override fun onSurfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
             super.onSurfaceChanged(holder, format, width, height)
             screenWidth = width
@@ -225,8 +247,9 @@ class ParallaxWallpaperService : WallpaperService() {
             receiptStore.recordVisibilityChanged(LiveWallpaperReceiptStore.ENGINE_PARALLAX, visible)
             if (visible) {
                 refreshFrameBudget()
-                clockOverlayRenderer.refresh(this@ParallaxWallpaperService)
+                clockOverlayRenderer.refresh(renderContext)
                 loadColorPublicationFromPrefs()
+                loadDimmingFromPrefs()
                 registerSensor()
                 scheduleDraw()
             } else {
@@ -344,8 +367,9 @@ class ParallaxWallpaperService : WallpaperService() {
 
         private fun resolveDecodeTarget(): Pair<Int, Int> {
             val padding = (maxOffset * 2).toInt()
-            val width = if (screenWidth > 0) screenWidth else resources.displayMetrics.widthPixels
-            val height = if (screenHeight > 0) screenHeight else resources.displayMetrics.heightPixels
+            val metrics = renderContext.resources.displayMetrics
+            val width = if (screenWidth > 0) screenWidth else metrics.widthPixels
+            val height = if (screenHeight > 0) screenHeight else metrics.heightPixels
             return (width + padding).coerceAtLeast(1) to (height + padding).coerceAtLeast(1)
         }
 
@@ -716,7 +740,7 @@ class ParallaxWallpaperService : WallpaperService() {
                         // Fallback: single image with slight parallax movement
                         canvas.drawBitmap(fb, baseX + bgOffsetX, baseY + bgOffsetY, paint)
                     }
-                    clockOverlayRenderer.draw(this@ParallaxWallpaperService, canvas)
+                    clockOverlayRenderer.draw(renderContext, canvas)
                 }
             } catch (_: Exception) {
             } finally {

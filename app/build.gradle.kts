@@ -130,18 +130,18 @@ android {
         applicationId = "com.chloemlla.aura"
         minSdk = 26
         targetSdk = 37
-        // Version follows upstream: this merge brings in the 6.45.3 changelog
-        // entry, the fastlane changelogs through 149, and the store metadata that
-        // names 6.45.3, so the build has to agree with them.
+        // Version follows upstream: this merge brings in the 6.46.1 changelog entry, the
+        // fastlane changelogs through 151, and the store metadata that names 6.46.1, so the
+        // build has to agree with them.
         // targetSdk stays at 37 (the fork's Android 17 upgrade, be02a30e), which
-        // supersedes upstream's 35.
-        versionCode = 149
-        versionName = "6.45.3"
+        // supersedes upstream's 36.
+        versionCode = 151
+        versionName = "6.46.1"
         // CI supplies AURA_ANDROID_VERSION_CODE/NAME (see aura-android.yml) so the
         // APK metadata agrees with the release tag; local builds keep the declared
         // literals above, which are also the baseline the governance tools assert.
         System.getenv("AURA_ANDROID_VERSION_CODE")?.toIntOrNull()?.let { versionCode = it }
-        System.getenv("AURA_ANDROID_VERSION_NAME")?.let { versionName = it }
+        System.getenv("AURA_ANDROID_VERSION_NAME")?.let { versionName = it } 81cc2ebe4c58867253fde8fa7593ffa495a44f6e
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "AURA_RELEASE_CHANNEL", "\"$auraReleaseChannel\"")
@@ -485,6 +485,7 @@ dependencies {
     add("fullImplementation", libs.firebase.functions)
     add("fullImplementation", libs.firebase.appcheck.playintegrity)
     debugImplementation(libs.firebase.appcheck.debug)
+    debugImplementation(libs.leakcanary.android)
 
     // NewPipe Extractor (YouTube search without API key)
     // PIN: NewPipe ships YouTube-extractor patches monthly. Bumping versions can

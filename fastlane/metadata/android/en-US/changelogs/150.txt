@@ -1,0 +1,3 @@
+Aura v6.46.0
+
+Recent highlights: Aura now targets Android 16. Tile, unlock and automation rotations run again, finished downloads clear from Active and failed ones can be retried, and crop ratios frame the picture and save exactly what you see. TikTok ringtones lead the Ringtones tab, and community votes, uploads and collection links are more private and reliable.

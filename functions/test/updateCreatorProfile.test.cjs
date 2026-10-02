@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { buildDedupeMarker, evaluateCommunityQuotaAttempt } = require("../lib/quotaEngine.js");
+const { buildDedupeMarker, evaluateCommunityQuotaAttempt, settledQuotaState } = require("../lib/quotaEngine.js");
 const {
   normalizeProfilePayload,
   profileDedupeKey,
@@ -33,6 +33,8 @@ class FakeProfileBackend {
     this.now = nowMillis;
     this.dedupe = new Map();
     this.quotas = new Map();
+    this.settlements = [];
+    this.commitFailure = null;
     this.profiles = new Map();
   }
 
@@ -48,13 +50,14 @@ class FakeProfileBackend {
     return this.dedupe.get(`${uid}/${surfaceKey}/${dedupeKey}`) ?? null;
   }
 
-  async reserveQuota(uid, dayKey, surface, nowMillis, dedupe) {
+  async reserveQuota(uid, dayKey, surface, nowMillis, dedupe, operationKey) {
     const key = `${uid}/${dayKey}/${surface.surfaceKey}`;
     const decision = evaluateCommunityQuotaAttempt({
       surface,
       nowMillis,
       quota: this.quotas.get(key) ?? {},
       dedupe,
+      operationKey,
     });
     if (decision.status !== "duplicate") {
       this.quotas.set(key, decision.quota);
@@ -62,7 +65,15 @@ class FakeProfileBackend {
     return decision;
   }
 
+  async settleQuota(uid, dayKey, surface, reservation, settlement) {
+    this.settlements.push(settlement);
+    const key = `${uid}/${dayKey}/${surface.surfaceKey}`;
+    const next = settledQuotaState(this.quotas.get(key) ?? {}, reservation, settlement, this.now);
+    if (next !== null) this.quotas.set(key, next);
+  }
+
   async commitProfile(input) {
+    if (this.commitFailure) throw this.commitFailure;
     this.profiles.set(input.uid, input.profile);
     this.dedupe.set(`${input.uid}/${input.surfaceKey}/${input.dedupeKey}`, input.dedupeMarker);
   }
@@ -114,7 +125,7 @@ test("identical public profile returns duplicate before quota reservation", asyn
   assert.equal(backend.quotas.size, 0);
 });
 
-test("active normalized-profile dedupe returns duplicate without writing profile", async () => {
+test("retried operation ID returns duplicate without writing profile", async () => {
   const backend = new FakeProfileBackend();
   backend.dedupe.set(
     "profileOwner1/profile_edits/profile-op-1",
@@ -222,4 +233,27 @@ test("profile payload normalizes public copy and rejects client-owned fields", (
     () => normalizeProfilePayload(validRequest({ avatarUrl: 123 }).data.payload),
     { code: "invalid-argument" },
   );
+});
+
+test("a profile edit whose write fails refunds its quota unit and cooldown", async () => {
+  const backend = new FakeProfileBackend();
+  backend.commitFailure = new Error("database unavailable");
+  await assert.rejects(() => updateCreatorProfileHandler(validRequest(), backend), /database unavailable/);
+
+  const refunded = backend.quotas.get("profileOwner1/20260607/profile_edits");
+  assert.deepEqual(backend.settlements, ["released"]);
+  assert.equal(refunded.count, 0);
+  assert.equal(refunded.lastAt, undefined);
+  assert.equal(refunded.pending, undefined);
+
+  // The person's retry is a new call, and it goes through inside the old cooldown.
+  backend.commitFailure = null;
+  backend.now = NOW + 1;
+  const retry = validRequest();
+  const result = await updateCreatorProfileHandler({ ...retry, data: { ...retry.data, operationId: "retry-op" } }, backend);
+  assert.equal(result.status, "accepted");
+  assert.deepEqual(backend.settlements, ["released", "finalized"]);
+  const spent = backend.quotas.get("profileOwner1/20260607/profile_edits");
+  assert.equal(spent.count, 1);
+  assert.equal(spent.pending, undefined);
 });

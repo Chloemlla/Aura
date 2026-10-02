@@ -5,13 +5,13 @@
   "scripts": {
     "test:database-rules": "firebase emulators:exec --only database --project aura-rules-test \"node --test test/firebase/database.rules.test.mjs\"",
     "test:firebase-rules": "firebase emulators:exec --only database,storage --project aura-rules-test \"node --test test/firebase/*.rules.test.mjs\"",
-    "test:functions-emulator": "npm --prefix functions run build && firebase emulators:exec --only database --project aura-rules-test \"node --test --test-concurrency=1 test/firebase/functions.*.test.mjs\"",
+    "test:functions-emulator": "npm --prefix functions run build && firebase emulators:exec --only database,storage --project aura-rules-test \"node --test --test-concurrency=1 test/firebase/functions.*.test.mjs\"",
     "test:functions": "npm --prefix functions test",
     "test:storage-rules": "firebase emulators:exec --only storage --project aura-rules-test \"node --test test/firebase/storage.rules.test.mjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "5.0.1",
     "firebase": "12.14.0",
-    "firebase-tools": "15.19.1"
+    "firebase-tools": "15.31.0"
   }
 }

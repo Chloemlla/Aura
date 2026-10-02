@@ -1,12 +1,11 @@
 {
   "rules": {
     "votes": {
-      ".read": true,
-      ".indexOn": ["upvotes"],
+      ".read": "auth != null && auth.token.admin === true",
       "$contentId": {
-        ".read": true,
         ".write": "auth != null && auth.token.admin === true",
         "upvotes": {
+          ".read": true,
           ".validate": "newData.isNumber() && newData.val() >= 0"
         },
         "voters": {
@@ -17,10 +16,34 @@
       }
     },
     "voters": {
+      ".read": "auth != null && auth.token.admin === true",
       "$contentId": {
-        ".read": true,
         "$voterId": {
           ".write": "auth != null && auth.token.admin === true",
+          ".validate": "newData.val() === true"
+        }
+      }
+    },
+    "vote_counts": {
+      ".read": "(auth != null && auth.token.admin === true) || (query.orderByChild == 'upvotes' && query.limitToLast <= 200)",
+      ".indexOn": ["upvotes"],
+      "$contentId": {
+        ".read": true,
+        ".write": "auth != null && auth.token.admin === true",
+        ".validate": "newData.hasChildren(['upvotes'])",
+        "upvotes": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "vote_markers": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".write": "auth != null && auth.token.admin === true",
+        "$contentId": {
           ".validate": "newData.val() === true"
         }
       }
@@ -71,7 +94,7 @@
         ".write": "auth != null && auth.token.admin === true",
         "sounds": {
           "$uploadId": {
-            ".write": "auth != null && (auth.token.admin === true || (auth.uid === $uid && data.exists() && !newData.exists()))",
+            ".write": "auth != null && (auth.token.admin === true || (auth.uid === $uid && !newData.exists()))",
             "uploadId": { ".validate": "newData.isString() && newData.val() === $uploadId" },
             "publicId": { ".validate": "newData.isString() && newData.val().length > 3 && newData.val().beginsWith('cu_')" },
             "contentType": { ".validate": "newData.val() === 'SOUND'" },
@@ -83,7 +106,7 @@
         },
         "wallpapers": {
           "$uploadId": {
-            ".write": "auth != null && (auth.token.admin === true || (auth.uid === $uid && data.exists() && !newData.exists()))",
+            ".write": "auth != null && (auth.token.admin === true || (auth.uid === $uid && !newData.exists()))",
             "uploadId": { ".validate": "newData.isString() && newData.val() === $uploadId" },
             "publicId": { ".validate": "newData.isString() && newData.val().length > 3 && newData.val().beginsWith('cw_')" },
             "contentType": { ".validate": "newData.val() === 'WALLPAPER'" },
@@ -98,7 +121,7 @@
     "community_upload_deletions": {
       ".read": "auth != null && auth.token.admin === true",
       "$publicId": {
-        ".write": "auth != null && ((!data.exists() && ((newData.child('uploaderUid').val() === auth.uid && newData.child('deletedByUid').val() === auth.uid && newData.child('reason').val() === 'OWNER_DELETE') || auth.token.admin === true)) || (data.exists() && auth.token.admin === true))",
+        ".write": "auth != null && ((!data.exists() && ((newData.child('uploaderUid').val() === auth.uid && newData.child('deletedByUid').val() === auth.uid && newData.child('reason').val() === 'OWNER_DELETE' && newData.child('uploadId').isString() && ((newData.child('contentType').val() === 'SOUND' && $publicId === 'cu_' + newData.child('uploadId').val() && (root.child('community_sounds').child(newData.child('uploadId').val()).child('uploaderUid').val() === auth.uid || root.child('community_sounds').child(newData.child('uploadId').val()).child('uploaderId').val() === auth.uid) && root.child('community_sounds').child(newData.child('uploadId').val()).child('storagePath').val() === newData.child('storagePath').val() && !newData.parent().parent().child('community_sounds').child(newData.child('uploadId').val()).exists()) || (newData.child('contentType').val() === 'WALLPAPER' && $publicId === 'cw_' + newData.child('uploadId').val() && (root.child('community_wallpapers').child(newData.child('uploadId').val()).child('uploaderUid').val() === auth.uid || root.child('community_wallpapers').child(newData.child('uploadId').val()).child('uploaderId').val() === auth.uid) && root.child('community_wallpapers').child(newData.child('uploadId').val()).child('storagePath').val() === newData.child('storagePath').val() && !newData.parent().parent().child('community_wallpapers').child(newData.child('uploadId').val()).exists()))) || auth.token.admin === true)) || (data.exists() && auth.token.admin === true))",
         ".validate": "newData.hasChildren(['publicId', 'uploadId', 'contentType', 'metadataPath', 'storagePath', 'uploaderUid', 'deletedByUid', 'deletedAt', 'reason']) && newData.child('publicId').val() === $publicId && ((newData.child('contentType').val() === 'SOUND' && newData.child('publicId').val().beginsWith('cu_') && newData.child('metadataPath').val() === '/community_sounds/' + newData.child('uploadId').val() && newData.child('storagePath').val().beginsWith('sounds/' + newData.child('uploaderUid').val() + '/')) || (newData.child('contentType').val() === 'WALLPAPER' && newData.child('publicId').val().beginsWith('cw_') && newData.child('metadataPath').val() === '/community_wallpapers/' + newData.child('uploadId').val() && newData.child('storagePath').val().beginsWith('wallpapers/' + newData.child('uploaderUid').val() + '/')))",
         "publicId": { ".validate": "newData.isString() && newData.val().length > 3 && newData.val().length <= 260" },
         "uploadId": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 240" },
@@ -183,7 +206,19 @@
             "firstAt": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now" },
             "lastAt": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now" },
             "blockedCount": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000" },
-            "lastBlockedAt": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now" }
+            "lastBlockedAt": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now" },
+            "pending": {
+              "$operation": {
+                ".validate": "newData.hasChildren(['at'])",
+                "at": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now" },
+                "prevLastAt": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now" },
+                "cooldownAt": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now" },
+                "$other": { ".validate": false }
+              }
+            },
+            "releasedCount": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000" },
+            "lastReleasedAt": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now" },
+            "expiredCount": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000" }
           }
         }
       }
@@ -208,8 +243,8 @@
       }
     },
     "creator_follows": {
-      ".read": "auth != null",
       "$followerUid": {
+        ".read": "auth != null && (auth.uid === $followerUid || auth.token.admin === true)",
         ".write": "auth != null && auth.token.admin === true"
       }
     },
@@ -240,17 +275,19 @@
       }
     },
     "shared_collections": {
+      ".indexOn": ["createdAt"],
       "$token": {
-        ".read": "data.child('expiresAt').val() > now",
-        ".write": "auth != null && ((!data.exists() && (newData.child('createdByUid').val() === auth.uid || auth.token.admin === true)) || (data.exists() && (data.child('createdByUid').val() === auth.uid || auth.token.admin === true)))",
-        ".validate": "newData.hasChildren(['version', 'payload', 'collectionName', 'itemCount', 'createdAt', 'expiresAt', 'createdByUid'])",
+        ".read": "!data.exists() || (data.child('expiresAt').isNumber() && data.child('expiresAt').val() > now) || (!data.child('expiresAt').exists() && data.child('createdAt').isNumber() && data.child('createdAt').val() > now - 2592000000)",
+        ".write": "auth != null && (auth.token.admin === true || (data.exists() && !newData.exists() && data.child('createdByUid').val() === auth.uid))",
+        ".validate": "newData.hasChildren(['version', 'payload', 'collectionName', 'itemCount', 'createdAt', 'createdByUid'])",
         "version": { ".validate": "newData.isNumber() && newData.val() === 1" },
         "payload": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 524288" },
         "collectionName": { ".validate": "newData.isString() && newData.val().length <= 80" },
         "itemCount": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 250" },
         "createdAt": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now" },
-        "expiresAt": { ".validate": "newData.isNumber() && newData.val() > now && newData.val() <= now + 2678400000" },
-        "createdByUid": { ".validate": "newData.isString() && (newData.val() === auth.uid || auth.token.admin === true)" }
+        "createdByUid": { ".validate": "newData.isString() && (newData.val() === auth.uid || auth.token.admin === true)" },
+        "expiresAt": { ".validate": "newData.isNumber() && newData.val() > newData.parent().child('createdAt').val() && newData.val() <= newData.parent().child('createdAt').val() + 2592000000" },
+        "$other": { ".validate": false }
       }
     }
   }

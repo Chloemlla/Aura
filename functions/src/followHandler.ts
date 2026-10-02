@@ -9,12 +9,19 @@ import {
 } from "./communityContract";
 import {
   buildDedupeMarker,
-  evaluateCommunityQuotaAttempt,
+  quotaOperationKey,
   utcQuotaDayKey,
   type DedupeMarker,
   type QuotaDecision,
-  type QuotaLedgerState,
+  type QuotaReservation,
+  type QuotaSettlement,
 } from "./quotaEngine";
+import {
+  type QuotaSettlingBackend,
+  reserveQuotaLedger,
+  runWithQuotaReservation,
+  settleQuotaLedger,
+} from "./quotaReservation";
 
 const FOLLOW_SURFACE = surfaceByFunctionName("setCreatorFollow");
 const MAX_CREATOR_ID = 240;
@@ -54,7 +61,7 @@ interface CommitFollowInput {
   readonly dedupeMarker: DedupeMarker;
 }
 
-export interface FollowBackend {
+export interface FollowBackend extends QuotaSettlingBackend {
   nowMillis(): number;
   readFollowState(uid: string, creatorKey: string): Promise<boolean>;
   readDedupeMarker(uid: string, surfaceKey: string, dedupeKey: string): Promise<DedupeMarker | null>;
@@ -64,6 +71,7 @@ export interface FollowBackend {
     surface: CommunityCallableSurface,
     nowMillis: number,
     dedupe: DedupeMarker | null,
+    operationKey?: string,
   ): Promise<QuotaDecision>;
   commitFollow(input: CommitFollowInput): Promise<void>;
 }
@@ -104,6 +112,7 @@ export async function setCreatorFollowHandler(
     FOLLOW_SURFACE,
     nowMillis,
     dedupe,
+    quotaOperationKey(envelope.operationId),
   );
 
   if (decision.status === "duplicate") {
@@ -130,17 +139,21 @@ export async function setCreatorFollowHandler(
     );
   }
 
-  await backend.commitFollow({
-    uid,
-    surfaceKey: FOLLOW_SURFACE.surfaceKey,
-    dedupeKey,
-    payload,
-    followedAt: nowMillis,
-    dedupeMarker: buildDedupeMarker({
-      nowMillis,
-      targetPath,
+  await runWithQuotaReservation(
+    backend,
+    { uid, dayKey, surface: FOLLOW_SURFACE, reservation: decision.reservation },
+    () => backend.commitFollow({
+      uid,
+      surfaceKey: FOLLOW_SURFACE.surfaceKey,
+      dedupeKey,
+      payload,
+      followedAt: nowMillis,
+      dedupeMarker: buildDedupeMarker({
+        nowMillis,
+        targetPath,
+      }),
     }),
-  });
+  );
 
   return {
     operationId: envelope.operationId,
@@ -282,31 +295,26 @@ class FirebaseFollowBackend implements FollowBackend {
     surface: CommunityCallableSurface,
     nowMillis: number,
     dedupe: DedupeMarker | null,
+    operationKey?: string,
   ): Promise<QuotaDecision> {
-    let decision: QuotaDecision | null = null;
-    const result = await this.quotaRef(uid, dayKey, surface.surfaceKey).transaction(
-      (current: unknown) => {
-        const quota = current !== null && typeof current === "object"
-          ? current as QuotaLedgerState
-          : {};
-        decision = evaluateCommunityQuotaAttempt({
-          surface,
-          nowMillis,
-          quota,
-          dedupe,
-        });
-        if (decision.status === "duplicate") {
-          return current;
-        }
-        return decision.quota;
-      },
-      undefined,
-      false,
+    return reserveQuotaLedger(
+      this.root.child("community_write_quotas").child(uid),
+      dayKey,
+      surface,
+      nowMillis,
+      dedupe,
+      operationKey,
     );
-    if (!result.committed || decision === null) {
-      throw new HttpsError("aborted", "Unable to reserve creator follow quota.");
-    }
-    return decision;
+  }
+
+  async settleQuota(
+    uid: string,
+    dayKey: string,
+    surface: CommunityCallableSurface,
+    reservation: QuotaReservation,
+    settlement: QuotaSettlement,
+  ): Promise<void> {
+    await settleQuotaLedger(this.quotaRef(uid, dayKey, surface.surfaceKey), reservation, settlement, this.nowMillis());
   }
 
   async commitFollow(input: CommitFollowInput): Promise<void> {

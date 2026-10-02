@@ -1,5 +1,7 @@
-import { getDatabase } from "firebase-admin/database";
+import { getDatabase, ServerValue, type Reference } from "firebase-admin/database";
+import * as logger from "firebase-functions/logger";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 
 import { requireCallableIdentity } from "./callableScaffold";
 import {
@@ -9,12 +11,20 @@ import {
 } from "./communityContract";
 import {
   buildDedupeMarker,
-  evaluateCommunityQuotaAttempt,
+  PENDING_RESERVATION_LEASE_MILLIS,
+  quotaOperationKey,
   utcQuotaDayKey,
   type DedupeMarker,
   type QuotaDecision,
-  type QuotaLedgerState,
+  type QuotaReservation,
+  type QuotaSettlement,
 } from "./quotaEngine";
+import {
+  type QuotaSettlingBackend,
+  reserveQuotaLedger,
+  runWithQuotaReservation,
+  settleQuotaLedger,
+} from "./quotaReservation";
 
 const VOTE_SURFACE = surfaceByFunctionName("recordCommunityVote");
 const MAX_CONTENT_ID = 240;
@@ -22,6 +32,15 @@ const MAX_OPERATION_ID = 120;
 const FIREBASE_KEY_REGEX = /[.#$[\]/]/g;
 const WHITESPACE_REGEX = /\s+/g;
 const CONTROL_REGEX = /[\u0000-\u001F\u007F]/g;
+const SEED_BATCH_SIZE = 200;
+const SEED_MAX_BATCHES = 50;
+/** Where each legacy root's walk stopped, so the next run picks up there instead of the first key. */
+export const SEED_CURSOR_PATH = "vote_seed_cursor";
+const SEED_ROOT_DONE = true;
+/** Scheduled runs stop starting batches after this, well inside the function timeout below. */
+const SEED_RUN_BUDGET_MILLIS = 480_000;
+const SEED_TIMEOUT_SECONDS = 540;
+const COMMUNITY_UPLOAD_VOTE_KEY = /^(SOUND|WALLPAPER)::COMMUNITY::(cu|cw)_([A-Za-z0-9_-]{1,200})$/;
 
 interface CallableRequestLike {
   readonly data?: unknown;
@@ -50,7 +69,7 @@ export interface VoteCommitResult {
   readonly upvotes?: number;
 }
 
-export interface VoteBackend {
+export interface VoteBackend extends QuotaSettlingBackend {
   nowMillis(): number;
   hasExistingVote(uid: string, contentId: string): Promise<boolean>;
   readDedupeMarker(uid: string, surfaceKey: string, dedupeKey: string): Promise<DedupeMarker | null>;
@@ -60,6 +79,7 @@ export interface VoteBackend {
     surface: CommunityCallableSurface,
     nowMillis: number,
     dedupe: DedupeMarker | null,
+    operationKey?: string,
   ): Promise<QuotaDecision>;
   commitVote(input: CommitVoteInput): Promise<VoteCommitResult>;
 }
@@ -78,7 +98,7 @@ export async function recordCommunityVoteHandler(
   const nowMillis = backend.nowMillis();
   const envelope = normalizeEnvelope(request.data);
   const contentId = normalizeVoteContentId(requiredString(envelope.payload, "contentId"));
-  const targetPath = `/votes/${contentId}`;
+  const targetPath = `/vote_counts/${contentId}`;
   if (await backend.hasExistingVote(uid, contentId)) {
     return {
       operationId: envelope.operationId,
@@ -97,6 +117,7 @@ export async function recordCommunityVoteHandler(
     VOTE_SURFACE,
     nowMillis,
     dedupe,
+    quotaOperationKey(envelope.operationId),
   );
 
   if (decision.status === "duplicate") {
@@ -122,16 +143,22 @@ export async function recordCommunityVoteHandler(
     );
   }
 
-  const commit = await backend.commitVote({
-    uid,
-    contentId,
-    surfaceKey: VOTE_SURFACE.surfaceKey,
-    dedupeKey,
-    dedupeMarker: buildDedupeMarker({
-      nowMillis,
-      targetPath,
+  // A failed commit, or one that lost the marker race and counted nothing, refunds the unit.
+  const commit = await runWithQuotaReservation(
+    backend,
+    { uid, dayKey, surface: VOTE_SURFACE, reservation: decision.reservation },
+    () => backend.commitVote({
+      uid,
+      contentId,
+      surfaceKey: VOTE_SURFACE.surfaceKey,
+      dedupeKey,
+      dedupeMarker: buildDedupeMarker({
+        nowMillis,
+        targetPath,
+      }),
     }),
-  });
+    (result) => result.status === "accepted",
+  );
 
   return {
     operationId: envelope.operationId,
@@ -140,6 +167,163 @@ export async function recordCommunityVoteHandler(
     serverTimeMillis: decision.serverTimeMillis,
     upvotes: commit.upvotes,
   };
+}
+
+/**
+ * Maps a community upload's vote key (`SOUND::COMMUNITY::cu_<id>` or
+ * `WALLPAPER::COMMUNITY::cw_<id>`) to its metadata row, or null for any other content.
+ */
+export function communityUploadMetadataPath(contentId: string): string | null {
+  const match = COMMUNITY_UPLOAD_VOTE_KEY.exec(contentId);
+  if (!match) return null;
+  const [, type, prefix, uploadId] = match;
+  if (type === "SOUND" && prefix === "cu") return `community_sounds/${uploadId}`;
+  if (type === "WALLPAPER" && prefix === "cw") return `community_wallpapers/${uploadId}`;
+  return null;
+}
+
+/**
+ * Creates `/vote_counts/{contentId}` from the count kept before the schema split, or repairs a
+ * stored count that is not a whole number. A whole-number row is left alone, so the callable and
+ * the seeding job can run in either order without one overwriting votes the other counted.
+ * Returns true when it wrote a row.
+ */
+export async function seedVoteCount(root: Reference, contentId: string): Promise<boolean> {
+  const countRef = root.child("vote_counts").child(contentId);
+  if (isWholeCount((await countRef.child("upvotes").get()).val())) return false;
+  const [legacyVote, legacyVoters] = await Promise.all([
+    root.child("votes").child(contentId).get(),
+    root.child("voters").child(contentId).get(),
+  ]);
+  const legacySeed = legacyVoteCount(legacyVote.val(), legacyVoters.val());
+  let wrote = false;
+  const seeded = await countRef.transaction(
+    (current: unknown) => {
+      const row = current !== null && typeof current === "object" ? current as Record<string, unknown> : {};
+      wrote = !isWholeCount(row.upvotes);
+      if (!wrote) return current;
+      return { ...row, upvotes: typeof row.upvotes === "number" ? wholeCount(row.upvotes) : legacySeed };
+    },
+    undefined,
+    false,
+  );
+  if (!seeded.committed) throw new Error("vote count seed aborted");
+  return wrote;
+}
+
+/** The legacy count, never below the number of distinct legacy voters. */
+export function legacyVoteCount(vote: unknown, voters: unknown): number {
+  const row = vote !== null && typeof vote === "object" ? vote as Record<string, unknown> : {};
+  const ids = new Set<string>();
+  for (const map of [row.voters, voters]) {
+    if (map === null || typeof map !== "object") continue;
+    for (const [uid, marker] of Object.entries(map as Record<string, unknown>)) {
+      if (marker === true) ids.add(uid);
+    }
+  }
+  return Math.max(wholeCount(row.upvotes), ids.size);
+}
+
+/**
+ * Community feeds sort and filter by the upload row's own `votes` field, so keep it in step with
+ * the public count. One transaction on the whole row, so an upload deleted between a check and
+ * the write cannot come back as a stub holding only `votes`.
+ */
+export async function mirrorUploadVotes(root: Reference, contentId: string, upvotes: number): Promise<void> {
+  const uploadPath = communityUploadMetadataPath(contentId);
+  if (!uploadPath) return;
+  await root.child(uploadPath).transaction(
+    (current: unknown) => {
+      if (current === null || typeof current !== "object") return current;
+      const row = current as Record<string, unknown>;
+      if (row.storagePath === undefined || row.storagePath === null) return current;
+      const stored = typeof row.votes === "number" ? Math.trunc(row.votes) : 0;
+      return stored >= upvotes ? current : { ...row, votes: upvotes };
+    },
+    undefined,
+    false,
+  );
+}
+
+/**
+ * Gives every content ID under the legacy `/votes` and `/voters` roots a `/vote_counts` row and
+ * mirrors it onto the upload row, through the same transaction the callable uses. Content already
+ * counted under the new schema keeps its row. Returns how many rows it wrote.
+ *
+ * Each batch saves its last key under [SEED_CURSOR_PATH], so a run that hits the batch cap, the
+ * deadline or the function timeout loses at most one batch and the next run continues from there.
+ * A root walked to the end is marked done, so a later run goes straight to the root still being
+ * walked. Once both are done the cursor is cleared and the next run starts a fresh pass.
+ */
+export async function seedLegacyVoteCounts(
+  root: Reference,
+  batchSize = SEED_BATCH_SIZE,
+  maxBatches = SEED_MAX_BATCHES,
+  deadlineMillis = Number.POSITIVE_INFINITY,
+  clock: () => number = Date.now,
+): Promise<number> {
+  let seeded = 0;
+  const visited = new Set<string>();
+  for (const legacyRoot of ["votes", "voters"]) {
+    const cursor = root.child(SEED_CURSOR_PATH).child(legacyRoot);
+    const saved: unknown = (await cursor.get()).val();
+    if (saved === SEED_ROOT_DONE) continue;
+    let lastKey: string | undefined = typeof saved === "string" && saved.length > 0 ? saved : undefined;
+    let finishedRoot = false;
+    for (let batch = 0; batch < maxBatches; batch++) {
+      if (clock() >= deadlineMillis) return seeded;
+      let query = root.child(legacyRoot).orderByKey();
+      if (lastKey !== undefined) query = query.startAfter(lastKey);
+      const snapshot = await query.limitToFirst(batchSize).get();
+      const keys: string[] = [];
+      snapshot.forEach((child) => {
+        if (child.key !== null) keys.push(child.key);
+      });
+      for (const contentId of keys) {
+        if (visited.has(contentId)) continue;
+        visited.add(contentId);
+        if (await seedVoteCount(root, contentId)) seeded++;
+        const counted = wholeCount((await root.child("vote_counts").child(contentId).child("upvotes").get()).val());
+        if (counted > 0) await mirrorUploadVotes(root, contentId, counted);
+      }
+      if (keys.length < batchSize) {
+        await cursor.set(SEED_ROOT_DONE);
+        finishedRoot = true;
+        break;
+      }
+      lastKey = keys[keys.length - 1];
+      await cursor.set(lastKey);
+    }
+    // Out of batches part way through: finish this root next run before starting the other.
+    if (!finishedRoot) return seeded;
+  }
+  await root.child(SEED_CURSOR_PATH).remove();
+  return seeded;
+}
+
+export function createSeedLegacyVoteCountsJob() {
+  return onSchedule(
+    { schedule: "every 24 hours", timeZone: "UTC", timeoutSeconds: SEED_TIMEOUT_SECONDS },
+    async () => {
+      const root = getDatabase().ref();
+      const seeded = await seedLegacyVoteCounts(
+        root,
+        SEED_BATCH_SIZE,
+        SEED_MAX_BATCHES,
+        Date.now() + SEED_RUN_BUDGET_MILLIS,
+      );
+      const resumeAt = (await root.child(SEED_CURSOR_PATH).get()).val() ?? null;
+      logger.info("Seeded legacy vote counts", { seeded, resumeAt });
+    },
+  );
+}
+
+function wholeCount(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+}
+
+function isWholeCount(value: unknown): boolean {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
 export function normalizeVoteContentId(value: string): string {
@@ -211,11 +395,13 @@ class FirebaseVoteBackend implements VoteBackend {
   }
 
   async hasExistingVote(uid: string, contentId: string): Promise<boolean> {
-    const [nested, legacy] = await Promise.all([
+    // Votes cast before the private marker tree existed still count as duplicates.
+    const [marker, nested, legacy] = await Promise.all([
+      this.markerRef(uid, contentId).get(),
       this.root.child("votes").child(contentId).child("voters").child(uid).get(),
       this.root.child("voters").child(contentId).child(uid).get(),
     ]);
-    return nested.exists() || legacy.exists();
+    return marker.exists() || nested.exists() || legacy.exists();
   }
 
   async readDedupeMarker(
@@ -240,76 +426,100 @@ class FirebaseVoteBackend implements VoteBackend {
     surface: CommunityCallableSurface,
     nowMillis: number,
     dedupe: DedupeMarker | null,
+    operationKey?: string,
   ): Promise<QuotaDecision> {
-    let decision: QuotaDecision | null = null;
-    const result = await this.quotaRef(uid, dayKey, surface.surfaceKey).transaction(
-      (current: unknown) => {
-        const quota = current !== null && typeof current === "object"
-          ? current as QuotaLedgerState
-          : {};
-        decision = evaluateCommunityQuotaAttempt({
-          surface,
-          nowMillis,
-          quota,
-          dedupe,
-        });
-        if (decision.status === "duplicate") {
-          return current;
-        }
-        return decision.quota;
-      },
-      undefined,
-      false,
+    return reserveQuotaLedger(
+      this.root.child("community_write_quotas").child(uid),
+      dayKey,
+      surface,
+      nowMillis,
+      dedupe,
+      operationKey,
     );
-    if (!result.committed || decision === null) {
-      throw new HttpsError("aborted", "Unable to reserve community vote quota.");
-    }
-    return decision;
+  }
+
+  async settleQuota(
+    uid: string,
+    dayKey: string,
+    surface: CommunityCallableSurface,
+    reservation: QuotaReservation,
+    settlement: QuotaSettlement,
+  ): Promise<void> {
+    await settleQuotaLedger(this.quotaRef(uid, dayKey, surface.surfaceKey), reservation, settlement, this.nowMillis());
   }
 
   async commitVote(input: CommitVoteInput): Promise<VoteCommitResult> {
-    let sawExistingVoter = false;
-    let upvotes = 0;
-    const result = await this.root.child("votes").child(input.contentId).transaction(
+    // A private lock holds the vote while it is counted, so two racing calls from one account
+    // cannot both increment. The marker and the increment land in one atomic update, so a run
+    // that dies part way leaves no marker to turn the retry away; its lock lapses after the lease.
+    const lockRef = this.lockRef(input.uid, input.contentId);
+    const lockedAt = this.nowMillis();
+    let busy = false;
+    const lock = await lockRef.transaction(
       (current: unknown) => {
-        const voteData = current !== null && typeof current === "object"
-          ? current as Record<string, unknown>
-          : {};
-        const voters = voteData.voters !== null && typeof voteData.voters === "object"
-          ? voteData.voters as Record<string, unknown>
-          : {};
-        if (voters[input.uid] === true) {
-          sawExistingVoter = true;
-          return undefined;
-        }
-        const currentUpvotes = typeof voteData.upvotes === "number" ? voteData.upvotes : 0;
-        upvotes = Math.max(0, Math.trunc(currentUpvotes)) + 1;
-        return {
-          ...voteData,
-          upvotes,
-          voters: {
-            ...voters,
-            [input.uid]: true,
-          },
-        };
+        const at = current !== null && typeof current === "object"
+          ? (current as Record<string, unknown>).at
+          : undefined;
+        busy = typeof at === "number" && lockedAt - at < PENDING_RESERVATION_LEASE_MILLIS;
+        return busy ? current : { at: lockedAt };
       },
       undefined,
       false,
     );
-
-    if (!result.committed) {
-      if (sawExistingVoter) return { status: "duplicate" };
-      throw new HttpsError("aborted", "Unable to commit community vote.");
+    if (!lock.committed) throw new HttpsError("aborted", "Unable to commit community vote.");
+    if (busy) {
+      throw new HttpsError("aborted", "This vote is still being counted.", {
+        retryAfterMillis: PENDING_RESERVATION_LEASE_MILLIS,
+      });
     }
 
-    await this.root.update({
-      [`voters/${input.contentId}/${input.uid}`]: true,
-      [`community_write_dedupe/${input.uid}/${input.surfaceKey}/${input.dedupeKey}`]: input.dedupeMarker,
-    });
+    const countRef = this.root.child("vote_counts").child(input.contentId);
+    try {
+      if ((await this.markerRef(input.uid, input.contentId).get()).exists()) {
+        await lockRef.remove();
+        return { status: "duplicate" };
+      }
+      await seedVoteCount(this.root, input.contentId);
+      await this.root.update({
+        [`vote_markers/${input.uid}/${input.contentId}`]: true,
+        [`vote_counts/${input.contentId}/upvotes`]: ServerValue.increment(1),
+        [`vote_locks/${input.uid}/${input.contentId}`]: null,
+      });
+    } catch (error) {
+      if (error instanceof HttpsError) throw error;
+      await lockRef.remove().catch(() => undefined);
+      throw new HttpsError("aborted", "Unable to commit community vote.");
+    }
+    const counted = (await countRef.child("upvotes").get()).val();
+    const upvotes = typeof counted === "number" ? counted : 1;
+
+    try {
+      // The vote marker already turns away a second vote, so a lost dedupe row must not
+      // fail a vote that counted (that would also refund its quota unit).
+      await this.root.update({
+        [`community_write_dedupe/${input.uid}/${input.surfaceKey}/${input.dedupeKey}`]: input.dedupeMarker,
+      });
+    } catch (error) {
+      logger.warn("Community vote dedupe write failed", { contentId: input.contentId, error: String(error) });
+    }
+    try {
+      await mirrorUploadVotes(this.root, input.contentId, upvotes);
+    } catch (error) {
+      // The vote itself is committed; the next vote on this upload re-mirrors the count.
+      logger.warn("Community upload vote mirror failed", { contentId: input.contentId, error: String(error) });
+    }
     return {
       status: "accepted",
       upvotes,
     };
+  }
+
+  private markerRef(uid: string, contentId: string) {
+    return this.root.child("vote_markers").child(uid).child(contentId);
+  }
+
+  private lockRef(uid: string, contentId: string) {
+    return this.root.child("vote_locks").child(uid).child(contentId);
   }
 
   private quotaRef(uid: string, dayKey: string, surfaceKey: string) {

@@ -383,6 +383,8 @@
     <string name="editor_crop_smart_crop">智能裁剪</string>
     <string name="editor_crop_subject_not_found">未能检测到主体 — 请拖动以手动定位</string>
     <string name="editor_crop_smart_applied">已应用智能裁剪</string>
+    <string name="editor_crop_ratio_free">自由</string>
+    <string name="editor_crop_ratio_selected">裁剪框 %1$s</string>
 
     <!-- Sound editor -->
     <string name="editor_sound_create_title">创建声音</string>
@@ -486,6 +488,12 @@
     <string name="reports_refresh">刷新举报</string>
     <string name="reports_admin_required_title">需要管理员权限</string>
     <string name="reports_admin_required_body">举报详情仅对具有管理员自定义声明的账户可用。</string>
+    <string name="reports_load_error_title">无法加载举报</string>
+    <string name="reports_load_error_offline">你已离线。恢复连接后会重新加载举报。</string>
+    <string name="reports_load_error_denied">此账户无法读取举报。请使用管理员账户登录。</string>
+    <string name="reports_load_error_generic">加载举报时出错。</string>
+    <string name="reports_stale_banner">无法刷新。正在显示 %1$s 的举报。点按重试。</string>
+    <string name="reports_stale_banner_no_time">无法刷新。正在显示之前的举报。点按重试。</string>
     <string name="reports_empty_title">没有 %1$s 举报</string>
     <string name="reports_empty_open_body">用户从内容详情页面提交后，新举报将显示在这里。</string>
     <string name="reports_empty_closed_body">管理员处理后，已关闭的举报将显示在这里。</string>
@@ -715,6 +723,15 @@
     <string name="downloads_file_no_longer_exists">文件不再存在</string>
     <string name="downloads_cannot_open_file">无法打开文件</string>
     <string name="downloads_dismiss_file">忽略 %1$s</string>
+    <string name="downloads_retry_file">重试 %1$s</string>
+    <string name="download_failed_offline">无法连接服务器。请检查网络连接。</string>
+    <string name="download_failed_timeout">服务器响应超时。</string>
+    <string name="download_failed_secure">无法与服务器建立安全连接。</string>
+    <string name="download_failed_http">服务器返回错误 %1$d。</string>
+    <string name="download_failed_too_large">文件超出 Aura 允许的大小。</string>
+    <string name="download_failed_not_media">文件不是 Aura 预期的媒体类型。</string>
+    <string name="download_failed_storage">无法将文件保存到此手机。</string>
+    <string name="download_failed_unknown">出了点问题。请重试。</string>
     <string name="downloads_active_summary">%1$s. %2$s</string>
     <string name="downloads_delete_file">删除 %1$s</string>
     <string name="downloads_type_wallpaper">壁纸</string>

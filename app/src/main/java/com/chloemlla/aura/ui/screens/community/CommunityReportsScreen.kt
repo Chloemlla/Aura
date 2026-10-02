@@ -1,6 +1,5 @@
 package com.chloemlla.aura.ui.screens.community
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,7 +48,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -72,22 +70,55 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import androidx.annotation.StringRes
 import java.util.Locale
 import javax.inject.Inject
 
 @Immutable
 data class CommunityReportsUiState(
+    val isLoading: Boolean = true,
+    val loadError: ReportsLoadError? = null,
+    val lastUpdatedAt: Long? = null,
     val actionInFlightReportId: String? = null,
     val message: String? = null,
     @StringRes val messageRes: Int = 0,
     val error: String? = null,
     @StringRes val errorRes: Int = 0,
 )
+
+/** Why the report queue failed to load; the screen maps each kind to its own copy. */
+enum class ReportsLoadErrorKind { OFFLINE, DENIED, OTHER }
+
+@Immutable
+data class ReportsLoadError(val kind: ReportsLoadErrorKind, val detail: String? = null)
+
+/**
+ * Offline and permission failures need different next steps, so they are told
+ * apart here. RTDB reports both as a DatabaseException with a message.
+ */
+internal fun classifyReportsLoadError(error: Throwable): ReportsLoadError {
+    val text = error.message.orEmpty()
+    val kind = when {
+        error is java.io.IOException || OFFLINE_MARKERS.any { text.contains(it, ignoreCase = true) } ->
+            ReportsLoadErrorKind.OFFLINE
+        DENIED_MARKERS.any { text.contains(it, ignoreCase = true) } -> ReportsLoadErrorKind.DENIED
+        else -> ReportsLoadErrorKind.OTHER
+    }
+    return ReportsLoadError(kind = kind, detail = text.takeIf { it.isNotBlank() })
+}
+
+private val OFFLINE_MARKERS = listOf("offline", "network", "disconnect", "unavailable")
+private val DENIED_MARKERS = listOf("permission", "denied", "unauthorized")
 
 @HiltViewModel
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -96,29 +127,45 @@ class CommunityReportsViewModel @Inject constructor(
     private val voteRepo: VoteRepository,
     private val blockRepo: CommunityBlockRepository,
 ) : ViewModel() {
-    private val _isAdmin = MutableStateFlow(voteRepo.isAdmin)
-    val isAdmin = _isAdmin.asStateFlow()
+    val isAdmin: Boolean get() = voteRepo.isAdmin
     private val _selectedStatus = MutableStateFlow(CommunityReportResolutionStatus.OPEN)
     val selectedStatus = _selectedStatus.asStateFlow()
-    val reports = isAdmin.flatMapLatest { admin ->
-        if (admin) {
-            _selectedStatus.flatMapLatest { status ->
-                reportRepo.reports(status = status)
-            }
-        } else {
-            flowOf(emptyList())
-        }
-    }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
     private val _state = MutableStateFlow(CommunityReportsUiState())
     val state = _state.asStateFlow()
+    private val refreshTrigger = MutableStateFlow(0)
+    private var loadedStatus: CommunityReportResolutionStatus? = null
+    val reports = if (isAdmin) {
+        combine(_selectedStatus, refreshTrigger) { status, _ -> status }
+            .flatMapLatest { status ->
+                _state.update { it.copy(isLoading = true, loadError = null) }
+                flow {
+                    // Rows from another status tab would be mislabeled, so a switch
+                    // clears them. A refresh of the same tab keeps them until new rows land.
+                    if (status != loadedStatus) emit(emptyList())
+                    emitAll(
+                        reportRepo.reports(status = status).onEach {
+                            loadedStatus = status
+                            _state.update { s ->
+                                s.copy(isLoading = false, loadError = null, lastUpdatedAt = System.currentTimeMillis())
+                            }
+                        },
+                    )
+                }.catch { e ->
+                    // No emission here: the last good list stays on screen under the error.
+                    _state.update { s -> s.copy(isLoading = false, loadError = classifyReportsLoadError(e)) }
+                }
+            }
+    } else {
+        flowOf(emptyList())
+    }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun refresh() {
         _isAdmin.value = voteRepo.isAdmin
         _state.update {
             it.copy(message = null, messageRes = R.string.reports_refreshed, error = null, errorRes = 0)
         }
+        refreshTrigger.update { it + 1 }
     }
 
     fun selectStatus(status: CommunityReportResolutionStatus) {
@@ -256,6 +303,29 @@ class CommunityReportsViewModel @Inject constructor(
     }
 }
 
+@Composable
+private fun reportsLoadErrorText(error: ReportsLoadError?): String = reportsLoadErrorMessage(
+    error = error,
+    offline = stringResource(R.string.reports_load_error_offline),
+    denied = stringResource(R.string.reports_load_error_denied),
+    generic = stringResource(R.string.reports_load_error_generic),
+)
+
+/**
+ * The localized message leads; the raw detail stays visible because this admin-only screen
+ * has no other place to show why a load failed.
+ */
+internal fun reportsLoadErrorMessage(
+    error: ReportsLoadError?,
+    offline: String,
+    denied: String,
+    generic: String,
+): String = when (error?.kind) {
+    ReportsLoadErrorKind.OFFLINE -> offline
+    ReportsLoadErrorKind.DENIED -> denied
+    else -> generic + error?.detail?.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty()
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommunityReportsScreen(
@@ -265,8 +335,13 @@ fun CommunityReportsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val reports by viewModel.reports.collectAsStateWithLifecycle()
     val selectedStatus by viewModel.selectedStatus.collectAsStateWithLifecycle()
-    val isAdmin by viewModel.isAdmin.collectAsStateWithLifecycle()
-    val resources = LocalResources.current
+
+    // Text shown in the status chip: a verbatim message wins, otherwise the resource the
+    // action recorded (the fork routes its user-facing feedback through resources).
+    val statusErrorText = state.error
+        ?: state.errorRes.takeIf { it != 0 }?.let { stringResource(it) }
+    val statusMessageText = state.message
+        ?: state.messageRes.takeIf { it != 0 }?.let { stringResource(it) }
 
     Scaffold(
         topBar = {
@@ -292,7 +367,7 @@ fun CommunityReportsScreen(
                 .padding(padding),
         ) {
             when {
-                !isAdmin -> AuraStateCard(
+                !viewModel.isAdmin -> AuraStateCard(
                     icon = Icons.Default.VerifiedUser,
                     title = stringResource(R.string.reports_admin_required_title),
                     description = stringResource(R.string.reports_admin_required_body),
@@ -300,6 +375,39 @@ fun CommunityReportsScreen(
                         .align(Alignment.Center)
                         .padding(24.dp),
                 )
+                state.isLoading && reports.isEmpty() -> Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    CircularProgressIndicator()
+                }
+                state.loadError != null && reports.isEmpty() -> Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    ReportStatusChips(
+                        selectedStatus = selectedStatus,
+                        onSelectStatus = viewModel::selectStatus,
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                    ) {
+                        AuraStateCard(
+                            icon = Icons.Default.Report,
+                            title = stringResource(R.string.reports_load_error_title),
+                            description = reportsLoadErrorText(state.loadError),
+                            primaryAction = AuraStateAction(stringResource(R.string.common_retry), Icons.Default.Refresh, viewModel::refresh),
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .padding(24.dp),
+                        )
+                    }
+                }
                 reports.isEmpty() -> Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -317,10 +425,7 @@ fun CommunityReportsScreen(
                     ) {
                         AuraStateCard(
                             icon = Icons.Default.Report,
-                            title = stringResource(
-                                R.string.reports_empty_title,
-                                resources.getString(selectedStatus.reviewLabelRes).lowercase(Locale.ROOT),
-                            ),
+                            title = stringResource(R.string.reports_empty_title, stringResource(selectedStatus.reviewLabelRes).lowercase(Locale.ROOT)),
                             description = stringResource(
                                 if (selectedStatus == CommunityReportResolutionStatus.OPEN) {
                                     R.string.reports_empty_open_body
@@ -346,20 +451,38 @@ fun CommunityReportsScreen(
                             onSelectStatus = viewModel::selectStatus,
                         )
                     }
-                    val statusError = state.error
-                        ?: state.errorRes.takeIf { it != 0 }?.let { resources.getString(it) }
-                    val statusMessage = statusError
-                        ?: state.message
-                        ?: state.messageRes.takeIf { it != 0 }?.let { resources.getString(it) }
-                    if (statusError != null || statusMessage != null) {
+                    if (state.loadError != null) {
+                        item {
+                            val updatedAt = state.lastUpdatedAt?.let {
+                                java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(it))
+                            }
+                            FilterChip(
+                                selected = false,
+                                onClick = viewModel::refresh,
+                                label = {
+                                    Text(
+                                        if (updatedAt != null) {
+                                            stringResource(R.string.reports_stale_banner, updatedAt)
+                                        } else {
+                                            stringResource(R.string.reports_stale_banner_no_time)
+                                        },
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                },
+                            )
+                        }
+                    }
+                    if (statusErrorText != null || statusMessageText != null) {
                         item {
                             FilterChip(
-                                selected = statusError == null,
+                                selected = statusErrorText == null,
                                 onClick = viewModel::refresh,
-                                label = { Text(statusMessage.orEmpty()) },
+                                label = { Text((statusErrorText ?: statusMessageText).orEmpty()) },
                                 leadingIcon = {
                                     Icon(
-                                        if (statusError == null) Icons.Default.CheckCircle else Icons.Default.Report,
+                                        if (statusErrorText == null) Icons.Default.CheckCircle else Icons.Default.Report,
                                         contentDescription = null,
                                         modifier = Modifier.size(16.dp),
                                     )
@@ -573,7 +696,6 @@ private val CommunityReportReviewFilters = listOf(
     CommunityReportResolutionStatus.RESTORED,
 )
 
-@get:StringRes
 private val CommunityReportResolutionStatus.reviewLabelRes: Int
     get() = when (this) {
         CommunityReportResolutionStatus.OPEN -> R.string.reports_status_open

@@ -322,7 +322,13 @@ class ProviderCapabilityContractTest {
             .map { it.source }
             .toSet()
 
-        assertEquals(setOf(ContentSource.YOUTUBE), playExcluded)
+        assertEquals(setOf(ContentSource.YOUTUBE, ContentSource.TIKTOK), playExcluded)
+        assertTrue(
+            providerCapability(ContentSource.TIKTOK).availableIn(
+                ProviderBuild.FULL,
+                ProviderChannel.GITHUB,
+            ),
+        )
         assertTrue(
             providerCapability(ContentSource.YOUTUBE).availableIn(
                 ProviderBuild.FULL,

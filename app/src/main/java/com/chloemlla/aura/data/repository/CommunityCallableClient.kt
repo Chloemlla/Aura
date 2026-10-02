@@ -7,6 +7,7 @@ import com.chloemlla.aura.data.model.CommunitySoundUploadMetadataInput
 import com.chloemlla.aura.data.model.CommunityUserBlockInput
 import com.chloemlla.aura.data.model.CommunityWallpaperUploadMetadataInput
 import com.chloemlla.aura.data.model.CreatorProfileUpdateInput
+import com.chloemlla.aura.data.model.SharedCollectionInput
 import com.chloemlla.aura.data.model.buildCommunityFollowCallablePayload
 import com.chloemlla.aura.data.model.buildCommunityReportCallablePayload
 import com.chloemlla.aura.data.model.buildCommunitySoundUploadCallablePayload
@@ -14,6 +15,7 @@ import com.chloemlla.aura.data.model.buildCommunityUserBlockCallablePayload
 import com.chloemlla.aura.data.model.buildCommunityVoteCallablePayload
 import com.chloemlla.aura.data.model.buildCommunityWallpaperUploadCallablePayload
 import com.chloemlla.aura.data.model.buildCreatorProfileUpdateCallablePayload
+import com.chloemlla.aura.data.model.buildSharedCollectionCallablePayload
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.FirebaseFunctionsException
 import com.google.firebase.functions.HttpsCallableOptions
@@ -190,6 +192,20 @@ class CommunityCallableClient @Inject constructor(
             consumeLimitedUseAppCheckToken = policy.consumeLimitedUseAppCheckToken,
         )
         return invoker.call(request).toWriteResult(resourceIdField = "profileUid")
+    }
+
+    suspend fun publishSharedCollection(input: SharedCollectionInput): CommunityCallableWriteResult {
+        val policy = CommunityQuotaPolicies.collectionShares.callable
+        val request = CommunityCallableRequest(
+            functionName = policy.functionName,
+            data = buildCommunityCallableEnvelope(
+                payload = buildSharedCollectionCallablePayload(input),
+                operationId = communityOperationId("collection_share"),
+                clientSentAt = System.currentTimeMillis(),
+            ),
+            consumeLimitedUseAppCheckToken = policy.consumeLimitedUseAppCheckToken,
+        )
+        return invoker.call(request).toWriteResult(resourceIdField = "token")
     }
 }
 

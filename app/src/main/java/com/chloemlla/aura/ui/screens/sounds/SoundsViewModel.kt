@@ -18,10 +18,12 @@ import com.chloemlla.aura.data.model.CommunityUploadRights
 import com.chloemlla.aura.data.model.ContentSource
 import com.chloemlla.aura.data.model.ContentType
 import com.chloemlla.aura.data.model.Sound
+import com.chloemlla.aura.data.remote.tiktok.isTikTokMediaUrlUsable
 import com.chloemlla.aura.data.repository.CommunityBlockRepository
 import com.chloemlla.aura.data.repository.CommunityReportRepository
 import com.chloemlla.aura.data.repository.FavoritesRepository
 import com.chloemlla.aura.data.repository.SearchHistoryRepository
+import com.chloemlla.aura.data.repository.TikTokSoundRepository
 import com.chloemlla.aura.data.repository.UploadRepository
 import com.chloemlla.aura.data.repository.VoteRepository
 import com.chloemlla.aura.data.repository.YouTubeRepository
@@ -37,23 +39,27 @@ import com.chloemlla.aura.service.SoundUrlResolver
 import com.chloemlla.aura.service.SoundFeedCache
 import com.chloemlla.aura.service.soundFeedCacheKey
 import com.chloemlla.aura.service.SourceMetrics
+import com.chloemlla.aura.util.rethrowIfCancelled
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
 import javax.inject.Inject
 
 @HiltViewModel
 class SoundsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val youtubeRepo: YouTubeRepository,
+    private val tiktokRepo: TikTokSoundRepository,
     private val favoritesRepo: FavoritesRepository,
     private val soundApplier: SoundApplier,
     private val downloadManager: DownloadManager,
@@ -126,6 +132,8 @@ class SoundsViewModel @Inject constructor(
     private val _playbackProgress = MutableStateFlow(0f)
     val playbackProgress = _playbackProgress.asStateFlow()
 
+    private val previewWorkPermits = Semaphore(PREVIEW_WORK_CONCURRENCY)
+
     internal val playback: SoundPlaybackActions = SoundPlaybackActions(
         context = context,
         audioPlaybackManager = audioPlaybackManager,
@@ -139,11 +147,8 @@ class SoundsViewModel @Inject constructor(
         previewReadyIds = _previewReadyIds,
         playbackProgress = _playbackProgress,
         scope = viewModelScope,
-        resolveYouTubePreview = { sound ->
-            val videoId = sound.youtubeVideoId() ?: return@SoundPlaybackActions null
-            youtubeRepo.getAudioPreviewUrl(videoId)
-        },
-        shouldRefreshYouTubePreview = ::shouldRefreshYouTubePreview,
+        resolveRemotePreview = ::resolveRemotePreview,
+        shouldRefreshRemotePreview = ::shouldRefreshRemotePreview,
         youtubeDisabledMessage = ::youtubeDisabledMessage,
         persistFeed = { snapshot ->
             viewModelScope.launch(Dispatchers.IO) {
@@ -153,6 +158,15 @@ class SoundsViewModel @Inject constructor(
                 )
             }
         },
+        previewWorkPermits = previewWorkPermits,
+    )
+
+    internal val previewWarmup = SoundPreviewWarmup(
+        scope = viewModelScope,
+        permits = previewWorkPermits,
+        needsResolve = ::shouldRefreshRemotePreview,
+        resolve = ::resolveRemotePreview,
+        onResolved = { sound, url -> playback.cacheResolvedPreview(sound, url) },
     )
 
     internal val youtubeActions: SoundYouTubeActions = SoundYouTubeActions(
@@ -167,6 +181,7 @@ class SoundsViewModel @Inject constructor(
         onProviderDisabled = ::selectRingtonesFromProviderFallback,
         schedulePreviewPrebuffer = playback::schedulePreviewPrebuffer,
         cacheResolvedPreview = playback::cacheResolvedPreview,
+        requestPreviewWindow = ::requestPreviewWindow,
     )
 
     internal val communityFeed: SoundCommunityFeed = SoundCommunityFeed(
@@ -185,6 +200,7 @@ class SoundsViewModel @Inject constructor(
     internal val browseQueries: SoundBrowseQueries = SoundBrowseQueries(
         prefs = prefs,
         bundledContent = bundledContent,
+        tiktokRingtones = tiktokRepo::ringtones,
     )
 
     internal val browse: SoundBrowseViewModel = SoundBrowseViewModel(
@@ -203,7 +219,7 @@ class SoundsViewModel @Inject constructor(
         executeYouTubeSearch = ::executeYouTubeSearch,
         cancelYouTubeLoad = ::cancelYouTubeLoad,
         schedulePreviewPrebuffer = playback::schedulePreviewPrebuffer,
-        cacheResolvedPreview = playback::cacheResolvedPreview,
+        requestPreviewWindow = ::requestPreviewWindow,
         soundFeedCache = soundFeedCache,
     )
 
@@ -230,6 +246,13 @@ class SoundsViewModel @Inject constructor(
 
     init {
         community.init()
+        // A new tab, query, or refresh bumps filterKey; the old feed's resolves stop there.
+        viewModelScope.launch {
+            _state.map { it.filterKey }.distinctUntilChanged().collect { key ->
+                previewWarmup.switchFeed(key)
+                playback.switchPrebufferFeed(key)
+            }
+        }
         browse.start()
         viewModelScope.launch {
             youtubeRepo.extractionStatus.collect { status ->
@@ -298,6 +321,11 @@ class SoundsViewModel @Inject constructor(
         previewUrl: String? = null,
         downloadUrl: String? = null,
     ): Boolean = selectionResolver.ensureSelectedSound(id, source, previewUrl, downloadUrl)
+
+    /** The list reports its visible rows plus lookahead; only those resolve ahead of a tap. */
+    fun onVisibleSoundsChanged(window: List<Sound>) = requestPreviewWindow(window)
+
+    private fun requestPreviewWindow(window: List<Sound>) = previewWarmup.request(_state.value.filterKey, window)
 
     fun togglePlayback(sound: Sound) = playback.togglePlayback(sound)
     fun seekTo(fraction: Float) = playback.seekTo(fraction)
@@ -398,6 +426,7 @@ class SoundsViewModel @Inject constructor(
     override fun onCleared() {
         browse.cancel()
         youtubeActions.cancel()
+        previewWarmup.cancel()
         playback.cancelProgress()
         community.cancelOnCleared()
         // Only stop the shared player if this instance actually started the preview.
@@ -411,6 +440,23 @@ class SoundsViewModel @Inject constructor(
 
     private fun nextFilterKey() = _state.value.filterKey + 1
     private fun shouldRefreshYouTubePreview(sound: Sound): Boolean = youtubeActions.shouldRefreshYouTubePreview(sound)
+
+    /** YouTube previews need a stream resolve; TikTok ones need a fresh signed link once theirs expires. */
+    private fun shouldRefreshRemotePreview(sound: Sound): Boolean = when (sound.source) {
+        ContentSource.YOUTUBE -> shouldRefreshYouTubePreview(sound)
+        ContentSource.TIKTOK -> !isTikTokMediaUrlUsable(sound.previewUrl, System.currentTimeMillis() / 1000)
+        else -> false
+    }
+
+    private suspend fun resolveRemotePreview(sound: Sound): String? = when (sound.source) {
+        ContentSource.TIKTOK -> try {
+            tiktokRepo.playableMediaUrl(sound)
+        } catch (e: Exception) {
+            e.rethrowIfCancelled()
+            null
+        }
+        else -> sound.youtubeVideoId()?.let { youtubeRepo.getAudioPreviewUrl(it) }
+    }
     private fun cancelYouTubeLoad() = youtubeActions.cancel()
     private fun loadDefaultYouTube(isRefresh: Boolean) = youtubeActions.loadDefaultYouTube(isRefresh)
     private fun executeYouTubeSearch(query: String) = youtubeActions.executeYouTubeSearch(query)

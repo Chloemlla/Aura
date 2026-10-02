@@ -5,7 +5,7 @@
 
 <h1 align="center">Aura</h1>
 
-![Version](https://img.shields.io/badge/version-6.45.3-blue)
+![Version](https://img.shields.io/badge/version-6.46.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Android%208.0+-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.1.0-7F52FF?logo=kotlin&logoColor=white)
@@ -136,7 +136,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Community Wallpapers** | Upload phone-cropped gallery images with tags, Palette colors, and community voting |
 | **HEIF/AVIF Wallpaper Import** | Local apply, editor, rotation, and community upload flows share one format policy with HEIF support and Android 14+ AVIF gating |
 | **Creator Profiles** | View upload stats, votes, followed creators, followed uploads, and top creator leaderboard |
-| **Shareable Collections** | Share wallpaper collections as Aura links, QR codes, or JSON files and import them on another device |
+| **Shareable Collections** | Share wallpaper collections as Aura links, QR codes, or JSON files and import them on another device. Links hold up to 250 wallpapers and work for 30 days |
 | **Video Wallpapers** | Browse YouTube video wallpapers with ExoPlayer auto-preview or import local clips/GIFs |
 | **Video Feed Pagination** | Warm-cache loading and pagination share one request gate, so provider results aren't duplicated or dropped |
 | **Video Quality Hints** | Loop-safe, low-battery, and phone-fit filters plus per-card motion hints |
@@ -170,7 +170,7 @@ the same link is available in Settings > About > Privacy policy.
 | **Shuffle FAB** | One-tap random wallpaper from current tab |
 | **Per-Contact Ringtones** | Assign custom ringtones with DND priority guidance and a VIP-only silent-default preset |
 | **Dual Wallpapers** | Coordinated home + lock screen wallpaper pairs |
-| **Portable Library Backup** | Staged JSON export/import for favorites, collections, searches, packs, profiles, sound shuffle pools, Fit Canvas defaults, rotation exclusions, local wallpaper metadata, and recent wallpaper history. Local paths and media bytes stay off the backup. Restored local records remain visible until the user relinks them. |
+| **Portable Library Backup** | Staged JSON export/import for favorites, collections, searches, packs, profiles, Fit Canvas defaults, rotation exclusions, local wallpaper metadata, and recent wallpaper history. Local paths and media bytes stay off the backup. Restored local records remain visible until the user relinks them. |
 | **Theme Packs** | Local zip export/import for wallpaper, video, sound, widget tint, and launcher shortcut recipes |
 | **Community Voting** | Upvote/downvote wallpapers and sounds via Firebase |
 | **OLED Dark Theme** | Deep blacks, zero burn-in, Material 3 |
@@ -202,6 +202,7 @@ rotation, while tapping it still queues one wallpaper change when scheduling is 
 |---|---|---|---|
 | [Reddit](https://reddit.com) | Wallpapers, Videos. Reddit-first mobile wallpapers and video wallpapers from public Atom feeds. | Active | No key; Full + FOSS; GitHub/Obtainium + Play |
 | [YouTube](https://youtube.com) | Sounds, Videos. YouTube-first sound discovery and optional video wallpapers in GitHub and Obtainium builds. | Active | No key; Full + FOSS; GitHub/Obtainium |
+| [TikTok](https://www.tiktok.com) | Sounds. Ringtone clips from TikTok ringtone creators, saved as sound only, leading the Ringtones tab in GitHub and Obtainium builds. | Active | No key; Full + FOSS; GitHub/Obtainium |
 | [Wallhaven](https://wallhaven.cc) | Wallpapers. HD and 4K wallpaper browsing and search with an optional key for account-level access. | Active | Optional key; Full + FOSS; GitHub/Obtainium + Play |
 | [Aura Originals](https://github.com/SysAdminDoc/Aura/blob/main/docs/aura-originals-license.md) | Sounds. Twenty-five offline ringtones, notification sounds, and alarms included with Aura. | Active | No key; Full + FOSS; GitHub/Obtainium + Play |
 | [Pexels](https://pexels.com) | Wallpapers, Videos. Photo and video browsing after the user adds a Pexels API key. | Active | User key required; Full + FOSS; GitHub/Obtainium + Play |

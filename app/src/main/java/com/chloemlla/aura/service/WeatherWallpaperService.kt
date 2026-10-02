@@ -99,6 +99,15 @@ class WeatherWallpaperService : WallpaperService() {
         )
         private val colorPublisher = LiveWallpaperColorPublisher()
 
+        // The engine's own display, so a wallpaper on a secondary display decodes at its
+        // size instead of the default display's.
+        private val renderContext: android.content.Context
+            get() = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                displayContext ?: this@WeatherWallpaperService
+            } else {
+                this@WeatherWallpaperService
+            }
+
         private fun wallpaperPath(): String? =
             describedContent?.source ?: weatherPrefs().getString("wallpaper_path", null)
 
@@ -155,7 +164,7 @@ class WeatherWallpaperService : WallpaperService() {
             super.onSurfaceCreated(holder)
             registerBatteryReceiver()
             refreshFrameBudget()
-            clockOverlayRenderer.refresh(this@WeatherWallpaperService)
+            clockOverlayRenderer.refresh(renderContext)
             loadShaderPresetFromPrefs()
             receiptStore.recordSurfaceCreated(LiveWallpaperReceiptStore.ENGINE_WEATHER, currentWallpaperLocator())
             loadWallpaperBitmap()
@@ -195,7 +204,7 @@ class WeatherWallpaperService : WallpaperService() {
             receiptStore.recordVisibilityChanged(LiveWallpaperReceiptStore.ENGINE_WEATHER, visible)
             if (visible) {
                 refreshFrameBudget()
-                clockOverlayRenderer.refresh(this@WeatherWallpaperService)
+                clockOverlayRenderer.refresh(renderContext)
                 loadReducedMotionFromPrefs()
                 loadWeatherFromPrefs()
                 loadVfxFromPrefs()
@@ -296,8 +305,9 @@ class WeatherWallpaperService : WallpaperService() {
 
         private fun resolveDecodeTarget(): Pair<Int, Int> {
             val rect = surfaceHolder.surfaceFrame
-            val width = if (rect.width() > 0) rect.width() else resources.displayMetrics.widthPixels
-            val height = if (rect.height() > 0) rect.height() else resources.displayMetrics.heightPixels
+            val metrics = renderContext.resources.displayMetrics
+            val width = if (rect.width() > 0) rect.width() else metrics.widthPixels
+            val height = if (rect.height() > 0) rect.height() else metrics.heightPixels
             return width.coerceAtLeast(1) to height.coerceAtLeast(1)
         }
 
@@ -547,7 +557,7 @@ class WeatherWallpaperService : WallpaperService() {
                         dimming.tick()
                         dimming.drawDimOverlay(canvas, canvas.width, canvas.height)
                     }
-                    clockOverlayRenderer.draw(this@WeatherWallpaperService, canvas)
+                    clockOverlayRenderer.draw(renderContext, canvas)
                 }
             } catch (_: Exception) {
             } finally {
