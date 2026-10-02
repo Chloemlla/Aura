@@ -141,7 +141,7 @@ android {
         // APK metadata agrees with the release tag; local builds keep the declared
         // literals above, which are also the baseline the governance tools assert.
         System.getenv("AURA_ANDROID_VERSION_CODE")?.toIntOrNull()?.let { versionCode = it }
-        System.getenv("AURA_ANDROID_VERSION_NAME")?.let { versionName = it } 81cc2ebe4c58867253fde8fa7593ffa495a44f6e
+        System.getenv("AURA_ANDROID_VERSION_NAME")?.let { versionName = it }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "AURA_RELEASE_CHANNEL", "\"$auraReleaseChannel\"")
